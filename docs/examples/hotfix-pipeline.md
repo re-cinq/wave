@@ -16,7 +16,7 @@ graph LR
 ## Pipeline Definition
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: hotfix
   description: "Quick investigation and fix for production issues"
@@ -149,11 +149,11 @@ steps:
 
 ```bash
 # Investigate and fix
-muzzle run --pipeline .muzzle/pipelines/hotfix.yaml \
+wave run --pipeline .wave/pipelines/hotfix.yaml \
   --input "Users receiving 500 error on login when email contains '+' character"
 
 # Or use ad-hoc mode for simpler fixes
-muzzle do "fix the login 500 error for emails with + character"
+wave do "fix the login 500 error for emails with + character"
 ```
 
 ## When to Use Hotfix vs Speckit Flow
@@ -164,4 +164,4 @@ muzzle do "fix the login 500 error for emails with + character"
 | New feature development | speckit-flow |
 | Security vulnerability | **hotfix** (with auditor persona) |
 | Refactoring | speckit-flow |
-| Quick typo/config fix | `muzzle do` (ad-hoc) |
+| Quick typo/config fix | `wave do` (ad-hoc) |

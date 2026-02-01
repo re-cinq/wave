@@ -5,12 +5,12 @@
 
 ## Entity: Manifest
 
-The top-level configuration file (`muzzle.yaml`).
+The top-level configuration file (`wave.yaml`).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | apiVersion | string | yes | Schema version (e.g., "v1") |
-| kind | string | yes | Must be "MuzzleManifest" |
+| kind | string | yes | Must be "WaveManifest" |
 | metadata.name | string | yes | Project name |
 | metadata.description | string | no | Project description |
 | metadata.repo | string | no | Repository URL |
@@ -91,12 +91,12 @@ Global runtime configuration.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| workspace_root | string | no | Default "/tmp/muzzle" |
+| workspace_root | string | no | Default "/tmp/wave" |
 | max_concurrent_workers | int | no | Default 5 |
 | default_timeout_minutes | int | no | Default 30 |
 | relay.token_threshold_percent | int | no | Default 80 |
 | relay.strategy | string | no | Default "summarize_to_checkpoint" |
-| audit.log_dir | string | no | Default ".muzzle/traces/" |
+| audit.log_dir | string | no | Default ".wave/traces/" |
 | audit.log_all_tool_calls | bool | no | Default false |
 | audit.log_all_file_operations | bool | no | Default false |
 | meta_pipeline.max_depth | int | no | Default 2 |
@@ -110,7 +110,7 @@ A DAG of steps defined in a YAML file.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| kind | string | yes | Must be "MuzzlePipeline" |
+| kind | string | yes | Must be "WavePipeline" |
 | metadata.name | string | yes | Pipeline name |
 | metadata.description | string | no | Pipeline description |
 | input | InputConfig | no | Work item source configuration |

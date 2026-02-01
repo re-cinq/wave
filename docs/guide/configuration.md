@@ -1,12 +1,12 @@
 # Configuration Guide
 
-Muzzle uses a single `muzzle.yaml` file as the source of truth for all configuration.
+Wave uses a single `wave.yaml` file as the source of truth for all configuration.
 
 ## Manifest Structure
 
 ```yaml
 apiVersion: v1
-kind: MuzzleManifest
+kind: WaveManifest
 metadata:
   name: string          # Required
   description: string     # Optional
@@ -31,7 +31,7 @@ personas:                  # Required
     hooks: {}               # Optional - Pre/Post hooks
 
 runtime:                    # Required
-  workspace_root: string         # Optional - Default "/tmp/muzzle"
+  workspace_root: string         # Optional - Default "/tmp/wave"
   max_concurrent_workers: int   # Optional - Default 5
   default_timeout_minutes: int   # Optional - Default 30
   relay: {}                   # Optional - Relay config
@@ -43,7 +43,7 @@ skill_mounts: []            # Optional - Skill discovery paths
 
 ## Adapters
 
-Adapters wrap LLM CLIs for Muzzle to use.
+Adapters wrap LLM CLIs for Wave to use.
 
 ### Claude Code Adapter
 
@@ -71,7 +71,7 @@ Personas define how agents behave.
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Bash(git log, git status)"]
@@ -88,7 +88,7 @@ personas:
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .muzzle/personas/craftsman.md
+    system_prompt_file: .wave/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Bash"]
@@ -104,7 +104,7 @@ personas:
 
 ```yaml
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
   max_concurrent_workers: 3
   default_timeout_minutes: 30
 ```
@@ -123,7 +123,7 @@ runtime:
 ```yaml
 runtime:
   audit:
-    log_dir: .muzzle/traces/
+    log_dir: .wave/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
 ```
@@ -145,13 +145,13 @@ Mount external skill directories:
 
 ```yaml
 skill_mounts:
-  - path: ./my-muzzle-skills/
-  - path: ~/.muzzle/skills/
+  - path: ./my-wave-skills/
+  - path: ~/.wave/skills/
 ```
 
 ## Validation Rules
 
-Muzzle validates:
+Wave validates:
 
 1. Every persona must reference a defined adapter
 2. All `system_prompt_file` paths must exist
@@ -187,13 +187,13 @@ runtime:
 ```yaml
 # Development
 runtime:
-  workspace_root: ./muzzle-workspaces
+  workspace_root: ./wave-workspaces
   audit:
     log_all_tool_calls: false
 
 # Production
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true

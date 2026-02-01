@@ -1,4 +1,4 @@
-# Tasks: Muzzle - Comprehensive Claude Code Integration System
+# Tasks: Wave - Comprehensive Claude Code Integration System
 
 **Plan**: [comprehensive-implementation-plan.md](comprehensive-implementation-plan.md)
 **Created**: 2025-02-01
@@ -289,18 +289,18 @@
 
 ### Implementation for User Story 8
 
-- [ ] T144 [P] [US8] Create CLI main entry point in cmd/muzzle/main.go
-- [ ] T145 [P] [US8] Create daemon main entry point in cmd/muzzled/main.go
-- [ ] T146 [US8] Implement CLI command structure in cmd/muzzle/commands/
-- [ ] T147 [US8] Implement daemon service loop in cmd/muzzled/daemon.go
-- [ ] T148 [US8] Implement pipeline execution command in cmd/muzzle/pipeline.go
-- [ ] T149 [US8] Implement persona management command in cmd/muzzle/persona.go
-- [ ] T150 [US8] Implement configuration command in cmd/muzzle/config.go
-- [ ] T151 [US8] Implement workspace management command in cmd/muzzle/workspace.go
-- [ ] T152 [US8] Implement status and monitoring command in cmd/muzzle/status.go
-- [ ] T153 [US8] Implement help system and documentation in cmd/muzzle/help.go
-- [ ] T154 [US8] Implement daemon signal handling in cmd/muzzled/signals.go
-- [ ] T155 [US8] Implement daemon health checks in cmd/muzzled/health.go
+- [ ] T144 [P] [US8] Create CLI main entry point in cmd/wave/main.go
+- [ ] T145 [P] [US8] Create daemon main entry point in cmd/waved/main.go
+- [ ] T146 [US8] Implement CLI command structure in cmd/wave/commands/
+- [ ] T147 [US8] Implement daemon service loop in cmd/waved/daemon.go
+- [ ] T148 [US8] Implement pipeline execution command in cmd/wave/pipeline.go
+- [ ] T149 [US8] Implement persona management command in cmd/wave/persona.go
+- [ ] T150 [US8] Implement configuration command in cmd/wave/config.go
+- [ ] T151 [US8] Implement workspace management command in cmd/wave/workspace.go
+- [ ] T152 [US8] Implement status and monitoring command in cmd/wave/status.go
+- [ ] T153 [US8] Implement help system and documentation in cmd/wave/help.go
+- [ ] T154 [US8] Implement daemon signal handling in cmd/waved/signals.go
+- [ ] T155 [US8] Implement daemon health checks in cmd/waved/health.go
 - [ ] T156 [US8] Create CLI configuration file in configs/cli.yaml
 - [ ] T157 [US8] Write end-to-end tests for CLI in tests/e2e/cli/
 - [ ] T158 [US8] Write integration tests for daemon in tests/integration/daemon/

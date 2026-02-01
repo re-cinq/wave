@@ -1,6 +1,6 @@
 # Event Format Reference
 
-Muzzle emits structured NDJSON (Newline-Delimited JSON) events to stdout on every state transition during pipeline execution. Events are both human-readable in the terminal and machine-parseable for CI/CD integration.
+Wave emits structured NDJSON (Newline-Delimited JSON) events to stdout on every state transition during pipeline execution. Events are both human-readable in the terminal and machine-parseable for CI/CD integration.
 
 ## Event Schema
 
@@ -73,7 +73,7 @@ Every event contains these fields:
 One JSON object per line. Machine-parseable.
 
 ```bash
-muzzle run --pipeline flow.yaml --input "task" 2>/dev/null
+wave run --pipeline flow.yaml --input "task" 2>/dev/null
 ```
 
 ### Text
@@ -81,7 +81,7 @@ muzzle run --pipeline flow.yaml --input "task" 2>/dev/null
 Human-friendly format with color and formatting.
 
 ```bash
-MUZZLE_LOG_FORMAT=text muzzle run --pipeline flow.yaml --input "task"
+WAVE_LOG_FORMAT=text wave run --pipeline flow.yaml --input "task"
 ```
 
 Text output example:
@@ -98,14 +98,14 @@ Text output example:
 ### Pipe to jq
 
 ```bash
-muzzle run --pipeline flow.yaml --input "task" | jq 'select(.state == "failed")'
+wave run --pipeline flow.yaml --input "task" | jq 'select(.state == "failed")'
 ```
 
 ### CI Integration
 
 ```bash
 # Exit code reflects pipeline status
-muzzle run --pipeline flow.yaml --input "task" > events.jsonl
+wave run --pipeline flow.yaml --input "task" > events.jsonl
 EXIT_CODE=$?
 
 # Parse events for reporting
@@ -115,7 +115,7 @@ cat events.jsonl | jq -r 'select(.state == "completed") | "\(.step_id): \(.durat
 ### Real-time Monitoring
 
 ```bash
-muzzle run --pipeline flow.yaml --input "task" | while IFS= read -r event; do
+wave run --pipeline flow.yaml --input "task" | while IFS= read -r event; do
   state=$(echo "$event" | jq -r '.state')
   step=$(echo "$event" | jq -r '.step_id')
   echo "Step $step is now $state"

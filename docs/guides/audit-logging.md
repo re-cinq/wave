@@ -1,14 +1,14 @@
 # Audit Logging
 
-Muzzle can log all tool calls and file operations during pipeline execution, producing structured audit trails for compliance, debugging, and monitoring.
+Wave can log all tool calls and file operations during pipeline execution, producing structured audit trails for compliance, debugging, and monitoring.
 
 ## Enabling Audit Logging
 
 ```yaml
-# In muzzle.yaml
+# In wave.yaml
 runtime:
   audit:
-    log_dir: .muzzle/traces/           # Output directory
+    log_dir: .wave/traces/           # Output directory
     log_all_tool_calls: true           # Log every tool invocation
     log_all_file_operations: true      # Log every file read/write/delete
 ```
@@ -18,7 +18,7 @@ runtime:
 Audit logs are written as NDJSON files, one per pipeline execution:
 
 ```
-.muzzle/traces/
+.wave/traces/
 ├── a1b2c3d4-speckit-flow-2026-02-01T10:00:00.ndjson
 ├── e5f6a7b8-bug-fix-2026-01-30T14:30:00.ndjson
 └── ...
@@ -56,7 +56,7 @@ Audit logs are written as NDJSON files, one per pipeline execution:
 
 ## Credential Scrubbing
 
-Audit logs **never** capture credential values. Muzzle automatically redacts environment variables matching these patterns:
+Audit logs **never** capture credential values. Wave automatically redacts environment variables matching these patterns:
 
 - `*_KEY` → `[REDACTED]`
 - `*_TOKEN` → `[REDACTED]`
@@ -80,21 +80,21 @@ Example:
 ### Find All Writes by a Persona
 
 ```bash
-cat .muzzle/traces/a1b2c3d4-*.ndjson \
+cat .wave/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.persona == "craftsman" and .type == "file_write")'
 ```
 
 ### Find Permission Denials
 
 ```bash
-cat .muzzle/traces/a1b2c3d4-*.ndjson \
+cat .wave/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.type == "permission_denied")'
 ```
 
 ### Summarize Tool Usage
 
 ```bash
-cat .muzzle/traces/a1b2c3d4-*.ndjson \
+cat .wave/traces/a1b2c3d4-*.ndjson \
   | jq -r 'select(.type == "tool_call") | .tool' \
   | sort | uniq -c | sort -rn
 ```
@@ -102,7 +102,7 @@ cat .muzzle/traces/a1b2c3d4-*.ndjson \
 ### Get Timeline of a Step
 
 ```bash
-cat .muzzle/traces/a1b2c3d4-*.ndjson \
+cat .wave/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.step_id == "implement") | {time: .timestamp, type: .type, tool: .tool}'
 ```
 
@@ -122,14 +122,14 @@ Audit logging adds minimal overhead:
 - NDJSON format is append-only (no parsing or rewriting).
 - File I/O is buffered.
 
-For long-running pipelines, audit log files can grow large. Monitor disk usage in `.muzzle/traces/`.
+For long-running pipelines, audit log files can grow large. Monitor disk usage in `.wave/traces/`.
 
 ## CI/CD Integration
 
 ```yaml
 # GitHub Actions: upload audit logs as artifacts
-- name: Run Muzzle pipeline
-  run: muzzle run --pipeline flow.yaml --input "deploy"
+- name: Run Wave pipeline
+  run: wave run --pipeline flow.yaml --input "deploy"
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -137,8 +137,8 @@ For long-running pipelines, audit log files can grow large. Monitor disk usage i
   uses: actions/upload-artifact@v4
   if: always()
   with:
-    name: muzzle-audit-logs
-    path: .muzzle/traces/
+    name: wave-audit-logs
+    path: .wave/traces/
 ```
 
 ## Further Reading

@@ -1,14 +1,14 @@
-# Muzzle Architecture
+# Wave Architecture
 
 ## Overview
 
-Muzzle is a multi-agent orchestrator that wraps Claude Code (and other LLM CLIs) to execute complex workflows through pipeline DAGs. It enforces safety through personas, contracts, and workspace isolation.
+Wave is a multi-agent orchestrator that wraps Claude Code (and other LLM CLIs) to execute complex workflows through pipeline DAGs. It enforces safety through personas, contracts, and workspace isolation.
 
 ## Core Components
 
 ```mermaid
 graph TD
-    A[Manifest muzzley.yaml] --> B[Pipeline Executor]
+    A[Manifest wave.yaml] --> B[Pipeline Executor]
     B --> C[Workspace Manager]
     B --> D[Adapter Runner]
     B --> E[State Store]
@@ -22,7 +22,7 @@ graph TD
 
 ## Manifest System
 
-The manifest (`muzzle.yaml`) is the single source of truth:
+The manifest (`wave.yaml`) is the single source of truth:
 
 - **Adapters**: Define how to invoke LLM CLIs
 - **Personas**: Define agent roles, permissions, and behaviors
@@ -56,7 +56,7 @@ For each step:
 Each step runs in isolation:
 
 ```
-/tmp/muzzle/<pipeline-id>/<step-id>/
+/tmp/wave/<pipeline-id>/<step-id>/
 ├── src/              # Mounted readonly from repo
 ├── artifacts/         # Step outputs
 ├── .claude/           # Claude Code settings

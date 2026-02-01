@@ -1,6 +1,6 @@
 # Pipelines
 
-Pipelines are the core execution model of Muzzle. A pipeline is a **Directed Acyclic Graph (DAG)** of steps, where each step runs one persona in one ephemeral workspace.
+Pipelines are the core execution model of Wave. A pipeline is a **Directed Acyclic Graph (DAG)** of steps, where each step runs one persona in one ephemeral workspace.
 
 ## How Pipelines Work
 
@@ -17,10 +17,10 @@ Each arrow represents a dependency — a step only starts after all its dependen
 
 ## Pipeline File Format
 
-Pipeline files are YAML documents stored in `.muzzle/pipelines/` by convention:
+Pipeline files are YAML documents stored in `.wave/pipelines/` by convention:
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Specification-driven development"
@@ -55,7 +55,7 @@ steps:
 
 ## DAG Resolution
 
-When a pipeline starts, Muzzle:
+When a pipeline starts, Wave:
 
 1. **Parses** the YAML step list.
 2. **Validates** all references (personas exist in manifest, dependency IDs exist).

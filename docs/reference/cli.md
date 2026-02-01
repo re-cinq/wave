@@ -1,11 +1,11 @@
 # CLI Reference
 
-Complete reference for all Muzzle CLI commands, flags, and output behavior.
+Complete reference for all Wave CLI commands, flags, and output behavior.
 
 ## Synopsis
 
 ```
-muzzle <command> [flags]
+wave <command> [flags]
 ```
 
 ## Global Flags
@@ -13,19 +13,19 @@ muzzle <command> [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--help` | `-h` | — | — | Show help for any command. |
-| `--version` | `-v` | — | — | Print Muzzle version and exit. |
-| `--manifest` | `-m` | `string` | `muzzle.yaml` | Path to manifest file. |
+| `--version` | `-v` | — | — | Print Wave version and exit. |
+| `--manifest` | `-m` | `string` | `wave.yaml` | Path to manifest file. |
 | `--debug` | | `bool` | `false` | Enable debug logging to stderr. |
 | `--log-format` | | `string` | `json` | Output format: `json` or `text`. |
 
 ---
 
-## `muzzle init`
+## `wave init`
 
-Initialize a new Muzzle project in the current directory.
+Initialize a new Wave project in the current directory.
 
 ```bash
-muzzle init [flags]
+wave init [flags]
 ```
 
 ### Flags
@@ -34,14 +34,14 @@ muzzle init [flags]
 |------|------|---------|-------------|
 | `--adapter` | `string` | `"claude"` | Default adapter to configure. |
 | `--persona` | `string` | `"craftsman"` | Initial persona to create alongside the built-in navigator. |
-| `--workspace` | `string` | `"/tmp/muzzle"` | Workspace root directory. |
-| `--force` | `bool` | `false` | Overwrite existing `muzzle.yaml` if present. |
+| `--workspace` | `string` | `"/tmp/wave"` | Workspace root directory. |
+| `--force` | `bool` | `false` | Overwrite existing `wave.yaml` if present. |
 
 ### Creates
 
 ```
-muzzle.yaml                          # Project manifest
-.muzzle/
+wave.yaml                          # Project manifest
+.wave/
 ├── personas/
 │   ├── navigator.md                 # Navigator system prompt
 │   ├── craftsman.md                 # Craftsman system prompt
@@ -56,33 +56,33 @@ muzzle.yaml                          # Project manifest
 
 ```bash
 # Initialize with defaults
-muzzle init
+wave init
 
 # Initialize with specific adapter
-muzzle init --adapter opencode
+wave init --adapter opencode
 
 # Initialize with custom workspace
-muzzle init --workspace ./workspaces
+wave init --workspace ./workspaces
 
 # Force re-initialization
-muzzle init --force
+wave init --force
 ```
 
 ---
 
-## `muzzle validate`
+## `wave validate`
 
 Validate manifest and pipeline configuration files.
 
 ```bash
-muzzle validate [flags]
+wave validate [flags]
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--manifest` | `string` | `"muzzle.yaml"` | Path to manifest file. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--pipeline` | `string` | `""` | Validate a specific pipeline file. If omitted, validates all discovered pipelines. |
 | `--verbose` | `bool` | `false` | Show detailed validation output including passing checks. |
 
@@ -113,29 +113,29 @@ muzzle validate [flags]
 
 ```bash
 # Validate everything
-muzzle validate
+wave validate
 
 # Validate with verbose output
-muzzle validate --verbose
+wave validate --verbose
 
 # Validate specific manifest
-muzzle validate --manifest staging.muzzle.yaml
+wave validate --manifest staging.wave.yaml
 
 # Validate a single pipeline
-muzzle validate --pipeline .muzzle/pipelines/deploy.yaml
+wave validate --pipeline .wave/pipelines/deploy.yaml
 ```
 
 ### Output
 
 ```
-$ muzzle validate --verbose
+$ wave validate --verbose
 ✓ Manifest syntax valid
 ✓ All required fields present
 ✓ Adapter 'claude' references valid binary
 ✓ Persona 'navigator' references adapter 'claude'
-✓ Persona 'navigator' system prompt exists: .muzzle/personas/navigator.md
+✓ Persona 'navigator' system prompt exists: .wave/personas/navigator.md
 ✓ Persona 'craftsman' references adapter 'claude'
-✓ Persona 'craftsman' system prompt exists: .muzzle/personas/craftsman.md
+✓ Persona 'craftsman' system prompt exists: .wave/personas/craftsman.md
 ✓ Pipeline 'speckit-flow' DAG is valid (5 steps, no cycles)
 ⚠ Adapter 'opencode' binary not found on PATH
 
@@ -144,23 +144,23 @@ Validation passed with 1 warning.
 
 ---
 
-## `muzzle run`
+## `wave run`
 
 Execute a pipeline.
 
 ```bash
-muzzle run --pipeline <path> [flags]
+wave run --pipeline <path> [flags]
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--pipeline` | `string` | **required** | Path to pipeline YAML file. Can also be a pipeline name (e.g., `add-feature`) which will be auto-detected in the `.muzzle/pipelines/` directory. |
+| `--pipeline` | `string` | **required** | Path to pipeline YAML file. Can also be a pipeline name (e.g., `add-feature`) which will be auto-detected in the `.wave/pipelines/` directory. |
 | `--input` | `string` | `""` | Input prompt for the pipeline. Available as `{{ input }}` in step templates. |
 | `--dry-run` | `bool` | `false` | Walk the pipeline DAG and print execution plan without invoking adapters. |
 | `--from-step` | `string` | `""` | Start execution from a specific step (skip completed predecessors). |
-| `--manifest` | `string` | `"muzzle.yaml"` | Path to manifest file. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--timeout` | `int` | manifest default | Override per-step timeout (minutes). |
 
 ### Output
@@ -171,29 +171,29 @@ Emits [NDJSON events](/reference/events) to stdout on every state transition. Er
 
 ```bash
 # Run a pipeline with input
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml \
+wave run --pipeline .wave/pipelines/speckit-flow.yaml \
   --input "add user authentication with JWT"
 
 # Dry run to preview execution plan
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml --dry-run
+wave run --pipeline .wave/pipelines/speckit-flow.yaml --dry-run
 
 # Resume from a specific step
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml \
+wave run --pipeline .wave/pipelines/speckit-flow.yaml \
   --from-step implement
 
 # With custom timeout
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml \
+wave run --pipeline .wave/pipelines/speckit-flow.yaml \
   --input "refactor database layer" --timeout 60
 
 # Pipe events to jq for filtering
-muzzle run --pipeline flow.yaml --input "task" \
+wave run --pipeline flow.yaml --input "task" \
   | jq 'select(.state == "completed")'
 ```
 
 ### Dry Run Output
 
 ```
-$ muzzle run --pipeline speckit-flow.yaml --dry-run
+$ wave run --pipeline speckit-flow.yaml --dry-run
 Pipeline: speckit-flow (5 steps)
 Execution order:
   1. navigate    (navigator)     → no dependencies
@@ -205,12 +205,12 @@ Execution order:
 
 ---
 
-## `muzzle do`
+## `wave do`
 
 Execute an ad-hoc task. Generates and runs a minimal 2-step pipeline (navigate → execute) without requiring a pipeline file.
 
 ```bash
-muzzle do "<task description>" [flags]
+wave do "<task description>" [flags]
 ```
 
 ### Flags
@@ -219,14 +219,14 @@ muzzle do "<task description>" [flags]
 |------|------|---------|-------------|
 | `--persona` | `string` | `"craftsman"` | Persona for the execution step. The navigate step always uses `navigator`. |
 | `--save` | `string` | `""` | Save the generated pipeline YAML to this path for inspection or reuse. |
-| `--manifest` | `string` | `"muzzle.yaml"` | Path to manifest file. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--timeout` | `int` | manifest default | Override per-step timeout (minutes). |
 
 ### Generated Pipeline Structure
 
 ```yaml
-# Auto-generated by muzzle do
-kind: MuzzlePipeline
+# Auto-generated by wave do
+kind: WavePipeline
 metadata:
   name: ad-hoc-<timestamp>
 steps:
@@ -255,26 +255,26 @@ steps:
 
 ```bash
 # Quick fix
-muzzle do "fix the typo in README.md line 42"
+wave do "fix the typo in README.md line 42"
 
 # With specific persona
-muzzle do "audit authentication middleware for SQL injection" --persona auditor
+wave do "audit authentication middleware for SQL injection" --persona auditor
 
 # Save generated pipeline for inspection
-muzzle do "add dark mode toggle" --save .muzzle/pipelines/dark-mode.yaml
+wave do "add dark mode toggle" --save .wave/pipelines/dark-mode.yaml
 
 # Use non-default manifest
-muzzle do "fix broken test" --manifest staging.muzzle.yaml
+wave do "fix broken test" --manifest staging.wave.yaml
 ```
 
 ---
 
-## `muzzle resume`
+## `wave resume`
 
 Resume an interrupted or failed pipeline from its last checkpoint.
 
 ```bash
-muzzle resume --pipeline-id <uuid> [flags]
+wave resume --pipeline-id <uuid> [flags]
 ```
 
 ### Flags
@@ -283,7 +283,7 @@ muzzle resume --pipeline-id <uuid> [flags]
 |------|------|---------|-------------|
 | `--pipeline-id` | `string` | **required** | UUID of the pipeline execution to resume. Found in event output. |
 | `--from-step` | `string` | `""` | Override resume point. By default, resumes from the last completed step. |
-| `--manifest` | `string` | `"muzzle.yaml"` | Path to manifest file. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 
 ### Resume Behavior
 
@@ -297,20 +297,20 @@ muzzle resume --pipeline-id <uuid> [flags]
 
 ```bash
 # Resume from last checkpoint
-muzzle resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+wave resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 # Resume from a specific step
-muzzle resume --pipeline-id a1b2c3d4 --from-step implement
+wave resume --pipeline-id a1b2c3d4 --from-step implement
 ```
 
 ---
 
-## `muzzle clean`
+## `wave clean`
 
 Clean up ephemeral workspaces. Workspaces are never auto-deleted — this is the only way to reclaim disk space.
 
 ```bash
-muzzle clean [flags]
+wave clean [flags]
 ```
 
 ### Flags
@@ -326,25 +326,25 @@ muzzle clean [flags]
 
 ```bash
 # Clean a specific pipeline's workspace
-muzzle clean --pipeline-id a1b2c3d4
+wave clean --pipeline-id a1b2c3d4
 
 # Clean all workspaces
-muzzle clean --all
+wave clean --all
 
 # Preview cleanup
-muzzle clean --all --dry-run
+wave clean --all --dry-run
 
 # Clean workspaces older than 7 days
-muzzle clean --older-than 7d
+wave clean --older-than 7d
 ```
 
 ### Output
 
 ```
-$ muzzle clean --all --dry-run
+$ wave clean --all --dry-run
 Would delete:
-  /tmp/muzzle/a1b2c3d4/  (speckit-flow, 2026-02-01, 145MB)
-  /tmp/muzzle/e5f6a7b8/  (bug-fix, 2026-01-30, 23MB)
+  /tmp/wave/a1b2c3d4/  (speckit-flow, 2026-02-01, 145MB)
+  /tmp/wave/e5f6a7b8/  (bug-fix, 2026-01-30, 23MB)
 Total: 168MB across 2 pipelines
 
 Run without --dry-run to delete.
@@ -352,12 +352,12 @@ Run without --dry-run to delete.
 
 ---
 
-## `muzzle list`
+## `wave list`
 
 List available pipelines, personas, and adapters defined in the manifest.
 
 ```bash
-muzzle list <resource> [flags]
+wave list <resource> [flags]
 ```
 
 ### Resources
@@ -373,26 +373,26 @@ muzzle list <resource> [flags]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--manifest` | `string` | `"muzzle.yaml"` | Path to manifest file. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--output` | `string` | `"table"` | Output format: `table`, `json`, `yaml`. |
 
 ### Examples
 
 ```bash
 # List all personas
-muzzle list personas
+wave list personas
 
 # List pipelines as JSON
-muzzle list pipelines --output json
+wave list pipelines --output json
 
 # List recent runs
-muzzle list runs
+wave list runs
 ```
 
 ### Output
 
 ```
-$ muzzle list personas
+$ wave list personas
 NAME          ADAPTER   TEMPERATURE   DESCRIPTION
 navigator     claude    0.1           Read-only codebase exploration
 philosopher   claude    0.3           Architecture and specification design
@@ -400,13 +400,13 @@ craftsman     claude    0.7           Implementation and testing
 auditor       claude    0.1           Security and quality review
 summarizer    claude    0.0           Relay checkpoint summarizer
 
-$ muzzle list pipelines
+$ wave list pipelines
 NAME            STEPS   PATH
-speckit-flow    5       .muzzle/pipelines/speckit-flow.yaml
-bug-fix         4       .muzzle/pipelines/bug-fix.yaml
-auto-design     2       .muzzle/pipelines/auto-design.yaml
+speckit-flow    5       .wave/pipelines/speckit-flow.yaml
+bug-fix         4       .wave/pipelines/bug-fix.yaml
+auto-design     2       .wave/pipelines/auto-design.yaml
 
-$ muzzle list runs
+$ wave list runs
 PIPELINE-ID   NAME           STATUS      STARTED              STEPS
 a1b2c3d4      speckit-flow   completed   2026-02-01 10:00:00  5/5
 e5f6a7b8      bug-fix        failed      2026-01-30 14:30:00  2/4
@@ -432,11 +432,11 @@ All commands use consistent exit codes:
 
 ```bash
 # Bash
-muzzle completion bash > /etc/bash_completion.d/muzzle
+wave completion bash > /etc/bash_completion.d/wave
 
 # Zsh
-muzzle completion zsh > "${fpath[1]}/_muzzle"
+wave completion zsh > "${fpath[1]}/_wave"
 
 # Fish
-muzzle completion fish > ~/.config/fish/completions/muzzle.fish
+wave completion fish > ~/.config/fish/completions/wave.fish
 ```

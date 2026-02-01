@@ -3,7 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid(
   defineConfig({
-    title: 'Muzzle',
+    title: 'Wave',
     description: 'Multi-Agent Orchestrator for Claude Code',
     themeConfig: {
       logo: '/logo.svg',
@@ -94,19 +94,19 @@ export default withMermaid(
           }
         ]
       },
-      socialLinks: [
-        { icon: 'github', link: 'https://github.com/recinq/muzzle' }
+        socialLinks: [
+        { icon: 'github', link: 'https://github.com/recinq/wave' }
       ],
       search: {
         provider: 'local'
       },
       editLink: {
-        pattern: 'https://github.com/recinq/muzzle/edit/main/docs/:path',
+        pattern: 'https://github.com/recinq/wave/edit/main/docs/:path',
         text: 'Edit this page on GitHub'
       },
       footer: {
         message: 'Released under the MIT License.',
-        copyright: 'Copyright 2026 Muzzle Contributors'
+        copyright: 'Copyright 2026 Wave Contributors'
       }
     }
   })

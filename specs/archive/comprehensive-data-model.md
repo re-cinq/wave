@@ -1,4 +1,4 @@
-# Data Model: Muzzle - Comprehensive Claude Code Integration System
+# Data Model: Wave - Comprehensive Claude Code Integration System
 
 **Plan**: [comprehensive-implementation-plan.md](comprehensive-implementation-plan.md)  
 **Created**: 2025-02-01  
@@ -9,7 +9,7 @@
 ### System Configuration
 
 ```yaml
-# Muzzle System Configuration
+# Wave System Configuration
 version: "1.0"
 server:
   host: "localhost"
@@ -36,10 +36,10 @@ context:
   max_size: "100MB"
   compaction_threshold: "80%"
   persistence_enabled: true
-  storage_dir: "/tmp/muzzle/contexts"
+  storage_dir: "/tmp/wave/contexts"
 
 workspace:
-  base_dir: "/tmp/muzzle/workspaces"
+  base_dir: "/tmp/wave/workspaces"
   isolation_type: "namespace" # namespace, chroot, simple
   cleanup_delay: "5m"
 
@@ -47,7 +47,7 @@ claude:
   binary_path: "/usr/local/bin/claude-code"
   timeout: "10m"
   max_retries: 3
-  workspace_dir: "/tmp/muzzle/claude"
+  workspace_dir: "/tmp/wave/claude"
 ```
 
 ### Persona Definition
@@ -72,7 +72,7 @@ persona:
       - type: "directory_access"
         allowed_paths:
           - "/home/${USER}/projects"
-          - "/tmp/muzzle/workspaces/${SESSION_ID}"
+          - "/tmp/wave/workspaces/${SESSION_ID}"
         denied_paths:
           - "/etc"
           - "/usr/local/bin"
@@ -583,7 +583,7 @@ type ErrorContext struct {
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Muzzle System Configuration",
+  "title": "Wave System Configuration",
   "type": "object",
   "properties": {
     "version": {
@@ -806,4 +806,4 @@ Validation
    - Message batching for bulk operations
    - Zero-copy message passing where possible
 
-This data model provides the foundation for implementing the Muzzle system with clear interfaces, type safety, and optimal performance characteristics.
+This data model provides the foundation for implementing the Wave system with clear interfaces, type safety, and optimal performance characteristics.

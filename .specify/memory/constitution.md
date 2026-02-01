@@ -11,16 +11,16 @@
   Follow-up TODOs: None
 -->
 
-# Muzzle Project Constitution
+# Wave Project Constitution
 
 **Version**: 1.0.0
 **Ratification Date**: 2026-02-01
 **Last Amended**: 2026-02-01
-**Project**: Muzzle — Multi-agent orchestrator wrapping LLM CLIs
+**Project**: Wave — Multi-agent orchestrator wrapping LLM CLIs
 
 ## Preamble
 
-Muzzle is a Go-based multi-agent orchestrator that wraps Claude Code
+Wave is a Go-based multi-agent orchestrator that wraps Claude Code
 and other LLM CLIs via subprocess. It composes personas, pipelines,
 contracts, and relay/compaction into a continuous development system.
 This constitution defines the non-negotiable principles governing all
@@ -28,7 +28,7 @@ design, implementation, and operational decisions.
 
 ## Principle 1: Single Binary, Zero Dependencies
 
-Muzzle MUST be a single statically-linked Go binary with no runtime
+Wave MUST be a single statically-linked Go binary with no runtime
 dependencies. Installation is `curl | sh` or a single `COPY` in a
 Dockerfile. No interpreters, no package managers, no virtual
 environments required on the target host.
@@ -36,13 +36,13 @@ environments required on the target host.
 - The binary MUST NOT require Node.js, Python, or any runtime to
   function.
 - Adapter binaries (e.g., `claude`, `opencode`) are external
-  prerequisites provided by the host, not bundled by Muzzle.
+  prerequisites provided by the host, not bundled by Wave.
 - Compilation tools for contract validation (e.g., `tsc`) are
-  optional; Muzzle MUST degrade gracefully when absent.
+  optional; Wave MUST degrade gracefully when absent.
 
 ## Principle 2: Manifest as Single Source of Truth
 
-`muzzle.yaml` MUST be the sole configuration file declaring all
+`wave.yaml` MUST be the sole configuration file declaring all
 adapters, personas, runtime settings, and skill mounts. No other
 configuration file may override or supplement the manifest without
 being explicitly referenced from it.
@@ -50,7 +50,7 @@ being explicitly referenced from it.
 - Every adapter, persona, pipeline, and skill mount MUST trace back
   to a declaration in the manifest.
 - The manifest MUST be version-controlled and human-readable.
-- `muzzle validate` MUST catch all reference errors (missing files,
+- `wave validate` MUST catch all reference errors (missing files,
   unknown adapters, undefined personas) before any pipeline runs.
 
 ## Principle 3: Persona-Scoped Execution Boundaries
@@ -127,7 +127,7 @@ The main repository is mounted with explicit access modes
 (readonly/readwrite) — never modified in place.
 
 - Workspaces MUST persist until the user explicitly runs
-  `muzzle clean`. No automatic deletion.
+  `wave clean`. No automatic deletion.
 - Parallel matrix workers MUST each have isolated workspaces. No
   shared mutable filesystem state between concurrent agents.
 - A hallucinating agent that runs destructive commands can only
@@ -139,7 +139,7 @@ Credentials (API keys, tokens) MUST reach adapter subprocesses
 exclusively via inherited environment variables. Credentials MUST
 NOT appear in:
 
-- Manifest files (`muzzle.yaml`)
+- Manifest files (`wave.yaml`)
 - Checkpoint files produced by relay
 - Audit logs or trace files
 - Ephemeral workspace contents

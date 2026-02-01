@@ -29,7 +29,7 @@ compiler needed, fully static binary.
 
 **Rationale**: Cobra is the de facto standard for Go CLIs. It provides
 subcommand routing, flag parsing, help generation, and shell
-completions out of the box. The muzzle CLI has multiple subcommands
+completions out of the box. The wave CLI has multiple subcommands
 (`init`, `validate`, `run`, `do`, `resume`, `clean`) which map
 directly to cobra's command tree model.
 
@@ -102,9 +102,9 @@ Readonly mounts via filesystem perm issions (chmod), not OS-level mount
 namespaces.
 
 **Rationale**: OS-level mount namespaces (Linux `unshare`) require
-root or specific capabilities. Muzzle must run as a normal user. The
+root or specific capabilities. Wave must run as a normal user. The
 simpler approach:
-1. Create workspace directory in configurable root (default `/tmp/muzzle/`).
+1. Create workspace directory in configurable root (default `/tmp/wave/`).
 2. For `readonly` mounts: symlink the source directory and set the
    workspace permission bits to read-only for the subprocess user.
 3. For `readwrite` mounts: copy the relevant files into the workspace.

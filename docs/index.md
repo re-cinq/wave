@@ -1,12 +1,12 @@
 ---
 layout: home
 hero:
-  name: Muzzle
+  name: Wave
   text: Multi-Agent Orchestrator for Claude Code
   tagline: Pipeline DAGs, persona-scoped safety, handover contracts, and context relay — all from a single YAML manifest.
   image:
     src: /logo.svg
-    alt: Muzzle
+    alt: Wave
   actions:
     - theme: brand
       text: Get Started
@@ -16,11 +16,11 @@ hero:
       link: /reference/cli
     - theme: alt
       text: View on GitHub
-      link: https://github.com/recinq/muzzle
+      link: https://github.com/recinq/wave
 features:
   - icon: 📋
     title: Manifest-Driven
-    details: One muzzle.yaml declares adapters, personas, runtime settings, and skill mounts. The manifest is the single source of truth — version it, validate it, share it.
+    details: One wave.yaml declares adapters, personas, runtime settings, and skill mounts. The manifest is the single source of truth — version it, validate it, share it.
     link: /concepts/manifests
     linkText: Learn about manifests
   - icon: 🔀
@@ -45,8 +45,8 @@ features:
     linkText: Relay mechanism
   - icon: ⚡
     title: Ad-Hoc Execution
-    details: "Run muzzle do 'fix the bug' for quick tasks. Muzzle generates a 2-step pipeline (navigate → execute) with full safety model — no YAML required."
-    link: /reference/cli#muzzle-do
+    details: "Run wave do 'fix the bug' for quick tasks. Wave generates a 2-step pipeline (navigate → execute) with full safety model — no YAML required."
+    link: /reference/cli#wave-do
     linkText: Ad-hoc commands
 ---
 
@@ -54,29 +54,29 @@ features:
 
 ```bash
 # Install
-curl -L https://github.com/recinq/muzzle/releases/latest/download/muzzle-linux-amd64 -o muzzle
-chmod +x muzzle && sudo mv muzzle /usr/local/bin/
+curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
+chmod +x wave && sudo mv wave /usr/local/bin/
 
 # Initialize project
-cd your-project && muzzle init
+cd your-project && wave init
 
 # Validate configuration
-muzzle validate
+wave validate
 
 # Run a pipeline
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml \
+wave run --pipeline .wave/pipelines/speckit-flow.yaml \
   --input "add user authentication"
 
 # Or just do a quick task
-muzzle do "fix the broken login test"
+wave do "fix the broken login test"
 ```
 
 ## How It Works
 
-Muzzle wraps LLM CLIs (like Claude Code) as subprocess adapters, then orchestrates them through pipeline DAGs where each step binds a persona to an ephemeral workspace.
+Wave wraps LLM CLIs (like Claude Code) as subprocess adapters, then orchestrates them through pipeline DAGs where each step binds a persona to an ephemeral workspace.
 
 ```
-muzzle.yaml → Pipeline DAG → Step Execution → Artifacts
+wave.yaml → Pipeline DAG → Step Execution → Artifacts
                   │                 │
               Dependency        Persona binding
               resolution        Workspace isolation

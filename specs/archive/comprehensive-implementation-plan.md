@@ -1,11 +1,11 @@
-# Implementation Plan: Muzzle - Comprehensive Claude Code Integration System
+# Implementation Plan: Wave - Comprehensive Claude Code Integration System
 
-**Branch**: `001-muzzle-comprehensive` | **Date**: 2025-02-01 | **Spec**: Multiple specs (001-010)
-**Input**: Feature specifications for Muzzle Claude Code wrapper ecosystem
+**Branch**: `001-wave-comprehensive` | **Date**: 2025-02-01 | **Spec**: Multiple specs (001-010)
+**Input**: Feature specifications for Wave Claude Code wrapper ecosystem
 
 ## Summary
 
-This plan establishes a comprehensive implementation roadmap for the Muzzle system - a Go-first Claude Code wrapper featuring continuous handovers, persona-driven agent behaviors, pipeline orchestration, and extensible architecture. The system prioritizes abstract interfaces, type safety, and modular design to enable parallel development and future extensibility.
+This plan establishes a comprehensive implementation roadmap for the Wave system - a Go-first Claude Code wrapper featuring continuous handovers, persona-driven agent behaviors, pipeline orchestration, and extensible architecture. The system prioritizes abstract interfaces, type safety, and modular design to enable parallel development and future extensibility.
 
 ## Technical Context
 
@@ -37,7 +37,7 @@ Since constitution.md doesn't exist yet, we establish these core principles for 
 
 ```
 specs/
-├── 001-muzzle-claude-code/                    # Core Claude Code wrapper
+├── 001-wave-claude-code/                    # Core Claude Code wrapper
 │   ├── plan.md
 │   ├── research.md
 │   ├── data-model.md
@@ -60,11 +60,11 @@ specs/
 ### Source Code (repository root)
 
 ```
-muzzle/
+wave/
 ├── cmd/
-│   ├── muzzle/                    # Main CLI entry point
+│   ├── wave/                    # Main CLI entry point
 │   │   └── main.go
-│   └── muzzled/                   # Daemon service
+│   └── waved/                   # Daemon service
 │       └── main.go
 ├── pkg/
 │   ├── adapter/                   # Claude Code integration layer

@@ -1,6 +1,6 @@
 # Examples
 
-Explore real-world Muzzle workflows and configurations.
+Explore real-world Wave workflows and configurations.
 
 ## Example 1: Simple Feature Addition
 
@@ -12,9 +12,9 @@ Add user profile page with avatar upload.
 ### Pipeline Configuration
 
 ```yaml
-# .muzzle/pipelines/add-feature.yaml
+# .wave/pipelines/add-feature.yaml
 apiVersion: v1
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: add-feature
   description: "Add a new feature with review"
@@ -102,14 +102,14 @@ steps:
 ### Running the Example
 
 ```bash
-muzzle run --pipeline .muzzle/pipelines/add-feature.yaml --input "Add user profile with avatar"
+wave run --pipeline .wave/pipelines/add-feature.yaml --input "Add user profile with avatar"
 ```
 
-> **Tip:** You can also use the shorthand `muzzle run --pipeline add-feature --input "Add user profile with avatar"`. Muzzle will automatically look for pipelines in the `.muzzle/pipelines/` directory.
+> **Tip:** You can also use the shorthand `wave run --pipeline add-feature --input "Add user profile with avatar"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
 
 ### Expected Output
 
-Each step creates artifacts in `/tmp/muzzle/<pipeline-id>/<step-id>/`:
+Each step creates artifacts in `/tmp/wave/<pipeline-id>/<step-id>/`:
 - `navigate/analysis.json` - File paths and structure
 - `specify/specification.md` - Feature design document
 - `implement/` - Source code changes
@@ -125,9 +125,9 @@ Fix memory leak in user session handler.
 ### Pipeline Configuration
 
 ```yaml
-# .muzzle/pipelines/bug-fix.yaml
+# .wave/pipelines/bug-fix.yaml
 apiVersion: v1
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: bug-fix
   description: "Debug and fix production issues"
@@ -248,9 +248,9 @@ Self-designing pipeline for unknown task types.
 ### Meta Pipeline Configuration
 
 ```yaml
-# .muzzle/pipelines/auto-design.yaml
+# .wave/pipelines/auto-design.yaml
 apiVersion: v1
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: auto-design
   description: "Automatically design and execute pipelines"

@@ -1,12 +1,12 @@
 # Adapters
 
-Adapters are the bridge between Muzzle and LLM CLIs. Each adapter wraps a specific CLI tool (like Claude Code) and defines how Muzzle spawns, communicates with, and collects output from it.
+Adapters are the bridge between Wave and LLM CLIs. Each adapter wraps a specific CLI tool (like Claude Code) and defines how Wave spawns, communicates with, and collects output from it.
 
 ## How Adapters Work
 
 ```mermaid
 sequenceDiagram
-    participant M as Muzzle
+    participant M as Wave
     participant A as Adapter
     participant C as Claude Code CLI
     M->>A: Execute step (persona, prompt, workspace)
@@ -17,7 +17,7 @@ sequenceDiagram
     A-->>M: Collect artifacts, report status
 ```
 
-Muzzle never communicates with LLM APIs directly. It always goes through an adapter, which invokes the LLM CLI as a subprocess.
+Wave never communicates with LLM APIs directly. It always goes through an adapter, which invokes the LLM CLI as a subprocess.
 
 ## Adapter Configuration
 
@@ -33,15 +33,15 @@ adapters:
     default_permissions:              # Base permissions for all personas
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
-    hooks_template: .muzzle/hooks/claude/  # Hook scripts to copy
+    hooks_template: .wave/hooks/claude/  # Hook scripts to copy
 ```
 
 ### Key Fields
 
 | Field | Purpose |
 |-------|---------|
-| `binary` | The executable name. Must be on `$PATH`. Muzzle does not install it. |
-| `mode` | Always `"headless"` — Muzzle runs adapters as subprocesses, never interactive terminals. |
+| `binary` | The executable name. Must be on `$PATH`. Wave does not install it. |
+| `mode` | Always `"headless"` — Wave runs adapters as subprocesses, never interactive terminals. |
 | `output_format` | How to parse adapter output. `"json"` is the standard. |
 | `project_files` | Files copied into every workspace that uses this adapter. Useful for tool-specific config. |
 | `default_permissions` | Base tool permissions. Personas can override these. |
@@ -52,7 +52,7 @@ adapters:
 The primary built-in adapter wraps Claude Code's headless mode:
 
 ```bash
-# What Muzzle executes internally:
+# What Wave executes internally:
 claude -p "prompt text" \
   --output-format json \
   --max-turns 100 \
@@ -62,7 +62,7 @@ claude -p "prompt text" \
 
 ### Subprocess Lifecycle
 
-1. Muzzle builds the CLI command from persona configuration.
+1. Wave builds the CLI command from persona configuration.
 2. Spawns the process in the step's ephemeral workspace.
 3. Inherits environment variables (including API keys) from the parent process.
 4. Monitors stdout for JSON output events.
@@ -116,7 +116,7 @@ Any CLI that can:
 2. Run in a non-interactive (headless) mode.
 3. Produce structured output (JSON preferred).
 
-...can be wrapped as a Muzzle adapter.
+...can be wrapped as a Wave adapter.
 
 ```yaml
 adapters:
@@ -130,10 +130,10 @@ See the [Custom Adapter Example](/examples/custom-adapter) for a complete walkth
 
 ## Credential Handling
 
-Adapters receive credentials exclusively via environment variables inherited from the Muzzle parent process. Credentials are **never** written to disk, manifest files, or audit logs.
+Adapters receive credentials exclusively via environment variables inherited from the Wave parent process. Credentials are **never** written to disk, manifest files, or audit logs.
 
 ```
-Shell → ANTHROPIC_API_KEY → Muzzle process → Adapter subprocess → LLM CLI
+Shell → ANTHROPIC_API_KEY → Wave process → Adapter subprocess → LLM CLI
 ```
 
 See [Environment & Credentials](/reference/environment) for details.

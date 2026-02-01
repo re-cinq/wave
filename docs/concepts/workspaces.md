@@ -5,7 +5,7 @@ Every pipeline step executes in an **ephemeral workspace** — an isolated direc
 ## Workspace Structure
 
 ```
-/tmp/muzzle/<pipeline-id>/<step-id>/
+/tmp/wave/<pipeline-id>/<step-id>/
 ├── src/              # Mounted from repository (readonly by default)
 ├── artifacts/        # Injected artifacts from dependency steps
 ├── output/           # Step's output artifacts
@@ -24,12 +24,12 @@ graph LR
     P --> W[Wait for Cleanup]
 ```
 
-1. **Create** — Muzzle creates the workspace directory under `runtime.workspace_root`.
+1. **Create** — Wave creates the workspace directory under `runtime.workspace_root`.
 2. **Mount** — Source repository is mounted with the configured access mode.
 3. **Inject** — Artifacts from completed dependency steps are copied in.
 4. **Execute** — The adapter subprocess runs within this workspace.
 5. **Persist** — Output artifacts are stored for downstream steps.
-6. **Wait** — Workspace persists until `muzzle clean` is run. Never auto-deleted.
+6. **Wait** — Workspace persists until `wave clean` is run. Never auto-deleted.
 
 ## Mount Configuration
 
@@ -66,15 +66,15 @@ Navigator and auditor personas typically use `readonly` mounts. Craftsman person
 ## Workspace Root Configuration
 
 ```yaml
-# In muzzle.yaml
+# In wave.yaml
 runtime:
-  workspace_root: /tmp/muzzle          # Default
+  workspace_root: /tmp/wave          # Default
 
 # Override with environment variable
-# MUZZLE_WORKSPACE_ROOT=/data/muzzle
+# WAVE_WORKSPACE_ROOT=/data/wave
 
 # Override with CLI flag
-# muzzle run --workspace /data/muzzle
+# wave run --workspace /data/wave
 ```
 
 ### Disk Usage
@@ -83,16 +83,16 @@ Workspaces accumulate until explicitly cleaned:
 
 ```bash
 # Check disk usage
-du -sh /tmp/muzzle/
+du -sh /tmp/wave/
 
 # Clean specific pipeline
-muzzle clean --pipeline-id a1b2c3d4
+wave clean --pipeline-id a1b2c3d4
 
 # Clean everything
-muzzle clean --all
+wave clean --all
 
 # Clean old workspaces
-muzzle clean --older-than 7d
+wave clean --older-than 7d
 ```
 
 ## Debugging with Workspaces
@@ -101,16 +101,16 @@ Since workspaces persist, they're useful for debugging failed steps:
 
 ```bash
 # Find the failed step's workspace
-ls /tmp/muzzle/<pipeline-id>/
+ls /tmp/wave/<pipeline-id>/
 
 # Inspect artifacts
-cat /tmp/muzzle/<pipeline-id>/navigate/output/analysis.json
+cat /tmp/wave/<pipeline-id>/navigate/output/analysis.json
 
 # Check what the agent saw
-cat /tmp/muzzle/<pipeline-id>/implement/CLAUDE.md
+cat /tmp/wave/<pipeline-id>/implement/CLAUDE.md
 
 # Review injected artifacts
-ls /tmp/muzzle/<pipeline-id>/implement/artifacts/
+ls /tmp/wave/<pipeline-id>/implement/artifacts/
 ```
 
 ## Further Reading
