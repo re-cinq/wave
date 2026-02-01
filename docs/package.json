@@ -1,0 +1,27 @@
+{
+  "name": "muzzle",
+  "version": "1.0.0",
+  "description": "Multi-Agent Orchestrator for Claude Code",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "llm",
+    "orchestrator",
+    "claude"
+  ],
+  "author": "Muzzle Team",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "mermaid": "^11.12.2",
+    "vitepress": "^1.0.0-rc.40",
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vue": "^3.4.0"
+  }
+}
