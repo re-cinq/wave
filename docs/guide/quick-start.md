@@ -89,7 +89,7 @@ muzzle clean
 
 ## What's Next?
 
-- [Customize personas](/guide/personas)
-- [Design pipelines](/guide/pipelines)
-- [Add contracts](/guide/contracts)
+- [Understand personas](/concepts/personas)
+- [Design pipelines](/concepts/pipelines)
+- [Add contracts](/concepts/contracts)
 - [Explore examples](/examples/)
