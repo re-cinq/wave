@@ -1,3 +1,8 @@
+---
+layout: guides
+breadcrumb: Docs / Guides / State Resumption
+---
+
 # State & Resumption
 
 Muzzle persists pipeline execution state in SQLite, enabling interrupted pipelines to resume from their last completed step rather than starting over.
