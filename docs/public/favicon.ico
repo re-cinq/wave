@@ -1,0 +1,5 @@
+<!-- Favicon -->
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="4" fill="#2563eb"/>
+  <text x="16" y="20" font-family="Arial, sans-serif" font-size="16" fill="white" text-anchor="middle" dominant-baseline="middle">M</text>
+</svg>

@@ -1,0 +1,5 @@
+<!-- Simple SVG logo -->
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="20" fill="#2563eb"/>
+  <text x="100" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">M</text>
+</svg>
