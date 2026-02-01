@@ -105,6 +105,8 @@ steps:
 muzzle run --pipeline .muzzle/pipelines/add-feature.yaml --input "Add user profile with avatar"
 ```
 
+> **Tip:** You can also use the shorthand `muzzle run --pipeline add-feature --input "Add user profile with avatar"`. Muzzle will automatically look for pipelines in the `.muzzle/pipelines/` directory.
+
 ### Expected Output
 
 Each step creates artifacts in `/tmp/muzzle/<pipeline-id>/<step-id>/`:

@@ -156,7 +156,7 @@ muzzle run --pipeline <path> [flags]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--pipeline` | `string` | **required** | Path to pipeline YAML file. |
+| `--pipeline` | `string` | **required** | Path to pipeline YAML file. Can also be a pipeline name (e.g., `add-feature`) which will be auto-detected in the `.muzzle/pipelines/` directory. |
 | `--input` | `string` | `""` | Input prompt for the pipeline. Available as `{{ input }}` in step templates. |
 | `--dry-run` | `bool` | `false` | Walk the pipeline DAG and print execution plan without invoking adapters. |
 | `--from-step` | `string` | `""` | Start execution from a specific step (skip completed predecessors). |

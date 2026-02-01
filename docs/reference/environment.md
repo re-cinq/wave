@@ -91,6 +91,8 @@ jobs:
       - run: muzzle run --pipeline .muzzle/pipelines/ci-flow.yaml --input "CI run"
 ```
 
+> **Note:** You can also use the shorthand `muzzle run --pipeline ci-flow --input "CI run"`. Muzzle will automatically look for pipelines in the `.muzzle/pipelines/` directory.
+
 ```yaml
 # GitLab CI example
 muzzle-pipeline:
@@ -100,6 +102,8 @@ muzzle-pipeline:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
     MUZZLE_LOG_FORMAT: json
 ```
+
+> **Note:** Shorthand `muzzle run --pipeline ci-flow --input "CI run"` also works.
 
 ## Adapter Environment Variables
 
