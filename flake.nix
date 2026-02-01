@@ -30,7 +30,7 @@
             buildInputs = commonPackages;
             shellHook = ''
               echo ""
-              echo "=== MUZZLE Development Environment ==="
+              echo "=== WAVE Development Environment ==="
               echo ""
               echo "Start:     muz (daemon+TUI), muz serve, muz stop"
               echo ""

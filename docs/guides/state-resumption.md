@@ -1,13 +1,13 @@
 # State & Resumption
 
-Muzzle persists pipeline execution state in SQLite, enabling interrupted pipelines to resume from their last completed step rather than starting over.
+Wave persists pipeline execution state in SQLite, enabling interrupted pipelines to resume from their last completed step rather than starting over.
 
 ## State Persistence
 
 Every step state transition is written to a local SQLite database:
 
 ```
-.muzzle/state.db
+.wave/state.db
 ├── pipeline_state    # Pipeline-level status
 └── step_state        # Per-step status, timing, errors
 ```
@@ -42,15 +42,15 @@ Every step state transition is written to a local SQLite database:
 
 ```bash
 # Find the pipeline ID from previous output or list runs
-muzzle list runs
+wave list runs
 
 # Resume from last checkpoint
-muzzle resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+wave resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 ### Resume Behavior
 
-1. Muzzle loads the pipeline state from SQLite.
+1. Wave loads the pipeline state from SQLite.
 2. Identifies step states:
    - `completed` → **skipped** (artifacts already in workspace).
    - `pending` → **executed** normally.
@@ -74,26 +74,26 @@ graph TD
 
 ```bash
 # Skip ahead to a specific step
-muzzle resume --pipeline-id a1b2c3d4 --from-step implement
+wave resume --pipeline-id a1b2c3d4 --from-step implement
 ```
 
 This marks all steps before `implement` as completed (their workspace artifacts must exist) and starts execution from `implement`.
 
 ## Interruption Safety
 
-When Muzzle receives SIGINT (Ctrl+C):
+When Wave receives SIGINT (Ctrl+C):
 
 1. Current step state is persisted.
 2. Adapter subprocess is killed (entire process group).
 3. Workspace is preserved.
 4. Exit code 130 is returned.
-5. Pipeline can be resumed with `muzzle resume`.
+5. Pipeline can be resumed with `wave resume`.
 
 ### What's Preserved
 
 | Data | Preserved | Location |
 |------|-----------|----------|
-| Step states | Yes | SQLite `.muzzle/state.db` |
+| Step states | Yes | SQLite `.wave/state.db` |
 | Completed artifacts | Yes | Workspace directories |
 | In-progress work | Partial | Current step's workspace (may be incomplete) |
 | Relay checkpoints | Yes | Checkpoint files in workspace |
@@ -106,7 +106,7 @@ When Muzzle receives SIGINT (Ctrl+C):
 ## Listing Runs
 
 ```bash
-$ muzzle list runs
+$ wave list runs
 PIPELINE-ID   NAME           STATUS      STARTED              STEPS
 a1b2c3d4      speckit-flow   completed   2026-02-01 10:00:00  5/5
 e5f6a7b8      bug-fix        failed      2026-01-30 14:30:00  2/4
@@ -114,7 +114,7 @@ f9g0h1i2      ad-hoc-1234    running     2026-02-01 15:00:00  1/2
 ```
 
 ```bash
-$ muzzle list runs --output json
+$ wave list runs --output json
 [
   {
     "pipeline_id": "a1b2c3d4",
@@ -131,9 +131,9 @@ $ muzzle list runs --output json
 
 State persistence and workspace persistence are independent:
 
-- `muzzle clean` deletes workspaces but **does not** delete state records.
+- `wave clean` deletes workspaces but **does not** delete state records.
 - State records remain in SQLite even after cleanup.
-- Resuming a pipeline after `muzzle clean` will fail because artifacts are gone.
+- Resuming a pipeline after `wave clean` will fail because artifacts are gone.
 
 ::: warning
 Always resume interrupted pipelines **before** cleaning their workspaces.
@@ -141,7 +141,7 @@ Always resume interrupted pipelines **before** cleaning their workspaces.
 
 ## Further Reading
 
-- [CLI Reference — resume](/reference/cli#muzzle-resume) — resume command details
-- [CLI Reference — list](/reference/cli#muzzle-list) — listing runs
+- [CLI Reference — resume](/reference/cli#wave-resume) — resume command details
+- [CLI Reference — list](/reference/cli#wave-list) — listing runs
 - [Workspaces](/concepts/workspaces) — workspace lifecycle
 - [Events](/reference/events) — monitoring pipeline progress

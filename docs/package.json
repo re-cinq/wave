@@ -1,5 +1,5 @@
 {
-  "name": "muzzle",
+  "name": "wave",
   "version": "1.0.0",
   "description": "Multi-Agent Orchestrator for Claude Code",
   "main": "index.js",
@@ -15,7 +15,7 @@
     "orchestrator",
     "claude"
   ],
-  "author": "Muzzle Team",
+  "author": "Wave Team",
   "license": "MIT",
   "type": "module",
   "devDependencies": {

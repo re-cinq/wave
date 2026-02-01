@@ -17,8 +17,8 @@
 
 **Purpose**: Go project initialization and shared infrastructure
 
-- [ ] T001 Initialize Go module and install dependencies: `go mod init github.com/recinq/muzzle` then add cobra, yaml.v3, modernc.org/sqlite, jsonschema/v6 in go.mod
-- [ ] T002 Create CLI entry point with cobra root command and subcommand stubs (init, validate, run, do, resume, clean) in cmd/muzzle/main.go
+- [ ] T001 Initialize Go module and install dependencies: `go mod init github.com/recinq/wave` then add cobra, yaml.v3, modernc.org/sqlite, jsonschema/v6 in go.mod
+- [ ] T002 Create CLI entry point with cobra root command and subcommand stubs (init, validate, run, do, resume, clean) in cmd/wave/main.go
 - [ ] T003 [P] Create structured event emitter (NDJSON to stdout) in internal/event/emitter.go implementing EventEmitter interface from contracts
 - [ ] T004 [P] Create audit logger with credential scrubbing in internal/audit/logger.go implementing AuditLogger interface from contracts
 
@@ -45,9 +45,9 @@
 
 ## Phase 3: User Story 1 — Define Project Manifest (Priority: P1)
 
-**Goal**: Developer can create, parse, and validate `muzzle.yaml`
+**Goal**: Developer can create, parse, and validate `wave.yaml`
 
-**Independent Test**: Run `muzzle init` then `muzzle validate` and confirm all references resolve
+**Independent Test**: Run `wave init` then `wave validate` and confirm all references resolve
 
 ### Tests for User Story 1
 
@@ -58,10 +58,10 @@
 
 - [ ] T015 [US1] Implement manifest YAML parser using yaml.v3 with line-number error reporting in internal/manifest/parser.go
 - [ ] T016 [US1] Implement manifest validator (resolve all persona→adapter refs, check file existence for system_prompt_file and hook commands, warn on missing binaries) in internal/manifest/parser.go
-- [ ] T017 [US1] Implement `muzzle init` subcommand: generate scaffold muzzle.yaml with default claude adapter, navigator+craftsman personas, runtime defaults, and create .muzzle/personas/ directory with example prompt files in cmd/muzzle/main.go
-- [ ] T018 [US1] Implement `muzzle validate` subcommand: load manifest, run validator, print errors/warnings with file paths and line numbers in cmd/muzzle/main.go
+- [ ] T017 [US1] Implement `wave init` subcommand: generate scaffold wave.yaml with default claude adapter, navigator+craftsman personas, runtime defaults, and create .wave/personas/ directory with example prompt files in cmd/wave/main.go
+- [ ] T018 [US1] Implement `wave validate` subcommand: load manifest, run validator, print errors/warnings with file paths and line numbers in cmd/wave/main.go
 
-**Checkpoint**: `muzzle init && muzzle validate` works end-to-end
+**Checkpoint**: `wave init && wave validate` works end-to-end
 
 ---
 
@@ -69,7 +69,7 @@
 
 **Goal**: Developer can trigger a named pipeline that executes a DAG of steps in dependency order
 
-**Independent Test**: Run `muzzle run --pipeline test.yaml --input "test"` with mock adapter and observe steps execute in order with artifact flow
+**Independent Test**: Run `wave run --pipeline test.yaml --input "test"` with mock adapter and observe steps execute in order with artifact flow
 
 ### Tests for User Story 2
 
@@ -83,8 +83,8 @@
 - [ ] T023 [US2] Implement pipeline executor: iterate topologically sorted steps, for each step create workspace → inject artifacts → invoke adapter → validate contract → persist state in internal/pipeline/executor.go
 - [ ] T024 [US2] Implement step retry logic: on failure or contract violation, transition to Retrying, re-execute up to max_retries, then transition to Failed in internal/pipeline/executor.go
 - [ ] T025 [US2] Implement artifact injection: copy output artifacts from completed step workspaces into dependent step workspaces at configured paths in internal/pipeline/executor.go
-- [ ] T026 [US2] Implement `muzzle run` subcommand: parse --pipeline and --input flags, load manifest + pipeline YAML, execute pipeline, emit progress events in cmd/muzzle/main.go
-- [ ] T027 [US2] Implement `muzzle resume` subcommand: load state from SQLite, find last completed step, re-execute from next pending step in cmd/muzzle/main.go
+- [ ] T026 [US2] Implement `wave run` subcommand: parse --pipeline and --input flags, load manifest + pipeline YAML, execute pipeline, emit progress events in cmd/wave/main.go
+- [ ] T027 [US2] Implement `wave resume` subcommand: load state from SQLite, find last completed step, re-execute from next pending step in cmd/wave/main.go
 
 **Checkpoint**: A multi-step pipeline with mock adapter runs to completion, artifacts flow between steps, retries work
 
@@ -162,17 +162,17 @@
 
 ## Phase 8: User Story 6 — Ad-Hoc Task Execution (Priority: P2)
 
-**Goal**: `muzzle do "task"` generates and runs a minimal navigate→execute pipeline
+**Goal**: `wave do "task"` generates and runs a minimal navigate→execute pipeline
 
-**Independent Test**: Run `muzzle do "fix typo"` and confirm navigator runs first, then craftsman, both in ephemeral workspaces
+**Independent Test**: Run `wave do "fix typo"` and confirm navigator runs first, then craftsman, both in ephemeral workspaces
 
 ### Implementation for User Story 6
 
 - [ ] T050 [US6] Implement ad-hoc pipeline generator: given an input string, persona override, and manifest, produce an in-memory Pipeline with navigate + execute steps in internal/pipeline/adhoc.go
-- [ ] T051 [US6] Implement `muzzle do` subcommand: parse input string, --persona flag, --save flag; generate pipeline, execute it, optionally write YAML to --save path in cmd/muzzle/main.go
+- [ ] T051 [US6] Implement `wave do` subcommand: parse input string, --persona flag, --save flag; generate pipeline, execute it, optionally write YAML to --save path in cmd/wave/main.go
 - [ ] T052 [US6] Write tests for ad-hoc pipeline generation (default personas, persona override, save to file) in internal/pipeline/adhoc_test.go
 
-**Checkpoint**: `muzzle do` generates correct 2-step pipeline and executes it
+**Checkpoint**: `wave do` generates correct 2-step pipeline and executes it
 
 ---
 
@@ -211,24 +211,24 @@
 
 ## Phase 11: VitePress Documentation (P1)
 
-**Goal**: Comprehensive documentation site that serves as authoritative guide for Muzzle
+**Goal**: Comprehensive documentation site that serves as authoritative guide for Wave
 
 **Independent Test**: Documentation builds successfully, all links resolve, all examples validate
 
 ### Documentation Setup
 
-- [ ] T060 [P] Initialize VitePress site in docs/ directory with TypeScript config and basic theme
-- [ ] T061 [P] Create custom Vue components: MuzzleConfig (manifest editor), PipelineVisualizer (DAG), TerminalOutput (styled output), PersonaCard in docs/.vitepress/theme/components/
-- [ ] T062 [P] Set up Mermaid plugin for diagrams and search plugin with custom index
-- [ ] T063 Create site configuration (nav, sidebar, social links) in docs/.vitepress/config.ts
-- [ ] T064 [P] Create logo.svg, favicon.ico, and og-image.png in docs/public/
+- [X] T060 [P] Initialize VitePress site in docs/ directory with TypeScript config and basic theme
+- [X] T061 [P] Create custom Vue components: WaveConfig (manifest editor), PipelineVisualizer (DAG), TerminalOutput (styled output), PersonaCard in docs/.vitepress/theme/components/
+- [X] T062 [P] Set up Mermaid plugin for diagrams and search plugin with custom index
+- [X] T063 Create site configuration (nav, sidebar, social links) in docs/.vitepress/config.ts
+- [X] T064 [P] Create logo.svg, favicon.ico, and og-image.png in docs/public/
 
 ### Core Documentation Pages
 
-- [ ] T065 Write landing page (index.md) with hero section and feature highlights
-- [ ] T066 Write installation guide (docs/guide/installation.md) with binary install and from-source instructions
-- [ ] T067 Write quick-start guide (docs/guide/quick-start.md) with 5-minute first-run walkthrough
-- [ ] T068 [P] Write configuration guide (docs/guide/configuration.md) with complete manifest reference and examples
+- [X] T065 Write landing page (index.md) with hero section and feature highlights
+- [X] T066 Write installation guide (docs/guide/installation.md) with binary install and from-source instructions
+- [X] T067 Write quick-start guide (docs/guide/quick-start.md) with 5-minute first-run walkthrough
+- [X] T068 [P] Write configuration guide (docs/guide/configuration.md) with complete manifest reference and examples
 - [ ] T069 Write personas guide (docs/guide/personas.md) explaining persona system, permissions, and hooks
 - [ ] T070 [P] Write pipelines guide (docs/guide/pipelines.md) with DAG concepts, step types, and patterns
 - [ ] T071 [P] Write contracts guide (docs/guide/contracts.md) explaining handover contracts and validation types
@@ -236,7 +236,7 @@
 
 ### Reference Documentation
 
-- [ ] T073 [P] Generate CLI reference (docs/reference/cli.md) from Cobra commands with examples
+- [X] T073 [P] Generate CLI reference (docs/reference/cli.md) from Cobra commands with examples
 - [ ] T074 [P] Generate manifest schema (docs/reference/manifest-schema.md) from Go struct tags
 - [ ] T075 [P] Generate pipeline schema (docs/reference/pipeline-schema.md) from pipeline types
 - [ ] T076 [P] Write adapters reference (docs/reference/adapters.md) with Claude Code and future adapter configs
@@ -244,7 +244,7 @@
 
 ### Tutorials
 
-- [ ] T078 Write first project tutorial (docs/tutorials/first-project.md) with step-by-step walkthrough
+- [X] T078 Write first project tutorial (docs/tutorials/first-project.md) with step-by-step walkthrough
 - [ ] T079 Write custom personas tutorial (docs/tutorials/custom-personas.md) with real-world examples
 - [ ] T080 Write pipeline design tutorial (docs/tutorials/pipeline-design.md) with effective patterns
 - [ ] T081 Write meta-pipelines tutorial (docs/tutorials/meta-pipelines.md) with self-designing examples
@@ -252,8 +252,8 @@
 
 ### Examples and Concepts
 
-- [ ] T083 Write examples index and 4 detailed examples (simple-feature, bug-fix, refactoring, multi-persona) in docs/examples/
-- [ ] T084 Write architecture concepts (docs/concepts/architecture.md) with system overview and diagrams
+- [X] T083 Write examples index and 4 detailed examples (simple-feature, bug-fix, refactoring, multi-persona) in docs/examples/
+- [X] T084 Write architecture concepts (docs/concepts/architecture.md) with system overview and diagrams
 - [ ] T085 [P] Write isolation concepts (docs/concepts/isolation.md) explaining workspace security model
 - [ ] T086 [P] Write state management concepts (docs/concepts/state-management.md) with SQLite persistence details
 - [ ] T087 [P] Write security concepts (docs/concepts/security.md) covering permissions and credential handling
@@ -261,23 +261,23 @@
 
 ### Development Documentation
 
-- [ ] T089 Write contributing guide (docs/development/contributing.md) with PR process and standards
-- [ ] T090 Write architecture decisions (docs/development/architecture-decisions.md) documenting ADRs
-- [ ] T091 Write building guide (docs/development/building.md) for building from source
-- [ ] T092 Write release process (docs/development/release-process.md) with versioning and release steps
+- [X] T089 Write contributing guide (docs/development/contributing.md) with PR process and standards
+- [X] T090 Write architecture decisions (docs/development/architecture-decisions.md) documenting ADRs
+- [X] T091 Write building guide (docs/development/building.md) for building from source
+- [X] T092 Write release process (docs/development/release-process.md) with versioning and release steps
 
 ### Diagrams and Assets
 
-- [ ] T093 [P] Create Mermaid diagrams: manifest-flow, pipeline-execution, persona-binding, relay-flow in docs/assets/diagrams/
-- [ ] T094 [P] Create screenshots: CLI output, manifest example, pipeline progress in docs/assets/images/
-- [ ] T095 Add interactive examples with runnable code blocks where appropriate
+- [X] T093 [P] Create Mermaid diagrams: manifest-flow, pipeline-execution, persona-binding, relay-flow in docs/assets/diagrams/
+- [X] T094 [P] Create screenshots: CLI output, manifest example, pipeline progress in docs/assets/images/
+- [X] T095 Add interactive examples with runnable code blocks where appropriate
 
 ### Automation and Quality
 
-- [ ] T096 Set up doc generation scripts for CLI reference and schemas from Go code
-- [ ] T097 Set up CI/CD for docs: build, validate links, deploy to GitHub Pages
-- [ ] T098 Add pre-commit hooks: spell check, validate examples, check internal links
-- [ ] T099 Create example validation script to ensure all code examples work with current implementation
+- [X] T096 Set up doc generation scripts for CLI reference and schemas from Go code
+- [X] T097 Set up CI/CD for docs: build, validate links, deploy to GitHub Pages
+- [X] T098 Add pre-commit hooks: spell check, validate examples, check internal links
+- [X] T099 Create example validation script to ensure all code examples work with current implementation
 
 ---
 
@@ -285,13 +285,13 @@
 
 **Purpose**: Integration, cleanup, and validation across all stories
 
-- [ ] T100 Implement `muzzle clean` subcommand: delete workspace directories by pipeline ID or all in cmd/muzzle/main.go
-- [ ] T101 Implement `muzzle run --dry-run` mode: walk pipeline DAG emitting step transitions without invoking adapters in internal/pipeline/executor.go
+- [ ] T100 Implement `wave clean` subcommand: delete workspace directories by pipeline ID or all in cmd/wave/main.go
+- [ ] T101 Implement `wave run --dry-run` mode: walk pipeline DAG emitting step transitions without invoking adapters in internal/pipeline/executor.go
 - [ ] T102 [P] Implement input routing: match work item labels against routing rules in manifest to select pipeline in internal/pipeline/router.go
 - [ ] T103 [P] Implement structured progress events throughout executor: emit Event on every state transition with timestamp, pipeline_id, step_id, state, duration in internal/pipeline/executor.go
 - [ ] T104 Wire audit logger into adapter invocations: log tool calls and file operations when audit.log_all_tool_calls is enabled in internal/adapter/adapter.go
 - [ ] T105 Run `go vet ./...` and `go test ./...` across all packages, fix any issues
-- [ ] T106 Run quickstart.md validation: execute `muzzle init && muzzle validate && muzzle run --dry-run` end-to-end
+- [ ] T106 Run quickstart.md validation: execute `wave init && wave validate && wave run --dry-run` end-to-end
 - [ ] T107 Build documentation site and validate all links resolve
 - [ ] T108 Verify all documentation examples work with current implementation
 
@@ -345,18 +345,18 @@ Within each phase, tasks marked [P] can run in parallel.
 3. Complete Phase 3: US1 — Manifest parsing and validation
 4. Complete Phase 4: US2 — Pipeline DAG execution
 5. Complete Phase 5: US3 — Persona-scoped adapter invocation
-6. **STOP and VALIDATE**: `muzzle init && muzzle validate && muzzle run --pipeline test.yaml` works end-to-end with mock adapter
+6. **STOP and VALIDATE**: `wave init && wave validate && wave run --pipeline test.yaml` works end-to-end with mock adapter
 7. This gives you: manifest config → pipeline execution → persona-scoped agents. The core loop works.
 
 ### Incremental Delivery
 
 1. Setup + Foundational → Foundation ready
-2. Add US1 (Manifest) → `muzzle init && muzzle validate` works
-3. Add US2 (Pipeline) → `muzzle run` executes DAG with mock adapter
+2. Add US1 (Manifest) → `wave init && wave validate` works
+3. Add US2 (Pipeline) → `wave run` executes DAG with mock adapter
 4. Add US3 (Persona) → Real adapter invocation with permissions/hooks
 5. Add US4 (Relay) → Long-running tasks survive context limits
 6. Add US5 (Contracts) → Step boundaries enforce quality
-7. Add US6 (Ad-hoc) → `muzzle do` for quick tasks
+7. Add US6 (Ad-hoc) → `wave do` for quick tasks
 8. Add US7 (Meta) → Self-designing pipelines
 9. Add Matrix → Parallel task execution
 10. Polish → Production-ready

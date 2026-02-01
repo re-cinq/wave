@@ -1,6 +1,6 @@
-# AGENTS.md - Development Guidelines for Muzzle Repository
+# AGENTS.md - Development Guidelines for Wave Repository
 
-This file contains guidelines for agentic coding agents working in the Muzzle repository. Muzzle is a SpeckIt-enabled project management and development workflow system.
+This file contains guidelines for agentic coding agents working in the Wave repository. Wave is a SpeckIt-enabled project management and development workflow system.
 
 ## Repository Overview
 
@@ -31,7 +31,7 @@ The repository follows a structured approach where every feature is documented, 
 ## Project Structure
 
 ```
-muzzle/
+Wave/
 ├── .claude/                    # Claude agent skills and configurations
 │   └── skills/                 # Skill definition files for Claude AI
 ├── .specify/                   # Core SpeckIt methodology and templates

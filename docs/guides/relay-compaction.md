@@ -18,7 +18,7 @@ At ~80% utilization, output quality degrades — the agent loses track of earlie
 ```mermaid
 sequenceDiagram
     participant A as Agent (Craftsman)
-    participant M as Muzzle Monitor
+    participant M as Wave Monitor
     participant S as Summarizer Persona
     participant A2 as Fresh Agent (Craftsman)
     A->>M: Token usage hits 80%
@@ -29,7 +29,7 @@ sequenceDiagram
     A2->>A2: Continue from remaining work
 ```
 
-1. **Monitor** — Muzzle tracks token usage during step execution.
+1. **Monitor** — Wave tracks token usage during step execution.
 2. **Trigger** — At the configured threshold (default 80%), relay fires.
 3. **Summarize** — A separate summarizer persona receives the full session history and produces a structured checkpoint.
 4. **Resume** — A fresh instance of the original persona starts with the checkpoint injected as initial context.
@@ -64,7 +64,7 @@ The summarizer needs minimal permissions — it only reads the session and write
 personas:
   summarizer:
     adapter: claude
-    system_prompt_file: .muzzle/personas/summarizer.md
+    system_prompt_file: .wave/personas/summarizer.md
     temperature: 0.0    # Deterministic — no creativity needed
     permissions:
       allowed_tools: ["Read"]

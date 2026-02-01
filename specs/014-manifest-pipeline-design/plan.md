@@ -5,9 +5,9 @@
 
 ## Summary
 
-Build the Muzzle CLI binary in Go: a multi-agent orchestrator that
+Build the Wave CLI binary in Go: a multi-agent orchestrator that
 wraps Claude Code (and other LLM CLIs) via subprocess. The core
-deliverables are manifest parsing/validation (`muzzle.yaml`), pipeline
+deliverables are manifest parsing/validation (`wave.yaml`), pipeline
 DAG execution with handover contracts, persona-scoped agent invocation,
 relay/compaction, ad-hoc execution, and meta-pipeline support. This is
 a greenfield Go project — no existing source code.
@@ -41,15 +41,15 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 | # | Principle | Status | Notes |
 |---|-----------|--------|-------|
 | 1 | Single Binary, Zero Dependencies | ✅ PASS | Go produces static binary. CGo needed for SQLite — use `modernc.org/sqlite` (pure Go) to avoid CGo. |
-| 2 | Manifest as Single Source of Truth | ✅ PASS | `muzzle.yaml` is the only config file. Pipelines are referenced from it or discovered by convention. |
+| 2 | Manifest as Single Source of Truth | ✅ PASS | `wave.yaml` is the only config file. Pipelines are referenced from it or discovered by convention. |
 | 3 | Persona-Scoped Execution Boundaries | ✅ PASS | Every step binds exactly one persona. Permissions enforced before subprocess invocation. |
 | 4 | Fresh Memory at Every Step Boundary | ✅ PASS | Each step spawns a new subprocess. No shared state except explicit artifact injection. |
 | 5 | Navigator-First Architecture | ✅ PASS | Pipeline schema validation enforces step[0] must use navigator persona (or be overridden explicitly). |
 | 6 | Contracts at Every Handover | ✅ PASS | Contract validation is a required field in pipeline step definitions. |
 | 7 | Relay via Dedicated Summarizer | ✅ PASS | Relay spawns a separate summarizer subprocess. Never self-summarizes. |
-| 8 | Ephemeral Workspaces for Safety | ✅ PASS | Each step gets `/tmp/muzzle/<pipeline_id>/<step_id>/`. Main repo mounted readonly by default. |
+| 8 | Ephemeral Workspaces for Safety | ✅ PASS | Each step gets `/tmp/wave/<pipeline_id>/<step_id>/`. Main repo mounted readonly by default. |
 | 9 | Credentials Never Touch Disk | ✅ PASS | Env vars inherited by subprocess. Audit log scrubbing for known env var patterns. |
-| 10 | Observable Progress, Auditable Operations | ✅ PASS | Structured JSON events to stdout. Trace files in `.muzzle/traces/`. |
+| 10 | Observable Progress, Auditable Operations | ✅ PASS | Structured JSON events to stdout. Trace files in `.wave/traces/`. |
 | 11 | Bounded Recursion and Resource Limits | ✅ PASS | Runtime tracks recursion depth via `--parent-pipeline` flag. Hard caps in manifest. |
 | 12 | Minimal Step State Machine | ✅ PASS | 5 states only: Pending, Running, Completed, Failed, Retrying. |
 
@@ -73,7 +73,7 @@ specs/014-manifest-pipeline-design/
 
 ```
 cmd/
-└── muzzle/
+└── wave/
     └── main.go              # CLI entry point (cobra root command)
 
 internal/

@@ -4,7 +4,7 @@ A complete specification-driven development pipeline that takes a feature reques
 
 ## Overview
 
-The speckit flow is Muzzle's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
+The speckit flow is Wave's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
 
 ```mermaid
 graph LR
@@ -17,7 +17,7 @@ graph LR
 ## Full Pipeline Definition
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Specification-driven feature development"
@@ -55,7 +55,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .muzzle/contracts/navigation.schema.json
+        schema: .wave/contracts/navigation.schema.json
         source: output/analysis.json
         on_failure: retry
         max_retries: 2
@@ -87,7 +87,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .muzzle/contracts/specification.schema.json
+        schema: .wave/contracts/specification.schema.json
         source: output/spec.json
         on_failure: retry
         max_retries: 2
@@ -190,7 +190,7 @@ steps:
 ### Navigation Contract
 
 ```json
-// .muzzle/contracts/navigation.schema.json
+// .wave/contracts/navigation.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -232,20 +232,20 @@ steps:
 
 ```bash
 # Full run
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml \
+wave run --pipeline .wave/pipelines/speckit-flow.yaml \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-muzzle run --pipeline .muzzle/pipelines/speckit-flow.yaml --dry-run
+wave run --pipeline .wave/pipelines/speckit-flow.yaml --dry-run
 
 # Resume after interruption
-muzzle resume --pipeline-id <uuid-from-output>
+wave resume --pipeline-id <uuid-from-output>
 ```
 
 ## Expected Output
 
 ```
-$ muzzle run --pipeline speckit-flow.yaml --input "add JWT auth"
+$ wave run --pipeline speckit-flow.yaml --input "add JWT auth"
 {"step_id":"navigate","state":"running","message":"Starting navigator persona"}
 {"step_id":"navigate","state":"completed","duration_ms":87000,"artifacts":["output/analysis.json"]}
 {"step_id":"specify","state":"running","message":"Starting philosopher persona"}
@@ -262,7 +262,7 @@ $ muzzle run --pipeline speckit-flow.yaml --input "add JWT auth"
 ## Artifacts Produced
 
 ```
-/tmp/muzzle/<pipeline-id>/
+/tmp/wave/<pipeline-id>/
 ├── navigate/output/analysis.json     # Codebase analysis
 ├── specify/output/spec.md            # Feature specification
 ├── plan/output/plan.md               # Implementation plan

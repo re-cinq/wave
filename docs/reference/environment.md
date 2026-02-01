@@ -1,29 +1,29 @@
 # Environment Variables & Credentials
 
-Reference for all environment variables that control Muzzle behavior, and the credential handling model.
+Reference for all environment variables that control Wave behavior, and the credential handling model.
 
-## Muzzle Environment Variables
+## Wave Environment Variables
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `MUZZLE_DEBUG` | `bool` | `false` | Enable debug logging. Outputs verbose execution traces to stderr. |
-| `MUZZLE_WORKSPACE_ROOT` | `string` | `/tmp/muzzle` | Override the default workspace root. Takes precedence over `runtime.workspace_root` in the manifest. |
-| `MUZZLE_LOG_FORMAT` | `string` | `json` | Event output format: `json` (NDJSON, machine-parseable) or `text` (human-friendly with color). |
-| `MUZZLE_MANIFEST` | `string` | `muzzle.yaml` | Default manifest file path. Overridden by `--manifest` flag. |
-| `MUZZLE_NO_COLOR` | `bool` | `false` | Disable colored output in text log format. Also respects `NO_COLOR` standard. |
+| `WAVE_DEBUG` | `bool` | `false` | Enable debug logging. Outputs verbose execution traces to stderr. |
+| `WAVE_WORKSPACE_ROOT` | `string` | `/tmp/wave` | Override the default workspace root. Takes precedence over `runtime.workspace_root` in the manifest. |
+| `WAVE_LOG_FORMAT` | `string` | `json` | Event output format: `json` (NDJSON, machine-parseable) or `text` (human-friendly with color). |
+| `WAVE_MANIFEST` | `string` | `wave.yaml` | Default manifest file path. Overridden by `--manifest` flag. |
+| `WAVE_NO_COLOR` | `bool` | `false` | Disable colored output in text log format. Also respects `NO_COLOR` standard. |
 
 ### Precedence Order
 
 Configuration values are resolved in this order (highest priority first):
 
 1. CLI flags (`--manifest`, `--pipeline`, etc.)
-2. Environment variables (`MUZZLE_*`)
-3. Manifest values (`muzzle.yaml`)
+2. Environment variables (`WAVE_*`)
+3. Manifest values (`wave.yaml`)
 4. Built-in defaults
 
 ## Credential Handling
 
-Muzzle enforces a strict credential model: **credentials never touch disk**.
+Wave enforces a strict credential model: **credentials never touch disk**.
 
 ### How Credentials Flow
 
@@ -36,7 +36,7 @@ Shell Environment
     └── ...
          │
          ▼
-    Muzzle Process (inherits all env vars)
+    Wave Process (inherits all env vars)
          │
          ▼
     Adapter Subprocess (inherits all env vars)
@@ -45,7 +45,7 @@ Shell Environment
     LLM CLI (e.g., claude) uses ANTHROPIC_API_KEY
 ```
 
-Adapter subprocesses inherit the full environment from the Muzzle parent process. This means:
+Adapter subprocesses inherit the full environment from the Wave parent process. This means:
 
 - **API keys** (e.g., `ANTHROPIC_API_KEY`) are available to adapter subprocesses without configuration.
 - **No manifest entries** for credentials — they are never written to YAML files.
@@ -68,7 +68,7 @@ Redacted values appear as `[REDACTED]` in audit logs.
 
 ### Required Environment Variables
 
-Muzzle itself requires no environment variables. However, adapters typically need credentials:
+Wave itself requires no environment variables. However, adapters typically need credentials:
 
 | Adapter | Required Variables | Description |
 |---------|-------------------|-------------|
@@ -80,30 +80,30 @@ Muzzle itself requires no environment variables. However, adapters typically nee
 ```yaml
 # GitHub Actions example
 jobs:
-  muzzle-pipeline:
+  wave-pipeline:
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      MUZZLE_LOG_FORMAT: json
-      MUZZLE_WORKSPACE_ROOT: /tmp/muzzle-ci
+      WAVE_LOG_FORMAT: json
+      WAVE_WORKSPACE_ROOT: /tmp/wave-ci
     steps:
       - uses: actions/checkout@v4
-      - run: muzzle run --pipeline .muzzle/pipelines/ci-flow.yaml --input "CI run"
+      - run: wave run --pipeline .wave/pipelines/ci-flow.yaml --input "CI run"
 ```
 
-> **Note:** You can also use the shorthand `muzzle run --pipeline ci-flow --input "CI run"`. Muzzle will automatically look for pipelines in the `.muzzle/pipelines/` directory.
+> **Note:** You can also use the shorthand `wave run --pipeline ci-flow --input "CI run"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
 
 ```yaml
 # GitLab CI example
-muzzle-pipeline:
+wave-pipeline:
   script:
-    - muzzle run --pipeline .muzzle/pipelines/ci-flow.yaml --input "CI run"
+    - wave run --pipeline .wave/pipelines/ci-flow.yaml --input "CI run"
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-    MUZZLE_LOG_FORMAT: json
+    WAVE_LOG_FORMAT: json
 ```
 
-> **Note:** Shorthand `muzzle run --pipeline ci-flow --input "CI run"` also works.
+> **Note:** Shorthand `wave run --pipeline ci-flow --input "CI run"` also works.
 
 ## Adapter Environment Variables
 

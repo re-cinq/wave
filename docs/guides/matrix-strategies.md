@@ -108,10 +108,10 @@ Workers beyond the concurrency limit are queued and start as running workers com
 
 ## Conflict Detection
 
-When multiple matrix workers modify the same file, Muzzle detects the conflict at the merge phase:
+When multiple matrix workers modify the same file, Wave detects the conflict at the merge phase:
 
 ```
-$ muzzle run --pipeline parallel-tasks.yaml --input "migrate services"
+$ wave run --pipeline parallel-tasks.yaml --input "migrate services"
 ...
 ERROR: Matrix conflict detected in step 'execute'
   Workers 0 and 2 both modified: src/config/database.go
@@ -140,7 +140,7 @@ Each worker emits events with a `worker_id`:
 ## Complete Example
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: parallel-migration
   description: "Migrate microservices in parallel"

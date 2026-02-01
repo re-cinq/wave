@@ -1,13 +1,13 @@
 # Manifest Schema Reference
 
-Complete field reference for `muzzle.yaml` — the single source of truth for all Muzzle orchestration behavior.
+Complete field reference for `wave.yaml` — the single source of truth for all Wave orchestration behavior.
 
 ## Top-Level Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `apiVersion` | `string` | **yes** | Schema version. Currently `"v1"`. |
-| `kind` | `string` | **yes** | Must be `"MuzzleManifest"`. |
+| `kind` | `string` | **yes** | Must be `"WaveManifest"`. |
 | `metadata` | [`Metadata`](#metadata) | **yes** | Project metadata. |
 | `adapters` | `map[string]`[`Adapter`](#adapter) | **yes** | Named adapter configurations. |
 | `personas` | `map[string]`[`Persona`](#persona) | **yes** | Named persona configurations. |
@@ -18,7 +18,7 @@ Complete field reference for `muzzle.yaml` — the single source of truth for al
 
 ```yaml
 apiVersion: v1
-kind: MuzzleManifest
+kind: WaveManifest
 metadata:
   name: my-project
 adapters:
@@ -28,9 +28,9 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
 ```
 
 ---
@@ -54,7 +54,7 @@ metadata:
 
 ## Adapter
 
-Wraps a specific LLM CLI for subprocess invocation. Each adapter defines how Muzzle communicates with one LLM tool.
+Wraps a specific LLM CLI for subprocess invocation. Each adapter defines how Wave communicates with one LLM tool.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
@@ -79,7 +79,7 @@ adapters:
     default_permissions:
       allowed_tools: ["Read", "Write", "Bash"]
       deny: []
-    hooks_template: .muzzle/hooks/claude/
+    hooks_template: .wave/hooks/claude/
 
   opencode:
     binary: opencode
@@ -92,7 +92,7 @@ adapters:
 
 ### Binary Resolution
 
-The `binary` field is resolved against `$PATH` at validation time. If the binary is not found, `muzzle validate` emits a **warning** (not an error) — the binary may be available at runtime but not at validation time (e.g., in CI).
+The `binary` field is resolved against `$PATH` at validation time. If the binary is not found, `wave validate` emits a **warning** (not an error) — the binary may be available at runtime but not at validation time (e.g., in CI).
 
 ---
 
@@ -117,7 +117,7 @@ personas:
   navigator:
     adapter: claude
     description: "Codebase exploration and analysis"
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
@@ -127,17 +127,17 @@ personas:
   philosopher:
     adapter: claude
     description: "Architecture design and specification"
-    system_prompt_file: .muzzle/personas/philosopher.md
+    system_prompt_file: .wave/personas/philosopher.md
     temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Write(.muzzle/specs/*)"]
+      allowed_tools: ["Read", "Write(.wave/specs/*)"]
       deny: ["Bash(*)"]
 
   # Implementation with full write access
   craftsman:
     adapter: claude
     description: "Code implementation and testing"
-    system_prompt_file: .muzzle/personas/craftsman.md
+    system_prompt_file: .wave/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -147,7 +147,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security review and quality assurance"
-    system_prompt_file: .muzzle/personas/auditor.md
+    system_prompt_file: .wave/personas/auditor.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(npm audit*)", "Bash(go vet*)"]
@@ -157,7 +157,7 @@ personas:
   summarizer:
     adapter: claude
     description: "Context compaction for relay handoffs"
-    system_prompt_file: .muzzle/personas/summarizer.md
+    system_prompt_file: .wave/personas/summarizer.md
     temperature: 0.0
     permissions:
       allowed_tools: ["Read"]
@@ -235,22 +235,22 @@ Pre/post tool execution hooks. Hooks execute shell commands triggered by tool ca
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .muzzle/personas/craftsman.md
+    system_prompt_file: .wave/personas/craftsman.md
     hooks:
       PreToolUse:
         # Block destructive filesystem operations
         - matcher: "Bash(rm -rf *)"
-          command: ".muzzle/hooks/block-destructive.sh"
+          command: ".wave/hooks/block-destructive.sh"
         # Require linting before any commit
         - matcher: "Bash(git commit*)"
-          command: ".muzzle/hooks/pre-commit-lint.sh"
+          command: ".wave/hooks/pre-commit-lint.sh"
       PostToolUse:
         # Run tests after file writes
         - matcher: "Write(src/**)"
           command: "npm test --silent"
         # Log all bash invocations
         - matcher: "Bash(*)"
-          command: ".muzzle/hooks/log-bash.sh"
+          command: ".wave/hooks/log-bash.sh"
 ```
 
 ---
@@ -261,7 +261,7 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `workspace_root` | `string` | no | `"/tmp/muzzle"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
+| `workspace_root` | `string` | no | `"/tmp/wave"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
 | `default_timeout_minutes` | `int` | no | `30` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
 | `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |
@@ -279,7 +279,7 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `log_dir` | `string` | no | `".muzzle/traces/"` | Directory for audit trail files. Created automatically. |
+| `log_dir` | `string` | no | `".wave/traces/"` | Directory for audit trail files. Created automatically. |
 | `log_all_tool_calls` | `bool` | no | `false` | Log every tool invocation with arguments and results. |
 | `log_all_file_operations` | `bool` | no | `false` | Log every file read, write, and delete with paths. |
 
@@ -300,14 +300,14 @@ Audit logs **never** capture environment variable values or credential content. 
 
 ```yaml
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
   max_concurrent_workers: 5
   default_timeout_minutes: 30
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .muzzle/traces/
+    log_dir: .wave/traces/
     log_all_tool_calls: true
     log_all_file_operations: true
   meta_pipeline:
@@ -329,9 +329,9 @@ External skill directory discovery configuration.
 
 ```yaml
 skill_mounts:
-  - path: .muzzle/skills/        # Project-local skills
-  - path: ~/.muzzle/skills/      # User-global skills
-  - path: /opt/muzzle/skills/    # System-wide skills
+  - path: .wave/skills/        # Project-local skills
+  - path: ~/.wave/skills/      # User-global skills
+  - path: /opt/wave/skills/    # System-wide skills
 ```
 
 Skills are discovered in order — project-local skills take precedence over global ones with the same name.
@@ -340,7 +340,7 @@ Skills are discovered in order — project-local skills take precedence over glo
 
 ## Validation Rules
 
-`muzzle validate` checks the following rules:
+`wave validate` checks the following rules:
 
 | # | Rule | Severity | Description |
 |---|------|----------|-------------|
@@ -359,7 +359,7 @@ Skills are discovered in order — project-local skills take precedence over glo
 
 ```yaml
 apiVersion: v1
-kind: MuzzleManifest
+kind: WaveManifest
 metadata:
   name: acme-backend
   description: "Acme Corp backend API — Go microservices"
@@ -376,13 +376,13 @@ adapters:
     default_permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
-    hooks_template: .muzzle/hooks/claude/
+    hooks_template: .wave/hooks/claude/
 
 personas:
   navigator:
     adapter: claude
     description: "Read-only codebase exploration"
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git *)"]
@@ -391,16 +391,16 @@ personas:
   philosopher:
     adapter: claude
     description: "Architecture and specification design"
-    system_prompt_file: .muzzle/personas/philosopher.md
+    system_prompt_file: .wave/personas/philosopher.md
     temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Write(.muzzle/specs/*)"]
+      allowed_tools: ["Read", "Write(.wave/specs/*)"]
       deny: ["Bash(*)"]
 
   craftsman:
     adapter: claude
     description: "Implementation and testing"
-    system_prompt_file: .muzzle/personas/craftsman.md
+    system_prompt_file: .wave/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -408,7 +408,7 @@ personas:
     hooks:
       PreToolUse:
         - matcher: "Bash(git commit*)"
-          command: ".muzzle/hooks/pre-commit-lint.sh"
+          command: ".wave/hooks/pre-commit-lint.sh"
       PostToolUse:
         - matcher: "Write(src/**)"
           command: "go test ./..."
@@ -416,7 +416,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security and quality review"
-    system_prompt_file: .muzzle/personas/auditor.md
+    system_prompt_file: .wave/personas/auditor.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(go vet*)"]
@@ -425,21 +425,21 @@ personas:
   summarizer:
     adapter: claude
     description: "Relay checkpoint summarizer"
-    system_prompt_file: .muzzle/personas/summarizer.md
+    system_prompt_file: .wave/personas/summarizer.md
     temperature: 0.0
     permissions:
       allowed_tools: ["Read"]
       deny: ["Write(*)", "Bash(*)"]
 
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
   max_concurrent_workers: 5
   default_timeout_minutes: 30
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .muzzle/traces/
+    log_dir: .wave/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
   meta_pipeline:
@@ -449,6 +449,6 @@ runtime:
     timeout_minutes: 60
 
 skill_mounts:
-  - path: .muzzle/skills/
-  - path: ~/.muzzle/skills/
+  - path: .wave/skills/
+  - path: ~/.wave/skills/
 ```

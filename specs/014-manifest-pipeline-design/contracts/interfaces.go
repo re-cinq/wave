@@ -1,4 +1,4 @@
-// Package contracts defines the core interfaces for the Muzzle
+// Package contracts defines the core interfaces for the Wave
 // orchestrator. These are the contracts between internal packages.
 // Implementation details belong in internal/; these interfaces
 // define WHAT each component must do, not HOW.
@@ -12,15 +12,15 @@ import (
 
 // --- Manifest Types ---
 
-// Manifest is the parsed representation of muzzle.yaml.
+// Manifest is the parsed representation of wave.yaml.
 type Manifest struct {
-	APIVersion  string                `yaml:"apiVersion"`
-	Kind        string                `yaml:"kind"`
-	Metadata    Metadata              `yaml:"metadata"`
-	Adapters    map[string]Adapter    `yaml:"adapters"`
-	Personas    map[string]Persona    `yaml:"personas"`
-	Runtime     Runtime               `yaml:"runtime"`
-	SkillMounts []SkillMount          `yaml:"skill_mounts"`
+	APIVersion  string             `yaml:"apiVersion"`
+	Kind        string             `yaml:"kind"`
+	Metadata    Metadata           `yaml:"metadata"`
+	Adapters    map[string]Adapter `yaml:"adapters"`
+	Personas    map[string]Persona `yaml:"personas"`
+	Runtime     Runtime            `yaml:"runtime"`
+	SkillMounts []SkillMount       `yaml:"skill_mounts"`
 }
 
 type Metadata struct {
@@ -63,12 +63,12 @@ type HookRule struct {
 }
 
 type Runtime struct {
-	WorkspaceRoot        string       `yaml:"workspace_root"`
-	MaxConcurrentWorkers int          `yaml:"max_concurrent_workers"`
-	DefaultTimeoutMin    int          `yaml:"default_timeout_minutes"`
-	Relay                RelayConfig  `yaml:"relay"`
-	Audit                AuditConfig  `yaml:"audit"`
-	MetaPipeline         MetaConfig   `yaml:"meta_pipeline"`
+	WorkspaceRoot        string      `yaml:"workspace_root"`
+	MaxConcurrentWorkers int         `yaml:"max_concurrent_workers"`
+	DefaultTimeoutMin    int         `yaml:"default_timeout_minutes"`
+	Relay                RelayConfig `yaml:"relay"`
+	Audit                AuditConfig `yaml:"audit"`
+	MetaPipeline         MetaConfig  `yaml:"meta_pipeline"`
 }
 
 type RelayConfig struct {
@@ -77,16 +77,16 @@ type RelayConfig struct {
 }
 
 type AuditConfig struct {
-	LogDir              string `yaml:"log_dir"`
-	LogAllToolCalls     bool   `yaml:"log_all_tool_calls"`
-	LogAllFileOps       bool   `yaml:"log_all_file_operations"`
+	LogDir          string `yaml:"log_dir"`
+	LogAllToolCalls bool   `yaml:"log_all_tool_calls"`
+	LogAllFileOps   bool   `yaml:"log_all_file_operations"`
 }
 
 type MetaConfig struct {
-	MaxDepth      int `yaml:"max_depth"`
-	MaxTotalSteps int `yaml:"max_total_steps"`
+	MaxDepth       int `yaml:"max_depth"`
+	MaxTotalSteps  int `yaml:"max_total_steps"`
 	MaxTotalTokens int `yaml:"max_total_tokens"`
-	TimeoutMin    int `yaml:"timeout_minutes"`
+	TimeoutMin     int `yaml:"timeout_minutes"`
 }
 
 type SkillMount struct {
@@ -96,10 +96,10 @@ type SkillMount struct {
 // --- Pipeline Types ---
 
 type Pipeline struct {
-	Kind     string         `yaml:"kind"`
-	Metadata Metadata       `yaml:"metadata"`
-	Input    InputConfig    `yaml:"input"`
-	Steps    []Step         `yaml:"steps"`
+	Kind     string      `yaml:"kind"`
+	Metadata Metadata    `yaml:"metadata"`
+	Input    InputConfig `yaml:"input"`
+	Steps    []Step      `yaml:"steps"`
 }
 
 type InputConfig struct {
@@ -109,15 +109,15 @@ type InputConfig struct {
 }
 
 type Step struct {
-	ID              string          `yaml:"id"`
-	Persona         string          `yaml:"persona"`
-	Dependencies    []string        `yaml:"dependencies"`
-	Memory          MemoryConfig    `yaml:"memory"`
-	Workspace       WorkspaceConfig `yaml:"workspace"`
-	Exec            ExecConfig      `yaml:"exec"`
-	OutputArtifacts []ArtifactDef   `yaml:"output_artifacts"`
-	Handover        HandoverConfig  `yaml:"handover"`
-	Strategy        *MatrixStrategy `yaml:"strategy"`
+	ID              string           `yaml:"id"`
+	Persona         string           `yaml:"persona"`
+	Dependencies    []string         `yaml:"dependencies"`
+	Memory          MemoryConfig     `yaml:"memory"`
+	Workspace       WorkspaceConfig  `yaml:"workspace"`
+	Exec            ExecConfig       `yaml:"exec"`
+	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts"`
+	Handover        HandoverConfig   `yaml:"handover"`
+	Strategy        *MatrixStrategy  `yaml:"strategy"`
 	Validation      []ValidationRule `yaml:"validation"`
 }
 
@@ -155,11 +155,11 @@ type ArtifactRef struct {
 }
 
 type HandoverConfig struct {
-	Contract    ContractConfig `yaml:"contract"`
-	Compaction  CompactionConfig `yaml:"compaction"`
-	OnReviewFail string `yaml:"on_review_fail"`
-	TargetStep   string `yaml:"target_step"`
-	MaxRetries   int    `yaml:"max_retries"`
+	Contract     ContractConfig   `yaml:"contract"`
+	Compaction   CompactionConfig `yaml:"compaction"`
+	OnReviewFail string           `yaml:"on_review_fail"`
+	TargetStep   string           `yaml:"target_step"`
+	MaxRetries   int              `yaml:"max_retries"`
 }
 
 type ContractConfig struct {
@@ -207,7 +207,7 @@ const (
 
 // --- Core Interfaces ---
 
-// ManifestLoader parses and validates a muzzle.yaml file.
+// ManifestLoader parses and validates a wave.yaml file.
 type ManifestLoader interface {
 	Load(path string) (*Manifest, error)
 	Validate(m *Manifest) []error
@@ -240,10 +240,10 @@ type AdapterRunConfig struct {
 }
 
 type AdapterResult struct {
-	ExitCode    int
-	Stdout      io.Reader
-	TokensUsed  int
-	Artifacts   []string
+	ExitCode   int
+	Stdout     io.Reader
+	TokensUsed int
+	Artifacts  []string
 }
 
 // ContractValidator checks step output against a handover contract.
@@ -276,14 +276,14 @@ type PipelineStateRecord struct {
 }
 
 type StepStateRecord struct {
-	StepID       string
-	PipelineID   string
-	State        StepState
-	RetryCount   int
-	StartedAt    *time.Time
-	CompletedAt  *time.Time
+	StepID        string
+	PipelineID    string
+	State         StepState
+	RetryCount    int
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
 	WorkspacePath string
-	ErrorMessage string
+	ErrorMessage  string
 }
 
 // EventEmitter sends structured progress events to stdout.

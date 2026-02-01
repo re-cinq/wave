@@ -1,14 +1,14 @@
 # Pipeline Schema Reference
 
-Complete field reference for Muzzle pipeline YAML files — DAG definitions that orchestrate multi-step agent workflows.
+Complete field reference for Wave pipeline YAML files — DAG definitions that orchestrate multi-step agent workflows.
 
-Pipeline files are stored in `.muzzle/pipelines/` by convention and referenced from `muzzle run --pipeline <path>`.
+Pipeline files are stored in `.wave/pipelines/` by convention and referenced from `wave run --pipeline <path>`.
 
 ## Top-Level Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `kind` | `string` | **yes** | Must be `"MuzzlePipeline"`. |
+| `kind` | `string` | **yes** | Must be `"WavePipeline"`. |
 | `metadata` | [`PipelineMetadata`](#pipelinemetadata) | **yes** | Pipeline identification. |
 | `input` | [`InputConfig`](#inputconfig) | no | Work item source configuration. |
 | `steps` | [`[]Step`](#step) | **yes** | Ordered list of pipeline steps forming a DAG. |
@@ -16,7 +16,7 @@ Pipeline files are stored in `.muzzle/pipelines/` by convention and referenced f
 ### Minimal Example
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: simple-fix
 steps:
@@ -65,7 +65,7 @@ A single unit of work in the pipeline DAG. Each step executes one persona in one
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `id` | `string` | **yes** | — | Unique step identifier within this pipeline. Used in dependency references, events, and workspace paths. |
-| `persona` | `string` | **yes** | — | References a persona key defined in the project manifest (`muzzle.yaml`). |
+| `persona` | `string` | **yes** | — | References a persona key defined in the project manifest (`wave.yaml`). |
 | `dependencies` | `[]string` | no | `[]` | Step IDs that must complete successfully before this step starts. Forms the DAG edges. |
 | `memory` | [`MemoryConfig`](#memoryconfig) | **yes** | — | Memory strategy and artifact injection. |
 | `workspace` | [`WorkspaceConfig`](#workspaceconfig) | no | auto-generated | Workspace directory and mount configuration. |
@@ -91,7 +91,7 @@ Pending ──→ Running ──→ Completed
 | `retrying` | Step failed (contract violation, crash, or timeout) and is retrying. |
 | `failed` | Step exceeded `max_retries`. Pipeline halts. |
 
-Only `pending` and `failed` steps are resumable via `muzzle resume`.
+Only `pending` and `failed` steps are resumable via `wave resume`.
 
 ---
 
@@ -160,7 +160,7 @@ workspace:
 Each step gets an isolated workspace:
 
 ```
-/tmp/muzzle/<pipeline-id>/<step-id>/
+/tmp/wave/<pipeline-id>/<step-id>/
 ├── src/              # Mounted from repo (readonly by default)
 ├── artifacts/        # Injected artifacts from dependencies
 ├── output/           # Step output artifacts
@@ -168,7 +168,7 @@ Each step gets an isolated workspace:
 └── CLAUDE.md         # Persona system prompt
 ```
 
-Workspaces persist until explicitly cleaned with `muzzle clean`. They are **never** auto-deleted.
+Workspaces persist until explicitly cleaned with `wave clean`. They are **never** auto-deleted.
 
 ---
 
@@ -262,7 +262,7 @@ Validates output structure against a JSON Schema definition.
 handover:
   contract:
     type: json_schema
-    schema: .muzzle/contracts/navigation-output.schema.json
+    schema: .wave/contracts/navigation-output.schema.json
     source: output/analysis.json
     on_failure: retry
     max_retries: 2
@@ -396,7 +396,7 @@ validation:
 
 ## DAG Rules
 
-Pipeline steps form a Directed Acyclic Graph (DAG). Muzzle enforces:
+Pipeline steps form a Directed Acyclic Graph (DAG). Wave enforces:
 
 1. **No cycles** — Circular dependencies are detected at load time and rejected.
 2. **Valid references** — All `dependencies` entries must reference existing step IDs.
@@ -408,7 +408,7 @@ Pipeline steps form a Directed Acyclic Graph (DAG). Muzzle enforces:
 ## Complete Pipeline Example
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Full specification-driven development pipeline"
@@ -440,7 +440,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .muzzle/contracts/navigation.schema.json
+        schema: .wave/contracts/navigation.schema.json
         source: output/analysis.json
         on_failure: retry
         max_retries: 2
@@ -466,7 +466,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .muzzle/contracts/specification.schema.json
+        schema: .wave/contracts/specification.schema.json
         source: output/spec.json
         on_failure: retry
         max_retries: 2

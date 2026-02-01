@@ -17,7 +17,7 @@ function updateValue(event) {
 </script>
 
 <template>
-  <div class="muzzle-config">
+  <div class="wave-config">
     <h3>Manifest Configuration</h3>
     <div class="config-section">
       <label>API Version:</label>
@@ -36,7 +36,7 @@ function updateValue(event) {
 </template>
 
 <style scoped>
-.muzzle-config {
+.wave-config {
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   padding: 16px;

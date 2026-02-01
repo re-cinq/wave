@@ -1,6 +1,6 @@
 # Personas
 
-Personas are the safety and specialization mechanism in Muzzle. Each persona defines a **role** — what an agent can see, do, and how it behaves. Personas enforce separation of concerns so that a read-only navigator cannot write files and a craftsman cannot install arbitrary dependencies.
+Personas are the safety and specialization mechanism in Wave. Each persona defines a **role** — what an agent can see, do, and how it behaves. Personas enforce separation of concerns so that a read-only navigator cannot write files and a craftsman cannot install arbitrary dependencies.
 
 ## Why Personas?
 
@@ -37,7 +37,7 @@ graph TD
 
 ## Built-in Archetypes
 
-Muzzle's design encourages these persona patterns:
+Wave's design encourages these persona patterns:
 
 ### Navigator
 
@@ -46,7 +46,7 @@ Read-only codebase exploration. Finds files, analyzes patterns, maps architectur
 ```yaml
 navigator:
   adapter: claude
-  system_prompt_file: .muzzle/personas/navigator.md
+  system_prompt_file: .wave/personas/navigator.md
   temperature: 0.1
   permissions:
     allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
@@ -60,10 +60,10 @@ Design and specification. Creates specs, plans, and contracts. Limited to writin
 ```yaml
 philosopher:
   adapter: claude
-  system_prompt_file: .muzzle/personas/philosopher.md
+  system_prompt_file: .wave/personas/philosopher.md
   temperature: 0.3
   permissions:
-    allowed_tools: ["Read", "Write(.muzzle/specs/*)"]
+    allowed_tools: ["Read", "Write(.wave/specs/*)"]
     deny: ["Bash(*)"]
 ```
 
@@ -74,7 +74,7 @@ Full implementation capability. Reads, writes, edits, and runs commands. Protect
 ```yaml
 craftsman:
   adapter: claude
-  system_prompt_file: .muzzle/personas/craftsman.md
+  system_prompt_file: .wave/personas/craftsman.md
   temperature: 0.7
   permissions:
     allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -82,7 +82,7 @@ craftsman:
   hooks:
     PreToolUse:
       - matcher: "Bash(git commit*)"
-        command: ".muzzle/hooks/pre-commit-lint.sh"
+        command: ".wave/hooks/pre-commit-lint.sh"
 ```
 
 ### Auditor
@@ -92,7 +92,7 @@ Security review and quality assurance. Read-only access plus specific analysis c
 ```yaml
 auditor:
   adapter: claude
-  system_prompt_file: .muzzle/personas/auditor.md
+  system_prompt_file: .wave/personas/auditor.md
   temperature: 0.1
   permissions:
     allowed_tools: ["Read", "Grep", "Bash(npm audit*)", "Bash(go vet*)"]
@@ -106,7 +106,7 @@ Context relay checkpoint generation. Minimal permissions — reads context and p
 ```yaml
 summarizer:
   adapter: claude
-  system_prompt_file: .muzzle/personas/summarizer.md
+  system_prompt_file: .wave/personas/summarizer.md
   temperature: 0.0
   permissions:
     allowed_tools: ["Read"]

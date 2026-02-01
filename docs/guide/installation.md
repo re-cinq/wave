@@ -6,39 +6,39 @@
 - Claude Code CLI (`claude`) on PATH
 - Git
 
-## Install Muzzle
+## Install Wave
 
 ### Option 1: Pre-built Binary
 
 ```bash
 # Linux (x64)
-curl -L https://github.com/recinq/muzzle/releases/latest/download/muzzle-linux-amd64 -o muzzle
-chmod +x muzzle
-sudo mv muzzle /usr/local/bin/
+curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
+chmod +x wave
+sudo mv wave /usr/local/bin/
 
 # macOS (x64)
-curl -L https://github.com/recinq/muzzle/releases/latest/download/muzzle-darwin-amd64 -o muzzle
-chmod +x muzzle
-sudo mv muzzle /usr/local/bin/
+curl -L https://github.com/recinq/wave/releases/latest/download/wave-darwin-amd64 -o wave
+chmod +x wave
+sudo mv wave /usr/local/bin/
 
 # Verify installation
-muzzle --version
+wave --version
 ```
 
 ### Option 2: Build from Source
 
 ```bash
-git clone https://github.com/recinq/muzzle.git
-cd muzzle
-go build -o muzzle ./cmd/muzzle/
-sudo mv muzzle /usr/local/bin/
+git clone https://github.com/recinq/wave.git
+cd wave
+go build -o wave ./cmd/wave/
+sudo mv wave /usr/local/bin/
 ```
 
 ## Verify Installation
 
 ```bash
-# Check Muzzle version
-muzzle --version
+# Check Wave version
+wave --version
 
 # Check Claude Code is available
 claude --version

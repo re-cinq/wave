@@ -3,11 +3,11 @@
 **Branch**: `014-manifest-pipeline-design`
 **Date**: 2026-02-01
 **Status**: Draft
-**Purpose**: Define the complete VitePress documentation site for Muzzle
+**Purpose**: Define the complete VitePress documentation site for Wave
 
 ## Overview
 
-Muzzle needs comprehensive, documentation-driven development with a VitePress site that serves as both developer documentation and user guide. The documentation should be authoritative - the spec defines exactly what should exist, and implementation should match 1:1.
+Wave needs comprehensive, documentation-driven development with a VitePress site that serves as both developer documentation and user guide. The documentation should be authoritative - the spec defines exactly what should exist, and implementation should match 1:1.
 
 ## Documentation Structure
 
@@ -23,7 +23,7 @@ docs/
 │   ├── index.md             # Getting started overview
 │   ├── installation.md      # Installation instructions
 │   ├── quick-start.md       # 5-minute first run
-│   ├── configuration.md     # muzzle.yaml manifest reference
+│   ├── configuration.md     # wave.yaml manifest reference
 │   ├── personas.md          # Persona system explained
 │   ├── pipelines.md         # Pipeline DAG concepts
 │   ├── contracts.md         # Handover contracts
@@ -35,7 +35,7 @@ docs/
 │   ├── adapters.md         # Adapter configurations (Claude, OpenCode, etc.)
 │   └── troubleshooting.md   # Common issues and solutions
 ├── tutorials/
-│   ├── first-project.md    # Tutorial: Your first Muzzle project
+│   ├── first-project.md    # Tutorial: Your first Wave project
 │   ├── custom-personas.md   # Tutorial: Creating custom personas
 │   ├── pipeline-design.md   # Tutorial: Designing effective pipelines
 │   ├── meta-pipelines.md    # Tutorial: Self-designing pipelines
@@ -60,7 +60,7 @@ docs/
 
 Static assets:
 ├── public/
-│   ├── logo.svg           # Muzzle logo
+│   ├── logo.svg           # Wave logo
 │   ├── og-image.png       # Social sharing image
 │   └── favicon.ico
 └── assets/
@@ -83,19 +83,19 @@ Static assets:
 ---
 layout: home
 hero:
-  name: Muzzle
+  name: Wave
   text: Multi-Agent Orchestrator for Claude Code
   tagline: Wrap Claude Code and other LLM CLIs with personas, pipelines, and contracts
   image:
     src: /logo.svg
-    alt: Muzzle
+    alt: Wave
   actions:
     - theme: brand
       text: Get Started
       link: /guide/quick-start
     - theme: alt
       text: View on GitHub
-      link: https://github.com/recinq/muzzle
+      link: https://github.com/recinq/wave
 features:
   - icon: 🛡️
     title: Persona-Scoped Safety
@@ -126,17 +126,17 @@ Complete manifest reference with:
 
 Auto-generated from Cobra CLI:
 ```markdown
-# muzzle
+# wave
 
-Muzzle CLI - Multi-agent orchestrator
+Wave CLI - Multi-agent orchestrator
 
 ## Commands
 
 ### init
-Initialize a new Muzzle project
+Initialize a new Wave project
 
 ```bash
-muzzle init [flags]
+wave init [flags]
 ```
 
 **Flags**:
@@ -146,21 +146,21 @@ muzzle init [flags]
 **Examples**:
 ```bash
 # Initialize with defaults
-muzzle init
+wave init
 
 # Initialize for specific use case
-muzzle init --adapter claude --persona fullstack
+wave init --adapter claude --persona fullstack
 ```
 
 ### validate
-Validate Muzzle configuration
+Validate Wave configuration
 
 ```bash
-muzzle validate [flags]
+wave validate [flags]
 ```
 
 **Flags**:
-- `--manifest string`   Path to manifest (default "muzzle.yaml")
+- `--manifest string`   Path to manifest (default "wave.yaml")
 - `--verbose`          Show detailed validation errors
 
 **Exit Codes**:
@@ -173,7 +173,7 @@ muzzle validate [flags]
 
 ```yaml
 # Generated from Go structs
-title: Muzzle Manifest Schema
+title: Wave Manifest Schema
 $schema: http://json-schema.org/draft-07/schema#
 
 type: object
@@ -185,7 +185,7 @@ properties:
     description: Schema version
   kind:
     type: string
-    enum: [MuzzleManifest]
+    enum: [WaveManifest]
     description: Document type
   metadata:
     $ref: "#/$defs/Metadata"
@@ -225,7 +225,7 @@ Complete pipeline YAML schema with:
 ### 6. Tutorial: First Project (`docs/tutorials/first-project.md`)
 
 Step-by-step walkthrough:
-1. Install Muzzle
+1. Install Wave
 2. Initialize a new project
 3. Examine generated files
 4. Run first pipeline
@@ -257,7 +257,7 @@ For each persona:
 
 Each example includes:
 - Problem statement
-- Muzzle configuration
+- Wave configuration
 - Step-by-step execution
 - Expected results
 - Variations and extensions
@@ -265,7 +265,7 @@ Each example includes:
 ### 9. Architecture Concepts (`docs/concepts/`)
 
 Explain core concepts:
-- How Muzzle wraps Claude Code subprocess
+- How Wave wraps Claude Code subprocess
 - Workspace isolation mechanism
 - Pipeline state machine
 - Token monitoring and relay triggers
@@ -288,7 +288,7 @@ Common issues with solutions:
 ### Theme Customization
 
 Custom Vue components:
-- `<MuzzleConfig>` - Interactive manifest editor
+- `<WaveConfig>` - Interactive manifest editor
 - `<PipelineVisualizer>` - DAG visualization
 - `<TerminalOutput>` - Styled terminal output
 - `<PersonaCard>` - Persona overview card
@@ -306,7 +306,7 @@ Custom Vue components:
 ```typescript
 // .vitepress/config.ts
 export default {
-  title: 'Muzzle',
+  title: 'Wave',
   description: 'Multi-Agent Orchestrator for Claude Code',
   
   themeConfig: {
@@ -332,7 +332,7 @@ export default {
     },
     
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/recinq/muzzle' }
+      { icon: 'github', link: 'https://github.com/recinq/wave' }
     ]
   },
   
@@ -359,10 +359,10 @@ export default {
 
 ```yaml
 # Always include the file path
-# File: muzzle.yaml
+# File: wave.yaml
 
 apiVersion: v1
-kind: MuzzleManifest
+kind: WaveManifest
 metadata:
   name: my-project
   description: "Example project configuration"

@@ -1,6 +1,6 @@
 # Example: Custom Adapter
 
-How to wrap a custom LLM CLI as a Muzzle adapter, enabling it to participate in pipelines alongside Claude Code.
+How to wrap a custom LLM CLI as a Wave adapter, enabling it to participate in pipelines alongside Claude Code.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ Your LLM CLI must support:
 
 ## Step 1: Define the Adapter
 
-Add the adapter to your `muzzle.yaml`:
+Add the adapter to your `wave.yaml`:
 
 ```yaml
 adapters:
@@ -39,7 +39,7 @@ personas:
   local-navigator:
     adapter: local-llm
     description: "Quick codebase analysis with local model"
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep"]
@@ -49,7 +49,7 @@ personas:
   craftsman:
     adapter: claude
     description: "Implementation with Claude"
-    system_prompt_file: .muzzle/personas/craftsman.md
+    system_prompt_file: .wave/personas/craftsman.md
     temperature: 0.7
 ```
 
@@ -58,7 +58,7 @@ personas:
 Use different adapters for different steps based on their requirements:
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: hybrid-flow
   description: "Local model for analysis, cloud model for implementation"
@@ -97,7 +97,7 @@ steps:
 ## Step 4: Validate
 
 ```bash
-$ muzzle validate --verbose
+$ wave validate --verbose
 ✓ Adapter 'claude' binary found on PATH
 ✓ Adapter 'local-llm' binary found on PATH
 ✓ Persona 'local-navigator' references adapter 'local-llm'
@@ -111,8 +111,8 @@ If your LLM CLI doesn't natively support headless JSON output, write a wrapper:
 
 ```bash
 #!/bin/bash
-# .muzzle/bin/my-llm-wrapper
-# Wraps a CLI to produce JSON output compatible with Muzzle
+# .wave/bin/my-llm-wrapper
+# Wraps a CLI to produce JSON output compatible with Wave
 
 PROMPT="$1"
 WORKSPACE="$(pwd)"
@@ -129,7 +129,7 @@ Then reference the wrapper:
 ```yaml
 adapters:
   custom:
-    binary: .muzzle/bin/my-llm-wrapper
+    binary: .wave/bin/my-llm-wrapper
     mode: headless
     output_format: json
 ```
@@ -143,7 +143,7 @@ Each adapter can use different credentials. They're all inherited from the paren
 export ANTHROPIC_API_KEY="sk-ant-..."    # For Claude
 export OLLAMA_HOST="http://localhost:11434"  # For local Ollama
 
-muzzle run --pipeline .muzzle/pipelines/hybrid-flow.yaml \
+wave run --pipeline .wave/pipelines/hybrid-flow.yaml \
   --input "add feature"
 ```
 

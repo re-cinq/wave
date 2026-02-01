@@ -1,25 +1,25 @@
 # Quick Start
 
-Get Muzzle running on your project in 5 minutes.
+Get Wave running on your project in 5 minutes.
 
 ## 1. Initialize Project
 
 ```bash
 cd your-project
-muzzle init
+wave init
 ```
 
 This creates:
-- `muzzle.yaml` - Manifest with default adapter and personas
-- `.muzzle/personas/` - System prompt files
-- `.muzzle/pipelines/` - Example pipeline definitions
+- `wave.yaml` - Manifest with default adapter and personas
+- `.wave/personas/` - System prompt files
+- `.wave/pipelines/` - Example pipeline definitions
 
 ## 2. Review Configuration
 
 ```yaml
-# muzzle.yaml
+# wave.yaml
 apiVersion: v1
-kind: MuzzleManifest
+kind: WaveManifest
 metadata:
   name: my-project
   description: "Example project"
@@ -33,21 +33,21 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .muzzle/personas/navigator.md
+    system_prompt_file: .wave/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Bash(git *)"]
       deny: ["Write(*)"]
 
 runtime:
-  workspace_root: /tmp/muzzle
+  workspace_root: /tmp/wave
   max_concurrent_workers: 3
 ```
 
 ## 3. Validate Configuration
 
 ```bash
-muzzle validate
+wave validate
 ```
 
 Expected output:
@@ -60,7 +60,7 @@ Expected output:
 ## 4. Run First Pipeline
 
 ```bash
-muzzle run --pipeline speckit-flow --input "add user authentication"
+wave run --pipeline speckit-flow --input "add user authentication"
 ```
 
 You'll see structured progress events:
@@ -72,19 +72,19 @@ You'll see structured progress events:
 
 ## 5. Check Results
 
-Artifacts are saved in `/tmp/muzzle/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
+Artifacts are saved in `/tmp/wave/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
 
 ## Quick Commands
 
 ```bash
 # Ad-hoc task (no full pipeline)
-muzzle do "fix typo in README"
+wave do "fix typo in README"
 
 # Resume interrupted pipeline
-muzzle resume --pipeline-id <uuid>
+wave resume --pipeline-id <uuid>
 
 # Clean up workspaces
-muzzle clean
+wave clean
 ```
 
 ## What's Next?

@@ -16,7 +16,7 @@ graph LR
 
 ## Contract Types
 
-Muzzle supports three contract types, each validating at a different level:
+Wave supports three contract types, each validating at a different level:
 
 ### JSON Schema
 
@@ -26,7 +26,7 @@ Validates output structure against a JSON Schema definition. Best for checking t
 handover:
   contract:
     type: json_schema
-    schema: .muzzle/contracts/navigation.schema.json
+    schema: .wave/contracts/navigation.schema.json
     source: output/analysis.json
     on_failure: retry
     max_retries: 2
@@ -126,7 +126,7 @@ steps:
     handover:
       contract:          # ← Validates navigate's output
         type: json_schema
-        schema: .muzzle/contracts/nav.schema.json
+        schema: .wave/contracts/nav.schema.json
         source: output/analysis.json
 
   - id: implement
@@ -162,10 +162,10 @@ Use stricter contracts as the pipeline progresses:
 
 ### Schema Reuse
 
-Store contract schemas in `.muzzle/contracts/` and reference them across pipelines:
+Store contract schemas in `.wave/contracts/` and reference them across pipelines:
 
 ```
-.muzzle/contracts/
+.wave/contracts/
 ├── navigation.schema.json
 ├── specification.schema.json
 ├── implementation.schema.json

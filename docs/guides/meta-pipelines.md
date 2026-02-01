@@ -1,6 +1,6 @@
 # Meta-Pipelines
 
-Meta-pipelines allow a persona to **design a pipeline at runtime**. For novel problems that don't fit existing templates, the philosopher persona generates a custom pipeline definition, which Muzzle validates and executes.
+Meta-pipelines allow a persona to **design a pipeline at runtime**. For novel problems that don't fit existing templates, the philosopher persona generates a custom pipeline definition, which Wave validates and executes.
 
 ## When to Use Meta-Pipelines
 
@@ -27,10 +27,10 @@ graph TD
 
 1. The philosopher persona receives the task and codebase context.
 2. It generates a complete pipeline YAML definition.
-3. Muzzle validates the generated pipeline:
+3. Wave validates the generated pipeline:
    - **Schema validation** — valid YAML, required fields, correct types.
    - **Semantic validation** — first step is navigator, all steps have contracts, fresh memory strategy.
-4. If valid, Muzzle executes the generated pipeline.
+4. If valid, Wave executes the generated pipeline.
 5. Recursion depth is tracked to prevent infinite meta-generation.
 
 ## Configuration
@@ -49,7 +49,7 @@ runtime:
 ### Meta-Pipeline Template
 
 ```yaml
-kind: MuzzlePipeline
+kind: WavePipeline
 metadata:
   name: auto-design
   description: "Self-designing pipeline for novel tasks"
@@ -71,14 +71,14 @@ steps:
         - Consider parallel execution where tasks are independent
         - Use personas defined in the project manifest
 
-        Output a valid MuzzlePipeline YAML definition.
+        Output a valid WavePipeline YAML definition.
     output_artifacts:
       - name: pipeline
         path: output/pipeline.yaml
     handover:
       contract:
         type: json_schema
-        schema: .muzzle/contracts/pipeline.schema.json
+        schema: .wave/contracts/pipeline.schema.json
         source: output/pipeline.yaml
         on_failure: retry
         max_retries: 2
@@ -134,13 +134,13 @@ Generated pipeline definitions are preserved for inspection:
 
 ```bash
 # Find the generated pipeline
-ls /tmp/muzzle/<pipeline-id>/analyze/output/pipeline.yaml
+ls /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
 
 # Inspect it
-cat /tmp/muzzle/<pipeline-id>/analyze/output/pipeline.yaml
+cat /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
 
 # Validate it standalone
-muzzle validate --pipeline /tmp/muzzle/<pipeline-id>/analyze/output/pipeline.yaml
+wave validate --pipeline /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
 ```
 
 ## Best Practices
