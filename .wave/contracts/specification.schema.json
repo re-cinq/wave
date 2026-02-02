@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["title", "user_stories", "data_model"],
+  "properties": {
+    "title": { "type": "string", "minLength": 5 },
+    "user_stories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["as_a", "i_want", "so_that", "acceptance_criteria"],
+        "properties": {
+          "as_a": { "type": "string" },
+          "i_want": { "type": "string" },
+          "so_that": { "type": "string" },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "data_model": { "type": "object" },
+    "api_design": { "type": "object" },
+    "edge_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "testing_strategy": { "type": "object" }
+  }
+}
