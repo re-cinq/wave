@@ -1,0 +1,9 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "temperature": 0.3,
+  "output_format": "json",
+  "allowed_tools": [
+    "Read",
+    "Write(.wave/specs/*)"
+  ]
+}
