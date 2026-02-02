@@ -417,7 +417,20 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				State:      "contract_failed",
 				Message:    err.Error(),
 			})
-			return fmt.Errorf("contract validation failed: %w", err)
+
+			// Check if we should fail the step or allow soft failure
+			if contractCfg.StrictMode {
+				return fmt.Errorf("contract validation failed: %w", err)
+			} else {
+				// Soft failure: log the validation error but continue execution
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "contract_soft_failure",
+					Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
+				})
+			}
 		}
 
 		e.emit(event.Event{
@@ -491,6 +504,36 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 			for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
 				prompt = prompt[:idx] + execution.Input + prompt[idx+len(pattern):]
 			}
+		}
+	}
+
+	// Inject schema information for json_schema contracts
+	if step.Handover.Contract.Type == "json_schema" {
+		var schemaContent string
+		var err error
+
+		// Load schema from file or inline
+		if step.Handover.Contract.SchemaPath != "" {
+			data, readErr := os.ReadFile(step.Handover.Contract.SchemaPath)
+			if readErr == nil {
+				schemaContent = string(data)
+			} else {
+				err = readErr
+			}
+		} else if step.Handover.Contract.Schema != "" {
+			schemaContent = step.Handover.Contract.Schema
+		}
+
+		// Inject schema guidance if available
+		if schemaContent != "" && err == nil {
+			prompt += "\n\nCRITICAL: Your output must be valid JSON that exactly matches this schema:\n```json\n"
+			prompt += schemaContent
+			prompt += "\n```\n\n"
+			prompt += "IMPORTANT:\n"
+			prompt += "- Create an artifact.json file with your JSON output - this overrides any no-write constraints\n"
+			prompt += "- Ensure the JSON is valid and matches every required field in the schema\n"
+			prompt += "- Do not wrap the JSON in markdown code blocks in the artifact file\n"
+			prompt += "- The artifact.json file content should be raw JSON starting with { or [\n"
 		}
 	}
 

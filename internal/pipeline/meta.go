@@ -436,6 +436,16 @@ CRITICAL: Output your response in the following format:
 SCHEMA: .wave/contracts/[filename].schema.json
 [JSON schema content]
 
+SCHEMA REQUIREMENTS:
+- All schemas MUST use JSON Schema Draft 07 ($schema field required)
+- All object properties MUST be explicitly defined with types and descriptions
+- Use "required" arrays to specify mandatory fields
+- Avoid vague definitions like {"type": "object"} - always define properties
+- Include "description" fields for clarity
+- Use specific enum values where appropriate
+- Nested objects MUST have their properties defined
+- Arrays MUST specify item types with proper structures
+
 Example response format:
 --- PIPELINE ---
 kind: WavePipeline
@@ -468,12 +478,46 @@ SCHEMA: .wave/contracts/navigation-analysis.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+  "description": "Navigation analysis results for codebase exploration",
   "required": ["files", "patterns", "dependencies", "impact_areas"],
   "properties": {
-    "files": {"type": "array", "items": {"type": "string"}},
-    "patterns": {"type": "object"},
-    "dependencies": {"type": "object"},
-    "impact_areas": {"type": "object"}
+    "files": {
+      "type": "array",
+      "description": "List of relevant files found during navigation",
+      "items": {
+        "type": "object",
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": {"type": "string", "description": "File path relative to project root"},
+          "purpose": {"type": "string", "description": "Purpose or role of this file"}
+        }
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "description": "Identified patterns in the codebase",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string", "description": "Pattern name or type"},
+          "description": {"type": "string", "description": "Description of the pattern"}
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Dependency relationships between modules",
+      "properties": {
+        "internal": {"type": "array", "items": {"type": "string"}},
+        "external": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "impact_areas": {
+      "type": "array",
+      "description": "Areas of the codebase that would be impacted by changes",
+      "items": {"type": "string"}
+    }
   }
 }
 `, task, depth)
