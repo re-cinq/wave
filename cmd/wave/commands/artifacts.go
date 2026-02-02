@@ -404,6 +404,18 @@ func exportArtifacts(artifacts []ArtifactOutput, exportDir string) error {
 		}
 		namesSeen[key] = true
 
+		// Validate artifact path is within workspace (prevent path traversal)
+		absPath, err := filepath.Abs(a.Path)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("invalid artifact path %s: %v", a.Name, err))
+			continue
+		}
+		workspaceAbs, _ := filepath.Abs(".wave/workspaces")
+		if !strings.HasPrefix(absPath, workspaceAbs+string(filepath.Separator)) && !strings.HasPrefix(absPath, workspaceAbs) {
+			warnings = append(warnings, fmt.Sprintf("artifact path outside workspace: %s", a.Name))
+			continue
+		}
+
 		// Copy the file
 		if err := copyArtifactFile(a.Path, exportPath); err != nil {
 			warnings = append(warnings, fmt.Sprintf("failed to copy artifact %s: %v", a.Name, err))
