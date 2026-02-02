@@ -10,10 +10,13 @@ import (
 type Event struct {
 	Timestamp  time.Time `json:"timestamp"`
 	PipelineID string    `json:"pipeline_id"`
-	StepID     string    `json:"step_id"`
+	StepID     string    `json:"step_id,omitempty"`
 	State      string    `json:"state"`
 	DurationMs int64     `json:"duration_ms"`
-	Message    string    `json:"message"`
+	Message    string    `json:"message,omitempty"`
+	Persona    string    `json:"persona,omitempty"`
+	Artifacts  []string  `json:"artifacts,omitempty"`
+	TokensUsed int       `json:"tokens_used,omitempty"`
 }
 
 type EventEmitter interface {
@@ -41,14 +44,42 @@ func NewNDJSONEmitterWithHumanReadable() *NDJSONEmitter {
 
 func (e *NDJSONEmitter) Emit(event Event) {
 	if e.humanReadable {
-		// Human-readable format with colored output
-		fmt.Printf("\033[36m[%s]\033[0m \033[33mPipeline:%s\033[0m \033[32mStep:%s\033[0m \033[35mState:%s\033[0m \033[34mDuration:%dms\033[0m %s\n",
-			event.Timestamp.Format("2006-01-02 15:04:05"),
-			event.PipelineID,
-			event.StepID,
-			event.State,
-			event.DurationMs,
-			event.Message)
+		stateColors := map[string]string{
+			"started":   "\033[36m",
+			"running":   "\033[33m",
+			"completed": "\033[32m",
+			"failed":    "\033[31m",
+			"retrying":  "\033[35m",
+		}
+		color := stateColors[event.State]
+		if color == "" {
+			color = "\033[0m"
+		}
+		reset := "\033[0m"
+
+		ts := event.Timestamp.Format("15:04:05")
+		if event.StepID != "" {
+			fmt.Printf("%s[%s]%s %s%-10s%s %s", "\033[90m", ts, reset, color, event.State, reset, event.StepID)
+			if event.Persona != "" {
+				fmt.Printf(" (%s)", event.Persona)
+			}
+			if event.DurationMs > 0 {
+				secs := float64(event.DurationMs) / 1000.0
+				fmt.Printf(" %.1fs", secs)
+			}
+			if event.TokensUsed > 0 {
+				fmt.Printf(" %dk tokens", event.TokensUsed/1000)
+			}
+			if len(event.Artifacts) > 0 {
+				fmt.Printf(" → %v", event.Artifacts)
+			}
+			if event.Message != "" {
+				fmt.Printf(" %s", event.Message)
+			}
+			fmt.Println()
+		} else {
+			fmt.Printf("%s[%s]%s %s%-10s%s %s %s\n", "\033[90m", ts, reset, color, event.State, reset, event.PipelineID, event.Message)
+		}
 	} else {
 		e.encoder.Encode(event)
 	}

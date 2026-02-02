@@ -8,7 +8,8 @@ import (
 )
 
 func TestCredentialScrubbing(t *testing.T) {
-	logger, err := NewTraceLogger()
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
@@ -19,66 +20,18 @@ func TestCredentialScrubbing(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{
-			name:     "API_KEY",
-			input:    "API_KEY=sk-1234567890abcdef",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "token",
-			input:    "token:ghp_1234567890abcdef",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "SECRET",
-			input:    "SECRET=mysecret123",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "PASSWORD",
-			input:    "password=passw0rd",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "CREDENTIAL",
-			input:    "CREDENTIAL=cred123",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "AUTH",
-			input:    "AUTH=bearer_token",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "PRIVATE_KEY",
-			input:    "PRIVATE_KEY=pk_1234567890",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "ACCESS_KEY",
-			input:    "ACCESS_KEY=ak_1234567890",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "case insensitive",
-			input:    "api_key=sk-test",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "no credential",
-			input:    "normal_string",
-			expected: "normal_string",
-		},
-		{
-			name:     "mixed case",
-			input:    "Api-Key=value123",
-			expected: "[REDACTED]",
-		},
-		{
-			name:     "with hyphen",
-			input:    "ACCESS-KEY=key123",
-			expected: "[REDACTED]",
-		},
+		{"API_KEY", "API_KEY=sk-1234567890abcdef", "[REDACTED]"},
+		{"token", "token:ghp_1234567890abcdef", "[REDACTED]"},
+		{"SECRET", "SECRET=mysecret123", "[REDACTED]"},
+		{"PASSWORD", "password=passw0rd", "[REDACTED]"},
+		{"CREDENTIAL", "CREDENTIAL=cred123", "[REDACTED]"},
+		{"AUTH", "AUTH=bearer_token", "[REDACTED]"},
+		{"PRIVATE_KEY", "PRIVATE_KEY=pk_1234567890", "[REDACTED]"},
+		{"ACCESS_KEY", "ACCESS_KEY=ak_1234567890", "[REDACTED]"},
+		{"case insensitive", "api_key=sk-test", "[REDACTED]"},
+		{"no credential", "normal_string", "normal_string"},
+		{"mixed case", "Api-Key=value123", "[REDACTED]"},
+		{"with hyphen", "ACCESS-KEY=key123", "[REDACTED]"},
 	}
 
 	for _, tt := range tests {
@@ -98,7 +51,8 @@ func TestCredentialScrubbing(t *testing.T) {
 }
 
 func TestCredentialScrubbingInContext(t *testing.T) {
-	logger, err := NewTraceLogger()
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
@@ -152,23 +106,17 @@ func TestCredentialScrubbingInContext(t *testing.T) {
 }
 
 func TestLogFileCreation(t *testing.T) {
-	oldTraceDir := ".wave/traces"
-	defer func() {
-		if err := os.RemoveAll(oldTraceDir); err != nil {
-			t.Logf("failed to cleanup old trace dir: %v", err)
-		}
-	}()
-
-	logger, err := NewTraceLogger()
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
 
-	if _, err := os.Stat(".wave/traces"); os.IsNotExist(err) {
+	if _, err := os.Stat(traceDir); os.IsNotExist(err) {
 		t.Error("trace directory not created")
 	}
 
-	files, err := os.ReadDir(".wave/traces")
+	files, err := os.ReadDir(traceDir)
 	if err != nil {
 		t.Fatalf("failed to read trace directory: %v", err)
 	}
@@ -192,7 +140,9 @@ func TestLogFileCreation(t *testing.T) {
 		t.Errorf("LogFileOp failed: %v", err)
 	}
 
-	content, err := os.ReadFile(filepath.Join(".wave/traces", traceFile.Name()))
+	logger.Close()
+
+	content, err := os.ReadFile(filepath.Join(traceDir, traceFile.Name()))
 	if err != nil {
 		t.Fatalf("failed to read trace file: %v", err)
 	}
@@ -210,16 +160,11 @@ func TestLogFileCreation(t *testing.T) {
 	if !strings.Contains(contentStr, "step=step-001") {
 		t.Error("trace file missing step ID")
 	}
-
-	logger.Close()
-
-	if _, err := os.Stat(filepath.Join(".wave/traces", traceFile.Name())); os.IsNotExist(err) {
-		t.Error("trace file was deleted")
-	}
 }
 
 func TestClose(t *testing.T) {
-	logger, err := NewTraceLogger()
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
