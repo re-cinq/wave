@@ -5,10 +5,11 @@
   "allowed_tools": [
     "Read",
     "Write",
-    "Bash",
+    "Execute",
     "Edit",
     "Glob",
     "Grep",
+    "LS",
     "WebFetch"
   ],
   "hooks": {
