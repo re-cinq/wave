@@ -108,83 +108,195 @@ wave do "fix the typo in README.md line 42"
 wave run --pipeline speckit-flow --input "add user authentication"
 ```
 
-## Core Commands
+## Command Reference
 
-### `wave init` - Initialize Project
+### `wave init`
+
+Initialize a new Wave project with default configuration.
+
 ```bash
-wave init [--adapter claude|opencode] [--force] [--workspace ./workspace]
+wave init [flags]
 ```
 
-### `wave do` - Quick Ad-Hoc Tasks
-Generate and execute a minimal 2-step pipeline (navigate → execute) without creating files.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--adapter` | `claude` | Default adapter to use (`claude`, `opencode`, `dummy`) |
+| `--force` | `false` | Overwrite existing files |
+| `--workspace` | `.wave/workspaces` | Workspace directory path |
+| `--output` | `wave.yaml` | Output path for manifest file |
 
+**Examples:**
 ```bash
-# Basic usage
-wave do "fix the broken test in auth_test.go"
-
-# With specific persona
-wave do "audit authentication middleware for SQL injection" --persona auditor
-
-# Save generated pipeline for reuse
-wave do "add dark mode toggle" --save .wave/pipelines/dark-mode.yaml
+wave init                           # Initialize with Claude adapter
+wave init --adapter opencode        # Use OpenCode adapter
+wave init --force                   # Overwrite existing configuration
 ```
 
-### `wave run` - Execute Pipelines
-```bash
-# Run with input
-wave run --pipeline speckit-flow --input "implement JWT authentication"
+**Creates:**
+- `wave.yaml` — Project manifest with adapters and personas
+- `.wave/personas/` — AI persona system prompts (navigator, philosopher, craftsman, auditor, summarizer)
+- `.wave/pipelines/` — Example pipelines (speckit-flow, hotfix)
+- `.wave/contracts/` — JSON schema contracts for validation
+- `.wave/workspaces/` — Ephemeral workspace root
+- `.wave/traces/` — Audit log directory
 
-# Dry run to preview execution plan
+---
+
+### `wave do`
+
+Execute an ad-hoc task with a minimal navigate→execute pipeline.
+
+```bash
+wave do <task description> [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--persona` | `craftsman` | Override execute persona |
+| `--save` | — | Save generated pipeline YAML to path |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+| `--mock` | `false` | Use mock adapter (for testing) |
+| `--dry-run` | `false` | Show execution plan without running |
+
+**Examples:**
+```bash
+wave do "fix the typo in README.md"
+wave do "audit auth middleware for SQL injection" --persona auditor
+wave do "add dark mode toggle" --save dark-mode.yaml
+wave do "refactor user service" --dry-run
+```
+
+---
+
+### `wave run`
+
+Execute a defined pipeline.
+
+```bash
+wave run --pipeline <name> [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--pipeline` | — | Pipeline name to run (required) |
+| `--input` | — | Input data for the pipeline |
+| `--dry-run` | `false` | Show execution plan without running |
+| `--from-step` | — | Start execution from specific step |
+| `--timeout` | manifest default | Timeout in minutes |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+| `--mock` | `false` | Use mock adapter (for testing) |
+
+**Examples:**
+```bash
+wave run --pipeline speckit-flow --input "add user authentication"
+wave run --pipeline hotfix --input "fix memory leak in cache.go"
 wave run --pipeline speckit-flow --dry-run
-
-# Resume from specific step
 wave run --pipeline speckit-flow --from-step implement
+wave run --pipeline speckit-flow --timeout 60
 ```
 
-### `wave list` - Discover Resources
+---
+
+### `wave list`
+
+List available pipelines, personas, and adapters.
+
 ```bash
-# List available personas
-wave list personas
-
-# List available pipelines  
-wave list pipelines
-
-# List recent pipeline runs
-wave list runs
+wave list [pipelines|personas|adapters] [flags]
 ```
 
-### `wave resume` - Resume Interrupted Pipelines
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--manifest` | `wave.yaml` | Path to manifest file |
+| `--format` | `table` | Output format (`table`, `json`) |
+
+**Examples:**
 ```bash
-# Resume from last checkpoint
-wave resume --pipeline-id <uuid>
-
-# Resume from specific step
-wave resume --pipeline-id <uuid> --from-step implement
+wave list                   # List everything
+wave list pipelines         # List available pipelines
+wave list personas          # List configured personas
+wave list adapters          # List configured adapters
 ```
 
-### `wave clean` - Cleanup Workspaces
+---
+
+### `wave resume`
+
+Resume a paused or failed pipeline execution.
+
 ```bash
-# Preview cleanup
-wave clean --all --dry-run
-
-# Clean all workspaces
-wave clean --all
-
-# Clean specific pipeline
-wave clean --pipeline-id <uuid>
+wave resume --pipeline <id> [flags]
 ```
 
-### `wave validate` - Check Configuration
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--pipeline` | — | Pipeline ID to resume (required) |
+| `--from-step` | — | Resume from specific step |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+
+**Examples:**
 ```bash
-# Validate everything
-wave validate
-
-# Validate with verbose output
-wave validate --verbose
-
-# Validate specific pipeline
-wave validate --pipeline .wave/pipelines/deploy.yaml
+wave resume --pipeline abc123
+wave resume --pipeline abc123 --from-step implement
 ```
+
+---
+
+### `wave clean`
+
+Remove generated workspaces, state files, and cached artifacts.
+
+```bash
+wave clean [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Clean all workspaces and state |
+| `--pipeline` | — | Clean specific pipeline workspace |
+| `--force` | `false` | Skip confirmation |
+
+**Examples:**
+```bash
+wave clean --all                    # Remove all workspaces and state
+wave clean --pipeline speckit-flow  # Clean specific pipeline
+wave clean --all --force            # Clean without confirmation
+```
+
+**Removes:**
+- `.wave/state.db` — Pipeline state database
+- `.wave/traces/` — Audit logs
+- `.wave/workspaces/` — All ephemeral workspaces
+
+---
+
+### `wave validate`
+
+Validate Wave configuration and project structure.
+
+```bash
+wave validate [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--manifest` | `wave.yaml` | Path to manifest file |
+| `--pipeline` | — | Specific pipeline to validate |
+| `-v, --verbose` | `false` | Verbose output |
+
+**Examples:**
+```bash
+wave validate                              # Validate everything
+wave validate --verbose                    # Show detailed validation steps
+wave validate --pipeline speckit-flow      # Validate specific pipeline
+```
+
+**Checks:**
+- Manifest syntax and structure
+- Required fields (apiVersion, kind, metadata.name)
+- Adapter binary availability in PATH
+- Persona system prompt file existence
+- Pipeline step dependencies and persona references
 
 ## Configuration
 
