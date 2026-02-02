@@ -325,6 +325,11 @@ steps:
 
 // extractYAML extracts YAML content from potentially markdown-wrapped output.
 func extractYAML(output string) string {
+	// First, unescape literal \n and \t sequences that may come from JSON encoding
+	output = strings.ReplaceAll(output, "\\n", "\n")
+	output = strings.ReplaceAll(output, "\\t", "\t")
+	output = strings.ReplaceAll(output, "\\\"", "\"")
+
 	// Try to extract from code block
 	if idx := strings.Index(output, "```yaml"); idx != -1 {
 		start := idx + 7
