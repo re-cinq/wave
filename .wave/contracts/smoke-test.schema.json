@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Smoke Test Analysis",
+  "type": "object",
+  "required": ["summary", "files_examined", "recommendation"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Brief summary of the analysis"
+    },
+    "files_examined": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "List of files that were examined"
+    },
+    "recommendation": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Recommendation based on analysis"
+    }
+  },
+  "additionalProperties": false
+}

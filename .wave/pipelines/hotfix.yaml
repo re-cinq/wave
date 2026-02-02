@@ -42,6 +42,7 @@ steps:
       contract:
         type: json_schema
         source: output/findings.json
+        schema_path: .wave/contracts/findings.schema.json
         on_failure: retry
         max_retries: 2
 

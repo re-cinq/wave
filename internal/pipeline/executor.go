@@ -359,7 +359,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 
 	// Write output artifacts to workspace
-	e.writeOutputArtifacts(execution, step, workspacePath, stdoutData)
+	// Use ResultContent if available (extracted from adapter response), otherwise fall back to raw stdout
+	artifactContent := stdoutData
+	if result.ResultContent != "" {
+		artifactContent = []byte(result.ResultContent)
+	}
+	e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
 
 	// Check relay/compaction threshold (FR-009)
 	if err := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, workspacePath, string(stdoutData)); err != nil {
@@ -377,6 +382,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if step.Handover.Contract.Type != "" {
 		contractCfg := contract.ContractConfig{
 			Type:       step.Handover.Contract.Type,
+			Source:     step.Handover.Contract.Source,
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    step.Handover.Contract.Command,
