@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -554,8 +555,13 @@ func TestTimeout_EdgeCases(t *testing.T) {
 	t.Run("very short timeout", func(t *testing.T) {
 		adapter := &mockCompactionAdapter{
 			runFunc: func(ctx context.Context, cfg CompactionConfig) (string, error) {
-				time.Sleep(100 * time.Millisecond) // Longer than timeout
-				return "should not complete", nil
+				// Simulate slow operation that respects context
+				select {
+				case <-time.After(100 * time.Millisecond):
+					return "should not complete", nil
+				case <-ctx.Done():
+					return "", ctx.Err()
+				}
 			},
 		}
 

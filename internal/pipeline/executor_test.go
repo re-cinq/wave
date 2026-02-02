@@ -679,7 +679,6 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 
 	// Mock adapter that returns empty ResultContent (simulating parsing failure or compaction effect)
 	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithResult(""), // Empty ResultContent
 		adapter.WithStdoutJSON(`{"type": "result", "result": ""}`), // Empty result in JSON
 		adapter.WithTokensUsed(1000),
 	)
@@ -697,7 +696,7 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 				ID:      "step1",
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "generate output"},
-				OutputArtifacts: []OutputArtifact{
+				OutputArtifacts: []ArtifactDef{
 					{Name: "result", Path: "output.json"},
 				},
 			},
