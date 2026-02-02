@@ -2,7 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -223,14 +226,23 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 
 // invokePhilosopher calls the philosopher persona to generate a pipeline YAML.
 func (e *MetaPipelineExecutor) invokePhilosopher(ctx context.Context, task string, m *manifest.Manifest) (string, int, error) {
+	genResult, tokensUsed, err := e.invokePhilosopherWithSchemas(ctx, task, m)
+	if err != nil {
+		return "", tokensUsed, err
+	}
+	return genResult.PipelineYAML, tokensUsed, nil
+}
+
+// invokePhilosopherWithSchemas calls the philosopher persona to generate pipeline and schemas.
+func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context, task string, m *manifest.Manifest) (*PipelineGenerationResult, int, error) {
 	persona := m.GetPersona(PhilosopherPersona)
 	if persona == nil {
-		return "", 0, fmt.Errorf("philosopher persona not found in manifest")
+		return nil, 0, fmt.Errorf("philosopher persona not found in manifest")
 	}
 
 	adapterDef := m.GetAdapter(persona.Adapter)
 	if adapterDef == nil {
-		return "", 0, fmt.Errorf("adapter %q for philosopher not found", persona.Adapter)
+		return nil, 0, fmt.Errorf("adapter %q for philosopher not found", persona.Adapter)
 	}
 
 	prompt := buildPhilosopherPrompt(task, e.currentDepth)
@@ -255,25 +267,57 @@ func (e *MetaPipelineExecutor) invokePhilosopher(ctx context.Context, task strin
 
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
-		return "", 0, fmt.Errorf("philosopher adapter execution failed: %w", err)
+		return nil, 0, fmt.Errorf("philosopher adapter execution failed: %w", err)
 	}
-
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "philosopher_completed",
-		Message:    fmt.Sprintf("tokens_used=%d", result.TokensUsed),
-	})
 
 	// Read stdout from the adapter result
 	buf := make([]byte, 1024*1024) // 1MB buffer
 	n, _ := result.Stdout.Read(buf)
 	output := string(buf[:n])
 
-	// Extract YAML from the output (may be wrapped in markdown code blocks)
-	yamlContent := extractYAML(output)
+	// Extract pipeline and schemas from the output
+	genResult, err := extractPipelineAndSchemas(output)
+	if err != nil {
+		return nil, result.TokensUsed, fmt.Errorf("failed to extract pipeline and schemas: %w", err)
+	}
 
-	return yamlContent, result.TokensUsed, nil
+	// Save schema files to disk
+	if err := e.saveSchemaFiles(genResult.Schemas); err != nil {
+		return nil, result.TokensUsed, fmt.Errorf("failed to save schema files: %w", err)
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      "philosopher_completed",
+		Message:    fmt.Sprintf("tokens_used=%d schemas_generated=%d", result.TokensUsed, len(genResult.Schemas)),
+	})
+
+	return genResult, result.TokensUsed, nil
+}
+
+// saveSchemaFiles writes schema definitions to their respective files.
+func (e *MetaPipelineExecutor) saveSchemaFiles(schemas map[string]string) error {
+	for schemaPath, schemaContent := range schemas {
+		// Ensure the directory exists
+		dir := filepath.Dir(schemaPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+
+		// Write the schema file
+		if err := os.WriteFile(schemaPath, []byte(schemaContent), 0644); err != nil {
+			return fmt.Errorf("failed to write schema file %s: %w", schemaPath, err)
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "schema_saved",
+			Message:    fmt.Sprintf("schema_path=%s", schemaPath),
+		})
+	}
+	return nil
 }
 
 // buildPhilosopherPrompt creates the prompt for the philosopher to generate a pipeline.
@@ -290,12 +334,26 @@ Generate a valid WavePipeline YAML that follows these STRICT requirements:
 1. The FIRST step MUST use the "navigator" persona to analyze the task
 2. ALL steps MUST have memory.strategy set to "fresh"
 3. ALL steps MUST have a handover.contract configuration
-4. Each step should have clear dependencies when needed
-5. Use appropriate personas for each step (navigator, philosopher, implementer, reviewer)
+4. ALL steps with json_schema contracts MUST have output_artifacts configuration
+5. Each step should have clear dependencies when needed
+6. Use appropriate personas for each step (navigator, philosopher, implementer, reviewer)
+7. For navigator steps: Use simple, focused analysis prompts to prevent hanging
+8. Navigator steps should have limited scope and clear output requirements
+9. Prompts must explicitly instruct saving JSON output to "artifact.json"
+10. Navigator prompts must override the no-write constraint for artifact.json creation
 
-Output ONLY valid YAML for a WavePipeline. Do not include any explanations or markdown formatting.
+CRITICAL: Output your response in the following format:
 
-Example structure:
+--- PIPELINE ---
+[Put the WavePipeline YAML here]
+
+--- SCHEMAS ---
+[For each step with json_schema contract, provide the schema definition in this format:]
+SCHEMA: .wave/contracts/[filename].schema.json
+[JSON schema content]
+
+Example response format:
+--- PIPELINE ---
 kind: WavePipeline
 metadata:
   name: generated-pipeline
@@ -311,39 +369,80 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Analyze: {{ input }}"
+      source: "Identify key files and patterns for: {{ input }}. Output structured JSON with files, patterns, dependencies, and impact_areas. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow."
+    output_artifacts:
+      - name: analysis
+        path: artifact.json
+        type: json
     handover:
       contract:
         type: json_schema
-        schema_path: ".wave/contracts/analysis.schema.json"
-  - id: implement
-    persona: implementer
-    dependencies: [navigate]
-    memory:
-      strategy: fresh
-      inject_artifacts:
-        - step: navigate
-          artifact: analysis
-          as: context
-    workspace:
-      root: "./"
-    exec:
-      type: prompt
-      source: "Implement based on analysis"
-    handover:
-      contract:
-        type: test_suite
-        command: "go test ./..."
+        schema_path: ".wave/contracts/navigation-analysis.schema.json"
+
+--- SCHEMAS ---
+SCHEMA: .wave/contracts/navigation-analysis.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["files", "patterns", "dependencies", "impact_areas"],
+  "properties": {
+    "files": {"type": "array", "items": {"type": "string"}},
+    "patterns": {"type": "object"},
+    "dependencies": {"type": "object"},
+    "impact_areas": {"type": "object"}
+  }
+}
 `, task, depth)
 }
 
-// extractYAML extracts YAML content from potentially markdown-wrapped output.
-func extractYAML(output string) string {
+// PipelineGenerationResult holds both pipeline YAML and schema definitions.
+type PipelineGenerationResult struct {
+	PipelineYAML string
+	Schemas      map[string]string // filename -> schema content
+}
+
+// extractPipelineAndSchemas extracts both pipeline and schemas from the new format.
+func extractPipelineAndSchemas(output string) (*PipelineGenerationResult, error) {
 	// First, unescape literal \n and \t sequences that may come from JSON encoding
 	output = strings.ReplaceAll(output, "\\n", "\n")
 	output = strings.ReplaceAll(output, "\\t", "\t")
 	output = strings.ReplaceAll(output, "\\\"", "\"")
 
+	result := &PipelineGenerationResult{
+		Schemas: make(map[string]string),
+	}
+
+	// Extract pipeline section
+	pipelineStart := strings.Index(output, "--- PIPELINE ---")
+	if pipelineStart == -1 {
+		// Fallback to old format for backward compatibility
+		result.PipelineYAML = extractYAMLLegacy(output)
+		return result, nil
+	}
+
+	schemasStart := strings.Index(output, "--- SCHEMAS ---")
+	if schemasStart == -1 {
+		return nil, fmt.Errorf("found PIPELINE section but missing SCHEMAS section")
+	}
+
+	// Extract pipeline YAML
+	pipelineContent := output[pipelineStart+len("--- PIPELINE ---"):schemasStart]
+	result.PipelineYAML = strings.TrimSpace(pipelineContent)
+
+	// Remove markdown code blocks from pipeline if present
+	result.PipelineYAML = extractYAMLFromCodeBlock(result.PipelineYAML)
+
+	// Extract schemas
+	schemasContent := output[schemasStart+len("--- SCHEMAS ---"):]
+	if err := extractSchemaDefinitions(schemasContent, result.Schemas); err != nil {
+		return nil, fmt.Errorf("failed to extract schemas: %w", err)
+	}
+
+	return result, nil
+}
+
+// extractYAMLLegacy provides backward compatibility for the old format.
+func extractYAMLLegacy(output string) string {
 	// Try to extract from code block
 	if idx := strings.Index(output, "```yaml"); idx != -1 {
 		start := idx + 7
@@ -368,6 +467,91 @@ func extractYAML(output string) string {
 	}
 
 	return strings.TrimSpace(output)
+}
+
+// extractYAMLFromCodeBlock removes markdown code block wrappers from YAML content.
+func extractYAMLFromCodeBlock(content string) string {
+	content = strings.TrimSpace(content)
+
+	// Remove ```yaml wrapper
+	if strings.HasPrefix(content, "```yaml") {
+		if end := strings.Index(content, "```"); end != -1 {
+			start := strings.Index(content, "\n")
+			if start != -1 {
+				if endBlock := strings.Index(content[start:], "```"); endBlock != -1 {
+					return strings.TrimSpace(content[start : start+endBlock])
+				}
+			}
+		}
+	}
+
+	// Remove ``` wrapper
+	if strings.HasPrefix(content, "```") {
+		if end := strings.Index(content, "```"); end != -1 {
+			start := strings.Index(content, "\n")
+			if start != -1 {
+				if endBlock := strings.Index(content[start:], "```"); endBlock != -1 {
+					return strings.TrimSpace(content[start : start+endBlock])
+				}
+			}
+		}
+	}
+
+	return content
+}
+
+// extractSchemaDefinitions parses schema definitions from the SCHEMAS section.
+func extractSchemaDefinitions(content string, schemas map[string]string) error {
+	lines := strings.Split(content, "\n")
+	var currentSchemaPath string
+	var currentSchemaLines []string
+	var braceCount int
+	var inSchema bool
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "SCHEMA: ") {
+			// Save previous schema if exists
+			if currentSchemaPath != "" && len(currentSchemaLines) > 0 {
+				schemaContent := strings.Join(currentSchemaLines, "\n")
+				schemas[currentSchemaPath] = strings.TrimSpace(schemaContent)
+			}
+			// Start new schema
+			currentSchemaPath = strings.TrimPrefix(line, "SCHEMA: ")
+			currentSchemaLines = []string{}
+			braceCount = 0
+			inSchema = false
+		} else if currentSchemaPath != "" && line != "" {
+			// Track JSON brace balance to detect end of schema
+			if strings.HasPrefix(line, "{") {
+				inSchema = true
+			}
+
+			if inSchema {
+				currentSchemaLines = append(currentSchemaLines, line)
+
+				// Count braces to detect end of JSON object
+				braceCount += strings.Count(line, "{") - strings.Count(line, "}")
+
+				// If braces are balanced and we have content, schema is complete
+				if braceCount == 0 && len(currentSchemaLines) > 0 {
+					schemaContent := strings.Join(currentSchemaLines, "\n")
+					schemas[currentSchemaPath] = strings.TrimSpace(schemaContent)
+					currentSchemaPath = ""
+					currentSchemaLines = []string{}
+					inSchema = false
+				}
+			}
+		}
+	}
+
+	// Save last schema if it wasn't already saved
+	if currentSchemaPath != "" && len(currentSchemaLines) > 0 && braceCount == 0 {
+		schemaContent := strings.Join(currentSchemaLines, "\n")
+		schemas[currentSchemaPath] = strings.TrimSpace(schemaContent)
+	}
+
+	return nil
 }
 
 // ValidateGeneratedPipeline performs semantic validation on a generated pipeline.
@@ -405,7 +589,7 @@ func ValidateGeneratedPipeline(p *Pipeline) error {
 		return fmt.Errorf("first step must use %q persona, got %q", NavigatorPersona, sortedSteps[0].Persona)
 	}
 
-	// Semantic checks 2 & 3: All steps must have contract and fresh memory
+	// Semantic checks 2, 3 & 4: All steps must have contract, fresh memory, and valid schemas
 	var errors []string
 	for _, step := range p.Steps {
 		// Check for handover contract
@@ -417,10 +601,44 @@ func ValidateGeneratedPipeline(p *Pipeline) error {
 		if step.Memory.Strategy != "fresh" {
 			errors = append(errors, fmt.Sprintf("step %q must use memory.strategy='fresh', got %q", step.ID, step.Memory.Strategy))
 		}
+
+		// Check for schema file existence and validity (for json_schema contracts)
+		if step.Handover.Contract.Type == "json_schema" && step.Handover.Contract.SchemaPath != "" {
+			if err := validateSchemaFile(step.Handover.Contract.SchemaPath); err != nil {
+				errors = append(errors, fmt.Sprintf("step %q schema validation failed: %v", step.ID, err))
+			}
+		}
 	}
 
 	if len(errors) > 0 {
 		return fmt.Errorf("semantic validation failed:\n  - %s", strings.Join(errors, "\n  - "))
+	}
+
+	return nil
+}
+
+// validateSchemaFile checks if a schema file exists and contains valid JSON Schema.
+func validateSchemaFile(schemaPath string) error {
+	// Check if file exists
+	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
+		return fmt.Errorf("schema file does not exist: %s", schemaPath)
+	}
+
+	// Read and validate JSON syntax
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to read schema file %s: %w", schemaPath, err)
+	}
+
+	// Basic JSON schema validation - check if it's valid JSON with required fields
+	var schema map[string]interface{}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		return fmt.Errorf("schema file %s contains invalid JSON: %w", schemaPath, err)
+	}
+
+	// Check for basic JSON schema structure
+	if _, hasType := schema["type"]; !hasType {
+		return fmt.Errorf("schema file %s missing required 'type' field", schemaPath)
 	}
 
 	return nil
