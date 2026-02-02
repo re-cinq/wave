@@ -1,0 +1,92 @@
+kind: WavePipeline
+metadata:
+    name: gh-issue-enhancement
+    description: Filter and enhance GitHub issues with poor titles or descriptions
+input:
+    source: meta
+steps:
+    - id: navigate
+      persona: navigator
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Analyze the task: {{ input }}. Identify the GitHub repository structure, issue patterns, and enhancement workflow. Output structured JSON with repository info, issue filtering criteria, enhancement strategies, and workflow steps. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: analysis
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/navigation-analysis.schema.json
+    - id: scan_issues
+      persona: implementer
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: Using GitHub CLI, scan all issues in the repository. Filter for issues with short titles (< 10 words) or short/empty descriptions (< 50 characters or empty). Create a structured report of problematic issues with their current state. Save results to artifact.json.
+      output_artifacts:
+        - name: issue_scan
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/issue-scan.schema.json
+    - id: analyze_issues
+      persona: philosopher
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Analyze the filtered issues from the previous step. For each issue, determine what enhancements are needed: better title suggestions, detailed description requirements, labels, milestones, etc. Create an enhancement plan for each issue. Save analysis to artifact.json.'
+      output_artifacts:
+        - name: analysis_results
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/issue-analysis.schema.json
+    - id: enhance_issues
+      persona: implementer
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: Execute the enhancement plan from the previous step. Use GitHub CLI to update each issue with improved titles, descriptions, labels, and other metadata. Work through issues one by one, applying enhancements systematically. Document all changes made. Save results to artifact.json.
+      output_artifacts:
+        - name: enhancement_results
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/enhancement-results.schema.json
+    - id: reflect_and_verify
+      persona: reviewer
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: Review the enhancement results from the previous step. Verify that all targeted issues have been properly enhanced. Check for any errors, missed issues, or improvement opportunities. Provide a comprehensive reflection on the enhancement process and outcomes. Save review to artifact.json.
+      output_artifacts:
+        - name: review
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/review.schema.json
