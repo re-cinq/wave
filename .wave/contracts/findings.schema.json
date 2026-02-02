@@ -2,7 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Investigation Findings",
   "type": "object",
-  "required": ["root_cause", "affected_files", "fix_approach"],
+  "required": [
+    "root_cause",
+    "affected_files",
+    "fix_approach"
+  ],
   "properties": {
     "root_cause": {
       "type": "string",
@@ -10,12 +14,16 @@
     },
     "affected_files": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "List of affected file paths"
     },
     "recent_commits": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "List of relevant commit hashes"
     },
     "blast_radius": {

@@ -1,16 +1,28 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["files", "patterns", "dependencies", "impact_areas"],
+  "required": [
+    "files",
+    "patterns",
+    "dependencies",
+    "impact_areas"
+  ],
   "properties": {
     "files": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "purpose"],
+        "required": [
+          "path",
+          "purpose"
+        ],
         "properties": {
-          "path": { "type": "string" },
-          "purpose": { "type": "string" }
+          "path": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          }
         }
       },
       "minItems": 1
@@ -19,17 +31,28 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "description"],
+        "required": [
+          "name",
+          "description"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" }
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
         }
       }
     },
-    "dependencies": { "type": "object" },
+    "dependencies": {
+      "type": "object"
+    },
     "impact_areas": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     }
   }
 }
