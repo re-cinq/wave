@@ -29,6 +29,7 @@ type AdapterRunConfig struct {
 	AllowedTools  []string
 	DenyTools     []string
 	OutputFormat  string
+	Debug         bool
 }
 
 type AdapterResult struct {
