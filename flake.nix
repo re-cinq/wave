@@ -15,7 +15,7 @@
         # Common packages for all shells
         commonPackages = with pkgs; [
           go
-          claude-code
+          #          claude-code
           gh
           git
           jq
