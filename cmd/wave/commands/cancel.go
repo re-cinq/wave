@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -187,8 +189,13 @@ func outputCancelResult(format string, result CancelResult) error {
 // It reads the PID from a pidfile if available, sends SIGTERM, waits 5 seconds,
 // then sends SIGKILL if the process is still running.
 func forceKillRun(runID string) error {
+	// Validate runID to prevent path traversal
+	if strings.Contains(runID, "..") || strings.ContainsAny(runID, `/\`) || filepath.IsAbs(runID) {
+		return fmt.Errorf("invalid run ID: %s", runID)
+	}
+
 	// Try to read PID from pidfile
-	pidFile := fmt.Sprintf(".wave/pids/%s.pid", runID)
+	pidFile := filepath.Join(".wave", "pids", runID+".pid")
 	pidData, err := os.ReadFile(pidFile)
 	if err != nil {
 		// No pidfile - the process may have already exited or we don't track it
