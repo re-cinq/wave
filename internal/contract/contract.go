@@ -13,7 +13,8 @@ type ContractConfig struct {
 	SchemaPath  string   `json:"schemaPath,omitempty"`
 	Command     string   `json:"command,omitempty"`
 	CommandArgs []string `json:"commandArgs,omitempty"`
-	StrictMode  bool     `json:"strictMode,omitempty"`
+	StrictMode  bool     `json:"strictMode,omitempty"` // Deprecated: use MustPass instead
+	MustPass    bool     `json:"must_pass,omitempty"`   // New: determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"`
 }
 
