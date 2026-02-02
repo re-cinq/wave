@@ -2,6 +2,22 @@
 
 Pipelines are the core execution model of Wave. A pipeline is a **Directed Acyclic Graph (DAG)** of steps, where each step runs one persona in one ephemeral workspace.
 
+## Built-in Pipelines
+
+Wave ships with 9 pipelines:
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `speckit-flow` | navigate → specify → plan → implement → review | Feature development |
+| `hotfix` | investigate → fix → verify | Production bugs |
+| `code-review` | diff → security + quality → summary | PR reviews |
+| `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
+| `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+| `test-gen` | analyze-coverage → generate → verify | Test coverage |
+| `docs` | discover → generate → review | Documentation |
+| `plan` | explore → breakdown → review | Task planning |
+| `migrate` | impact → plan → implement → review | Migrations |
+
 ## How Pipelines Work
 
 ```mermaid

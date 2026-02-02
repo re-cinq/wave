@@ -2,86 +2,98 @@
 layout: home
 hero:
   name: Wave
-  text: Multi-Agent Orchestrator for Claude Code
-  tagline: Pipeline DAGs, persona-scoped safety, handover contracts, and context relay — all from a single YAML manifest.
-  image:
-    src: /logo.svg
-    alt: Wave
+  text: Multi-Agent Pipelines
+  tagline: Orchestrate LLM agents with scoped permissions, validated contracts, and isolated workspaces.
   actions:
     - theme: brand
       text: Get Started
       link: /guide/quick-start
     - theme: alt
-      text: CLI Reference
-      link: /reference/cli
+      text: View Pipelines
+      link: /guide/pipelines
     - theme: alt
-      text: View on GitHub
+      text: GitHub
       link: https://github.com/recinq/wave
 features:
-  - icon: 📋
-    title: Manifest-Driven
-    details: One wave.yaml declares adapters, personas, runtime settings, and skill mounts. The manifest is the single source of truth — version it, validate it, share it.
-    link: /concepts/manifests
-    linkText: Learn about manifests
-  - icon: 🔀
-    title: Pipeline DAGs
-    details: Define multi-step workflows as directed acyclic graphs. Steps execute in dependency order with automatic parallelism, artifact injection, and contract validation at every boundary.
-    link: /concepts/pipelines
-    linkText: How pipelines work
   - icon: 🛡️
     title: Persona-Scoped Safety
-    details: Each agent runs with explicit permissions, hooks, and tool restrictions. A navigator can't write files. A craftsman can't push to remote. Deny patterns always win.
+    details: Each agent runs with explicit permissions. Navigator can't write. Craftsman can't push. Auditor can't fix. Deny patterns always win.
     link: /concepts/personas
-    linkText: Understand personas
+  - icon: 🔀
+    title: Pipeline DAGs
+    details: Multi-step workflows with dependency resolution, parallel execution, and artifact injection between steps.
+    link: /concepts/pipelines
   - icon: 📄
-    title: Handover Contracts
-    details: JSON Schema, TypeScript interface, or test suite validation at every step boundary. Malformed artifacts never propagate — failed contracts trigger retries or halt the pipeline.
+    title: Validated Contracts
+    details: JSON Schema, TypeScript, or test suite validation at every boundary. Malformed output triggers retry or halt.
     link: /concepts/contracts
-    linkText: Contract system
+  - icon: ⚡
+    title: 9 Built-in Pipelines
+    details: "speckit-flow, hotfix, code-review, refactor, debug, test-gen, docs, plan, migrate — ready to use."
+    link: /guide/pipelines
+  - icon: 👥
+    title: 7 Specialized Personas
+    details: "navigator, philosopher, planner, craftsman, debugger, auditor, summarizer — each with role-specific permissions."
+    link: /guide/personas
   - icon: 🧠
     title: Context Relay
-    details: Automatic compaction when agents approach token limits. A summarizer persona creates structured checkpoints, and fresh instances resume without repeating work.
+    details: Automatic compaction when approaching token limits. Summarizer creates checkpoints for seamless handoffs.
     link: /guides/relay-compaction
-    linkText: Relay mechanism
-  - icon: ⚡
-    title: Ad-Hoc Execution
-    details: "Run wave do 'fix the bug' for quick tasks. Wave generates a 2-step pipeline (navigate → execute) with full safety model — no YAML required."
-    link: /reference/cli#wave-do
-    linkText: Ad-hoc commands
 ---
+
+## Install
+
+```bash
+go install github.com/recinq/wave/cmd/wave@latest
+```
 
 ## Quick Start
 
 ```bash
-# Install
-curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
-chmod +x wave && sudo mv wave /usr/local/bin/
-
 # Initialize project
-cd your-project && wave init
-
-# Validate configuration
-wave validate
+wave init
 
 # Run a pipeline
-wave run --pipeline .wave/pipelines/speckit-flow.yaml \
-  --input "add user authentication"
+wave run --pipeline speckit-flow --input "add user authentication"
 
-# Or just do a quick task
-wave do "fix the broken login test"
+# Or quick ad-hoc tasks
+wave do "fix the failing test"
 ```
+
+## Pipelines at a Glance
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `speckit-flow` | navigate → specify → plan → implement → review | Feature development |
+| `hotfix` | investigate → fix → verify | Production bugs |
+| `code-review` | diff → security + quality → summary | PR reviews |
+| `refactor` | analyze → baseline → refactor → verify | Safe refactoring |
+| `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+| `test-gen` | analyze → generate → verify | Test coverage |
+| `docs` | discover → generate → review | Documentation |
+| `plan` | explore → breakdown → review | Task planning |
+| `migrate` | impact → plan → implement → review | Migrations |
+
+## Personas at a Glance
+
+| Persona | Temperature | Purpose |
+|---------|-------------|---------|
+| `navigator` | 0.1 | Read-only codebase exploration |
+| `philosopher` | 0.3 | Architecture and specification |
+| `planner` | 0.3 | Task breakdown and planning |
+| `craftsman` | 0.7 | Implementation and testing |
+| `debugger` | 0.2 | Systematic issue diagnosis |
+| `auditor` | 0.1 | Security and quality review |
+| `summarizer` | 0.0 | Context compaction |
 
 ## How It Works
 
-Wave wraps LLM CLIs (like Claude Code) as subprocess adapters, then orchestrates them through pipeline DAGs where each step binds a persona to an ephemeral workspace.
-
 ```
 wave.yaml → Pipeline DAG → Step Execution → Artifacts
-                  │                 │
-              Dependency        Persona binding
-              resolution        Workspace isolation
-              Cycle detection   Contract validation
-              Parallelism       State persistence
+                │                 │
+            Dependency        Persona binding
+            resolution        Workspace isolation
+            Parallelism       Contract validation
 ```
 
-Every step gets fresh context, explicit permissions, and validated handover contracts. Pipeline state is persisted in SQLite for resumption after interruptions.
+Every step gets fresh context, explicit permissions, and validated handover contracts. State persists for resumption after interruptions.
