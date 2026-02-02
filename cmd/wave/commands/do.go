@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,12 +53,15 @@ The task description is passed as arguments or via stdin.`,
 func runDo(input string, opts DoOptions) error {
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("manifest file not found: %s\nRun 'wave init' to create a new Wave project or specify --manifest path", opts.Manifest)
+		}
 		return fmt.Errorf("failed to read manifest: %w", err)
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
+		return fmt.Errorf("failed to parse manifest %s: %w\nEnsure the file is valid YAML with correct indentation", opts.Manifest, err)
 	}
 
 	executePersona := opts.Persona
@@ -84,7 +88,10 @@ func runDo(input string, opts DoOptions) error {
 				savePath += ".yaml"
 			}
 		}
-		os.MkdirAll(".wave/pipelines", 0755)
+		// Create parent directories for the save path
+		if dir := filepath.Dir(savePath); dir != "" {
+			os.MkdirAll(dir, 0755)
+		}
 		data, err := yaml.Marshal(p)
 		if err != nil {
 			return fmt.Errorf("failed to marshal pipeline: %w", err)

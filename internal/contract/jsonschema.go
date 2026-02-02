@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -18,47 +19,116 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 	if cfg.Schema != "" {
 		var schemaDoc interface{}
 		if err := json.Unmarshal([]byte(cfg.Schema), &schemaDoc); err != nil {
-			return fmt.Errorf("failed to parse inline schema: %w", err)
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to parse inline schema",
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 		if err := compiler.AddResource(schemaURL, schemaDoc); err != nil {
-			return fmt.Errorf("failed to add schema resource: %w", err)
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to add schema resource",
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 	} else if cfg.SchemaPath != "" {
 		data, err := os.ReadFile(cfg.SchemaPath)
 		if err != nil {
-			return fmt.Errorf("failed to read schema file: %w", err)
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      fmt.Sprintf("failed to read schema file: %s", cfg.SchemaPath),
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 		var schemaDoc interface{}
 		if err := json.Unmarshal(data, &schemaDoc); err != nil {
-			return fmt.Errorf("failed to parse schema file: %w", err)
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      fmt.Sprintf("failed to parse schema file: %s", cfg.SchemaPath),
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 		if err := compiler.AddResource(cfg.SchemaPath, schemaDoc); err != nil {
-			return fmt.Errorf("failed to add schema resource: %w", err)
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to add schema resource",
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 		schemaURL = cfg.SchemaPath
 	} else {
-		return fmt.Errorf("no schema or schemaPath provided")
+		return &ValidationError{
+			ContractType: "json_schema",
+			Message:      "no schema or schemaPath provided",
+			Details:      []string{"specify either 'schema' (inline JSON) or 'schemaPath' (file path)"},
+			Retryable:    false,
+		}
 	}
 
 	schema, err := compiler.Compile(schemaURL)
 	if err != nil {
-		return fmt.Errorf("failed to compile schema: %w", err)
+		return &ValidationError{
+			ContractType: "json_schema",
+			Message:      "failed to compile schema",
+			Details:      []string{err.Error()},
+			Retryable:    false,
+		}
 	}
 
 	artifactPath := filepath.Join(workspacePath, "artifact.json")
 	data, err := os.ReadFile(artifactPath)
 	if err != nil {
-		return fmt.Errorf("failed to read artifact file: %w", err)
+		return &ValidationError{
+			ContractType: "json_schema",
+			Message:      fmt.Sprintf("failed to read artifact file: %s", artifactPath),
+			Details:      []string{err.Error()},
+			Retryable:    false,
+		}
 	}
 
 	var artifact interface{}
 	if err := json.Unmarshal(data, &artifact); err != nil {
-		return fmt.Errorf("failed to parse artifact JSON: %w", err)
+		return &ValidationError{
+			ContractType: "json_schema",
+			Message:      "failed to parse artifact JSON",
+			Details:      []string{err.Error(), fmt.Sprintf("file: %s", artifactPath)},
+			Retryable:    true,
+		}
 	}
 
 	if err := schema.Validate(artifact); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		details := extractSchemaValidationDetails(err)
+		return &ValidationError{
+			ContractType: "json_schema",
+			Message:      "artifact does not match schema",
+			Details:      details,
+			Retryable:    true,
+		}
 	}
 
 	return nil
+}
+
+// extractSchemaValidationDetails extracts detailed validation errors from the schema validator.
+func extractSchemaValidationDetails(err error) []string {
+	errStr := err.Error()
+	// Split multi-line error messages into separate details
+	lines := strings.Split(errStr, "\n")
+	details := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			details = append(details, line)
+		}
+	}
+	if len(details) == 0 {
+		details = append(details, errStr)
+	}
+	return details
 }

@@ -44,16 +44,34 @@ func runValidate(opts ValidateOptions) error {
 
 	manifestData, err := os.ReadFile(opts.ManifestPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("failed to read manifest: %w\n\nHint: Run 'wave init' to create a new Wave project", err)
+		}
 		return fmt.Errorf("failed to read manifest: %w", err)
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
+		return fmt.Errorf("failed to parse manifest YAML: %w\n\nHint: Check for syntax errors like incorrect indentation or invalid characters", err)
 	}
 
 	if opts.Verbose {
 		fmt.Printf("✓ Manifest syntax is valid\n")
+	}
+
+	// Validate adapter references in personas
+	for name, persona := range m.Personas {
+		if persona.Adapter != "" && m.GetAdapter(persona.Adapter) == nil {
+			availableAdapters := make([]string, 0, len(m.Adapters))
+			for adapterName := range m.Adapters {
+				availableAdapters = append(availableAdapters, adapterName)
+			}
+			fmt.Printf("✗ Persona '%s' references unknown adapter '%s'\n", name, persona.Adapter)
+			if len(availableAdapters) > 0 {
+				fmt.Printf("  Available adapters: %v\n", availableAdapters)
+			}
+			return fmt.Errorf("manifest validation failed: persona '%s' references unknown adapter '%s'", name, persona.Adapter)
+		}
 	}
 
 	if errs := validateManifestStructure(&m); len(errs) > 0 {
@@ -80,14 +98,23 @@ func runValidate(opts ValidateOptions) error {
 		fmt.Printf("✓ System references are valid\n")
 	}
 
-	if warnings := validateAdapters(&m); len(warnings) > 0 {
-		for _, warn := range warnings {
-			fmt.Printf("⚠ %s\n", warn)
+	adapterWarnings := validateAdapterBinaries(&m, opts.Verbose)
+	if len(adapterWarnings) > 0 {
+		for _, warn := range adapterWarnings {
+			fmt.Printf("⚠ Warning: %s\n", warn)
 		}
 	}
 
 	if opts.Verbose {
 		fmt.Printf("✓ Adapter configuration checked\n")
+		// Print summary in verbose mode
+		fmt.Printf("\nSummary:\n")
+		fmt.Printf("  Adapters:  %d defined\n", len(m.Adapters))
+		fmt.Printf("  Personas:  %d defined\n", len(m.Personas))
+		if len(m.SkillMounts) > 0 {
+			fmt.Printf("  Skills:    %d mounts\n", len(m.SkillMounts))
+		}
+		fmt.Printf("\n")
 	}
 
 	if opts.Pipeline != "" {
@@ -157,16 +184,19 @@ func validateSystemReferences(m *manifest.Manifest, manifestPath string) []strin
 	return errs
 }
 
-func validateAdapters(m *manifest.Manifest) []string {
-	var errs []string
+func validateAdapterBinaries(m *manifest.Manifest, verbose bool) []string {
+	var warnings []string
 
 	for name, adapter := range m.Adapters {
-		if _, err := exec.LookPath(adapter.Binary); err != nil {
-			errs = append(errs, fmt.Sprintf("adapter '%s' binary '%s' not found in PATH (warning)", name, adapter.Binary))
+		binaryPath, err := exec.LookPath(adapter.Binary)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("adapter '%s' binary '%s' not found in PATH", name, adapter.Binary))
+		} else if verbose {
+			fmt.Printf("  Adapter '%s': binary found at %s\n", name, binaryPath)
 		}
 	}
 
-	return errs
+	return warnings
 }
 
 func validatePipeline(pipelineName string, m *manifest.Manifest) error {

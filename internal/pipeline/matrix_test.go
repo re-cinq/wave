@@ -3,12 +3,43 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 )
+
+// matrixTestEventCollector for matrix tests
+type matrixTestEventCollector struct {
+	mu     sync.Mutex
+	events []event.Event
+}
+
+func newMatrixTestEventCollector() *matrixTestEventCollector {
+	return &matrixTestEventCollector{
+		events: make([]event.Event, 0),
+	}
+}
+
+func (c *matrixTestEventCollector) Emit(e event.Event) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.events = append(c.events, e)
+}
+
+func (c *matrixTestEventCollector) GetEvents() []event.Event {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := make([]event.Event, len(c.events))
+	copy(result, c.events)
+	return result
+}
 
 func TestMatrixExecutor_ReadItemsSource(t *testing.T) {
 	// Create a temporary directory for test files
@@ -434,4 +465,755 @@ func TestMatrixExecutor_CreateWorkerWorkspace(t *testing.T) {
 	if _, err := os.Stat(wsPath); os.IsNotExist(err) {
 		t.Error("Worker workspace directory was not created")
 	}
+}
+
+// ============================================================================
+// T078: Test for matrix spawns correct worker count
+// ============================================================================
+
+func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
+	tests := []struct {
+		name          string
+		itemCount     int
+		expectedCount int
+	}{
+		{
+			name:          "single item spawns 1 worker",
+			itemCount:     1,
+			expectedCount: 1,
+		},
+		{
+			name:          "5 items spawns 5 workers",
+			itemCount:     5,
+			expectedCount: 5,
+		},
+		{
+			name:          "10 items spawns 10 workers",
+			itemCount:     10,
+			expectedCount: 10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "matrix_worker_count_test")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			// Track worker spawns
+			workerSpawns := &workerSpawnTracker{
+				spawned: make(map[int]bool),
+			}
+
+			// Create items file
+			items := make([]map[string]interface{}, tt.itemCount)
+			for i := 0; i < tt.itemCount; i++ {
+				items[i] = map[string]interface{}{"id": i, "name": fmt.Sprintf("task_%d", i)}
+			}
+			itemsJSON, _ := json.Marshal(items)
+			itemsFile := filepath.Join(tmpDir, "items.json")
+			os.WriteFile(itemsFile, itemsJSON, 0644)
+
+			// Create a tracking adapter
+			trackingAdapter := &workerTrackingAdapter{
+				tracker: workerSpawns,
+				baseAdapter: adapter.NewMockAdapter(
+					adapter.WithStdoutJSON(`{"status": "success"}`),
+					adapter.WithTokensUsed(100),
+				),
+			}
+
+			executor := NewDefaultPipelineExecutor(trackingAdapter)
+			matrixExecutor := NewMatrixExecutor(executor)
+
+			m := &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"worker": {Adapter: "claude"},
+				},
+				Adapters: map[string]manifest.Adapter{
+					"claude": {Binary: "claude"},
+				},
+				Runtime: manifest.Runtime{
+					WorkspaceRoot: tmpDir,
+				},
+			}
+
+			execution := &PipelineExecution{
+				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "worker-count-test"}},
+				Manifest: m,
+				States:   make(map[string]string),
+				Results:  make(map[string]map[string]interface{}),
+				ArtifactPaths:  make(map[string]string),
+				WorkspacePaths: make(map[string]string),
+			}
+
+			step := &Step{
+				ID:      "matrix_step",
+				Persona: "worker",
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: itemsFile,
+				},
+				Exec: ExecConfig{
+					Type:   "prompt",
+					Source: "Process: {{ task }}",
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			err = matrixExecutor.Execute(ctx, execution, step)
+			if err != nil {
+				t.Fatalf("Matrix execution failed: %v", err)
+			}
+
+			// Verify correct number of workers spawned
+			workerSpawns.mu.Lock()
+			actualCount := len(workerSpawns.spawned)
+			workerSpawns.mu.Unlock()
+
+			if actualCount != tt.expectedCount {
+				t.Errorf("Expected %d workers, got %d", tt.expectedCount, actualCount)
+			}
+
+			// Verify results aggregation
+			if results, ok := execution.Results[step.ID]; ok {
+				if totalWorkers, ok := results["total_workers"].(int); ok {
+					if totalWorkers != tt.expectedCount {
+						t.Errorf("Expected total_workers=%d, got %d", tt.expectedCount, totalWorkers)
+					}
+				}
+			}
+		})
+	}
+}
+
+// ============================================================================
+// T079: Test for max_concurrency limit
+// ============================================================================
+
+func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
+	tests := []struct {
+		name           string
+		itemCount      int
+		maxConcurrency int
+		expectedMax    int
+	}{
+		{
+			name:           "concurrency of 2 with 5 items",
+			itemCount:      5,
+			maxConcurrency: 2,
+			expectedMax:    2,
+		},
+		{
+			name:           "concurrency of 3 with 10 items",
+			itemCount:      10,
+			maxConcurrency: 3,
+			expectedMax:    3,
+		},
+		{
+			name:           "concurrency equals item count",
+			itemCount:      4,
+			maxConcurrency: 4,
+			expectedMax:    4,
+		},
+		{
+			name:           "concurrency exceeds item count",
+			itemCount:      3,
+			maxConcurrency: 10,
+			expectedMax:    3, // Limited by actual items
+		},
+		{
+			name:           "zero concurrency means unlimited",
+			itemCount:      5,
+			maxConcurrency: 0,
+			expectedMax:    5, // All items can run in parallel
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "matrix_concurrency_test")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			// Track concurrent execution
+			concurrencyTracker := &concurrencyLimitTracker{
+				maxObserved: 0,
+				current:     0,
+			}
+
+			// Create items file
+			items := make([]map[string]interface{}, tt.itemCount)
+			for i := 0; i < tt.itemCount; i++ {
+				items[i] = map[string]interface{}{"id": i}
+			}
+			itemsJSON, _ := json.Marshal(items)
+			itemsFile := filepath.Join(tmpDir, "items.json")
+			os.WriteFile(itemsFile, itemsJSON, 0644)
+
+			// Create adapter that tracks concurrency
+			concurrencyAdapter := &concurrencyTrackingMatrixAdapter{
+				tracker: concurrencyTracker,
+				baseAdapter: adapter.NewMockAdapter(
+					adapter.WithStdoutJSON(`{"status": "success"}`),
+					adapter.WithTokensUsed(100),
+					adapter.WithSimulatedDelay(50*time.Millisecond), // Add delay to test concurrency
+				),
+			}
+
+			executor := NewDefaultPipelineExecutor(concurrencyAdapter)
+			matrixExecutor := NewMatrixExecutor(executor)
+
+			m := &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"worker": {Adapter: "claude"},
+				},
+				Adapters: map[string]manifest.Adapter{
+					"claude": {Binary: "claude"},
+				},
+				Runtime: manifest.Runtime{
+					WorkspaceRoot: tmpDir,
+				},
+			}
+
+			execution := &PipelineExecution{
+				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "concurrency-test"}},
+				Manifest: m,
+				States:   make(map[string]string),
+				Results:  make(map[string]map[string]interface{}),
+				ArtifactPaths:  make(map[string]string),
+				WorkspacePaths: make(map[string]string),
+			}
+
+			step := &Step{
+				ID:      "matrix_step",
+				Persona: "worker",
+				Strategy: &MatrixStrategy{
+					Type:           "matrix",
+					ItemsSource:    itemsFile,
+					MaxConcurrency: tt.maxConcurrency,
+				},
+				Exec: ExecConfig{
+					Type:   "prompt",
+					Source: "Process: {{ task }}",
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			err = matrixExecutor.Execute(ctx, execution, step)
+			if err != nil {
+				t.Fatalf("Matrix execution failed: %v", err)
+			}
+
+			// Verify concurrency limit was respected
+			concurrencyTracker.mu.Lock()
+			maxObserved := concurrencyTracker.maxObserved
+			concurrencyTracker.mu.Unlock()
+
+			if maxObserved > tt.expectedMax {
+				t.Errorf("Concurrency exceeded limit: observed %d, expected max %d", maxObserved, tt.expectedMax)
+			}
+
+			// With delay, we should hit near the expected max
+			// Allow some tolerance for timing issues
+			if tt.maxConcurrency > 0 && maxObserved < tt.expectedMax-1 && tt.itemCount >= tt.maxConcurrency {
+				t.Logf("Note: max observed concurrency (%d) was lower than expected (%d), which may be due to timing", maxObserved, tt.expectedMax)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// T080: Test for partial failure handling
+// ============================================================================
+
+func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
+	tests := []struct {
+		name               string
+		itemCount          int
+		failingIndices     []int
+		expectOverallError bool
+		expectSuccessCount int
+		expectFailCount    int
+	}{
+		{
+			name:               "first worker fails, others continue",
+			itemCount:          5,
+			failingIndices:     []int{0},
+			expectOverallError: true,
+			expectSuccessCount: 4,
+			expectFailCount:    1,
+		},
+		{
+			name:               "middle worker fails, others continue",
+			itemCount:          5,
+			failingIndices:     []int{2},
+			expectOverallError: true,
+			expectSuccessCount: 4,
+			expectFailCount:    1,
+		},
+		{
+			name:               "multiple workers fail",
+			itemCount:          5,
+			failingIndices:     []int{1, 3},
+			expectOverallError: true,
+			expectSuccessCount: 3,
+			expectFailCount:    2,
+		},
+		{
+			name:               "all workers fail",
+			itemCount:          3,
+			failingIndices:     []int{0, 1, 2},
+			expectOverallError: true,
+			expectSuccessCount: 0,
+			expectFailCount:    3,
+		},
+		{
+			name:               "no workers fail",
+			itemCount:          3,
+			failingIndices:     []int{},
+			expectOverallError: false,
+			expectSuccessCount: 3,
+			expectFailCount:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "matrix_partial_failure_test")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			// Create items file
+			items := make([]map[string]interface{}, tt.itemCount)
+			for i := 0; i < tt.itemCount; i++ {
+				items[i] = map[string]interface{}{"id": i}
+			}
+			itemsJSON, _ := json.Marshal(items)
+			itemsFile := filepath.Join(tmpDir, "items.json")
+			os.WriteFile(itemsFile, itemsJSON, 0644)
+
+			// Create adapter that fails for specific indices
+			failingSet := make(map[int]bool)
+			for _, idx := range tt.failingIndices {
+				failingSet[idx] = true
+			}
+
+			partialFailAdapter := &partialFailureAdapter{
+				failingIndices: failingSet,
+				callCount:      0,
+				baseAdapter: adapter.NewMockAdapter(
+					adapter.WithStdoutJSON(`{"status": "success"}`),
+					adapter.WithTokensUsed(100),
+				),
+			}
+
+			// Collect events to verify failure reporting
+			eventCollector := newMatrixTestEventCollector()
+
+			executor := NewDefaultPipelineExecutor(partialFailAdapter, WithEmitter(eventCollector))
+			matrixExecutor := NewMatrixExecutor(executor)
+
+			m := &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"worker": {Adapter: "claude"},
+				},
+				Adapters: map[string]manifest.Adapter{
+					"claude": {Binary: "claude"},
+				},
+				Runtime: manifest.Runtime{
+					WorkspaceRoot: tmpDir,
+				},
+			}
+
+			execution := &PipelineExecution{
+				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "partial-failure-test"}},
+				Manifest: m,
+				States:   make(map[string]string),
+				Results:  make(map[string]map[string]interface{}),
+				ArtifactPaths:  make(map[string]string),
+				WorkspacePaths: make(map[string]string),
+			}
+
+			step := &Step{
+				ID:      "matrix_step",
+				Persona: "worker",
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: itemsFile,
+				},
+				Exec: ExecConfig{
+					Type:   "prompt",
+					Source: "Process: {{ task }}",
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			err = matrixExecutor.Execute(ctx, execution, step)
+
+			// Check if error was returned as expected
+			if tt.expectOverallError {
+				if err == nil {
+					t.Error("Expected error due to partial failures, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Did not expect error, got: %v", err)
+				}
+			}
+
+			// Verify aggregated results
+			if results, ok := execution.Results[step.ID]; ok {
+				successCount, _ := results["success_count"].(int)
+				failCount, _ := results["fail_count"].(int)
+
+				if successCount != tt.expectSuccessCount {
+					t.Errorf("Expected success_count=%d, got %d", tt.expectSuccessCount, successCount)
+				}
+
+				if failCount != tt.expectFailCount {
+					t.Errorf("Expected fail_count=%d, got %d", tt.expectFailCount, failCount)
+				}
+			}
+
+			// Verify failure events were emitted
+			events := eventCollector.GetEvents()
+			workerFailedCount := 0
+			for _, e := range events {
+				if e.State == "matrix_worker_failed" {
+					workerFailedCount++
+				}
+			}
+
+			if workerFailedCount != tt.expectFailCount {
+				t.Errorf("Expected %d matrix_worker_failed events, got %d", tt.expectFailCount, workerFailedCount)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// T081: Test for zero tasks in matrix
+// ============================================================================
+
+func TestMatrixExecutor_ZeroTasks(t *testing.T) {
+	tests := []struct {
+		name        string
+		items       interface{}
+		expectError bool
+		description string
+	}{
+		{
+			name:        "empty array returns early without error",
+			items:       []interface{}{},
+			expectError: false,
+			description: "Empty task list should complete successfully with no workers",
+		},
+		{
+			name:        "null array in nested structure",
+			items:       map[string]interface{}{"tasks": []interface{}{}},
+			expectError: false,
+			description: "Empty nested array should complete successfully",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "matrix_zero_tasks_test")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			// Create items file
+			var itemsJSON []byte
+			switch v := tt.items.(type) {
+			case []interface{}:
+				itemsJSON, _ = json.Marshal(v)
+			case map[string]interface{}:
+				itemsJSON, _ = json.Marshal(v)
+			}
+			itemsFile := filepath.Join(tmpDir, "items.json")
+			os.WriteFile(itemsFile, itemsJSON, 0644)
+
+			eventCollector := newMatrixTestEventCollector()
+
+			executor := NewDefaultPipelineExecutor(
+				adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status": "success"}`)),
+				WithEmitter(eventCollector),
+			)
+			matrixExecutor := NewMatrixExecutor(executor)
+
+			m := &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"worker": {Adapter: "claude"},
+				},
+				Adapters: map[string]manifest.Adapter{
+					"claude": {Binary: "claude"},
+				},
+				Runtime: manifest.Runtime{
+					WorkspaceRoot: tmpDir,
+				},
+			}
+
+			execution := &PipelineExecution{
+				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "zero-tasks-test"}},
+				Manifest: m,
+				States:   make(map[string]string),
+				Results:  make(map[string]map[string]interface{}),
+				ArtifactPaths:  make(map[string]string),
+				WorkspacePaths: make(map[string]string),
+			}
+
+			strategy := &MatrixStrategy{
+				Type:        "matrix",
+				ItemsSource: itemsFile,
+			}
+
+			// Add item_key for nested structure
+			if _, ok := tt.items.(map[string]interface{}); ok {
+				strategy.ItemKey = "tasks"
+			}
+
+			step := &Step{
+				ID:       "matrix_step",
+				Persona:  "worker",
+				Strategy: strategy,
+				Exec: ExecConfig{
+					Type:   "prompt",
+					Source: "Process: {{ task }}",
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			err = matrixExecutor.Execute(ctx, execution, step)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Did not expect error, got: %v", err)
+				}
+			}
+
+			// Verify matrix_complete event was emitted
+			events := eventCollector.GetEvents()
+			hasComplete := false
+			for _, e := range events {
+				if e.State == "matrix_complete" {
+					hasComplete = true
+					if e.Message != "No items to process" {
+						t.Logf("matrix_complete message: %s", e.Message)
+					}
+				}
+			}
+
+			if !hasComplete {
+				t.Error("Expected matrix_complete event to be emitted")
+			}
+
+			// No worker events should be emitted
+			for _, e := range events {
+				if e.State == "matrix_worker_start" || e.State == "matrix_worker_complete" {
+					t.Error("No worker events should be emitted for zero tasks")
+				}
+			}
+		})
+	}
+}
+
+// TestMatrixExecutor_ZeroTasksEdgeCases tests additional edge cases for zero/empty task handling
+func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "matrix_zero_edge_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	t.Run("missing items_source file", func(t *testing.T) {
+		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		matrixExecutor := NewMatrixExecutor(executor)
+
+		execution := &PipelineExecution{
+			Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "missing-file-test"}},
+			Manifest: &manifest.Manifest{
+				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
+			},
+			WorkspacePaths: make(map[string]string),
+			ArtifactPaths:  make(map[string]string),
+		}
+
+		step := &Step{
+			ID: "matrix_step",
+			Strategy: &MatrixStrategy{
+				Type:        "matrix",
+				ItemsSource: "/nonexistent/path/items.json",
+			},
+		}
+
+		err := matrixExecutor.Execute(context.Background(), execution, step)
+		if err == nil {
+			t.Error("Expected error for missing items_source file")
+		}
+	})
+
+	t.Run("invalid JSON in items_source", func(t *testing.T) {
+		invalidJSONFile := filepath.Join(tmpDir, "invalid.json")
+		os.WriteFile(invalidJSONFile, []byte("not valid json{"), 0644)
+
+		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		matrixExecutor := NewMatrixExecutor(executor)
+
+		execution := &PipelineExecution{
+			Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "invalid-json-test"}},
+			Manifest: &manifest.Manifest{
+				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
+			},
+			WorkspacePaths: make(map[string]string),
+			ArtifactPaths:  make(map[string]string),
+		}
+
+		step := &Step{
+			ID: "matrix_step",
+			Strategy: &MatrixStrategy{
+				Type:        "matrix",
+				ItemsSource: invalidJSONFile,
+			},
+		}
+
+		err := matrixExecutor.Execute(context.Background(), execution, step)
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+	})
+
+	t.Run("items_source is object not array", func(t *testing.T) {
+		objectJSONFile := filepath.Join(tmpDir, "object.json")
+		os.WriteFile(objectJSONFile, []byte(`{"key": "value"}`), 0644)
+
+		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		matrixExecutor := NewMatrixExecutor(executor)
+
+		execution := &PipelineExecution{
+			Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "object-json-test"}},
+			Manifest: &manifest.Manifest{
+				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
+			},
+			WorkspacePaths: make(map[string]string),
+			ArtifactPaths:  make(map[string]string),
+		}
+
+		step := &Step{
+			ID: "matrix_step",
+			Strategy: &MatrixStrategy{
+				Type:        "matrix",
+				ItemsSource: objectJSONFile,
+				// No item_key means it will try to use root as array
+			},
+		}
+
+		err := matrixExecutor.Execute(context.Background(), execution, step)
+		if err == nil {
+			t.Error("Expected error when items_source is not an array")
+		}
+	})
+}
+
+// ============================================================================
+// Helper types for matrix tests
+// ============================================================================
+
+// workerSpawnTracker tracks which workers were spawned
+type workerSpawnTracker struct {
+	mu      sync.Mutex
+	spawned map[int]bool
+}
+
+// workerTrackingAdapter tracks worker execution
+type workerTrackingAdapter struct {
+	tracker     *workerSpawnTracker
+	baseAdapter adapter.AdapterRunner
+	mu          sync.Mutex
+	callIndex   int
+}
+
+func (a *workerTrackingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	idx := a.callIndex
+	a.callIndex++
+	a.mu.Unlock()
+
+	a.tracker.mu.Lock()
+	a.tracker.spawned[idx] = true
+	a.tracker.mu.Unlock()
+
+	return a.baseAdapter.Run(ctx, cfg)
+}
+
+// concurrencyLimitTracker tracks concurrent executions
+type concurrencyLimitTracker struct {
+	mu          sync.Mutex
+	current     int
+	maxObserved int
+}
+
+// concurrencyTrackingMatrixAdapter tracks and enforces concurrency for matrix
+type concurrencyTrackingMatrixAdapter struct {
+	tracker     *concurrencyLimitTracker
+	baseAdapter adapter.AdapterRunner
+}
+
+func (a *concurrencyTrackingMatrixAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.tracker.mu.Lock()
+	a.tracker.current++
+	if a.tracker.current > a.tracker.maxObserved {
+		a.tracker.maxObserved = a.tracker.current
+	}
+	a.tracker.mu.Unlock()
+
+	defer func() {
+		a.tracker.mu.Lock()
+		a.tracker.current--
+		a.tracker.mu.Unlock()
+	}()
+
+	return a.baseAdapter.Run(ctx, cfg)
+}
+
+// partialFailureAdapter fails for specific worker indices
+type partialFailureAdapter struct {
+	failingIndices map[int]bool
+	mu             sync.Mutex
+	callCount      int
+	baseAdapter    adapter.AdapterRunner
+}
+
+func (a *partialFailureAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	idx := a.callCount
+	a.callCount++
+	shouldFail := a.failingIndices[idx]
+	a.mu.Unlock()
+
+	if shouldFail {
+		return nil, fmt.Errorf("simulated failure for worker %d", idx)
+	}
+
+	return a.baseAdapter.Run(ctx, cfg)
 }

@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -11,9 +13,11 @@ import (
 
 type InitOptions struct {
 	Force      bool
+	Merge      bool
 	Adapter    string
 	Workspace  string
 	OutputPath string
+	Yes        bool // Skip confirmation prompts
 }
 
 func NewInitCmd() *cobra.Command {
@@ -23,23 +27,57 @@ func NewInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Initialize a new Wave project",
 		Long: `Create a new Wave project structure with default configuration.
-Creates a wave.yaml manifest and .wave/personas/ directory with example prompts.`,
+Creates a wave.yaml manifest and .wave/personas/ directory with example prompts.
+
+Use --merge to add default configuration to an existing wave.yaml while
+preserving your custom settings.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(opts)
+			return runInit(cmd, opts)
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files without prompting")
+	cmd.Flags().BoolVar(&opts.Merge, "merge", false, "Merge defaults into existing configuration")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "claude", "Default adapter to use")
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".wave/workspaces", "Workspace directory path")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", "wave.yaml", "Output path for wave.yaml")
+	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
 
 	return cmd
 }
 
-func runInit(opts InitOptions) error {
-	if _, err := os.Stat(opts.OutputPath); err == nil && !opts.Force {
-		return fmt.Errorf("wave.yaml already exists (use --force to overwrite)")
+func runInit(cmd *cobra.Command, opts InitOptions) error {
+	// Get absolute path for clearer error messages
+	absOutputPath, err := filepath.Abs(opts.OutputPath)
+	if err != nil {
+		absOutputPath = opts.OutputPath
+	}
+
+	existingFile, err := os.Stat(opts.OutputPath)
+	fileExists := err == nil
+
+	if fileExists {
+		if opts.Merge {
+			return runMerge(cmd, opts, absOutputPath)
+		}
+
+		if !opts.Force && !opts.Yes {
+			// Prompt for confirmation
+			confirmed, err := confirmOverwrite(cmd, absOutputPath)
+			if err != nil {
+				return fmt.Errorf("failed to read confirmation: %w", err)
+			}
+			if !confirmed {
+				return fmt.Errorf("aborted: %s already exists (use --force to overwrite or --merge to merge)", absOutputPath)
+			}
+		} else if !opts.Force {
+			return fmt.Errorf("%s already exists (use --force to overwrite or --merge to merge)", absOutputPath)
+		}
+
+		// Check file permissions before overwriting
+		if existingFile.Mode().Perm()&0200 == 0 {
+			return fmt.Errorf("cannot overwrite %s: file is read-only", absOutputPath)
+		}
 	}
 
 	// Create .wave directory structure
@@ -51,49 +89,202 @@ func runInit(opts InitOptions) error {
 		".wave/workspaces",
 	}
 	for _, dir := range waveDirs {
+		absDir, _ := filepath.Abs(dir)
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create %s directory: %w", dir, err)
+			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
 		}
 	}
 
-	manifest := createDefaultManifest(opts.Adapter)
+	manifest := createDefaultManifest(opts.Adapter, opts.Workspace)
 	manifestData, err := yaml.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
+	// Ensure parent directory exists for custom output path
+	outputDir := filepath.Dir(opts.OutputPath)
+	if outputDir != "." && outputDir != "" {
+		absOutputDir, _ := filepath.Abs(outputDir)
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output directory %s: %w", absOutputDir, err)
+		}
+	}
+
 	if err := os.WriteFile(opts.OutputPath, manifestData, 0644); err != nil {
-		return fmt.Errorf("failed to write wave.yaml: %w", err)
+		return fmt.Errorf("failed to write manifest to %s: %w", absOutputPath, err)
 	}
 
 	if err := createExamplePersonas(); err != nil {
-		return fmt.Errorf("failed to create example personas: %w", err)
+		return fmt.Errorf("failed to create example personas in .wave/personas/: %w", err)
 	}
 
 	if err := createExamplePipelines(); err != nil {
-		return fmt.Errorf("failed to create example pipelines: %w", err)
+		return fmt.Errorf("failed to create example pipelines in .wave/pipelines/: %w", err)
 	}
 
 	if err := createExampleContracts(); err != nil {
-		return fmt.Errorf("failed to create example contracts: %w", err)
+		return fmt.Errorf("failed to create example contracts in .wave/contracts/: %w", err)
 	}
 
-	fmt.Printf("✓ Initialized Wave project\n")
-	fmt.Printf("  - Created %s\n", opts.OutputPath)
-	fmt.Printf("  - Created .wave/personas/ (5 persona archetypes)\n")
-	fmt.Printf("  - Created .wave/pipelines/ (speckit-flow, hotfix)\n")
-	fmt.Printf("  - Created .wave/contracts/ (navigation, specification schemas)\n")
-	fmt.Printf("  - Created .wave/workspaces/ (ephemeral workspace root)\n")
-	fmt.Printf("  - Created .wave/traces/ (audit log directory)\n")
-	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("  - Edit %s to configure adapters and personas\n", opts.OutputPath)
-	fmt.Printf("  - Run 'wave validate' to check configuration\n")
-	fmt.Printf("  - Run 'wave run --pipeline speckit-flow --input \"your task\"' to execute\n")
-
+	printInitSuccess(cmd, opts.OutputPath)
 	return nil
 }
 
-func createDefaultManifest(adapter string) map[string]interface{} {
+func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error {
+	// Read existing manifest
+	existingData, err := os.ReadFile(opts.OutputPath)
+	if err != nil {
+		return fmt.Errorf("failed to read existing manifest %s: %w", absOutputPath, err)
+	}
+
+	var existingManifest map[string]interface{}
+	if err := yaml.Unmarshal(existingData, &existingManifest); err != nil {
+		return fmt.Errorf("failed to parse existing manifest %s: %w", absOutputPath, err)
+	}
+
+	// Create default manifest
+	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace)
+
+	// Merge manifests (existing values take precedence)
+	merged := mergeManifests(defaultManifest, existingManifest)
+
+	// Write merged manifest
+	mergedData, err := yaml.Marshal(merged)
+	if err != nil {
+		return fmt.Errorf("failed to marshal merged manifest: %w", err)
+	}
+
+	if err := os.WriteFile(opts.OutputPath, mergedData, 0644); err != nil {
+		return fmt.Errorf("failed to write merged manifest to %s: %w", absOutputPath, err)
+	}
+
+	// Create directories and files if they don't exist
+	waveDirs := []string{
+		".wave/personas",
+		".wave/pipelines",
+		".wave/contracts",
+		".wave/traces",
+		".wave/workspaces",
+	}
+	for _, dir := range waveDirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			absDir, _ := filepath.Abs(dir)
+			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
+		}
+	}
+
+	// Create persona files only if they don't exist
+	if err := createExamplePersonasIfMissing(); err != nil {
+		return fmt.Errorf("failed to create example personas: %w", err)
+	}
+
+	// Create pipeline files only if they don't exist
+	if err := createExamplePipelinesIfMissing(); err != nil {
+		return fmt.Errorf("failed to create example pipelines: %w", err)
+	}
+
+	// Create contract files only if they don't exist
+	if err := createExampleContractsIfMissing(); err != nil {
+		return fmt.Errorf("failed to create example contracts: %w", err)
+	}
+
+	printMergeSuccess(cmd, opts.OutputPath)
+	return nil
+}
+
+func confirmOverwrite(cmd *cobra.Command, path string) (bool, error) {
+	// If not running interactively, don't prompt
+	if cmd.InOrStdin() == nil {
+		return false, nil
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "File %s already exists. Overwrite? [y/N]: ", path)
+
+	reader := bufio.NewReader(cmd.InOrStdin())
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes", nil
+}
+
+func mergeManifests(defaults, existing map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Copy all default values first
+	for k, v := range defaults {
+		result[k] = v
+	}
+
+	// Override with existing values, merging nested maps
+	for k, v := range existing {
+		if existingMap, isMap := v.(map[string]interface{}); isMap {
+			if defaultMap, isDefaultMap := result[k].(map[string]interface{}); isDefaultMap {
+				// Deep merge for maps
+				result[k] = mergeMaps(defaultMap, existingMap)
+			} else {
+				result[k] = v
+			}
+		} else {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+func mergeMaps(defaults, existing map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Copy all default values
+	for k, v := range defaults {
+		result[k] = v
+	}
+
+	// Override/add existing values
+	for k, v := range existing {
+		if existingMap, isMap := v.(map[string]interface{}); isMap {
+			if defaultMap, isDefaultMap := result[k].(map[string]interface{}); isDefaultMap {
+				result[k] = mergeMaps(defaultMap, existingMap)
+			} else {
+				result[k] = v
+			}
+		} else {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+func printInitSuccess(cmd *cobra.Command, outputPath string) {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Initialized Wave project\n")
+	fmt.Fprintf(out, "  - Created %s\n", outputPath)
+	fmt.Fprintf(out, "  - Created .wave/personas/ (5 persona archetypes)\n")
+	fmt.Fprintf(out, "  - Created .wave/pipelines/ (speckit-flow, hotfix)\n")
+	fmt.Fprintf(out, "  - Created .wave/contracts/ (navigation, specification schemas)\n")
+	fmt.Fprintf(out, "  - Created .wave/workspaces/ (ephemeral workspace root)\n")
+	fmt.Fprintf(out, "  - Created .wave/traces/ (audit log directory)\n")
+	fmt.Fprintf(out, "\nNext steps:\n")
+	fmt.Fprintf(out, "  - Edit %s to configure adapters and personas\n", outputPath)
+	fmt.Fprintf(out, "  - Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "  - Run 'wave run --pipeline speckit-flow --input \"your task\"' to execute\n")
+}
+
+func printMergeSuccess(cmd *cobra.Command, outputPath string) {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Merged defaults into Wave project\n")
+	fmt.Fprintf(out, "  - Updated %s (preserved your settings)\n", outputPath)
+	fmt.Fprintf(out, "  - Added missing default adapters and personas\n")
+	fmt.Fprintf(out, "  - Created missing .wave/ directories and files\n")
+	fmt.Fprintf(out, "\nNext steps:\n")
+	fmt.Fprintf(out, "  - Run 'wave validate' to check configuration\n")
+}
+
+func createDefaultManifest(adapter string, workspace string) map[string]interface{} {
 	adapters := map[string]interface{}{
 		adapter: map[string]interface{}{
 			"binary":        adapter,
@@ -168,16 +359,16 @@ func createDefaultManifest(adapter string) map[string]interface{} {
 			},
 		},
 		"runtime": map[string]interface{}{
-			"workspace_root":         ".wave/workspaces",
-			"max_concurrent_workers": 5,
+			"workspace_root":          workspace,
+			"max_concurrent_workers":  5,
 			"default_timeout_minutes": 30,
 			"relay": map[string]interface{}{
 				"token_threshold_percent": 80,
 				"strategy":                "summarize_to_checkpoint",
 			},
 			"audit": map[string]interface{}{
-				"log_dir":                ".wave/traces/",
-				"log_all_tool_calls":     true,
+				"log_dir":                 ".wave/traces/",
+				"log_all_tool_calls":      true,
 				"log_all_file_operations": false,
 			},
 			"meta_pipeline": map[string]interface{}{
@@ -194,11 +385,41 @@ func createDefaultManifest(adapter string) map[string]interface{} {
 }
 
 func createExamplePersonas() error {
-	personas := map[string]string{
+	personas := getPersonaContents()
+
+	for filename, content := range personas {
+		path := filepath.Join(".wave", "personas", filename)
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			absPath, _ := filepath.Abs(path)
+			return fmt.Errorf("failed to write %s: %w", absPath, err)
+		}
+	}
+
+	return nil
+}
+
+func createExamplePersonasIfMissing() error {
+	personas := getPersonaContents()
+
+	for filename, content := range personas {
+		path := filepath.Join(".wave", "personas", filename)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				absPath, _ := filepath.Abs(path)
+				return fmt.Errorf("failed to write %s: %w", absPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getPersonaContents() map[string]string {
+	return map[string]string{
 		"navigator.md": `# Navigator
 
 You are a codebase exploration specialist. Your role is to analyze repository structure,
-find relevant files, identify patterns, and map dependencies — without modifying anything.
+find relevant files, identify patterns, and map dependencies - without modifying anything.
 
 ## Responsibilities
 - Search and read source files to understand architecture
@@ -213,7 +434,7 @@ Always output structured JSON with keys: files, patterns, dependencies, impact_a
 ## Constraints
 - NEVER write, edit, or delete any files
 - NEVER run destructive commands
-- Focus on accuracy over speed — missing a relevant file is worse than taking longer
+- Focus on accuracy over speed - missing a relevant file is worse than taking longer
 - Report uncertainty explicitly ("unsure if X relates to Y")`,
 
 		"philosopher.md": `# Philosopher
@@ -233,9 +454,9 @@ Write specifications in markdown with clear sections: Overview, User Stories,
 Data Model, API Design, Edge Cases, Testing Strategy
 
 ## Constraints
-- NEVER write implementation code — only specifications and plans
+- NEVER write implementation code - only specifications and plans
 - NEVER execute shell commands
-- Ground all designs in the navigation analysis — don't invent architecture
+- Ground all designs in the navigation analysis - don't invent architecture
 - Flag assumptions explicitly when the analysis is ambiguous`,
 
 		"craftsman.md": `# Craftsman
@@ -252,13 +473,13 @@ Your role is to write production-quality code following the specification and pl
 
 ## Guidelines
 - Read the spec and plan artifacts before writing any code
-- Follow existing patterns in the codebase — consistency matters
+- Follow existing patterns in the codebase - consistency matters
 - Write tests BEFORE or alongside implementation, not after
-- Keep changes minimal and focused — don't refactor unrelated code
+- Keep changes minimal and focused - don't refactor unrelated code
 - Run the full test suite before declaring completion
 
 ## Constraints
-- Stay within the scope of the specification — no feature creep
+- Stay within the scope of the specification - no feature creep
 - Never delete or overwrite test fixtures without explicit instruction
 - If the spec is ambiguous, implement the simpler interpretation`,
 
@@ -285,7 +506,7 @@ Produce a structured review report with severity ratings:
 ## Constraints
 - NEVER modify any source files
 - NEVER run destructive commands
-- Be specific — cite file paths and line numbers
+- Be specific - cite file paths and line numbers
 - Distinguish between confirmed issues and potential concerns`,
 
 		"summarizer.md": `# Summarizer
@@ -311,22 +532,43 @@ Write checkpoint summaries in markdown with sections:
 ## Constraints
 - NEVER modify any files
 - NEVER run any commands
-- Accuracy over brevity — never lose a key technical detail
+- Accuracy over brevity - never lose a key technical detail
 - Include exact file paths and identifiers, not paraphrases`,
 	}
+}
 
-	for filename, content := range personas {
-		path := filepath.Join(".wave", "personas", filename)
+func createExamplePipelines() error {
+	pipelines := getPipelineContents()
+
+	for filename, content := range pipelines {
+		path := filepath.Join(".wave", "pipelines", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return err
+			absPath, _ := filepath.Abs(path)
+			return fmt.Errorf("failed to write %s: %w", absPath, err)
 		}
 	}
 
 	return nil
 }
 
-func createExamplePipelines() error {
-	pipelines := map[string]string{
+func createExamplePipelinesIfMissing() error {
+	pipelines := getPipelineContents()
+
+	for filename, content := range pipelines {
+		path := filepath.Join(".wave", "pipelines", filename)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				absPath, _ := filepath.Abs(path)
+				return fmt.Errorf("failed to write %s: %w", absPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getPipelineContents() map[string]string {
+	return map[string]string{
 		"speckit-flow.yaml": `kind: WavePipeline
 metadata:
   name: speckit-flow
@@ -561,7 +803,7 @@ steps:
         Fix the production issue based on the investigation findings.
 
         Requirements:
-        1. Apply the minimal fix — don't refactor surrounding code
+        1. Apply the minimal fix - don't refactor surrounding code
         2. Add a regression test that would have caught this bug
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
@@ -595,19 +837,40 @@ steps:
         type: markdown
 `,
 	}
+}
 
-	for filename, content := range pipelines {
-		path := filepath.Join(".wave", "pipelines", filename)
+func createExampleContracts() error {
+	contracts := getContractContents()
+
+	for filename, content := range contracts {
+		path := filepath.Join(".wave", "contracts", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return err
+			absPath, _ := filepath.Abs(path)
+			return fmt.Errorf("failed to write %s: %w", absPath, err)
 		}
 	}
 
 	return nil
 }
 
-func createExampleContracts() error {
-	contracts := map[string]string{
+func createExampleContractsIfMissing() error {
+	contracts := getContractContents()
+
+	for filename, content := range contracts {
+		path := filepath.Join(".wave", "contracts", filename)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				absPath, _ := filepath.Abs(path)
+				return fmt.Errorf("failed to write %s: %w", absPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getContractContents() map[string]string {
+	return map[string]string{
 		"navigation.schema.json": `{
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -677,13 +940,4 @@ func createExampleContracts() error {
   }
 }`,
 	}
-
-	for filename, content := range contracts {
-		path := filepath.Join(".wave", "contracts", filename)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

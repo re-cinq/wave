@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-missing-file
+  description: Test project with missing system prompt file
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+    output_format: json
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: personas/nonexistent.md  # This file does not exist
+    temperature: 0.1
+    permissions:
+      allowed_tools:
+        - Read
+      deny: []
+runtime:
+  workspace_root: .wave/workspaces
+  default_timeout_minutes: 30
+skill_mounts: []

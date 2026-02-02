@@ -1,0 +1,11 @@
+name: simple-test
+description: Simple test pipeline with two steps
+steps:
+  - id: analyze
+    persona: navigator
+    task: Analyze the codebase structure
+  - id: implement
+    persona: craftsman
+    task: Implement the changes
+    depends_on:
+      - analyze

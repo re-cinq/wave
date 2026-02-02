@@ -230,3 +230,54 @@ func (wm *workspaceManager) CleanAll(root string) error {
 
 	return os.RemoveAll(root)
 }
+
+// WorkspaceInfo holds metadata about a workspace directory
+type WorkspaceInfo struct {
+	Name    string
+	Path    string
+	ModTime int64
+}
+
+// ListWorkspacesSortedByTime returns workspace directories sorted by modification time (oldest first).
+// This is useful for implementing cleanup policies like "keep last N".
+func ListWorkspacesSortedByTime(wsDir string) ([]WorkspaceInfo, error) {
+	entries, err := os.ReadDir(wsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var workspaces []WorkspaceInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		workspaces = append(workspaces, WorkspaceInfo{
+			Name:    entry.Name(),
+			Path:    filepath.Join(wsDir, entry.Name()),
+			ModTime: info.ModTime().UnixNano(),
+		})
+	}
+
+	// Sort by modification time (oldest first)
+	sortWorkspacesByTime(workspaces)
+
+	return workspaces, nil
+}
+
+// sortWorkspacesByTime sorts workspaces by modification time (oldest first)
+func sortWorkspacesByTime(workspaces []WorkspaceInfo) {
+	for i := 0; i < len(workspaces)-1; i++ {
+		for j := i + 1; j < len(workspaces); j++ {
+			if workspaces[i].ModTime > workspaces[j].ModTime {
+				workspaces[i], workspaces[j] = workspaces[j], workspaces[i]
+			}
+		}
+	}
+}

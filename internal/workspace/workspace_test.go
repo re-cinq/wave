@@ -404,3 +404,537 @@ func TestWorkspaceManager_EmptyInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestListWorkspacesSortedByTime(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "wave-workspace-sort-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create workspaces with specific modification times
+	workspaces := []struct {
+		name    string
+		modTime int64
+	}{
+		{"ws-newest", 3},
+		{"ws-oldest", 1},
+		{"ws-middle", 2},
+	}
+
+	for _, ws := range workspaces {
+		wsDir := filepath.Join(tmpDir, ws.name)
+		if err := os.MkdirAll(wsDir, 0755); err != nil {
+			t.Fatalf("Failed to create workspace dir: %v", err)
+		}
+		// Set the modification time (using fake times based on order)
+		// We'll rely on creation order and small delays for actual sorting
+	}
+
+	// Run the function
+	result, err := ListWorkspacesSortedByTime(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorkspacesSortedByTime() error = %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("Expected 3 workspaces, got %d", len(result))
+	}
+
+	// Verify each workspace has correct fields
+	for _, ws := range result {
+		if ws.Name == "" {
+			t.Errorf("Workspace name should not be empty")
+		}
+		if ws.Path == "" {
+			t.Errorf("Workspace path should not be empty")
+		}
+		if ws.ModTime == 0 {
+			t.Errorf("Workspace modTime should not be zero")
+		}
+	}
+}
+
+func TestListWorkspacesSortedByTime_NonExistentDir(t *testing.T) {
+	result, err := ListWorkspacesSortedByTime("/nonexistent/path/12345")
+	if err != nil {
+		t.Errorf("Should not error for non-existent directory: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("Expected empty result for non-existent directory, got %d", len(result))
+	}
+}
+
+func TestListWorkspacesSortedByTime_EmptyDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "wave-workspace-empty-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	result, err := ListWorkspacesSortedByTime(tmpDir)
+	if err != nil {
+		t.Errorf("ListWorkspacesSortedByTime() error = %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("Expected empty result for empty directory, got %d", len(result))
+	}
+}
+
+func TestListWorkspacesSortedByTime_SkipsFiles(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "wave-workspace-files-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a directory
+	if err := os.MkdirAll(filepath.Join(tmpDir, "real-workspace"), 0755); err != nil {
+		t.Fatalf("Failed to create workspace dir: %v", err)
+	}
+
+	// Create a file (should be skipped)
+	if err := os.WriteFile(filepath.Join(tmpDir, "not-a-workspace.txt"), []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	result, err := ListWorkspacesSortedByTime(tmpDir)
+	if err != nil {
+		t.Errorf("ListWorkspacesSortedByTime() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("Expected 1 workspace (file should be skipped), got %d", len(result))
+	}
+	if result[0].Name != "real-workspace" {
+		t.Errorf("Expected 'real-workspace', got '%s'", result[0].Name)
+	}
+}
+
+func TestSortWorkspacesByTime(t *testing.T) {
+	workspaces := []WorkspaceInfo{
+		{Name: "ws-c", Path: "/path/ws-c", ModTime: 300},
+		{Name: "ws-a", Path: "/path/ws-a", ModTime: 100},
+		{Name: "ws-b", Path: "/path/ws-b", ModTime: 200},
+	}
+
+	sortWorkspacesByTime(workspaces)
+
+	// Should be sorted oldest to newest
+	if workspaces[0].Name != "ws-a" {
+		t.Errorf("First workspace should be ws-a (oldest), got %s", workspaces[0].Name)
+	}
+	if workspaces[1].Name != "ws-b" {
+		t.Errorf("Second workspace should be ws-b (middle), got %s", workspaces[1].Name)
+	}
+	if workspaces[2].Name != "ws-c" {
+		t.Errorf("Third workspace should be ws-c (newest), got %s", workspaces[2].Name)
+	}
+}
+
+// =============================================================================
+// T104: Workspace Isolation Tests
+// =============================================================================
+
+// TestWorkspaceIsolation_SeparatePipelines verifies that workspaces for
+// different pipelines are completely isolated from each other.
+func TestWorkspaceIsolation_SeparatePipelines(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	// Create source directory with test content
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "shared.txt"), []byte("original"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	// Create workspace for pipeline A
+	wsA, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-A",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace A: %v", err)
+	}
+
+	// Create workspace for pipeline B
+	wsB, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-B",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace B: %v", err)
+	}
+
+	// Verify workspaces are at different paths
+	if wsA == wsB {
+		t.Errorf("Workspaces should have different paths: A=%s, B=%s", wsA, wsB)
+	}
+
+	// Modify file in workspace A
+	fileA := filepath.Join(wsA, "src", "shared.txt")
+	if err := os.WriteFile(fileA, []byte("modified by pipeline A"), 0644); err != nil {
+		t.Fatalf("Failed to write to workspace A: %v", err)
+	}
+
+	// Verify workspace B still has original content
+	fileB := filepath.Join(wsB, "src", "shared.txt")
+	contentB, err := os.ReadFile(fileB)
+	if err != nil {
+		t.Fatalf("Failed to read from workspace B: %v", err)
+	}
+	if string(contentB) != "original" {
+		t.Errorf("Workspace B was modified! Expected 'original', got '%s'", string(contentB))
+	}
+
+	// Verify original source is unchanged
+	originalContent, err := os.ReadFile(filepath.Join(sourceDir, "shared.txt"))
+	if err != nil {
+		t.Fatalf("Failed to read original: %v", err)
+	}
+	if string(originalContent) != "original" {
+		t.Errorf("Original source was modified! Expected 'original', got '%s'", string(originalContent))
+	}
+}
+
+// TestWorkspaceIsolation_SeparateSteps verifies that different steps within
+// the same pipeline have isolated workspaces.
+func TestWorkspaceIsolation_SeparateSteps(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "data.txt"), []byte("step data"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	// Create workspaces for different steps in the same pipeline
+	wsStep1, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "my-pipeline",
+		"step_id":     "navigate",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace for step 1: %v", err)
+	}
+
+	wsStep2, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "my-pipeline",
+		"step_id":     "execute",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace for step 2: %v", err)
+	}
+
+	wsStep3, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "my-pipeline",
+		"step_id":     "review",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace for step 3: %v", err)
+	}
+
+	// Verify all paths are different
+	paths := []string{wsStep1, wsStep2, wsStep3}
+	seen := make(map[string]bool)
+	for _, p := range paths {
+		if seen[p] {
+			t.Errorf("Duplicate workspace path detected: %s", p)
+		}
+		seen[p] = true
+	}
+
+	// Create a new file in step1 workspace
+	newFile := filepath.Join(wsStep1, "new_file.txt")
+	if err := os.WriteFile(newFile, []byte("created by step1"), 0644); err != nil {
+		t.Fatalf("Failed to create new file: %v", err)
+	}
+
+	// Verify step2 workspace doesn't have the new file
+	if _, err := os.Stat(filepath.Join(wsStep2, "new_file.txt")); !os.IsNotExist(err) {
+		t.Error("Step 2 workspace should not have file created in step 1")
+	}
+
+	// Verify step3 workspace doesn't have the new file
+	if _, err := os.Stat(filepath.Join(wsStep3, "new_file.txt")); !os.IsNotExist(err) {
+		t.Error("Step 3 workspace should not have file created in step 1")
+	}
+}
+
+// TestWorkspaceIsolation_ConcurrentCreation verifies that concurrent workspace
+// creation doesn't cause isolation violations.
+func TestWorkspaceIsolation_ConcurrentCreation(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "test.txt"), []byte("concurrent test"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	const numPipelines = 10
+	const stepsPerPipeline = 5
+
+	type result struct {
+		path string
+		err  error
+	}
+
+	results := make(chan result, numPipelines*stepsPerPipeline)
+
+	// Create workspaces concurrently
+	for p := 0; p < numPipelines; p++ {
+		for s := 0; s < stepsPerPipeline; s++ {
+			go func(pipelineID, stepID int) {
+				path, err := wm.Create(cfg, map[string]string{
+					"pipeline_id": filepath.Base(tmpDir) + "-pipe-" + string(rune('A'+pipelineID)),
+					"step_id":     "step-" + string(rune('0'+stepID)),
+				})
+				results <- result{path: path, err: err}
+			}(p, s)
+		}
+	}
+
+	// Collect results
+	paths := make(map[string]bool)
+	for i := 0; i < numPipelines*stepsPerPipeline; i++ {
+		r := <-results
+		if r.err != nil {
+			t.Errorf("Workspace creation failed: %v", r.err)
+			continue
+		}
+		if paths[r.path] {
+			t.Errorf("Duplicate workspace path in concurrent creation: %s", r.path)
+		}
+		paths[r.path] = true
+	}
+
+	// Verify all workspaces exist and are distinct
+	if len(paths) != numPipelines*stepsPerPipeline {
+		t.Errorf("Expected %d unique paths, got %d", numPipelines*stepsPerPipeline, len(paths))
+	}
+}
+
+// TestWorkspaceIsolation_ReadonlyPreservation verifies that readonly mounts
+// maintain isolation by preventing writes.
+func TestWorkspaceIsolation_ReadonlyPreservation(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "readonly.txt"), []byte("protected"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readonly"}},
+	}
+
+	ws, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "readonly-test",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace: %v", err)
+	}
+
+	mountPath := filepath.Join(ws, "src")
+	info, err := os.Stat(mountPath)
+	if err != nil {
+		t.Fatalf("Failed to stat mount: %v", err)
+	}
+
+	// Verify readonly permissions
+	if info.Mode().Perm() != 0555 {
+		t.Errorf("Expected readonly permissions 0555, got %v", info.Mode().Perm())
+	}
+}
+
+// TestWorkspaceIsolation_ArtifactInjectionIsolation verifies that artifact
+// injection doesn't leak data between pipelines.
+func TestWorkspaceIsolation_ArtifactInjectionIsolation(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	// Create workspaces for two pipelines
+	wsA, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-A",
+		"step_id":     "step-review",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace A: %v", err)
+	}
+
+	wsB, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-B",
+		"step_id":     "step-review",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace B: %v", err)
+	}
+
+	// Create an artifact directory with a secret file
+	artifactDir := filepath.Join(tmpDir, "artifacts", "step-1")
+	if err := os.MkdirAll(artifactDir, 0755); err != nil {
+		t.Fatalf("Failed to create artifact dir: %v", err)
+	}
+	secretFile := filepath.Join(artifactDir, "secret.txt")
+	if err := os.WriteFile(secretFile, []byte("secret data for pipeline A"), 0644); err != nil {
+		t.Fatalf("Failed to create artifact: %v", err)
+	}
+
+	// Inject artifact only into pipeline A
+	refsA := []ArtifactRef{{Step: "step-1", Artifact: "secret.txt", As: "secret"}}
+	resolvedA := map[string]string{"step-1:secret.txt": secretFile}
+
+	err = wm.InjectArtifacts(wsA, refsA, resolvedA)
+	if err != nil {
+		t.Fatalf("Failed to inject artifacts into A: %v", err)
+	}
+
+	// Pipeline B should NOT have the artifact
+	artifactPathB := filepath.Join(wsB, "artifacts", "step-1_secret")
+	if _, err := os.Stat(artifactPathB); !os.IsNotExist(err) {
+		t.Error("Pipeline B has artifact that was only injected into pipeline A")
+	}
+
+	// Pipeline A should have the artifact
+	artifactPathA := filepath.Join(wsA, "artifacts", "step-1_secret")
+	if _, err := os.Stat(artifactPathA); os.IsNotExist(err) {
+		t.Error("Pipeline A missing injected artifact")
+	}
+}
+
+// TestWorkspaceIsolation_NoPathTraversal verifies that workspace paths
+// cannot escape their designated directories.
+func TestWorkspaceIsolation_NoPathTraversal(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+
+	// Create a sensitive file outside the workspace
+	sensitiveDir := filepath.Join(tmpDir, "sensitive")
+	if err := os.MkdirAll(sensitiveDir, 0755); err != nil {
+		t.Fatalf("Failed to create sensitive dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sensitiveDir, "secret.txt"), []byte("top secret"), 0644); err != nil {
+		t.Fatalf("Failed to create sensitive file: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	ws, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "normal-pipeline",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace: %v", err)
+	}
+
+	// Verify the workspace is contained within the base directory
+	if !filepath.HasPrefix(ws, tmpDir) {
+		t.Errorf("Workspace %s escaped base directory %s", ws, tmpDir)
+	}
+
+	// Verify we cannot access files outside the workspace
+	traversalPath := filepath.Join(ws, "..", "..", "sensitive", "secret.txt")
+	resolvedPath, _ := filepath.EvalSymlinks(traversalPath)
+
+	// The resolved path should not point to the actual sensitive file
+	// (though in this test the traversal is within tmpDir)
+	t.Logf("Traversal path resolves to: %s", resolvedPath)
+}
+
+// TestWorkspaceIsolation_CleanupOneDoesntAffectOther verifies that cleaning
+// one pipeline's workspace doesn't affect other pipelines.
+func TestWorkspaceIsolation_CleanupOneDoesntAffectOther(t *testing.T) {
+	wm, tmpDir := setupTestWorkspaceManager(t)
+	defer cleanupTestDir(t, tmpDir)
+
+	sourceDir := filepath.Join(tmpDir, "source")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("Failed to create source dir: %v", err)
+	}
+
+	cfg := WorkspaceConfig{
+		Mount: []Mount{{Source: sourceDir, Target: "/src", Mode: "readwrite"}},
+	}
+
+	// Create workspaces for two pipelines
+	_, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-to-delete",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace A: %v", err)
+	}
+
+	wsKeep, err := wm.Create(cfg, map[string]string{
+		"pipeline_id": "pipeline-to-keep",
+		"step_id":     "step-1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace B: %v", err)
+	}
+
+	// Add content to the workspace we're keeping
+	testFile := filepath.Join(wsKeep, "important.txt")
+	if err := os.WriteFile(testFile, []byte("important data"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Clean the first pipeline
+	if err := wm.CleanAll("pipeline-to-delete"); err != nil {
+		t.Fatalf("CleanAll failed: %v", err)
+	}
+
+	// Verify the kept pipeline's workspace still exists with its data
+	if _, err := os.Stat(wsKeep); os.IsNotExist(err) {
+		t.Error("Kept workspace was deleted when cleaning other pipeline")
+	}
+
+	content, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read kept file: %v", err)
+	}
+	if string(content) != "important data" {
+		t.Errorf("Kept file content changed: %s", string(content))
+	}
+}

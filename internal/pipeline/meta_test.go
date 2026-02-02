@@ -2,12 +2,14 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -507,5 +509,839 @@ func TestTruncate(t *testing.T) {
 		if got != tt.expect {
 			t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.expect)
 		}
+	}
+}
+
+// =============================================================================
+// T097: Test for meta-pipeline depth limit enforcement
+// =============================================================================
+
+func TestMetaPipelineDepthLimitEnforcement(t *testing.T) {
+	tests := []struct {
+		name         string
+		maxDepth     int
+		currentDepth int
+		wantErr      bool
+		errContains  string
+	}{
+		{
+			name:         "depth 0 with max 3 allowed",
+			maxDepth:     3,
+			currentDepth: 0,
+			wantErr:      false,
+		},
+		{
+			name:         "depth 1 with max 3 allowed",
+			maxDepth:     3,
+			currentDepth: 1,
+			wantErr:      false,
+		},
+		{
+			name:         "depth 2 with max 3 allowed",
+			maxDepth:     3,
+			currentDepth: 2,
+			wantErr:      false,
+		},
+		{
+			name:         "depth 3 equals max 3 blocked",
+			maxDepth:     3,
+			currentDepth: 3,
+			wantErr:      true,
+			errContains:  "depth limit reached",
+		},
+		{
+			name:         "depth 4 exceeds max 3 blocked",
+			maxDepth:     3,
+			currentDepth: 4,
+			wantErr:      true,
+			errContains:  "depth limit reached",
+		},
+		{
+			name:         "depth 0 with max 1 allowed",
+			maxDepth:     1,
+			currentDepth: 0,
+			wantErr:      false,
+		},
+		{
+			name:         "depth 1 with max 1 blocked",
+			maxDepth:     1,
+			currentDepth: 1,
+			wantErr:      true,
+			errContains:  "depth limit reached",
+		},
+		{
+			name:         "uses default max depth when 0",
+			maxDepth:     0, // Should use DefaultMaxDepth (3)
+			currentDepth: 2,
+			wantErr:      false,
+		},
+		{
+			name:         "default max depth blocks at 3",
+			maxDepth:     0, // Should use DefaultMaxDepth (3)
+			currentDepth: 3,
+			wantErr:      true,
+			errContains:  "depth limit reached",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockMetaRunner{}
+			executor := NewMetaPipelineExecutor(runner)
+			executor.currentDepth = tt.currentDepth
+
+			m := &manifest.Manifest{
+				Runtime: manifest.Runtime{
+					MetaPipeline: manifest.MetaConfig{
+						MaxDepth: tt.maxDepth,
+					},
+				},
+			}
+
+			config := executor.getMetaConfig(m)
+			err := executor.checkDepthLimit(config)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got nil")
+					return
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestMetaPipelineDepthLimitErrorMessage tests that depth limit errors have helpful messages (T100)
+func TestMetaPipelineDepthLimitErrorMessage(t *testing.T) {
+	tests := []struct {
+		name            string
+		maxDepth        int
+		currentDepth    int
+		parentPipeline  string
+		expectedParts   []string
+		unexpectedParts []string
+	}{
+		{
+			name:           "error includes current and max depth",
+			maxDepth:       3,
+			currentDepth:   3,
+			parentPipeline: "",
+			expectedParts: []string{
+				"current=3",
+				"max=3",
+				"depth limit",
+			},
+		},
+		{
+			name:           "error includes parent pipeline context",
+			maxDepth:       2,
+			currentDepth:   2,
+			parentPipeline: "root-pipeline",
+			expectedParts: []string{
+				"current=2",
+				"max=2",
+				"root-pipeline",
+				"call stack",
+			},
+		},
+		{
+			name:           "error includes suggestion for resolution",
+			maxDepth:       3,
+			currentDepth:   5,
+			parentPipeline: "parent:meta:1",
+			expectedParts: []string{
+				"increase runtime.meta_pipeline.max_depth",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockMetaRunner{}
+			executor := NewMetaPipelineExecutor(runner,
+				WithMetaDepth(tt.currentDepth),
+				WithParentPipeline(tt.parentPipeline),
+			)
+
+			m := &manifest.Manifest{
+				Runtime: manifest.Runtime{
+					MetaPipeline: manifest.MetaConfig{
+						MaxDepth: tt.maxDepth,
+					},
+				},
+			}
+
+			config := executor.getMetaConfig(m)
+			err := executor.checkDepthLimit(config)
+
+			if err == nil {
+				t.Fatal("expected error but got nil")
+			}
+
+			errMsg := err.Error()
+			for _, part := range tt.expectedParts {
+				if !strings.Contains(errMsg, part) {
+					t.Errorf("error message %q should contain %q", errMsg, part)
+				}
+			}
+			for _, part := range tt.unexpectedParts {
+				if strings.Contains(errMsg, part) {
+					t.Errorf("error message %q should NOT contain %q", errMsg, part)
+				}
+			}
+		})
+	}
+}
+
+// TestMetaPipelineNestedDepthTracking tests depth tracking across nested executions
+func TestMetaPipelineNestedDepthTracking(t *testing.T) {
+	runner := &mockMetaRunner{}
+
+	// Simulate a chain of nested meta-pipelines
+	root := NewMetaPipelineExecutor(runner)
+	if root.currentDepth != 0 {
+		t.Errorf("root depth = %d, want 0", root.currentDepth)
+	}
+
+	child1 := root.CreateChildMetaExecutor()
+	if child1.currentDepth != 1 {
+		t.Errorf("child1 depth = %d, want 1", child1.currentDepth)
+	}
+
+	child2 := child1.CreateChildMetaExecutor()
+	if child2.currentDepth != 2 {
+		t.Errorf("child2 depth = %d, want 2", child2.currentDepth)
+	}
+
+	child3 := child2.CreateChildMetaExecutor()
+	if child3.currentDepth != 3 {
+		t.Errorf("child3 depth = %d, want 3", child3.currentDepth)
+	}
+
+	// child3 should fail depth check with default max of 3
+	m := &manifest.Manifest{}
+	config := child3.getMetaConfig(m)
+	err := child3.checkDepthLimit(config)
+	if err == nil {
+		t.Error("child3 should fail depth check with default max of 3")
+	}
+}
+
+// =============================================================================
+// T098: Test for meta-pipeline validation of generated pipelines
+// =============================================================================
+
+func TestMetaPipelineValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		pipeline    *Pipeline
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "nil pipeline fails validation",
+			pipeline:    nil,
+			wantErr:     true,
+			errContains: "pipeline is nil",
+		},
+		{
+			name: "pipeline with no steps fails",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps:    []Step{},
+			},
+			wantErr:     true,
+			errContains: "no steps",
+		},
+		{
+			name: "first step must be navigator",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:       "impl",
+						Persona:  "implementer",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "first step must use",
+		},
+		{
+			name: "all steps must have handover contract",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:       "impl",
+						Persona:  "implementer",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{}, // Missing contract
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "missing handover.contract",
+		},
+		{
+			name: "all steps must use fresh memory strategy",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "impl",
+						Persona:      "implementer",
+						Dependencies: []string{"nav"},
+						Memory:       MemoryConfig{Strategy: "persistent"}, // Wrong strategy
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "must use memory.strategy='fresh'",
+		},
+		{
+			name: "circular dependencies detected",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:           "nav",
+						Persona:      "navigator",
+						Dependencies: []string{"impl"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "impl",
+						Persona:      "implementer",
+						Dependencies: []string{"nav"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "cycle",
+		},
+		{
+			name: "invalid pipeline kind",
+			pipeline: &Pipeline{
+				Kind:     "InvalidKind",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "invalid pipeline kind",
+		},
+		{
+			name: "valid pipeline passes all checks",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "valid-pipeline"},
+				Steps: []Step{
+					{
+						ID:       "navigate",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "implement",
+						Persona:      "implementer",
+						Dependencies: []string{"navigate"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+					{
+						ID:           "review",
+						Persona:      "reviewer",
+						Dependencies: []string{"implement"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "approval"}},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing dependency reference",
+			pipeline: &Pipeline{
+				Kind:     "WavePipeline",
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "impl",
+						Persona:      "implementer",
+						Dependencies: []string{"nonexistent"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "nonexistent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateGeneratedPipeline(tt.pipeline)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error but got nil")
+					return
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestMetaPipelineValidationBeforeExecution tests that validation happens before execution
+func TestMetaPipelineValidationBeforeExecution(t *testing.T) {
+	// Create a mock that returns invalid pipeline YAML
+	invalidYAML := `kind: WavePipeline
+metadata:
+  name: invalid-pipeline
+steps:
+  - id: impl
+    persona: implementer
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: test_suite
+`
+	runner := &mockMetaRunner{
+		response:   invalidYAML,
+		tokensUsed: 1000,
+	}
+
+	// Create an executor that tracks if child execution was attempted
+	executionAttempted := false
+	mockChildExecutor := &mockPipelineExecutor{
+		executeFunc: func(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+			executionAttempted = true
+			return nil
+		},
+	}
+
+	executor := NewMetaPipelineExecutor(runner,
+		WithChildExecutor(mockChildExecutor),
+	)
+
+	m := createTestMetaManifest()
+
+	ctx := context.Background()
+	_, err := executor.Execute(ctx, "test task", m)
+
+	// Should fail validation (first step not navigator)
+	if err == nil {
+		t.Error("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "first step must use") {
+		t.Errorf("expected navigator error, got: %v", err)
+	}
+
+	// Child executor should NOT have been called
+	if executionAttempted {
+		t.Error("child executor should not be called when validation fails")
+	}
+}
+
+// =============================================================================
+// T099: Test for meta-pipeline failure trace preservation
+// =============================================================================
+
+func TestMetaPipelineFailureTracePreservation(t *testing.T) {
+	tests := []struct {
+		name              string
+		setupExecutor     func() (*MetaPipelineExecutor, *testMetaEventCollector)
+		task              string
+		expectError       bool
+		expectTraceFields []string
+	}{
+		{
+			name: "depth limit error includes call stack",
+			setupExecutor: func() (*MetaPipelineExecutor, *testMetaEventCollector) {
+				runner := &mockMetaRunner{}
+				collector := newTestMetaEventCollector()
+				executor := NewMetaPipelineExecutor(runner,
+					WithMetaDepth(3),
+					WithParentPipeline("root:meta:0:child:meta:1:grandchild:meta:2"),
+					WithMetaEmitter(collector),
+				)
+				return executor, collector
+			},
+			task:        "test task",
+			expectError: true,
+			expectTraceFields: []string{
+				"root",
+				"meta",
+				"depth",
+			},
+		},
+		{
+			name: "validation error includes generated pipeline info",
+			setupExecutor: func() (*MetaPipelineExecutor, *testMetaEventCollector) {
+				// Returns invalid pipeline (first step not navigator)
+				invalidYAML := `kind: WavePipeline
+metadata:
+  name: invalid
+steps:
+  - id: impl
+    persona: implementer
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: test`
+				runner := &mockMetaRunner{response: invalidYAML, tokensUsed: 500}
+				collector := newTestMetaEventCollector()
+				executor := NewMetaPipelineExecutor(runner, WithMetaEmitter(collector))
+				return executor, collector
+			},
+			task:        "test task",
+			expectError: true,
+			expectTraceFields: []string{
+				"validation",
+				"first step",
+			},
+		},
+		{
+			name: "philosopher error preserves context",
+			setupExecutor: func() (*MetaPipelineExecutor, *testMetaEventCollector) {
+				runner := &mockMetaRunner{err: errors.New("philosopher persona unavailable")}
+				collector := newTestMetaEventCollector()
+				executor := NewMetaPipelineExecutor(runner,
+					WithMetaDepth(1),
+					WithParentPipeline("parent-pipeline"),
+					WithMetaEmitter(collector),
+				)
+				return executor, collector
+			},
+			task:        "generate pipeline",
+			expectError: true,
+			expectTraceFields: []string{
+				"philosopher",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor, collector := tt.setupExecutor()
+			m := createTestMetaManifest()
+
+			ctx := context.Background()
+			result, err := executor.Execute(ctx, tt.task, m)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+
+				errMsg := err.Error()
+				for _, field := range tt.expectTraceFields {
+					if !strings.Contains(strings.ToLower(errMsg), strings.ToLower(field)) {
+						t.Errorf("error message %q should contain %q", errMsg, field)
+					}
+				}
+
+				// Check that failure events were emitted
+				events := collector.GetEvents()
+				hasMetaStarted := false
+				for _, e := range events {
+					if e.State == "meta_started" {
+						hasMetaStarted = true
+						break
+					}
+				}
+				// Only check for started event if we got past depth check
+				if executor.currentDepth < DefaultMaxDepth && !hasMetaStarted {
+					t.Error("meta_started event should be emitted before failure")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if result == nil {
+					t.Error("expected non-nil result")
+				}
+			}
+		})
+	}
+}
+
+// TestMetaPipelinePreservesGeneratedPipelineOnFailure tests T101
+func TestMetaPipelinePreservesGeneratedPipelineOnFailure(t *testing.T) {
+	validYAML := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: nav
+    persona: navigator
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: json_schema
+  - id: impl
+    persona: implementer
+    dependencies: [nav]
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: test_suite`
+
+	tests := []struct {
+		name                    string
+		yaml                    string
+		childExecutorErr        error
+		wantGeneratedPreserved  bool
+		wantResultNonNil        bool
+	}{
+		{
+			name:                   "preserves pipeline when child executor fails",
+			yaml:                   validYAML,
+			childExecutorErr:       errors.New("child execution failed"),
+			wantGeneratedPreserved: true,
+			wantResultNonNil:       true,
+		},
+		{
+			name:                   "preserves pipeline on success",
+			yaml:                   validYAML,
+			childExecutorErr:       nil,
+			wantGeneratedPreserved: true,
+			wantResultNonNil:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockMetaRunner{
+				response:   tt.yaml,
+				tokensUsed: 1000,
+			}
+
+			mockChildExecutor := &mockPipelineExecutor{
+				executeFunc: func(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+					return tt.childExecutorErr
+				},
+			}
+
+			collector := newTestMetaEventCollector()
+			executor := NewMetaPipelineExecutor(runner,
+				WithChildExecutor(mockChildExecutor),
+				WithMetaEmitter(collector),
+			)
+
+			m := createTestMetaManifest()
+			ctx := context.Background()
+
+			result, err := executor.Execute(ctx, "test task", m)
+
+			if tt.childExecutorErr != nil {
+				if err == nil {
+					t.Error("expected error from child executor")
+				}
+			}
+
+			if tt.wantResultNonNil {
+				if result == nil {
+					t.Fatal("expected non-nil result even on failure")
+				}
+			}
+
+			if tt.wantGeneratedPreserved && result != nil {
+				if result.GeneratedPipeline == nil {
+					t.Error("GeneratedPipeline should be preserved in result")
+				} else {
+					if result.GeneratedPipeline.Metadata.Name != "test-pipeline" {
+						t.Errorf("GeneratedPipeline name = %q, want 'test-pipeline'",
+							result.GeneratedPipeline.Metadata.Name)
+					}
+					if len(result.GeneratedPipeline.Steps) != 2 {
+						t.Errorf("GeneratedPipeline steps = %d, want 2",
+							len(result.GeneratedPipeline.Steps))
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestMetaPipelineFailureTraceIncludesCallStack tests call stack preservation
+func TestMetaPipelineFailureTraceIncludesCallStack(t *testing.T) {
+	runner := &mockMetaRunner{}
+
+	// Build a chain of nested executors
+	root := NewMetaPipelineExecutor(runner)
+	root.parentPipelineID = "root-pipeline"
+
+	child1 := root.CreateChildMetaExecutor()
+	child2 := child1.CreateChildMetaExecutor()
+	child3 := child2.CreateChildMetaExecutor()
+
+	// child3 should be at depth 3, which equals default max
+	m := &manifest.Manifest{}
+	config := child3.getMetaConfig(m)
+
+	err := child3.checkDepthLimit(config)
+	if err == nil {
+		t.Fatal("expected depth limit error")
+	}
+
+	errMsg := err.Error()
+
+	// Should include depth info
+	if !strings.Contains(errMsg, "current=3") {
+		t.Errorf("error should include current depth, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "max=3") {
+		t.Errorf("error should include max depth, got: %s", errMsg)
+	}
+
+	// Should include call stack
+	if !strings.Contains(errMsg, "call stack") {
+		t.Errorf("error should include call stack, got: %s", errMsg)
+	}
+
+	// Call stack should show the chain
+	if !strings.Contains(errMsg, "root-pipeline") {
+		t.Errorf("error should include root pipeline in call stack, got: %s", errMsg)
+	}
+}
+
+// =============================================================================
+// Helper types and functions for meta-pipeline tests
+// =============================================================================
+
+// mockPipelineExecutor is a mock implementation of PipelineExecutor for testing
+type mockPipelineExecutor struct {
+	executeFunc func(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
+}
+
+func (m *mockPipelineExecutor) Execute(ctx context.Context, p *Pipeline, man *manifest.Manifest, input string) error {
+	if m.executeFunc != nil {
+		return m.executeFunc(ctx, p, man, input)
+	}
+	return nil
+}
+
+func (m *mockPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {
+	return nil
+}
+
+func (m *mockPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus, error) {
+	return nil, nil
+}
+
+// testMetaEventCollector collects events emitted during meta-pipeline execution
+type testMetaEventCollector struct {
+	events []event.Event
+}
+
+func newTestMetaEventCollector() *testMetaEventCollector {
+	return &testMetaEventCollector{
+		events: make([]event.Event, 0),
+	}
+}
+
+func (c *testMetaEventCollector) Emit(e event.Event) {
+	c.events = append(c.events, e)
+}
+
+func (c *testMetaEventCollector) GetEvents() []event.Event {
+	return c.events
+}
+
+func (c *testMetaEventCollector) HasEventWithState(state string) bool {
+	for _, e := range c.events {
+		if e.State == state {
+			return true
+		}
+	}
+	return false
+}
+
+// createTestMetaManifest creates a manifest suitable for meta-pipeline testing
+func createTestMetaManifest() *manifest.Manifest {
+	return &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test-project"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"philosopher": {
+				Adapter:     "claude",
+				Temperature: 0.7,
+			},
+			"navigator": {
+				Adapter:     "claude",
+				Temperature: 0.1,
+			},
+			"implementer": {
+				Adapter:     "claude",
+				Temperature: 0.3,
+			},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:     "/tmp/test-workspace",
+			DefaultTimeoutMin: 5,
+			MetaPipeline: manifest.MetaConfig{
+				MaxDepth:       3,
+				MaxTotalSteps:  20,
+				MaxTotalTokens: 100000,
+			},
+		},
 	}
 }

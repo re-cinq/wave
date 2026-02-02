@@ -2,11 +2,33 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+// Relay-specific errors
+var (
+	// ErrNoAdapter is returned when compaction is attempted without an adapter.
+	ErrNoAdapter = errors.New("no adapter provided for compaction")
+
+	// ErrCompactionFailed is returned when the compaction process fails.
+	ErrCompactionFailed = errors.New("compaction failed")
+
+	// ErrWriteCheckpointFailed is returned when writing the checkpoint file fails.
+	ErrWriteCheckpointFailed = errors.New("failed to write checkpoint")
+
+	// ErrInvalidThreshold is returned when an invalid threshold is provided.
+	ErrInvalidThreshold = errors.New("invalid threshold: must be between 0 and 100")
+
+	// ErrInvalidContextWindow is returned when an invalid context window is provided.
+	ErrInvalidContextWindow = errors.New("invalid context window: must be positive")
+
+	// ErrAdapterRunFailed is returned when the adapter runner fails.
+	ErrAdapterRunFailed = errors.New("adapter run failed")
 )
 
 // CompactionAdapter is the interface for running compaction.
@@ -74,9 +96,24 @@ func (m *RelayMonitor) ShouldCompactWithWindow(tokensUsed int, contextWindow int
 }
 
 // Compact triggers compaction using the configured adapter and writes a checkpoint.
+// It returns the compacted summary and any error that occurred.
+//
+// Errors:
+//   - ErrNoAdapter: if no adapter is configured
+//   - ErrCompactionFailed: if the adapter fails to compact (wraps original error)
+//   - ErrWriteCheckpointFailed: if writing the checkpoint file fails (wraps original error)
+//   - context.Canceled/context.DeadlineExceeded: if the context is canceled or times out
 func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPrompt string, compactPrompt string, workspacePath string) (string, error) {
+	// Validate adapter is available
 	if m.adapter == nil {
-		return "", fmt.Errorf("no adapter provided for compaction")
+		return "", ErrNoAdapter
+	}
+
+	// Check context before starting expensive operation
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("%w: %v", ErrCompactionFailed, ctx.Err())
+	default:
 	}
 
 	if compactPrompt == "" {
@@ -93,10 +130,15 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 
 	compacted, err := m.adapter.RunCompaction(ctx, cfg)
 	if err != nil {
+		// Wrap specific error types for better error handling upstream
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", fmt.Errorf("%w: %v", ErrCompactionFailed, err)
+		}
 		return "", fmt.Errorf("compaction failed: %w", err)
 	}
 
-	checkpointPath := filepath.Join(workspacePath, "checkpoint.md")
+	// Write checkpoint file
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 	checkpointContent := fmt.Sprintf(`# Checkpoint
 
 ## Summary
@@ -111,6 +153,21 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 	}
 
 	return compacted, nil
+}
+
+// ValidateConfig validates the relay monitor configuration.
+// Returns nil if the configuration is valid, or an error describing the issue.
+func ValidateConfig(cfg RelayMonitorConfig) error {
+	if cfg.DefaultThreshold < 0 || cfg.DefaultThreshold > 100 {
+		return fmt.Errorf("%w: got %d", ErrInvalidThreshold, cfg.DefaultThreshold)
+	}
+	if cfg.ContextWindow < 0 {
+		return fmt.Errorf("%w: got %d", ErrInvalidContextWindow, cfg.ContextWindow)
+	}
+	if cfg.MinTokensToCompact < 0 {
+		return fmt.Errorf("invalid min tokens: must be non-negative, got %d", cfg.MinTokensToCompact)
+	}
+	return nil
 }
 
 // GetContextWindow returns the configured context window.
@@ -163,7 +220,19 @@ type StringReader interface {
 }
 
 // RunCompaction implements CompactionAdapter by running the adapter with a compaction prompt.
+// It returns the summarized content and any error that occurred.
+//
+// Errors:
+//   - ErrAdapterRunFailed: if the adapter fails to run (wraps original error)
+//   - context errors: if the context is canceled or times out
 func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg CompactionConfig) (string, error) {
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("%w: %v", ErrAdapterRunFailed, ctx.Err())
+	default:
+	}
+
 	// Build the compaction prompt combining the chat history and compact instruction
 	prompt := fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
 
@@ -184,13 +253,28 @@ func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg Compaction
 		return "", fmt.Errorf("adapter run failed: %w", err)
 	}
 
-	// Read all output from stdout
+	// Validate result
+	if result == nil {
+		return "", fmt.Errorf("%w: nil result returned", ErrAdapterRunFailed)
+	}
+
+	if result.Stdout == nil {
+		return "", nil // No output, but not an error
+	}
+
+	// Read all output from stdout with size limit to prevent memory issues
+	const maxOutputSize = 1024 * 1024 // 1MB limit
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 1024)
 	for {
 		n, readErr := result.Stdout.Read(tmp)
 		if n > 0 {
 			buf = append(buf, tmp[:n]...)
+			// Enforce size limit
+			if len(buf) > maxOutputSize {
+				buf = buf[:maxOutputSize]
+				break
+			}
 		}
 		if readErr != nil {
 			break
@@ -198,4 +282,16 @@ func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg Compaction
 	}
 
 	return string(buf), nil
+}
+
+// IsCompactionError returns true if the error is related to compaction failure.
+func IsCompactionError(err error) bool {
+	return errors.Is(err, ErrCompactionFailed) || errors.Is(err, ErrAdapterRunFailed)
+}
+
+// IsCheckpointError returns true if the error is related to checkpoint operations.
+func IsCheckpointError(err error) bool {
+	return errors.Is(err, ErrWriteCheckpointFailed) ||
+		errors.Is(err, ErrCheckpointNotFound) ||
+		errors.Is(err, ErrInvalidCheckpoint)
 }

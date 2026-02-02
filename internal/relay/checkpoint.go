@@ -1,11 +1,22 @@
 package relay
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+)
+
+// Checkpoint validation errors
+var (
+	ErrEmptyCheckpoint      = errors.New("empty checkpoint content")
+	ErrMissingHeader        = errors.New("missing checkpoint header")
+	ErrMissingSummary       = errors.New("missing summary section")
+	ErrEmptySummary         = errors.New("empty summary")
+	ErrCheckpointNotFound   = errors.New("checkpoint file not found")
+	ErrInvalidCheckpoint    = errors.New("invalid checkpoint format")
 )
 
 const CheckpointFilename = "checkpoint.md"
@@ -153,4 +164,78 @@ func extractDecisions(text string) []string {
 	}
 
 	return decisions
+}
+
+// ValidateCheckpointFormat validates that checkpoint content follows the expected format.
+// It checks for:
+// - Non-empty content
+// - Checkpoint header (# Checkpoint)
+// - Summary section with content
+func ValidateCheckpointFormat(content string) error {
+	if strings.TrimSpace(content) == "" {
+		return ErrEmptyCheckpoint
+	}
+
+	lines := strings.Split(content, "\n")
+	hasHeader := false
+	hasSummarySection := false
+	hasSummaryContent := false
+	inSummary := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Check for checkpoint header
+		if strings.HasPrefix(trimmed, "# Checkpoint") {
+			hasHeader = true
+			continue
+		}
+
+		// Check for summary section
+		if strings.HasPrefix(trimmed, "## Summary") {
+			hasSummarySection = true
+			inSummary = true
+			continue
+		}
+
+		// Exit summary section on new header
+		if strings.HasPrefix(trimmed, "##") {
+			inSummary = false
+			continue
+		}
+
+		// Check for summary content
+		if inSummary && trimmed != "" && !strings.HasPrefix(trimmed, "---") && !strings.HasPrefix(trimmed, "*") {
+			hasSummaryContent = true
+		}
+	}
+
+	if !hasHeader {
+		return ErrMissingHeader
+	}
+
+	if !hasSummarySection {
+		return ErrMissingSummary
+	}
+
+	if !hasSummaryContent {
+		return ErrEmptySummary
+	}
+
+	return nil
+}
+
+// ValidateCheckpointFile reads and validates a checkpoint file from the workspace.
+func ValidateCheckpointFile(workspacePath string) error {
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
+	content, err := os.ReadFile(checkpointPath)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCheckpointNotFound, err)
+	}
+
+	if err := ValidateCheckpointFormat(string(content)); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidCheckpoint, err)
+	}
+
+	return nil
 }
