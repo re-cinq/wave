@@ -1,2 +1,22 @@
 .idea/
 .idea
+
+# Wave runtime artifacts (ephemeral, not committed)
+.wave/workspaces/
+.wave/state.db
+.wave/traces/
+
+# Wave config (committed)
+# .wave/personas/    — committed
+# .wave/pipelines/   — committed
+# .wave/contracts/   — committed
+
+# Go build
+/wave
+*.exe
+
+# Traces and logs
+*.log
+
+# Node modules (docs site)
+node_modules/
