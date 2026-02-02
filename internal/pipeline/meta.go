@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -296,17 +297,23 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	return genResult, result.TokensUsed, nil
 }
 
-// saveSchemaFiles writes schema definitions to their respective files.
+// saveSchemaFiles writes schema definitions to their respective files with JSON validation and formatting.
 func (e *MetaPipelineExecutor) saveSchemaFiles(schemas map[string]string) error {
 	for schemaPath, schemaContent := range schemas {
+		// Lint and format the JSON schema
+		formattedContent, err := e.lintAndFormatJSON(schemaContent, schemaPath)
+		if err != nil {
+			return fmt.Errorf("failed to lint/format schema %s: %w", schemaPath, err)
+		}
+
 		// Ensure the directory exists
 		dir := filepath.Dir(schemaPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 
-		// Write the schema file
-		if err := os.WriteFile(schemaPath, []byte(schemaContent), 0644); err != nil {
+		// Write the formatted schema file
+		if err := os.WriteFile(schemaPath, formattedContent, 0644); err != nil {
 			return fmt.Errorf("failed to write schema file %s: %w", schemaPath, err)
 		}
 
@@ -314,10 +321,87 @@ func (e *MetaPipelineExecutor) saveSchemaFiles(schemas map[string]string) error 
 			Timestamp:  time.Now(),
 			PipelineID: e.getPipelineID(),
 			State:      "schema_saved",
-			Message:    fmt.Sprintf("schema_path=%s", schemaPath),
+			Message:    fmt.Sprintf("schema_path=%s formatted=%t", schemaPath, true),
 		})
 	}
 	return nil
+}
+
+// lintAndFormatJSON validates and formats JSON content, fixing common issues.
+func (e *MetaPipelineExecutor) lintAndFormatJSON(content, schemaPath string) ([]byte, error) {
+	content = strings.TrimSpace(content)
+
+	// Try to parse as JSON first
+	var jsonObj interface{}
+	err := json.Unmarshal([]byte(content), &jsonObj)
+
+	if err != nil {
+		// If JSON parsing fails, try to fix common issues
+		fixedContent, fixErr := e.attemptJSONFix(content)
+		if fixErr != nil {
+			return nil, fmt.Errorf("JSON syntax error in %s: %w (original: %v)", schemaPath, fixErr, err)
+		}
+
+		// Try parsing the fixed content
+		err = json.Unmarshal([]byte(fixedContent), &jsonObj)
+		if err != nil {
+			return nil, fmt.Errorf("JSON still invalid after fix attempt in %s: %w", schemaPath, err)
+		}
+		content = fixedContent
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "schema_fixed",
+			Message:    fmt.Sprintf("schema_path=%s fixed_json_syntax=true", schemaPath),
+		})
+	}
+
+	// Format the JSON with proper indentation
+	var buf bytes.Buffer
+	err = json.Indent(&buf, []byte(content), "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to format JSON in %s: %w", schemaPath, err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// attemptJSONFix tries to fix common JSON syntax errors.
+func (e *MetaPipelineExecutor) attemptJSONFix(content string) (string, error) {
+	content = strings.TrimSpace(content)
+
+	// Count braces to detect missing closing braces
+	openBraces := strings.Count(content, "{")
+	closeBraces := strings.Count(content, "}")
+
+	// Add missing closing braces
+	if openBraces > closeBraces {
+		missingBraces := openBraces - closeBraces
+		for i := 0; i < missingBraces; i++ {
+			content += "\n}"
+		}
+	}
+
+	// Remove trailing commas before closing braces/brackets
+	content = fixTrailingCommas(content)
+
+	return content, nil
+}
+
+// fixTrailingCommas removes trailing commas that cause JSON parsing errors.
+func fixTrailingCommas(content string) string {
+	// Remove trailing commas before }
+	content = strings.ReplaceAll(content, ",\n}", "\n}")
+	content = strings.ReplaceAll(content, ", }", " }")
+	content = strings.ReplaceAll(content, ",}", "}")
+
+	// Remove trailing commas before ]
+	content = strings.ReplaceAll(content, ",\n]", "\n]")
+	content = strings.ReplaceAll(content, ", ]", " ]")
+	content = strings.ReplaceAll(content, ",]", "]")
+
+	return content
 }
 
 // buildPhilosopherPrompt creates the prompt for the philosopher to generate a pipeline.
