@@ -81,6 +81,31 @@ func TestTestSuiteValidator_TableDriven(t *testing.T) {
 			expectError:   true,
 			errorContains: "exit code 2",
 		},
+		{
+			name: "command string parsing - echo hello world",
+			cfg: ContractConfig{
+				Type:    "test_suite",
+				Command: "echo hello world",
+			},
+			expectError: false,
+		},
+		{
+			name: "command string parsing - true with no args",
+			cfg: ContractConfig{
+				Type:    "test_suite",
+				Command: "true",
+			},
+			expectError: false,
+		},
+		{
+			name: "command string parsing - failing command",
+			cfg: ContractConfig{
+				Type:    "test_suite",
+				Command: "sh -c exit\\ 1",
+			},
+			expectError:   true,
+			errorContains: "test suite failed",
+		},
 	}
 
 	for _, tt := range tests {
