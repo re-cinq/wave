@@ -1,0 +1,39 @@
+{
+"$schema": "http://json-schema.org/draft-07/schema#",
+"type": "object",
+"required": ["analyzed_issues", "enhancement_plans"],
+"properties": {
+"analyzed_issues": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"issue_number": {"type": "number"},
+"current_title": {"type": "string"},
+"current_description": {"type": "string"},
+"identified_problems": {
+"type": "array",
+"items": {"type": "string"}
+}
+}
+}
+},
+"enhancement_plans": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"issue_number": {"type": "number"},
+"suggested_title": {"type": "string"},
+"suggested_description": {"type": "string"},
+"suggested_labels": {
+"type": "array",
+"items": {"type": "string"}
+},
+"priority": {"type": "string"},
+"rationale": {"type": "string"}
+}
+}
+}
+}
+}
