@@ -1,31 +1,70 @@
 {
 "$schema": "http://json-schema.org/draft-07/schema#",
 "type": "object",
-"required": ["repository", "filtering_criteria", "enhancement_strategies", "workflow_steps"],
+"required": ["documentation_files", "code_files_with_docs", "configuration_files", "test_documentation", "documentation_patterns"],
 "properties": {
-"repository": {
+"documentation_files": {
+"type": "array",
+"items": {
 "type": "object",
+"required": ["path", "type", "last_modified", "size"],
 "properties": {
-"name": {"type": "string"},
-"owner": {"type": "string"},
-"issue_count_estimate": {"type": "number"}
+"path": {"type": "string"},
+"type": {"type": "string", "enum": ["readme", "api_docs", "tutorial", "guide", "reference", "changelog", "other"]},
+"last_modified": {"type": "string"},
+"size": {"type": "integer"},
+"dependencies": {"type": "array", "items": {"type": "string"}}
+}
 }
 },
-"filtering_criteria": {
+"code_files_with_docs": {
+"type": "array",
+"items": {
 "type": "object",
+"required": ["path", "doc_type", "doc_density"],
 "properties": {
-"title_length_threshold": {"type": "number"},
-"description_length_threshold": {"type": "number"},
-"empty_description_check": {"type": "boolean"}
+"path": {"type": "string"},
+"doc_type": {"type": "array", "items": {"type": "string"}},
+"doc_density": {"type": "string", "enum": ["high", "medium", "low"]},
+"public_api": {"type": "boolean"}
+}
 }
 },
-"enhancement_strategies": {
+"configuration_files": {
 "type": "array",
-"items": {"type": "string"}
+"items": {
+"type": "object",
+"required": ["path", "has_help_text", "has_examples"],
+"properties": {
+"path": {"type": "string"},
+"has_help_text": {"type": "boolean"},
+"has_examples": {"type": "boolean"},
+"format": {"type": "string"}
+}
+}
 },
-"workflow_steps": {
+"test_documentation": {
 "type": "array",
-"items": {"type": "string"}
+"items": {
+"type": "object",
+"required": ["path", "documents_behavior", "has_examples"],
+"properties": {
+"path": {"type": "string"},
+"documents_behavior": {"type": "boolean"},
+"has_examples": {"type": "boolean"},
+"test_type": {"type": "string"}
+}
+}
+},
+"documentation_patterns": {
+"type": "object",
+"required": ["documentation_standards", "link_patterns", "versioning_approach"],
+"properties": {
+"documentation_standards": {"type": "array", "items": {"type": "string"}},
+"link_patterns": {"type": "object"},
+"versioning_approach": {"type": "string"},
+"update_frequency": {"type": "string"}
+}
 }
 }
 }
