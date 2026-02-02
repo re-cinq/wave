@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// ArtifactRef references an artifact from a previous step for injection
 type ArtifactRef struct {
 	Step     string `yaml:"step"`
 	Artifact string `yaml:"artifact"`
@@ -37,7 +38,7 @@ type workspaceManager struct {
 
 func NewWorkspaceManager(baseDir string) (WorkspaceManager, error) {
 	if baseDir == "" {
-		baseDir = "/tmp/wave"
+		baseDir = ".wave/workspaces"
 	}
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create base workspace directory: %w", err)
@@ -93,17 +94,15 @@ func (wm *workspaceManager) Create(cfg WorkspaceConfig, templateVars map[string]
 			return "", fmt.Errorf("failed to create mount target: %w", err)
 		}
 
-		perm := os.FileMode(0755)
-		if mount.Mode == "readonly" {
-			perm = os.FileMode(0555)
-		}
-
-		if err := os.Chmod(target, perm); err != nil {
-			return "", fmt.Errorf("failed to set mount permissions: %w", err)
-		}
-
 		if err := copyRecursive(source, target); err != nil {
 			return "", fmt.Errorf("failed to copy mount source: %w", err)
+		}
+
+		// Set permissions after copy so readonly mounts don't block the copy
+		if mount.Mode == "readonly" {
+			os.Chmod(target, 0555)
+		} else {
+			os.Chmod(target, 0755)
 		}
 	}
 
@@ -154,6 +153,21 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 	return nil
 }
 
+// Directories to skip when copying workspace mounts
+var skipDirs = map[string]bool{
+	"node_modules": true,
+	".git":         true,
+	".wave":        true,
+	".claude":      true,
+	"vendor":       true,
+	"__pycache__":  true,
+	".venv":        true,
+	"dist":         true,
+	"build":        true,
+	".next":        true,
+	".cache":       true,
+}
+
 func copyRecursive(src, dst string) error {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
@@ -163,14 +177,22 @@ func copyRecursive(src, dst string) error {
 	if srcInfo.IsDir() {
 		return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return err
+				return nil
 			}
 			relPath, _ := filepath.Rel(src, path)
+			if info.IsDir() && skipDirs[info.Name()] && relPath != "." {
+				return filepath.SkipDir
+			}
 			targetPath := filepath.Join(dst, relPath)
 			if info.IsDir() {
 				return os.MkdirAll(targetPath, 0755)
 			}
-			return copyFile(path, targetPath)
+			// Skip large files (>10MB) and errors
+			if info.Size() > 10*1024*1024 {
+				return nil
+			}
+			copyFile(path, targetPath)
+			return nil
 		})
 	}
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/recinq/wave/specs/014-manifest-pipeline-design/contracts"
 	_ "modernc.org/sqlite"
 )
 
@@ -15,11 +14,53 @@ var (
 	schemaFS embed.FS
 )
 
+// StepState represents the state of a pipeline step.
+type StepState string
+
+const (
+	StatePending   StepState = "pending"
+	StateRunning   StepState = "running"
+	StateCompleted StepState = "completed"
+	StateFailed    StepState = "failed"
+	StateRetrying  StepState = "retrying"
+)
+
+// PipelineStateRecord holds persisted pipeline state.
+type PipelineStateRecord struct {
+	PipelineID string
+	Name       string
+	Status     string
+	Input      string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// StepStateRecord holds persisted step state.
+type StepStateRecord struct {
+	StepID        string
+	PipelineID    string
+	State         StepState
+	RetryCount    int
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	WorkspacePath string
+	ErrorMessage  string
+}
+
+// StateStore persists and retrieves pipeline execution state.
+type StateStore interface {
+	SavePipelineState(id string, status string, input string) error
+	SaveStepState(pipelineID string, stepID string, state StepState, err string) error
+	GetPipelineState(id string) (*PipelineStateRecord, error)
+	GetStepStates(pipelineID string) ([]StepStateRecord, error)
+	Close() error
+}
+
 type stateStore struct {
 	db *sql.DB
 }
 
-func NewStateStore(dbPath string) (contracts.StateStore, error) {
+func NewStateStore(dbPath string) (StateStore, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -59,28 +100,27 @@ func (s *stateStore) SavePipelineState(id string, status string, input string) e
 	return nil
 }
 
-func (s *stateStore) SaveStepState(pipelineID string, stepID string, state contracts.StepState, err string) error {
+func (s *stateStore) SaveStepState(pipelineID string, stepID string, state StepState, errMsg string) error {
 	now := time.Now().Unix()
 
 	query := `INSERT INTO step_state (step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message)
 	          VALUES (?, ?, ?, 0, ?, ?, NULL, ?)
 	          ON CONFLICT(step_id) DO UPDATE SET
 	              state = excluded.state,
-	              retry_count = CASE WHEN excluded.state != 'failed' THEN retry_count + 1 ELSE retry_count END,
+	              retry_count = CASE WHEN excluded.state = 'retrying' THEN retry_count + 1 ELSE retry_count END,
 	              started_at = COALESCE(started_at, excluded.started_at),
 	              completed_at = excluded.completed_at,
-	              error_message = excluded.error_message
-	          WHERE step_id = ?`
+	              error_message = excluded.error_message`
 
 	var startedAt, completedAt *int64
-	if state == contracts.StateRunning || state == contracts.StateRetrying {
+	if state == StateRunning || state == StateRetrying {
 		startedAt = &now
 	}
-	if state == contracts.StateCompleted || state == contracts.StateFailed {
+	if state == StateCompleted || state == StateFailed {
 		completedAt = &now
 	}
 
-	_, execErr := s.db.Exec(query, stepID, pipelineID, string(state), startedAt, completedAt, err, stepID)
+	_, execErr := s.db.Exec(query, stepID, pipelineID, string(state), startedAt, completedAt, errMsg)
 	if execErr != nil {
 		return fmt.Errorf("failed to save step state: %w", execErr)
 	}
@@ -88,12 +128,12 @@ func (s *stateStore) SaveStepState(pipelineID string, stepID string, state contr
 	return nil
 }
 
-func (s *stateStore) GetPipelineState(id string) (*contracts.PipelineStateRecord, error) {
+func (s *stateStore) GetPipelineState(id string) (*PipelineStateRecord, error) {
 	query := `SELECT pipeline_id, pipeline_name, status, input, created_at, updated_at
 	          FROM pipeline_state
 	          WHERE pipeline_id = ?`
 
-	var record contracts.PipelineStateRecord
+	var record PipelineStateRecord
 	var createdAt, updatedAt int64
 
 	err := s.db.QueryRow(query, id).Scan(
@@ -117,7 +157,7 @@ func (s *stateStore) GetPipelineState(id string) (*contracts.PipelineStateRecord
 	return &record, nil
 }
 
-func (s *stateStore) GetStepStates(pipelineID string) ([]contracts.StepStateRecord, error) {
+func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error) {
 	query := `SELECT step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message
 	          FROM step_state
 	          WHERE pipeline_id = ?
@@ -129,9 +169,9 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]contracts.StepStateReco
 	}
 	defer rows.Close()
 
-	var records []contracts.StepStateRecord
+	var records []StepStateRecord
 	for rows.Next() {
-		var record contracts.StepStateRecord
+		var record StepStateRecord
 		var startedAt, completedAt sql.NullInt64
 		var errMsg sql.NullString
 

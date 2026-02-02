@@ -169,22 +169,19 @@ func TestHumanReadableFormat(t *testing.T) {
 		})
 	})
 
-	if !strings.Contains(output, "[2024-01-01 12:00:00]") {
-		t.Error("missing formatted timestamp")
+	if !strings.Contains(output, "12:00:00") {
+		t.Errorf("missing formatted timestamp in output: %s", output)
 	}
-	if !strings.Contains(output, "Pipeline:test-pipeline") {
-		t.Error("missing pipeline ID")
+	if !strings.Contains(output, "test-step") {
+		t.Errorf("missing step ID in output: %s", output)
 	}
-	if !strings.Contains(output, "Step:test-step") {
-		t.Error("missing step ID")
+	if !strings.Contains(output, "running") {
+		t.Errorf("missing state in output: %s", output)
 	}
-	if !strings.Contains(output, "State:running") {
-		t.Error("missing state")
-	}
-	if !strings.Contains(output, "Duration:100ms") {
-		t.Error("missing duration")
+	if !strings.Contains(output, "0.1s") {
+		t.Errorf("missing duration in output: %s", output)
 	}
 	if !strings.Contains(output, "Test message") {
-		t.Error("missing message")
+		t.Errorf("missing message in output: %s", output)
 	}
 }

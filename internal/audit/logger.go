@@ -32,7 +32,10 @@ var credentialPatterns = []string{
 }
 
 func NewTraceLogger() (*TraceLogger, error) {
-	traceDir := ".wave/traces"
+	return NewTraceLoggerWithDir(".wave/traces")
+}
+
+func NewTraceLoggerWithDir(traceDir string) (*TraceLogger, error) {
 	pattern := `(?i)(` + strings.Join(credentialPatterns, `|`) + `)[=:]?\s*[\w\-]+`
 	credRegex, err := regexp.Compile(pattern)
 	if err != nil {
