@@ -684,3 +684,136 @@ func TestDoCommand_EmptyInput(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "at least") || strings.Contains(err.Error(), "requires"))
 }
+
+// setupTestManifestWithPhilosopher creates a test manifest with philosopher persona
+// required for meta-pipeline testing
+func setupTestManifestWithPhilosopher(t *testing.T, dir string) string {
+	t.Helper()
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-project
+  description: Test project for meta-pipeline
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+    output_format: json
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: personas/navigator.md
+    temperature: 0.7
+    permissions:
+      allowed_tools:
+        - Read
+      deny: []
+  craftsman:
+    adapter: claude
+    system_prompt_file: personas/craftsman.md
+    temperature: 0.7
+    permissions:
+      allowed_tools:
+        - Read
+        - Write
+      deny: []
+  philosopher:
+    adapter: claude
+    system_prompt_file: personas/philosopher.md
+    temperature: 0.7
+    permissions:
+      allowed_tools:
+        - Read
+      deny: []
+runtime:
+  workspace_root: .wave/workspaces
+  default_timeout_minutes: 30
+  meta_pipeline:
+    max_depth: 2
+    max_total_steps: 20
+    max_total_tokens: 500000
+    timeout_minutes: 60
+skill_mounts: []
+`
+
+	// Create personas directory and files
+	personasDir := filepath.Join(dir, "personas")
+	require.NoError(t, os.MkdirAll(personasDir, 0755))
+
+	personas := []string{"navigator", "craftsman", "philosopher"}
+	for _, p := range personas {
+		promptContent := "You are a " + p + " persona for testing."
+		require.NoError(t, os.WriteFile(filepath.Join(personasDir, p+".md"), []byte(promptContent), 0644))
+	}
+
+	manifestPath := filepath.Join(dir, "wave.yaml")
+	require.NoError(t, os.WriteFile(manifestPath, []byte(manifestContent), 0644))
+
+	return manifestPath
+}
+
+// TestNewDoCmd_MetaFlag verifies the --meta flag exists
+func TestNewDoCmd_MetaFlag(t *testing.T) {
+	cmd := NewDoCmd()
+
+	flags := cmd.Flags()
+
+	metaFlag := flags.Lookup("meta")
+	require.NotNil(t, metaFlag)
+	assert.Equal(t, "false", metaFlag.DefValue)
+	assert.Contains(t, metaFlag.Usage, "philosopher")
+}
+
+// TestDoCommand_MetaDryRunMissingPhilosopher verifies that --meta without
+// philosopher persona produces a clear error
+func TestDoCommand_MetaDryRunMissingPhilosopher(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Setup manifest without philosopher persona
+	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
+
+	// Change to test directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(oldWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest: "wave.yaml",
+		UseMeta:  true,
+		DryRun:   true,
+		Mock:     true,
+	}
+
+	err = runDo("implement feature X", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "philosopher")
+}
+
+// TestDoCommand_MetaIgnoresPersonaFlag verifies that --persona is not used
+// when --meta is set (meta uses philosopher, not custom persona)
+func TestDoCommand_MetaIgnoresPersonaFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifestWithPhilosopher(t, tmpDir)
+
+	// Change to test directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(oldWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest: "wave.yaml",
+		Persona:  "craftsman", // This should be ignored when --meta is set
+		UseMeta:  true,
+		DryRun:   true,
+		Mock:     true,
+	}
+
+	// With mock adapter, this will fail at philosopher invocation
+	// but the error should be about philosopher, not craftsman
+	err = runDo("implement feature X", opts)
+	require.Error(t, err)
+	// The error should be from meta-pipeline (philosopher invocation), not ad-hoc pipeline
+	assert.Contains(t, err.Error(), "meta-pipeline")
+}
