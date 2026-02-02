@@ -183,8 +183,13 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			details = append(details, fmt.Sprintf("Note: JSON was automatically cleaned (%v)", cleaningChanges))
 		}
 
-		// SECURITY FIX: Respect must_pass setting with fallback to StrictMode for compatibility
-		mustPass := cfg.MustPass || cfg.StrictMode // Use MustPass if set, fallback to StrictMode
+		// SECURITY FIX: Respect must_pass setting with proper fallback logic
+		// Prioritize MustPass when explicitly configured, only fallback to StrictMode when MustPass is not set
+		mustPass := cfg.MustPass
+		if !cfg.MustPass && cfg.StrictMode {
+			// Only use StrictMode as fallback when MustPass is explicitly false/unset
+			mustPass = cfg.StrictMode
+		}
 
 		validationErr := &ValidationError{
 			ContractType: "json_schema",
