@@ -2,32 +2,80 @@
 
 Pipelines are DAGs (Directed Acyclic Graphs) that orchestrate multi-step agent workflows. Each step executes one persona in an isolated workspace, passing artifacts to dependent steps.
 
-## Basic Structure
+## Built-in Pipelines
+
+Wave ships with 9 pipelines organized by use case:
+
+### Development
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `speckit-flow` | navigate → specify → plan → implement → review | Feature development |
+| `hotfix` | investigate → fix → verify | Production bugs |
+| `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
+
+### Quality
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `code-review` | diff → security + quality → summary | PR reviews |
+| `test-gen` | analyze-coverage → generate → verify | Test coverage |
+| `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+
+### Planning & Documentation
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `plan` | explore → breakdown → review | Task planning |
+| `docs` | discover → generate → review | Documentation |
+| `migrate` | impact → plan → implement → review | Migrations |
+
+## Running Pipelines
+
+```bash
+# Run with input
+wave run --pipeline speckit-flow --input "add user authentication"
+
+# Preview execution plan
+wave run --pipeline hotfix --dry-run
+
+# Start from specific step
+wave run --pipeline speckit-flow --from-step implement
+
+# Custom timeout
+wave run --pipeline migrate --timeout 120
+```
+
+## Pipeline Structure
 
 ```yaml
 kind: WavePipeline
 metadata:
-  name: feature-flow
-  description: "Implement a feature from analysis to review"
+  name: my-pipeline
+  description: "What this pipeline does"
 
 steps:
-  - id: navigate
+  - id: first-step
     persona: navigator
     memory:
       strategy: fresh
     exec:
       type: prompt
-      source: "Analyze the codebase for: {{ input }}"
+      source: "Analyze: {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
 
-  - id: implement
+  - id: second-step
     persona: craftsman
-    dependencies: [navigate]
+    dependencies: [first-step]
     memory:
       strategy: fresh
       inject_artifacts:
-        - step: navigate
+        - step: first-step
           artifact: analysis
-          as: navigation_report
+          as: context
     exec:
       type: prompt
       source: "Implement based on the analysis."
@@ -44,29 +92,7 @@ steps:
 | `exec.source` | yes | Prompt template or shell command |
 | `dependencies` | no | Step IDs that must complete first |
 | `output_artifacts` | no | Files produced by this step |
-
-### Execution Types
-
-**Prompt** - Send to LLM:
-```yaml
-exec:
-  type: prompt
-  source: "Analyze: {{ input }}"
-```
-
-**Command** - Run shell:
-```yaml
-exec:
-  type: command
-  source: "go test -v ./..."
-```
-
-### Template Variables
-
-| Variable | Description |
-|----------|-------------|
-| `{{ input }}` | Pipeline input from `--input` flag |
-| `{{ task }}` | Current task in matrix strategy |
+| `handover.contract` | no | Validation for step output |
 
 ## Dependencies and DAG
 
@@ -79,7 +105,7 @@ steps:
     dependencies: [navigate]
   - id: implement
     dependencies: [specify]
-  - id: test
+  - id: test            # Parallel with review
     dependencies: [implement]
   - id: review          # Parallel with test
     dependencies: [implement]
@@ -107,6 +133,52 @@ memory:
       as: codebase_analysis
 ```
 
+## Contracts
+
+Validate step output before proceeding:
+
+```yaml
+handover:
+  contract:
+    type: json_schema
+    schema: .wave/contracts/analysis.schema.json
+    source: output/analysis.json
+    on_failure: retry
+    max_retries: 2
+```
+
+Contract types:
+- `json_schema` — Validate against JSON Schema
+- `typescript` — Validate against TypeScript interface
+- `test_suite` — Run test command, must pass
+
+## Template Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{{ input }}` | Pipeline input from `--input` flag |
+| `{{ task }}` | Current task in matrix strategy |
+
+## Workspace Configuration
+
+Each step gets an isolated workspace:
+
+```yaml
+workspace:
+  mount:
+    - source: ./
+      target: /src
+      mode: readonly    # or readwrite
+```
+
+Default structure:
+```
+.wave/workspaces/<pipeline-id>/<step-id>/
+├── src/          # Mounted source
+├── artifacts/    # Injected from dependencies
+└── output/       # Step output
+```
+
 ## Matrix Strategy (Parallel Fan-Out)
 
 Spawn parallel instances from a task list:
@@ -129,67 +201,99 @@ Spawn parallel instances from a task list:
     source: "Execute: {{ task }}"
 ```
 
-## Workspace Configuration
+## Pipeline Examples
 
-Each step gets isolated workspace:
+### speckit-flow
 
-```yaml
-workspace:
-  mount:
-    - source: ./
-      target: /src
-      mode: readonly    # or readwrite
-```
-
-Default structure:
-```
-/tmp/wave/<pipeline-id>/<step-id>/
-├── src/          # Mounted source
-├── artifacts/    # Injected from dependencies
-└── output/       # Step output
-```
-
-## Running Pipelines
-
-```bash
-# Run with input
-wave run --pipeline .wave/pipelines/flow.yaml --input "add auth"
-
-# Dry run
-wave run --pipeline flow.yaml --dry-run
-
-# Resume from step
-wave run --pipeline flow.yaml --from-step implement
-```
-
-## Step States
-
-```
-Pending -> Running -> Completed
-              |-> Retrying -> Running
-              \-> Failed
-```
-
-## Common Patterns
-
-### Speckit Flow
+Full feature development workflow:
 
 ```yaml
 steps:
   - id: navigate
     persona: navigator
+    exec:
+      source: "Analyze the codebase for: {{ input }}"
+
   - id: specify
     persona: philosopher
     dependencies: [navigate]
+    exec:
+      source: "Create specification for: {{ input }}"
+
+  - id: plan
+    persona: philosopher
+    dependencies: [specify]
+    exec:
+      source: "Create implementation plan"
+
   - id: implement
     persona: craftsman
-    dependencies: [specify]
+    dependencies: [plan]
+    exec:
+      source: "Implement according to plan"
+
   - id: review
     persona: auditor
     dependencies: [implement]
+    exec:
+      source: "Review for security and quality"
 ```
 
-### Ad-Hoc Execution
+### hotfix
+
+Fast-track bug fix:
+
+```yaml
+steps:
+  - id: investigate
+    persona: navigator
+    exec:
+      source: "Investigate: {{ input }}"
+
+  - id: fix
+    persona: craftsman
+    dependencies: [investigate]
+    exec:
+      source: "Fix the issue with regression test"
+
+  - id: verify
+    persona: auditor
+    dependencies: [fix]
+    exec:
+      source: "Verify fix is safe for production"
+```
+
+### debug
+
+Systematic debugging:
+
+```yaml
+steps:
+  - id: reproduce
+    persona: debugger
+    exec:
+      source: "Reproduce: {{ input }}"
+
+  - id: hypothesize
+    persona: debugger
+    dependencies: [reproduce]
+    exec:
+      source: "Form hypotheses about root cause"
+
+  - id: investigate
+    persona: debugger
+    dependencies: [hypothesize]
+    exec:
+      source: "Test each hypothesis"
+
+  - id: fix
+    persona: craftsman
+    dependencies: [investigate]
+    exec:
+      source: "Implement fix with regression test"
+```
+
+## Ad-Hoc Execution
 
 For quick tasks without pipeline files:
 
@@ -197,10 +301,11 @@ For quick tasks without pipeline files:
 wave do "fix the bug" --persona craftsman
 ```
 
-Generates a 2-step pipeline (navigate -> execute) automatically.
+Generates a 2-step pipeline (navigate → execute) automatically.
 
 ## Related Topics
 
-- [Pipeline Schema Reference](/reference/pipeline-schema) - Full field reference
-- [Contracts Guide](/guide/contracts) - Step output validation
-- [Relay Guide](/guide/relay) - Context compaction
+- [Pipeline Schema Reference](/reference/pipeline-schema)
+- [Contracts Guide](/guide/contracts)
+- [Personas Guide](/guide/personas)
+- [Relay Guide](/guide/relay)

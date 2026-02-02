@@ -395,16 +395,24 @@ wave list runs
 $ wave list personas
 NAME          ADAPTER   TEMPERATURE   DESCRIPTION
 navigator     claude    0.1           Read-only codebase exploration
-philosopher   claude    0.3           Architecture and specification design
+philosopher   claude    0.3           Architecture and specification
+planner       claude    0.3           Task breakdown and planning
 craftsman     claude    0.7           Implementation and testing
+debugger      claude    0.2           Systematic issue diagnosis
 auditor       claude    0.1           Security and quality review
-summarizer    claude    0.0           Relay checkpoint summarizer
+summarizer    claude    0.0           Context compaction
 
 $ wave list pipelines
 NAME            STEPS   PATH
 speckit-flow    5       .wave/pipelines/speckit-flow.yaml
-bug-fix         4       .wave/pipelines/bug-fix.yaml
-auto-design     2       .wave/pipelines/auto-design.yaml
+hotfix          3       .wave/pipelines/hotfix.yaml
+code-review     4       .wave/pipelines/code-review.yaml
+refactor        4       .wave/pipelines/refactor.yaml
+debug           4       .wave/pipelines/debug.yaml
+test-gen        3       .wave/pipelines/test-gen.yaml
+docs            3       .wave/pipelines/docs.yaml
+plan            3       .wave/pipelines/plan.yaml
+migrate         4       .wave/pipelines/migrate.yaml
 
 $ wave list runs
 PIPELINE-ID   NAME           STATUS      STARTED              STEPS

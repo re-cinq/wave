@@ -2,20 +2,182 @@
 
 Personas define how agents behave in Wave. Each persona binds an adapter to a specific role with its own permissions, system prompt, and behavior settings.
 
-## Defining a Persona
+## Built-in Personas
 
-Personas live in the `personas` section of `wave.yaml`:
+Wave ships with 7 specialized personas:
+
+| Persona | Temp | Purpose | Permissions |
+|---------|------|---------|-------------|
+| `navigator` | 0.1 | Codebase exploration | Read, Glob, Grep, git log/status |
+| `philosopher` | 0.3 | Architecture & specs | Read, Write(.wave/specs/*) |
+| `planner` | 0.3 | Task breakdown | Read, Glob, Grep |
+| `craftsman` | 0.7 | Implementation | Read, Write, Edit, Bash |
+| `debugger` | 0.2 | Issue diagnosis | Read, Grep, git bisect, go test |
+| `auditor` | 0.1 | Security review | Read, Grep, go vet, npm audit |
+| `summarizer` | 0.0 | Context compaction | Read only |
+
+## Persona Definitions
+
+### Navigator
+
+Read-only codebase exploration. Finds files, analyzes patterns, maps architecture.
+
+```yaml
+navigator:
+  adapter: claude
+  description: "Read-only codebase exploration"
+  system_prompt_file: .wave/personas/navigator.md
+  temperature: 0.1
+  permissions:
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - "Bash(git log*)"
+      - "Bash(git status*)"
+    deny:
+      - "Write(*)"
+      - "Edit(*)"
+      - "Bash(git commit*)"
+      - "Bash(git push*)"
+```
+
+### Philosopher
+
+Design and specification. Creates specs, plans, and contracts.
+
+```yaml
+philosopher:
+  adapter: claude
+  description: "Architecture design and specification"
+  system_prompt_file: .wave/personas/philosopher.md
+  temperature: 0.3
+  permissions:
+    allowed_tools:
+      - Read
+      - "Write(.wave/specs/*)"
+    deny:
+      - "Bash(*)"
+```
+
+### Planner
+
+Task breakdown and project planning. Decomposes features into actionable steps.
+
+```yaml
+planner:
+  adapter: claude
+  description: "Task breakdown and project planning"
+  system_prompt_file: .wave/personas/planner.md
+  temperature: 0.3
+  permissions:
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+    deny:
+      - "Write(*)"
+      - "Edit(*)"
+      - "Bash(*)"
+```
+
+### Craftsman
+
+Full implementation capability. Reads, writes, edits, and runs commands.
+
+```yaml
+craftsman:
+  adapter: claude
+  description: "Code implementation and testing"
+  system_prompt_file: .wave/personas/craftsman.md
+  temperature: 0.7
+  permissions:
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+    deny:
+      - "Bash(rm -rf /*)"
+```
+
+### Debugger
+
+Systematic issue diagnosis with hypothesis testing and root cause analysis.
+
+```yaml
+debugger:
+  adapter: claude
+  description: "Systematic issue diagnosis and root cause analysis"
+  system_prompt_file: .wave/personas/debugger.md
+  temperature: 0.2
+  permissions:
+    allowed_tools:
+      - Read
+      - Grep
+      - Glob
+      - "Bash(go test*)"
+      - "Bash(git log*)"
+      - "Bash(git diff*)"
+      - "Bash(git bisect*)"
+    deny:
+      - "Write(*)"
+      - "Edit(*)"
+```
+
+### Auditor
+
+Security review and quality assurance. Read-only with analysis tools.
+
+```yaml
+auditor:
+  adapter: claude
+  description: "Security review and quality assurance"
+  system_prompt_file: .wave/personas/auditor.md
+  temperature: 0.1
+  permissions:
+    allowed_tools:
+      - Read
+      - Grep
+      - "Bash(go vet*)"
+      - "Bash(npm audit*)"
+    deny:
+      - "Write(*)"
+      - "Edit(*)"
+```
+
+### Summarizer
+
+Context compaction for relay handoffs. Creates structured checkpoints.
+
+```yaml
+summarizer:
+  adapter: claude
+  description: "Context compaction for relay handoffs"
+  system_prompt_file: .wave/personas/summarizer.md
+  temperature: 0.0
+  permissions:
+    allowed_tools:
+      - Read
+    deny:
+      - "Write(*)"
+      - "Bash(*)"
+```
+
+## Defining Custom Personas
+
+Add to the `personas` section of `wave.yaml`:
 
 ```yaml
 personas:
-  navigator:
+  my-persona:
     adapter: claude
-    description: "Read-only codebase exploration"
-    system_prompt_file: .wave/personas/navigator.md
-    temperature: 0.1
+    description: "What this persona does"
+    system_prompt_file: .wave/personas/my-persona.md
+    temperature: 0.5
     permissions:
-      allowed_tools: ["Read", "Glob", "Grep", "Bash(git *)"]
-      deny: ["Write(*)", "Edit(*)"]
+      allowed_tools: [...]
+      deny: [...]
 ```
 
 | Field | Required | Description |
@@ -27,17 +189,20 @@ personas:
 | `permissions` | no | Tool access control |
 | `hooks` | no | Pre/post tool hooks |
 
-## Temperature Settings
+## Temperature Guidelines
 
-| Temperature | Use Case |
-|-------------|----------|
-| `0.0-0.2` | Deterministic: summarization, auditing |
+| Range | Use Case |
+|-------|----------|
+| `0.0-0.2` | Deterministic: summarization, auditing, analysis |
 | `0.3-0.5` | Balanced: specification, planning |
-| `0.6-0.8` | Creative: implementation |
+| `0.6-0.8` | Creative: implementation, generation |
 
 ## Permissions System
 
-Permissions use two lists: `allowed_tools` (permitted) and `deny` (blocked, always takes precedence).
+Permissions use two lists:
+
+- `allowed_tools` — permitted operations
+- `deny` — blocked operations (always takes precedence)
 
 ```yaml
 permissions:
@@ -49,72 +214,23 @@ permissions:
     - "Bash(rm -rf *)"    # Block destructive commands
 ```
 
-**Evaluation order**: Check `deny` first (block if match), then `allowed_tools` (permit if match), otherwise block.
-
-**Inheritance**: Persona `deny` patterns are additive with adapter denies. Persona `allowed_tools` replace adapter defaults.
+**Evaluation order**:
+1. Check `deny` → MATCH = blocked
+2. Check `allowed_tools` → MATCH = permitted
+3. No match → blocked (implicit deny)
 
 ## Hooks
 
-Hooks execute shell commands triggered by tool call patterns.
+Hooks execute shell commands at tool call boundaries:
 
 ```yaml
 hooks:
-  PreToolUse:    # Runs before tool call; non-zero exit blocks it
+  PreToolUse:    # Non-zero exit blocks the tool call
     - matcher: "Bash(git commit*)"
       command: ".wave/hooks/pre-commit-lint.sh"
-  PostToolUse:   # Runs after tool call; informational only
+  PostToolUse:   # Informational only
     - matcher: "Write(src/**)"
       command: "npm test --silent"
-```
-
-## Built-in Archetypes
-
-### Navigator (Read-only analysis)
-
-```yaml
-navigator:
-  adapter: claude
-  system_prompt_file: .wave/personas/navigator.md
-  temperature: 0.1
-  permissions:
-    allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)"]
-    deny: ["Write(*)", "Edit(*)"]
-```
-
-### Craftsman (Implementation)
-
-```yaml
-craftsman:
-  adapter: claude
-  system_prompt_file: .wave/personas/craftsman.md
-  temperature: 0.7
-  permissions:
-    allowed_tools: ["Read", "Write", "Edit", "Bash"]
-    deny: ["Bash(rm -rf /*)"]
-```
-
-### Auditor (Security review)
-
-```yaml
-auditor:
-  adapter: claude
-  system_prompt_file: .wave/personas/auditor.md
-  temperature: 0.1
-  permissions:
-    allowed_tools: ["Read", "Grep", "Bash(npm audit*)"]
-    deny: ["Write(*)", "Edit(*)"]
-```
-
-### Summarizer (Relay checkpoints)
-
-```yaml
-summarizer:
-  adapter: claude
-  system_prompt_file: .wave/personas/summarizer.md
-  temperature: 0.0
-  permissions:
-    allowed_tools: ["Read"]
-    deny: ["Write(*)", "Bash(*)"]
 ```
 
 ## System Prompt Files
@@ -122,9 +238,9 @@ summarizer:
 Store prompts in `.wave/personas/` as markdown:
 
 ```markdown
-# Navigator Persona
+# Navigator
 
-You are a codebase navigator. Explore and analyze code without making changes.
+You are a codebase navigator. Explore and analyze without modifications.
 
 ## Responsibilities
 - Map file structure and dependencies
@@ -132,7 +248,11 @@ You are a codebase navigator. Explore and analyze code without making changes.
 - Report architectural patterns
 
 ## Output Format
-Provide structured analysis with file paths and code snippets.
+Provide structured JSON analysis with file paths.
+
+## Constraints
+- NEVER write, edit, or delete files
+- NEVER run destructive commands
 ```
 
 ## Testing Personas
@@ -145,6 +265,6 @@ wave do "analyze this" --persona navigator  # Test with task
 
 ## Related Topics
 
-- [Manifest Schema Reference](/reference/manifest-schema) - Full field reference
-- [Pipelines Guide](/guide/pipelines) - Using personas in steps
-- [Contracts Guide](/guide/contracts) - Validating persona output
+- [Manifest Schema Reference](/reference/manifest-schema)
+- [Pipelines Guide](/guide/pipelines)
+- [Contracts Guide](/guide/contracts)

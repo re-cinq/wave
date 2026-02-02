@@ -12,6 +12,20 @@ Without persona scoping, every agent has identical permissions and context. This
 
 Personas solve this by **binding capabilities to roles**.
 
+## Built-in Personas
+
+Wave ships with 7 specialized personas:
+
+| Persona | Temp | Purpose |
+|---------|------|---------|
+| `navigator` | 0.1 | Read-only codebase exploration |
+| `philosopher` | 0.3 | Architecture and specification |
+| `planner` | 0.3 | Task breakdown and planning |
+| `craftsman` | 0.7 | Implementation and testing |
+| `debugger` | 0.2 | Systematic issue diagnosis |
+| `auditor` | 0.1 | Security and quality review |
+| `summarizer` | 0.0 | Context compaction |
+
 ## Persona Anatomy
 
 ```mermaid
@@ -35,9 +49,7 @@ graph TD
 | **Permissions** | Tool access control — what the agent can and cannot do. |
 | **Hooks** | Shell commands that execute before/after tool calls. |
 
-## Built-in Archetypes
-
-Wave's design encourages these persona patterns:
+## Persona Definitions
 
 ### Navigator
 
@@ -67,6 +79,20 @@ philosopher:
     deny: ["Bash(*)"]
 ```
 
+### Planner
+
+Task breakdown and project planning. Decomposes features into ordered, actionable steps.
+
+```yaml
+planner:
+  adapter: claude
+  system_prompt_file: .wave/personas/planner.md
+  temperature: 0.3
+  permissions:
+    allowed_tools: ["Read", "Glob", "Grep"]
+    deny: ["Write(*)", "Edit(*)", "Bash(*)"]
+```
+
 ### Craftsman
 
 Full implementation capability. Reads, writes, edits, and runs commands. Protected by hooks for dangerous operations.
@@ -83,6 +109,20 @@ craftsman:
     PreToolUse:
       - matcher: "Bash(git commit*)"
         command: ".wave/hooks/pre-commit-lint.sh"
+```
+
+### Debugger
+
+Systematic issue diagnosis with hypothesis testing and root cause analysis.
+
+```yaml
+debugger:
+  adapter: claude
+  system_prompt_file: .wave/personas/debugger.md
+  temperature: 0.2
+  permissions:
+    allowed_tools: ["Read", "Grep", "Glob", "Bash(go test*)", "Bash(git bisect*)"]
+    deny: ["Write(*)", "Edit(*)"]
 ```
 
 ### Auditor
@@ -164,6 +204,6 @@ A good system prompt includes:
 
 ## Further Reading
 
-- [Manifest Schema — Persona Fields](/reference/manifest-schema#persona) — complete field reference
-- [Adapters](/concepts/adapters) — how adapters and personas interact
-- [Contracts](/concepts/contracts) — validating persona output
+- [Manifest Schema — Persona Fields](/reference/manifest-schema#persona)
+- [Adapters](/concepts/adapters)
+- [Contracts](/concepts/contracts)
