@@ -60,6 +60,7 @@ Execute an ad-hoc task (generates navigate/execute pipeline).
 - `--manifest <path>` - Path to manifest file
 - `--mock` - Use mock adapter for testing
 - `--dry-run` - Show what would be executed without running
+- `--meta` - Generate pipeline dynamically using philosopher persona
 
 ### `wave resume`
 Resume a previously interrupted pipeline run.
