@@ -66,7 +66,7 @@ steps:
         Fix the production issue based on the investigation findings.
 
         Requirements:
-        1. Apply the minimal fix — don't refactor surrounding code
+        1. Apply the minimal fix - don't refactor surrounding code
         2. Add a regression test that would have caught this bug
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
