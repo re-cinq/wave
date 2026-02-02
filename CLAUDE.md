@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-02-01
 
 ## Active Technologies
+- Go 1.22+ (single static binary, goroutines for concurrency) (015-wave-cli-implementation)
+- SQLite for pipeline state persistence; filesystem for workspaces and artifacts (015-wave-cli-implementation)
 
 - Go 1.22+ (single static binary, goroutines for + `gopkg.in/yaml.v3` (YAML parsing), (014-manifest-pipeline-design)
 
@@ -22,6 +24,7 @@ tests/
 Go 1.22+ (single static binary, goroutines for: Follow standard conventions
 
 ## Recent Changes
+- 015-wave-cli-implementation: Added Go 1.22+ (single static binary, goroutines for concurrency)
 
 - 014-manifest-pipeline-design: Added Go 1.22+ (single static binary, goroutines for + `gopkg.in/yaml.v3` (YAML parsing),
 
