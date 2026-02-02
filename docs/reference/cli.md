@@ -225,9 +225,11 @@ By default, `wave do` generates a fixed 2-step pipeline:
 When `--meta` is specified, Wave uses a dynamic pipeline generation approach:
 
 1. The **philosopher** persona analyzes the task and designs a custom multi-step pipeline tailored to the specific requirements.
-2. The generated pipeline is then executed automatically.
+2. **JSON schemas are automatically generated** for each step's contract validation.
+3. **Output artifacts are properly configured** to ensure data flow between steps.
+4. The generated pipeline is validated and executed automatically.
 
-This mode is useful for complex tasks that benefit from a thoughtfully designed workflow rather than the fixed navigate→execute pattern.
+This mode is useful for complex tasks that benefit from a thoughtfully designed workflow rather than the fixed navigate→execute pattern. **New**: Automatic schema generation ensures perfect alignment between pipeline steps and contract validation.
 
 **Requirements:**
 - The `philosopher` persona must be configured in your manifest.

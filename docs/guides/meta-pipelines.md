@@ -30,8 +30,49 @@ graph TD
 3. Wave validates the generated pipeline:
    - **Schema validation** — valid YAML, required fields, correct types.
    - **Semantic validation** — first step is navigator, all steps have contracts, fresh memory strategy.
-4. If valid, Wave executes the generated pipeline.
-5. Recursion depth is tracked to prevent infinite meta-generation.
+4. **Schema files are automatically generated** for each step's contract validation.
+5. If valid, Wave executes the generated pipeline.
+6. Recursion depth is tracked to prevent infinite meta-generation.
+
+## Automatic Schema Generation
+
+**New Feature**: Meta-pipelines now automatically generate JSON schemas for contract validation.
+
+When the philosopher generates a pipeline, it creates:
+
+1. **Pipeline YAML** with proper step definitions
+2. **JSON Schemas** for each step's expected output format
+3. **Output artifacts** configuration for proper file handling
+
+**Example generated schema** (`.wave/contracts/navigation-analysis.schema.json`):
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["files", "patterns", "dependencies", "impact_areas"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Key files relevant to the task"
+    },
+    "patterns": {
+      "type": "object",
+      "properties": {
+        "architecture": {"type": "string"},
+        "conventions": {"type": "string"}
+      }
+    }
+  }
+}
+```
+
+**Benefits:**
+- ✅ **Perfect alignment** between steps and contracts
+- ✅ **Automatic validation** of data flow between steps
+- ✅ **No manual schema writing** required
+- ✅ **Type safety** for complex multi-step pipelines
 
 ## Configuration
 
@@ -107,6 +148,8 @@ Generated pipelines must satisfy these rules beyond schema correctness:
 |------|-------------|
 | Navigator first | Step[0] must use a navigator persona (or explicitly override). |
 | Contracts present | Every step must have a handover contract. |
+| **Schema files exist** | **All referenced schema files must exist and be valid JSON.** |
+| **Output artifacts** | **Steps with json_schema contracts must have output_artifacts config.** |
 | Fresh memory | All steps must use `strategy: fresh`. |
 | Valid personas | All referenced personas must exist in the manifest. |
 | No cycles | Step dependencies must form a valid DAG. |
