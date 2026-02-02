@@ -126,7 +126,3 @@ func (v *DAGValidator) TopologicalSort(p *Pipeline) ([]*Step, error) {
 	return result, nil
 }
 
-func ValidateDAG(p *Pipeline) error {
-	validator := &DAGValidator{}
-	return validator.ValidateDAG(p)
-}
