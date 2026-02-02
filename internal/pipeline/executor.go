@@ -365,10 +365,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 
 	// Write output artifacts to workspace
-	// Use ResultContent if available (extracted from adapter response), otherwise fall back to raw stdout
-	artifactContent := stdoutData
-	if result.ResultContent != "" {
-		artifactContent = []byte(result.ResultContent)
+	// Use ResultContent if available (extracted from adapter response)
+	// Don't fall back to raw stdout as it contains JSON wrapper, not actual content
+	artifactContent := []byte(result.ResultContent)
+	if result.ResultContent == "" && len(stdoutData) > 0 {
+		// Log warning but still try to use stdout as last resort
+		if e.debug {
+			fmt.Printf("[DEBUG] Warning: ResultContent is empty, artifact may be incomplete\n")
+		}
 	}
 	e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
 
