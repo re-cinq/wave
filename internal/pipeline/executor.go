@@ -367,14 +367,16 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Write output artifacts to workspace
 	// Use ResultContent if available (extracted from adapter response)
 	// Don't fall back to raw stdout as it contains JSON wrapper, not actual content
-	artifactContent := []byte(result.ResultContent)
-	if result.ResultContent == "" && len(stdoutData) > 0 {
-		// Log warning but still try to use stdout as last resort
+	if result.ResultContent != "" {
+		artifactContent := []byte(result.ResultContent)
+		e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
+	} else {
+		// Skip writing artifacts when ResultContent is empty to avoid overwriting
+		// existing artifacts with empty content during relay compaction or parsing failures
 		if e.debug {
-			fmt.Printf("[DEBUG] Warning: ResultContent is empty, artifact may be incomplete\n")
+			fmt.Printf("[DEBUG] Warning: ResultContent is empty, skipping artifact write to preserve existing content\n")
 		}
 	}
-	e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
 
 	// Check relay/compaction threshold (FR-009)
 	if err := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, workspacePath, string(stdoutData)); err != nil {

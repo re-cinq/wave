@@ -38,6 +38,10 @@ func init() {
 	rootCmd.AddCommand(commands.NewResumeCmd())
 	rootCmd.AddCommand(commands.NewCleanCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
+	rootCmd.AddCommand(commands.NewStatusCmd())
+	rootCmd.AddCommand(commands.NewLogsCmd())
+	rootCmd.AddCommand(commands.NewCancelCmd())
+	rootCmd.AddCommand(commands.NewArtifactsCmd())
 }
 
 func main() {

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,9 +9,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	_ "modernc.org/sqlite"
 )
 
 // JSON output structures
@@ -38,10 +42,21 @@ type AdapterInfo struct {
 	Available    bool   `json:"available"`
 }
 
+// RunInfo holds information about a pipeline run
+type RunInfo struct {
+	RunID      string `json:"run_id"`
+	Pipeline   string `json:"pipeline"`
+	Status     string `json:"status"`
+	StartedAt  string `json:"started_at"`
+	Duration   string `json:"duration"`
+	DurationMs int64  `json:"duration_ms,omitempty"`
+}
+
 type ListOutput struct {
 	Pipelines []PipelineInfo `json:"pipelines,omitempty"`
 	Personas  []PersonaInfo  `json:"personas,omitempty"`
 	Adapters  []AdapterInfo  `json:"adapters,omitempty"`
+	Runs      []RunInfo      `json:"runs,omitempty"`
 }
 
 type ListOptions struct {
@@ -49,22 +64,41 @@ type ListOptions struct {
 	Format   string
 }
 
+// ListRunsOptions holds options for the list runs subcommand
+type ListRunsOptions struct {
+	Limit    int
+	Pipeline string
+	Status   string
+	Format   string
+}
+
+// ListRunsFlags holds flags specific to the runs subcommand that can be set on main list command
+var listRunsLimit int
+var listRunsPipeline string
+var listRunsStatus string
+
 func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
 	cmd := &cobra.Command{
-		Use:   "list [pipelines|personas|adapters]",
+		Use:   "list [pipelines|personas|adapters|runs]",
 		Short: "List pipelines and personas",
 		Long: `List available pipelines, personas, and their configurations.
 Shows pipeline steps, persona bindings, and execution status.
 
-Subcommands:
+Arguments:
   pipelines   List available pipelines
   personas    List configured personas
   adapters    List configured adapters
+  runs        List recent pipeline executions
 
-With no arguments, lists everything.`,
-		ValidArgs: []string{"pipelines", "personas", "adapters"},
+With no arguments, lists pipelines and personas.
+
+For 'list runs', additional flags are available:
+  --limit N           Maximum number of runs to show (default 10)
+  --run-pipeline P    Filter to specific pipeline
+  --run-status S      Filter by status (running, completed, failed, cancelled)`,
+		ValidArgs: []string{"pipelines", "personas", "adapters", "runs"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := ""
 			if len(args) > 0 {
@@ -77,6 +111,11 @@ With no arguments, lists everything.`,
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Format, "format", "table", "Output format (table, json)")
 
+	// Flags for 'list runs' (only used when filter is "runs")
+	cmd.Flags().IntVar(&listRunsLimit, "limit", 10, "Maximum number of runs to show (for 'list runs')")
+	cmd.Flags().StringVar(&listRunsPipeline, "run-pipeline", "", "Filter to specific pipeline (for 'list runs')")
+	cmd.Flags().StringVar(&listRunsStatus, "run-status", "", "Filter by status (for 'list runs')")
+
 	return cmd
 }
 
@@ -85,6 +124,17 @@ func runList(opts ListOptions, filter string) error {
 	showPipelines := showAll || filter == "pipelines"
 	showPersonas := showAll || filter == "personas"
 	showAdapters := filter == "adapters"
+	showRuns := filter == "runs"
+
+	// Handle runs filter separately (redirect to runListRuns)
+	if showRuns {
+		return runListRuns(ListRunsOptions{
+			Limit:    listRunsLimit,
+			Pipeline: listRunsPipeline,
+			Status:   listRunsStatus,
+			Format:   opts.Format,
+		})
+	}
 
 	// For JSON output, collect all data first
 	if opts.Format == "json" {
@@ -446,4 +496,313 @@ func listAdapters(adapters map[string]struct {
 		fmt.Printf("  %-20s binary:%-10s mode:%-10s format:%-6s %s\n",
 			name, adapter.Binary, adapter.Mode, adapter.OutputFormat, available)
 	}
+}
+
+// runListRuns executes the 'list runs' subcommand
+func runListRuns(opts ListRunsOptions) error {
+	runs, err := collectRuns(opts)
+	if err != nil {
+		return err
+	}
+
+	if opts.Format == "json" {
+		output := ListOutput{Runs: runs}
+		jsonBytes, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
+	}
+
+	// Table format
+	listRuns(runs)
+	return nil
+}
+
+// collectRuns collects run information from the state database or workspace metadata
+func collectRuns(opts ListRunsOptions) ([]RunInfo, error) {
+	var runs []RunInfo
+
+	// First try to read from the state database
+	dbPath := ".wave/state.db"
+	if _, err := os.Stat(dbPath); err == nil {
+		dbRuns, err := collectRunsFromDB(dbPath, opts)
+		if err == nil && len(dbRuns) > 0 {
+			return dbRuns, nil
+		}
+		// Fall through to workspace fallback if DB query failed or returned no results
+	}
+
+	// Fallback: read from workspace directory metadata
+	runs, err := collectRunsFromWorkspaces(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return runs, nil
+}
+
+// collectRunsFromDB reads run information from the state database
+func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// Try pipeline_run table first (new schema from spec 016)
+	query := `
+		SELECT run_id, pipeline_name, status, started_at, completed_at
+		FROM pipeline_run
+		WHERE 1=1
+	`
+	args := []interface{}{}
+
+	if opts.Pipeline != "" {
+		query += " AND pipeline_name = ?"
+		args = append(args, opts.Pipeline)
+	}
+
+	if opts.Status != "" {
+		query += " AND LOWER(status) = LOWER(?)"
+		args = append(args, opts.Status)
+	}
+
+	query += " ORDER BY started_at DESC LIMIT ?"
+	args = append(args, opts.Limit)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		// Fallback to pipeline_state table (old schema)
+		return collectRunsFromPipelineState(db, opts)
+	}
+	defer rows.Close()
+
+	var runs []RunInfo
+	for rows.Next() {
+		var runID, pipelineName, status string
+		var startedAt int64
+		var completedAt sql.NullInt64
+
+		if err := rows.Scan(&runID, &pipelineName, &status, &startedAt, &completedAt); err != nil {
+			continue
+		}
+
+		startTime := time.Unix(startedAt, 0)
+		var duration string
+		var durationMs int64
+
+		if completedAt.Valid {
+			endTime := time.Unix(completedAt.Int64, 0)
+			durationMs = endTime.Sub(startTime).Milliseconds()
+			duration = formatDuration(endTime.Sub(startTime))
+		} else if strings.ToLower(status) == "running" {
+			durationMs = time.Since(startTime).Milliseconds()
+			duration = formatDuration(time.Since(startTime)) + " (running)"
+		} else {
+			duration = "-"
+		}
+
+		runs = append(runs, RunInfo{
+			RunID:      runID,
+			Pipeline:   pipelineName,
+			Status:     status,
+			StartedAt:  startTime.Format("2006-01-02 15:04:05"),
+			Duration:   duration,
+			DurationMs: durationMs,
+		})
+	}
+
+	return runs, nil
+}
+
+// collectRunsFromPipelineState reads from the legacy pipeline_state table
+func collectRunsFromPipelineState(db *sql.DB, opts ListRunsOptions) ([]RunInfo, error) {
+	query := `
+		SELECT pipeline_id, pipeline_name, status, created_at, updated_at
+		FROM pipeline_state
+		WHERE 1=1
+	`
+	args := []interface{}{}
+
+	if opts.Pipeline != "" {
+		query += " AND pipeline_name = ?"
+		args = append(args, opts.Pipeline)
+	}
+
+	if opts.Status != "" {
+		query += " AND LOWER(status) = LOWER(?)"
+		args = append(args, opts.Status)
+	}
+
+	query += " ORDER BY updated_at DESC LIMIT ?"
+	args = append(args, opts.Limit)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var runs []RunInfo
+	for rows.Next() {
+		var pipelineID, pipelineName, status string
+		var createdAt, updatedAt int64
+
+		if err := rows.Scan(&pipelineID, &pipelineName, &status, &createdAt, &updatedAt); err != nil {
+			continue
+		}
+
+		startTime := time.Unix(createdAt, 0)
+		endTime := time.Unix(updatedAt, 0)
+
+		var duration string
+		var durationMs int64
+		if createdAt != updatedAt {
+			durationMs = endTime.Sub(startTime).Milliseconds()
+			duration = formatDuration(endTime.Sub(startTime))
+		} else {
+			duration = "-"
+		}
+
+		runs = append(runs, RunInfo{
+			RunID:      pipelineID,
+			Pipeline:   pipelineName,
+			Status:     status,
+			StartedAt:  startTime.Format("2006-01-02 15:04:05"),
+			Duration:   duration,
+			DurationMs: durationMs,
+		})
+	}
+
+	return runs, nil
+}
+
+// collectRunsFromWorkspaces reads run information from workspace directory metadata
+func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
+	wsDir := ".wave/workspaces"
+	entries, err := os.ReadDir(wsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	type wsInfo struct {
+		name    string
+		modTime time.Time
+	}
+
+	var workspaces []wsInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Apply pipeline filter
+		if opts.Pipeline != "" && entry.Name() != opts.Pipeline {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		workspaces = append(workspaces, wsInfo{
+			name:    entry.Name(),
+			modTime: info.ModTime(),
+		})
+	}
+
+	// Sort by modification time (most recent first)
+	sort.Slice(workspaces, func(i, j int) bool {
+		return workspaces[i].modTime.After(workspaces[j].modTime)
+	})
+
+	// Apply limit
+	if opts.Limit > 0 && len(workspaces) > opts.Limit {
+		workspaces = workspaces[:opts.Limit]
+	}
+
+	var runs []RunInfo
+	for _, ws := range workspaces {
+		// Infer status from workspace name or default to "unknown"
+		status := "unknown"
+		if opts.Status != "" && strings.ToLower(status) != strings.ToLower(opts.Status) {
+			continue
+		}
+
+		runs = append(runs, RunInfo{
+			RunID:     ws.name,
+			Pipeline:  ws.name,
+			Status:    status,
+			StartedAt: ws.modTime.Format("2006-01-02 15:04:05"),
+			Duration:  "-",
+		})
+	}
+
+	return runs, nil
+}
+
+// listRuns displays run information in table format
+func listRuns(runs []RunInfo) {
+	fmt.Printf("Recent Pipeline Runs:\n")
+	if len(runs) == 0 {
+		fmt.Printf("  (no runs found)\n")
+		return
+	}
+
+	// Print header
+	fmt.Printf("  %-36s %-20s %-12s %-20s %s\n",
+		"RUN_ID", "PIPELINE", "STATUS", "STARTED", "DURATION")
+	fmt.Printf("  %s %s %s %s %s\n",
+		strings.Repeat("-", 36),
+		strings.Repeat("-", 20),
+		strings.Repeat("-", 12),
+		strings.Repeat("-", 20),
+		strings.Repeat("-", 15))
+
+	for _, run := range runs {
+		// Truncate long run IDs
+		runID := run.RunID
+		if len(runID) > 36 {
+			runID = runID[:33] + "..."
+		}
+
+		// Truncate long pipeline names
+		pipeline := run.Pipeline
+		if len(pipeline) > 20 {
+			pipeline = pipeline[:17] + "..."
+		}
+
+		// Format status with color hints (for terminal)
+		status := run.Status
+		if len(status) > 12 {
+			status = status[:9] + "..."
+		}
+
+		fmt.Printf("  %-36s %-20s %-12s %-20s %s\n",
+			runID, pipeline, status, run.StartedAt, run.Duration)
+	}
+}
+
+// formatDuration formats a duration into a human-readable string
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	if d < time.Hour {
+		mins := int(d.Minutes())
+		secs := int(d.Seconds()) % 60
+		return fmt.Sprintf("%dm%ds", mins, secs)
+	}
+	hours := int(d.Hours())
+	mins := int(d.Minutes()) % 60
+	return fmt.Sprintf("%dh%dm", hours, mins)
 }

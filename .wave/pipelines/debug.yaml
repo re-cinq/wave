@@ -51,7 +51,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Form hypotheses about the root cause:
+        Form hypotheses about the root cause.
+
+        First, read the issue details from artifacts/issue to understand the problem.
 
         For each hypothesis:
         1. What could cause this behavior?
@@ -97,8 +99,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Test each hypothesis systematically:
+        Test each hypothesis systematically.
 
+        First, read the context from the injected artifacts:
+        - Read artifacts/issue for the issue reproduction details
+        - Read artifacts/hypotheses for the hypotheses to test
+
+        Then:
         1. Start with most likely / easiest to test
         2. Use git bisect if needed to find regression
         3. Add diagnostic logging to trace execution
@@ -128,8 +135,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Fix the root cause identified in the investigation:
+        Fix the root cause identified in the investigation.
 
+        First, read artifacts/root_cause to understand the investigation findings and root cause.
+
+        Then:
         1. Implement the minimal fix
         2. Add a regression test that would have caught this
         3. Remove any diagnostic code added during debugging
