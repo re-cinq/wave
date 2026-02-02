@@ -46,6 +46,23 @@ personas:
                 - Bash(rm -rf /*)
         system_prompt_file: .wave/personas/craftsman.md
         temperature: 0.7
+    debugger:
+        adapter: claude
+        description: Systematic issue diagnosis and root cause analysis
+        permissions:
+            allowed_tools:
+                - Read
+                - Grep
+                - Glob
+                - Bash(go test*)
+                - Bash(git log*)
+                - Bash(git diff*)
+                - Bash(git bisect*)
+            deny:
+                - Write(*)
+                - Edit(*)
+        system_prompt_file: .wave/personas/debugger.md
+        temperature: 0.2
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
@@ -73,6 +90,20 @@ personas:
             deny:
                 - Bash(*)
         system_prompt_file: .wave/personas/philosopher.md
+        temperature: 0.3
+    planner:
+        adapter: claude
+        description: Task breakdown and project planning
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(*)
+        system_prompt_file: .wave/personas/planner.md
         temperature: 0.3
     summarizer:
         adapter: claude
