@@ -13,7 +13,8 @@ func TestValidateDAG_ValidPipeline(t *testing.T) {
 		},
 	}
 
-	err := ValidateDAG(pipeline)
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -26,7 +27,8 @@ func TestValidateDAG_MissingDependency(t *testing.T) {
 		},
 	}
 
-	err := ValidateDAG(pipeline)
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
 	if err == nil {
 		t.Error("Expected error for missing dependency, got nil")
 	}
@@ -41,7 +43,8 @@ func TestValidateDAG_CycleDetection(t *testing.T) {
 		},
 	}
 
-	err := ValidateDAG(pipeline)
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
 	if err == nil {
 		t.Error("Expected error for cycle, got nil")
 	}
@@ -54,7 +57,8 @@ func TestValidateDAG_SelfReference(t *testing.T) {
 		},
 	}
 
-	err := ValidateDAG(pipeline)
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
 	if err == nil {
 		t.Error("Expected error for self-reference, got nil")
 	}
