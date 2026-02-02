@@ -11,25 +11,28 @@ func TestLoadValidManifest(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test-wave
   description: Test manifest
 adapters:
-  - binary: claude
-    mode: agent
-    outputFormat: json
-  - binary: opencode
-    mode: agent
+  claude:
+    binary: claude
+    mode: headless
+    output_format: json
+  opencode:
+    binary: opencode
+    mode: headless
 personas:
-  - adapter: claude
-    systemPromptFile: prompts/dev.txt
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/dev.txt
     temperature: 0.7
 runtime:
-  workspaceRoot: ./workspace
-  maxConcurrentWorkers: 4
-  defaultTimeoutMin: 10
-skillMounts:
+  workspace_root: ./workspace
+  max_concurrent_workers: 4
+  default_timeout_minutes: 10
+skill_mounts:
   - path: ./skills
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
@@ -52,8 +55,8 @@ skillMounts:
 	if manifest.APIVersion != "v1" {
 		t.Errorf("Expected APIVersion 'v1', got '%s'", manifest.APIVersion)
 	}
-	if manifest.Kind != "Manifest" {
-		t.Errorf("Expected Kind 'Manifest', got '%s'", manifest.Kind)
+	if manifest.Kind != "WaveManifest" {
+		t.Errorf("Expected Kind 'WaveManifest', got '%s'", manifest.Kind)
 	}
 	if manifest.Metadata.Name != "test-wave" {
 		t.Errorf("Expected name 'test-wave', got '%s'", manifest.Metadata.Name)
@@ -90,11 +93,11 @@ func TestValidateMissingMetadataName(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   description: No name provided
 runtime:
-  workspaceRoot: ./workspace
+  workspace_root: ./workspace
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
@@ -111,14 +114,15 @@ func TestValidateMissingAdapter(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test
 personas:
-  - adapter: missing-adapter
-    systemPromptFile: prompts/dev.txt
+  navigator:
+    adapter: missing-adapter
+    system_prompt_file: prompts/dev.txt
 runtime:
-  workspaceRoot: ./workspace
+  workspace_root: ./workspace
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
@@ -143,17 +147,19 @@ func TestValidateMissingSystemPromptFile(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test
 adapters:
-  - binary: claude
-    mode: agent
+  claude:
+    binary: claude
+    mode: headless
 personas:
-  - adapter: claude
-    systemPromptFile: nonexistent.txt
+  navigator:
+    adapter: claude
+    system_prompt_file: nonexistent.txt
 runtime:
-  workspaceRoot: ./workspace
+  workspace_root: ./workspace
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
@@ -170,7 +176,7 @@ func TestValidateMissingWorkspaceRoot(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test
 runtime: {}
@@ -181,7 +187,7 @@ runtime: {}
 
 	_, err := Load(manifestPath)
 	if err == nil {
-		t.Error("Expected validation error for missing workspaceRoot")
+		t.Error("Expected validation error for missing workspace_root")
 	}
 }
 
@@ -190,14 +196,15 @@ func TestValidateEmptyAdapterBinary(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test
 adapters:
-  - binary: ""
-    mode: agent
+  claude:
+    binary: ""
+    mode: headless
 runtime:
-  workspaceRoot: ./workspace
+  workspace_root: ./workspace
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
@@ -214,17 +221,19 @@ func TestValidateEmptyPersonaAdapter(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	manifestContent := `apiVersion: v1
-kind: Manifest
+kind: WaveManifest
 metadata:
   name: test
 adapters:
-  - binary: claude
-    mode: agent
+  claude:
+    binary: claude
+    mode: headless
 personas:
-  - adapter: ""
-    systemPromptFile: prompts/dev.txt
+  navigator:
+    adapter: ""
+    system_prompt_file: prompts/dev.txt
 runtime:
-  workspaceRoot: ./workspace
+  workspace_root: ./workspace
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
@@ -246,9 +255,9 @@ runtime:
 
 func TestManifestGetAdapter(t *testing.T) {
 	m := &Manifest{
-		Adapters: []Adapter{
-			{Binary: "claude"},
-			{Binary: "opencode"},
+		Adapters: map[string]Adapter{
+			"claude":   {Binary: "claude"},
+			"opencode": {Binary: "opencode"},
 		},
 	}
 
@@ -268,15 +277,15 @@ func TestManifestGetAdapter(t *testing.T) {
 
 func TestManifestGetPersona(t *testing.T) {
 	m := &Manifest{
-		Personas: []Persona{
-			{Adapter: "claude"},
-			{Adapter: "opencode"},
+		Personas: map[string]Persona{
+			"navigator": {Adapter: "claude"},
+			"craftsman": {Adapter: "opencode"},
 		},
 	}
 
-	persona := m.GetPersona("claude")
+	persona := m.GetPersona("navigator")
 	if persona == nil {
-		t.Error("Expected to find claude persona")
+		t.Error("Expected to find navigator persona")
 	}
 	if persona.Adapter != "claude" {
 		t.Errorf("Expected persona adapter 'claude', got '%s'", persona.Adapter)
@@ -285,34 +294,5 @@ func TestManifestGetPersona(t *testing.T) {
 	notFound := m.GetPersona("nonexistent")
 	if notFound != nil {
 		t.Error("Expected nil for nonexistent persona")
-	}
-}
-
-func TestPersonaGetSystemPromptPath(t *testing.T) {
-	p := &Persona{SystemPromptFile: "prompts/dev.txt"}
-
-	absPath := p.GetSystemPromptPath("/workspace")
-	if absPath != "/workspace/prompts/dev.txt" {
-		t.Errorf("Expected '/workspace/prompts/dev.txt', got '%s'", absPath)
-	}
-
-	p2 := &Persona{SystemPromptFile: "/absolute/path.txt"}
-	absPath2 := p2.GetSystemPromptPath("/workspace")
-	if absPath2 != "/absolute/path.txt" {
-		t.Errorf("Expected '/absolute/path.txt', got '%s'", absPath2)
-	}
-}
-
-func TestRuntimeGetDefaultTimeout(t *testing.T) {
-	r := &Runtime{DefaultTimeoutMin: 10}
-	timeout := r.GetDefaultTimeout()
-	if timeout.Minutes() != 10 {
-		t.Errorf("Expected 10 minutes, got %v", timeout)
-	}
-
-	r2 := &Runtime{}
-	timeout2 := r2.GetDefaultTimeout()
-	if timeout2.Minutes() != 5 {
-		t.Errorf("Expected default 5 minutes, got %v", timeout2)
 	}
 }

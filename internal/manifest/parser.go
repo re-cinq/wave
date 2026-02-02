@@ -70,16 +70,16 @@ func Validate(m *Manifest, basePath string) []error {
 		errs = append(errs, err)
 	}
 
-	if errs := validateAdapters(m.Adapters, basePath); errs != nil {
-		errs = append(errs, errs...)
+	if adapterErrs := validateAdapters(m.Adapters, basePath); len(adapterErrs) > 0 {
+		errs = append(errs, adapterErrs...)
 	}
 
-	if errs := validatePersonasList(m.Personas, m.Adapters, basePath); errs != nil {
-		errs = append(errs, errs...)
+	if personaErrs := validatePersonasList(m.Personas, m.Adapters, basePath); len(personaErrs) > 0 {
+		errs = append(errs, personaErrs...)
 	}
 
-	if errs := validateSkillMounts(m.SkillMounts, basePath); errs != nil {
-		errs = append(errs, errs...)
+	if mountErrs := validateSkillMounts(m.SkillMounts, basePath); len(mountErrs) > 0 {
+		errs = append(errs, mountErrs...)
 	}
 
 	return errs
@@ -94,23 +94,23 @@ func validateMetadata(m *Metadata, basePath string) *ValidationError {
 
 func validateRuntime(r *Runtime, basePath string) *ValidationError {
 	if strings.TrimSpace(r.WorkspaceRoot) == "" {
-		return &ValidationError{Field: "runtime.workspaceRoot", Reason: "is required"}
+		return &ValidationError{Field: "runtime.workspace_root", Reason: "is required"}
 	}
 	return nil
 }
 
-func validateAdapters(adapters []Adapter, basePath string) []error {
+func validateAdapters(adapters map[string]Adapter, basePath string) []error {
 	var errs []error
-	for i, adapter := range adapters {
+	for name, adapter := range adapters {
 		if strings.TrimSpace(adapter.Binary) == "" {
 			errs = append(errs, &ValidationError{
-				Field:  fmt.Sprintf("adapters[%d].binary", i),
+				Field:  fmt.Sprintf("adapters.%s.binary", name),
 				Reason: "is required",
 			})
 		}
 		if strings.TrimSpace(adapter.Mode) == "" {
 			errs = append(errs, &ValidationError{
-				Field:  fmt.Sprintf("adapters[%d].mode", i),
+				Field:  fmt.Sprintf("adapters.%s.mode", name),
 				Reason: "is required",
 			})
 		}
@@ -118,29 +118,25 @@ func validateAdapters(adapters []Adapter, basePath string) []error {
 	return errs
 }
 
-func validatePersonasList(personas []Persona, adapters []Adapter, basePath string) []error {
+func validatePersonasList(personas map[string]Persona, adapters map[string]Adapter, basePath string) []error {
 	var errs []error
-	adapterNames := make(map[string]bool)
-	for _, adapter := range adapters {
-		adapterNames[adapter.Binary] = true
-	}
 
-	for i, persona := range personas {
+	for name, persona := range personas {
 		if strings.TrimSpace(persona.Adapter) == "" {
 			errs = append(errs, &ValidationError{
-				Field:  fmt.Sprintf("personas[%d].adapter", i),
+				Field:  fmt.Sprintf("personas.%s.adapter", name),
 				Reason: "is required",
 			})
-		} else if !adapterNames[persona.Adapter] {
+		} else if _, ok := adapters[persona.Adapter]; !ok {
 			errs = append(errs, &ValidationError{
-				Field:  fmt.Sprintf("personas[%d].adapter", i),
-				Reason: fmt.Sprintf("adapter '%s' not found in adapters list", persona.Adapter),
+				Field:  fmt.Sprintf("personas.%s.adapter", name),
+				Reason: fmt.Sprintf("adapter '%s' not found in adapters map", persona.Adapter),
 			})
 		}
 
 		if strings.TrimSpace(persona.SystemPromptFile) == "" {
 			errs = append(errs, &ValidationError{
-				Field:  fmt.Sprintf("personas[%d].systemPromptFile", i),
+				Field:  fmt.Sprintf("personas.%s.system_prompt_file", name),
 				Reason: "is required",
 			})
 		} else {
@@ -150,7 +146,7 @@ func validatePersonasList(personas []Persona, adapters []Adapter, basePath strin
 			}
 			if _, err := os.Stat(promptPath); os.IsNotExist(err) {
 				errs = append(errs, &ValidationError{
-					Field:  fmt.Sprintf("personas[%d].systemPromptFile", i),
+					Field:  fmt.Sprintf("personas.%s.system_prompt_file", name),
 					Reason: fmt.Sprintf("file '%s' does not exist", persona.SystemPromptFile),
 				})
 			}
