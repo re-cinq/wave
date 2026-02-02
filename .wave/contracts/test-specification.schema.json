@@ -1,43 +1,91 @@
 {
-"$schema": "http://json-schema.org/draft-07/schema#",
-"type": "object",
-"required": ["test_type", "target_component", "test_cases", "framework"],
-"properties": {
-"test_type": {
-"type": "string",
-"enum": ["unit", "integration", "e2e", "functional"],
-"description": "Type of test to create"
-},
-"target_component": {
-"type": "string",
-"description": "Component, function, or module to test"
-},
-"test_file_path": {
-"type": "string",
-"description": "Path where the test file should be created"
-},
-"framework": {
-"type": "string",
-"description": "Testing framework to use"
-},
-"test_cases": {
-"type": "array",
-"items": {
-"type": "object",
-"required": ["name", "description", "expected_outcome"],
-"properties": {
-"name": {"type": "string"},
-"description": {"type": "string"},
-"expected_outcome": {"type": "string"},
-"setup": {"type": "string"},
-"teardown": {"type": "string"}
-}
-}
-},
-"dependencies": {
-"type": "array",
-"items": {"type": "string"},
-"description": "Required dependencies or imports"
-}
-}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "test_cases",
+    "acceptance_criteria",
+    "test_data"
+  ],
+  "properties": {
+    "test_cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "category",
+          "expected_result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "invalid",
+              "edge_case",
+              "performance"
+            ]
+          },
+          "input": {
+            "type": "string"
+          },
+          "expected_result": {
+            "type": "string"
+          },
+          "error_type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of acceptance criteria for the JSON linter tests"
+    },
+    "test_data": {
+      "type": "object",
+      "properties": {
+        "valid_samples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalid_samples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edge_cases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Sample JSON data for testing"
+    },
+    "performance_requirements": {
+      "type": "object",
+      "properties": {
+        "max_execution_time": {
+          "type": "string"
+        },
+        "memory_limits": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }

@@ -1,32 +1,54 @@
 {
-"$schema": "http://json-schema.org/draft-07/schema#",
-"type": "object",
-"required": ["total_issues_scanned", "problematic_issues", "filtering_summary"],
-"properties": {
-"total_issues_scanned": {"type": "number"},
-"problematic_issues": {
-"type": "array",
-"items": {
-"type": "object",
-"properties": {
-"number": {"type": "number"},
-"title": {"type": "string"},
-"description": {"type": "string"},
-"url": {"type": "string"},
-"problems": {
-"type": "array",
-"items": {"type": "string"}
-}
-}
-}
-},
-"filtering_summary": {
-"type": "object",
-"properties": {
-"short_title_count": {"type": "number"},
-"short_description_count": {"type": "number"},
-"empty_description_count": {"type": "number"}
-}
-}
-}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "total_issues_scanned",
+    "problematic_issues",
+    "filtering_summary"
+  ],
+  "properties": {
+    "total_issues_scanned": {
+      "type": "number"
+    },
+    "problematic_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "filtering_summary": {
+      "type": "object",
+      "properties": {
+        "short_title_count": {
+          "type": "number"
+        },
+        "short_description_count": {
+          "type": "number"
+        },
+        "empty_description_count": {
+          "type": "number"
+        }
+      }
+    }
+  }
 }
