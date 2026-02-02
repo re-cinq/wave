@@ -8,6 +8,10 @@ Wave composes personas, pipelines, contracts, and relay/compaction into a contin
 
 ## Architecture Principles
 
+### Active Technologies
+- Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
+- SQLite for pipeline state, filesystem for workspaces and artifacts
+
 ### Core Components
 - **Manifests** (`wave.yaml`) - Single source of truth for configuration
 - **Personas** - AI agents with specific roles, permissions, and system prompts
@@ -143,8 +147,44 @@ All development must comply with the Wave Constitution:
 - Memory usage should remain bounded during execution
 - Concurrent pipeline support without resource contention
 
+<<<<<<< HEAD
 ## Debugging
 - Use `--debug` flag for detailed execution logging
 - Check `.wave/traces/` for audit logs
 - Workspace contents preserved for post-mortem analysis
 - Structured events for programmatic monitoring
+=======
+```bash
+# Run all tests
+go test ./...
+
+# Run with race detector (required for PR)
+go test -race ./...
+
+# Run specific package
+go test ./internal/pipeline/...
+
+# Run with verbose output
+go test -v ./...
+
+# Run with coverage
+go test -cover ./...
+```
+
+## Code Style
+
+Follow standard Go conventions:
+- Use `gofmt` for formatting
+- Run `go vet` for static analysis
+- Keep functions focused and testable
+- Use interfaces for dependency injection
+
+## Recent Changes
+- 017-prototype-driven-development: Added Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
+
+- Phase 15: Added thread-safe event emission with mutex protection
+- Phase 15: Added comprehensive credential scrubbing tests
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->
+>>>>>>> cc4501f (feat: complete speckit workflow for prototype-driven development pipeline)
