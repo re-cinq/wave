@@ -109,12 +109,19 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 
 	if err := schema.Validate(artifact); err != nil {
 		details := extractSchemaValidationDetails(err)
-		return &ValidationError{
+		validationErr := &ValidationError{
 			ContractType: "json_schema",
 			Message:      "artifact does not match schema",
 			Details:      details,
-			Retryable:    true,
+			Retryable:    cfg.StrictMode, // Only retry in strict mode
 		}
+
+		// Add context about strict mode to the message
+		if !cfg.StrictMode {
+			validationErr.Message = "artifact does not match schema (must_pass: false)"
+		}
+
+		return validationErr
 	}
 
 	return nil
