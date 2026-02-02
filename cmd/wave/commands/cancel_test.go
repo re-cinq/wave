@@ -193,11 +193,11 @@ func TestCancelNoRunningPipeline(t *testing.T) {
 
 	// Don't create any running pipelines
 
-	// Try to cancel - should succeed with informative message
-	stdout, _, err := executeCancelCmd()
+	// Try to cancel - should fail since there's nothing to cancel
+	_, _, err := executeCancelCmd()
 
-	require.NoError(t, err)
-	assert.Contains(t, stdout, "No running pipelines found")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "No running pipelines to cancel")
 }
 
 // TestCancelInvalidRunID tests cancellation with invalid run-id
@@ -342,6 +342,7 @@ func TestCancelJSONFormatNoRunning(t *testing.T) {
 	// Cancel with JSON format - no running pipelines
 	stdout, _, err := executeCancelCmd("--format", "json")
 
+	// JSON output is returned even on failure (error is nil for JSON format)
 	require.NoError(t, err)
 
 	// Parse JSON output
@@ -349,8 +350,8 @@ func TestCancelJSONFormatNoRunning(t *testing.T) {
 	err = json.Unmarshal([]byte(stdout), &result)
 	require.NoError(t, err)
 
-	assert.True(t, result.Success)
-	assert.Contains(t, result.Message, "No running pipelines found")
+	assert.False(t, result.Success)
+	assert.Contains(t, result.Message, "No running pipelines to cancel")
 }
 
 // TestCancelJSONFormatError tests JSON output on error
