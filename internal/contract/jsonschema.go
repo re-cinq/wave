@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -17,7 +16,11 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 	schemaURL := "schema.json"
 
 	if cfg.Schema != "" {
-		if err := compiler.AddResource(schemaURL, strings.NewReader(cfg.Schema)); err != nil {
+		var schemaDoc interface{}
+		if err := json.Unmarshal([]byte(cfg.Schema), &schemaDoc); err != nil {
+			return fmt.Errorf("failed to parse inline schema: %w", err)
+		}
+		if err := compiler.AddResource(schemaURL, schemaDoc); err != nil {
 			return fmt.Errorf("failed to add schema resource: %w", err)
 		}
 	} else if cfg.SchemaPath != "" {
@@ -25,7 +28,11 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 		if err != nil {
 			return fmt.Errorf("failed to read schema file: %w", err)
 		}
-		if err := compiler.AddResource(cfg.SchemaPath, strings.NewReader(string(data))); err != nil {
+		var schemaDoc interface{}
+		if err := json.Unmarshal(data, &schemaDoc); err != nil {
+			return fmt.Errorf("failed to parse schema file: %w", err)
+		}
+		if err := compiler.AddResource(cfg.SchemaPath, schemaDoc); err != nil {
 			return fmt.Errorf("failed to add schema resource: %w", err)
 		}
 		schemaURL = cfg.SchemaPath
