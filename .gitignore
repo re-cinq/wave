@@ -3,7 +3,7 @@
 
 # Wave runtime artifacts (ephemeral, not committed)
 .wave/workspaces/
-.wave/state.db
+.wave/state.db*
 .wave/traces/
 
 # Wave config (committed)
