@@ -8,6 +8,7 @@ import (
 // ContractConfig defines the configuration for contract validation.
 type ContractConfig struct {
 	Type        string   `json:"type"`
+	Source      string   `json:"source,omitempty"`
 	Schema      string   `json:"schema,omitempty"`
 	SchemaPath  string   `json:"schemaPath,omitempty"`
 	Command     string   `json:"command,omitempty"`

@@ -123,9 +123,10 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		result.ExitCode = exitCodeFromError(cmdErr)
 	}
 
-	tokens, artifacts := a.parseOutput(stdoutBuf.Bytes())
+	tokens, artifacts, resultContent := a.parseOutput(stdoutBuf.Bytes())
 	result.TokensUsed = tokens
 	result.Artifacts = artifacts
+	result.ResultContent = resultContent
 
 	return result, nil
 }
@@ -188,8 +189,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	}
 
 	args = append(args, "--output-format", "json")
-	args = append(args, "--temperature", fmt.Sprintf("%.1f", cfg.Temperature))
-	args = append(args, "--no-continue")
+	// Note: Claude CLI doesn't support --temperature flag
+	// Temperature is set via .claude/settings.json in prepareWorkspace
+	// Use --no-session-persistence to avoid saving sessions
+	args = append(args, "--no-session-persistence")
 
 	if cfg.Prompt != "" {
 		args = append(args, cfg.Prompt)
@@ -198,9 +201,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	return args
 }
 
-func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
+func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 	var tokens int
 	var artifacts []string
+	var resultContent string
 
 	lines := bytes.Split(data, []byte("\n"))
 	for _, line := range lines {
@@ -209,22 +213,23 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
 			continue
 		}
 
-		var chunk struct {
-			Type    string `json:"type"`
-			Content struct {
-				Text      string   `json:"text"`
-				Tokens    int      `json:"tokens"`
-				Artifacts []string `json:"artifacts,omitempty"`
-			} `json:"content,omitempty"`
+		// Parse the new Claude CLI JSON output format
+		var result struct {
+			Type   string `json:"type"`
+			Result string `json:"result"`
+			Usage  struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
 		}
 
-		if err := json.Unmarshal(line, &chunk); err != nil {
+		if err := json.Unmarshal(line, &result); err != nil {
 			continue
 		}
 
-		if chunk.Type == "result" || chunk.Type == "output" {
-			tokens += chunk.Content.Tokens
-			artifacts = append(artifacts, chunk.Content.Artifacts...)
+		if result.Type == "result" {
+			tokens = result.Usage.InputTokens + result.Usage.OutputTokens
+			resultContent = result.Result
 		}
 	}
 
@@ -232,6 +237,6 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
 		tokens = len(data) / 4
 	}
 
-	return tokens, artifacts
+	return tokens, artifacts, resultContent
 }
 
