@@ -1,147 +1,222 @@
-# Feature Specification: Wave CLI Operational Commands
+# Feature Specification: Wave Ops Commands
 
 **Feature Branch**: `016-wave-ops-commands`
 **Created**: 2026-02-02
-**Status**: Draft
-**Input**: User description: "Wave CLI Operational Commands - Add ps/status, logs, health, and detached execution mode. Users need to monitor running pipelines, view execution logs, check system health, and run pipelines in background with ability to attach later."
+**Status**: Ready
+**Input**: Add operational commands to Wave CLI for pipeline management, monitoring, and maintenance
+**Clarifications**: See [clarifications.md](./clarifications.md) for detailed Q&A
 
 ## User Scenarios & Testing _(mandatory)_
 
-### User Story 1 - View Pipeline Status (Priority: P1)
+### User Story 1 - Pipeline Status Monitoring (Priority: P1)
 
-As a developer running Wave pipelines, I want to see the status of all recent and running pipelines so I can monitor progress and identify issues quickly.
+A developer runs `wave status` to see the current state of running and recent pipelines. The command shows pipeline name, status (running/completed/failed/cancelled), current step, elapsed time, and token usage. For running pipelines, it shows real-time progress.
 
-**Why this priority**: Core visibility into pipeline execution is essential for any operational workflow. Without status visibility, users are blind to what's happening in their system.
+**Why this priority**: Developers need visibility into what Wave is doing, especially for long-running pipelines.
 
-**Independent Test**: Run `wave ps` and verify it displays a table of pipelines with their IDs, names, status, and timing information.
+**Independent Test**: Start a pipeline in background, run `wave status`, verify it shows the running pipeline with accurate step information.
 
-**Acceptance Scenarios**:
-
-1. **Given** pipelines have been executed, **When** I run `wave ps`, **Then** I see a table showing pipeline ID, name, status (running/completed/failed), start time, and duration
-2. **Given** a pipeline is currently running, **When** I run `wave ps`, **Then** the running pipeline appears with status "running" and elapsed time
-3. **Given** no pipelines have been executed, **When** I run `wave ps`, **Then** I see a message "No pipelines found"
-4. **Given** multiple pipelines exist, **When** I run `wave ps --limit 5`, **Then** I see only the 5 most recent pipelines
-
----
-
-### User Story 2 - View Pipeline Logs (Priority: P1)
-
-As a developer debugging a pipeline, I want to view the execution logs for a specific pipeline or step so I can understand what happened during execution.
-
-**Why this priority**: Logs are critical for debugging failed pipelines and understanding execution flow. This is a core operational need.
-
-**Independent Test**: Run `wave logs <pipeline-id>` and verify it displays the execution trace with timestamps, step names, and tool calls.
+**Output Format**:
+- Table columns: `RUN_ID | PIPELINE | STATUS | STEP | ELAPSED | TOKENS`
+- Elapsed time format: `1m23s` (under 1 hour) or `1h23m` (longer)
+- Token count shows total tokens (input + output combined)
+- JSON output (`--format json`) includes separate `input_tokens` and `output_tokens` fields
 
 **Acceptance Scenarios**:
 
-1. **Given** a pipeline has been executed, **When** I run `wave logs <pipeline-id>`, **Then** I see the full execution log with timestamps and step progression
-2. **Given** a pipeline is running, **When** I run `wave logs --follow <pipeline-id>`, **Then** I see live log output as the pipeline executes
-3. **Given** a pipeline with multiple steps, **When** I run `wave logs <pipeline-id> --step <step-id>`, **Then** I see only logs for that specific step
-4. **Given** logs contain sensitive data, **When** I view logs, **Then** credentials and secrets are scrubbed from the output
-5. **Given** an invalid pipeline ID, **When** I run `wave logs <invalid-id>`, **Then** I see an error "Pipeline not found: <invalid-id>"
+1. **Given** a running pipeline, **When** the developer runs `wave status`, **Then** it shows pipeline name, current step, elapsed time, and token count.
+2. **Given** multiple pipelines have run, **When** the developer runs `wave status --all`, **Then** it shows a table of recent pipelines with their final status.
+3. **Given** a specific run ID, **When** the developer runs `wave status <run-id>`, **Then** it shows detailed information for that specific run.
 
 ---
 
-### User Story 3 - Detached Pipeline Execution (Priority: P2)
+### User Story 2 - Pipeline Logs and Output (Priority: P1)
 
-As a developer running long pipelines, I want to run pipelines in the background so I can continue working while the pipeline executes.
+A developer runs `wave logs` to view the output from pipeline executions. This includes adapter responses, contract validation results, and any errors. Logs can be filtered by step, persona, or time range.
 
-**Why this priority**: Long-running pipelines block the terminal. Detached mode enables productivity during execution, but requires status/logs features first.
+**Why this priority**: Debugging failed pipelines requires access to execution logs. This is essential for troubleshooting.
 
-**Independent Test**: Run `wave run --detach --pipeline hotfix`, verify it returns immediately with a pipeline ID, then use `wave ps` and `wave logs` to monitor.
+**Independent Test**: Run a pipeline, use `wave logs` to retrieve output, verify it contains adapter responses and step transitions.
+
+**Log Levels**:
+- `--level all` (default): Shows everything including debug output from adapters
+- `--level info`: Shows step transitions, artifact production, and warnings
+- `--level error`: Shows only failures, contract violations, and exceptions
+- `--errors` flag is an alias for `--level error`
+
+**Log Retention**:
+- Trace logs in `.wave/traces/` are retained indefinitely by default
+- Use `wave clean --older-than <duration>` (e.g., `7d`, `30d`) for age-based cleanup
 
 **Acceptance Scenarios**:
 
-1. **Given** a valid pipeline, **When** I run `wave run --detach --pipeline <name>`, **Then** the command returns immediately with a pipeline ID and message "Pipeline <id> started in background"
-2. **Given** a detached pipeline is running, **When** I run `wave attach <pipeline-id>`, **Then** I see live output from the pipeline as if running in foreground
-3. **Given** a detached pipeline completes, **When** I run `wave attach <pipeline-id>`, **Then** I see the final output and exit status
-4. **Given** I am attached to a pipeline, **When** I press Ctrl+C, **Then** I detach without stopping the pipeline (with message "Detached. Pipeline continues running.")
-5. **Given** a detached pipeline, **When** I run `wave stop <pipeline-id>`, **Then** the pipeline is gracefully terminated
+1. **Given** a completed pipeline, **When** the developer runs `wave logs`, **Then** it shows chronological output from all steps.
+2. **Given** the `--step investigate` flag, **When** the developer runs `wave logs --step investigate`, **Then** only output from that step is shown.
+3. **Given** a failed pipeline, **When** the developer runs `wave logs --errors`, **Then** only error messages and failed contract validations are shown.
+4. **Given** `--follow` flag with a running pipeline, **When** the developer runs `wave logs --follow`, **Then** output streams in real-time.
+5. **Given** `--level info` flag, **When** the developer runs `wave logs --level info`, **Then** step transitions and artifact production are shown without debug noise.
 
 ---
 
-### User Story 4 - System Health Check (Priority: P3)
+### User Story 3 - Workspace Cleanup (Priority: P1)
 
-As a developer setting up Wave or troubleshooting issues, I want to check the health of my Wave installation so I can identify configuration problems quickly.
+A developer runs `wave clean` to remove old workspaces and free disk space. Workspaces accumulate over time and can consume significant storage. The command supports selective cleanup by pipeline, age, or status.
 
-**Why this priority**: Health checks are useful for setup/troubleshooting but not needed for day-to-day operations.
+**Why this priority**: Without cleanup, Wave directories grow unbounded. This is a maintenance necessity.
 
-**Independent Test**: Run `wave health` and verify it checks adapters, database, and workspace configuration.
+**Independent Test**: Create several pipeline workspaces, run `wave clean --keep-last 2`, verify only the 2 most recent are retained.
+
+**Confirmation Behavior**:
+- `wave clean --all` prompts: `This will remove all workspaces, state, and traces. Continue? [y/N]`
+- `wave clean --pipeline <name>` prompts if workspaces exist for that pipeline
+- `--force` suppresses all prompts (required for CI/scripts)
+- `--dry-run` shows what would be deleted without prompting
+- If stdin is not a TTY, defaults to declining unless `--force` is specified
+- `--quiet` flag provides clean exit when nothing to clean (for scripting)
+
+**Age-Based Cleanup**:
+- `--older-than <duration>` accepts values like `7d`, `24h`, `30d`
+- Applies to both workspaces and traces
+- Recommended retention for development: 30 days
+
+**No Automatic Cleanup**: Wave does not include a cleanup daemon. For scheduled cleanup, use system tools:
+```bash
+# Example cron job (daily at 2am, keep 5 most recent)
+0 2 * * * cd /project && wave clean --keep-last 5 --force --quiet
+```
 
 **Acceptance Scenarios**:
 
-1. **Given** a properly configured Wave project, **When** I run `wave health`, **Then** I see a checklist of all health checks with pass/fail status
-2. **Given** an adapter binary is missing, **When** I run `wave health`, **Then** the adapter check fails with message "Adapter '<name>' not found: binary '<path>' not in PATH"
-3. **Given** the state database is corrupted, **When** I run `wave health`, **Then** the database check fails with a specific error
-4. **Given** the workspace directory is not writable, **When** I run `wave health`, **Then** the workspace check fails with permission error
-5. **Given** all checks pass, **When** I run `wave health`, **Then** I see "All health checks passed" with exit code 0
+1. **Given** multiple workspace directories exist, **When** the developer runs `wave clean --all`, **Then** a confirmation prompt is shown and all workspaces/state are removed after confirming.
+2. **Given** `--keep-last 5` flag, **When** the developer runs `wave clean --keep-last 5`, **Then** only the 5 most recent workspaces per pipeline are retained.
+3. **Given** `--pipeline debug` flag, **When** the developer runs `wave clean --pipeline debug`, **Then** only debug pipeline workspaces are cleaned.
+4. **Given** `--dry-run` flag, **When** the developer runs `wave clean --dry-run`, **Then** it shows what would be deleted without removing anything.
+5. **Given** `--force` flag, **When** the developer runs `wave clean --all --force`, **Then** cleanup proceeds without confirmation prompt.
+6. **Given** `--older-than 7d` flag, **When** the developer runs `wave clean --older-than 7d`, **Then** only workspaces and traces older than 7 days are removed.
 
 ---
 
-### Edge Cases
+### User Story 4 - Pipeline Listing (Priority: P2)
 
-- What happens when trying to attach to a completed pipeline? (Show final output and exit)
-- What happens when stopping an already-stopped pipeline? (Idempotent, show "Pipeline already stopped")
-- What happens when viewing logs for a pipeline with no trace file? (Show error with explanation)
-- How does system handle multiple simultaneous detached pipelines? (Each gets unique ID, all tracked independently)
-- What happens to detached pipelines when the terminal session ends? (Continue running, recoverable via `wave ps`)
-- What happens when disk space runs out during detached execution? (Pipeline fails, state preserved for debugging)
+A developer runs `wave list` to discover available pipelines, personas, and adapters. This helps users understand what's configured without reading YAML files directly.
 
-## Requirements _(mandatory)_
+**Why this priority**: Discoverability improves user experience. New users can explore available options.
 
-### Functional Requirements
+**Independent Test**: Run `wave list pipelines`, verify it shows all pipeline names with descriptions.
 
-**Status Commands**:
-- **FR-001**: System MUST provide a `wave ps` command that lists recent pipelines with their execution status
-- **FR-002**: System MUST display pipeline ID, name, status, start time, and duration in `wave ps` output
-- **FR-003**: System MUST support `--limit N` flag to control number of pipelines shown (default: 10)
-- **FR-004**: System MUST support `--all` flag to show all pipelines regardless of status
-- **FR-005**: System MUST support `--running` flag to filter to only running pipelines
+**Acceptance Scenarios**:
 
-**Log Commands**:
-- **FR-006**: System MUST provide a `wave logs <pipeline-id>` command to view execution logs
-- **FR-007**: System MUST support `--follow` / `-f` flag for live log streaming
-- **FR-008**: System MUST support `--step <step-id>` flag to filter logs to a specific step
-- **FR-009**: System MUST support `--tail N` flag to show only last N lines (default: all)
-- **FR-010**: System MUST scrub credentials and secrets from log output using existing audit patterns
+1. **Given** a manifest with 3 pipelines, **When** the developer runs `wave list pipelines`, **Then** all 3 are shown with name and description.
+2. **Given** `wave list personas`, **When** executed, **Then** all personas are shown with their allowed tools summary.
+3. **Given** `wave list adapters`, **When** executed, **Then** all adapters are shown with their type and status.
+4. **Given** `--format json` flag, **When** any list command runs, **Then** output is valid JSON for scripting.
 
-**Detached Execution**:
-- **FR-011**: System MUST support `--detach` / `-d` flag on `wave run` command
-- **FR-012**: System MUST return immediately with pipeline ID when running detached
-- **FR-013**: System MUST provide `wave attach <pipeline-id>` command to connect to running pipeline output
-- **FR-014**: System MUST allow detaching from attached pipeline with Ctrl+C without stopping execution
-- **FR-015**: System MUST provide `wave stop <pipeline-id>` command to gracefully terminate pipelines
-- **FR-016**: System MUST persist detached pipeline output to a log file for later viewing
+---
 
-**Health Commands**:
-- **FR-017**: System MUST provide a `wave health` command that checks system configuration
-- **FR-018**: System MUST check adapter binary availability and report missing adapters
-- **FR-019**: System MUST check state database accessibility and integrity
-- **FR-020**: System MUST check workspace directory permissions
-- **FR-021**: System MUST check manifest file validity if present
-- **FR-022**: System MUST return exit code 0 if all checks pass, non-zero otherwise
+### User Story 5 - Pipeline Cancellation (Priority: P2)
 
-### Key Entities
+A developer runs `wave cancel` to stop a running pipeline. This is useful when a pipeline is taking too long or was started with incorrect input. Cancellation is graceful - the current step completes but no further steps start.
 
-- **PipelineExecution**: Represents a single execution of a pipeline with ID, status, start/end times, and log file path
-- **LogEntry**: A single log line with timestamp, pipeline ID, step ID, level, and message
-- **HealthCheck**: A single health check with name, status (pass/fail), and message
+**Why this priority**: Users need control to stop runaway processes without killing the terminal.
 
-## Success Criteria _(mandatory)_
+**Independent Test**: Start a long pipeline, run `wave cancel`, verify it stops after the current step.
 
-### Measurable Outcomes
+**Cancellation Mechanism**:
+- **Graceful cancel** (`wave cancel`): Sets a cancellation flag in the database. The executor checks this flag between steps and stops gracefully. Current step completes normally. State is recorded as `cancelled`.
+- **Force cancel** (`wave cancel --force`): Sends SIGTERM to the adapter process group, waits 5 seconds, then sends SIGKILL if still running. Partially-written artifacts remain but step state is recorded as `cancelled`.
+- **Multiple pipelines**: With no arguments, cancels the most recently started running pipeline. Use `wave cancel <run-id>` to target a specific pipeline.
 
-- **SC-001**: Users can view status of all recent pipelines within 1 second using `wave ps`
-- **SC-002**: Users can view live logs of a running pipeline with less than 500ms latency
-- **SC-003**: Detached pipelines continue running when terminal session ends
-- **SC-004**: Users can diagnose configuration issues within 30 seconds using `wave health`
-- **SC-005**: All commands provide clear, actionable error messages when operations fail
-- **SC-006**: Log viewing does not expose credentials or sensitive data
+**State Handling**:
+- Cancelled pipelines are recorded with status `cancelled` (distinct from `failed`)
+- Partially-completed steps retain their artifacts
+- `wave resume` can restart from the last completed step
 
-## Assumptions
+**Acceptance Scenarios**:
 
-- Detached pipelines write output to `.wave/logs/<pipeline-id>.log` for persistence
-- The state database already tracks pipeline execution state (confirmed from existing implementation)
-- Trace logs already exist in `.wave/traces/` from the audit logger
-- Process management will use standard OS signals (SIGTERM for graceful stop)
-- Maximum of 100 concurrent detached pipelines (reasonable for CLI usage)
+1. **Given** a running pipeline, **When** the developer runs `wave cancel`, **Then** the pipeline stops after the current step completes and state shows `cancelled`.
+2. **Given** `--force` flag, **When** the developer runs `wave cancel --force`, **Then** the current step is interrupted immediately via SIGTERM/SIGKILL.
+3. **Given** no running pipelines, **When** the developer runs `wave cancel`, **Then** an informative message is shown and exit code is 0 (not an error).
+4. **Given** multiple running pipelines, **When** the developer runs `wave cancel <run-id>`, **Then** only the specified pipeline is cancelled.
+
+---
+
+### User Story 6 - Artifact Inspection (Priority: P2)
+
+A developer runs `wave artifacts` to view or export artifacts produced by pipeline steps. This allows inspection of intermediate results and extraction of outputs for use elsewhere.
+
+**Why this priority**: Artifacts contain valuable intermediate work. Users should be able to access them.
+
+**Independent Test**: Run a pipeline with output artifacts, use `wave artifacts` to list and export them.
+
+**Artifact Discovery**:
+- Artifacts are discovered from pipeline step `output_artifacts` declarations
+- Only declared artifacts are listed (not all files in workspace)
+- Raw adapter responses are NOT artifacts; access them via `wave logs`
+
+**Artifact Metadata**:
+- Name: The artifact name from the pipeline declaration
+- Path: Absolute path to the file within the step workspace
+- Size: File size in bytes
+- Modified: Last modification timestamp
+
+**Export Behavior**:
+- `wave artifacts --export ./output` copies artifacts preserving directory structure
+- Step directories are created: `./output/<step-id>/<artifact-name>`
+- Existing files are overwritten without prompting
+
+**Acceptance Scenarios**:
+
+1. **Given** a completed pipeline, **When** the developer runs `wave artifacts`, **Then** all declared output artifacts are listed with step, name, path, and size.
+2. **Given** `--export ./output` flag, **When** the developer runs `wave artifacts --export ./output`, **Then** all artifacts are copied to the specified directory preserving structure.
+3. **Given** `--step investigate` flag, **When** executed, **Then** only artifacts from that step are shown/exported.
+4. **Given** `--format json` flag, **When** executed, **Then** output is valid JSON including size and modification timestamp.
+
+---
+
+## Non-Functional Requirements
+
+### Performance
+- `wave status` should return within 100ms for local state queries
+- `wave logs` should stream with <500ms latency
+- `wave clean` should handle 1000+ workspaces efficiently
+
+### Reliability
+- All commands should handle concurrent pipeline execution safely
+- State queries should not block running pipelines
+- Cleanup should be atomic - no partial deletions
+
+### User Experience
+- All commands support `--help` with examples
+- Error messages include actionable suggestions
+- JSON output available for all list/status commands
+
+## Technical Constraints
+
+- Must use existing SQLite state database
+- Must respect workspace isolation
+- Must work with both local and CI execution modes
+
+## Resolved Decisions
+
+These questions were addressed during specification review. See [clarifications.md](./clarifications.md) for detailed rationale.
+
+| Question | Decision |
+|----------|----------|
+| Log levels for `wave logs`? | Yes - support `--level all\|info\|error` with `--errors` as alias for `--level error` |
+| Automatic cleanup mode? | No daemon - document cron patterns; add `--quiet` flag for scripting |
+| Cancel mechanism? | Database flag for graceful; SIGTERM/SIGKILL to process group for force cancel |
+| Log retention policy? | Indefinite by default; add `--older-than <duration>` to clean |
+| Cleanup confirmation? | Prompt for `--all`; `--force` skips prompt; auto-decline if not TTY |
+| Artifact discovery? | From `output_artifacts` declarations only; not raw adapter responses |
+| Status output format? | Table with RUN_ID, PIPELINE, STATUS, STEP, ELAPSED, TOKENS columns |
+
+## Terminology
+
+- **Pipeline**: A definition file (`.wave/pipelines/*.yaml`)
+- **Run**: A specific execution instance with a unique run ID
+- `wave status` lists runs; `wave list pipelines` lists pipeline definitions
+
+## Dependencies
+
+- Depends on: 015-wave-cli-implementation (core CLI structure)
+- Relates to: 014-manifest-pipeline-design (state schema)

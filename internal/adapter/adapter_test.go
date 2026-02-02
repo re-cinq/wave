@@ -380,23 +380,21 @@ func TestParseArtifacts(t *testing.T) {
 func TestClaudeAdapter_ParseOutput(t *testing.T) {
 	adapter := NewClaudeAdapter()
 
-	jsonl := `{"type": "result", "content": {"text": "hello", "tokens": 10, "artifacts": ["a.go"]}}
-{"type": "output", "content": {"text": "world", "tokens": 5}}
-{"type": "other", "content": {"text": "ignored"}}
-`
+	// Test with new Claude CLI output format
+	jsonl := `{"type":"result","subtype":"success","result":"Hello world","usage":{"input_tokens":10,"output_tokens":5}}`
 
-	tokens, artifacts := adapter.parseOutput([]byte(jsonl))
+	tokens, artifacts, resultContent := adapter.parseOutput([]byte(jsonl))
 
 	if tokens != 15 {
 		t.Errorf("expected 15 tokens, got: %d", tokens)
 	}
 
-	if len(artifacts) != 1 {
-		t.Errorf("expected 1 artifact, got: %d", len(artifacts))
+	if len(artifacts) != 0 {
+		t.Errorf("expected 0 artifacts, got: %d", len(artifacts))
 	}
 
-	if len(artifacts) > 0 && artifacts[0] != "a.go" {
-		t.Errorf("expected artifact 'a.go', got: %s", artifacts[0])
+	if resultContent != "Hello world" {
+		t.Errorf("expected result content 'Hello world', got: %s", resultContent)
 	}
 }
 
@@ -1400,5 +1398,64 @@ func TestSubprocessTimeout_ClaudeAdapterTimeout(t *testing.T) {
 
 	if err != nil {
 		t.Logf("Adapter returned error (expected for short timeout): %v", err)
+	}
+}
+
+// TestExtractJSONFromMarkdown tests JSON extraction in isolation - no Claude needed
+func TestExtractJSONFromMarkdown(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "extracts simple json object",
+			input:    "Here is the result:\n```json\n{\"key\": \"value\"}\n```\nDone.",
+			expected: `{"key": "value"}`,
+		},
+		{
+			name:     "extracts json array",
+			input:    "List:\n```json\n[1, 2, 3]\n```",
+			expected: `[1, 2, 3]`,
+		},
+		{
+			name:     "extracts nested json",
+			input:    "```json\n{\"files\": [\"a.go\"], \"meta\": {\"count\": 1}}\n```",
+			expected: `{"files": ["a.go"], "meta": {"count": 1}}`,
+		},
+		{
+			name:     "handles whitespace in block",
+			input:    "```json\n\n  {\"a\": 1}  \n\n```",
+			expected: `{"a": 1}`,
+		},
+		{
+			name:     "returns empty for no json block",
+			input:    "Just plain text",
+			expected: "",
+		},
+		{
+			name:     "returns empty for invalid json in block",
+			input:    "```json\nnot valid json\n```",
+			expected: "",
+		},
+		{
+			name:     "returns empty for unclosed block",
+			input:    "```json\n{\"key\": \"value\"}",
+			expected: "",
+		},
+		{
+			name:     "extracts first json block only",
+			input:    "```json\n{\"first\": 1}\n```\n```json\n{\"second\": 2}\n```",
+			expected: `{"first": 1}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ExtractJSONFromMarkdown(tc.input)
+			if result != tc.expected {
+				t.Errorf("ExtractJSONFromMarkdown(%q)\n  got:  %q\n  want: %q", tc.input, result, tc.expected)
+			}
+		})
 	}
 }

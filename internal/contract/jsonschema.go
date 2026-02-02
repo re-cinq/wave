@@ -81,7 +81,12 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 		}
 	}
 
-	artifactPath := filepath.Join(workspacePath, "artifact.json")
+	// Use source path if provided, otherwise default to artifact.json
+	artifactFile := "artifact.json"
+	if cfg.Source != "" {
+		artifactFile = cfg.Source
+	}
+	artifactPath := filepath.Join(workspacePath, artifactFile)
 	data, err := os.ReadFile(artifactPath)
 	if err != nil {
 		return &ValidationError{

@@ -59,6 +59,11 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	cmd := exec.CommandContext(ctx, a.claudePath, args...)
 	cmd.Dir = workspacePath
 
+	if cfg.Debug {
+		fmt.Printf("[DEBUG] Claude command: %s %s\n", a.claudePath, strings.Join(args, " "))
+		fmt.Printf("[DEBUG] Working directory: %s\n", workspacePath)
+	}
+
 	mergedEnv := append(os.Environ(), cfg.Env...)
 	cmd.Env = mergedEnv
 
@@ -123,9 +128,20 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		result.ExitCode = exitCodeFromError(cmdErr)
 	}
 
-	tokens, artifacts := a.parseOutput(stdoutBuf.Bytes())
+	tokens, artifacts, resultContent := a.parseOutput(stdoutBuf.Bytes())
 	result.TokensUsed = tokens
 	result.Artifacts = artifacts
+	result.ResultContent = resultContent
+
+	if cfg.Debug {
+		fmt.Printf("[DEBUG] Claude exit code: %d\n", result.ExitCode)
+		fmt.Printf("[DEBUG] Claude tokens used: %d\n", tokens)
+		if stderrBuf.Len() > 0 {
+			fmt.Printf("[DEBUG] Claude stderr:\n%s\n", stderrBuf.String())
+		}
+		fmt.Printf("[DEBUG] Claude raw output (%d bytes):\n%s\n", stdoutBuf.Len(), stdoutBuf.String())
+		fmt.Printf("[DEBUG] Extracted result content (%d chars):\n%s\n", len(resultContent), resultContent)
+	}
 
 	return result, nil
 }
@@ -188,8 +204,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	}
 
 	args = append(args, "--output-format", "json")
-	args = append(args, "--temperature", fmt.Sprintf("%.1f", cfg.Temperature))
-	args = append(args, "--no-continue")
+	// Note: Claude CLI doesn't support --temperature flag
+	// Temperature is set via .claude/settings.json in prepareWorkspace
+	// Use --no-session-persistence to avoid saving sessions
+	args = append(args, "--no-session-persistence")
 
 	if cfg.Prompt != "" {
 		args = append(args, cfg.Prompt)
@@ -198,9 +216,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	return args
 }
 
-func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
+func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 	var tokens int
 	var artifacts []string
+	var resultContent string
 
 	lines := bytes.Split(data, []byte("\n"))
 	for _, line := range lines {
@@ -209,22 +228,23 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
 			continue
 		}
 
-		var chunk struct {
-			Type    string `json:"type"`
-			Content struct {
-				Text      string   `json:"text"`
-				Tokens    int      `json:"tokens"`
-				Artifacts []string `json:"artifacts,omitempty"`
-			} `json:"content,omitempty"`
+		// Parse the new Claude CLI JSON output format
+		var result struct {
+			Type   string `json:"type"`
+			Result string `json:"result"`
+			Usage  struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
 		}
 
-		if err := json.Unmarshal(line, &chunk); err != nil {
+		if err := json.Unmarshal(line, &result); err != nil {
 			continue
 		}
 
-		if chunk.Type == "result" || chunk.Type == "output" {
-			tokens += chunk.Content.Tokens
-			artifacts = append(artifacts, chunk.Content.Artifacts...)
+		if result.Type == "result" {
+			tokens = result.Usage.InputTokens + result.Usage.OutputTokens
+			resultContent = result.Result
 		}
 	}
 
@@ -232,6 +252,45 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string) {
 		tokens = len(data) / 4
 	}
 
-	return tokens, artifacts
+	// Try to extract JSON from markdown code blocks if result looks like markdown
+	if strings.Contains(resultContent, "```json") {
+		if extracted := ExtractJSONFromMarkdown(resultContent); extracted != "" {
+			resultContent = extracted
+		}
+	}
+
+	return tokens, artifacts, resultContent
+}
+
+// ExtractJSONFromMarkdown extracts JSON content from markdown code blocks.
+// Returns the extracted JSON or empty string if not found.
+// Exported for testing without Claude dependency.
+func ExtractJSONFromMarkdown(content string) string {
+	// Look for ```json ... ``` blocks
+	start := strings.Index(content, "```json")
+	if start == -1 {
+		return ""
+	}
+	start += len("```json")
+
+	// Skip any whitespace/newline after ```json
+	for start < len(content) && (content[start] == '\n' || content[start] == '\r' || content[start] == ' ') {
+		start++
+	}
+
+	end := strings.Index(content[start:], "```")
+	if end == -1 {
+		return ""
+	}
+
+	jsonStr := strings.TrimSpace(content[start : start+end])
+
+	// Validate it's actually JSON
+	var js json.RawMessage
+	if json.Unmarshal([]byte(jsonStr), &js) != nil {
+		return ""
+	}
+
+	return jsonStr
 }
 

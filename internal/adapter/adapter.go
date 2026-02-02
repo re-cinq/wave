@@ -29,13 +29,15 @@ type AdapterRunConfig struct {
 	AllowedTools  []string
 	DenyTools     []string
 	OutputFormat  string
+	Debug         bool
 }
 
 type AdapterResult struct {
-	ExitCode   int
-	Stdout     io.Reader
-	TokensUsed int
-	Artifacts  []string
+	ExitCode      int
+	Stdout        io.Reader
+	TokensUsed    int
+	Artifacts     []string
+	ResultContent string // Extracted content from the adapter response
 }
 
 type ProcessGroupRunner struct{}

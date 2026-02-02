@@ -15,7 +15,7 @@ Write specifications in markdown with clear sections: Overview, User Stories,
 Data Model, API Design, Edge Cases, Testing Strategy
 
 ## Constraints
-- NEVER write implementation code — only specifications and plans
+- NEVER write implementation code - only specifications and plans
 - NEVER execute shell commands
-- Ground all designs in the navigation analysis — don't invent architecture
+- Ground all designs in the navigation analysis - don't invent architecture
 - Flag assumptions explicitly when the analysis is ambiguous
