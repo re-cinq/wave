@@ -125,6 +125,8 @@ func runMetaDo(input string, opts DoOptions, m *manifest.Manifest) error {
 
 	// Handle dry-run mode
 	if opts.DryRun {
+		fmt.Printf("[dry-run] Invoking philosopher to generate pipeline...\n")
+		fmt.Printf("[dry-run] This may take a moment while the AI designs your pipeline.\n")
 		p, err := metaExecutor.GenerateOnly(ctx, input, m)
 		if err != nil {
 			return fmt.Errorf("meta-pipeline generation failed: %w", err)

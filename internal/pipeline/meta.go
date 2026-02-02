@@ -246,10 +246,24 @@ func (e *MetaPipelineExecutor) invokePhilosopher(ctx context.Context, task strin
 		OutputFormat: "yaml",
 	}
 
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      "philosopher_invoking",
+		Message:    fmt.Sprintf("adapter=%s timeout=%v", cfg.Adapter, cfg.Timeout),
+	})
+
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
 		return "", 0, fmt.Errorf("philosopher adapter execution failed: %w", err)
 	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      "philosopher_completed",
+		Message:    fmt.Sprintf("tokens_used=%d", result.TokensUsed),
+	})
 
 	// Read stdout from the adapter result
 	buf := make([]byte, 1024*1024) // 1MB buffer
