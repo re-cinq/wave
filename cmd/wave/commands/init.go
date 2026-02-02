@@ -261,27 +261,47 @@ func mergeMaps(defaults, existing map[string]interface{}) map[string]interface{}
 
 func printInitSuccess(cmd *cobra.Command, outputPath string) {
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Initialized Wave project\n")
-	fmt.Fprintf(out, "  - Created %s\n", outputPath)
-	fmt.Fprintf(out, "  - Created .wave/personas/ (5 persona archetypes)\n")
-	fmt.Fprintf(out, "  - Created .wave/pipelines/ (speckit-flow, hotfix)\n")
-	fmt.Fprintf(out, "  - Created .wave/contracts/ (navigation, specification schemas)\n")
-	fmt.Fprintf(out, "  - Created .wave/workspaces/ (ephemeral workspace root)\n")
-	fmt.Fprintf(out, "  - Created .wave/traces/ (audit log directory)\n")
-	fmt.Fprintf(out, "\nNext steps:\n")
-	fmt.Fprintf(out, "  - Edit %s to configure adapters and personas\n", outputPath)
-	fmt.Fprintf(out, "  - Run 'wave validate' to check configuration\n")
-	fmt.Fprintf(out, "  - Run 'wave run --pipeline speckit-flow --input \"your task\"' to execute\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  ╦ ╦╔═╗╦  ╦╔═╗\n")
+	fmt.Fprintf(out, "  ║║║╠═╣╚╗╔╝║╣ \n")
+	fmt.Fprintf(out, "  ╚╩╝╩ ╩ ╚╝ ╚═╝\n")
+	fmt.Fprintf(out, "  Multi-Agent Pipeline Orchestrator\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Project initialized successfully!\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Created:\n")
+	fmt.Fprintf(out, "    %s                 Main manifest\n", outputPath)
+	fmt.Fprintf(out, "    .wave/personas/          5 persona archetypes\n")
+	fmt.Fprintf(out, "    .wave/pipelines/         hello-world, speckit-flow, hotfix\n")
+	fmt.Fprintf(out, "    .wave/contracts/         JSON schema validators\n")
+	fmt.Fprintf(out, "    .wave/workspaces/        Ephemeral workspace root\n")
+	fmt.Fprintf(out, "    .wave/traces/            Audit log directory\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Next steps:\n")
+	fmt.Fprintf(out, "    1. Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "    2. Run 'wave run --pipeline hello-world --input \"test\"' to verify setup\n")
+	fmt.Fprintf(out, "    3. Run 'wave run --pipeline speckit-flow --input \"your task\"' for real work\n")
+	fmt.Fprintf(out, "\n")
 }
 
 func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Merged defaults into Wave project\n")
-	fmt.Fprintf(out, "  - Updated %s (preserved your settings)\n", outputPath)
-	fmt.Fprintf(out, "  - Added missing default adapters and personas\n")
-	fmt.Fprintf(out, "  - Created missing .wave/ directories and files\n")
-	fmt.Fprintf(out, "\nNext steps:\n")
-	fmt.Fprintf(out, "  - Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  ╦ ╦╔═╗╦  ╦╔═╗\n")
+	fmt.Fprintf(out, "  ║║║╠═╣╚╗╔╝║╣ \n")
+	fmt.Fprintf(out, "  ╚╩╝╩ ╩ ╚╝ ╚═╝\n")
+	fmt.Fprintf(out, "  Multi-Agent Pipeline Orchestrator\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Configuration merged successfully!\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Updated:\n")
+	fmt.Fprintf(out, "    %s       Preserved your settings\n", outputPath)
+	fmt.Fprintf(out, "    Added missing default adapters and personas\n")
+	fmt.Fprintf(out, "    Created missing .wave/ directories and files\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Next steps:\n")
+	fmt.Fprintf(out, "    Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "\n")
 }
 
 func createDefaultManifest(adapter string, workspace string) map[string]interface{} {
@@ -835,6 +855,58 @@ steps:
       - name: verdict
         path: output/verdict.md
         type: markdown
+`,
+		"hello-world.yaml": `kind: WavePipeline
+metadata:
+  name: hello-world
+  description: "Simple test pipeline to verify Wave is working"
+
+input:
+  source: cli
+
+steps:
+  - id: greet
+    persona: craftsman
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        You are a simple greeting bot. The user said: "{{ input }}"
+
+        Respond with EXACTLY this format (no markdown, no extra text):
+
+        GREETING: Hello! You said: "{{ input }}"
+        TIMESTAMP: [current time]
+        STATUS: success
+
+        Then write a file called "greeting.txt" containing just:
+        Hello from Wave! Your message was: {{ input }}
+    output_artifacts:
+      - name: greeting
+        path: greeting.txt
+        type: text
+
+  - id: verify
+    persona: navigator
+    dependencies: [greet]
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        Read the file greeting.txt and verify it exists and contains content.
+
+        Output EXACTLY this JSON (replace the placeholder with actual content):
+        {
+          "status": "verified",
+          "file_exists": true,
+          "content_preview": "[first 50 chars of greeting.txt]"
+        }
+    output_artifacts:
+      - name: result
+        path: output/result.json
+        type: json
 `,
 	}
 }
