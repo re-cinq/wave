@@ -1,0 +1,80 @@
+{
+"$schema": "http://json-schema.org/draft-07/schema#",
+"type": "object",
+"required": ["inconsistencies", "missing_documentation", "outdated_content", "broken_references", "version_mismatches"],
+"properties": {
+"inconsistencies": {
+"type": "array",
+"items": {
+"type": "object",
+"required": ["type", "code_location", "doc_location", "severity"],
+"properties": {
+"type": {"type": "string", "enum": ["api_signature", "behavior", "configuration", "example", "terminology"]},
+"code_location": {"type": "string"},
+"doc_location": {"type": "string"},
+"severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+"description": {"type": "string"},
+"suggested_fix": {"type": "string"}
+}
+}
+},
+"missing_documentation": {
+"type": "array",
+"items": {
+"type": "object",
+"required": ["item_type", "item_location", "priority"],
+"properties": {
+"item_type": {"type": "string", "enum": ["function", "class", "endpoint", "configuration", "feature", "error_code"]},
+"item_location": {"type": "string"},
+"priority": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+"public_facing": {"type": "boolean"},
+"complexity": {"type": "string"},
+"usage_frequency": {"type": "string"}
+}
+}
+},
+"outdated_content": {
+"type": "array",
+"items": {
+"type": "object",
+"required": ["doc_path", "last_code_change", "last_doc_update", "staleness_score"],
+"properties": {
+"doc_path": {"type": "string"},
+"last_code_change": {"type": "string"},
+"last_doc_update": {"type": "string"},
+"staleness_score": {"type": "integer", "minimum": 0, "maximum": 100},
+"specific_issues": {"type": "array", "items": {"type": "string"}},
+"update_effort": {"type": "string", "enum": ["minimal", "moderate", "significant", "major"]}
+}
+}
+},
+"broken_references": {
+"type": "array",
+"items": {
+"type": "object",
+"required": ["source_doc", "broken_link", "link_type"],
+"properties": {
+"source_doc": {"type": "string"},
+"broken_link": {"type": "string"},
+"link_type": {"type": "string", "enum": ["internal", "external", "code_reference", "file_reference"]},
+"suggested_replacement": {"type": "string"},
+"impact": {"type": "string", "enum": ["high", "medium", "low"}}
+}
+}
+},
+"version_mismatches": {
+"type": "array",
+"items": {
+"type": "object",
+"required": ["component", "code_version", "doc_version", "mismatch_type"],
+"properties": {
+"component": {"type": "string"},
+"code_version": {"type": "string"},
+"doc_version": {"type": "string"},
+"mismatch_type": {"type": "string", "enum": ["major", "minor", "patch", "format"]},
+"user_impact": {"type": "string"},
+"fix_complexity": {"type": "string"}
+}
+}
+}
+}
