@@ -113,12 +113,19 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 	// Parse and validate the generated pipeline
 	pipeline, err := e.loader.Unmarshal([]byte(generatedYAML))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w", err)
+		// Emit debug event with the raw YAML for troubleshooting
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "meta_generate_failed",
+			Message:    fmt.Sprintf("YAML parse error: %v", err),
+		})
+		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
 	// Validate the generated pipeline structure
 	if err := ValidateGeneratedPipeline(pipeline); err != nil {
-		return nil, fmt.Errorf("generated pipeline validation failed: %w", err)
+		return nil, fmt.Errorf("generated pipeline validation failed: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
 	e.emit(event.Event{
@@ -162,12 +169,18 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 	// Parse and validate the generated pipeline
 	pipeline, err := e.loader.Unmarshal([]byte(generatedYAML))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w", err)
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "meta_generate_failed",
+			Message:    fmt.Sprintf("YAML parse error: %v", err),
+		})
+		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
 	// Validate the generated pipeline structure
 	if err := ValidateGeneratedPipeline(pipeline); err != nil {
-		return nil, fmt.Errorf("generated pipeline validation failed: %w", err)
+		return nil, fmt.Errorf("generated pipeline validation failed: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
 	// Check step limit
