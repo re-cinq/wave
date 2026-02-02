@@ -5,7 +5,7 @@
 
 ## Summary
 
-This feature adds a new `prototype` pipeline type to Wave that orchestrates greenfield development through four sequential phases: **spec** (requirements capture with speckit integration), **docs** (stakeholder documentation), **dummy** (working prototype with stub implementations), and **implement** (full production code). The pipeline enforces artifact contracts at each phase boundary and supports re-running individual phases for iterative refinement.
+This feature adds a new `prototype` pipeline type to Wave that orchestrates greenfield development through five sequential phases: **spec** (requirements capture with speckit integration), **docs** (runnable VitePress documentation), **dummy** (authentic functional prototype with real I/O), **implement** (full production code), and **pr-cycle** (hands-off PR creation, Copilot review, Claude responses, and auto-merge). The pipeline enforces artifact contracts at each phase boundary and supports re-running individual phases for iterative refinement.
 
 ## Technical Context
 
@@ -17,7 +17,7 @@ This feature adds a new `prototype` pipeline type to Wave that orchestrates gree
 **Project Type**: Single project (CLI extension)
 **Performance Goals**: Pipeline initialization < 1s, phase transitions < 100ms
 **Constraints**: No runtime dependencies, graceful degradation when speckit unavailable
-**Scale/Scope**: Single pipeline definition, 4 personas, 4 contracts
+**Scale/Scope**: Single pipeline definition, 4 personas, 5 contracts
 
 ## Constitution Check
 
@@ -63,7 +63,8 @@ specs/017-prototype-driven-development/
 ├── contracts/
 │   ├── spec-phase.schema.json   # NEW: Spec phase output contract
 │   ├── docs-phase.schema.json   # NEW: Docs phase output contract
-│   └── dummy-phase.schema.json  # NEW: Dummy phase output contract
+│   ├── dummy-phase.schema.json  # NEW: Dummy phase output contract
+│   └── pr-cycle.schema.json     # NEW: PR cycle output contract
 └── personas/
     ├── navigator.md             # EXISTING: Used in spec phase
     ├── philosopher.md           # EXISTING: Used in spec and docs phases
@@ -79,15 +80,15 @@ specs/017-prototype-driven-development/
 
 ### 1. Pipeline Architecture
 
-The prototype pipeline is a linear DAG with four main phases and optional validation sub-steps:
+The prototype pipeline is a linear DAG with five main phases and optional validation sub-steps:
 
 ```
-┌─────────┐    ┌──────────┐    ┌─────────┐    ┌─────────────┐
-│  spec   │───▶│   docs   │───▶│  dummy  │───▶│  implement  │
-└─────────┘    └──────────┘    └─────────┘    └─────────────┘
-     │              │               │               │
-     ▼              ▼               ▼               ▼
- [contract]    [contract]      [contract]      [test_suite]
+┌─────────┐    ┌──────────┐    ┌─────────┐    ┌─────────────┐    ┌──────────┐
+│  spec   │───▶│   docs   │───▶│  dummy  │───▶│  implement  │───▶│ pr-cycle │
+└─────────┘    └──────────┘    └─────────┘    └─────────────┘    └──────────┘
+     │              │               │               │                  │
+     ▼              ▼               ▼               ▼                  ▼
+ [contract]    [contract]      [contract]      [test_suite]      [pr_merged]
 ```
 
 Each phase:
@@ -412,6 +413,196 @@ Wave's existing state persistence tracks step completion timestamps. To detect s
       type: markdown
 ```
 
+### Phase 5: PR Cycle (pr-cycle)
+
+**Purpose**: Automate the full PR lifecycle: create PR, add Copilot reviewer, respond to comments with Claude, implement fixes, and auto-merge.
+
+**Persona**: `philosopher` (pr-create), `auditor` (pr-respond), `craftsman` (pr-fix)
+
+**Steps**:
+```yaml
+- id: pr-create
+  persona: philosopher
+  dependencies: [implement-review]
+  memory:
+    inject_artifacts:
+      - step: spec-define
+        artifact: specification
+        as: spec
+      - step: implement-review
+        artifact: final_review
+        as: review
+  exec:
+    type: prompt
+    source: |
+      Create a pull request for the implementation:
+
+      1. Generate PR title from specification title
+      2. Write PR description summarizing:
+         - What was implemented
+         - Key changes and files affected
+         - Testing approach
+      3. Execute: gh pr create --title "..." --body "..."
+      4. Add Copilot as reviewer: gh pr edit --add-reviewer @github/copilot
+
+      Output the PR URL and number.
+  output_artifacts:
+    - name: pr_info
+      path: output/pr-info.json
+      type: json
+
+- id: pr-review-poll
+  persona: navigator
+  dependencies: [pr-create]
+  memory:
+    inject_artifacts:
+      - step: pr-create
+        artifact: pr_info
+        as: pr
+  exec:
+    type: prompt
+    source: |
+      Poll for Copilot review completion:
+
+      1. Check PR review status: gh pr view --json reviews
+      2. If no reviews yet, wait and retry (max 30 minutes)
+      3. Once review is complete, extract all comments
+
+      Output review comments as JSON array.
+  output_artifacts:
+    - name: review_comments
+      path: output/review-comments.json
+      type: json
+  timeout: 1800000  # 30 minutes
+
+- id: pr-respond
+  persona: auditor
+  dependencies: [pr-review-poll]
+  memory:
+    inject_artifacts:
+      - step: pr-review-poll
+        artifact: review_comments
+        as: comments
+      - step: spec-define
+        artifact: specification
+        as: spec
+  exec:
+    type: prompt
+    source: |
+      Respond to each Copilot review comment:
+
+      For each comment:
+      1. Analyze the feedback
+      2. Determine if it requires:
+         - Simple explanation (respond inline)
+         - Small code fix (flag for pr-fix)
+         - Large rework (create follow-up issue)
+      3. Post response via: gh api repos/{owner}/{repo}/pulls/{pr}/comments
+
+      Output categorized action items.
+  output_artifacts:
+    - name: action_items
+      path: output/action-items.json
+      type: json
+
+- id: pr-fix
+  persona: craftsman
+  dependencies: [pr-respond]
+  memory:
+    inject_artifacts:
+      - step: pr-respond
+        artifact: action_items
+        as: actions
+  workspace:
+    mount:
+      - source: ./
+        target: /src
+        mode: readwrite
+  exec:
+    type: prompt
+    source: |
+      Implement fixes for small review comments:
+
+      For each action item marked as "small fix":
+      1. Make the code change
+      2. Commit with message referencing the comment
+      3. Push to the PR branch
+
+      Skip items marked as "large rework" (handled by follow-up issues).
+  output_artifacts:
+    - name: fixes_applied
+      path: output/fixes-applied.json
+      type: json
+  handover:
+    contract:
+      type: test_suite
+      command: "go test ./..."
+      must_pass: true
+      on_failure: retry
+      max_retries: 2
+
+- id: pr-followup
+  persona: philosopher
+  dependencies: [pr-respond]
+  memory:
+    inject_artifacts:
+      - step: pr-respond
+        artifact: action_items
+        as: actions
+      - step: pr-create
+        artifact: pr_info
+        as: pr
+  exec:
+    type: prompt
+    source: |
+      Create follow-up issues for large rework items:
+
+      For each action item marked as "large rework":
+      1. Create GitHub issue: gh issue create --title "..." --body "..."
+      2. Link issue to PR in comment
+      3. Mark the review thread as "acknowledged, tracked in #N"
+
+      Output created issue numbers.
+  output_artifacts:
+    - name: followup_issues
+      path: output/followup-issues.json
+      type: json
+
+- id: pr-merge
+  persona: navigator
+  dependencies: [pr-fix, pr-followup]
+  memory:
+    inject_artifacts:
+      - step: pr-create
+        artifact: pr_info
+        as: pr
+      - step: pr-fix
+        artifact: fixes_applied
+        as: fixes
+  exec:
+    type: prompt
+    source: |
+      Finalize and merge the PR:
+
+      1. Request re-review if fixes were applied: gh pr edit --add-reviewer @github/copilot
+      2. Wait for approval or re-poll (abbreviated cycle)
+      3. Once approved, enable auto-merge: gh pr merge --auto --squash
+      4. Output final PR status
+
+      If merge conflicts exist, create issue for manual resolution.
+  output_artifacts:
+    - name: merge_status
+      path: output/merge-status.json
+      type: json
+  handover:
+    contract:
+      type: json_schema
+      schema_path: .wave/contracts/pr-cycle.schema.json
+      source: output/merge-status.json
+      on_failure: retry
+      max_retries: 1
+```
+
 ---
 
 ## Persona Assignments
@@ -426,6 +617,12 @@ Wave's existing state persistence tracks step completion timestamps. To detect s
 | implement | implement-plan | planner | Task breakdown, read-only analysis |
 | implement | implement-code | craftsman | Full implementation with tests |
 | implement | implement-review | auditor | Final security and quality review |
+| pr-cycle | pr-create | philosopher | PR description writing, gh CLI execution |
+| pr-cycle | pr-review-poll | navigator | Read-only PR status polling |
+| pr-cycle | pr-respond | auditor | Review analysis and response writing |
+| pr-cycle | pr-fix | craftsman | Code fixes with filesystem access |
+| pr-cycle | pr-followup | philosopher | Issue creation for large rework items |
+| pr-cycle | pr-merge | navigator | PR merge orchestration via gh CLI |
 
 ---
 
@@ -557,6 +754,71 @@ Wave's existing state persistence tracks step completion timestamps. To detect s
           "description": { "type": "string" }
         }
       }
+    }
+  }
+}
+```
+
+### pr-cycle.schema.json
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["pr_number", "pr_url", "status"],
+  "properties": {
+    "pr_number": { "type": "integer" },
+    "pr_url": { "type": "string", "format": "uri" },
+    "status": {
+      "type": "string",
+      "enum": ["merged", "auto-merge-enabled", "pending-human-review", "blocked"]
+    },
+    "review_summary": {
+      "type": "object",
+      "properties": {
+        "total_comments": { "type": "integer" },
+        "explanations_provided": { "type": "integer" },
+        "fixes_applied": { "type": "integer" },
+        "followup_issues_created": { "type": "integer" }
+      }
+    },
+    "fixes_applied": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["comment_id", "file", "description"],
+        "properties": {
+          "comment_id": { "type": "string" },
+          "file": { "type": "string" },
+          "description": { "type": "string" },
+          "commit_sha": { "type": "string" }
+        }
+      }
+    },
+    "followup_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_number", "title"],
+        "properties": {
+          "issue_number": { "type": "integer" },
+          "issue_url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "linked_comment_id": { "type": "string" }
+        }
+      }
+    },
+    "merge_details": {
+      "type": "object",
+      "properties": {
+        "method": { "type": "string", "enum": ["squash", "merge", "rebase"] },
+        "merged_at": { "type": "string", "format": "date-time" },
+        "merged_by": { "type": "string" }
+      }
+    },
+    "blocking_reason": {
+      "type": "string",
+      "description": "If status is 'blocked' or 'pending-human-review', explains why"
     }
   }
 }
