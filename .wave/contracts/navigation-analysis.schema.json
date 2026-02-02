@@ -1,0 +1,31 @@
+{
+"$schema": "http://json-schema.org/draft-07/schema#",
+"type": "object",
+"required": ["repository", "filtering_criteria", "enhancement_strategies", "workflow_steps"],
+"properties": {
+"repository": {
+"type": "object",
+"properties": {
+"name": {"type": "string"},
+"owner": {"type": "string"},
+"issue_count_estimate": {"type": "number"}
+}
+},
+"filtering_criteria": {
+"type": "object",
+"properties": {
+"title_length_threshold": {"type": "number"},
+"description_length_threshold": {"type": "number"},
+"empty_description_check": {"type": "boolean"}
+}
+},
+"enhancement_strategies": {
+"type": "array",
+"items": {"type": "string"}
+},
+"workflow_steps": {
+"type": "array",
+"items": {"type": "string"}
+}
+}
+}
