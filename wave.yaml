@@ -1,0 +1,105 @@
+adapters:
+    claude:
+        binary: claude
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Edit
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - CLAUDE.md
+            - .claude/settings.json
+apiVersion: v1
+kind: WaveManifest
+metadata:
+    description: A Wave multi-agent project
+    name: wave-project
+personas:
+    auditor:
+        adapter: claude
+        description: Security review and quality assurance
+        permissions:
+            allowed_tools:
+                - Read
+                - Grep
+                - Bash(go vet*)
+                - Bash(npm audit*)
+            deny:
+                - Write(*)
+                - Edit(*)
+        system_prompt_file: .wave/personas/auditor.md
+        temperature: 0.1
+    craftsman:
+        adapter: claude
+        description: Code implementation and testing
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Edit
+                - Bash
+            deny:
+                - Bash(rm -rf /*)
+        system_prompt_file: .wave/personas/craftsman.md
+        temperature: 0.7
+    navigator:
+        adapter: claude
+        description: Read-only codebase exploration and analysis
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - Bash(git log*)
+                - Bash(git status*)
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(git commit*)
+                - Bash(git push*)
+        system_prompt_file: .wave/personas/navigator.md
+        temperature: 0.1
+    philosopher:
+        adapter: claude
+        description: Architecture design and specification
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(.wave/specs/*)
+            deny:
+                - Bash(*)
+        system_prompt_file: .wave/personas/philosopher.md
+        temperature: 0.3
+    summarizer:
+        adapter: claude
+        description: Context compaction for relay handoffs
+        permissions:
+            allowed_tools:
+                - Read
+            deny:
+                - Write(*)
+                - Bash(*)
+        system_prompt_file: .wave/personas/summarizer.md
+        temperature: 0
+runtime:
+    audit:
+        log_all_file_operations: false
+        log_all_tool_calls: true
+        log_dir: .wave/traces/
+    default_timeout_minutes: 30
+    max_concurrent_workers: 5
+    meta_pipeline:
+        max_depth: 2
+        max_total_steps: 20
+        max_total_tokens: 500000
+        timeout_minutes: 60
+    relay:
+        strategy: summarize_to_checkpoint
+        token_threshold_percent: 80
+    workspace_root: .wave/workspaces
+skill_mounts:
+    - path: .wave/skills/
