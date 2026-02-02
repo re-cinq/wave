@@ -15,6 +15,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/relay"
+	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 )
@@ -36,15 +37,20 @@ type PipelineStatus struct {
 }
 
 type DefaultPipelineExecutor struct {
-	runner       adapter.AdapterRunner
-	emitter      event.EventEmitter
-	store        state.StateStore
-	logger       audit.AuditLogger
-	wsManager    workspace.WorkspaceManager
-	relayMonitor *relay.RelayMonitor
-	pipelines    map[string]*PipelineExecution
-	mu           sync.RWMutex
-	debug        bool
+	runner         adapter.AdapterRunner
+	emitter        event.EventEmitter
+	store          state.StateStore
+	logger         audit.AuditLogger
+	wsManager      workspace.WorkspaceManager
+	relayMonitor   *relay.RelayMonitor
+	pipelines      map[string]*PipelineExecution
+	mu             sync.RWMutex
+	debug          bool
+	// Security infrastructure
+	securityConfig *security.SecurityConfig
+	pathValidator  *security.PathValidator
+	inputSanitizer *security.InputSanitizer
+	securityLogger *security.SecurityLogger
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -85,9 +91,17 @@ type PipelineExecution struct {
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
+	// Initialize security configuration with secure defaults
+	securityConfig := security.DefaultSecurityConfig()
+	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled)
+
 	ex := &DefaultPipelineExecutor{
-		runner:    runner,
-		pipelines: make(map[string]*PipelineExecution),
+		runner:         runner,
+		pipelines:      make(map[string]*PipelineExecution),
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger: securityLogger,
 	}
 	for _, opt := range opts {
 		opt(ex)
@@ -498,33 +512,122 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
 	prompt := step.Exec.Source
 
-	// Replace {{ input }} template variable
+	// Replace {{ input }} template variable with security validation
 	if execution.Input != "" {
+		// SECURITY FIX: Sanitize user input for prompt injection
+		sanitizationRecord, sanitizedInput, sanitizeErr := e.inputSanitizer.SanitizeInput(execution.Input, "task_description")
+		if sanitizeErr != nil {
+			// Security violation detected - log and reject
+			e.securityLogger.LogViolation(
+				string(security.ViolationPromptInjection),
+				string(security.SourceUserInput),
+				fmt.Sprintf("User input sanitization failed for step %s", step.ID),
+				security.SeverityCritical,
+				true,
+			)
+			// In strict mode, this would cause the step to fail
+			// For now, we'll use empty input to prevent the injection
+			sanitizedInput = "[INPUT SANITIZED FOR SECURITY]"
+		} else {
+			// Log sanitization details
+			if sanitizationRecord.ChangesDetected {
+				e.securityLogger.LogViolation(
+					string(security.ViolationPromptInjection),
+					string(security.SourceUserInput),
+					fmt.Sprintf("User input sanitized for step %s (risk score: %d)", step.ID, sanitizationRecord.RiskScore),
+					security.SeverityMedium,
+					false,
+				)
+			}
+		}
+
+		// Replace template variables with sanitized input
 		for _, pattern := range []string{"{{ input }}", "{{input}}", "{{ input}}", "{{input }}"} {
 			for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
-				prompt = prompt[:idx] + execution.Input + prompt[idx+len(pattern):]
+				prompt = prompt[:idx] + sanitizedInput + prompt[idx+len(pattern):]
 			}
 		}
 	}
 
-	// Inject schema information for json_schema contracts
+	// Inject schema information for json_schema contracts with security validation
 	if step.Handover.Contract.Type == "json_schema" {
 		var schemaContent string
 		var err error
 
-		// Load schema from file or inline
+		// Load schema from file or inline with security validation
 		if step.Handover.Contract.SchemaPath != "" {
-			data, readErr := os.ReadFile(step.Handover.Contract.SchemaPath)
-			if readErr == nil {
-				schemaContent = string(data)
-			} else {
-				err = readErr
+			// SECURITY FIX: Validate path for traversal attacks
+			validationResult, pathErr := e.pathValidator.ValidatePath(step.Handover.Contract.SchemaPath)
+			if pathErr != nil {
+				// Security violation detected - log and use safe fallback
+				e.securityLogger.LogViolation(
+					string(security.ViolationPathTraversal),
+					string(security.SourceSchemaPath),
+					fmt.Sprintf("Schema path validation failed for step %s", step.ID),
+					security.SeverityCritical,
+					true,
+				)
+				err = fmt.Errorf("schema path validation failed: %w", pathErr)
+			} else if validationResult.IsValid {
+				// Path is safe - read the file using validated path
+				data, readErr := os.ReadFile(validationResult.ValidatedPath)
+				if readErr == nil {
+					// SECURITY FIX: Sanitize schema content for prompt injection
+					sanitizedContent, sanitizationActions, sanitizeErr := e.inputSanitizer.SanitizeSchemaContent(string(data))
+					if sanitizeErr != nil {
+						e.securityLogger.LogViolation(
+							string(security.ViolationInputValidation),
+							string(security.SourceSchemaPath),
+							fmt.Sprintf("Schema content sanitization failed for step %s", step.ID),
+							security.SeverityHigh,
+							true,
+						)
+						err = fmt.Errorf("schema content sanitization failed: %w", sanitizeErr)
+					} else {
+						schemaContent = sanitizedContent
+						// Log sanitization actions if any were taken
+						if len(sanitizationActions) > 0 {
+							e.securityLogger.LogViolation(
+								string(security.ViolationPromptInjection),
+								string(security.SourceSchemaPath),
+								fmt.Sprintf("Schema content sanitized for step %s: %v", step.ID, sanitizationActions),
+								security.SeverityMedium,
+								false,
+							)
+						}
+					}
+				} else {
+					err = readErr
+				}
 			}
 		} else if step.Handover.Contract.Schema != "" {
-			schemaContent = step.Handover.Contract.Schema
+			// SECURITY FIX: Sanitize inline schema content
+			sanitizedContent, sanitizationActions, sanitizeErr := e.inputSanitizer.SanitizeSchemaContent(step.Handover.Contract.Schema)
+			if sanitizeErr != nil {
+				e.securityLogger.LogViolation(
+					string(security.ViolationInputValidation),
+					string(security.SourceSchemaPath),
+					fmt.Sprintf("Inline schema sanitization failed for step %s", step.ID),
+					security.SeverityHigh,
+					true,
+				)
+				err = fmt.Errorf("inline schema sanitization failed: %w", sanitizeErr)
+			} else {
+				schemaContent = sanitizedContent
+				// Log sanitization actions if any were taken
+				if len(sanitizationActions) > 0 {
+					e.securityLogger.LogViolation(
+						string(security.ViolationPromptInjection),
+						string(security.SourceSchemaPath),
+						fmt.Sprintf("Inline schema sanitized for step %s: %v", step.ID, sanitizationActions),
+						security.SeverityMedium,
+						false,
+					)
+				}
+			}
 		}
 
-		// Inject schema guidance if available
+		// Inject schema guidance if available and safe
 		if schemaContent != "" && err == nil {
 			prompt += "\n\nCRITICAL: Your output must be valid JSON that exactly matches this schema:\n```json\n"
 			prompt += schemaContent
@@ -534,6 +637,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 			prompt += "- Ensure the JSON is valid and matches every required field in the schema\n"
 			prompt += "- Do not wrap the JSON in markdown code blocks in the artifact file\n"
 			prompt += "- The artifact.json file content should be raw JSON starting with { or [\n"
+			prompt += "- Do NOT include any comments or explanatory text in the JSON output\n"
 		}
 	}
 
