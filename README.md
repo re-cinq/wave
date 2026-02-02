@@ -199,7 +199,7 @@ wave artifacts --step implement --export ./output
 
 ```bash
 # Preview what would be deleted
-wave clean --dry-run
+wave clean --dry-run --all
 
 # Clean all workspaces
 wave clean --all
