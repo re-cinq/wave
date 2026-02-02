@@ -319,13 +319,15 @@ wave validate --pipeline speckit-flow      # Validate specific pipeline
 
 ## Built-in Personas
 
-Wave ships with 5 specialized personas, each with role-specific permissions:
+Wave ships with 7 specialized personas, each with role-specific permissions:
 
 | Persona | Temperature | Description | Permissions |
 |---------|-------------|-------------|-------------|
 | **navigator** | 0.1 | Read-only codebase exploration and analysis | `Read`, `Glob`, `Grep`, `Bash(git log*)`, `Bash(git status*)` |
 | **philosopher** | 0.3 | Architecture design and specification | `Read`, `Write(.wave/specs/*)` |
+| **planner** | 0.3 | Task breakdown and project planning | `Read`, `Glob`, `Grep` |
 | **craftsman** | 0.7 | Code implementation and testing | `Read`, `Write`, `Edit`, `Bash` |
+| **debugger** | 0.2 | Systematic issue diagnosis and root cause analysis | `Read`, `Grep`, `Bash(git bisect*)`, `Bash(go test*)` |
 | **auditor** | 0.1 | Security review and quality assurance | `Read`, `Grep`, `Bash(go vet*)`, `Bash(npm audit*)` |
 | **summarizer** | 0.0 | Context compaction for relay handoffs | `Read` only |
 
@@ -343,11 +345,23 @@ Wave ships with 5 specialized personas, each with role-specific permissions:
 - Identifies edge cases and security considerations
 - Cannot execute shell commands
 
+**planner** — Breaks down complex tasks
+- Decomposes features into atomic tasks
+- Identifies dependencies between tasks
+- Estimates complexity (S/M/L/XL)
+- Defines acceptance criteria
+
 **craftsman** — Implements features and fixes
 - Writes production code following specifications
 - Creates unit and integration tests
 - Runs test suites to verify correctness
 - Full read/write access to codebase
+
+**debugger** — Diagnoses issues systematically
+- Forms and tests hypotheses about root causes
+- Uses git bisect to find regressions
+- Traces execution paths and data flow
+- Documents findings for fixes
 
 **auditor** — Reviews for security and quality
 - Checks for OWASP Top 10 vulnerabilities
@@ -444,6 +458,172 @@ wave run --pipeline hotfix --input "null pointer in user.GetProfile()" --from-st
 **Artifacts produced:**
 - `output/findings.json` — Root cause analysis
 - `output/verdict.md` — Deployment recommendation
+
+---
+
+### `code-review` — Pull Request Review
+
+Comprehensive code review with parallel security and quality checks:
+
+```
+diff-analysis → security-review ─┬→ summary
+                quality-review ──┘
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `diff-analysis` | navigator | Map changed files and breaking changes |
+| `security-review` | auditor | Check for vulnerabilities and secrets |
+| `quality-review` | auditor | Check for errors, duplication, coverage |
+| `summary` | summarizer | Synthesize into PR review comment |
+
+**Examples:**
+```bash
+wave run --pipeline code-review --input "review changes in auth module"
+wave run --pipeline code-review --input "review PR #123"
+wave run --pipeline code-review --input "review last 3 commits"
+```
+
+---
+
+### `refactor` — Safe Refactoring
+
+Refactoring with test baseline and verification:
+
+```
+analyze → test-baseline → refactor → verify
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `analyze` | navigator | Map refactoring scope and affected callers |
+| `test-baseline` | craftsman | Ensure test coverage before changes |
+| `refactor` | craftsman | Perform atomic refactoring changes |
+| `verify` | auditor | Verify behavior preserved |
+
+**Examples:**
+```bash
+wave run --pipeline refactor --input "extract UserService from monolith"
+wave run --pipeline refactor --input "rename package auth to authentication"
+wave run --pipeline refactor --input "convert callbacks to async/await"
+```
+
+---
+
+### `debug` — Systematic Debugging
+
+Hypothesis-driven debugging with root cause analysis:
+
+```
+reproduce → hypothesize → investigate → fix
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `reproduce` | debugger | Create minimal reproduction case |
+| `hypothesize` | debugger | Form ranked hypotheses about cause |
+| `investigate` | debugger | Test hypotheses systematically |
+| `fix` | craftsman | Implement fix with regression test |
+
+**Examples:**
+```bash
+wave run --pipeline debug --input "intermittent 500 errors on /api/users"
+wave run --pipeline debug --input "memory grows unbounded after 1000 requests"
+wave run --pipeline debug --input "race condition in order processing"
+```
+
+---
+
+### `test-gen` — Test Generation
+
+Generate comprehensive test coverage:
+
+```
+analyze-coverage → generate-tests → verify-coverage
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `analyze-coverage` | navigator | Find uncovered code paths |
+| `generate-tests` | craftsman | Write tests for gaps |
+| `verify-coverage` | auditor | Verify meaningful coverage increase |
+
+**Examples:**
+```bash
+wave run --pipeline test-gen --input "improve coverage for internal/auth"
+wave run --pipeline test-gen --input "add edge case tests for payment module"
+wave run --pipeline test-gen --input "generate integration tests for API"
+```
+
+---
+
+### `docs` — Documentation Generation
+
+Generate or update documentation:
+
+```
+discover → generate → review
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `discover` | navigator | Find public APIs and existing docs |
+| `generate` | philosopher | Write documentation with examples |
+| `review` | auditor | Check accuracy and completeness |
+
+**Examples:**
+```bash
+wave run --pipeline docs --input "document the REST API"
+wave run --pipeline docs --input "write README for internal/cache package"
+wave run --pipeline docs --input "update API reference after v2 changes"
+```
+
+---
+
+### `plan` — Task Planning
+
+Break down a feature into actionable tasks:
+
+```
+explore → breakdown → review
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `explore` | navigator | Understand codebase context |
+| `breakdown` | planner | Create ordered task list |
+| `review` | philosopher | Review for completeness |
+
+**Examples:**
+```bash
+wave run --pipeline plan --input "implement user authentication with OAuth"
+wave run --pipeline plan --input "add real-time notifications"
+wave run --pipeline plan --input "migrate from REST to GraphQL"
+```
+
+---
+
+### `migrate` — Database/API Migration
+
+Safe migrations with rollback plans:
+
+```
+impact-analysis → migration-plan → implement → review
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `impact-analysis` | navigator | Map affected code and breaking changes |
+| `migration-plan` | philosopher | Design zero-downtime migration |
+| `implement` | craftsman | Write migration scripts |
+| `review` | auditor | Verify rollback works |
+
+**Examples:**
+```bash
+wave run --pipeline migrate --input "add email_verified column to users table"
+wave run --pipeline migrate --input "split users table into users and profiles"
+wave run --pipeline migrate --input "migrate from v1 to v2 API"
+```
 
 ---
 

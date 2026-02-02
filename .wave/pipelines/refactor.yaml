@@ -1,0 +1,137 @@
+kind: WavePipeline
+metadata:
+  name: refactor
+  description: "Safe refactoring with comprehensive test coverage"
+
+input:
+  source: cli
+
+steps:
+  - id: analyze
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze refactoring scope for: {{ input }}
+
+        1. Identify all code that will be affected
+        2. Map all callers/consumers of the code being refactored
+        3. Find existing test coverage
+        4. Identify integration points
+
+        Output as JSON:
+        {
+          "target_files": [],
+          "affected_callers": [],
+          "existing_tests": [],
+          "integration_points": [],
+          "risk_assessment": "low|medium|high"
+        }
+    output_artifacts:
+      - name: analysis
+        path: output/refactor-analysis.json
+        type: json
+
+  - id: test-baseline
+    persona: craftsman
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Before refactoring, ensure test coverage:
+
+        1. Run existing tests and record baseline
+        2. Add characterization tests for uncovered code paths
+        3. Add integration tests for affected callers
+        4. Document current behavior for comparison
+
+        All tests must pass before proceeding.
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+    output_artifacts:
+      - name: baseline
+        path: output/test-baseline.md
+        type: markdown
+
+  - id: refactor
+    persona: craftsman
+    dependencies: [test-baseline]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+        - step: test-baseline
+          artifact: baseline
+          as: tests
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Perform the refactoring: {{ input }}
+
+        Guidelines:
+        1. Make atomic, reviewable changes
+        2. Preserve all existing behavior
+        3. Run tests after each significant change
+        4. Update affected callers as needed
+        5. Keep commits small and focused
+
+        Do NOT change behavior — this is refactoring only.
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [refactor]
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        Verify the refactoring:
+
+        1. Compare before/after behavior — any changes?
+        2. Check test coverage didn't decrease
+        3. Verify all callers still work correctly
+        4. Look for missed edge cases
+        5. Assess code quality improvement
+
+        Output: PASS (safe to merge) or FAIL (issues found)
+    output_artifacts:
+      - name: verification
+        path: output/verification.md
+        type: markdown
