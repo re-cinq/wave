@@ -1401,43 +1401,60 @@ func TestSubprocessTimeout_ClaudeAdapterTimeout(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_ExtractsJSONFromMarkdown(t *testing.T) {
-	adapter := NewClaudeAdapter()
-
+// TestExtractJSONFromMarkdown tests JSON extraction in isolation - no Claude needed
+func TestExtractJSONFromMarkdown(t *testing.T) {
 	tests := []struct {
-		name           string
-		claudeResult   string
-		expectedResult string
+		name     string
+		input    string
+		expected string
 	}{
 		{
-			name:           "extracts json from markdown code block",
-			claudeResult:   "Here is the analysis:\n```json\n{\"key\": \"value\"}\n```\nDone.",
-			expectedResult: `{"key": "value"}`,
+			name:     "extracts simple json object",
+			input:    "Here is the result:\n```json\n{\"key\": \"value\"}\n```\nDone.",
+			expected: `{"key": "value"}`,
 		},
 		{
-			name:           "passes through plain json",
-			claudeResult:   `{"key": "value"}`,
-			expectedResult: `{"key": "value"}`,
+			name:     "extracts json array",
+			input:    "List:\n```json\n[1, 2, 3]\n```",
+			expected: `[1, 2, 3]`,
 		},
 		{
-			name:           "passes through plain text without json block",
-			claudeResult:   "Just plain text without code blocks",
-			expectedResult: "Just plain text without code blocks",
+			name:     "extracts nested json",
+			input:    "```json\n{\"files\": [\"a.go\"], \"meta\": {\"count\": 1}}\n```",
+			expected: `{"files": ["a.go"], "meta": {"count": 1}}`,
+		},
+		{
+			name:     "handles whitespace in block",
+			input:    "```json\n\n  {\"a\": 1}  \n\n```",
+			expected: `{"a": 1}`,
+		},
+		{
+			name:     "returns empty for no json block",
+			input:    "Just plain text",
+			expected: "",
+		},
+		{
+			name:     "returns empty for invalid json in block",
+			input:    "```json\nnot valid json\n```",
+			expected: "",
+		},
+		{
+			name:     "returns empty for unclosed block",
+			input:    "```json\n{\"key\": \"value\"}",
+			expected: "",
+		},
+		{
+			name:     "extracts first json block only",
+			input:    "```json\n{\"first\": 1}\n```\n```json\n{\"second\": 2}\n```",
+			expected: `{"first": 1}`,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Build a mock Claude CLI JSON response
-			escaped := strings.ReplaceAll(tc.claudeResult, `\`, `\\`)
-			escaped = strings.ReplaceAll(escaped, `"`, `\"`)
-			escaped = strings.ReplaceAll(escaped, "\n", `\n`)
-			mockOutput := `{"type":"result","result":"` + escaped + `","usage":{"input_tokens":10,"output_tokens":5}}`
-
-			_, _, content := adapter.parseOutput([]byte(mockOutput))
-
-			if content != tc.expectedResult {
-				t.Errorf("expected %q, got %q", tc.expectedResult, content)
+			result := ExtractJSONFromMarkdown(tc.input)
+			if result != tc.expected {
+				t.Errorf("ExtractJSONFromMarkdown(%q)\n  got:  %q\n  want: %q", tc.input, result, tc.expected)
 			}
 		})
 	}

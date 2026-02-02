@@ -254,7 +254,7 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 
 	// Try to extract JSON from markdown code blocks if result looks like markdown
 	if strings.Contains(resultContent, "```json") {
-		if extracted := extractJSONFromMarkdown(resultContent); extracted != "" {
+		if extracted := ExtractJSONFromMarkdown(resultContent); extracted != "" {
 			resultContent = extracted
 		}
 	}
@@ -262,9 +262,10 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 	return tokens, artifacts, resultContent
 }
 
-// extractJSONFromMarkdown extracts JSON content from markdown code blocks.
+// ExtractJSONFromMarkdown extracts JSON content from markdown code blocks.
 // Returns the extracted JSON or empty string if not found.
-func extractJSONFromMarkdown(content string) string {
+// Exported for testing without Claude dependency.
+func ExtractJSONFromMarkdown(content string) string {
 	// Look for ```json ... ``` blocks
 	start := strings.Index(content, "```json")
 	if start == -1 {
