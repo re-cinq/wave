@@ -5,7 +5,28 @@ Complete reference for all Wave CLI commands, flags, and output behavior.
 ## Synopsis
 
 ```
-wave <command> [flags]
+  ╦ ╦╔═╗╦  ╦╔═╗
+  ║║║╠═╣╚╗╔╝║╣
+  ╚╩╝╩ ╩ ╚╝ ╚═╝
+  Multi-Agent Pipeline Orchestrator
+
+Usage:
+  wave [command]
+
+Available Commands:
+  artifacts   List and export pipeline artifacts
+  cancel      Cancel a running pipeline
+  clean       Clean up project artifacts
+  completion  Generate the autocompletion script for the specified shell
+  do          Execute an ad-hoc task
+  help        Help about any command
+  init        Initialize a new Wave project
+  list        List pipelines and personas
+  logs        Show pipeline logs
+  resume      Resume a paused pipeline
+  run         Run a pipeline
+  status      Show pipeline status
+  validate    Validate Wave configuration
 ```
 
 ## Global Flags
@@ -15,8 +36,8 @@ wave <command> [flags]
 | `--help` | `-h` | — | — | Show help for any command. |
 | `--version` | `-v` | — | — | Print Wave version and exit. |
 | `--manifest` | `-m` | `string` | `wave.yaml` | Path to manifest file. |
-| `--debug` | | `bool` | `false` | Enable debug logging to stderr. |
-| `--log-format` | | `string` | `json` | Output format: `json` or `text`. |
+| `--debug` | `-d` | `bool` | `false` | Enable debug logging to stderr. |
+| `--log-format` | | `string` | `text` | Output format: `json` or `text`. |
 
 ---
 
@@ -33,9 +54,11 @@ wave init [flags]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--adapter` | `string` | `"claude"` | Default adapter to configure. |
-| `--persona` | `string` | `"craftsman"` | Initial persona to create alongside the built-in navigator. |
-| `--workspace` | `string` | `"/tmp/wave"` | Workspace root directory. |
-| `--force` | `bool` | `false` | Overwrite existing `wave.yaml` if present. |
+| `--workspace` | `string` | `".wave/workspaces"` | Workspace root directory. |
+| `--output` | `string` | `"wave.yaml"` | Output path for wave.yaml. |
+| `--force` | `bool` | `false` | Overwrite existing files without prompting. |
+| `--merge` | `bool` | `false` | Merge defaults into existing configuration. |
+| `-y, --yes` | `bool` | `false` | Answer yes to all confirmation prompts. |
 
 ### Creates
 
@@ -43,13 +66,13 @@ wave init [flags]
 wave.yaml                          # Project manifest
 .wave/
 ├── personas/
-│   ├── navigator.md                 # Navigator system prompt
-│   ├── craftsman.md                 # Craftsman system prompt
-│   └── summarizer.md               # Summarizer system prompt
+│   ├── navigator.md               # Navigator system prompt
+│   ├── craftsman.md               # Craftsman system prompt
+│   └── summarizer.md              # Summarizer system prompt
 ├── pipelines/
-│   └── default.yaml                 # Example pipeline
-├── hooks/                           # Hook script directory
-└── contracts/                       # Contract schema directory
+│   └── default.yaml               # Example pipeline
+├── hooks/                         # Hook script directory
+└── contracts/                     # Contract schema directory
 ```
 
 ### Examples
@@ -66,6 +89,9 @@ wave init --workspace ./workspaces
 
 # Force re-initialization
 wave init --force
+
+# Merge defaults into existing config
+wave init --merge
 ```
 
 ---
@@ -125,23 +151,6 @@ wave validate --manifest staging.wave.yaml
 wave validate --pipeline .wave/pipelines/deploy.yaml
 ```
 
-### Output
-
-```
-$ wave validate --verbose
-✓ Manifest syntax valid
-✓ All required fields present
-✓ Adapter 'claude' references valid binary
-✓ Persona 'navigator' references adapter 'claude'
-✓ Persona 'navigator' system prompt exists: .wave/personas/navigator.md
-✓ Persona 'craftsman' references adapter 'claude'
-✓ Persona 'craftsman' system prompt exists: .wave/personas/craftsman.md
-✓ Pipeline 'speckit-flow' DAG is valid (5 steps, no cycles)
-⚠ Adapter 'opencode' binary not found on PATH
-
-Validation passed with 1 warning.
-```
-
 ---
 
 ## `wave run`
@@ -149,19 +158,20 @@ Validation passed with 1 warning.
 Execute a pipeline.
 
 ```bash
-wave run --pipeline <path> [flags]
+wave run --pipeline <name> [flags]
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--pipeline` | `string` | **required** | Path to pipeline YAML file. Can also be a pipeline name (e.g., `add-feature`) which will be auto-detected in the `.wave/pipelines/` directory. |
-| `--input` | `string` | `""` | Input prompt for the pipeline. Available as `{{ input }}` in step templates. |
-| `--dry-run` | `bool` | `false` | Walk the pipeline DAG and print execution plan without invoking adapters. |
-| `--from-step` | `string` | `""` | Start execution from a specific step (skip completed predecessors). |
+| `--pipeline` | `string` | **required** | Pipeline name to run. |
+| `--input` | `string` | `""` | Input prompt for the pipeline. |
+| `--dry-run` | `bool` | `false` | Show what would be executed without running. |
+| `--from-step` | `string` | `""` | Start execution from a specific step. |
 | `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--timeout` | `int` | manifest default | Override per-step timeout (minutes). |
+| `--mock` | `bool` | `false` | Use mock adapter (for testing). |
 
 ### Output
 
@@ -171,36 +181,16 @@ Emits [NDJSON events](/reference/events) to stdout on every state transition. Er
 
 ```bash
 # Run a pipeline with input
-wave run --pipeline .wave/pipelines/speckit-flow.yaml \
-  --input "add user authentication with JWT"
+wave run --pipeline speckit-flow --input "add user authentication with JWT"
 
 # Dry run to preview execution plan
-wave run --pipeline .wave/pipelines/speckit-flow.yaml --dry-run
+wave run --pipeline speckit-flow --dry-run
 
 # Resume from a specific step
-wave run --pipeline .wave/pipelines/speckit-flow.yaml \
-  --from-step implement
+wave run --pipeline speckit-flow --from-step implement
 
 # With custom timeout
-wave run --pipeline .wave/pipelines/speckit-flow.yaml \
-  --input "refactor database layer" --timeout 60
-
-# Pipe events to jq for filtering
-wave run --pipeline flow.yaml --input "task" \
-  | jq 'select(.state == "completed")'
-```
-
-### Dry Run Output
-
-```
-$ wave run --pipeline speckit-flow.yaml --dry-run
-Pipeline: speckit-flow (5 steps)
-Execution order:
-  1. navigate    (navigator)     → no dependencies
-  2. specify     (philosopher)   → depends on: navigate
-  3. plan        (philosopher)   → depends on: specify
-  4. implement   (craftsman)     → depends on: plan
-  5. review      (auditor)       → depends on: implement
+wave run --pipeline speckit-flow --input "refactor database layer" --timeout 60
 ```
 
 ---
@@ -217,39 +207,11 @@ wave do "<task description>" [flags]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--persona` | `string` | `"craftsman"` | Persona for the execution step. The navigate step always uses `navigator`. |
-| `--save` | `string` | `""` | Save the generated pipeline YAML to this path for inspection or reuse. |
+| `--persona` | `string` | `"craftsman"` | Persona for the execution step. |
+| `--save` | `string` | `""` | Save the generated pipeline YAML to this path. |
 | `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
-| `--timeout` | `int` | manifest default | Override per-step timeout (minutes). |
-
-### Generated Pipeline Structure
-
-```yaml
-# Auto-generated by wave do
-kind: WavePipeline
-metadata:
-  name: ad-hoc-<timestamp>
-steps:
-  - id: navigate
-    persona: navigator
-    memory:
-      strategy: fresh
-    exec:
-      type: prompt
-      source: "Analyze the codebase for: <task description>"
-  - id: execute
-    persona: <selected-persona>
-    dependencies: [navigate]
-    memory:
-      strategy: fresh
-      inject_artifacts:
-        - step: navigate
-          artifact: analysis
-          as: navigation_report
-    exec:
-      type: prompt
-      source: "<task description>"
-```
+| `--dry-run` | `bool` | `false` | Show what would be executed without running. |
+| `--mock` | `bool` | `false` | Use mock adapter (for testing). |
 
 ### Examples
 
@@ -263,8 +225,8 @@ wave do "audit authentication middleware for SQL injection" --persona auditor
 # Save generated pipeline for inspection
 wave do "add dark mode toggle" --save .wave/pipelines/dark-mode.yaml
 
-# Use non-default manifest
-wave do "fix broken test" --manifest staging.wave.yaml
+# Preview without executing
+wave do "refactor user service" --dry-run
 ```
 
 ---
@@ -274,15 +236,15 @@ wave do "fix broken test" --manifest staging.wave.yaml
 Resume an interrupted or failed pipeline from its last checkpoint.
 
 ```bash
-wave resume --pipeline-id <uuid> [flags]
+wave resume [flags]
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--pipeline-id` | `string` | **required** | UUID of the pipeline execution to resume. Found in event output. |
-| `--from-step` | `string` | `""` | Override resume point. By default, resumes from the last completed step. |
+| `--pipeline` | `string` | `""` | Pipeline ID to resume. If omitted, lists recent pipelines. |
+| `--from-step` | `string` | `""` | Override resume point. |
 | `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 
 ### Resume Behavior
@@ -291,23 +253,272 @@ wave resume --pipeline-id <uuid> [flags]
 2. Identifies the last completed step.
 3. Resumes execution from the next pending or failed step.
 4. Completed steps are **skipped** — their artifacts remain in the workspace.
-5. Failed steps are **retried** from scratch (fresh workspace, full retry budget).
+5. Failed steps are **retried** from scratch.
 
 ### Examples
 
 ```bash
-# Resume from last checkpoint
-wave resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+# List resumable pipelines
+wave resume
+
+# Resume specific pipeline
+wave resume --pipeline debug-20260202-143022
 
 # Resume from a specific step
-wave resume --pipeline-id a1b2c3d4 --from-step implement
+wave resume --pipeline debug-20260202-143022 --from-step implement
+```
+
+---
+
+## `wave status`
+
+Show the status of pipeline runs.
+
+```bash
+wave status [run-id] [flags]
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--all` | `bool` | `false` | Show all recent pipelines (default 10). |
+| `--format` | `string` | `"table"` | Output format: `table`, `json`. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
+
+### Behavior
+
+- **No arguments**: Shows currently running pipelines.
+- **With `--all`**: Shows recent pipelines (default 10).
+- **With run-id**: Shows detailed status for that specific run.
+
+### Examples
+
+```bash
+# Show running pipelines
+wave status
+
+# Show all recent pipelines
+wave status --all
+
+# Show specific run details
+wave status debug-20260202-143022
+
+# Output as JSON for scripting
+wave status --format json
+```
+
+### Output
+
+```
+$ wave status
+RUN_ID                     PIPELINE        STATUS       STEP            ELAPSED    TOKENS
+debug-20260202-143022      debug           running      investigate     2m15s      12k
+
+$ wave status debug-20260202-143022
+Run ID:     debug-20260202-143022
+Pipeline:   debug
+Status:     running
+Step:       investigate
+Started:    2026-02-02 14:30:22
+Elapsed:    2m15s
+Tokens:     12k
+Input:      memory leak after 1000 requests
+```
+
+---
+
+## `wave logs`
+
+Show logs from pipeline runs.
+
+```bash
+wave logs [run-id] [flags]
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--step` | `string` | `""` | Filter by step ID. |
+| `--errors` | `bool` | `false` | Only show errors (alias for `--level error`). |
+| `--level` | `string` | `"all"` | Log level: `all`, `info`, `error`. |
+| `--tail` | `int` | `0` | Show last N lines. |
+| `--since` | `string` | `""` | Filter by time (e.g., `10m`, `1h`, `7d`). |
+| `--follow` | `bool` | `false` | Stream logs in real-time. |
+| `--format` | `string` | `"text"` | Output format: `text`, `json`. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
+
+### Behavior
+
+- **No arguments**: Shows logs from the most recent run.
+- **With run-id**: Shows logs for that specific run.
+- **With `--follow`**: Streams logs in real-time until the run completes or Ctrl+C.
+
+### Examples
+
+```bash
+# Show logs from most recent run
+wave logs
+
+# Show logs for specific run
+wave logs debug-20260202-143022
+
+# Filter by step ID
+wave logs --step investigate
+
+# Show only errors
+wave logs --errors
+
+# Show last 20 log entries
+wave logs --tail 20
+
+# Show logs from last 10 minutes
+wave logs --since 10m
+
+# Stream logs in real-time
+wave logs --follow
+
+# Output as JSON for scripting
+wave logs --format json
+```
+
+### Output
+
+```
+$ wave logs --tail 5
+[14:30:22] started   navigate     (navigator)                 Starting navigation
+[14:30:45] completed navigate     (navigator)   23s    2.1k   Found 3 relevant files
+[14:30:46] started   investigate  (debugger)                  Beginning investigation
+[14:31:02] info      investigate  (debugger)          1.5k   Analyzing memory patterns
+[14:32:15] completed investigate  (debugger)   89s    8.2k   Root cause identified
+```
+
+---
+
+## `wave cancel`
+
+Cancel a running pipeline execution.
+
+```bash
+wave cancel [run-id] [flags]
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `-f, --force` | `bool` | `false` | Interrupt immediately (send SIGTERM/SIGKILL). |
+| `--format` | `string` | `"text"` | Output format: `text`, `json`. |
+
+### Behavior
+
+**Graceful cancellation (default):**
+- Sets a cancellation flag in the database.
+- The executor will stop after the current step completes.
+- The pipeline status is marked as "cancelled".
+
+**Force cancellation (`--force`):**
+- Immediately sends SIGTERM to the adapter process group.
+- Waits 5 seconds, then sends SIGKILL if still running.
+- The current step may be incomplete.
+
+### Examples
+
+```bash
+# Cancel most recent running pipeline
+wave cancel
+
+# Cancel specific run
+wave cancel debug-20260202-143022
+
+# Forcibly terminate immediately
+wave cancel --force
+
+# Output result as JSON
+wave cancel --format json
+```
+
+### Output
+
+```
+$ wave cancel
+Cancellation requested for debug-20260202-143022 (debug)
+Pipeline will stop after current step completes.
+
+$ wave cancel --force
+Force cancellation sent to debug-20260202-143022 (debug)
+Process terminated.
+```
+
+---
+
+## `wave artifacts`
+
+List and export artifacts from pipeline runs.
+
+```bash
+wave artifacts [run-id] [flags]
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--step` | `string` | `""` | Filter to specific step ID. |
+| `--export` | `string` | `""` | Export artifacts to specified directory. |
+| `--format` | `string` | `"table"` | Output format: `table`, `json`. |
+| `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
+
+### Behavior
+
+- **No arguments**: Shows artifacts from the most recent run.
+- **With run-id**: Shows artifacts from that specific run.
+- **With `--export`**: Copies artifacts to the specified directory, organized by step.
+
+### Examples
+
+```bash
+# List artifacts from most recent run
+wave artifacts
+
+# List artifacts from specific run
+wave artifacts debug-20260202-143022
+
+# Filter to specific step
+wave artifacts --step implement
+
+# Export all artifacts
+wave artifacts --export ./output
+
+# Export specific step's artifacts
+wave artifacts --step implement --export ./output
+
+# Output as JSON
+wave artifacts --format json
+```
+
+### Output
+
+```
+$ wave artifacts
+STEP          ARTIFACT              TYPE    SIZE      PATH
+navigate      analysis.md           md      2.1 KB    .wave/workspaces/debug.../navigate/analysis.md
+investigate   findings.json         json    4.5 KB    .wave/workspaces/debug.../investigate/findings.json
+investigate   memory_profile.txt    txt     12.3 KB   .wave/workspaces/debug.../investigate/memory_profile.txt
+
+$ wave artifacts --export ./output
+Exported 3 artifacts to ./output/
+  ./output/navigate/analysis.md
+  ./output/investigate/findings.json
+  ./output/investigate/memory_profile.txt
 ```
 
 ---
 
 ## `wave clean`
 
-Clean up ephemeral workspaces. Workspaces are never auto-deleted — this is the only way to reclaim disk space.
+Clean up ephemeral workspaces and state.
 
 ```bash
 wave clean [flags]
@@ -317,16 +528,20 @@ wave clean [flags]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--pipeline-id` | `string` | `""` | Clean only this pipeline's workspaces. |
-| `--all` | `bool` | `false` | Clean all workspaces under the workspace root. |
+| `--pipeline` | `string` | `""` | Clean specific pipeline workspace. |
+| `--all` | `bool` | `false` | Clean all workspaces and state. |
 | `--dry-run` | `bool` | `false` | Show what would be deleted without deleting. |
-| `--older-than` | `string` | `""` | Clean workspaces older than duration (e.g., `24h`, `7d`). |
+| `--force` | `bool` | `false` | Skip confirmation prompt. |
+| `--keep-last` | `int` | `-1` | Keep the N most recent workspaces (use with `--all`). |
+| `--older-than` | `string` | `""` | Remove workspaces older than duration (e.g., `7d`, `24h`, `1h30m`). |
+| `--status` | `string` | `""` | Only clean workspaces for pipelines with given status (`completed`, `failed`). |
+| `--quiet` | `bool` | `false` | Suppress output for scripting. |
 
 ### Examples
 
 ```bash
 # Clean a specific pipeline's workspace
-wave clean --pipeline-id a1b2c3d4
+wave clean --pipeline debug-20260202-143022
 
 # Clean all workspaces
 wave clean --all
@@ -336,6 +551,15 @@ wave clean --all --dry-run
 
 # Clean workspaces older than 7 days
 wave clean --older-than 7d
+
+# Clean only failed pipelines
+wave clean --status failed
+
+# Keep last 5 workspaces
+wave clean --all --keep-last 5
+
+# Quiet mode for scripting
+wave clean --older-than 7d --force --quiet
 ```
 
 ### Output
@@ -343,9 +567,9 @@ wave clean --older-than 7d
 ```
 $ wave clean --all --dry-run
 Would delete:
-  /tmp/wave/a1b2c3d4/  (speckit-flow, 2026-02-01, 145MB)
-  /tmp/wave/e5f6a7b8/  (bug-fix, 2026-01-30, 23MB)
-Total: 168MB across 2 pipelines
+  .wave/workspaces/debug-20260202-143022/  (debug, 2026-02-02, 145 MB)
+  .wave/workspaces/hotfix-20260201-093000/ (hotfix, 2026-02-01, 23 MB)
+Total: 168 MB across 2 pipelines
 
 Run without --dry-run to delete.
 ```
@@ -354,10 +578,10 @@ Run without --dry-run to delete.
 
 ## `wave list`
 
-List available pipelines, personas, and adapters defined in the manifest.
+List available pipelines, personas, adapters, and runs.
 
 ```bash
-wave list <resource> [flags]
+wave list [resource] [flags]
 ```
 
 ### Resources
@@ -367,14 +591,19 @@ wave list <resource> [flags]
 | `pipelines` | List discovered pipeline files. |
 | `personas` | List defined personas with their adapters. |
 | `adapters` | List defined adapters with their binaries. |
-| `runs` | List recent pipeline executions from state store. |
+| `runs` | List recent pipeline executions. |
+
+With no arguments, lists pipelines and personas.
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
-| `--output` | `string` | `"table"` | Output format: `table`, `json`, `yaml`. |
+| `--format` | `string` | `"table"` | Output format: `table`, `json`. |
+| `--limit` | `int` | `10` | Maximum number of runs to show (for `list runs`). |
+| `--run-pipeline` | `string` | `""` | Filter to specific pipeline (for `list runs`). |
+| `--run-status` | `string` | `""` | Filter by status (for `list runs`). |
 
 ### Examples
 
@@ -383,10 +612,16 @@ wave list <resource> [flags]
 wave list personas
 
 # List pipelines as JSON
-wave list pipelines --output json
+wave list pipelines --format json
 
 # List recent runs
 wave list runs
+
+# List runs filtered by status
+wave list runs --run-status failed
+
+# List runs for specific pipeline
+wave list runs --run-pipeline debug
 ```
 
 ### Output
@@ -402,22 +637,11 @@ debugger      claude    0.2           Systematic issue diagnosis
 auditor       claude    0.1           Security and quality review
 summarizer    claude    0.0           Context compaction
 
-$ wave list pipelines
-NAME            STEPS   PATH
-speckit-flow    5       .wave/pipelines/speckit-flow.yaml
-hotfix          3       .wave/pipelines/hotfix.yaml
-code-review     4       .wave/pipelines/code-review.yaml
-refactor        4       .wave/pipelines/refactor.yaml
-debug           4       .wave/pipelines/debug.yaml
-test-gen        3       .wave/pipelines/test-gen.yaml
-docs            3       .wave/pipelines/docs.yaml
-plan            3       .wave/pipelines/plan.yaml
-migrate         4       .wave/pipelines/migrate.yaml
-
 $ wave list runs
-PIPELINE-ID   NAME           STATUS      STARTED              STEPS
-a1b2c3d4      speckit-flow   completed   2026-02-01 10:00:00  5/5
-e5f6a7b8      bug-fix        failed      2026-01-30 14:30:00  2/4
+RUN_ID                        PIPELINE     STATUS      STARTED               DURATION
+debug-20260202-143022         debug        completed   2026-02-02 14:30:22   5m23s
+hotfix-20260201-093000        hotfix       failed      2026-02-01 09:30:00   2m15s
+speckit-20260131-160000       speckit-flow completed   2026-01-31 16:00:00   12m45s
 ```
 
 ---
@@ -435,6 +659,8 @@ All commands use consistent exit codes:
 | `4` | Validation Error | Manifest or pipeline validation failed. |
 | `5` | Timeout | Pipeline or step exceeded configured timeout. |
 | `130` | Interrupted | User pressed Ctrl+C. Pipeline state is persisted for resumption. |
+
+---
 
 ## Shell Completion
 

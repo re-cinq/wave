@@ -37,6 +37,181 @@ wave run --pipeline speckit-flow --input "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
+
+# Monitor running pipelines
+wave status
+
+# View logs
+wave logs --follow
+```
+
+---
+
+## CLI Reference
+
+```
+  ╦ ╦╔═╗╦  ╦╔═╗
+  ║║║╠═╣╚╗╔╝║╣
+  ╚╩╝╩ ╩ ╚╝ ╚═╝
+  Multi-Agent Pipeline Orchestrator
+
+Wave coordinates multiple AI personas through structured pipelines,
+enforcing permissions, contracts, and workspace isolation at every step.
+
+Usage:
+  wave [command]
+
+Available Commands:
+  artifacts   List and export pipeline artifacts
+  cancel      Cancel a running pipeline
+  clean       Clean up project artifacts
+  completion  Generate the autocompletion script for the specified shell
+  do          Execute an ad-hoc task
+  help        Help about any command
+  init        Initialize a new Wave project
+  list        List pipelines and personas
+  logs        Show pipeline logs
+  resume      Resume a paused pipeline
+  run         Run a pipeline
+  status      Show pipeline status
+  validate    Validate Wave configuration
+
+Flags:
+  -d, --debug               Enable debug mode
+  -h, --help                help for wave
+      --log-format string   Log format (text, json) (default "text")
+  -m, --manifest string     Path to manifest file (default "wave.yaml")
+  -v, --version             version for wave
+
+Use "wave [command] --help" for more information about a command.
+```
+
+---
+
+## Commands
+
+### Pipeline Execution
+
+| Command | Description |
+|---------|-------------|
+| `wave init` | Initialize project with personas and pipelines |
+| `wave run --pipeline <name>` | Execute a pipeline |
+| `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
+| `wave resume` | Resume interrupted pipeline |
+| `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
+
+### Monitoring & Inspection
+
+| Command | Description |
+|---------|-------------|
+| `wave status [run-id]` | Show pipeline status (running, recent, details) |
+| `wave logs [run-id]` | View event logs (`--follow`, `--tail`, `--errors`) |
+| `wave artifacts [run-id]` | List and export pipeline artifacts |
+| `wave list [resource]` | List pipelines, personas, adapters, or runs |
+
+### Maintenance
+
+| Command | Description |
+|---------|-------------|
+| `wave validate` | Check manifest and pipeline configuration |
+| `wave clean` | Remove workspaces and state (`--older-than`, `--status`) |
+
+---
+
+## Command Examples
+
+### Running Pipelines
+
+```bash
+# Feature development
+wave run --pipeline speckit-flow --input "add OAuth2 with Google"
+
+# Fix production bug
+wave run --pipeline hotfix --input "500 errors on /api/users"
+
+# Review PR
+wave run --pipeline code-review --input "review auth module changes"
+
+# Generate tests
+wave run --pipeline test-gen --input "improve coverage for internal/cache"
+
+# Quick fixes
+wave do "fix typo in README"
+wave do "add input validation to signup form"
+wave do "review for SQL injection" --persona auditor
+```
+
+### Monitoring Pipelines
+
+```bash
+# Show currently running pipelines
+wave status
+
+# Show all recent pipelines
+wave status --all
+
+# Show specific run details
+wave status debug-20260202-143022
+
+# Stream logs in real-time
+wave logs --follow
+
+# Show only errors from last run
+wave logs --errors
+
+# Show last 50 log entries
+wave logs --tail 50
+
+# Filter logs by step
+wave logs --step investigate
+
+# JSON output for scripting
+wave status --format json
+wave logs --format json
+```
+
+### Managing Pipelines
+
+```bash
+# Cancel most recent running pipeline
+wave cancel
+
+# Force cancel (SIGTERM/SIGKILL)
+wave cancel --force
+
+# Cancel specific run
+wave cancel abc123-def456
+
+# List recent runs
+wave list runs
+
+# List runs filtered by status
+wave list runs --run-status failed
+
+# Export artifacts from a run
+wave artifacts --export ./output
+
+# Export specific step's artifacts
+wave artifacts --step implement --export ./output
+```
+
+### Cleanup
+
+```bash
+# Preview what would be deleted
+wave clean --dry-run --all
+
+# Clean all workspaces
+wave clean --all
+
+# Clean workspaces older than 7 days
+wave clean --older-than 7d
+
+# Clean only failed pipelines
+wave clean --status failed
+
+# Keep last 5 workspaces
+wave clean --all --keep-last 5
 ```
 
 ---
@@ -79,20 +254,6 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ---
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `wave init` | Initialize project with personas and pipelines |
-| `wave run` | Execute a pipeline |
-| `wave do` | Quick ad-hoc task (auto-generates 2-step pipeline) |
-| `wave list` | List pipelines, personas, adapters |
-| `wave validate` | Check configuration |
-| `wave resume` | Resume interrupted pipeline |
-| `wave clean` | Remove workspaces and state |
-
----
-
 ## Pipelines
 
 ### Development
@@ -124,7 +285,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 ## Personas
 
 | Persona | Temp | Purpose | Key Permissions |
-|---------|------|---------|-----------------|
+|---------|------|---------|--------------------|
 | `navigator` | 0.1 | Codebase exploration | Read-only |
 | `philosopher` | 0.3 | Architecture & specs | Read + write specs |
 | `planner` | 0.3 | Task breakdown | Read-only |
@@ -132,35 +293,6 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 | `debugger` | 0.2 | Root cause analysis | Read + git bisect |
 | `auditor` | 0.1 | Security review | Read + audit tools |
 | `summarizer` | 0.0 | Context compaction | Read-only |
-
----
-
-## Examples
-
-```bash
-# Feature development
-wave run --pipeline speckit-flow --input "add OAuth2 with Google"
-
-# Fix production bug
-wave run --pipeline hotfix --input "500 errors on /api/users"
-
-# Review PR
-wave run --pipeline code-review --input "review auth module changes"
-
-# Generate tests
-wave run --pipeline test-gen --input "improve coverage for internal/cache"
-
-# Debug issue
-wave run --pipeline debug --input "memory leak after 1000 requests"
-
-# Plan feature
-wave run --pipeline plan --input "implement real-time notifications"
-
-# Quick fixes
-wave do "fix typo in README"
-wave do "add input validation to signup form"
-wave do "review for SQL injection" --persona auditor
-```
 
 ---
 
@@ -179,6 +311,8 @@ wave.yaml                    # Project manifest
 │   └── ...
 ├── contracts/               # JSON schemas
 ├── workspaces/              # Ephemeral step workspaces
+├── pids/                    # Process ID files for cancel
+├── state.db                 # SQLite state database
 └── traces/                  # Audit logs
 ```
 
@@ -187,10 +321,13 @@ wave.yaml                    # Project manifest
 ## Documentation
 
 - [Quick Start Guide](docs/guide/quick-start.md)
+- [Installation](docs/guide/installation.md)
 - [Personas Guide](docs/guide/personas.md)
 - [Pipelines Guide](docs/guide/pipelines.md)
 - [CLI Reference](docs/reference/cli.md)
 - [Manifest Schema](docs/reference/manifest-schema.md)
+- [Pipeline Schema](docs/reference/pipeline-schema.md)
+- [Event Reference](docs/reference/events.md)
 
 ---
 
