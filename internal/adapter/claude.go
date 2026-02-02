@@ -252,6 +252,44 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 		tokens = len(data) / 4
 	}
 
+	// Try to extract JSON from markdown code blocks if result looks like markdown
+	if strings.Contains(resultContent, "```json") {
+		if extracted := extractJSONFromMarkdown(resultContent); extracted != "" {
+			resultContent = extracted
+		}
+	}
+
 	return tokens, artifacts, resultContent
+}
+
+// extractJSONFromMarkdown extracts JSON content from markdown code blocks.
+// Returns the extracted JSON or empty string if not found.
+func extractJSONFromMarkdown(content string) string {
+	// Look for ```json ... ``` blocks
+	start := strings.Index(content, "```json")
+	if start == -1 {
+		return ""
+	}
+	start += len("```json")
+
+	// Skip any whitespace/newline after ```json
+	for start < len(content) && (content[start] == '\n' || content[start] == '\r' || content[start] == ' ') {
+		start++
+	}
+
+	end := strings.Index(content[start:], "```")
+	if end == -1 {
+		return ""
+	}
+
+	jsonStr := strings.TrimSpace(content[start : start+end])
+
+	// Validate it's actually JSON
+	var js json.RawMessage
+	if json.Unmarshal([]byte(jsonStr), &js) != nil {
+		return ""
+	}
+
+	return jsonStr
 }
 

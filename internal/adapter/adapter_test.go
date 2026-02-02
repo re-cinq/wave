@@ -1400,3 +1400,45 @@ func TestSubprocessTimeout_ClaudeAdapterTimeout(t *testing.T) {
 		t.Logf("Adapter returned error (expected for short timeout): %v", err)
 	}
 }
+
+func TestClaudeAdapter_ExtractsJSONFromMarkdown(t *testing.T) {
+	adapter := NewClaudeAdapter()
+
+	tests := []struct {
+		name           string
+		claudeResult   string
+		expectedResult string
+	}{
+		{
+			name:           "extracts json from markdown code block",
+			claudeResult:   "Here is the analysis:\n```json\n{\"key\": \"value\"}\n```\nDone.",
+			expectedResult: `{"key": "value"}`,
+		},
+		{
+			name:           "passes through plain json",
+			claudeResult:   `{"key": "value"}`,
+			expectedResult: `{"key": "value"}`,
+		},
+		{
+			name:           "passes through plain text without json block",
+			claudeResult:   "Just plain text without code blocks",
+			expectedResult: "Just plain text without code blocks",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Build a mock Claude CLI JSON response
+			escaped := strings.ReplaceAll(tc.claudeResult, `\`, `\\`)
+			escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+			escaped = strings.ReplaceAll(escaped, "\n", `\n`)
+			mockOutput := `{"type":"result","result":"` + escaped + `","usage":{"input_tokens":10,"output_tokens":5}}`
+
+			_, _, content := adapter.parseOutput([]byte(mockOutput))
+
+			if content != tc.expectedResult {
+				t.Errorf("expected %q, got %q", tc.expectedResult, content)
+			}
+		})
+	}
+}
