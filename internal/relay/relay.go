@@ -104,6 +104,11 @@ func (m *RelayMonitor) ShouldCompactWithWindow(tokensUsed int, contextWindow int
 //   - ErrWriteCheckpointFailed: if writing the checkpoint file fails (wraps original error)
 //   - context.Canceled/context.DeadlineExceeded: if the context is canceled or times out
 func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPrompt string, compactPrompt string, workspacePath string) (string, error) {
+	// Validate context
+	if ctx == nil {
+		return "", fmt.Errorf("%w: nil context", ErrCompactionFailed)
+	}
+
 	// Validate adapter is available
 	if m.adapter == nil {
 		return "", ErrNoAdapter
@@ -226,6 +231,16 @@ type StringReader interface {
 //   - ErrAdapterRunFailed: if the adapter fails to run (wraps original error)
 //   - context errors: if the context is canceled or times out
 func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg CompactionConfig) (string, error) {
+	// Validate context
+	if ctx == nil {
+		return "", fmt.Errorf("%w: nil context", ErrAdapterRunFailed)
+	}
+
+	// Validate runner
+	if w.Runner == nil {
+		return "", fmt.Errorf("%w: nil runner", ErrAdapterRunFailed)
+	}
+
 	// Check context before starting
 	select {
 	case <-ctx.Done():

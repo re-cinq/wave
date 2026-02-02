@@ -87,8 +87,6 @@ func TestRelayMonitor_ConcurrentGetMethods(t *testing.T) {
 }
 
 func TestRelayMonitor_ConcurrentCompaction(t *testing.T) {
-	// Use a thread-safe mock that tracks call count
-	callCount := int32(0)
 	adapter := &mockCompactionAdapter{
 		runFunc: func(ctx context.Context, cfg CompactionConfig) (string, error) {
 			// Simulate some processing time
