@@ -441,9 +441,9 @@ func TestExtractYAML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractYAML(tt.input)
+			got := extractYAMLLegacy(tt.input)
 			if got != tt.expect {
-				t.Errorf("extractYAML() = %q, want %q", got, tt.expect)
+				t.Errorf("extractYAMLLegacy() = %q, want %q", got, tt.expect)
 			}
 		})
 	}
