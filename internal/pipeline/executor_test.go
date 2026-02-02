@@ -662,6 +662,61 @@ func TestWorkspaceCreation(t *testing.T) {
 	assert.NoError(t, err, "workspace directory should exist")
 }
 
+// TestEmptyResultContentDoesNotOverwriteArtifacts is a regression test to ensure
+// that when ResultContent is empty (due to relay compaction, parsing failures, etc),
+// artifacts are not written with empty content, preserving any existing artifacts.
+// This prevents the bug where artifacts get overwritten with empty content during
+// token limit scenarios or adapter failures.
+func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create existing artifact file with content
+	artifactPath := tmpDir + "/workspace-test/step1/output.json"
+	os.MkdirAll(tmpDir + "/workspace-test/step1", 0755)
+	existingContent := `{"previous": "step-result"}`
+	err := os.WriteFile(artifactPath, []byte(existingContent), 0644)
+	require.NoError(t, err)
+
+	// Mock adapter that returns empty ResultContent (simulating parsing failure or compaction effect)
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithResult(""), // Empty ResultContent
+		adapter.WithStdoutJSON(`{"type": "result", "result": ""}`), // Empty result in JSON
+		adapter.WithTokensUsed(1000),
+	)
+
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+
+	m := createTestManifest(tmpDir)
+
+	// Create pipeline with output artifact
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "artifact-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "generate output"},
+				OutputArtifacts: []OutputArtifact{
+					{Name: "result", Path: "output.json"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = executor.Execute(ctx, p, m, "workspace-test")
+	require.NoError(t, err)
+
+	// Verify that existing artifact content is preserved (not overwritten with empty content)
+	finalContent, err := os.ReadFile(artifactPath)
+	require.NoError(t, err)
+	assert.Equal(t, existingContent, string(finalContent),
+		"Existing artifact content should be preserved when ResultContent is empty")
+}
+
 // indexOfInSlice is a helper function to find index in slice
 func indexOfInSlice(slice []string, item string) int {
 	for i, s := range slice {

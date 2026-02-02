@@ -2,14 +2,20 @@ package commands
 
 import (
 	"bytes"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	_ "modernc.org/sqlite"
 )
 
 // T084: Test helpers for list command tests
@@ -843,4 +849,325 @@ runtime:
 			assert.Contains(t, stdout, tc.wantContains)
 		})
 	}
+}
+
+// ====================================================================
+// Task 10: Tests for list runs subcommand
+// ====================================================================
+
+// executeListRunsCmd runs the list runs command with given arguments
+func executeListRunsCmd(args ...string) (stdout, stderr string, err error) {
+	// Prepend "runs" to args
+	fullArgs := append([]string{"runs"}, args...)
+	return executeListCmd(fullArgs...)
+}
+
+// Test list runs command exists
+func TestListRunsCmd_Exists(t *testing.T) {
+	listCmd := NewListCmd()
+
+	// "runs" should be a valid argument
+	assert.Contains(t, listCmd.ValidArgs, "runs", "runs should be a valid argument")
+	assert.Contains(t, listCmd.Long, "runs", "help should mention runs")
+}
+
+// Test list runs flags exist
+func TestListRunsCmd_FlagsExist(t *testing.T) {
+	listCmd := NewListCmd()
+	flags := listCmd.Flags()
+
+	limitFlag := flags.Lookup("limit")
+	assert.NotNil(t, limitFlag, "limit flag should exist")
+	assert.Equal(t, "10", limitFlag.DefValue, "default limit should be 10")
+
+	pipelineFlag := flags.Lookup("run-pipeline")
+	assert.NotNil(t, pipelineFlag, "run-pipeline flag should exist")
+
+	statusFlag := flags.Lookup("run-status")
+	assert.NotNil(t, statusFlag, "run-status flag should exist")
+
+	formatFlag := flags.Lookup("format")
+	assert.NotNil(t, formatFlag, "format flag should exist")
+}
+
+// Test list runs with no data
+func TestListRunsCmd_NoData(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+	assert.Contains(t, stdout, "no runs found")
+}
+
+// Test list runs with workspace fallback
+func TestListRunsCmd_WorkspaceFallback(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create some workspaces (but no state database)
+	h.writeFile(".wave/workspaces/pipeline-1/marker.txt", "test")
+	h.writeFile(".wave/workspaces/pipeline-2/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+	// Should show workspaces as runs
+	assert.True(t,
+		strings.Contains(stdout, "pipeline-1") || strings.Contains(stdout, "pipeline-2"),
+		"should show workspace-based runs")
+}
+
+// Test list runs JSON output
+func TestListRunsCmd_JSONFormat(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create a workspace for the fallback
+	h.writeFile(".wave/workspaces/test-pipeline/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd("--format", "json")
+
+	require.NoError(t, err)
+
+	// Should be valid JSON
+	var output ListOutput
+	err = json.Unmarshal([]byte(stdout), &output)
+	assert.NoError(t, err, "output should be valid JSON")
+	assert.NotNil(t, output.Runs, "runs should be in output")
+}
+
+// Test list runs with --limit flag
+func TestListRunsCmd_Limit(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create several workspaces
+	for i := 1; i <= 5; i++ {
+		h.writeFile(fmt.Sprintf(".wave/workspaces/pipeline-%d/marker.txt", i), "test")
+	}
+
+	stdout, _, err := executeListRunsCmd("--limit", "2")
+
+	require.NoError(t, err)
+
+	// Count the number of data rows (excluding header)
+	lines := strings.Split(stdout, "\n")
+	dataLines := 0
+	for _, line := range lines {
+		if strings.Contains(line, "pipeline-") {
+			dataLines++
+		}
+	}
+	assert.LessOrEqual(t, dataLines, 2, "should respect limit")
+}
+
+// Test list runs with --run-pipeline filter
+func TestListRunsCmd_PipelineFilter(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create workspaces
+	h.writeFile(".wave/workspaces/target-pipeline/marker.txt", "test")
+	h.writeFile(".wave/workspaces/other-pipeline/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd("--run-pipeline", "target-pipeline")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "target-pipeline")
+	assert.NotContains(t, stdout, "other-pipeline")
+}
+
+// Test list runs table format header
+func TestListRunsCmd_TableHeader(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create a workspace
+	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "RUN_ID")
+	assert.Contains(t, stdout, "PIPELINE")
+	assert.Contains(t, stdout, "STATUS")
+	assert.Contains(t, stdout, "STARTED")
+	assert.Contains(t, stdout, "DURATION")
+}
+
+// Test formatDuration function
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		duration time.Duration
+		expected string
+	}{
+		{500 * time.Millisecond, "500ms"},
+		{5 * time.Second, "5.0s"},
+		{90 * time.Second, "1m30s"},
+		{65 * time.Minute, "1h5m"},
+		{2*time.Hour + 30*time.Minute, "2h30m"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.expected, func(t *testing.T) {
+			result := formatDuration(tc.duration)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// Test list runs via main list command with "runs" argument
+func TestListCmd_RunsFilter(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	stdout, _, err := executeListCmd("runs")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+}
+
+// Test list runs with database (if available)
+func TestListRunsCmd_WithDatabase(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create a minimal state database with pipeline_run table
+	dbDir := ".wave"
+	err := os.MkdirAll(dbDir, 0755)
+	require.NoError(t, err)
+
+	dbPath := filepath.Join(dbDir, "state.db")
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS pipeline_run (
+			run_id TEXT PRIMARY KEY,
+			pipeline_name TEXT NOT NULL,
+			status TEXT NOT NULL,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER
+		)
+	`)
+	require.NoError(t, err)
+
+	// Insert test data
+	now := time.Now().Unix()
+	_, err = db.Exec(`
+		INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at, completed_at)
+		VALUES (?, ?, ?, ?, ?)
+	`, "run-123", "test-pipeline", "completed", now-3600, now)
+	require.NoError(t, err)
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "run-123")
+	assert.Contains(t, stdout, "test-pipeline")
+	assert.Contains(t, stdout, "completed")
+}
+
+// Test list runs with status filter on database
+func TestListRunsCmd_StatusFilter(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create database with multiple runs
+	dbDir := ".wave"
+	err := os.MkdirAll(dbDir, 0755)
+	require.NoError(t, err)
+
+	dbPath := filepath.Join(dbDir, "state.db")
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS pipeline_run (
+			run_id TEXT PRIMARY KEY,
+			pipeline_name TEXT NOT NULL,
+			status TEXT NOT NULL,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER
+		)
+	`)
+	require.NoError(t, err)
+
+	now := time.Now().Unix()
+	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
+		"run-1", "pipeline-a", "completed", now-3600, now)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
+		"run-2", "pipeline-b", "failed", now-7200, now-3600)
+	require.NoError(t, err)
+
+	// Filter by status
+	stdout, _, err := executeListRunsCmd("--run-status", "completed")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "run-1")
+	assert.NotContains(t, stdout, "run-2")
+}
+
+// Test JSON output structure
+func TestListRunsCmd_JSONStructure(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Create database with a run
+	dbDir := ".wave"
+	err := os.MkdirAll(dbDir, 0755)
+	require.NoError(t, err)
+
+	dbPath := filepath.Join(dbDir, "state.db")
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS pipeline_run (
+			run_id TEXT PRIMARY KEY,
+			pipeline_name TEXT NOT NULL,
+			status TEXT NOT NULL,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER
+		)
+	`)
+	require.NoError(t, err)
+
+	now := time.Now().Unix()
+	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
+		"test-run", "test-pipeline", "completed", now-60, now)
+	require.NoError(t, err)
+
+	stdout, _, err := executeListRunsCmd("--format", "json")
+
+	require.NoError(t, err)
+
+	var output ListOutput
+	err = json.Unmarshal([]byte(stdout), &output)
+	require.NoError(t, err)
+
+	require.Len(t, output.Runs, 1)
+	assert.Equal(t, "test-run", output.Runs[0].RunID)
+	assert.Equal(t, "test-pipeline", output.Runs[0].Pipeline)
+	assert.Equal(t, "completed", output.Runs[0].Status)
+	assert.NotEmpty(t, output.Runs[0].StartedAt)
 }
