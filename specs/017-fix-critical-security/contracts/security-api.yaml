@@ -1,0 +1,321 @@
+openapi: 3.0.3
+info:
+  title: Wave Security API
+  description: Internal API contracts for security validation functions
+  version: 1.0.0
+  contact:
+    name: Wave Security Team
+
+paths:
+  /internal/security/validate-path:
+    post:
+      summary: Validate file path for security
+      description: Validates a file path against path traversal attacks and approved directories
+      operationId: validatePath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+                - approved_directories
+              properties:
+                path:
+                  type: string
+                  description: File path to validate
+                  example: ".wave/contracts/schema.json"
+                approved_directories:
+                  type: array
+                  items:
+                    type: string
+                  description: List of approved base directories
+                  example: [".wave/contracts/", ".wave/schemas/"]
+                allow_symlinks:
+                  type: boolean
+                  default: false
+                  description: Whether to allow symbolic links
+      responses:
+        '200':
+          description: Path validation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - is_valid
+                  - validated_path
+                properties:
+                  is_valid:
+                    type: boolean
+                    description: Whether the path is safe to use
+                  validated_path:
+                    type: string
+                    description: Cleaned and validated absolute path
+                  security_flags:
+                    type: array
+                    items:
+                      type: string
+                    description: Any security concerns detected
+                    example: ["traversal_attempt", "suspicious_extension"]
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityError'
+
+  /internal/security/sanitize-input:
+    post:
+      summary: Sanitize user input
+      description: Sanitizes user input to prevent prompt injection and other attacks
+      operationId: sanitizeInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - input
+                - input_type
+              properties:
+                input:
+                  type: string
+                  description: User input to sanitize
+                  example: "Create a user authentication system"
+                input_type:
+                  type: string
+                  enum: [task_description, schema_content, pipeline_yaml]
+                  description: Type of input being sanitized
+                max_length:
+                  type: integer
+                  default: 10000
+                  description: Maximum allowed input length
+                strict_mode:
+                  type: boolean
+                  default: true
+                  description: Whether to use strict sanitization
+      responses:
+        '200':
+          description: Input sanitization completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sanitized_input
+                  - changes_detected
+                  - risk_score
+                properties:
+                  sanitized_input:
+                    type: string
+                    description: Sanitized input safe for processing
+                  changes_detected:
+                    type: boolean
+                    description: Whether any modifications were made
+                  risk_score:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    description: Calculated risk score
+                  sanitization_actions:
+                    type: array
+                    items:
+                      type: string
+                    description: List of sanitization operations performed
+                    example: ["removed_prompt_injection", "truncated_length"]
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityError'
+
+  /internal/security/validate-personas:
+    post:
+      summary: Validate persona references
+      description: Validates that persona references in a pipeline match available personas
+      operationId: validatePersonas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pipeline_personas
+                - available_personas
+              properties:
+                pipeline_personas:
+                  type: array
+                  items:
+                    type: string
+                  description: Persona names referenced in pipeline
+                  example: ["navigator", "philosopher", "implementer"]
+                available_personas:
+                  type: array
+                  items:
+                    type: string
+                  description: Available personas from manifest
+                  example: ["navigator", "philosopher", "craftsman", "auditor"]
+      responses:
+        '200':
+          description: Persona validation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - is_valid
+                  - validation_results
+                properties:
+                  is_valid:
+                    type: boolean
+                    description: Whether all personas are valid
+                  validation_results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PersonaValidationResult'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityError'
+
+  /internal/security/clean-json:
+    post:
+      summary: Clean malformed JSON
+      description: Removes comments and fixes common JSON formatting issues
+      operationId: cleanJson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - json_content
+              properties:
+                json_content:
+                  type: string
+                  description: Potentially malformed JSON content
+                preserve_formatting:
+                  type: boolean
+                  default: false
+                  description: Whether to preserve original formatting
+      responses:
+        '200':
+          description: JSON cleaning completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - cleaned_json
+                  - is_valid
+                properties:
+                  cleaned_json:
+                    type: string
+                    description: Cleaned JSON content
+                  is_valid:
+                    type: boolean
+                    description: Whether the result is valid JSON
+                  changes_made:
+                    type: array
+                    items:
+                      type: string
+                    description: List of changes made during cleaning
+                    example: ["removed_comments", "fixed_trailing_commas"]
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityError'
+
+components:
+  schemas:
+    SecurityError:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          enum: [path_traversal, prompt_injection, invalid_persona, malformed_json, validation_error]
+          description: Type of security error
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context (sanitized)
+        retryable:
+          type: boolean
+          description: Whether the operation can be retried
+        suggested_fix:
+          type: string
+          description: Suggested remediation action
+
+    PersonaValidationResult:
+      type: object
+      required:
+        - persona_name
+        - is_valid
+      properties:
+        persona_name:
+          type: string
+          description: Name of the persona being validated
+        is_valid:
+          type: boolean
+          description: Whether this persona is available
+        suggested_alternative:
+          type: string
+          description: Closest valid persona if invalid
+          nullable: true
+
+    SecurityViolationEvent:
+      type: object
+      required:
+        - id
+        - timestamp
+        - type
+        - source
+        - severity
+        - blocked
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the violation event
+        timestamp:
+          type: string
+          format: date-time
+          description: When the violation was detected
+        type:
+          type: string
+          enum: [path_traversal, prompt_injection, invalid_persona, malformed_json]
+          description: Category of violation
+        source:
+          type: string
+          enum: [schema_path, user_input, meta_pipeline, contract_validation]
+          description: Source of the violation
+        sanitized_details:
+          type: string
+          description: Safe description without sensitive data
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          description: Severity level of the violation
+        blocked:
+          type: boolean
+          description: Whether the operation was successfully blocked
+        user_id:
+          type: string
+          description: User context if available
+          nullable: true
