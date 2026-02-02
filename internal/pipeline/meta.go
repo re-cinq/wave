@@ -82,6 +82,55 @@ type MetaExecutionResult struct {
 	ChildResults      []MetaExecutionResult
 }
 
+// GenerateOnly generates a pipeline using the philosopher persona without executing it.
+// This is useful for dry-run mode and inspecting what would be generated.
+func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m *manifest.Manifest) (*Pipeline, error) {
+	config := e.getMetaConfig(m)
+
+	// Check depth limit
+	if err := e.checkDepthLimit(config); err != nil {
+		return nil, err
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      "meta_generate_started",
+		Message:    fmt.Sprintf("depth=%d task=%q", e.currentDepth, truncate(task, 100)),
+	})
+
+	// Invoke philosopher to generate pipeline YAML
+	generatedYAML, tokensUsed, err := e.invokePhilosopher(ctx, task, m)
+	if err != nil {
+		return nil, fmt.Errorf("philosopher failed to generate pipeline: %w", err)
+	}
+
+	e.totalTokensUsed += tokensUsed
+	if err := e.checkTokenLimit(config); err != nil {
+		return nil, err
+	}
+
+	// Parse and validate the generated pipeline
+	pipeline, err := e.loader.Unmarshal([]byte(generatedYAML))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w", err)
+	}
+
+	// Validate the generated pipeline structure
+	if err := ValidateGeneratedPipeline(pipeline); err != nil {
+		return nil, fmt.Errorf("generated pipeline validation failed: %w", err)
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      "meta_generate_completed",
+		Message:    fmt.Sprintf("generated %d steps, tokens_used=%d", len(pipeline.Steps), tokensUsed),
+	})
+
+	return pipeline, nil
+}
+
 // Execute runs a meta-pipeline: generates a pipeline using the philosopher persona
 // and then executes the generated pipeline.
 func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *manifest.Manifest) (*MetaExecutionResult, error) {
