@@ -208,15 +208,35 @@ wave do "<task description>" [flags]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--persona` | `string` | `"craftsman"` | Persona for the execution step. |
+| `--meta` | `bool` | `false` | Generate pipeline dynamically using philosopher persona. |
 | `--save` | `string` | `""` | Save the generated pipeline YAML to this path. |
 | `--manifest` | `string` | `"wave.yaml"` | Path to manifest file. |
 | `--dry-run` | `bool` | `false` | Show what would be executed without running. |
 | `--mock` | `bool` | `false` | Use mock adapter (for testing). |
 
+### Standard Mode (Default)
+
+By default, `wave do` generates a fixed 2-step pipeline:
+1. **navigate** — The navigator persona explores the codebase to understand context.
+2. **execute** — The craftsman (or specified `--persona`) implements the task.
+
+### Meta-Pipeline Mode (`--meta`)
+
+When `--meta` is specified, Wave uses a dynamic pipeline generation approach:
+
+1. The **philosopher** persona analyzes the task and designs a custom multi-step pipeline tailored to the specific requirements.
+2. The generated pipeline is then executed automatically.
+
+This mode is useful for complex tasks that benefit from a thoughtfully designed workflow rather than the fixed navigate→execute pattern.
+
+**Requirements:**
+- The `philosopher` persona must be configured in your manifest.
+- Meta-pipeline configuration is read from the `runtime.meta_pipeline` section of the manifest.
+
 ### Examples
 
 ```bash
-# Quick fix
+# Quick fix (standard mode)
 wave do "fix the typo in README.md line 42"
 
 # With specific persona
@@ -227,6 +247,15 @@ wave do "add dark mode toggle" --save .wave/pipelines/dark-mode.yaml
 
 # Preview without executing
 wave do "refactor user service" --dry-run
+
+# Meta-pipeline: philosopher designs custom pipeline
+wave do --meta "implement user authentication system"
+
+# Preview meta-generated pipeline without executing
+wave do --meta --dry-run "build REST API"
+
+# Save meta-generated pipeline for inspection
+wave do --meta --save my-pipeline --dry-run "refactor module"
 ```
 
 ---
