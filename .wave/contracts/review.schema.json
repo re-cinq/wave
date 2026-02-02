@@ -1,0 +1,32 @@
+{
+"$schema": "http://json-schema.org/draft-07/schema#",
+"type": "object",
+"required": ["review_summary", "verification_results", "recommendations"],
+"properties": {
+"review_summary": {
+"type": "object",
+"properties": {
+"total_issues_targeted": {"type": "number"},
+"successfully_enhanced": {"type": "number"},
+"enhancement_quality_score": {"type": "number"},
+"process_effectiveness": {"type": "string"}
+}
+},
+"verification_results": {
+"type": "array",
+"items": {
+"type": "object",
+"properties": {
+"issue_number": {"type": "number"},
+"verification_status": {"type": "string"},
+"quality_improvement": {"type": "string"},
+"notes": {"type": "string"}
+}
+}
+},
+"recommendations": {
+"type": "array",
+"items": {"type": "string"}
+}
+}
+}
