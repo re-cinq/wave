@@ -1,0 +1,22 @@
+name: parallel-test
+description: Test pipeline with parallel steps
+steps:
+  - id: setup
+    persona: navigator
+    task: Setup the project
+  - id: frontend
+    persona: craftsman
+    task: Build frontend
+    depends_on:
+      - setup
+  - id: backend
+    persona: craftsman
+    task: Build backend
+    depends_on:
+      - setup
+  - id: integrate
+    persona: craftsman
+    task: Integrate components
+    depends_on:
+      - frontend
+      - backend

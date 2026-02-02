@@ -53,6 +53,7 @@ type StateStore interface {
 	SaveStepState(pipelineID string, stepID string, state StepState, err string) error
 	GetPipelineState(id string) (*PipelineStateRecord, error)
 	GetStepStates(pipelineID string) ([]StepStateRecord, error)
+	ListRecentPipelines(limit int) ([]PipelineStateRecord, error)
 	Close() error
 }
 
@@ -66,8 +67,24 @@ func NewStateStore(dbPath string) (StateStore, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// Configure connection pool for SQLite
+	// SQLite performs best with limited connections due to its locking model
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Configure SQLite for concurrent access
+	// Enable WAL mode for better concurrent read/write performance
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	}
+
+	// Set busy timeout to 5 seconds to handle lock contention
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
 	}
 
 	schema, err := schemaFS.ReadFile("schema.sql")
@@ -173,7 +190,7 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error)
 	for rows.Next() {
 		var record StepStateRecord
 		var startedAt, completedAt sql.NullInt64
-		var errMsg sql.NullString
+		var workspacePath, errMsg sql.NullString
 
 		err := rows.Scan(
 			&record.StepID,
@@ -182,7 +199,7 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error)
 			&record.RetryCount,
 			&startedAt,
 			&completedAt,
-			&record.WorkspacePath,
+			&workspacePath,
 			&errMsg,
 		)
 		if err != nil {
@@ -197,6 +214,9 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error)
 			t := time.Unix(completedAt.Int64, 0)
 			record.CompletedAt = &t
 		}
+		if workspacePath.Valid {
+			record.WorkspacePath = workspacePath.String
+		}
 		if errMsg.Valid {
 			record.ErrorMessage = errMsg.String
 		}
@@ -206,6 +226,47 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error)
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating step states: %w", err)
+	}
+
+	return records, nil
+}
+
+func (s *stateStore) ListRecentPipelines(limit int) ([]PipelineStateRecord, error) {
+	query := `SELECT pipeline_id, pipeline_name, status, input, created_at, updated_at
+	          FROM pipeline_state
+	          ORDER BY updated_at DESC
+	          LIMIT ?`
+
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query recent pipelines: %w", err)
+	}
+	defer rows.Close()
+
+	var records []PipelineStateRecord
+	for rows.Next() {
+		var record PipelineStateRecord
+		var createdAt, updatedAt int64
+
+		err := rows.Scan(
+			&record.PipelineID,
+			&record.Name,
+			&record.Status,
+			&record.Input,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan pipeline record: %w", err)
+		}
+
+		record.CreatedAt = time.Unix(createdAt, 0)
+		record.UpdatedAt = time.Unix(updatedAt, 0)
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pipeline records: %w", err)
 	}
 
 	return records, nil

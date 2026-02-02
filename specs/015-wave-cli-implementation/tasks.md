@@ -17,12 +17,12 @@
 
 **Purpose**: Establish testing infrastructure for hardening work
 
-- [ ] T001 Create test fixtures directory structure at cmd/wave/commands/testdata/
-- [ ] T002 [P] Create valid test manifest at cmd/wave/commands/testdata/valid/wave.yaml
-- [ ] T003 [P] Create invalid adapter reference manifest at cmd/wave/commands/testdata/invalid-adapter/wave.yaml
-- [ ] T004 [P] Create missing file manifest at cmd/wave/commands/testdata/missing-file/wave.yaml
-- [ ] T005 [P] Create test pipeline fixtures at cmd/wave/commands/testdata/pipelines/
-- [ ] T006 Add testify/assert import to go.mod if not present
+- [X] T001 Create test fixtures directory structure at cmd/wave/commands/testdata/
+- [X] T002 [P] Create valid test manifest at cmd/wave/commands/testdata/valid/wave.yaml
+- [X] T003 [P] Create invalid adapter reference manifest at cmd/wave/commands/testdata/invalid-adapter/wave.yaml
+- [X] T004 [P] Create missing file manifest at cmd/wave/commands/testdata/missing-file/wave.yaml
+- [X] T005 [P] Create test pipeline fixtures at cmd/wave/commands/testdata/pipelines/
+- [X] T006 Add testify/assert import to go.mod if not present
 
 ---
 
@@ -32,14 +32,14 @@
 
 **⚠️ CRITICAL**: State store underlies resume, pipeline execution, and cleanup
 
-- [ ] T007 Create internal/state/store_test.go with test setup and teardown
-- [ ] T008 [P] Add test for SavePipelineState in internal/state/store_test.go
-- [ ] T009 [P] Add test for GetPipelineState in internal/state/store_test.go
-- [ ] T010 [P] Add test for SaveStepState in internal/state/store_test.go
-- [ ] T011 [P] Add test for GetStepStates in internal/state/store_test.go
-- [ ] T012 Add test for concurrent access from matrix workers in internal/state/store_test.go
-- [ ] T013 Add test for state transitions (pending→running→completed) in internal/state/store_test.go
-- [ ] T014 Verify all state store tests pass with `go test -race ./internal/state/...`
+- [X] T007 Create internal/state/store_test.go with test setup and teardown
+- [X] T008 [P] Add test for SavePipelineState in internal/state/store_test.go
+- [X] T009 [P] Add test for GetPipelineState in internal/state/store_test.go
+- [X] T010 [P] Add test for SaveStepState in internal/state/store_test.go
+- [X] T011 [P] Add test for GetStepStates in internal/state/store_test.go
+- [X] T012 Add test for concurrent access from matrix workers in internal/state/store_test.go
+- [X] T013 Add test for state transitions (pending→running→completed) in internal/state/store_test.go
+- [X] T014 Verify all state store tests pass with `go test -race ./internal/state/...`
 
 **Checkpoint**: State persistence is fully tested - user story hardening can begin
 
@@ -53,18 +53,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Create cmd/wave/commands/init_test.go with test helpers
-- [ ] T016 [P] [US1] Add test for init in empty directory in cmd/wave/commands/init_test.go
-- [ ] T017 [P] [US1] Add test for init with existing wave.yaml in cmd/wave/commands/init_test.go
-- [ ] T018 [P] [US1] Add test for init --merge flag in cmd/wave/commands/init_test.go
-- [ ] T019 [US1] Add test for init creates all persona prompt files in cmd/wave/commands/init_test.go
+- [X] T015 [P] [US1] Create cmd/wave/commands/init_test.go with test helpers
+- [X] T016 [P] [US1] Add test for init in empty directory in cmd/wave/commands/init_test.go
+- [X] T017 [P] [US1] Add test for init with existing wave.yaml in cmd/wave/commands/init_test.go
+- [X] T018 [P] [US1] Add test for init --merge flag in cmd/wave/commands/init_test.go
+- [X] T019 [US1] Add test for init creates all persona prompt files in cmd/wave/commands/init_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Add --merge flag handling in cmd/wave/commands/init.go
-- [ ] T021 [US1] Improve error messages with file paths in cmd/wave/commands/init.go
-- [ ] T022 [US1] Add confirmation prompt for overwriting existing config in cmd/wave/commands/init.go
-- [ ] T023 [US1] Verify init output validates with wave validate
+- [X] T020 [US1] Add --merge flag handling in cmd/wave/commands/init.go
+- [X] T021 [US1] Improve error messages with file paths in cmd/wave/commands/init.go
+- [X] T022 [US1] Add confirmation prompt for overwriting existing config in cmd/wave/commands/init.go
+- [X] T023 [US1] Verify init output validates with wave validate
 
 **Checkpoint**: `wave init` fully tested and handles edge cases
 
@@ -78,19 +78,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Create cmd/wave/commands/validate_test.go with test helpers
-- [ ] T025 [P] [US2] Add test for validate with valid manifest in cmd/wave/commands/validate_test.go
-- [ ] T026 [P] [US2] Add test for validate with invalid adapter reference in cmd/wave/commands/validate_test.go
-- [ ] T027 [P] [US2] Add test for validate with missing system prompt file in cmd/wave/commands/validate_test.go
-- [ ] T028 [P] [US2] Add test for validate --verbose output in cmd/wave/commands/validate_test.go
-- [ ] T029 [US2] Add test for validate with malformed YAML in cmd/wave/commands/validate_test.go
+- [X] T024 [P] [US2] Create cmd/wave/commands/validate_test.go with test helpers
+- [X] T025 [P] [US2] Add test for validate with valid manifest in cmd/wave/commands/validate_test.go
+- [X] T026 [P] [US2] Add test for validate with invalid adapter reference in cmd/wave/commands/validate_test.go
+- [X] T027 [P] [US2] Add test for validate with missing system prompt file in cmd/wave/commands/validate_test.go
+- [X] T028 [P] [US2] Add test for validate --verbose output in cmd/wave/commands/validate_test.go
+- [X] T029 [US2] Add test for validate with malformed YAML in cmd/wave/commands/validate_test.go
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Add --verbose flag with summary output in cmd/wave/commands/validate.go
-- [ ] T031 [US2] Improve error messages with line numbers in internal/manifest/parser.go
-- [ ] T032 [US2] Add suggestions to error messages (e.g., "run wave init") in cmd/wave/commands/validate.go
-- [ ] T033 [US2] Add adapter binary availability check to verbose output in cmd/wave/commands/validate.go
+- [X] T030 [US2] Add --verbose flag with summary output in cmd/wave/commands/validate.go
+- [X] T031 [US2] Improve error messages with line numbers in internal/manifest/parser.go
+- [X] T032 [US2] Add suggestions to error messages (e.g., "run wave init") in cmd/wave/commands/validate.go
+- [X] T033 [US2] Add adapter binary availability check to verbose output in cmd/wave/commands/validate.go
 
 **Checkpoint**: `wave validate` provides actionable error messages
 
@@ -104,18 +104,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Create cmd/wave/commands/do_test.go with test helpers
-- [ ] T035 [P] [US3] Add test for do generates two-step pipeline in cmd/wave/commands/do_test.go
-- [ ] T036 [P] [US3] Add test for do --persona override in cmd/wave/commands/do_test.go
-- [ ] T037 [P] [US3] Add test for do --dry-run output in cmd/wave/commands/do_test.go
-- [ ] T038 [P] [US3] Add test for do --save writes pipeline file in cmd/wave/commands/do_test.go
-- [ ] T039 [US3] Add test for adhoc pipeline generation in internal/pipeline/adhoc_test.go
+- [X] T034 [P] [US3] Create cmd/wave/commands/do_test.go with test helpers
+- [X] T035 [P] [US3] Add test for do generates two-step pipeline in cmd/wave/commands/do_test.go
+- [X] T036 [P] [US3] Add test for do --persona override in cmd/wave/commands/do_test.go
+- [X] T037 [P] [US3] Add test for do --dry-run output in cmd/wave/commands/do_test.go
+- [X] T038 [P] [US3] Add test for do --save writes pipeline file in cmd/wave/commands/do_test.go
+- [X] T039 [US3] Add test for adhoc pipeline generation in internal/pipeline/adhoc_test.go
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Add --dry-run flag to print pipeline YAML in cmd/wave/commands/do.go
-- [ ] T041 [US3] Add --save flag to write pipeline to file in cmd/wave/commands/do.go
-- [ ] T042 [US3] Improve error handling for missing manifest in cmd/wave/commands/do.go
+- [X] T040 [US3] Add --dry-run flag to print pipeline YAML in cmd/wave/commands/do.go
+- [X] T041 [US3] Add --save flag to write pipeline to file in cmd/wave/commands/do.go
+- [X] T042 [US3] Improve error handling for missing manifest in cmd/wave/commands/do.go
 
 **Checkpoint**: `wave do` supports all spec flags
 
@@ -129,19 +129,19 @@
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Create cmd/wave/commands/run_test.go with test helpers
-- [ ] T044 [P] [US4] Add test for run --dry-run output in cmd/wave/commands/run_test.go
-- [ ] T045 [P] [US4] Add test for run with non-existent pipeline in cmd/wave/commands/run_test.go
-- [ ] T046 [P] [US4] Add test for run --from-step in cmd/wave/commands/run_test.go
-- [ ] T047 [US4] Add executor test for step ordering in internal/pipeline/executor_test.go
-- [ ] T048 [US4] Add executor test for parallel step execution in internal/pipeline/executor_test.go
-- [ ] T049 [US4] Add executor test for contract failure retry in internal/pipeline/executor_test.go
+- [X] T043 [P] [US4] Create cmd/wave/commands/run_test.go with test helpers
+- [X] T044 [P] [US4] Add test for run --dry-run output in cmd/wave/commands/run_test.go
+- [X] T045 [P] [US4] Add test for run with non-existent pipeline in cmd/wave/commands/run_test.go
+- [X] T046 [P] [US4] Add test for run --from-step in cmd/wave/commands/run_test.go
+- [X] T047 [US4] Add executor test for step ordering in internal/pipeline/executor_test.go
+- [X] T048 [US4] Add executor test for parallel step execution in internal/pipeline/executor_test.go
+- [X] T049 [US4] Add executor test for contract failure retry in internal/pipeline/executor_test.go
 
 ### Implementation for User Story 4
 
-- [ ] T050 [US4] Add --dry-run flag to print execution plan in cmd/wave/commands/run.go
-- [ ] T051 [US4] Improve --from-step validation in cmd/wave/commands/run.go
-- [ ] T052 [US4] Add progress event emission to executor in internal/pipeline/executor.go
+- [X] T050 [US4] Add --dry-run flag to print execution plan in cmd/wave/commands/run.go
+- [X] T051 [US4] Improve --from-step validation in cmd/wave/commands/run.go
+- [X] T052 [US4] Add progress event emission to executor in internal/pipeline/executor.go
 
 **Checkpoint**: `wave run` supports dry-run and has executor tests
 
@@ -155,16 +155,16 @@
 
 ### Tests for User Story 5
 
-- [ ] T053 [P] [US5] Add test for deny pattern blocks Write in internal/adapter/adapter_test.go
-- [ ] T054 [P] [US5] Add test for allow pattern permits operation in internal/adapter/adapter_test.go
-- [ ] T055 [P] [US5] Add test for deny takes precedence over allow in internal/adapter/adapter_test.go
-- [ ] T056 [US5] Add test for permission error message format in internal/adapter/adapter_test.go
+- [X] T053 [P] [US5] Add test for deny pattern blocks Write in internal/adapter/adapter_test.go
+- [X] T054 [P] [US5] Add test for allow pattern permits operation in internal/adapter/adapter_test.go
+- [X] T055 [P] [US5] Add test for deny takes precedence over allow in internal/adapter/adapter_test.go
+- [X] T056 [US5] Add test for permission error message format in internal/adapter/adapter_test.go
 
 ### Implementation for User Story 5
 
-- [ ] T057 [US5] Verify permission check order (deny first) in internal/adapter/adapter.go
-- [ ] T058 [US5] Improve permission denied error message with persona name in internal/adapter/adapter.go
-- [ ] T059 [US5] Add glob pattern matching tests in internal/adapter/adapter_test.go
+- [X] T057 [US5] Verify permission check order (deny first) in internal/adapter/adapter.go
+- [X] T058 [US5] Improve permission denied error message with persona name in internal/adapter/adapter.go
+- [X] T059 [US5] Add glob pattern matching tests in internal/adapter/adapter_test.go
 
 **Checkpoint**: Permission enforcement is verified and has clear error messages
 
@@ -178,15 +178,15 @@
 
 ### Tests for User Story 6
 
-- [ ] T060 [P] [US6] Create cmd/wave/commands/resume_test.go with test helpers
-- [ ] T061 [P] [US6] Add test for resume lists recent pipelines in cmd/wave/commands/resume_test.go
-- [ ] T062 [P] [US6] Add test for resume continues from last step in cmd/wave/commands/resume_test.go
-- [ ] T063 [US6] Add test for resume with retrying state in cmd/wave/commands/resume_test.go
+- [X] T060 [P] [US6] Create cmd/wave/commands/resume_test.go with test helpers
+- [X] T061 [P] [US6] Add test for resume lists recent pipelines in cmd/wave/commands/resume_test.go
+- [X] T062 [P] [US6] Add test for resume continues from last step in cmd/wave/commands/resume_test.go
+- [X] T063 [US6] Add test for resume with retrying state in cmd/wave/commands/resume_test.go
 
 ### Implementation for User Story 6
 
-- [ ] T064 [US6] Add pipeline listing when no ID provided in cmd/wave/commands/resume.go
-- [ ] T065 [US6] Improve resume progress messages in cmd/wave/commands/resume.go
+- [X] T064 [US6] Add pipeline listing when no ID provided in cmd/wave/commands/resume.go
+- [X] T065 [US6] Improve resume progress messages in cmd/wave/commands/resume.go
 
 **Checkpoint**: `wave resume` supports listing and continuation
 
@@ -200,15 +200,15 @@
 
 ### Tests for User Story 7
 
-- [ ] T066 [P] [US7] Add test for threshold detection in internal/relay/relay_test.go
-- [ ] T067 [P] [US7] Add test for checkpoint parsing in internal/relay/checkpoint_test.go
-- [ ] T068 [P] [US7] Add test for checkpoint injection in internal/relay/relay_test.go
-- [ ] T069 [US7] Add test for relay with summarizer failure in internal/relay/relay_test.go
+- [X] T066 [P] [US7] Add test for threshold detection in internal/relay/relay_test.go
+- [X] T067 [P] [US7] Add test for checkpoint parsing in internal/relay/checkpoint_test.go
+- [X] T068 [P] [US7] Add test for checkpoint injection in internal/relay/relay_test.go
+- [X] T069 [US7] Add test for relay with summarizer failure in internal/relay/relay_test.go
 
 ### Implementation for User Story 7
 
-- [ ] T070 [US7] Add checkpoint format validation in internal/relay/checkpoint.go
-- [ ] T071 [US7] Improve relay error handling in internal/relay/relay.go
+- [X] T070 [US7] Add checkpoint format validation in internal/relay/checkpoint.go
+- [X] T071 [US7] Improve relay error handling in internal/relay/relay.go
 
 **Checkpoint**: Relay mechanism is tested and handles edge cases
 
@@ -222,15 +222,15 @@
 
 ### Tests for User Story 8
 
-- [ ] T072 [P] [US8] Add test for JSON schema validation failure in internal/contract/contract_test.go
-- [ ] T073 [P] [US8] Add test for TypeScript validation without tsc in internal/contract/typescript_test.go
-- [ ] T074 [P] [US8] Add test for test suite validation in internal/contract/testsuite_test.go
-- [ ] T075 [US8] Add test for max_retries exhaustion in internal/contract/contract_test.go
+- [X] T072 [P] [US8] Add test for JSON schema validation failure in internal/contract/contract_test.go
+- [X] T073 [P] [US8] Add test for TypeScript validation without tsc in internal/contract/typescript_test.go
+- [X] T074 [P] [US8] Add test for test suite validation in internal/contract/testsuite_test.go
+- [X] T075 [US8] Add test for max_retries exhaustion in internal/contract/contract_test.go
 
 ### Implementation for User Story 8
 
-- [ ] T076 [US8] Add tsc availability check with graceful degradation in internal/contract/typescript.go
-- [ ] T077 [US8] Improve contract error messages with validation details in internal/contract/contract.go
+- [X] T076 [US8] Add tsc availability check with graceful degradation in internal/contract/typescript.go
+- [X] T077 [US8] Improve contract error messages with validation details in internal/contract/contract.go
 
 **Checkpoint**: Contract validation handles all types and missing tools
 
@@ -244,15 +244,15 @@
 
 ### Tests for User Story 9
 
-- [ ] T078 [P] [US9] Add test for matrix spawns correct worker count in internal/pipeline/matrix_test.go
-- [ ] T079 [P] [US9] Add test for max_concurrency limit in internal/pipeline/matrix_test.go
-- [ ] T080 [P] [US9] Add test for partial failure handling in internal/pipeline/matrix_test.go
-- [ ] T081 [US9] Add test for zero tasks in matrix in internal/pipeline/matrix_test.go
+- [X] T078 [P] [US9] Add test for matrix spawns correct worker count in internal/pipeline/matrix_test.go
+- [X] T079 [P] [US9] Add test for max_concurrency limit in internal/pipeline/matrix_test.go
+- [X] T080 [P] [US9] Add test for partial failure handling in internal/pipeline/matrix_test.go
+- [X] T081 [US9] Add test for zero tasks in matrix in internal/pipeline/matrix_test.go
 
 ### Implementation for User Story 9
 
-- [ ] T082 [US9] Improve partial failure reporting in internal/pipeline/matrix.go
-- [ ] T083 [US9] Handle zero tasks gracefully in internal/pipeline/matrix.go
+- [X] T082 [US9] Improve partial failure reporting in internal/pipeline/matrix.go
+- [X] T083 [US9] Handle zero tasks gracefully in internal/pipeline/matrix.go
 
 **Checkpoint**: Matrix execution handles concurrency and failures
 
@@ -266,15 +266,15 @@
 
 ### Tests for User Story 10
 
-- [ ] T084 [P] [US10] Create cmd/wave/commands/list_test.go with test helpers
-- [ ] T085 [P] [US10] Add test for list pipelines output in cmd/wave/commands/list_test.go
-- [ ] T086 [P] [US10] Add test for list personas output in cmd/wave/commands/list_test.go
-- [ ] T087 [US10] Add test for list adapters with binary check in cmd/wave/commands/list_test.go
+- [X] T084 [P] [US10] Create cmd/wave/commands/list_test.go with test helpers
+- [X] T085 [P] [US10] Add test for list pipelines output in cmd/wave/commands/list_test.go
+- [X] T086 [P] [US10] Add test for list personas output in cmd/wave/commands/list_test.go
+- [X] T087 [US10] Add test for list adapters with binary check in cmd/wave/commands/list_test.go
 
 ### Implementation for User Story 10
 
-- [ ] T088 [US10] Add step count to pipeline listing in cmd/wave/commands/list.go
-- [ ] T089 [US10] Add permission summary to persona listing in cmd/wave/commands/list.go
+- [X] T088 [US10] Add step count to pipeline listing in cmd/wave/commands/list.go
+- [X] T089 [US10] Add permission summary to persona listing in cmd/wave/commands/list.go
 
 **Checkpoint**: `wave list` shows complete information
 
@@ -288,16 +288,16 @@
 
 ### Tests for User Story 11
 
-- [ ] T090 [P] [US11] Create cmd/wave/commands/clean_test.go with test helpers
-- [ ] T091 [P] [US11] Add test for clean removes all workspaces in cmd/wave/commands/clean_test.go
-- [ ] T092 [P] [US11] Add test for clean --keep-last N in cmd/wave/commands/clean_test.go
-- [ ] T093 [US11] Add test for clean --dry-run output in cmd/wave/commands/clean_test.go
+- [X] T090 [P] [US11] Create cmd/wave/commands/clean_test.go with test helpers
+- [X] T091 [P] [US11] Add test for clean removes all workspaces in cmd/wave/commands/clean_test.go
+- [X] T092 [P] [US11] Add test for clean --keep-last N in cmd/wave/commands/clean_test.go
+- [X] T093 [US11] Add test for clean --dry-run output in cmd/wave/commands/clean_test.go
 
 ### Implementation for User Story 11
 
-- [ ] T094 [US11] Add --keep-last flag in cmd/wave/commands/clean.go
-- [ ] T095 [US11] Add --dry-run flag in cmd/wave/commands/clean.go
-- [ ] T096 [US11] Sort workspaces by creation time for keep-last in internal/workspace/workspace.go
+- [X] T094 [US11] Add --keep-last flag in cmd/wave/commands/clean.go
+- [X] T095 [US11] Add --dry-run flag in cmd/wave/commands/clean.go
+- [X] T096 [US11] Sort workspaces by creation time for keep-last in internal/workspace/workspace.go
 
 **Checkpoint**: `wave clean` supports selective cleanup
 
@@ -311,14 +311,14 @@
 
 ### Tests for User Story 12
 
-- [ ] T097 [P] [US12] Add test for meta-pipeline depth limit in internal/pipeline/meta_test.go
-- [ ] T098 [P] [US12] Add test for meta-pipeline validation in internal/pipeline/meta_test.go
-- [ ] T099 [US12] Add test for meta-pipeline failure trace preservation in internal/pipeline/meta_test.go
+- [X] T097 [P] [US12] Add test for meta-pipeline depth limit in internal/pipeline/meta_test.go
+- [X] T098 [P] [US12] Add test for meta-pipeline validation in internal/pipeline/meta_test.go
+- [X] T099 [US12] Add test for meta-pipeline failure trace preservation in internal/pipeline/meta_test.go
 
 ### Implementation for User Story 12
 
-- [ ] T100 [US12] Improve depth limit error message in internal/pipeline/meta.go
-- [ ] T101 [US12] Add generated pipeline preservation on failure in internal/pipeline/meta.go
+- [X] T100 [US12] Improve depth limit error message in internal/pipeline/meta.go
+- [X] T101 [US12] Add generated pipeline preservation on failure in internal/pipeline/meta.go
 
 **Checkpoint**: Meta-pipeline has safety limits
 
@@ -328,13 +328,13 @@
 
 **Purpose**: Security hardening, documentation, final validation
 
-- [ ] T102 [P] Add credential scrubbing patterns test in internal/audit/logger_test.go
-- [ ] T103 [P] Add concurrent event emission test in internal/event/emitter_test.go
-- [ ] T104 [P] Add workspace isolation test in internal/workspace/workspace_test.go
-- [ ] T105 Add subprocess timeout test with hanging mock in internal/adapter/adapter_test.go
-- [ ] T106 Run full test suite with race detector: `go test -race ./...`
-- [ ] T107 Run quickstart.md validation manually
-- [ ] T108 Update CLAUDE.md with any new commands or flags
+- [X] T102 [P] Add credential scrubbing patterns test in internal/audit/logger_test.go
+- [X] T103 [P] Add concurrent event emission test in internal/event/emitter_test.go
+- [X] T104 [P] Add workspace isolation test in internal/workspace/workspace_test.go
+- [X] T105 Add subprocess timeout test with hanging mock in internal/adapter/adapter_test.go
+- [X] T106 Run full test suite with race detector: `go test -race ./...`
+- [X] T107 Run quickstart.md validation manually
+- [X] T108 Update CLAUDE.md with any new commands or flags
 
 ---
 

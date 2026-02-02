@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,7 @@ type EventEmitter interface {
 type NDJSONEmitter struct {
 	encoder       *json.Encoder
 	humanReadable bool
+	mu            sync.Mutex
 }
 
 func NewNDJSONEmitter() *NDJSONEmitter {
@@ -43,6 +45,9 @@ func NewNDJSONEmitterWithHumanReadable() *NDJSONEmitter {
 }
 
 func (e *NDJSONEmitter) Emit(event Event) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if e.humanReadable {
 		stateColors := map[string]string{
 			"started":   "\033[36m",

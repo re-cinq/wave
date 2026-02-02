@@ -373,7 +373,19 @@ func (e *MetaPipelineExecutor) getTimeout(m *manifest.Manifest) time.Duration {
 // checkDepthLimit verifies the current depth is within limits.
 func (e *MetaPipelineExecutor) checkDepthLimit(config manifest.MetaConfig) error {
 	if e.currentDepth >= config.MaxDepth {
-		return fmt.Errorf("meta-pipeline depth limit reached: current=%d max=%d", e.currentDepth, config.MaxDepth)
+		// Build a helpful error message with context
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("meta-pipeline depth limit reached: current=%d max=%d", e.currentDepth, config.MaxDepth))
+
+		// Include call stack if we have parent information
+		if e.parentPipelineID != "" {
+			sb.WriteString(fmt.Sprintf("\n  call stack: %s -> (current)", e.parentPipelineID))
+		}
+
+		// Add suggestion for resolution
+		sb.WriteString("\n  suggestion: increase runtime.meta_pipeline.max_depth in your manifest if deeper nesting is required")
+
+		return fmt.Errorf("%s", sb.String())
 	}
 	return nil
 }

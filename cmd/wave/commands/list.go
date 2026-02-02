@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -80,6 +81,10 @@ func runList(opts ListOptions, filter string) error {
 			Description      string  `yaml:"description"`
 			SystemPromptFile string  `yaml:"system_prompt_file"`
 			Temperature      float64 `yaml:"temperature"`
+			Permissions      struct {
+				AllowedTools []string `yaml:"allowed_tools"`
+				Deny         []string `yaml:"deny"`
+			} `yaml:"permissions"`
 		} `yaml:"personas"`
 	}
 	if err == nil {
@@ -94,14 +99,7 @@ func runList(opts ListOptions, filter string) error {
 	}
 
 	if showAdapters {
-		fmt.Printf("Adapters:\n")
-		if len(m.Adapters) == 0 {
-			fmt.Printf("  (none defined)\n")
-		}
-		for name, adapter := range m.Adapters {
-			fmt.Printf("  %-20s binary:%-10s mode:%-10s format:%s\n",
-				name, adapter.Binary, adapter.Mode, adapter.OutputFormat)
-		}
+		listAdapters(m.Adapters)
 	}
 
 	return nil
@@ -174,6 +172,10 @@ func listPersonas(personas map[string]struct {
 	Description      string  `yaml:"description"`
 	SystemPromptFile string  `yaml:"system_prompt_file"`
 	Temperature      float64 `yaml:"temperature"`
+	Permissions      struct {
+		AllowedTools []string `yaml:"allowed_tools"`
+		Deny         []string `yaml:"deny"`
+	} `yaml:"permissions"`
 }) {
 	fmt.Printf("Personas:\n")
 	if len(personas) == 0 {
@@ -194,11 +196,68 @@ func listPersonas(personas map[string]struct {
 		if desc == "" {
 			desc = "(no description)"
 		}
+		// T089: Add permission summary
+		permSummary := formatPermissionSummary(
+			persona.Permissions.AllowedTools,
+			persona.Permissions.Deny,
+		)
 		fmt.Printf("  %-20s adapter:%-10s temp:%.1f  %s\n",
 			name,
 			persona.Adapter,
 			persona.Temperature,
-			desc,
+			permSummary,
 		)
+		fmt.Printf("  %-20s %s\n", "", desc)
+	}
+}
+
+// formatPermissionSummary creates a concise summary of persona permissions.
+func formatPermissionSummary(allowed []string, denied []string) string {
+	allowCount := len(allowed)
+	denyCount := len(denied)
+
+	if allowCount == 0 && denyCount == 0 {
+		return "tools:(default)"
+	}
+
+	parts := []string{}
+	if allowCount > 0 {
+		parts = append(parts, fmt.Sprintf("allow:%d", allowCount))
+	}
+	if denyCount > 0 {
+		parts = append(parts, fmt.Sprintf("deny:%d", denyCount))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// listAdapters lists all configured adapters with binary availability check.
+func listAdapters(adapters map[string]struct {
+	Binary       string `yaml:"binary"`
+	Mode         string `yaml:"mode"`
+	OutputFormat string `yaml:"output_format"`
+}) {
+	fmt.Printf("Adapters:\n")
+	if len(adapters) == 0 {
+		fmt.Printf("  (none defined)\n")
+		return
+	}
+
+	// Sort by name for stable output
+	names := make([]string, 0, len(adapters))
+	for name := range adapters {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		adapter := adapters[name]
+		// T087: Check binary availability
+		available := "OK"
+		if _, err := exec.LookPath(adapter.Binary); err != nil {
+			available = "[X] not found"
+		}
+		fmt.Printf("  %-20s binary:%-10s mode:%-10s format:%-6s %s\n",
+			name, adapter.Binary, adapter.Mode, adapter.OutputFormat, available)
 	}
 }

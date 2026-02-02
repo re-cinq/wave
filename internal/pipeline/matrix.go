@@ -60,6 +60,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 		return fmt.Errorf("failed to read items_source: %w", err)
 	}
 
+	// T083: Handle zero tasks gracefully
 	if len(items) == 0 {
 		m.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -68,6 +69,14 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 			State:      "matrix_complete",
 			Message:    "No items to process",
 		})
+		// Initialize empty results so downstream steps can check
+		execution.Results[step.ID] = map[string]interface{}{
+			"worker_results":    []map[string]interface{}{},
+			"worker_workspaces": []string{},
+			"total_workers":     0,
+			"success_count":     0,
+			"fail_count":        0,
+		}
 		return nil
 	}
 
@@ -132,15 +141,25 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 	// Aggregate results into execution
 	m.aggregateResults(execution, step, results)
 
+	// T082: Improved partial failure reporting
 	if err != nil {
+		// Collect detailed failure information
+		failedWorkers := m.collectFailedWorkers(results)
+		successCount := len(results) - len(failedWorkers)
+
+		// Build detailed failure message
+		failureMsg := m.buildPartialFailureMessage(failedWorkers, successCount, len(items))
+
 		m.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
 			State:      "matrix_failed",
-			Message:    fmt.Sprintf("Matrix execution failed: %v", err),
+			Message:    failureMsg,
 		})
-		return err
+
+		// Return error with detailed failure information
+		return fmt.Errorf("matrix execution partially failed: %d/%d workers failed. %s", len(failedWorkers), len(items), m.formatFailedWorkerErrors(failedWorkers))
 	}
 
 	m.emit(event.Event{
@@ -152,6 +171,70 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 	})
 
 	return nil
+}
+
+// FailedWorkerInfo holds information about a failed worker for reporting.
+type FailedWorkerInfo struct {
+	Index int
+	Item  interface{}
+	Error error
+}
+
+// collectFailedWorkers extracts failed worker information from results.
+func (m *MatrixExecutor) collectFailedWorkers(results []MatrixResult) []FailedWorkerInfo {
+	var failed []FailedWorkerInfo
+	for _, result := range results {
+		if result.Error != nil {
+			failed = append(failed, FailedWorkerInfo{
+				Index: result.ItemIndex,
+				Item:  result.Item,
+				Error: result.Error,
+			})
+		}
+	}
+	return failed
+}
+
+// buildPartialFailureMessage creates a human-readable failure summary.
+func (m *MatrixExecutor) buildPartialFailureMessage(failed []FailedWorkerInfo, successCount, totalItems int) string {
+	if len(failed) == totalItems {
+		return fmt.Sprintf("All %d workers failed", totalItems)
+	}
+	return fmt.Sprintf("Partial failure: %d/%d workers failed, %d succeeded. Failed workers: %v",
+		len(failed), totalItems, successCount, m.extractFailedIndices(failed))
+}
+
+// extractFailedIndices returns a slice of failed worker indices.
+func (m *MatrixExecutor) extractFailedIndices(failed []FailedWorkerInfo) []int {
+	indices := make([]int, len(failed))
+	for i, f := range failed {
+		indices[i] = f.Index
+	}
+	return indices
+}
+
+// formatFailedWorkerErrors formats the errors from failed workers for the error message.
+func (m *MatrixExecutor) formatFailedWorkerErrors(failed []FailedWorkerInfo) string {
+	if len(failed) == 0 {
+		return ""
+	}
+
+	// Limit to first 3 errors to avoid overly long messages
+	maxErrors := 3
+	if len(failed) < maxErrors {
+		maxErrors = len(failed)
+	}
+
+	var errorStrs []string
+	for i := 0; i < maxErrors; i++ {
+		errorStrs = append(errorStrs, fmt.Sprintf("worker[%d]: %v", failed[i].Index, failed[i].Error))
+	}
+
+	result := strings.Join(errorStrs, "; ")
+	if len(failed) > maxErrors {
+		result += fmt.Sprintf(" (and %d more)", len(failed)-maxErrors)
+	}
+	return result
 }
 
 // readItemsSource reads and parses the items_source JSON file.
