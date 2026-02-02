@@ -26,13 +26,15 @@ steps:
         3. Map affected modules and dependencies
         4. Note testing patterns in the codebase
 
-        Output as JSON:
+        CRITICAL: Your final response must be ONLY a JSON object with this structure:
         {
           "related_features": [],
           "patterns": [],
           "affected_modules": [],
           "testing_approach": ""
         }
+
+        No markdown, no explanation - just the raw JSON starting with { and ending with }
     output_artifacts:
       - name: exploration
         path: output/exploration.json

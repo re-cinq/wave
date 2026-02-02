@@ -28,7 +28,10 @@ steps:
           "recommendation": "one sentence recommendation"
         }
 
-        IMPORTANT: Output ONLY valid JSON, no markdown code blocks.
+        CRITICAL: Your final response must be ONLY the JSON object above.
+        - No markdown code blocks (no ```)
+        - No explanatory text before or after
+        - Just the raw JSON object starting with { and ending with }
     output_artifacts:
       - name: analysis
         path: output/analysis.json
