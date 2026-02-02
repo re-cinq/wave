@@ -22,8 +22,13 @@ type AdapterRunConfig struct {
 	Persona       string
 	WorkspacePath string
 	Prompt        string
+	SystemPrompt  string
 	Timeout       time.Duration
 	Env           []string
+	Temperature   float64
+	AllowedTools  []string
+	DenyTools     []string
+	OutputFormat  string
 }
 
 type AdapterResult struct {
