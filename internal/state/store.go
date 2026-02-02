@@ -1,8 +1,10 @@
 package state
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -306,8 +308,13 @@ func (s *stateStore) Close() error {
 // Run ID format: {pipeline_name}-{timestamp}-{random} e.g., debug-20260202-143022-a1b2
 func (s *stateStore) CreateRun(pipelineName string, input string) (string, error) {
 	now := time.Now()
-	// Include nanoseconds truncated to 4 chars to avoid collisions when multiple runs are created in the same second
-	suffix := fmt.Sprintf("%04d", now.Nanosecond()/100000)
+	// Use crypto/rand for collision-resistant suffix
+	randBytes := make([]byte, 2)
+	if _, err := rand.Read(randBytes); err != nil {
+		// Fallback to nanoseconds if crypto/rand fails
+		randBytes = []byte{byte(now.Nanosecond() >> 8), byte(now.Nanosecond())}
+	}
+	suffix := hex.EncodeToString(randBytes)
 	runID := fmt.Sprintf("%s-%s-%s", pipelineName, now.Format("20060102-150405"), suffix)
 
 	query := `INSERT INTO pipeline_run (run_id, pipeline_name, status, input, started_at)

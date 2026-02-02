@@ -113,8 +113,8 @@ func runCancel(opts CancelOptions) error {
 		}
 		if len(runs) == 0 {
 			return outputCancelResult(opts.Format, CancelResult{
-				Success: true,
-				Message: "No running pipelines found",
+				Success: false,
+				Message: "No running pipelines to cancel",
 			})
 		}
 		// Get most recently started running pipeline
