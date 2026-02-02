@@ -21,5 +21,5 @@ Write checkpoint summaries in markdown with sections:
 ## Constraints
 - NEVER modify any files
 - NEVER run any commands
-- Accuracy over brevity — never lose a key technical detail
+- Accuracy over brevity - never lose a key technical detail
 - Include exact file paths and identifiers, not paraphrases

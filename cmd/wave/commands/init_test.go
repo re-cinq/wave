@@ -92,7 +92,7 @@ func TestInitEmptyDirectory(t *testing.T) {
 	// Verify successful execution
 	require.NoError(t, err, "init should succeed in empty directory")
 	assert.Empty(t, stderr, "should have no stderr output")
-	assert.Contains(t, stdout, "Initialized Wave project", "should confirm initialization")
+	assert.Contains(t, stdout, "Project initialized successfully", "should confirm initialization")
 
 	// Verify wave.yaml was created
 	assert.True(t, fileExists("wave.yaml"), "wave.yaml should be created")
@@ -167,7 +167,7 @@ func TestInitWithForceFlag(t *testing.T) {
 
 	// Verify successful execution
 	require.NoError(t, err, "init --force should succeed")
-	assert.Contains(t, stdout, "Initialized Wave project")
+	assert.Contains(t, stdout, "Project initialized successfully")
 
 	// Verify file was overwritten with new content
 	manifest, err := readYAML("wave.yaml")
@@ -213,7 +213,7 @@ runtime:
 
 	// Verify successful execution
 	require.NoError(t, err, "init --merge should succeed")
-	assert.Contains(t, stdout, "Merged", "should indicate merge operation")
+	assert.Contains(t, stdout, "Configuration merged successfully", "should indicate merge operation")
 
 	// Verify merged content preserves custom settings
 	manifest, err := readYAML("wave.yaml")
@@ -286,6 +286,7 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedPipelines := []string{
+		"hello-world.yaml",
 		"speckit-flow.yaml",
 		"hotfix.yaml",
 	}

@@ -1,5 +1,5 @@
 {
-  description = "NAVI - Cybernetic development environment";
+  description = "WAVE - Multi-agent pipeline orchestrator for AI-assisted development";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -15,30 +15,38 @@
         # Common packages for all shells
         commonPackages = with pkgs; [
           go
-          #          claude-code
           gh
           git
           jq
           curl
+          sqlite
         ];
       in
       {
-        # Packages for installation
         devShells = {
-          # Default: Sandboxed shell - restricts filesystem access for Claude Code
-         default = pkgs.mkShell {
+          default = pkgs.mkShell {
             buildInputs = commonPackages;
             shellHook = ''
               echo ""
-              echo "=== WAVE Development Environment ==="
+              echo "  ╦ ╦╔═╗╦  ╦╔═╗"
+              echo "  ║║║╠═╣╚╗╔╝║╣ "
+              echo "  ╚╩╝╩ ╩ ╚╝ ╚═╝"
+              echo "  Multi-Agent Pipeline Orchestrator"
               echo ""
-              echo "Start:     muz (daemon+TUI), muz serve, muz stop"
+              echo "  Commands:"
+              echo "    wave init              Initialize new project"
+              echo "    wave run --pipeline X  Run a pipeline"
+              echo "    wave do \"task\"         Ad-hoc task execution"
+              echo "    wave validate          Validate configuration"
+              echo "    wave list pipelines    List available pipelines"
+              echo "    wave list personas     List configured personas"
+              echo "    wave resume            Resume interrupted run"
+              echo "    wave clean             Clean up artifacts"
               echo ""
-              echo "Type 'help' for full command list"
+              echo "  Run 'wave --help' for full command reference"
               echo ""
             '';
           };
-
         };
       }
     );
