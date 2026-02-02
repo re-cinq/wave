@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.dev/contracts/docs-phase.schema.json",
+  "title": "Documentation Phase Output",
+  "description": "Schema for the documentation phase manifest artifact",
+  "type": "object",
+  "required": ["generated_files", "spec_coverage"],
+  "properties": {
+    "generated_files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "List of generated documentation files",
+      "items": {
+        "type": "object",
+        "required": ["path", "type", "description"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path to the generated file"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["overview", "user_guide", "api_reference", "architecture"],
+            "description": "Type of documentation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of the file contents"
+          },
+          "word_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Approximate word count"
+          }
+        }
+      }
+    },
+    "spec_coverage": {
+      "type": "object",
+      "required": ["user_stories_documented", "entities_documented"],
+      "description": "Tracking of specification coverage in documentation",
+      "properties": {
+        "user_stories_documented": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^US-[0-9]+$"
+          },
+          "description": "IDs of user stories covered in documentation"
+        },
+        "entities_documented": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Names of entities documented"
+        },
+        "interfaces_documented": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Names of interfaces documented"
+        },
+        "coverage_percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall specification coverage percentage"
+        }
+      }
+    },
+    "target_audience": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["developers", "stakeholders", "end_users", "operations"]
+      },
+      "description": "Intended audience for the documentation"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": ["draft", "ready_for_review", "approved"],
+      "description": "Current review status of documentation"
+    }
+  }
+}
