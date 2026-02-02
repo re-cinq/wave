@@ -44,6 +44,7 @@ type DefaultPipelineExecutor struct {
 	relayMonitor *relay.RelayMonitor
 	pipelines    map[string]*PipelineExecution
 	mu           sync.RWMutex
+	debug        bool
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -58,6 +59,10 @@ func WithStateStore(s state.StateStore) ExecutorOption {
 
 func WithAuditLogger(l audit.AuditLogger) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.logger = l }
+}
+
+func WithDebug(debug bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.debug = debug }
 }
 
 func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
@@ -337,6 +342,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedTools:  persona.Permissions.AllowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
+		Debug:         e.debug,
 	}
 
 	stepStart := time.Now()

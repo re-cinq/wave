@@ -59,6 +59,11 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	cmd := exec.CommandContext(ctx, a.claudePath, args...)
 	cmd.Dir = workspacePath
 
+	if cfg.Debug {
+		fmt.Printf("[DEBUG] Claude command: %s %s\n", a.claudePath, strings.Join(args, " "))
+		fmt.Printf("[DEBUG] Working directory: %s\n", workspacePath)
+	}
+
 	mergedEnv := append(os.Environ(), cfg.Env...)
 	cmd.Env = mergedEnv
 
@@ -127,6 +132,16 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	result.TokensUsed = tokens
 	result.Artifacts = artifacts
 	result.ResultContent = resultContent
+
+	if cfg.Debug {
+		fmt.Printf("[DEBUG] Claude exit code: %d\n", result.ExitCode)
+		fmt.Printf("[DEBUG] Claude tokens used: %d\n", tokens)
+		if stderrBuf.Len() > 0 {
+			fmt.Printf("[DEBUG] Claude stderr:\n%s\n", stderrBuf.String())
+		}
+		fmt.Printf("[DEBUG] Claude raw output (%d bytes):\n%s\n", stdoutBuf.Len(), stdoutBuf.String())
+		fmt.Printf("[DEBUG] Extracted result content (%d chars):\n%s\n", len(resultContent), resultContent)
+	}
 
 	return result, nil
 }

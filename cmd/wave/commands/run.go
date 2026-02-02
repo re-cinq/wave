@@ -37,7 +37,8 @@ func NewRunCmd() *cobra.Command {
 		Long: `Execute a pipeline from the wave manifest.
 Supports dry-run mode, step resumption, and custom timeouts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(opts)
+			debug, _ := cmd.Flags().GetBool("debug")
+			return runRun(opts, debug)
 		},
 	}
 
@@ -54,7 +55,7 @@ Supports dry-run mode, step resumption, and custom timeouts.`,
 	return cmd
 }
 
-func runRun(opts RunOptions) error {
+func runRun(opts RunOptions, debug bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -138,6 +139,7 @@ func runRun(opts RunOptions) error {
 	// Build executor with all components
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
+		pipeline.WithDebug(debug),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
