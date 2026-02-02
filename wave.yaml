@@ -19,6 +19,37 @@ metadata:
     description: A Wave multi-agent project
     name: wave-project
 personas:
+    debugger:
+        adapter: claude
+        description: Systematic issue diagnosis and root cause analysis
+        permissions:
+            allowed_tools:
+                - Read
+                - Grep
+                - Glob
+                - Bash(go test*)
+                - Bash(git log*)
+                - Bash(git diff*)
+                - Bash(git bisect*)
+            deny:
+                - Write(*)
+                - Edit(*)
+        system_prompt_file: .wave/personas/debugger.md
+        temperature: 0.2
+    planner:
+        adapter: claude
+        description: Task breakdown and project planning
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(*)
+        system_prompt_file: .wave/personas/planner.md
+        temperature: 0.3
     auditor:
         adapter: claude
         description: Security review and quality assurance

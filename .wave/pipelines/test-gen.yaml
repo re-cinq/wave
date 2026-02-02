@@ -1,0 +1,101 @@
+kind: WavePipeline
+metadata:
+  name: test-gen
+  description: "Generate comprehensive test coverage"
+
+input:
+  source: cli
+
+steps:
+  - id: analyze-coverage
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze test coverage for: {{ input }}
+
+        1. Run coverage analysis (go test -cover)
+        2. Identify uncovered functions and branches
+        3. Find edge cases not tested
+        4. Map dependencies that need mocking
+
+        Output as JSON:
+        {
+          "current_coverage": "X%",
+          "uncovered_functions": [],
+          "uncovered_branches": [],
+          "edge_cases": [],
+          "mock_requirements": []
+        }
+    output_artifacts:
+      - name: coverage
+        path: output/coverage-analysis.json
+        type: json
+
+  - id: generate-tests
+    persona: craftsman
+    dependencies: [analyze-coverage]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-coverage
+          artifact: coverage
+          as: gaps
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Generate tests to improve coverage for: {{ input }}
+
+        Requirements:
+        1. Write table-driven tests where appropriate
+        2. Cover happy path, error cases, and edge cases
+        3. Use descriptive test names (TestFunction_Condition_Expected)
+        4. Add mocks for external dependencies
+        5. Include benchmarks for performance-critical code
+
+        Follow existing test patterns in the codebase.
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+    output_artifacts:
+      - name: tests
+        path: output/generated-tests.md
+        type: markdown
+
+  - id: verify-coverage
+    persona: auditor
+    dependencies: [generate-tests]
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        Verify the generated tests:
+
+        1. Run coverage again — did it improve?
+        2. Are tests meaningful (not just line coverage)?
+        3. Do tests actually catch bugs?
+        4. Are mocks appropriate and minimal?
+        5. Is test code maintainable?
+
+        Output: coverage delta and quality assessment
+    output_artifacts:
+      - name: verification
+        path: output/coverage-verification.md
+        type: markdown

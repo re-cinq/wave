@@ -1,0 +1,98 @@
+kind: WavePipeline
+metadata:
+  name: plan
+  description: "Break down a feature into actionable tasks"
+
+input:
+  source: cli
+
+steps:
+  - id: explore
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Explore the codebase to understand context for: {{ input }}
+
+        1. Find related existing functionality
+        2. Identify patterns and conventions used
+        3. Map affected modules and dependencies
+        4. Note testing patterns in the codebase
+
+        Output as JSON:
+        {
+          "related_features": [],
+          "patterns": [],
+          "affected_modules": [],
+          "testing_approach": ""
+        }
+    output_artifacts:
+      - name: exploration
+        path: output/exploration.json
+        type: json
+
+  - id: breakdown
+    persona: planner
+    dependencies: [explore]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+    exec:
+      type: prompt
+      source: |
+        Break down the feature into tasks: {{ input }}
+
+        For each task:
+        - ID: T1, T2, T3...
+        - Title: short description
+        - Description: what needs to be done
+        - Dependencies: which tasks must complete first
+        - Persona: who should do this (navigator/philosopher/craftsman/auditor)
+        - Complexity: S (< 1hr), M (1-4hr), L (4-8hr), XL (> 1 day)
+        - Acceptance criteria: how to know it's done
+
+        Order tasks by dependencies. Flag risks.
+    output_artifacts:
+      - name: tasks
+        path: output/tasks.md
+        type: markdown
+
+  - id: review
+    persona: philosopher
+    dependencies: [breakdown]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+        - step: breakdown
+          artifact: tasks
+          as: task_list
+    exec:
+      type: prompt
+      source: |
+        Review the task breakdown:
+
+        1. Are all tasks actionable and clear?
+        2. Are dependencies correctly identified?
+        3. Is complexity reasonable for each task?
+        4. Are there missing tasks?
+        5. Can any tasks be parallelized?
+        6. Are risks adequately addressed?
+
+        Suggest improvements if needed.
+    output_artifacts:
+      - name: review
+        path: output/plan-review.md
+        type: markdown

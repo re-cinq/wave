@@ -1,0 +1,148 @@
+kind: WavePipeline
+metadata:
+  name: debug
+  description: "Systematic debugging with hypothesis testing"
+
+input:
+  source: cli
+
+steps:
+  - id: reproduce
+    persona: debugger
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Reproduce and characterize the issue: {{ input }}
+
+        1. Understand expected vs actual behavior
+        2. Create minimal reproduction steps
+        3. Identify relevant code paths
+        4. Note environmental factors (OS, versions, config)
+
+        Output as JSON:
+        {
+          "expected_behavior": "",
+          "actual_behavior": "",
+          "reproduction_steps": [],
+          "relevant_files": [],
+          "environmental_factors": []
+        }
+    output_artifacts:
+      - name: reproduction
+        path: output/reproduction.json
+        type: json
+
+  - id: hypothesize
+    persona: debugger
+    dependencies: [reproduce]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reproduce
+          artifact: reproduction
+          as: issue
+    exec:
+      type: prompt
+      source: |
+        Form hypotheses about the root cause:
+
+        For each hypothesis:
+        1. What could cause this behavior?
+        2. What evidence would confirm/refute it?
+        3. How to test this hypothesis?
+
+        Rank by likelihood and ease of testing.
+
+        Output as JSON:
+        {
+          "hypotheses": [
+            {
+              "id": 1,
+              "description": "",
+              "likelihood": "high|medium|low",
+              "test_approach": "",
+              "expected_result_if_true": ""
+            }
+          ]
+        }
+    output_artifacts:
+      - name: hypotheses
+        path: output/hypotheses.json
+        type: json
+
+  - id: investigate
+    persona: debugger
+    dependencies: [hypothesize]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reproduce
+          artifact: reproduction
+          as: issue
+        - step: hypothesize
+          artifact: hypotheses
+          as: hypotheses
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Test each hypothesis systematically:
+
+        1. Start with most likely / easiest to test
+        2. Use git bisect if needed to find regression
+        3. Add diagnostic logging to trace execution
+        4. Examine data flow and state changes
+        5. Document findings for each hypothesis
+
+        Continue until root cause is identified.
+    output_artifacts:
+      - name: findings
+        path: output/investigation.md
+        type: markdown
+
+  - id: fix
+    persona: craftsman
+    dependencies: [investigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: investigate
+          artifact: findings
+          as: root_cause
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Fix the root cause identified in the investigation:
+
+        1. Implement the minimal fix
+        2. Add a regression test that would have caught this
+        3. Remove any diagnostic code added during debugging
+        4. Verify the original reproduction no longer fails
+        5. Check for similar issues elsewhere
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+    output_artifacts:
+      - name: fix
+        path: output/fix-summary.md
+        type: markdown
