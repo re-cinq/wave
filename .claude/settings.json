@@ -1,0 +1,18 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "temperature": 0,
+  "output_format": "json",
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Bash",
+    "Edit",
+    "Glob",
+    "Grep",
+    "WebFetch"
+  ],
+  "hooks": {
+    "pre_execute": [],
+    "post_execute": []
+  }
+}
