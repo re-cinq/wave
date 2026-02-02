@@ -160,9 +160,26 @@ wave do <task description> [flags]
 
 **Examples:**
 ```bash
+# Quick fixes
 wave do "fix the typo in README.md"
+wave do "fix the broken import in auth.go"
+wave do "update the copyright year in LICENSE"
+
+# Small features
+wave do "add a health check endpoint at /healthz"
+wave do "add input validation to the signup form"
+wave do "add retry logic to the HTTP client"
+
+# Code reviews with auditor persona
 wave do "audit auth middleware for SQL injection" --persona auditor
+wave do "review the payment module for security issues" --persona auditor
+wave do "check error handling in the API layer" --persona auditor
+
+# Save pipeline for reuse
 wave do "add dark mode toggle" --save dark-mode.yaml
+wave do "implement caching layer" --save caching.yaml
+
+# Preview without executing
 wave do "refactor user service" --dry-run
 ```
 
@@ -297,6 +314,138 @@ wave validate --pipeline speckit-flow      # Validate specific pipeline
 - Adapter binary availability in PATH
 - Persona system prompt file existence
 - Pipeline step dependencies and persona references
+
+---
+
+## Built-in Personas
+
+Wave ships with 5 specialized personas, each with role-specific permissions:
+
+| Persona | Temperature | Description | Permissions |
+|---------|-------------|-------------|-------------|
+| **navigator** | 0.1 | Read-only codebase exploration and analysis | `Read`, `Glob`, `Grep`, `Bash(git log*)`, `Bash(git status*)` |
+| **philosopher** | 0.3 | Architecture design and specification | `Read`, `Write(.wave/specs/*)` |
+| **craftsman** | 0.7 | Code implementation and testing | `Read`, `Write`, `Edit`, `Bash` |
+| **auditor** | 0.1 | Security review and quality assurance | `Read`, `Grep`, `Bash(go vet*)`, `Bash(npm audit*)` |
+| **summarizer** | 0.0 | Context compaction for relay handoffs | `Read` only |
+
+### Persona Capabilities
+
+**navigator** — Explores the codebase without modifications
+- Searches and reads source files
+- Maps dependencies between modules
+- Identifies patterns and conventions
+- Outputs structured JSON analysis
+
+**philosopher** — Designs architecture and specifications
+- Creates feature specifications with user stories
+- Designs data models and API schemas
+- Identifies edge cases and security considerations
+- Cannot execute shell commands
+
+**craftsman** — Implements features and fixes
+- Writes production code following specifications
+- Creates unit and integration tests
+- Runs test suites to verify correctness
+- Full read/write access to codebase
+
+**auditor** — Reviews for security and quality
+- Checks for OWASP Top 10 vulnerabilities
+- Verifies authentication and authorization
+- Assesses test coverage
+- Read-only access (cannot modify code)
+
+**summarizer** — Compacts conversation context
+- Distills long conversations into checkpoints
+- Preserves key decisions and technical details
+- Used automatically when token limits approached
+- Read-only access
+
+---
+
+## Built-in Pipelines
+
+### `speckit-flow` — Specification-Driven Development
+
+Full feature development workflow with 5 steps:
+
+```
+navigate → specify → plan → implement → review
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `navigate` | navigator | Analyze codebase for relevant files and patterns |
+| `specify` | philosopher | Create feature specification with user stories |
+| `plan` | philosopher | Generate ordered implementation plan |
+| `implement` | craftsman | Write code and tests following the plan |
+| `review` | auditor | Security and quality review of implementation |
+
+**Examples:**
+```bash
+# Feature development
+wave run --pipeline speckit-flow --input "add user authentication with JWT"
+wave run --pipeline speckit-flow --input "implement pagination for the /users endpoint"
+wave run --pipeline speckit-flow --input "add dark mode support to the dashboard"
+wave run --pipeline speckit-flow --input "refactor database layer to use connection pooling"
+
+# Preview execution plan
+wave run --pipeline speckit-flow --input "add webhook notifications" --dry-run
+
+# Resume from implementation after fixing spec issues
+wave run --pipeline speckit-flow --input "add rate limiting" --from-step implement
+
+# With longer timeout for complex features
+wave run --pipeline speckit-flow --input "migrate to microservices" --timeout 120
+```
+
+**Artifacts produced:**
+- `output/analysis.json` — Navigation findings
+- `output/spec.md` — Feature specification
+- `output/plan.md` — Implementation plan
+- `output/review.md` — Security/quality review
+
+---
+
+### `hotfix` — Production Issue Resolution
+
+Fast-track pipeline for urgent fixes with 3 steps:
+
+```
+investigate → fix → verify
+```
+
+| Step | Persona | Description |
+|------|---------|-------------|
+| `investigate` | navigator | Root cause analysis with blast radius assessment |
+| `fix` | craftsman | Minimal fix with regression test |
+| `verify` | auditor | Go/no-go recommendation for deployment |
+
+**Examples:**
+```bash
+# Production bugs
+wave run --pipeline hotfix --input "fix memory leak in cache.go"
+wave run --pipeline hotfix --input "users getting 500 errors on login since last deploy"
+wave run --pipeline hotfix --input "race condition in order processing causing duplicate charges"
+wave run --pipeline hotfix --input "API returning stale data after cache invalidation"
+
+# Security incidents
+wave run --pipeline hotfix --input "SQL injection vulnerability in search endpoint"
+wave run --pipeline hotfix --input "authentication bypass when session token is malformed"
+
+# Performance issues
+wave run --pipeline hotfix --input "database queries timing out under load"
+wave run --pipeline hotfix --input "memory usage growing unbounded in worker process"
+
+# Skip investigation if root cause is known
+wave run --pipeline hotfix --input "null pointer in user.GetProfile()" --from-step fix
+```
+
+**Artifacts produced:**
+- `output/findings.json` — Root cause analysis
+- `output/verdict.md` — Deployment recommendation
+
+---
 
 ## Configuration
 
