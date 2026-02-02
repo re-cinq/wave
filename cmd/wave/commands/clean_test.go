@@ -191,8 +191,8 @@ func TestCleanRemovesAllWorkspaces(t *testing.T) {
 	// Verify setup
 	assert.Len(t, env.listWorkspaces(), 3)
 
-	// Run clean --all
-	stdout, err := executeCleanCmdCapturingStdout("--all")
+	// Run clean --all --force (force needed for non-TTY test environment)
+	stdout, err := executeCleanCmdCapturingStdout("--all", "--force")
 
 	// Verify success
 	require.NoError(t, err)
@@ -214,8 +214,8 @@ func TestCleanSpecificPipeline(t *testing.T) {
 	env.createWorkspace("target-pipeline", time.Now().Add(-2*time.Hour))
 	env.createWorkspace("other-pipeline", time.Now().Add(-1*time.Hour))
 
-	// Run clean --pipeline target-pipeline
-	stdout, err := executeCleanCmdCapturingStdout("--pipeline", "target-pipeline")
+	// Run clean --pipeline target-pipeline --force (force needed for non-TTY test environment)
+	stdout, err := executeCleanCmdCapturingStdout("--pipeline", "target-pipeline", "--force")
 
 	// Verify success
 	require.NoError(t, err)
@@ -311,7 +311,7 @@ func TestCleanKeepLastN(t *testing.T) {
 			} else {
 				keepLastStr = "10"
 			}
-			args := []string{"--all", "--keep-last", keepLastStr}
+			args := []string{"--all", "--keep-last", keepLastStr, "--force"}
 			stdout, err := executeCleanCmdCapturingStdout(args...)
 
 			require.NoError(t, err)
@@ -341,8 +341,8 @@ func TestCleanKeepLastKeepsMostRecent(t *testing.T) {
 	env.createWorkspace("ws-middle", time.Now().Add(-3*time.Hour))
 	env.createWorkspace("ws-newest", time.Now().Add(-1*time.Hour))
 
-	// Keep last 1
-	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "1")
+	// Keep last 1 (--force needed for non-TTY test environment)
+	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "1", "--force")
 	require.NoError(t, err)
 
 	// Only the newest should remain
@@ -362,7 +362,8 @@ func TestCleanKeepLastNegativeValue(t *testing.T) {
 	env.createWorkspace("ws-1", time.Now())
 
 	// Negative keep-last should be treated as not set (default behavior: remove all)
-	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "-1")
+	// --force needed for non-TTY test environment
+	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "-1", "--force")
 
 	// Should succeed and remove everything (default behavior)
 	require.NoError(t, err)
@@ -570,7 +571,8 @@ func TestCleanWithReadonlyDirectories(t *testing.T) {
 	require.NoError(t, err)
 
 	// Clean should still work (it makes dirs writable before removal)
-	stdout, err := executeCleanCmdCapturingStdout("--all")
+	// --force needed for non-TTY test environment
+	stdout, err := executeCleanCmdCapturingStdout("--all", "--force")
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "Removed")
@@ -639,7 +641,8 @@ func TestCleanKeepLastOnlyAffectsWorkspaces(t *testing.T) {
 	assert.DirExists(t, ".wave/traces")
 
 	// Run clean --all --keep-last 1 (should only affect workspaces)
-	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "1")
+	// --force needed for non-TTY test environment
+	_, err := executeCleanCmdCapturingStdout("--all", "--keep-last", "1", "--force")
 	require.NoError(t, err)
 
 	// state.db and traces should still exist (keep-last only affects workspaces)
@@ -648,4 +651,261 @@ func TestCleanKeepLastOnlyAffectsWorkspaces(t *testing.T) {
 
 	// Only 1 workspace should remain
 	assert.Len(t, env.listWorkspaces(), 1)
+}
+
+// ====================================================================
+// Task 8: Tests for new clean command enhancements
+// ====================================================================
+
+// Test --older-than flag parsing
+func TestCleanOlderThanParsing(t *testing.T) {
+	tests := []struct {
+		name        string
+		duration    string
+		expectError bool
+	}{
+		{"valid hours", "24h", false},
+		{"valid minutes", "30m", false},
+		{"valid days", "7d", false},
+		{"valid combined days and hours", "7d12h", false},
+		{"valid combined hours and minutes", "1h30m", false},
+		{"valid seconds", "30s", false},
+		{"invalid format", "invalid", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newCleanTestEnv(t)
+			defer env.cleanup()
+
+			env.createWaveStructure()
+			env.createWorkspace("test-ws", time.Now())
+
+			_, err := executeCleanCmdCapturingStdout("--older-than", tc.duration, "--dry-run")
+
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// Test --older-than removes only old workspaces
+func TestCleanOlderThanRemovesOldWorkspaces(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+
+	// Create workspaces with different ages
+	env.createWorkspace("ws-old", time.Now().Add(-48*time.Hour))   // 2 days old
+	env.createWorkspace("ws-recent", time.Now().Add(-12*time.Hour)) // 12 hours old
+
+	// Run clean --older-than 24h (should only remove ws-old)
+	stdout, err := executeCleanCmdCapturingStdout("--older-than", "24h", "--force")
+	require.NoError(t, err)
+
+	// ws-old should be removed, ws-recent should remain
+	assert.False(t, env.workspaceExists("ws-old"), "old workspace should be removed")
+	assert.True(t, env.workspaceExists("ws-recent"), "recent workspace should remain")
+	assert.Contains(t, stdout, "ws-old")
+}
+
+// Test --older-than with day suffix
+func TestCleanOlderThanDaySuffix(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+
+	// Create workspaces
+	env.createWorkspace("ws-very-old", time.Now().Add(-10*24*time.Hour)) // 10 days old
+	env.createWorkspace("ws-new", time.Now().Add(-1*time.Hour))          // 1 hour old
+
+	// Run clean --older-than 7d
+	_, err := executeCleanCmdCapturingStdout("--older-than", "7d", "--force")
+	require.NoError(t, err)
+
+	assert.False(t, env.workspaceExists("ws-very-old"))
+	assert.True(t, env.workspaceExists("ws-new"))
+}
+
+// Test --quiet flag suppresses output
+func TestCleanQuietFlag(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	// Don't create any workspaces
+	stdout, err := executeCleanCmdCapturingStdout("--all", "--quiet", "--force")
+
+	require.NoError(t, err)
+	assert.Empty(t, stdout, "quiet mode should suppress output")
+}
+
+// Test --quiet flag with workspaces to clean
+func TestCleanQuietFlagWithWorkspaces(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+	env.createWorkspace("test-ws", time.Now())
+
+	stdout, err := executeCleanCmdCapturingStdout("--all", "--quiet", "--force")
+
+	require.NoError(t, err)
+	assert.Empty(t, stdout, "quiet mode should suppress output even when cleaning")
+	assert.False(t, env.workspaceExists("test-ws"))
+}
+
+// Test --status flag validation
+func TestCleanStatusFlagValidation(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+
+	// Invalid status
+	_, _, err := executeCleanCmd("--status", "invalid-status")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid status")
+
+	// Valid statuses should not error
+	for _, status := range []string{"completed", "failed", "running", "cancelled", "pending"} {
+		_, err := executeCleanCmdCapturingStdout("--status", status, "--dry-run")
+		assert.NoError(t, err, "status %s should be valid", status)
+	}
+}
+
+// Test combined --older-than and --status
+func TestCleanCombinedFilters(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+
+	// Create workspaces
+	env.createWorkspace("ws-old", time.Now().Add(-48*time.Hour))
+	env.createWorkspace("ws-new", time.Now().Add(-1*time.Hour))
+
+	// Run with combined filters (status filter won't match without DB)
+	stdout, err := executeCleanCmdCapturingStdout("--older-than", "24h", "--status", "completed", "--dry-run")
+	require.NoError(t, err)
+
+	// Output should indicate dry-run mode
+	assert.Contains(t, stdout, "dry-run")
+}
+
+// Test new flags are registered
+func TestCleanNewFlagsExist(t *testing.T) {
+	cmd := NewCleanCmd()
+	flags := cmd.Flags()
+
+	// Check new flags exist
+	olderThanFlag := flags.Lookup("older-than")
+	assert.NotNil(t, olderThanFlag, "older-than flag should exist")
+
+	statusFlag := flags.Lookup("status")
+	assert.NotNil(t, statusFlag, "status flag should exist")
+
+	quietFlag := flags.Lookup("quiet")
+	assert.NotNil(t, quietFlag, "quiet flag should exist")
+}
+
+// Test dry-run shows size information
+func TestCleanDryRunShowsSize(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+	wsPath := env.createWorkspace("size-test", time.Now())
+
+	// Create a file with some content
+	testFile := filepath.Join(wsPath, "test-file.txt")
+	err := os.WriteFile(testFile, []byte("test content with some size"), 0644)
+	require.NoError(t, err)
+
+	stdout, err := executeCleanCmdCapturingStdout("--all", "--dry-run")
+	require.NoError(t, err)
+
+	// Should show size information
+	assert.Contains(t, stdout, "dry-run")
+	assert.Contains(t, stdout, "item(s)")
+}
+
+// Test without required flags
+func TestCleanRequiresActionFlag(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeCleanCmd()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "specify --all or --pipeline")
+}
+
+// Test --older-than alone works as filter
+func TestCleanOlderThanAloneWorks(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+
+	env.createWaveStructure()
+	env.createWorkspace("test-ws", time.Now().Add(-48*time.Hour))
+
+	// --older-than should work without --all
+	stdout, err := executeCleanCmdCapturingStdout("--older-than", "24h", "--force")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Removed")
+	assert.False(t, env.workspaceExists("test-ws"))
+}
+
+// Test parseDuration function
+func TestParseDuration(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected time.Duration
+		hasError bool
+	}{
+		{"1h", time.Hour, false},
+		{"30m", 30 * time.Minute, false},
+		{"7d", 7 * 24 * time.Hour, false},
+		{"1d12h", 36 * time.Hour, false},
+		{"24h30m", 24*time.Hour + 30*time.Minute, false},
+		{"", 0, false},
+		{"invalid", 0, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			result, err := parseDuration(tc.input)
+			if tc.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, result)
+			}
+		})
+	}
+}
+
+// Test formatSize function
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		bytes    int64
+		expected string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1073741824, "1.0 GB"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.expected, func(t *testing.T) {
+			result := formatSize(tc.bytes)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }
