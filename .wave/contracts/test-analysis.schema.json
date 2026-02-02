@@ -1,39 +1,67 @@
 {
-"$schema": "http://json-schema.org/draft-07/schema#",
-"type": "object",
-"required": ["test_files", "test_patterns", "testing_framework", "test_areas"],
-"properties": {
-"test_files": {
-"type": "array",
-"items": {"type": "string"},
-"description": "List of existing test files in the codebase"
-},
-"test_patterns": {
-"type": "object",
-"description": "Common testing patterns and conventions used",
-"properties": {
-"naming_convention": {"type": "string"},
-"directory_structure": {"type": "string"},
-"common_imports": {"type": "array", "items": {"type": "string"}}
-}
-},
-"testing_framework": {
-"type": "object",
-"description": "Details about the testing framework in use",
-"properties": {
-"primary_framework": {"type": "string"},
-"assertion_library": {"type": "string"},
-"test_runner": {"type": "string"}
-}
-},
-"test_areas": {
-"type": "object",
-"description": "Different areas where tests can be added",
-"properties": {
-"unit_tests": {"type": "string"},
-"integration_tests": {"type": "string"},
-"end_to_end_tests": {"type": "string"}
-}
-}
-}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "test_files",
+    "test_patterns",
+    "testing_framework",
+    "test_areas"
+  ],
+  "properties": {
+    "test_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of existing test files in the codebase"
+    },
+    "test_patterns": {
+      "type": "object",
+      "description": "Common testing patterns and conventions used",
+      "properties": {
+        "naming_convention": {
+          "type": "string"
+        },
+        "directory_structure": {
+          "type": "string"
+        },
+        "common_imports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "testing_framework": {
+      "type": "object",
+      "description": "Details about the testing framework in use",
+      "properties": {
+        "primary_framework": {
+          "type": "string"
+        },
+        "assertion_library": {
+          "type": "string"
+        },
+        "test_runner": {
+          "type": "string"
+        }
+      }
+    },
+    "test_areas": {
+      "type": "object",
+      "description": "Different areas where tests can be added",
+      "properties": {
+        "unit_tests": {
+          "type": "string"
+        },
+        "integration_tests": {
+          "type": "string"
+        },
+        "end_to_end_tests": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }

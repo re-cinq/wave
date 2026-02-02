@@ -1,70 +1,85 @@
 {
-"$schema": "http://json-schema.org/draft-07/schema#",
-"type": "object",
-"required": ["documentation_files", "code_files_with_docs", "configuration_files", "test_documentation", "documentation_patterns"],
-"properties": {
-"documentation_files": {
-"type": "array",
-"items": {
-"type": "object",
-"required": ["path", "type", "last_modified", "size"],
-"properties": {
-"path": {"type": "string"},
-"type": {"type": "string", "enum": ["readme", "api_docs", "tutorial", "guide", "reference", "changelog", "other"]},
-"last_modified": {"type": "string"},
-"size": {"type": "integer"},
-"dependencies": {"type": "array", "items": {"type": "string"}}
-}
-}
-},
-"code_files_with_docs": {
-"type": "array",
-"items": {
-"type": "object",
-"required": ["path", "doc_type", "doc_density"],
-"properties": {
-"path": {"type": "string"},
-"doc_type": {"type": "array", "items": {"type": "string"}},
-"doc_density": {"type": "string", "enum": ["high", "medium", "low"]},
-"public_api": {"type": "boolean"}
-}
-}
-},
-"configuration_files": {
-"type": "array",
-"items": {
-"type": "object",
-"required": ["path", "has_help_text", "has_examples"],
-"properties": {
-"path": {"type": "string"},
-"has_help_text": {"type": "boolean"},
-"has_examples": {"type": "boolean"},
-"format": {"type": "string"}
-}
-}
-},
-"test_documentation": {
-"type": "array",
-"items": {
-"type": "object",
-"required": ["path", "documents_behavior", "has_examples"],
-"properties": {
-"path": {"type": "string"},
-"documents_behavior": {"type": "boolean"},
-"has_examples": {"type": "boolean"},
-"test_type": {"type": "string"}
-}
-}
-},
-"documentation_patterns": {
-"type": "object",
-"required": ["documentation_standards", "link_patterns", "versioning_approach"],
-"properties": {
-"documentation_standards": {"type": "array", "items": {"type": "string"}},
-"link_patterns": {"type": "object"},
-"versioning_approach": {"type": "string"},
-"update_frequency": {"type": "string"}
-}
-}
-}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "files",
+    "patterns",
+    "dependencies",
+    "impact_areas"
+  ],
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of relevant files for JSON linting"
+    },
+    "patterns": {
+      "type": "object",
+      "properties": {
+        "json_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "config_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "test_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Categorized file patterns"
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "linting_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "test_frameworks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json_parsers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "External dependencies and tools"
+    },
+    "impact_areas": {
+      "type": "object",
+      "properties": {
+        "validation": {
+          "type": "string"
+        },
+        "performance": {
+          "type": "string"
+        },
+        "error_handling": {
+          "type": "string"
+        },
+        "integration": {
+          "type": "string"
+        }
+      },
+      "description": "Areas that will be impacted by JSON linting tests"
+    }
+  }
 }
