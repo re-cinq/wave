@@ -21,5 +21,5 @@ Produce a structured review report with severity ratings:
 ## Constraints
 - NEVER modify any source files
 - NEVER run destructive commands
-- Be specific — cite file paths and line numbers
+- Be specific - cite file paths and line numbers
 - Distinguish between confirmed issues and potential concerns

@@ -19,12 +19,32 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 		}
 	}
 
+	var command string
 	var args []string
+
 	if len(cfg.CommandArgs) > 0 {
+		// Explicit command and args specified
+		command = cfg.Command
 		args = cfg.CommandArgs
+	} else {
+		// Parse command string into command and args
+		// This allows users to write "go test ./... -v" as the command
+		parts := strings.Fields(cfg.Command)
+		if len(parts) == 0 {
+			return &ValidationError{
+				ContractType: "test_suite",
+				Message:      "empty command for test suite validation",
+				Details:      []string{"specify 'command' with the test runner to execute"},
+				Retryable:    false,
+			}
+		}
+		command = parts[0]
+		if len(parts) > 1 {
+			args = parts[1:]
+		}
 	}
 
-	cmd := exec.Command(cfg.Command, args...)
+	cmd := exec.Command(command, args...)
 	cmd.Dir = workspacePath
 
 	var stdout, stderr bytes.Buffer
@@ -35,7 +55,7 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
-			details := extractTestSuiteDetails(cfg.Command, args, stdout.String(), stderr.String())
+			details := extractTestSuiteDetails(command, args, stdout.String(), stderr.String())
 			return &ValidationError{
 				ContractType: "test_suite",
 				Message:      fmt.Sprintf("test suite failed (exit code %d)", exitError.ExitCode()),
@@ -48,7 +68,7 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 			Message:      "test suite execution failed",
 			Details: []string{
 				err.Error(),
-				fmt.Sprintf("command: %s %s", cfg.Command, strings.Join(args, " ")),
+				fmt.Sprintf("command: %s %s", command, strings.Join(args, " ")),
 				fmt.Sprintf("working directory: %s", workspacePath),
 			},
 			Retryable: false,

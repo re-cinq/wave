@@ -44,6 +44,7 @@ type DefaultPipelineExecutor struct {
 	relayMonitor *relay.RelayMonitor
 	pipelines    map[string]*PipelineExecution
 	mu           sync.RWMutex
+	debug        bool
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -58,6 +59,10 @@ func WithStateStore(s state.StateStore) ExecutorOption {
 
 func WithAuditLogger(l audit.AuditLogger) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.logger = l }
+}
+
+func WithDebug(debug bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.debug = debug }
 }
 
 func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
@@ -337,6 +342,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedTools:  persona.Permissions.AllowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
+		Debug:         e.debug,
 	}
 
 	stepStart := time.Now()
@@ -359,7 +365,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 
 	// Write output artifacts to workspace
-	e.writeOutputArtifacts(execution, step, workspacePath, stdoutData)
+	// Use ResultContent if available (extracted from adapter response)
+	// Don't fall back to raw stdout as it contains JSON wrapper, not actual content
+	if result.ResultContent != "" {
+		artifactContent := []byte(result.ResultContent)
+		e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
+	} else {
+		// Skip writing artifacts when ResultContent is empty to avoid overwriting
+		// existing artifacts with empty content during relay compaction or parsing failures
+		if e.debug {
+			fmt.Printf("[DEBUG] Warning: ResultContent is empty, skipping artifact write to preserve existing content\n")
+		}
+	}
 
 	// Check relay/compaction threshold (FR-009)
 	if err := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, workspacePath, string(stdoutData)); err != nil {
@@ -377,6 +394,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if step.Handover.Contract.Type != "" {
 		contractCfg := contract.ContractConfig{
 			Type:       step.Handover.Contract.Type,
+			Source:     step.Handover.Contract.Source,
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    step.Handover.Contract.Command,

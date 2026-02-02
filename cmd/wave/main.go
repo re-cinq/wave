@@ -15,7 +15,11 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "wave",
 	Short: "Wave multi-agent orchestrator",
-	Long: `Wave is a multi-agent pipeline orchestrator for AI-assisted development.
+	Long: `
+  ╦ ╦╔═╗╦  ╦╔═╗
+  ║║║╠═╣╚╗╔╝║╣
+  ╚╩╝╩ ╩ ╚╝ ╚═╝
+  Multi-Agent Pipeline Orchestrator
 
 Wave coordinates multiple AI personas through structured pipelines,
 enforcing permissions, contracts, and workspace isolation at every step.`,

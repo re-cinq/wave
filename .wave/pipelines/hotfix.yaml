@@ -42,6 +42,7 @@ steps:
       contract:
         type: json_schema
         source: output/findings.json
+        schema_path: .wave/contracts/findings.schema.json
         on_failure: retry
         max_retries: 2
 
@@ -65,7 +66,7 @@ steps:
         Fix the production issue based on the investigation findings.
 
         Requirements:
-        1. Apply the minimal fix — don't refactor surrounding code
+        1. Apply the minimal fix - don't refactor surrounding code
         2. Add a regression test that would have caught this bug
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
