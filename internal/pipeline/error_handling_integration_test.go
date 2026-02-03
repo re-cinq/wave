@@ -1,3 +1,9 @@
+//go:build integration
+// +build integration
+
+// Integration tests for error handling with full pipeline execution.
+// Run with: go test -tags=integration ./internal/pipeline/...
+
 package pipeline
 
 import (
@@ -172,6 +178,11 @@ func TestErrorHandlingIntegration(t *testing.T) {
 					t.Fatal(err)
 				}
 				err = os.Chtimes(docsFile, baseTime, baseTime)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Add required artifact.json for contract validation
+				err = os.WriteFile(filepath.Join(docsWorkspace, "artifact.json"), []byte("{}"), 0644)
 				if err != nil {
 					t.Fatal(err)
 				}

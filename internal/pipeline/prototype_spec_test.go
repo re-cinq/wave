@@ -1,3 +1,10 @@
+//go:build integration
+// +build integration
+
+// Integration tests for prototype spec phase.
+// Run with: go test -tags=integration ./internal/pipeline/...
+// These tests require proper mock adapter setup with schema-compliant JSON output.
+
 package pipeline
 
 import (
@@ -38,17 +45,22 @@ func TestPrototypeSpecPhaseInitialization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup test environment
-			_ = t.TempDir()
-
-			// Create test manifest
+			// Create test manifest and load pipeline BEFORE changing directory
 			testManifest := createPrototypeTestManifest()
-
-			// Load prototype pipeline
 			pipeline, err := loadTestPrototypePipeline()
 			if err != nil {
 				t.Fatalf("Failed to load prototype pipeline: %v", err)
 			}
+
+			// Change to project root for schema file access during execution
+			originalWd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chdir("../.."); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chdir(originalWd)
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -98,14 +110,23 @@ func TestPrototypeSpecPhaseInitialization(t *testing.T) {
 
 func TestPrototypeSpecPhaseArtifacts(t *testing.T) {
 	// Test that spec phase produces required artifacts
-	_ = t.TempDir()
 
-	// Create test environment
+	// Create test environment and load pipeline BEFORE changing directory
 	testManifest := createPrototypeTestManifest()
 	pipeline, err := loadTestPrototypePipeline()
 	if err != nil {
 		t.Fatalf("Failed to load prototype pipeline: %v", err)
 	}
+
+	// Change to project root for schema file access during execution
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir("../.."); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(originalWd)
 
 	mockAdapter := adapter.NewMockAdapter()
 	emitter := event.NewNDJSONEmitter()
