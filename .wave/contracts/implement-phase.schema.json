@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/implement-phase.schema.json",
+  "title": "Wave Implement Phase Output Contract",
+  "description": "Validates implementation phase outputs for prototype-driven development pipeline",
+  "type": "object",
+  "properties": {
+    "phase": {
+      "type": "string",
+      "const": "implement",
+      "description": "Phase identifier"
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "implementation_plan": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*implementation-plan\\.md$",
+              "description": "Path to implementation plan file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Implementation plan file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Implementation plan content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        },
+        "progress_checklist": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*implementation-checklist\\.md$",
+              "description": "Path to progress checklist file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Progress checklist file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Checklist content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["implementation_plan", "progress_checklist"],
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "tests_executed": {
+          "type": "boolean",
+          "description": "Whether test suite was executed"
+        },
+        "test_results": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of tests"
+            },
+            "passed": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of tests that passed"
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of tests that failed"
+            },
+            "coverage_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Test coverage percentage"
+            }
+          },
+          "required": ["total", "passed", "failed"],
+          "additionalProperties": false
+        },
+        "implementation_readiness": {
+          "type": "string",
+          "enum": ["ready", "partial", "needs_work"],
+          "description": "Assessment of implementation readiness"
+        }
+      },
+      "required": ["tests_executed", "implementation_readiness"],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When implementation phase was completed"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken for implementation phase"
+        },
+        "previous_phases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["spec", "docs", "dummy"]
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Previous phases that fed into this implementation"
+        }
+      },
+      "required": ["timestamp", "previous_phases"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["phase", "artifacts", "validation", "metadata"],
+  "additionalProperties": false
+}

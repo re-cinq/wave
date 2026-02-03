@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/spec-phase.schema.json",
+  "title": "Wave Spec Phase Output Contract",
+  "description": "Validates spec phase outputs for prototype-driven development pipeline",
+  "type": "object",
+  "properties": {
+    "phase": {
+      "type": "string",
+      "const": "spec",
+      "description": "Phase identifier"
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "spec": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*spec\\.md$",
+              "description": "Path to specification file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Specification file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Specification content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        },
+        "requirements": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*requirements\\.md$",
+              "description": "Path to requirements file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Requirements file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Requirements content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["spec"],
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "completeness_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Specification completeness rating"
+        },
+        "clarity_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Specification clarity rating"
+        },
+        "testability_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Specification testability rating"
+        },
+        "specification_quality": {
+          "type": "string",
+          "enum": ["poor", "fair", "good", "excellent"],
+          "description": "Overall specification quality assessment"
+        }
+      },
+      "required": ["specification_quality"],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When spec phase was completed"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken for spec phase"
+        },
+        "input_description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Original project description input"
+        }
+      },
+      "required": ["timestamp", "input_description"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["phase", "artifacts", "validation", "metadata"],
+  "additionalProperties": false
+}
