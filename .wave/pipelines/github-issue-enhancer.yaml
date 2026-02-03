@@ -251,27 +251,49 @@ steps:
     exec:
       type: prompt
       source: |
-        Apply the enhancement plan to GitHub issues.
+        **GITHUB ISSUE ENHANCEMENT - ACTION MODE**
 
-        For each issue in the plan:
-        1. Use gh CLI to update the issue
-        2. Update title if suggested
-        3. Update body with enhanced template
-        4. Add suggested labels
-        5. Add a comment noting the enhancement was automated
+        You are in ACTION MODE. You MUST execute real GitHub CLI commands to apply enhancements.
+        The gh CLI IS available - the scan-issues step already used it successfully.
 
-        Commands:
-        - gh issue edit <number> --repo <repo> --title "new title"
-        - gh issue edit <number> --repo <repo> --body "$(cat <<'EOF'
-          [enhanced body]
-          EOF
-          )"
-        - gh issue edit <number> --repo <repo> --add-label "label1,label2"
+        **DO NOT ASSUME gh is unavailable. ACTUALLY RUN the commands.**
 
-        For each update, add a comment:
+        ## STEP 1: VERIFY gh IS WORKING (REQUIRED FIRST)
+
+        Run this command to confirm gh access:
+        ```bash
+        gh auth status
+        ```
+
+        ## STEP 2: APPLY ENHANCEMENTS
+
+        For each issue in the enhancement plan, execute these REAL commands:
+
+        **Update title:**
+        ```bash
+        gh issue edit <number> --repo <repo> --title "new title"
+        ```
+
+        **Update body:**
+        ```bash
+        gh issue edit <number> --repo <repo> --body "enhanced body content"
+        ```
+
+        **Add labels:**
+        ```bash
+        gh issue edit <number> --repo <repo> --add-label "label1,label2"
+        ```
+
+        **Add comment:**
+        ```bash
         gh issue comment <number> --repo <repo> --body "Issue enhanced by Wave automation for improved clarity and completeness."
+        ```
 
-        Track all changes and errors.
+        ## STEP 3: RECORD RESULTS
+
+        After ACTUALLY executing each command, record success or failure based on the REAL output.
+
+        Track all changes and errors from ACTUAL command execution.
 
         **CRITICAL JSON VALIDATION PROTOCOL**:
         Execute this comprehensive validation for enhancement results:
