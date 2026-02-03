@@ -36,7 +36,7 @@
 
 **Purpose**: Create the prototype pipeline definition and supporting configuration
 
-- [ ] T001 Create prototype pipeline YAML skeleton in .wave/pipelines/prototype.yaml
+- [x] T001 Create prototype pipeline YAML skeleton in .wave/pipelines/prototype.yaml
 - [ ] T002 [P] Add specifier persona configuration to wave.yaml for spec phase
 - [ ] T003 [P] Add documenter persona configuration to wave.yaml for docs phase
 - [ ] T004 [P] Add prototyper persona configuration to wave.yaml for dummy phase
@@ -54,11 +54,11 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create spec phase output contract schema in .wave/contracts/spec-phase.schema.json
-- [ ] T009 [P] Create docs phase output contract schema in .wave/contracts/docs-phase.schema.json
-- [ ] T010 [P] Create dummy phase output contract schema in .wave/contracts/dummy-phase.schema.json
-- [ ] T011 [P] Create implementation phase contract schema in .wave/contracts/implement-phase.schema.json
-- [ ] T012 Define artifact paths and naming convention for prototype pipeline artifacts
+- [x] T008 Create spec phase output contract schema in .wave/contracts/spec-phase.schema.json
+- [x] T009 [P] Create docs phase output contract schema in .wave/contracts/docs-phase.schema.json
+- [x] T010 [P] Create dummy phase output contract schema in .wave/contracts/dummy-phase.schema.json
+- [x] T011 [P] Create implementation phase contract schema in .wave/contracts/implement-phase.schema.json
+- [x] T012 Define artifact paths and naming convention for prototype pipeline artifacts
 
 **Checkpoint**: Foundation ready - all contracts defined, user story implementation can begin
 
