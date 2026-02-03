@@ -43,7 +43,7 @@ func (s *Spinner) Start() {
 	s.running = true
 	s.current = 0
 	s.stopChan = make(chan struct{})
-	s.ticker = time.NewTicker(100 * time.Millisecond)
+	s.ticker = time.NewTicker(33 * time.Millisecond) // 30 FPS for smooth animation
 
 	go s.animate()
 }
