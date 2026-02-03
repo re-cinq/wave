@@ -122,10 +122,8 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(gh *)
-            deny:
-                - Write(*)
-                - Edit(*)
+                - Bash
+                - Write
         system_prompt_file: .wave/personas/github-analyst.md
         temperature: 0.2
     github-enhancer:
@@ -134,11 +132,10 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(artifact.json)
-                - Bash(gh *)
+                - Write
+                - Bash
             deny:
                 - Bash(rm *)
-                - Bash(git push*)
         system_prompt_file: .wave/personas/github-enhancer.md
         temperature: 0.3
     github-pr-creator:
@@ -147,9 +144,8 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(artifact.json)
-                - Bash(gh *)
-                - Bash(git *)
+                - Write
+                - Bash
             deny:
                 - Bash(rm *)
                 - Bash(git push --force*)
