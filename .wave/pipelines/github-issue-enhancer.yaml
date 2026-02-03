@@ -34,14 +34,14 @@ steps:
 
         You are in ACTION MODE. You MUST execute real GitHub CLI commands to analyze actual repository data.
 
-        Repository: {{ input.repo }}
-        Quality threshold: {{ input.threshold | default: 70 }}
+        Input: {{ input }}
+        (Parse the JSON input to get "repo" for the repository and optional "threshold" for quality threshold, default 70)
 
         ## STEP 1: EXECUTE GITHUB CLI COMMAND (REQUIRED)
 
-        **First, you MUST run this exact command:**
+        **First, you MUST run this exact command (replace REPO with the repo value from input):**
         ```bash
-        gh issue list --repo {{ input.repo }} --limit 100 --json number,title,body,labels,url,state
+        gh issue list --repo REPO --limit 100 --json number,title,body,labels,url,state
         ```
 
         **Show the command execution and output like this:**
@@ -369,7 +369,7 @@ steps:
         progressive_validation: false
 
   - id: verify-enhancements
-    persona: navigator
+    persona: github-analyst
     dependencies: [apply-enhancements]
     memory:
       strategy: fresh
