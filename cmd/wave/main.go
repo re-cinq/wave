@@ -21,8 +21,8 @@ var rootCmd = &cobra.Command{
   ╚╩╝╩ ╩ ╚╝ ╚═╝
   Multi-Agent Pipeline Orchestrator
 
-Wave coordinates multiple AI personas through structured pipelines,
-enforcing permissions, contracts, and workspace isolation at every step.`,
+  Wave coordinates multiple AI personas through structured pipelines,
+  enforcing permissions, contracts, and workspace isolation at every step.`,
 	Version: version,
 }
 
