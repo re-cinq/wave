@@ -1,4 +1,5 @@
 ---
+name: spec-driven-development
 description: Expert specification-driven development including TDD/BDD integration, living documentation, specification-to-code workflows, and validation strategies
 ---
 

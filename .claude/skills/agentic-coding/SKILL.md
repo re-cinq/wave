@@ -1,4 +1,5 @@
 ---
+name: agentic-coding
 description: Expert agentic coding methodologies including autonomous AI development, multi-agent systems, and self-improving code generation
 ---
 

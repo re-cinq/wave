@@ -1,4 +1,5 @@
 ---
+name: ddd
 description: Expert Domain-Driven Design (DDD) implementation including bounded contexts, ubiquitous language, aggregates, repositories, domain events, and strategic DDD patterns
 ---
 

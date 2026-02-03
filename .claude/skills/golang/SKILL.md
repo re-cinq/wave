@@ -1,4 +1,5 @@
 ---
+name: golang
 description: Expert Go language development including idiomatic patterns, concurrency, performance optimization, and ecosystem best practices
 ---
 

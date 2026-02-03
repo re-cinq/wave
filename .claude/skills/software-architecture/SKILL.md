@@ -1,4 +1,5 @@
 ---
+name: software-architecture
 description: Expert software architecture including architectural patterns, system design, scalability, performance, and architectural decision frameworks
 ---
 
