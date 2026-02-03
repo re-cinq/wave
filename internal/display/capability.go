@@ -126,10 +126,10 @@ func GetOptimalDisplayConfig() DisplayConfig {
 		animation = AnimationDots
 	}
 
-	// Refresh rate: slower for non-TTY or limited terminals
-	refreshRate := 10 // 10 updates per second
+	// Refresh rate: smooth animations for modern CLI feel
+	refreshRate := 30 // 30 FPS for smooth animations like btop+/opencode
 	if !ti.IsTTY() {
-		refreshRate = 1
+		refreshRate = 1 // Still slow for non-interactive
 	}
 
 	return DisplayConfig{

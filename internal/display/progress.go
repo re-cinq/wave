@@ -275,7 +275,7 @@ func NewProgressDisplay(pipelineID, pipelineName string, totalSteps int) *Progre
 		stepOrder:     make([]string, 0, totalSteps),
 		overallBar:    overallBar,
 		startTime:     time.Now(),
-		refreshRate:   100 * time.Millisecond,
+		refreshRate:   33 * time.Millisecond, // 30 FPS for smooth progress updates
 		enabled:       termInfo.IsTTY() && termInfo.SupportsANSI(),
 		linesRendered: 0,
 	}
