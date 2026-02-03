@@ -1,0 +1,370 @@
+kind: WavePipeline
+metadata:
+  name: deterministic-feature-pipeline
+  description: "Feature implementation pipeline with deterministic outputs and rollback support"
+
+input:
+  source: cli
+  schema:
+    type: object
+    required: [feature_description]
+    properties:
+      feature_description:
+        type: string
+        description: "Feature to implement"
+
+steps:
+  - id: analyze-feature
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Analyze the feature request and create a structured implementation plan.
+
+        Feature: {{ input.feature_description }}
+
+        You MUST output ONLY valid JSON matching this exact structure.
+        Do NOT include markdown code blocks, explanations, or any text outside the JSON.
+
+        Output to artifact.json:
+        {
+          "feature_title": "Clear, specific feature title (10-200 chars)",
+          "feature_description": "Detailed description (min 100 chars)",
+          "requirements": [
+            "Specific requirement 1",
+            "Specific requirement 2"
+          ],
+          "acceptance_criteria": [
+            "Testable criterion 1",
+            "Testable criterion 2"
+          ],
+          "affected_files": ["path/to/file1.go", "path/to/file2.go"],
+          "estimated_effort": "small|medium|large|extra-large",
+          "implementation_approach": "High-level approach (min 50 chars)",
+          "risks": ["Risk 1", "Risk 2"]
+        }
+    output_artifacts:
+      - name: analysis
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/feature-analysis.schema.json
+        validate: true
+        must_pass: true
+        max_retries: 3
+      quality_gates:
+        - type: required_fields
+          target: artifact.json
+          required: true
+          parameters:
+            fields: ["feature_title", "requirements", "acceptance_criteria", "affected_files"]
+        - type: content_completeness
+          target: artifact.json
+          threshold: 80
+          parameters:
+            min_words: 50
+        - type: json_structure
+          target: artifact.json
+          required: true
+
+  - id: create-github-issue
+    persona: github-issue-creator
+    dependencies: [analyze-feature]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-feature
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Create a GitHub issue for this feature.
+
+        CRITICAL: Output ONLY valid JSON. No markdown, no explanations.
+        Follow the EXACT schema requirements.
+
+        Requirements:
+        - Title: 10-200 characters, clear and specific
+        - Body: Minimum 100 characters with proper sections
+        - Labels: At least one from allowed list
+        - NO placeholder text like [TODO], [PLACEHOLDER], TBD, FIXME
+
+        Body MUST include these sections in markdown:
+        ## Description
+        [Detailed feature description]
+
+        ## Acceptance Criteria
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+
+        ## Technical Approach
+        [Implementation approach]
+
+        ## Estimated Effort
+        [Effort estimate]
+
+        Output to artifact.json:
+        {
+          "title": "feat: Implement [feature name]",
+          "body": "[Full markdown body with sections above]",
+          "labels": ["enhancement", "priority-medium"],
+          "related_issues": [],
+          "estimated_effort": "medium"
+        }
+    output_artifacts:
+      - name: issue_data
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/deterministic-github-issue.schema.json
+        validate: true
+        must_pass: true
+        max_retries: 3
+      quality_gates:
+        - type: verification
+          required: true
+          parameters:
+            rules:
+              - type: cross_reference
+                target: artifact.json
+
+  - id: implement-feature
+    persona: craftsman
+    dependencies: [create-github-issue]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-feature
+          artifact: analysis
+          as: analysis
+        - step: create-github-issue
+          artifact: issue_data
+          as: issue
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Implement the feature based on the analysis.
+
+        CRITICAL REQUIREMENTS:
+        1. Code MUST compile successfully
+        2. All tests MUST pass
+        3. Add new tests for new functionality
+        4. Follow existing code patterns
+        5. Add comprehensive error handling
+
+        Output ONLY valid JSON:
+        {
+          "status": "success|partial|failed",
+          "files_created": [
+            {"path": "path/to/file.go", "type": "implementation", "description": "What this file does"}
+          ],
+          "files_modified": [
+            {"path": "path/to/file.go", "type": "implementation", "description": "Changes made"}
+          ],
+          "test_content": {
+            "test_count": 5,
+            "assertions_count": 15,
+            "coverage_areas": ["feature X", "edge case Y"]
+          },
+          "builds_successfully": true,
+          "tests_passed": true,
+          "implementation_notes": "Detailed notes on implementation approach and decisions (min 50 chars)",
+          "run_instructions": "go test ./...",
+          "issues_encountered": []
+        }
+    output_artifacts:
+      - name: implementation
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/implementation-results.schema.json
+        validate: true
+        must_pass: true
+        max_retries: 2
+      quality_gates:
+        - type: verification
+          required: true
+          parameters:
+            rules:
+              - type: code_compilation
+                command: "go build ./..."
+              - type: test_execution
+                command: "go test ./..."
+              - type: file_existence
+                files:
+                  - "artifact.json"
+
+  - id: create-pull-request
+    persona: github-pr-creator
+    dependencies: [implement-feature]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-feature
+          artifact: analysis
+          as: analysis
+        - step: create-github-issue
+          artifact: issue_data
+          as: issue
+        - step: implement-feature
+          artifact: implementation
+          as: implementation
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Create a comprehensive pull request.
+
+        STRICT FORMAT REQUIREMENTS:
+        - Title: 10-72 chars, conventional commit format (feat/fix/docs: description)
+        - Body: Minimum 100 chars with required sections
+        - Head branch: Cannot be main/master
+        - Tests must pass (tests_passed: true)
+        - At least 1 file changed
+        - Must close at least one issue
+
+        Body MUST include:
+        ## Summary
+        [2-3 sentence overview]
+
+        ## Changes
+        - Specific change 1
+        - Specific change 2
+
+        ## Testing
+        - Test approach
+        - Test coverage added
+        - Manual testing done
+
+        ## Related Issues
+        Closes #[issue-number]
+
+        ## Checklist
+        - [x] Tests added/updated
+        - [x] Tests passing
+        - [x] Code follows conventions
+
+        Output ONLY valid JSON:
+        {
+          "title": "feat: Add feature X",
+          "body": "[Full markdown body with sections]",
+          "head": "feature/feature-x",
+          "base": "main",
+          "changes_summary": {
+            "files_changed": 3,
+            "additions": 150,
+            "deletions": 20,
+            "files_list": ["file1.go", "file2.go", "file1_test.go"]
+          },
+          "testing_done": {
+            "tests_added": true,
+            "tests_passed": true,
+            "manual_testing": "Tested scenarios X, Y, Z with expected results",
+            "test_commands": ["go test ./..."]
+          },
+          "closes_issues": [123],
+          "related_prs": [],
+          "breaking_changes": false,
+          "labels": ["enhancement", "ready-for-review"],
+          "reviewers": [],
+          "draft": false
+        }
+    output_artifacts:
+      - name: pr_data
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/deterministic-pr-creation.schema.json
+        validate: true
+        must_pass: true
+        max_retries: 3
+      quality_gates:
+        - type: verification
+          required: true
+          parameters:
+            rules:
+              - type: cross_reference
+                target: artifact.json
+              - type: link_validation
+                target: artifact.json
+
+  - id: verify-deliverables
+    persona: navigator
+    dependencies: [create-pull-request]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: create-github-issue
+          artifact: issue_data
+          as: issue
+        - step: implement-feature
+          artifact: implementation
+          as: implementation
+        - step: create-pull-request
+          artifact: pr_data
+          as: pr
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Verify all deliverables are complete and correct.
+
+        Verification checklist:
+        1. Issue was created with proper format
+        2. Code was implemented and tests pass
+        3. PR was created with comprehensive description
+        4. All cross-references are valid
+        5. No placeholders or incomplete content
+
+        Output verification report:
+        {
+          "pipeline_successful": true,
+          "deliverables": {
+            "github_issue": {
+              "created": true,
+              "url": "[issue URL]",
+              "verified": true
+            },
+            "implementation": {
+              "complete": true,
+              "tests_passing": true,
+              "verified": true
+            },
+            "pull_request": {
+              "created": true,
+              "url": "[PR URL]",
+              "verified": true
+            }
+          },
+          "quality_score": 95,
+          "issues_found": [],
+          "summary": "All deliverables successfully created and verified"
+        }
+    output_artifacts:
+      - name: verification
+        path: artifact.json
+        type: json
+        required: true

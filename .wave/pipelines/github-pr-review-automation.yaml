@@ -1,0 +1,501 @@
+kind: WavePipeline
+metadata:
+  name: github-pr-review-automation
+  description: "Production pipeline to perform automated comprehensive code review on GitHub pull requests"
+
+input:
+  source: cli
+  schema:
+    type: object
+    required: [repo, pr]
+    properties:
+      repo:
+        type: string
+        description: "GitHub repository in owner/name format"
+        pattern: "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
+      pr:
+        type: integer
+        description: "Pull request number to review"
+        minimum: 1
+      post_review:
+        type: boolean
+        description: "Whether to post the review as comments (default: false for safety)"
+        default: false
+
+steps:
+  - id: fetch-pr-data
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+      mount:
+        - source: ./
+          target: /repo
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Fetch comprehensive data about the pull request for review.
+
+        Repository: {{ input.repo }}
+        PR Number: #{{ input.pr }}
+
+        Your task:
+        1. Use gh CLI to fetch PR metadata (title, body, labels, author)
+        2. Get the list of changed files with diff stats
+        3. Fetch all commits in the PR
+        4. Get the actual diff content for each file
+        5. Check CI/CD status if available
+        6. Identify the programming language(s) involved
+
+        Commands:
+        - gh pr view {{ input.pr }} --repo {{ input.repo }} --json number,title,body,state,labels,author,baseRefName,headRefName,url,createdAt,commits
+        - gh pr diff {{ input.pr }} --repo {{ input.repo }}
+        - gh pr checks {{ input.pr }} --repo {{ input.repo }}
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "repository": {
+            "owner": "owner-name",
+            "name": "repo-name"
+          },
+          "title": "PR title",
+          "body": "PR description",
+          "state": "open",
+          "base": "main",
+          "head": "feature-branch",
+          "labels": ["enhancement"],
+          "url": "https://github.com/owner/repo/pull/123",
+          "author": "username",
+          "created_at": "2026-02-03T10:00:00Z",
+          "files_changed": [
+            {
+              "path": "internal/adapter/github.go",
+              "status": "modified",
+              "additions": 150,
+              "deletions": 20,
+              "changes": 170
+            }
+          ],
+          "commits": [
+            {
+              "sha": "abc123",
+              "message": "feat: add GitHub adapter",
+              "author": "username"
+            }
+          ],
+          "diff_stats": {
+            "total_additions": 300,
+            "total_deletions": 50,
+            "total_files": 5
+          }
+        }
+    output_artifacts:
+      - name: pr_data
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-pr-data.schema.json
+        validate: true
+        must_pass: true
+
+  - id: security-review
+    persona: auditor
+    dependencies: [fetch-pr-data]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: fetch-pr-data
+          artifact: pr_data
+          as: pr
+    workspace:
+      root: ./
+      mount:
+        - source: ./
+          target: /repo
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a comprehensive security review of the PR changes.
+
+        Focus on:
+        1. **Input Validation**: Check for missing validation, injection vulnerabilities
+        2. **Authentication/Authorization**: Verify proper access controls
+        3. **Data Exposure**: Check for leaked secrets, credentials, sensitive data
+        4. **Cryptography**: Review crypto usage, ensure secure algorithms
+        5. **Dependencies**: Check for known vulnerable dependencies
+        6. **Error Handling**: Ensure errors don't leak sensitive information
+        7. **Race Conditions**: Look for concurrency issues
+        8. **Resource Leaks**: Check for file handle, connection leaks
+        9. **Path Traversal**: Validate file path operations
+        10. **Deserialization**: Check for unsafe deserialization
+
+        For each file changed:
+        - Review the actual code changes (use gh pr diff)
+        - Identify security issues with specific line numbers
+        - Rate severity: critical, high, medium, low, info
+        - Provide concrete suggestions for fixes
+
+        Commands:
+        - gh pr diff {{ input.pr }} --repo {{ input.repo }}
+        - Read changed files in the repository
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "security_findings": [
+            {
+              "type": "security",
+              "severity": "high",
+              "file_path": "internal/adapter/github.go",
+              "line_number": 145,
+              "message": "API token is logged in error message, potential credential leak",
+              "suggestion": "Sanitize error messages to exclude tokens. Use a generic error or scrub sensitive data."
+            }
+          ],
+          "critical_count": 0,
+          "high_count": 1,
+          "medium_count": 2,
+          "low_count": 3,
+          "total_issues": 6
+        }
+    output_artifacts:
+      - name: security_review
+        path: artifact.json
+        type: json
+        required: true
+
+  - id: quality-review
+    persona: auditor
+    dependencies: [fetch-pr-data]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: fetch-pr-data
+          artifact: pr_data
+          as: pr
+    workspace:
+      root: ./
+      mount:
+        - source: ./
+          target: /repo
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a comprehensive code quality review of the PR changes.
+
+        Focus on:
+        1. **Error Handling**: Completeness, proper error types, helpful messages
+        2. **Testing**: Test coverage, edge cases, integration tests
+        3. **Code Structure**: Clarity, single responsibility, proper abstraction
+        4. **Naming**: Clear, consistent, follows conventions
+        5. **Performance**: Algorithm efficiency, resource usage, caching
+        6. **Documentation**: Comments, godoc, README updates
+        7. **Maintainability**: Code duplication, complexity, readability
+        8. **Edge Cases**: Boundary conditions, null/empty handling
+        9. **Backwards Compatibility**: Breaking changes, migrations
+        10. **Best Practices**: Language idioms, project conventions
+
+        For each file changed:
+        - Review the code changes
+        - Identify quality issues with specific line numbers
+        - Note positive aspects of the code
+        - Rate severity: critical, high, medium, low, info
+        - Provide concrete suggestions
+
+        Commands:
+        - gh pr diff {{ input.pr }} --repo {{ input.repo }}
+        - Read changed files and related test files
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "quality_findings": [
+            {
+              "type": "quality",
+              "severity": "medium",
+              "file_path": "internal/adapter/github.go",
+              "line_number": 78,
+              "message": "Error is returned without context about which operation failed",
+              "suggestion": "Wrap error with context: return fmt.Errorf(\"failed to fetch PR data: %w\", err)"
+            },
+            {
+              "type": "testing",
+              "severity": "high",
+              "file_path": "internal/adapter/github.go",
+              "message": "No tests found for new GitHub adapter functionality",
+              "suggestion": "Add unit tests for adapter functions, especially error paths and edge cases"
+            },
+            {
+              "type": "positive",
+              "severity": "info",
+              "message": "Good use of structured logging with context fields",
+              "file_path": "internal/adapter/github.go",
+              "line_number": 92
+            }
+          ],
+          "high_count": 1,
+          "medium_count": 3,
+          "low_count": 2,
+          "positive_count": 4,
+          "total_issues": 6
+        }
+    output_artifacts:
+      - name: quality_review
+        path: artifact.json
+        type: json
+        required: true
+
+  - id: synthesize-review
+    persona: auditor
+    dependencies: [security-review, quality-review]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: fetch-pr-data
+          artifact: pr_data
+          as: pr
+        - step: security-review
+          artifact: security_review
+          as: security
+        - step: quality-review
+          artifact: quality_review
+          as: quality
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Synthesize the security and quality reviews into a comprehensive PR review.
+
+        Your task:
+        1. Combine findings from both security and quality reviews
+        2. Deduplicate any overlapping issues
+        3. Prioritize issues by severity and impact
+        4. Group related issues together
+        5. Extract positive observations
+        6. Determine overall assessment:
+           - APPROVE: No critical/high issues, only minor improvements suggested
+           - REQUEST_CHANGES: Critical or high severity issues that must be fixed
+           - COMMENT: Medium/low issues, recommendations, or questions
+
+        7. Create a clear, actionable summary for the PR author
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "repository": {
+            "owner": "owner-name",
+            "name": "repo-name"
+          },
+          "pr_title": "Add GitHub adapter integration",
+          "pr_url": "https://github.com/owner/repo/pull/123",
+          "review_comments": [
+            {
+              "type": "security",
+              "severity": "high",
+              "message": "API token is logged in error message",
+              "file_path": "internal/adapter/github.go",
+              "line_number": 145,
+              "suggestion": "Sanitize error messages to exclude tokens"
+            },
+            {
+              "type": "testing",
+              "severity": "high",
+              "message": "No tests found for new functionality",
+              "suggestion": "Add unit tests for adapter functions"
+            },
+            {
+              "type": "quality",
+              "severity": "medium",
+              "message": "Error lacks context",
+              "file_path": "internal/adapter/github.go",
+              "line_number": 78,
+              "suggestion": "Wrap error with context using fmt.Errorf"
+            },
+            {
+              "type": "positive",
+              "severity": "info",
+              "message": "Excellent structured logging with context fields"
+            }
+          ],
+          "overall_assessment": "REQUEST_CHANGES",
+          "summary": "This PR adds valuable GitHub adapter functionality, but requires fixes before merging. The implementation shows good practices like structured logging, but has 2 high-severity issues that must be addressed: potential credential leak in logging and missing test coverage.",
+          "security_issues": 1,
+          "quality_issues": 5,
+          "positive_notes": [
+            "Clean interface design",
+            "Good error handling structure",
+            "Comprehensive documentation",
+            "Follows project conventions"
+          ],
+          "must_fix": [
+            "Remove token from error logging (security risk)",
+            "Add test coverage for new adapter functions"
+          ],
+          "should_fix": [
+            "Add error context to all error returns",
+            "Consider adding integration tests",
+            "Document rate limiting behavior"
+          ],
+          "timestamp": "2026-02-03T10:30:00Z"
+        }
+    output_artifacts:
+      - name: review
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-pr-review.schema.json
+        validate: true
+        must_pass: true
+
+  - id: post-review
+    persona: github-enhancer
+    dependencies: [synthesize-review]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: synthesize-review
+          artifact: review
+          as: review
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Post the review to the GitHub pull request.
+
+        Repository: {{ input.repo }}
+        PR: #{{ input.pr }}
+        Post review: {{ input.post_review | default: false }}
+
+        **IMPORTANT**: Only post if post_review is true. If false, just prepare the review text.
+
+        Review posting format:
+        1. Create a general review comment with the summary
+        2. Optionally add inline comments for specific file/line issues
+        3. Use the appropriate review event:
+           - APPROVE for approval
+           - REQUEST_CHANGES for must-fix issues
+           - COMMENT for suggestions only
+
+        Markdown format for review body:
+        ```markdown
+        ## Automated Code Review
+
+        {summary}
+
+        ### Must Fix
+        {must_fix items}
+
+        ### Should Consider
+        {should_fix items}
+
+        ### Positive Notes
+        {positive_notes}
+
+        ### Detailed Findings
+
+        #### Security Issues ({count})
+        {security findings with file:line references}
+
+        #### Quality Issues ({count})
+        {quality findings with file:line references}
+
+        ---
+        _Automated review by Wave PR Review Pipeline_
+        _Review timestamp: {timestamp}_
+        ```
+
+        Commands (only if post_review is true):
+        - gh pr review {{ input.pr }} --repo {{ input.repo }} --{approve|request-changes|comment} --body "[review body]"
+
+        For inline comments (optional):
+        - gh pr review {{ input.pr }} --repo {{ input.repo }} --comment --body "[comment]" --file "[path]" --line [number]
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "review_posted": true/false,
+          "review_type": "REQUEST_CHANGES",
+          "review_url": "https://github.com/owner/repo/pull/123#pullrequestreview-123456",
+          "inline_comments_posted": 5,
+          "post_enabled": {{ input.post_review | default: false }},
+          "review_text": "[full review markdown]",
+          "timestamp": "2026-02-03T10:35:00Z"
+        }
+    output_artifacts:
+      - name: posting_results
+        path: artifact.json
+        type: json
+        required: true
+
+  - id: verify-review
+    persona: navigator
+    dependencies: [post-review]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: post-review
+          artifact: posting_results
+          as: results
+        - step: synthesize-review
+          artifact: review
+          as: review
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Verify the review was processed correctly.
+
+        Repository: {{ input.repo }}
+        PR: #{{ input.pr }}
+
+        Tasks:
+        1. If review was posted, verify it appears on the PR
+        2. Check that the review type matches (approve/request-changes/comment)
+        3. Verify all expected content is present
+        4. Confirm inline comments were posted (if any)
+
+        Commands:
+        - gh pr view {{ input.pr }} --repo {{ input.repo }} --json reviews
+        - gh pr view {{ input.pr }} --repo {{ input.repo }} --comments
+
+        Output to artifact.json:
+        {
+          "pr_number": {{ input.pr }},
+          "pr_url": "https://github.com/owner/repo/pull/123",
+          "review_completed": true,
+          "review_posted": true/false,
+          "review_verified": true,
+          "findings_summary": {
+            "security_issues": 1,
+            "quality_issues": 5,
+            "total_comments": 12,
+            "positive_notes": 4
+          },
+          "overall_assessment": "REQUEST_CHANGES",
+          "summary": "Comprehensive automated review completed for PR #{{ input.pr }}. Found 1 security issue and 5 quality issues. Review {{ input.post_review | default: false ? 'posted to PR' : 'prepared but not posted (use post_review: true to post)' }}."
+        }
+    output_artifacts:
+      - name: verification_report
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-verification-report.schema.json
+        validate: true
+        must_pass: true

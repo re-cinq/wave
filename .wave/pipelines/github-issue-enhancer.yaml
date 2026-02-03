@@ -1,0 +1,268 @@
+kind: WavePipeline
+metadata:
+  name: github-issue-enhancer
+  description: "Production pipeline to analyze and enhance poorly documented GitHub issues"
+
+input:
+  source: cli
+  schema:
+    type: object
+    required: [repo]
+    properties:
+      repo:
+        type: string
+        description: "GitHub repository in owner/name format"
+        pattern: "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
+      threshold:
+        type: integer
+        description: "Quality threshold (0-100), issues below this will be enhanced"
+        default: 70
+        minimum: 0
+        maximum: 100
+
+steps:
+  - id: scan-issues
+    persona: github-analyst
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Analyze GitHub repository issues for quality.
+
+        Repository: {{ input.repo }}
+        Quality threshold: {{ input.threshold | default: 70 }}
+
+        Your task:
+        1. Use gh CLI to list all open issues in the repository
+        2. Analyze each issue for completeness and clarity
+        3. Calculate quality scores based on:
+           - Title quality (length, specificity, capitalization)
+           - Description quality (completeness, structure, examples)
+           - Label presence and appropriateness
+        4. Identify issues scoring below the threshold
+
+        Commands to use:
+        - gh issue list --repo {{ input.repo }} --limit 100 --json number,title,body,labels,url,state
+        - Parse and analyze each issue
+
+        Output to artifact.json with this structure:
+        {
+          "repository": {
+            "owner": "owner-name",
+            "name": "repo-name"
+          },
+          "total_issues": 50,
+          "analyzed_count": 50,
+          "poor_quality_issues": [
+            {
+              "number": 123,
+              "title": "current title",
+              "body": "current description",
+              "quality_score": 45,
+              "problems": ["Title too short", "No description"],
+              "recommendations": ["Expand title", "Add structured description"],
+              "labels": ["bug"],
+              "url": "https://github.com/owner/repo/issues/123"
+            }
+          ],
+          "quality_threshold": 70,
+          "timestamp": "2026-02-03T10:00:00Z"
+        }
+    output_artifacts:
+      - name: issue_analysis
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-issue-analysis.schema.json
+        validate: true
+        must_pass: true
+
+  - id: plan-enhancements
+    persona: github-analyst
+    dependencies: [scan-issues]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan-issues
+          artifact: issue_analysis
+          as: analysis
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Create an enhancement plan for poor quality issues.
+
+        Based on the analysis, for each issue that needs improvement:
+        1. Draft improved title (if needed) - clear, specific, properly capitalized
+        2. Create enhanced description template that preserves original content
+        3. Suggest appropriate labels based on content
+        4. Provide rationale for each enhancement
+        5. Prioritize issues (high/medium/low based on severity of quality problems)
+
+        Guidelines:
+        - Preserve all original information
+        - Add structure, don't replace content
+        - Use markdown formatting for clarity
+        - Suggest actionable, specific improvements
+
+        Output to artifact.json:
+        {
+          "issues_to_enhance": [
+            {
+              "issue_number": 123,
+              "current_title": "bug",
+              "suggested_title": "Authentication Fails When Using OAuth Provider",
+              "current_body": "doesn't work",
+              "body_template": "## Description\ndoesn't work\n\n## Steps to Reproduce\n1. [To be added]\n\n## Expected Behavior\n[To be added]\n\n## Actual Behavior\n[To be added]",
+              "suggested_labels": ["bug", "authentication", "needs-reproduction"],
+              "enhancements": ["Expand vague title", "Add structured template", "Add relevant labels"],
+              "rationale": "Issue lacks essential debugging information",
+              "priority": "high"
+            }
+          ],
+          "total_to_enhance": 5,
+          "enhancement_strategy": "Add structure and clarity while preserving original content"
+        }
+    output_artifacts:
+      - name: enhancement_plan
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-enhancement-plan.schema.json
+        validate: true
+        must_pass: true
+
+  - id: apply-enhancements
+    persona: github-enhancer
+    dependencies: [plan-enhancements]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: plan-enhancements
+          artifact: enhancement_plan
+          as: plan
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Apply the enhancement plan to GitHub issues.
+
+        For each issue in the plan:
+        1. Use gh CLI to update the issue
+        2. Update title if suggested
+        3. Update body with enhanced template
+        4. Add suggested labels
+        5. Add a comment noting the enhancement was automated
+
+        Commands:
+        - gh issue edit <number> --repo <repo> --title "new title"
+        - gh issue edit <number> --repo <repo> --body "$(cat <<'EOF'
+          [enhanced body]
+          EOF
+          )"
+        - gh issue edit <number> --repo <repo> --add-label "label1,label2"
+
+        For each update, add a comment:
+        gh issue comment <number> --repo <repo> --body "Issue enhanced by Wave automation for improved clarity and completeness."
+
+        Track all changes and errors.
+
+        Output to artifact.json:
+        {
+          "enhanced_issues": [
+            {
+              "issue_number": 123,
+              "success": true,
+              "title_updated": true,
+              "body_updated": true,
+              "labels_added": ["authentication", "needs-reproduction"],
+              "url": "https://github.com/owner/repo/issues/123",
+              "timestamp": "2026-02-03T10:05:00Z"
+            }
+          ],
+          "total_enhanced": 5,
+          "total_failed": 0,
+          "errors": []
+        }
+    output_artifacts:
+      - name: enhancement_results
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-enhancement-results.schema.json
+        validate: true
+        must_pass: true
+
+  - id: verify-enhancements
+    persona: navigator
+    dependencies: [apply-enhancements]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: apply-enhancements
+          artifact: enhancement_results
+          as: results
+        - step: scan-issues
+          artifact: issue_analysis
+          as: original_analysis
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Verify that issue enhancements were successful.
+
+        For each enhanced issue:
+        1. Fetch current issue state with gh CLI
+        2. Verify title was updated (if planned)
+        3. Verify body was updated with template
+        4. Verify labels were added
+        5. Check that enhancement comment was posted
+
+        Commands:
+        - gh issue view <number> --repo <repo> --json number,title,body,labels,comments
+
+        Compare with original analysis and enhancement plan.
+
+        Output to artifact.json:
+        {
+          "verified_issues": [
+            {
+              "issue_number": 123,
+              "verified": true,
+              "title_matches": true,
+              "body_enhanced": true,
+              "labels_added": true,
+              "comment_posted": true,
+              "url": "https://github.com/owner/repo/issues/123"
+            }
+          ],
+          "total_verified": 5,
+          "all_successful": true,
+          "issues_found": [],
+          "summary": "Successfully enhanced 5 issues with improved titles, descriptions, and labels."
+        }
+    output_artifacts:
+      - name: verification_report
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/github-verification-report.schema.json
+        validate: true
