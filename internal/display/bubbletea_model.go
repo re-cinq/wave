@@ -2,7 +2,6 @@ package display
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -162,32 +161,16 @@ func (m *ProgressModel) renderProgress() string {
 	var progressBar string
 	progressBar = "["
 
-	// Calculate gradient breathing animation
+	// Calculate pulse position (moves across the empty area)
 	now := time.Now().UnixMilli()
-	breatheInterval := int64(1500) // 1.5 second breathing cycle
-	breatheCycle := now % breatheInterval
+	pulseInterval := int64(1000) // 1 second cycle for faster, more visible animation
+	pulseCycle := now % pulseInterval
 
-	// Create breathing phases: expand -> peak -> contract -> soft
-	var gradientSize int
-	phase := float64(breatheCycle) / float64(breatheInterval)
-
-	if phase < 0.25 {
-		// Expanding phase: 0 -> 3 gradient chars
-		gradientSize = int(phase * 12) // 0 to 3
-	} else if phase < 0.5 {
-		// Peak phase: hold at 3 gradient chars
-		gradientSize = 3
-	} else if phase < 0.75 {
-		// Contracting phase: 3 -> 2 gradient chars
-		gradientSize = 3 - int((phase-0.5)*4) // 3 to 2
-	} else {
-		// Soft phase: 2 gradient chars
-		gradientSize = 2
-	}
-
-	// Ensure gradient doesn't exceed empty space
-	if gradientSize > empty {
-		gradientSize = empty
+	// Pulse moves across the entire empty area in one cycle
+	pulsePos := -1 // -1 means no pulse
+	if empty > 0 {
+		// Pulse position within empty area (0 to empty-1)
+		pulsePos = int((pulseCycle * int64(empty)) / pulseInterval)
 	}
 
 	// Render filled portion - Wave cyan color (matches logo)
@@ -196,29 +179,18 @@ func (m *ProgressModel) renderProgress() string {
 		progressBar += filledChar
 	}
 
-	// Render empty portion with gradient breathing effect
+	// Render empty portion with pulsing wave
 	for i := 0; i < empty; i++ {
 		var char string
 		var style lipgloss.Style
 
-		if i < gradientSize {
-			// Gradient area - different characters based on position
-			if i == 0 {
-				// First gradient character (closest to filled)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
-			} else if i < gradientSize-1 {
-				// Middle gradient characters
-				char = "▓"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
-			} else {
-				// Last gradient character (fading edge)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Medium gray
-			}
+		if i == pulsePos {
+			// Pulse character - wave-like character fitting Wave theme
+			char = "~"
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true) // Wave cyan, bold
 		} else {
-			// Normal empty character - light shade block
-			char = "░"
+			// Normal empty character - simple ASCII with muted color
+			char = "."
 			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
 		}
 
@@ -257,31 +229,6 @@ func (m *ProgressModel) renderProgress() string {
 }
 
 // renderCurrentStep shows detailed step information with loading indicators
-// truncateLog intelligently truncates log messages for inline display
-func truncateLog(message string, maxLen int) string {
-	if len(message) <= maxLen {
-		return message
-	}
-
-	// Handle file paths specially
-	if strings.Contains(message, "/") {
-		// Try to compress file paths
-		parts := strings.Split(message, "/")
-		if len(parts) > 3 {
-			compressed := parts[0] + "/.../" + parts[len(parts)-1]
-			if len(compressed) <= maxLen {
-				return compressed
-			}
-		}
-	}
-
-	// Standard truncation with ellipsis
-	if maxLen > 3 {
-		return message[:maxLen-3] + "..."
-	}
-	return message[:maxLen]
-}
-
 func (m *ProgressModel) renderCurrentStep() string {
 	var steps []string
 
@@ -310,30 +257,8 @@ func (m *ProgressModel) renderCurrentStep() string {
 				durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
 			}
 		}
-		// Format step with inline log
-		baseStep := fmt.Sprintf("✓ %s (%s)", stepID, durationText)
-		styledStep := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(baseStep) // Bright cyan like logo
-
-		// Add inline log if available
-		stepLine := styledStep
-		if m.ctx.StepLogs != nil {
-			if logMsg, exists := m.ctx.StepLogs[stepID]; exists && logMsg != "" {
-				// Calculate available space for log (assume 80 char terminal, leave space for step)
-				stepLen := len(baseStep)
-				availableSpace := 75 - stepLen // Leave some margin
-				if availableSpace > 20 { // Only show log if we have reasonable space
-					truncatedLog := truncateLog(logMsg, availableSpace)
-					logStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(truncatedLog) // Medium gray
-
-					// Pad to align logs
-					padding := strings.Repeat(" ", 40-stepLen)
-					if len(padding) < 2 {
-						padding = "  " // Minimum 2 spaces
-					}
-					stepLine = styledStep + padding + logStyled
-				}
-			}
-		}
+		stepLine := fmt.Sprintf("✓ %s (%s)", stepID, durationText)
+		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine) // Bright cyan like logo
 		steps = append(steps, stepLine)
 
 		// Show deliverables for this step in tree format
@@ -361,44 +286,20 @@ func (m *ProgressModel) renderCurrentStep() string {
 		frame := (now / 80) % int64(len(spinners)) // 80ms per frame
 		icon := spinners[frame]
 
-		// Build base step line
-		baseStep := fmt.Sprintf("%s %s", icon, currentStep)
+		stepLine := fmt.Sprintf("%s %s", icon, currentStep)
 		if m.ctx.CurrentPersona != "" {
-			baseStep += fmt.Sprintf(" (%s)", m.ctx.CurrentPersona)
+			stepLine += fmt.Sprintf(" (%s)", m.ctx.CurrentPersona)
 		}
 		// Real-time step timing in seconds with one decimal
 		stepStart := time.Unix(0, m.ctx.CurrentStepStart)
 		stepElapsed := time.Since(stepStart).Seconds()
-		baseStep += fmt.Sprintf("           🕐 %.1fs", stepElapsed)
+		stepLine += fmt.Sprintf(" (%.1fs)", stepElapsed)
 
 		if m.ctx.CurrentAction != "" {
-			baseStep += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
+			stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
 		}
 
-		styledStep := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(baseStep) // Bright yellow
-
-		// Add inline log for current step
-		stepLine := styledStep
-		if m.ctx.StepLogs != nil {
-			if logMsg, exists := m.ctx.StepLogs[currentStep]; exists && logMsg != "" {
-				// Calculate available space for log
-				stepLen := len(baseStep)
-				availableSpace := 75 - stepLen
-				if availableSpace > 15 { // Show log if we have reasonable space
-					truncatedLog := truncateLog(logMsg, availableSpace)
-					// Use "›" prefix for current step logs
-					logWithPrefix := "› " + truncatedLog
-					logStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(logWithPrefix) // Bright white for active
-
-					// Pad to align logs
-					padding := strings.Repeat(" ", 40-stepLen)
-					if len(padding) < 2 {
-						padding = "  "
-					}
-					stepLine = styledStep + padding + logStyled
-				}
-			}
-		}
+		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine) // Bright yellow
 		steps = append(steps, stepLine)
 	}
 
