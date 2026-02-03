@@ -154,7 +154,7 @@ func TestDashboard_RenderPanels(t *testing.T) {
 
 	// Test individual panel rendering
 	t.Run("header", func(t *testing.T) {
-		header := dashboard.renderHeader()
+		header := dashboard.renderHeader(ctx)
 		if !strings.Contains(header, "WAVE") && !strings.Contains(header, "╦") {
 			t.Error("Header should contain Wave logo")
 		}
