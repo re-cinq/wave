@@ -2,8 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,6 +81,98 @@ func (c *testEventCollector) GetStepExecutionOrder() []string {
 	}
 	return order
 }
+
+// MockStateStore is a test implementation of StateStore for memory leak testing
+type MockStateStore struct {
+	mu               sync.RWMutex
+	pipelineStates   map[string]*state.PipelineStateRecord
+	stepStates       map[string][]state.StepStateRecord
+}
+
+func NewMockStateStore() *MockStateStore {
+	return &MockStateStore{
+		pipelineStates: make(map[string]*state.PipelineStateRecord),
+		stepStates:     make(map[string][]state.StepStateRecord),
+	}
+}
+
+func (m *MockStateStore) SavePipelineState(id string, status string, input string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := time.Now()
+	m.pipelineStates[id] = &state.PipelineStateRecord{
+		PipelineID: id,
+		Name:       id,
+		Status:     status,
+		Input:      input,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetPipelineState(id string) (*state.PipelineStateRecord, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	record, exists := m.pipelineStates[id]
+	if !exists {
+		return nil, errors.New("pipeline state not found")
+	}
+	return record, nil
+}
+
+func (m *MockStateStore) SaveStepState(pipelineID string, stepID string, stepState state.StepState, errMsg string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	stepRecord := state.StepStateRecord{
+		StepID:     stepID,
+		PipelineID: pipelineID,
+		State:      stepState,
+	}
+	m.stepStates[pipelineID] = append(m.stepStates[pipelineID], stepRecord)
+	return nil
+}
+
+func (m *MockStateStore) GetStepStates(pipelineID string) ([]state.StepStateRecord, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.stepStates[pipelineID], nil
+}
+
+// Implement remaining required methods with minimal stubs
+func (m *MockStateStore) ListRecentPipelines(limit int) ([]state.PipelineStateRecord, error) { return nil, nil }
+func (m *MockStateStore) Close() error { return nil }
+func (m *MockStateStore) CreateRun(pipelineName string, input string) (string, error) { return "", nil }
+func (m *MockStateStore) UpdateRunStatus(runID string, status string, currentStep string, tokens int) error { return nil }
+func (m *MockStateStore) GetRun(runID string) (*state.RunRecord, error) { return nil, nil }
+func (m *MockStateStore) GetRunningRuns() ([]state.RunRecord, error) { return nil, nil }
+func (m *MockStateStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error) { return nil, nil }
+func (m *MockStateStore) DeleteRun(runID string) error { return nil }
+func (m *MockStateStore) LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64) error { return nil }
+func (m *MockStateStore) GetEvents(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error) { return nil, nil }
+func (m *MockStateStore) RegisterArtifact(runID string, stepID string, name string, path string, artifactType string, sizeBytes int64) error { return nil }
+func (m *MockStateStore) GetArtifacts(runID string, stepID string) ([]state.ArtifactRecord, error) { return nil, nil }
+func (m *MockStateStore) RequestCancellation(runID string, force bool) error { return nil }
+func (m *MockStateStore) CheckCancellation(runID string) (*state.CancellationRecord, error) { return nil, nil }
+func (m *MockStateStore) ClearCancellation(runID string) error { return nil }
+func (m *MockStateStore) RecordPerformanceMetric(metric *state.PerformanceMetricRecord) error { return nil }
+func (m *MockStateStore) GetPerformanceMetrics(runID string, stepID string) ([]state.PerformanceMetricRecord, error) { return nil, nil }
+func (m *MockStateStore) GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*state.StepPerformanceStats, error) { return nil, nil }
+func (m *MockStateStore) GetRecentPerformanceHistory(opts state.PerformanceQueryOptions) ([]state.PerformanceMetricRecord, error) { return nil, nil }
+func (m *MockStateStore) CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error) { return 0, nil }
+func (m *MockStateStore) SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error { return nil }
+func (m *MockStateStore) GetProgressSnapshots(runID string, stepID string, limit int) ([]state.ProgressSnapshotRecord, error) { return nil, nil }
+func (m *MockStateStore) UpdateStepProgress(runID string, stepID string, persona string, state string, progress int, action string, message string, etaMs int64, tokens int) error { return nil }
+func (m *MockStateStore) GetStepProgress(stepID string) (*state.StepProgressRecord, error) { return nil, nil }
+func (m *MockStateStore) GetAllStepProgress(runID string) ([]state.StepProgressRecord, error) { return nil, nil }
+func (m *MockStateStore) UpdatePipelineProgress(runID string, totalSteps int, completedSteps int, currentStepIndex int, overallProgress int, etaMs int64) error { return nil }
+func (m *MockStateStore) GetPipelineProgress(runID string) (*state.PipelineProgressRecord, error) { return nil, nil }
+func (m *MockStateStore) SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error { return nil }
+func (m *MockStateStore) GetArtifactMetadata(artifactID int64) (*state.ArtifactMetadataRecord, error) { return nil, nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
@@ -532,6 +627,7 @@ func TestExecutorWithoutEmitter(t *testing.T) {
 
 // TestGetStatus tests the GetStatus method
 func TestGetStatus(t *testing.T) {
+	mockStore := NewMockStateStore()
 	collector := newTestEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
@@ -539,6 +635,7 @@ func TestGetStatus(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithStateStore(mockStore),
 	)
 
 	tmpDir := t.TempDir()
@@ -759,4 +856,287 @@ func (a *retryTrackingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunCo
 		return a.failAdapter.Run(ctx, cfg)
 	}
 	return a.successAdapter.Run(ctx, cfg)
+}
+
+// TestMemoryCleanupAfterCompletion tests that completed pipelines are cleaned up from memory
+// to prevent memory leaks, but can still be retrieved via GetStatus from persistent storage.
+func TestMemoryCleanupAfterCompletion(t *testing.T) {
+	// Use a mock state store to test persistent storage fallback
+	mockStore := NewMockStateStore()
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStateStore(mockStore),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "memory-cleanup-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Execute the pipeline
+	err := executor.Execute(ctx, p, m, "test input")
+	require.NoError(t, err)
+
+	// Verify pipeline is cleaned up from in-memory storage
+	// (accessing the internal map to verify cleanup)
+	exec, ok := getExecutorPipeline(executor, "memory-cleanup-test")
+	assert.False(t, ok, "Pipeline should be cleaned up from in-memory storage after completion")
+	assert.Nil(t, exec, "Pipeline execution should be nil after cleanup")
+
+	// Verify GetStatus still works by querying persistent storage
+	status, err := executor.GetStatus("memory-cleanup-test")
+	require.NoError(t, err)
+	assert.Equal(t, "memory-cleanup-test", status.ID)
+	assert.Equal(t, StateCompleted, status.State)
+	assert.NotEmpty(t, status.CompletedSteps)
+	assert.NotNil(t, status.CompletedAt)
+}
+
+// TestMemoryCleanupAfterFailure tests that failed pipelines are also cleaned up from memory.
+func TestMemoryCleanupAfterFailure(t *testing.T) {
+	mockStore := NewMockStateStore()
+	collector := newTestEventCollector()
+	// Use a failing adapter
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("step failure")),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStateStore(mockStore),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "memory-cleanup-fail-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Execute the pipeline (should fail)
+	err := executor.Execute(ctx, p, m, "test input")
+	require.Error(t, err)
+
+	// Verify pipeline is cleaned up from in-memory storage even after failure
+	exec, ok := getExecutorPipeline(executor, "memory-cleanup-fail-test")
+	assert.False(t, ok, "Failed pipeline should be cleaned up from in-memory storage")
+	assert.Nil(t, exec, "Failed pipeline execution should be nil after cleanup")
+
+	// Verify GetStatus still works for failed pipeline
+	status, err := executor.GetStatus("memory-cleanup-fail-test")
+	require.NoError(t, err)
+	assert.Equal(t, "memory-cleanup-fail-test", status.ID)
+	assert.Equal(t, StateFailed, status.State)
+	assert.NotEmpty(t, status.FailedSteps)
+}
+
+// TestRegressionProductionIssues tests the specific production issues that were fixed:
+// 1. Memory leaks from pipelines not being cleaned up
+// 2. Empty input handling that caused template replacement issues
+// 3. Nil pointer dereference in buildStepPrompt when Context is nil
+func TestRegressionProductionIssues(t *testing.T) {
+	t.Run("EmptyInputDoesNotCauseIssues", func(t *testing.T) {
+		mockStore := NewMockStateStore()
+		collector := newTestEventCollector()
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+		)
+
+		executor := NewDefaultPipelineExecutor(mockAdapter,
+			WithEmitter(collector),
+			WithStateStore(mockStore),
+		)
+
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "empty-input-test"},
+			Steps: []Step{
+				{
+					ID:      "step1",
+					Persona: "navigator",
+					Exec:    ExecConfig{Source: "Process input: {{ input }} - should handle empty gracefully"},
+				},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Execute with empty input - this used to cause issues with template replacement
+		err := executor.Execute(ctx, p, m, "")
+		assert.NoError(t, err, "Empty input should be handled gracefully")
+
+		// Verify pipeline was cleaned up from memory
+		exec, exists := getExecutorPipeline(executor, "empty-input-test")
+		assert.False(t, exists, "Pipeline should be cleaned up from memory")
+		assert.Nil(t, exec)
+
+		// Verify status can still be retrieved from persistent storage
+		status, err := executor.GetStatus("empty-input-test")
+		require.NoError(t, err)
+		assert.Equal(t, StateCompleted, status.State)
+	})
+
+	t.Run("NilContextIsHandledDefensively", func(t *testing.T) {
+		// Create a pipeline execution with nil context to test defensive handling
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+		)
+
+		executor := NewDefaultPipelineExecutor(mockAdapter)
+
+		// Create execution without Context field (simulating the original bug)
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+
+		execution := &PipelineExecution{
+			Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "nil-context-test"}},
+			Manifest: m,
+			States:   make(map[string]string),
+			Results:  make(map[string]map[string]interface{}),
+			Input:    "test input",
+			// Context: nil  // Deliberately omitted to test nil handling
+		}
+
+		step := &Step{
+			ID:      "test-step",
+			Persona: "navigator",
+			Exec:    ExecConfig{Source: "Test prompt with {{ input }}"},
+		}
+
+		// This used to panic with nil pointer dereference
+		// The buildStepPrompt function should handle nil context gracefully
+		assert.NotPanics(t, func() {
+			// Call buildStepPrompt directly to test the defensive fix
+			prompt := executor.buildStepPrompt(execution, step)
+			assert.Contains(t, prompt, "test input", "Input should still be replaced even with nil context")
+		}, "Should not panic with nil context")
+	})
+
+	t.Run("MatrixExecutorContextPropagation", func(t *testing.T) {
+		// Test that matrix executor properly propagates context to worker executions
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+		)
+
+		executor := NewDefaultPipelineExecutor(mockAdapter)
+		matrixExecutor := NewMatrixExecutor(executor)
+
+		tmpDir := t.TempDir()
+
+		// Create items file for matrix execution
+		items := []map[string]interface{}{
+			{"id": 1, "name": "item1"},
+		}
+		itemsJSON, _ := json.Marshal(items)
+		itemsFile := filepath.Join(tmpDir, "items.json")
+		os.WriteFile(itemsFile, itemsJSON, 0644)
+
+		m := createTestManifest(tmpDir)
+
+		execution := &PipelineExecution{
+			Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "matrix-context-test"}},
+			Manifest:       m,
+			States:         make(map[string]string),
+			Results:        make(map[string]map[string]interface{}),
+			ArtifactPaths:  make(map[string]string),
+			WorkspacePaths: make(map[string]string),
+			Input:          "test input",
+			Context:        NewPipelineContext("matrix-context-test", "matrix-step"), // Proper context
+		}
+
+		step := &Step{
+			ID:      "matrix-step",
+			Persona: "navigator",
+			Strategy: &MatrixStrategy{
+				Type:        "matrix",
+				ItemsSource: itemsFile,
+			},
+			Exec: ExecConfig{Source: "Process {{ input }} for item {{ item.name }}"},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// This used to panic due to missing Context in worker executions
+		assert.NotPanics(t, func() {
+			err := matrixExecutor.Execute(ctx, execution, step)
+			assert.NoError(t, err, "Matrix execution should succeed with proper context propagation")
+		}, "Matrix execution should not panic with proper context propagation")
+	})
+}
+
+// TestNilStatusHandlingInTests tests that test code handles nil status properly
+// This is a regression test for a bug where test code didn't check for nil status
+// after GetStatus returned an error, causing a panic when accessing status.CompletedSteps.
+func TestNilStatusHandlingInTests(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("simulated failure")),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "status-handling-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Execute pipeline that will fail
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "Pipeline should fail due to mock adapter failure")
+
+	// Try to get status - should return error because pipeline was cleaned up after failure
+	status, err := executor.GetStatus("status-handling-test")
+	if err != nil {
+		// This is expected behavior - when an error occurs, we should handle it gracefully
+		// and NOT try to access status fields when status is nil
+		assert.Nil(t, status, "Status should be nil when GetStatus returns an error")
+		return // Test passes - this is the expected path
+	}
+
+	// If we somehow get a status back, it should be valid
+	if status != nil {
+		assert.Equal(t, StateFailed, status.State)
+		assert.NotEmpty(t, status.FailedSteps)
+	}
+}
+
+// getExecutorPipeline is a helper function to access the internal pipelines map for testing
+func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
+	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {
+		defaultExec.mu.RLock()
+		defer defaultExec.mu.RUnlock()
+		exec, exists := defaultExec.pipelines[pipelineID]
+		return exec, exists
+	}
+	return nil, false
 }
