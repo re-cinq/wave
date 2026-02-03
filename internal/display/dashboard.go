@@ -35,54 +35,34 @@ func NewDashboardWithConfig(colorMode string, asciiOnly bool) *Dashboard {
 	}
 }
 
-// Render displays the complete dashboard with all panels.
+// Render displays the compact dashboard with no clearing.
 func (d *Dashboard) Render(ctx *PipelineContext) error {
-	// Clear previous output if rendered before
-	if d.lastLines > 0 {
-		d.clearPreviousRender()
-	}
-
-	// Build dashboard content
+	// No clearing at all - just output content
 	var output strings.Builder
 
-	// Render Wave logo and header
-	output.WriteString(d.renderHeader())
-	output.WriteString("\n")
+	// Compact header with logo and project info
+	output.WriteString(d.renderHeader(ctx))
 
-	// Render overall pipeline progress panel
+	// Compact progress line
 	output.WriteString(d.renderProgressPanel(ctx))
-	output.WriteString("\n")
 
-	// Render step status panel
+	// Current step only (compact)
 	output.WriteString(d.renderStepStatusPanel(ctx))
-	output.WriteString("\n")
 
-	// Render project information panel
-	output.WriteString(d.renderProjectInfoPanel(ctx))
-	output.WriteString("\n")
-
-	// Render current action if available
+	// Current action if available (compact)
 	if ctx.CurrentAction != "" {
-		output.WriteString(d.renderCurrentAction(ctx))
-		output.WriteString("\n")
+		output.WriteString(fmt.Sprintf("Action: %s\n", ctx.CurrentAction))
 	}
 
-	// Count lines for next clear
-	content := output.String()
-	d.lastLines = strings.Count(content, "\n") + 1
-
-	// Print to output
-	fmt.Print(content)
+	// Just print to output - no clearing needed
+	fmt.Print(output.String())
 
 	return nil
 }
 
-// Clear removes the dashboard display.
+// Clear removes the dashboard display (no-op since we don't clear).
 func (d *Dashboard) Clear() {
-	if d.lastLines > 0 {
-		d.clearPreviousRender()
-		d.lastLines = 0
-	}
+	// No clearing needed
 }
 
 // clearPreviousRender clears the previously rendered dashboard.
@@ -97,119 +77,101 @@ func (d *Dashboard) clearPreviousRender() {
 	}
 }
 
-// renderHeader displays the Wave ASCII logo and title.
-func (d *Dashboard) renderHeader() string {
+// renderHeader displays the Wave ASCII logo with project info on the right.
+func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 	var sb strings.Builder
 
-	// Wave ASCII logo (exact format as specified)
+	// Wave ASCII logo
 	logo := []string{
 		"╦ ╦╔═╗╦  ╦╔═╗",
 		"║║║╠═╣╚╗╔╝║╣",
 		"╚╩╝╩ ╩ ╚╝ ╚═╝",
 	}
 
-	// Render logo with primary color
-	for _, line := range logo {
-		sb.WriteString(d.codec.Primary(line))
-		sb.WriteString("\n")
+	// Project info for right side
+	elapsed := float64(ctx.ElapsedTimeMs) / 1000.0
+	projectInfo := []string{
+		fmt.Sprintf("%s", ctx.PipelineName),
+		fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath),
+		"Press: p=pause q=quit",
 	}
 
-	// Add subtitle
-	subtitle := "Multi-Agent Pipeline Orchestrator"
-	sb.WriteString(d.codec.Muted(subtitle))
-	sb.WriteString("\n")
+	// Render logo with project info aligned to the right
+	for i, logoLine := range logo {
+		sb.WriteString(d.codec.Primary(logoLine))
+		if i < len(projectInfo) {
+			// Add spacing and right-aligned project info
+			sb.WriteString("  ")
+			sb.WriteString(d.codec.Muted(projectInfo[i]))
+		}
+		sb.WriteString("\n")
+	}
 
 	return sb.String()
 }
 
-// renderProgressPanel displays overall pipeline progress with progress bar and ETA.
+// renderProgressPanel displays compact pipeline progress.
 func (d *Dashboard) renderProgressPanel(ctx *PipelineContext) string {
 	var sb strings.Builder
 
-	// Panel header
-	sb.WriteString(d.codec.Bold("Pipeline Progress"))
-	sb.WriteString("\n")
-
-	// Progress bar
-	progressBar := d.renderProgressBar(ctx.OverallProgress, 40)
+	// Compact progress line: Progress bar + percentage + step counter
+	progressBar := d.renderProgressBar(ctx.OverallProgress, 25)
 	sb.WriteString(progressBar)
-	sb.WriteString(fmt.Sprintf(" %d%%\n", ctx.OverallProgress))
+	sb.WriteString(fmt.Sprintf(" %d%% ", ctx.OverallProgress))
+	sb.WriteString(fmt.Sprintf("Step %d/%d", ctx.CurrentStepNum, ctx.TotalSteps))
 
-	// Step counter: "Step X of Y"
-	stepInfo := fmt.Sprintf("Step %d of %d", ctx.CurrentStepNum, ctx.TotalSteps)
-	sb.WriteString(d.codec.Primary(stepInfo))
-
-	// Add completion counts if any steps completed or failed
+	// Add completion counts in same line
 	if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 || ctx.SkippedSteps > 0 {
-		counts := fmt.Sprintf(" (%s%d completed%s", d.codec.Success(""), ctx.CompletedSteps, "\033[0m")
+		sb.WriteString(" (")
+		if ctx.CompletedSteps > 0 {
+			sb.WriteString(fmt.Sprintf("%d ok", ctx.CompletedSteps))
+		}
 		if ctx.FailedSteps > 0 {
-			counts += fmt.Sprintf(", %s%d failed%s", d.codec.Error(""), ctx.FailedSteps, "\033[0m")
+			if ctx.CompletedSteps > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("%d fail", ctx.FailedSteps))
 		}
 		if ctx.SkippedSteps > 0 {
-			counts += fmt.Sprintf(", %s%d skipped%s", d.codec.Muted(""), ctx.SkippedSteps, "\033[0m")
+			if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("%d skip", ctx.SkippedSteps))
 		}
-		counts += ")"
-		sb.WriteString(counts)
+		sb.WriteString(")")
 	}
 	sb.WriteString("\n")
-
-	// ETA and elapsed time
-	if ctx.EstimatedTimeMs > 0 {
-		eta := formatDashboardDuration(ctx.EstimatedTimeMs)
-		sb.WriteString(fmt.Sprintf("ETA: %s", d.codec.Muted(eta)))
-		sb.WriteString(" ")
-	}
-
-	if ctx.ElapsedTimeMs > 0 {
-		elapsed := formatDashboardDuration(ctx.ElapsedTimeMs)
-		sb.WriteString(fmt.Sprintf("Elapsed: %s", d.codec.Muted(elapsed)))
-		sb.WriteString("\n")
-	}
 
 	return sb.String()
 }
 
-// renderStepStatusPanel displays the status of all pipeline steps with completion indicators.
+// renderStepStatusPanel displays compact step status.
 func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 	var sb strings.Builder
 
-	// Panel header
-	sb.WriteString(d.codec.Bold("Step Status"))
-	sb.WriteString("\n")
-
-	// Render step statuses
 	if len(ctx.StepStatuses) == 0 {
-		sb.WriteString(d.codec.Muted("  No steps available"))
+		sb.WriteString("No steps")
 		sb.WriteString("\n")
 		return sb.String()
 	}
 
-	// Display each step with appropriate status indicator
+	// Compact step display - only current step or recent activity
 	stepNum := 1
 	for stepID, state := range ctx.StepStatuses {
-		icon := d.getStatusIcon(state)
-		stepLabel := fmt.Sprintf("  %s Step %d: %s", icon, stepNum, stepID)
-
-		// Highlight current step
+		// Show current step with pulsating effect, others just as status
 		if stepID == ctx.CurrentStepID {
-			stepLabel = d.codec.Bold(stepLabel)
-			if ctx.CurrentPersona != "" {
-				stepLabel += fmt.Sprintf(" (%s)", d.codec.Primary(ctx.CurrentPersona))
-			}
-		} else {
-			// Color based on state
-			switch state {
-			case StateCompleted:
-				stepLabel = d.codec.Success(stepLabel)
-			case StateFailed:
-				stepLabel = d.codec.Error(stepLabel)
-			case StateSkipped:
-				stepLabel = d.codec.Muted(stepLabel)
-			}
-		}
+			icon := d.getStatusIcon(state)
+			stepLabel := fmt.Sprintf("%s %s", icon, stepID)
 
-		sb.WriteString(stepLabel)
-		sb.WriteString("\n")
+			// Pulsating current step
+			pulsatingLabel := d.renderPulsatingStep(stepLabel)
+			if ctx.CurrentPersona != "" {
+				pulsatingLabel += fmt.Sprintf(" (%s)", ctx.CurrentPersona)
+			}
+			sb.WriteString(pulsatingLabel)
+			sb.WriteString("\n")
+			break
+		}
 		stepNum++
 	}
 
@@ -262,7 +224,7 @@ func (d *Dashboard) renderCurrentAction(ctx *PipelineContext) string {
 	return sb.String()
 }
 
-// renderProgressBar creates a visual progress bar.
+// renderProgressBar creates a visual progress bar with same color as text.
 func (d *Dashboard) renderProgressBar(progress int, width int) string {
 	if progress < 0 {
 		progress = 0
@@ -277,13 +239,13 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 	var bar strings.Builder
 	bar.WriteString("[")
 
-	// Filled portion
+	// Filled portion - same color as text
 	filled := strings.Repeat(d.charSet.Block, filledWidth)
-	bar.WriteString(d.codec.Success(filled))
+	bar.WriteString(filled)
 
-	// Empty portion
+	// Empty portion - same color as text
 	empty := strings.Repeat(d.charSet.LightBlock, emptyWidth)
-	bar.WriteString(d.codec.Muted(empty))
+	bar.WriteString(empty)
 
 	bar.WriteString("]")
 	return bar.String()
@@ -293,19 +255,44 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 func (d *Dashboard) getStatusIcon(state ProgressState) string {
 	switch state {
 	case StateCompleted:
-		return d.codec.Success(d.charSet.CheckMark)
+		return d.charSet.CheckMark
 	case StateFailed:
-		return d.codec.Error(d.charSet.CrossMark)
+		return d.charSet.CrossMark
 	case StateRunning:
-		return d.codec.Primary("⏳") // Hourglass for running
+		return ">"
 	case StateSkipped:
-		return d.codec.Muted("⊘") // Empty circle with slash
+		return "-"
 	case StateCancelled:
-		return d.codec.Warning("⊛") // Circled X
+		return "X"
 	case StateNotStarted:
-		return d.codec.Muted("○") // Empty circle
+		return "○"
 	default:
-		return d.codec.Muted("○")
+		return "○"
+	}
+}
+
+// renderPulsatingStep creates a pulsating visual effect for the currently running step.
+func (d *Dashboard) renderPulsatingStep(stepLabel string) string {
+	// Calculate pulsating state based on time (roughly every second)
+	// Use millisecond timing to create smooth pulsing effect
+	now := time.Now().UnixMilli()
+	pulseInterval := int64(1000) // 1 second pulse cycle
+
+	// Create 3-phase pulsating: dim -> normal -> bright
+	phase := (now / (pulseInterval / 3)) % 3
+
+	switch phase {
+	case 0:
+		// Dim phase - muted color
+		return d.codec.Muted(stepLabel)
+	case 1:
+		// Normal phase - primary color
+		return d.codec.Primary(stepLabel)
+	case 2:
+		// Bright phase - bold primary
+		return d.codec.Bold(d.codec.Primary(stepLabel))
+	default:
+		return d.codec.Primary(stepLabel)
 	}
 }
 

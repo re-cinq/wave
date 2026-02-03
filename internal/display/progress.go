@@ -235,6 +235,7 @@ type ProgressDisplay struct {
 	termInfo       *TerminalInfo
 	codec          *ANSICodec
 	charSet        UnicodeCharSet
+	dashboard      *Dashboard
 	pipelineID     string
 	pipelineName   string
 	totalSteps     int
@@ -268,6 +269,7 @@ func NewProgressDisplay(pipelineID, pipelineName string, totalSteps int) *Progre
 		termInfo:      termInfo,
 		codec:         codec,
 		charSet:       charSet,
+		dashboard:     NewDashboard(),
 		pipelineID:    pipelineID,
 		pipelineName:  pipelineName,
 		totalSteps:    totalSteps,
@@ -275,7 +277,7 @@ func NewProgressDisplay(pipelineID, pipelineName string, totalSteps int) *Progre
 		stepOrder:     make([]string, 0, totalSteps),
 		overallBar:    overallBar,
 		startTime:     time.Now(),
-		refreshRate:   33 * time.Millisecond, // 30 FPS for smooth progress updates
+		refreshRate:   200 * time.Millisecond, // 5 FPS for smooth progress updates without flickering
 		enabled:       termInfo.IsTTY() && termInfo.SupportsANSI(),
 		linesRendered: 0,
 	}
@@ -402,58 +404,94 @@ func (pd *ProgressDisplay) render() {
 	}
 	pd.lastRender = now
 
-	// Clear previous render
-	if pd.linesRendered > 0 {
-		for i := 0; i < pd.linesRendered; i++ {
-			fmt.Fprint(pd.writer, pd.codec.CursorUp(1))
-			fmt.Fprint(pd.writer, pd.codec.ClearLine())
-		}
-	}
+	// No clearing needed - just append new content
 
-	var lines []string
+	// Convert ProgressDisplay data to PipelineContext for dashboard rendering
+	ctx := pd.toPipelineContext()
 
-	// Pipeline header
-	elapsed := time.Since(pd.startTime)
-	header := fmt.Sprintf("%s %s %s",
-		pd.codec.Bold(pd.pipelineName),
-		pd.codec.Muted("•"),
-		pd.codec.Muted(formatStepDuration(elapsed)))
-	lines = append(lines, header)
-
-	// Overall progress bar
-	lines = append(lines, pd.overallBar.Render())
-	lines = append(lines, "")
-
-	// Step status lines
-	for _, stepID := range pd.stepOrder {
-		if step, exists := pd.steps[stepID]; exists {
-			lines = append(lines, step.Render())
-		}
-	}
-
-	// Write all lines
-	for _, line := range lines {
-		fmt.Fprintln(pd.writer, line)
-	}
-
-	pd.linesRendered = len(lines)
-}
-
-// Clear removes the progress display from the terminal.
-func (pd *ProgressDisplay) Clear() {
-	pd.mu.Lock()
-	defer pd.mu.Unlock()
-
-	if !pd.enabled || pd.linesRendered == 0 {
+	// Use dashboard rendering (includes logo in header)
+	if err := pd.dashboard.Render(ctx); err != nil {
+		// Fallback to simple text on render error
+		fmt.Fprintf(pd.writer, "Progress: %s (%d/%d steps)\n",
+			pd.pipelineName, pd.currentStepIdx, pd.totalSteps)
+		pd.linesRendered = 1
 		return
 	}
 
-	for i := 0; i < pd.linesRendered; i++ {
-		fmt.Fprint(pd.writer, pd.codec.CursorUp(1))
-		fmt.Fprint(pd.writer, pd.codec.ClearLine())
+	// Dashboard handles its own line counting, so we estimate lines rendered
+	// Approximate: header(4) + progress(5) + steps(N) + project(3) + spacing
+	pd.linesRendered = 4 + 5 + len(pd.stepOrder) + 3 + 3
+}
+
+// Clear removes the progress display from the terminal (no-op since we don't clear).
+func (pd *ProgressDisplay) Clear() {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
+	// No clearing needed
+}
+
+// toPipelineContext converts ProgressDisplay data to PipelineContext for dashboard rendering.
+func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
+	elapsed := time.Since(pd.startTime)
+	elapsedMs := elapsed.Nanoseconds() / int64(time.Millisecond)
+
+	// Calculate overall progress
+	completed := 0
+	failed := 0
+	skipped := 0
+	for _, step := range pd.steps {
+		switch step.State {
+		case StateCompleted:
+			completed++
+		case StateFailed:
+			failed++
+		case StateSkipped:
+			skipped++
+		}
 	}
 
-	pd.linesRendered = 0
+	overallProgress := 0
+	if pd.totalSteps > 0 {
+		overallProgress = (completed * 100) / pd.totalSteps
+	}
+
+	// Find current step
+	currentStepID := ""
+	currentPersona := ""
+	for _, stepID := range pd.stepOrder {
+		if step, exists := pd.steps[stepID]; exists && step.State == StateRunning {
+			currentStepID = stepID
+			// Extract persona if available (simplified)
+			break
+		}
+	}
+
+	// Convert step statuses
+	stepStatuses := make(map[string]ProgressState)
+	for stepID, step := range pd.steps {
+		stepStatuses[stepID] = step.State
+	}
+
+	return &PipelineContext{
+		PipelineName:      pd.pipelineName,
+		OverallProgress:   overallProgress,
+		CurrentStepNum:    pd.currentStepIdx + 1, // 1-indexed for display
+		TotalSteps:        pd.totalSteps,
+		CurrentStepID:     currentStepID,
+		CurrentPersona:    currentPersona,
+		CompletedSteps:    completed,
+		FailedSteps:       failed,
+		SkippedSteps:      skipped,
+		StepStatuses:      stepStatuses,
+		ElapsedTimeMs:     elapsedMs,
+		EstimatedTimeMs:   0, // Not calculated in ProgressDisplay
+		ManifestPath:      "wave.yaml",
+		WorkspacePath:     ".wave/workspaces",
+		CurrentAction:     "", // Not tracked in ProgressDisplay
+		CurrentStepName:   currentStepID,
+		PipelineStartTime: pd.startTime.UnixNano(),
+		CurrentStepStart:  pd.startTime.UnixNano(), // Simplified
+	}
 }
 
 // Finish completes the progress display and shows a summary.
