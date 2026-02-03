@@ -64,6 +64,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &typeScriptValidator{}
 	case "test_suite":
 		return &testSuiteValidator{}
+	case "markdown_spec":
+		return &markdownSpecValidator{}
 	default:
 		return nil
 	}
