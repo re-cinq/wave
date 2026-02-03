@@ -220,6 +220,7 @@ type PipelineContext struct {
 
 	// Step status mapping
 	StepStatuses map[string]ProgressState // stepID -> state
+	StepOrder    []string                  // Ordered list of step IDs
 
 	// Step durations in milliseconds
 	StepDurations map[string]int64 // stepID -> duration in ms
