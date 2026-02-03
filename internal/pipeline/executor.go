@@ -269,7 +269,15 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			time.Sleep(time.Second * time.Duration(attempt))
 		}
 
-		if err := e.runStepExecution(ctx, execution, step); err != nil {
+		// Start progress ticker for smooth animation updates during step execution
+		cancelTicker := e.startProgressTicker(ctx, step.ID)
+
+		err := e.runStepExecution(ctx, execution, step)
+
+		// Stop progress ticker when step completes
+		cancelTicker()
+
+		if err != nil {
 			lastErr = err
 			if attempt < maxRetries {
 				continue
@@ -775,6 +783,36 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// startProgressTicker starts a background ticker to emit periodic progress events
+// during step execution to ensure smooth animation updates
+func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, stepID string) context.CancelFunc {
+	tickerCtx, cancel := context.WithCancel(ctx)
+
+	if e.emitter != nil {
+		go func() {
+			ticker := time.NewTicker(1000 * time.Millisecond) // 1 FPS for progress updates
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-tickerCtx.Done():
+					return
+				case <-ticker.C:
+					// Emit a progress heartbeat to keep the display updating
+					e.emit(event.Event{
+						PipelineID: stepID,
+						StepID:     stepID,
+						State:      event.StateStepProgress,
+						Timestamp:  time.Now(),
+					})
+				}
+			}
+		}()
+	}
+
+	return cancel
 }
 
 // checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.
