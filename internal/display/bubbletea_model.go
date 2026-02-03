@@ -216,8 +216,14 @@ func (m *ProgressModel) renderCurrentStep() string {
 
 	// Show completed steps with deliverables
 	for _, stepID := range completedSteps {
-		// Show completed step with actual name and estimated completion time
-		stepLine := fmt.Sprintf("✓ %s (5.0s)", stepID) // Real step name
+		// Show completed step with actual duration
+		durationText := "0.0s"
+		if m.ctx.StepDurations != nil {
+			if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+				durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
+			}
+		}
+		stepLine := fmt.Sprintf("✓ %s (%s)", stepID, durationText)
 		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine) // Bright cyan like logo
 		steps = append(steps, stepLine)
 

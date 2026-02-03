@@ -735,6 +735,9 @@ func (ctx *PipelineContext) UpdateStepStatus(stepID string, state ProgressState)
 	if ctx.StepStatuses == nil {
 		ctx.StepStatuses = make(map[string]ProgressState)
 	}
+	if ctx.StepDurations == nil {
+		ctx.StepDurations = make(map[string]int64)
+	}
 
 	oldState := ctx.StepStatuses[stepID]
 	ctx.StepStatuses[stepID] = state
@@ -759,6 +762,14 @@ func (ctx *PipelineContext) UpdateStepStatus(stepID string, state ProgressState)
 	}
 }
 
+// UpdateStepDuration stores the duration for a completed step.
+func (ctx *PipelineContext) UpdateStepDuration(stepID string, durationMs int64) {
+	if ctx.StepDurations == nil {
+		ctx.StepDurations = make(map[string]int64)
+	}
+	ctx.StepDurations[stepID] = durationMs
+}
+
 // SetCurrentStep updates the current step information in the context.
 func (ctx *PipelineContext) SetCurrentStep(stepNum int, stepID string, stepName string, persona string) {
 	ctx.CurrentStepNum = stepNum
@@ -777,8 +788,9 @@ func (ctx *PipelineContext) SetCurrentAction(action string) {
 }
 
 // MarkStepCompleted marks a step as completed and updates counters.
-func (ctx *PipelineContext) MarkStepCompleted(stepID string) {
+func (ctx *PipelineContext) MarkStepCompleted(stepID string, durationMs int64) {
 	ctx.UpdateStepStatus(stepID, StateCompleted)
+	ctx.UpdateStepDuration(stepID, durationMs)
 }
 
 // MarkStepFailed marks a step as failed and updates counters.

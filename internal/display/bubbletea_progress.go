@@ -208,6 +208,10 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 	case "completed":
 		step.State = StateCompleted
 		step.Progress = 100
+		// Capture step duration for display
+		if btpd.ctx != nil && evt.DurationMs > 0 {
+			btpd.ctx.UpdateStepDuration(evt.StepID, evt.DurationMs)
+		}
 	case "failed":
 		step.State = StateFailed
 	case "skipped":
