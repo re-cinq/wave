@@ -2,7 +2,6 @@ package security
 
 import (
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 

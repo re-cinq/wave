@@ -10,7 +10,7 @@ import (
 // DemoValidationFix demonstrates how the wrapper detection fix resolves the validation pipeline issue
 func DemoValidationFix() error {
 	fmt.Println("🔧 Wave Validation Pipeline Fix Demo")
-	fmt.Println("====================================\n")
+	fmt.Println("====================================")
 
 	// Create temporary workspace
 	tempDir, err := os.MkdirTemp("", "wave_fix_demo")
@@ -87,7 +87,7 @@ func DemoValidationFix() error {
 	if err != nil {
 		fmt.Printf("   ❌ VALIDATION FAILED: %s\n\n", err.Error()[:100]+"...")
 	} else {
-		fmt.Println("   ✅ Unexpectedly passed (this shouldn't happen)\n")
+		fmt.Println("   ✅ Unexpectedly passed (this shouldn't happen)")
 	}
 
 	// Demo 2: What happens WITH the fix
@@ -112,7 +112,7 @@ func DemoValidationFix() error {
 // DemoWrapper shows how wrapper detection works
 func DemoWrapper() error {
 	fmt.Println("\n🔍 Wrapper Detection Demo")
-	fmt.Println("=========================\n")
+	fmt.Println("=========================")
 
 	// Test different input types
 	testCases := []struct {
