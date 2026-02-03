@@ -78,6 +78,24 @@ type StateStore interface {
 	RequestCancellation(runID string, force bool) error
 	CheckCancellation(runID string) (*CancellationRecord, error)
 	ClearCancellation(runID string) error
+
+	// Performance metrics (spec 018)
+	RecordPerformanceMetric(metric *PerformanceMetricRecord) error
+	GetPerformanceMetrics(runID string, stepID string) ([]PerformanceMetricRecord, error)
+	GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*StepPerformanceStats, error)
+	GetRecentPerformanceHistory(opts PerformanceQueryOptions) ([]PerformanceMetricRecord, error)
+	CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error)
+
+	// Progress tracking (spec 018 - Enhanced Progress Visualization)
+	SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error
+	GetProgressSnapshots(runID string, stepID string, limit int) ([]ProgressSnapshotRecord, error)
+	UpdateStepProgress(runID string, stepID string, persona string, state string, progress int, action string, message string, etaMs int64, tokens int) error
+	GetStepProgress(stepID string) (*StepProgressRecord, error)
+	GetAllStepProgress(runID string) ([]StepProgressRecord, error)
+	UpdatePipelineProgress(runID string, totalSteps int, completedSteps int, currentStepIndex int, overallProgress int, etaMs int64) error
+	GetPipelineProgress(runID string) (*PipelineProgressRecord, error)
+	SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error
+	GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRecord, error)
 }
 
 type stateStore struct {
@@ -771,4 +789,709 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 	}
 
 	return records, nil
+}
+
+// RecordPerformanceMetric records a performance metric for a step.
+func (s *stateStore) RecordPerformanceMetric(metric *PerformanceMetricRecord) error {
+	startedAt := metric.StartedAt.Unix()
+	var completedAt *int64
+	if metric.CompletedAt != nil {
+		ca := metric.CompletedAt.Unix()
+		completedAt = &ca
+	}
+
+	query := `INSERT INTO performance_metric (
+	              run_id, step_id, pipeline_name, persona, started_at, completed_at,
+	              duration_ms, tokens_used, files_modified, artifacts_generated,
+	              memory_bytes, success, error_message
+	          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	result, err := s.db.Exec(
+		query,
+		metric.RunID,
+		metric.StepID,
+		metric.PipelineName,
+		metric.Persona,
+		startedAt,
+		completedAt,
+		metric.DurationMs,
+		metric.TokensUsed,
+		metric.FilesModified,
+		metric.ArtifactsGenerated,
+		metric.MemoryBytes,
+		metric.Success,
+		metric.ErrorMessage,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record performance metric: %w", err)
+	}
+
+	// Set the ID on the metric
+	if id, err := result.LastInsertId(); err == nil {
+		metric.ID = id
+	}
+
+	return nil
+}
+
+// GetPerformanceMetrics retrieves performance metrics for a run, optionally filtered by step.
+func (s *stateStore) GetPerformanceMetrics(runID string, stepID string) ([]PerformanceMetricRecord, error) {
+	query := `SELECT id, run_id, step_id, pipeline_name, persona, started_at, completed_at,
+	                 duration_ms, tokens_used, files_modified, artifacts_generated,
+	                 memory_bytes, success, error_message
+	          FROM performance_metric
+	          WHERE run_id = ?`
+	args := []any{runID}
+
+	if stepID != "" {
+		query += " AND step_id = ?"
+		args = append(args, stepID)
+	}
+
+	query += " ORDER BY started_at ASC"
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query performance metrics: %w", err)
+	}
+	defer rows.Close()
+
+	var metrics []PerformanceMetricRecord
+	for rows.Next() {
+		var metric PerformanceMetricRecord
+		var startedAt int64
+		var completedAt sql.NullInt64
+		var persona, errorMessage sql.NullString
+		var tokensUsed, filesModified, artifactsGenerated sql.NullInt64
+		var memoryBytes, durationMs sql.NullInt64
+
+		err := rows.Scan(
+			&metric.ID,
+			&metric.RunID,
+			&metric.StepID,
+			&metric.PipelineName,
+			&persona,
+			&startedAt,
+			&completedAt,
+			&durationMs,
+			&tokensUsed,
+			&filesModified,
+			&artifactsGenerated,
+			&memoryBytes,
+			&metric.Success,
+			&errorMessage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan performance metric: %w", err)
+		}
+
+		metric.StartedAt = time.Unix(startedAt, 0)
+		if completedAt.Valid {
+			t := time.Unix(completedAt.Int64, 0)
+			metric.CompletedAt = &t
+		}
+		if persona.Valid {
+			metric.Persona = persona.String
+		}
+		if durationMs.Valid {
+			metric.DurationMs = durationMs.Int64
+		}
+		if tokensUsed.Valid {
+			metric.TokensUsed = int(tokensUsed.Int64)
+		}
+		if filesModified.Valid {
+			metric.FilesModified = int(filesModified.Int64)
+		}
+		if artifactsGenerated.Valid {
+			metric.ArtifactsGenerated = int(artifactsGenerated.Int64)
+		}
+		if memoryBytes.Valid {
+			metric.MemoryBytes = memoryBytes.Int64
+		}
+		if errorMessage.Valid {
+			metric.ErrorMessage = errorMessage.String
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating performance metrics: %w", err)
+	}
+
+	return metrics, nil
+}
+
+// GetStepPerformanceStats retrieves aggregated performance statistics for a step.
+func (s *stateStore) GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*StepPerformanceStats, error) {
+	query := `SELECT
+	              COUNT(*) as total_runs,
+	              SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_runs,
+	              SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed_runs,
+	              AVG(duration_ms) as avg_duration,
+	              MIN(duration_ms) as min_duration,
+	              MAX(duration_ms) as max_duration,
+	              AVG(tokens_used) as avg_tokens,
+	              SUM(tokens_used) as total_tokens,
+	              AVG(files_modified) as avg_files,
+	              AVG(artifacts_generated) as avg_artifacts,
+	              MAX(started_at) as last_run,
+	              persona
+	          FROM performance_metric
+	          WHERE pipeline_name = ? AND step_id = ? AND started_at >= ?
+	          GROUP BY step_id, persona`
+
+	var stats StepPerformanceStats
+	var lastRun int64
+	var avgDuration, avgTokens, avgFiles, avgArtifacts sql.NullFloat64
+	var minDuration, maxDuration, totalTokens sql.NullInt64
+	var persona sql.NullString
+
+	err := s.db.QueryRow(query, pipelineName, stepID, since.Unix()).Scan(
+		&stats.TotalRuns,
+		&stats.SuccessfulRuns,
+		&stats.FailedRuns,
+		&avgDuration,
+		&minDuration,
+		&maxDuration,
+		&avgTokens,
+		&totalTokens,
+		&avgFiles,
+		&avgArtifacts,
+		&lastRun,
+		&persona,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No metrics found - return empty stats
+			return &StepPerformanceStats{
+				StepID: stepID,
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to get step performance stats: %w", err)
+	}
+
+	stats.StepID = stepID
+	if persona.Valid {
+		stats.Persona = persona.String
+	}
+	if avgDuration.Valid {
+		stats.AvgDurationMs = int64(avgDuration.Float64)
+	}
+	if minDuration.Valid {
+		stats.MinDurationMs = minDuration.Int64
+	}
+	if maxDuration.Valid {
+		stats.MaxDurationMs = maxDuration.Int64
+	}
+	if avgTokens.Valid {
+		stats.AvgTokensUsed = int(avgTokens.Float64)
+	}
+	if totalTokens.Valid {
+		stats.TotalTokensUsed = int(totalTokens.Int64)
+	}
+	if avgFiles.Valid {
+		stats.AvgFilesModified = int(avgFiles.Float64)
+	}
+	if avgArtifacts.Valid {
+		stats.AvgArtifacts = int(avgArtifacts.Float64)
+	}
+	stats.LastRunAt = time.Unix(lastRun, 0)
+
+	// Calculate token burn rate (tokens per second)
+	if stats.AvgDurationMs > 0 && stats.AvgTokensUsed > 0 {
+		stats.TokenBurnRate = float64(stats.AvgTokensUsed) / (float64(stats.AvgDurationMs) / 1000.0)
+	}
+
+	return &stats, nil
+}
+
+// GetRecentPerformanceHistory retrieves recent performance metrics with optional filters.
+func (s *stateStore) GetRecentPerformanceHistory(opts PerformanceQueryOptions) ([]PerformanceMetricRecord, error) {
+	query := `SELECT id, run_id, step_id, pipeline_name, persona, started_at, completed_at,
+	                 duration_ms, tokens_used, files_modified, artifacts_generated,
+	                 memory_bytes, success, error_message
+	          FROM performance_metric
+	          WHERE 1=1`
+	args := []any{}
+
+	if opts.PipelineName != "" {
+		query += " AND pipeline_name = ?"
+		args = append(args, opts.PipelineName)
+	}
+	if opts.StepID != "" {
+		query += " AND step_id = ?"
+		args = append(args, opts.StepID)
+	}
+	if opts.Persona != "" {
+		query += " AND persona = ?"
+		args = append(args, opts.Persona)
+	}
+	if !opts.Since.IsZero() {
+		query += " AND started_at >= ?"
+		args = append(args, opts.Since.Unix())
+	}
+
+	query += " ORDER BY started_at DESC"
+
+	if opts.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, opts.Limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query performance history: %w", err)
+	}
+	defer rows.Close()
+
+	var metrics []PerformanceMetricRecord
+	for rows.Next() {
+		var metric PerformanceMetricRecord
+		var startedAt int64
+		var completedAt sql.NullInt64
+		var persona, errorMessage sql.NullString
+		var tokensUsed, filesModified, artifactsGenerated sql.NullInt64
+		var memoryBytes, durationMs sql.NullInt64
+
+		err := rows.Scan(
+			&metric.ID,
+			&metric.RunID,
+			&metric.StepID,
+			&metric.PipelineName,
+			&persona,
+			&startedAt,
+			&completedAt,
+			&durationMs,
+			&tokensUsed,
+			&filesModified,
+			&artifactsGenerated,
+			&memoryBytes,
+			&metric.Success,
+			&errorMessage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan performance metric: %w", err)
+		}
+
+		metric.StartedAt = time.Unix(startedAt, 0)
+		if completedAt.Valid {
+			t := time.Unix(completedAt.Int64, 0)
+			metric.CompletedAt = &t
+		}
+		if persona.Valid {
+			metric.Persona = persona.String
+		}
+		if durationMs.Valid {
+			metric.DurationMs = durationMs.Int64
+		}
+		if tokensUsed.Valid {
+			metric.TokensUsed = int(tokensUsed.Int64)
+		}
+		if filesModified.Valid {
+			metric.FilesModified = int(filesModified.Int64)
+		}
+		if artifactsGenerated.Valid {
+			metric.ArtifactsGenerated = int(artifactsGenerated.Int64)
+		}
+		if memoryBytes.Valid {
+			metric.MemoryBytes = memoryBytes.Int64
+		}
+		if errorMessage.Valid {
+			metric.ErrorMessage = errorMessage.String
+		}
+
+		metrics = append(metrics, metric)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating performance history: %w", err)
+	}
+
+	return metrics, nil
+}
+
+// CleanupOldPerformanceMetrics removes performance metrics older than the specified duration.
+// Returns the number of metrics deleted.
+func (s *stateStore) CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error) {
+	cutoff := time.Now().Add(-olderThan).Unix()
+
+	query := `DELETE FROM performance_metric WHERE started_at < ?`
+
+	result, err := s.db.Exec(query, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup old performance metrics: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return int(rows), nil
+}
+
+// =============================================================================
+// Progress Tracking Methods (spec 018 - Enhanced Progress Visualization)
+// =============================================================================
+
+// SaveProgressSnapshot records a point-in-time progress snapshot.
+func (s *stateStore) SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error {
+	now := time.Now().Unix()
+
+	query := `INSERT INTO progress_snapshot (
+	              run_id, step_id, timestamp, progress, current_action,
+	              estimated_time_ms, validation_phase, compaction_stats
+	          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+
+	_, err := s.db.Exec(query, runID, stepID, now, progress, action, etaMs, validationPhase, compactionStats)
+	if err != nil {
+		return fmt.Errorf("failed to save progress snapshot: %w", err)
+	}
+
+	return nil
+}
+
+// GetProgressSnapshots retrieves progress snapshots for a run/step.
+func (s *stateStore) GetProgressSnapshots(runID string, stepID string, limit int) ([]ProgressSnapshotRecord, error) {
+	query := `SELECT id, run_id, step_id, timestamp, progress, current_action,
+	                 estimated_time_ms, validation_phase, compaction_stats
+	          FROM progress_snapshot
+	          WHERE run_id = ?`
+	args := []any{runID}
+
+	if stepID != "" {
+		query += " AND step_id = ?"
+		args = append(args, stepID)
+	}
+
+	query += " ORDER BY timestamp DESC"
+
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query progress snapshots: %w", err)
+	}
+	defer rows.Close()
+
+	var records []ProgressSnapshotRecord
+	for rows.Next() {
+		var record ProgressSnapshotRecord
+		var timestamp int64
+		var currentAction, validationPhase, compactionStats sql.NullString
+		var estimatedTimeMs sql.NullInt64
+
+		err := rows.Scan(
+			&record.ID,
+			&record.RunID,
+			&record.StepID,
+			&timestamp,
+			&record.Progress,
+			&currentAction,
+			&estimatedTimeMs,
+			&validationPhase,
+			&compactionStats,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan progress snapshot: %w", err)
+		}
+
+		record.Timestamp = time.Unix(timestamp, 0)
+		if currentAction.Valid {
+			record.CurrentAction = currentAction.String
+		}
+		if estimatedTimeMs.Valid {
+			record.EstimatedTimeMs = estimatedTimeMs.Int64
+		}
+		if validationPhase.Valid {
+			record.ValidationPhase = validationPhase.String
+		}
+		if compactionStats.Valid {
+			record.CompactionStats = compactionStats.String
+		}
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating progress snapshots: %w", err)
+	}
+
+	return records, nil
+}
+
+// UpdateStepProgress updates or creates a step progress record.
+func (s *stateStore) UpdateStepProgress(runID string, stepID string, persona string, state string, progress int, action string, message string, etaMs int64, tokens int) error {
+	now := time.Now().Unix()
+
+	query := `INSERT INTO step_progress (
+	              step_id, run_id, persona, state, progress, current_action,
+	              message, started_at, updated_at, estimated_completion_ms, tokens_used
+	          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	          ON CONFLICT(step_id) DO UPDATE SET
+	              persona = excluded.persona,
+	              state = excluded.state,
+	              progress = excluded.progress,
+	              current_action = excluded.current_action,
+	              message = excluded.message,
+	              updated_at = excluded.updated_at,
+	              estimated_completion_ms = excluded.estimated_completion_ms,
+	              tokens_used = excluded.tokens_used`
+
+	_, err := s.db.Exec(query, stepID, runID, persona, state, progress, action, message, now, now, etaMs, tokens)
+	if err != nil {
+		return fmt.Errorf("failed to update step progress: %w", err)
+	}
+
+	return nil
+}
+
+// GetStepProgress retrieves the current progress for a specific step.
+func (s *stateStore) GetStepProgress(stepID string) (*StepProgressRecord, error) {
+	query := `SELECT step_id, run_id, persona, state, progress, current_action,
+	                 message, started_at, updated_at, estimated_completion_ms, tokens_used
+	          FROM step_progress
+	          WHERE step_id = ?`
+
+	var record StepProgressRecord
+	var persona, currentAction, message sql.NullString
+	var startedAt, updatedAt int64
+	var estimatedCompletionMs sql.NullInt64
+
+	err := s.db.QueryRow(query, stepID).Scan(
+		&record.StepID,
+		&record.RunID,
+		&persona,
+		&record.State,
+		&record.Progress,
+		&currentAction,
+		&message,
+		&startedAt,
+		&updatedAt,
+		&estimatedCompletionMs,
+		&record.TokensUsed,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("step progress not found: %s", stepID)
+		}
+		return nil, fmt.Errorf("failed to get step progress: %w", err)
+	}
+
+	if persona.Valid {
+		record.Persona = persona.String
+	}
+	if currentAction.Valid {
+		record.CurrentAction = currentAction.String
+	}
+	if message.Valid {
+		record.Message = message.String
+	}
+	if startedAt > 0 {
+		t := time.Unix(startedAt, 0)
+		record.StartedAt = &t
+	}
+	record.UpdatedAt = time.Unix(updatedAt, 0)
+	if estimatedCompletionMs.Valid {
+		record.EstimatedCompletionMs = estimatedCompletionMs.Int64
+	}
+
+	return &record, nil
+}
+
+// GetAllStepProgress retrieves progress for all steps in a run.
+func (s *stateStore) GetAllStepProgress(runID string) ([]StepProgressRecord, error) {
+	query := `SELECT step_id, run_id, persona, state, progress, current_action,
+	                 message, started_at, updated_at, estimated_completion_ms, tokens_used
+	          FROM step_progress
+	          WHERE run_id = ?
+	          ORDER BY updated_at ASC`
+
+	rows, err := s.db.Query(query, runID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query step progress: %w", err)
+	}
+	defer rows.Close()
+
+	var records []StepProgressRecord
+	for rows.Next() {
+		var record StepProgressRecord
+		var persona, currentAction, message sql.NullString
+		var startedAt, updatedAt int64
+		var estimatedCompletionMs sql.NullInt64
+
+		err := rows.Scan(
+			&record.StepID,
+			&record.RunID,
+			&persona,
+			&record.State,
+			&record.Progress,
+			&currentAction,
+			&message,
+			&startedAt,
+			&updatedAt,
+			&estimatedCompletionMs,
+			&record.TokensUsed,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan step progress: %w", err)
+		}
+
+		if persona.Valid {
+			record.Persona = persona.String
+		}
+		if currentAction.Valid {
+			record.CurrentAction = currentAction.String
+		}
+		if message.Valid {
+			record.Message = message.String
+		}
+		if startedAt > 0 {
+			t := time.Unix(startedAt, 0)
+			record.StartedAt = &t
+		}
+		record.UpdatedAt = time.Unix(updatedAt, 0)
+		if estimatedCompletionMs.Valid {
+			record.EstimatedCompletionMs = estimatedCompletionMs.Int64
+		}
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating step progress: %w", err)
+	}
+
+	return records, nil
+}
+
+// UpdatePipelineProgress updates pipeline-level progress aggregation.
+func (s *stateStore) UpdatePipelineProgress(runID string, totalSteps int, completedSteps int, currentStepIndex int, overallProgress int, etaMs int64) error {
+	now := time.Now().Unix()
+
+	query := `INSERT INTO pipeline_progress (
+	              run_id, total_steps, completed_steps, current_step_index,
+	              overall_progress, estimated_completion_ms, updated_at
+	          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+	          ON CONFLICT(run_id) DO UPDATE SET
+	              total_steps = excluded.total_steps,
+	              completed_steps = excluded.completed_steps,
+	              current_step_index = excluded.current_step_index,
+	              overall_progress = excluded.overall_progress,
+	              estimated_completion_ms = excluded.estimated_completion_ms,
+	              updated_at = excluded.updated_at`
+
+	_, err := s.db.Exec(query, runID, totalSteps, completedSteps, currentStepIndex, overallProgress, etaMs, now)
+	if err != nil {
+		return fmt.Errorf("failed to update pipeline progress: %w", err)
+	}
+
+	return nil
+}
+
+// GetPipelineProgress retrieves pipeline-level progress.
+func (s *stateStore) GetPipelineProgress(runID string) (*PipelineProgressRecord, error) {
+	query := `SELECT run_id, total_steps, completed_steps, current_step_index,
+	                 overall_progress, estimated_completion_ms, updated_at
+	          FROM pipeline_progress
+	          WHERE run_id = ?`
+
+	var record PipelineProgressRecord
+	var updatedAt int64
+	var estimatedCompletionMs sql.NullInt64
+
+	err := s.db.QueryRow(query, runID).Scan(
+		&record.RunID,
+		&record.TotalSteps,
+		&record.CompletedSteps,
+		&record.CurrentStepIndex,
+		&record.OverallProgress,
+		&estimatedCompletionMs,
+		&updatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("pipeline progress not found: %s", runID)
+		}
+		return nil, fmt.Errorf("failed to get pipeline progress: %w", err)
+	}
+
+	record.UpdatedAt = time.Unix(updatedAt, 0)
+	if estimatedCompletionMs.Valid {
+		record.EstimatedCompletionMs = estimatedCompletionMs.Int64
+	}
+
+	return &record, nil
+}
+
+// SaveArtifactMetadata saves extended metadata for an artifact.
+func (s *stateStore) SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error {
+	now := time.Now().Unix()
+
+	query := `INSERT INTO artifact_metadata (
+	              artifact_id, run_id, step_id, preview_text, mime_type,
+	              encoding, metadata_json, indexed_at
+	          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	          ON CONFLICT(artifact_id) DO UPDATE SET
+	              preview_text = excluded.preview_text,
+	              mime_type = excluded.mime_type,
+	              encoding = excluded.encoding,
+	              metadata_json = excluded.metadata_json,
+	              indexed_at = excluded.indexed_at`
+
+	_, err := s.db.Exec(query, artifactID, runID, stepID, previewText, mimeType, encoding, metadataJSON, now)
+	if err != nil {
+		return fmt.Errorf("failed to save artifact metadata: %w", err)
+	}
+
+	return nil
+}
+
+// GetArtifactMetadata retrieves extended metadata for an artifact.
+func (s *stateStore) GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRecord, error) {
+	query := `SELECT artifact_id, run_id, step_id, preview_text, mime_type,
+	                 encoding, metadata_json, indexed_at
+	          FROM artifact_metadata
+	          WHERE artifact_id = ?`
+
+	var record ArtifactMetadataRecord
+	var indexedAt int64
+	var previewText, mimeType, encoding, metadataJSON sql.NullString
+
+	err := s.db.QueryRow(query, artifactID).Scan(
+		&record.ArtifactID,
+		&record.RunID,
+		&record.StepID,
+		&previewText,
+		&mimeType,
+		&encoding,
+		&metadataJSON,
+		&indexedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("artifact metadata not found: %d", artifactID)
+		}
+		return nil, fmt.Errorf("failed to get artifact metadata: %w", err)
+	}
+
+	if previewText.Valid {
+		record.PreviewText = previewText.String
+	}
+	if mimeType.Valid {
+		record.MimeType = mimeType.String
+	}
+	if encoding.Valid {
+		record.Encoding = encoding.String
+	}
+	if metadataJSON.Valid {
+		record.MetadataJSON = metadataJSON.String
+	}
+	record.IndexedAt = time.Unix(indexedAt, 0)
+
+	return &record, nil
 }
