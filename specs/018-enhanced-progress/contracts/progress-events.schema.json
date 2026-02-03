@@ -23,7 +23,7 @@
     "state": {
       "type": "string",
       "enum": [
-        "pending",
+        "started",
         "running",
         "completed",
         "failed",
@@ -66,36 +66,26 @@
       "maximum": 100,
       "description": "Progress percentage for current step (0-100)"
     },
-    "subtask_current": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Current subtask number within step"
-    },
-    "subtask_total": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Total number of subtasks in step"
-    },
-    "estimated_eta": {
+    "estimated_time_ms": {
       "type": "integer",
       "minimum": 0,
-      "description": "Estimated seconds remaining for completion"
+      "description": "Estimated time remaining for completion in milliseconds"
     },
-    "files_processed": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "Number of files processed or modified"
-    },
-    "artifact_count": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "Total number of artifacts generated"
-    },
-    "workspace_path": {
+    "current_action": {
       "type": "string",
-      "description": "Path to current step workspace directory"
+      "description": "Current action being performed"
     },
-    "contract_progress": {
+    "total_steps": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of steps in pipeline"
+    },
+    "completed_steps": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of completed steps"
+    },
+    "validation_phase": {
       "type": "string",
       "enum": [
         "pending",
@@ -107,6 +97,10 @@
         "failed"
       ],
       "description": "Contract validation progress stage"
+    },
+    "compaction_stats": {
+      "type": ["string", "null"],
+      "description": "Compaction statistics as JSON string"
     }
   },
   "required": [
@@ -137,7 +131,7 @@
         }
       },
       "then": {
-        "required": ["estimated_eta"]
+        "required": ["estimated_time_ms"]
       }
     },
     {
@@ -149,7 +143,7 @@
         }
       },
       "then": {
-        "required": ["step_id", "contract_progress"]
+        "required": ["step_id", "validation_phase"]
       }
     }
   ]
