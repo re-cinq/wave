@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Dashboard provides a comprehensive pipeline execution overview with panel-based layout.
@@ -93,7 +95,7 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 	projectInfo := []string{
 		fmt.Sprintf("%s", ctx.PipelineName),
 		fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath),
-		"Press: p=pause q=quit",
+		" Press: p=pause q=quit",
 	}
 
 	// Render logo with project info aligned to the right
@@ -224,7 +226,7 @@ func (d *Dashboard) renderCurrentAction(ctx *PipelineContext) string {
 	return sb.String()
 }
 
-// renderProgressBar creates a visual progress bar with same color as text.
+// renderProgressBar creates a visual progress bar with pulsing wave animation.
 func (d *Dashboard) renderProgressBar(progress int, width int) string {
 	if progress < 0 {
 		progress = 0
@@ -239,15 +241,42 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 	var bar strings.Builder
 	bar.WriteString("[")
 
-	// Filled portion - Wave cyan color (matches logo)
-	filled := strings.Repeat(d.charSet.Block, filledWidth)
-	filledStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(filled) // Bright cyan like Wave logo
-	bar.WriteString(filledStyled)
+	// Calculate pulse position (moves across the empty area)
+	now := time.Now().UnixMilli()
+	pulseInterval := int64(2000) // 2 second cycle for full pulse wave
+	pulseCycle := now % pulseInterval
 
-	// Empty portion - muted gray
-	empty := strings.Repeat(d.charSet.LightBlock, emptyWidth)
-	emptyStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(empty) // Dark gray
-	bar.WriteString(emptyStyled)
+	// Pulse moves across the entire empty area in one cycle
+	pulsePos := -1 // -1 means no pulse
+	if emptyWidth > 0 {
+		// Pulse position within empty area (0 to emptyWidth-1)
+		pulsePos = int((pulseCycle * int64(emptyWidth)) / pulseInterval)
+	}
+
+	// Render filled portion - Wave cyan color (matches logo)
+	for i := 0; i < filledWidth; i++ {
+		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(d.charSet.Block)
+		bar.WriteString(filledChar)
+	}
+
+	// Render empty portion with pulsing wave
+	for i := 0; i < emptyWidth; i++ {
+		var char string
+		var style lipgloss.Style
+
+		if i == pulsePos {
+			// Pulse character - medium shade, brighter color
+			char = "▓"
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan for pulse
+		} else {
+			// Normal empty character - light shade, muted color
+			char = d.charSet.LightBlock
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
+		}
+
+		styledChar := style.Render(char)
+		bar.WriteString(styledChar)
+	}
 
 	bar.WriteString("]")
 	return bar.String()
