@@ -228,6 +228,10 @@ type PipelineContext struct {
 	// Deliverables by step
 	DeliverablesByStep map[string][]string // stepID -> deliverable strings
 
+	// Step logs for inline display
+	StepLogs       map[string]string   // stepID -> current log message
+	StepLogHistory map[string][]string // stepID -> recent log messages
+
 	// Additional context
 	Message string
 	Error   string
