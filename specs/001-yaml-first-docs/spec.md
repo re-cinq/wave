@@ -2,105 +2,194 @@
 
 **Feature Branch**: `001-yaml-first-docs`
 **Created**: 2026-02-03
-**Status**: Draft
+**Updated**: 2026-02-03
+**Status**: In Progress
 **Input**: User description: "Refresh Wave documentation to emphasize YAML-first AI-as-code paradigm with deliverables and contracts as core value proposition, moving away from persona-focused marketing to focus on reproducible, shareable, version-controlled AI workflows that developers can treat like infrastructure code"
+
+**Design Reference**: [ngrok documentation](https://ngrok.com/docs) - enterprise-grade developer documentation patterns
 
 ## User Scenarios & Testing _(mandatory)_
 
-<!--
-  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
-  you should still have a viable MVP (Minimum Viable Product) that delivers value.
+### User Story 1 - First Pipeline in 60 Seconds (Priority: P1)
 
-  Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
-  Think of each story as a standalone slice of functionality that can be:
-  - Developed independently
-  - Tested independently
-  - Deployed independently
-  - Demonstrated to users independently
--->
+A developer discovers Wave and runs their first pipeline within 60 seconds of landing on documentation.
 
-### User Story 1 - Infrastructure Engineer Discovers Wave (Priority: P1)
+**Why this priority**: ngrok's getting-started achieves immediate value. Wave must match this. Developers evaluate tools by how fast they can see results.
 
-An infrastructure engineer familiar with Kubernetes and Infrastructure as Code discovers Wave documentation and immediately understands the value proposition without needing to learn AI concepts first.
-
-**Why this priority**: This is the primary conversion scenario - developers who already understand IaC will instantly "get" Wave if positioned correctly.
-
-**Independent Test**: Can be fully tested by having an IaC-experienced developer review the landing page and confirm they understand Wave's purpose within 30 seconds.
+**Independent Test**: Time a new developer from landing to first successful `wave run` command.
 
 **Acceptance Scenarios**:
 
-1. **Given** an engineer lands on Wave docs, **When** they scan the hero section, **Then** they immediately recognize the "Infrastructure as Code for AI" paradigm
-2. **Given** an engineer sees Wave YAML examples, **When** they compare to familiar tools (K8s, Docker Compose), **Then** they understand the pattern without additional explanation
-3. **Given** an engineer reviews the value proposition, **When** they see deliverables + contracts concept, **Then** they understand guaranteed outputs without reading implementation details
+1. **Given** a developer lands on Wave docs, **When** they follow the quickstart, **Then** they execute their first pipeline in under 60 seconds
+2. **Given** a developer has no existing Wave config, **When** they run `wave init && wave run code-review "test"`, **Then** they see immediate results
+3. **Given** a developer encounters a blocker, **When** they look for help, **Then** escape routes are visible ("Don't have X? Try this instead")
 
 ---
 
-### User Story 2 - Developer Creates Shareable Workflow (Priority: P2)
+### User Story 2 - Task-Based Discovery (Priority: P2)
 
-A developer needs to create a custom AI workflow that their team can version control, share, and reproduce across environments.
+A developer with a specific task (code review, docs generation, security audit) finds the relevant guide immediately through task-oriented navigation.
 
-**Why this priority**: Demonstrates the core YAML-first workflow paradigm that differentiates Wave from other AI tools.
+**Why this priority**: ngrok organizes by scenario ("Ingress to IoT Devices"), not features. Users arrive with tasks, not to learn features.
 
-**Independent Test**: Can be tested by creating a sample YAML workflow, sharing it via git, and having another developer run it with identical results.
+**Independent Test**: Give 5 developers common tasks, measure time to find relevant documentation.
 
 **Acceptance Scenarios**:
 
-1. **Given** a developer has a workflow idea, **When** they follow the YAML-first documentation, **Then** they can create a version-controlled workflow file
-2. **Given** a developer creates a workflow YAML, **When** they share it via git, **Then** teammates can run identical workflows with guaranteed deliverables
-3. **Given** a workflow exists, **When** requirements change, **Then** the developer can modify contracts to enforce new output formats
+1. **Given** a developer wants to automate code reviews, **When** they scan navigation, **Then** they find "Automate Code Review" within 5 seconds
+2. **Given** a developer needs security auditing, **When** they browse use-cases, **Then** they find a complete pipeline example immediately
+3. **Given** a developer has a custom task, **When** they reach the concepts section, **Then** they understand how to compose their own pipeline
 
 ---
 
-### User Story 3 - Team Adopts Wave Workflows (Priority: P3)
+### User Story 3 - Progressive Complexity (Priority: P3)
 
-A development team wants to standardize their AI-assisted workflows across projects and team members.
+A developer can start simple and progressively add complexity (contracts, dependencies, personas) as their needs grow.
 
-**Why this priority**: Showcases enterprise adoption patterns and ecosystem benefits, but requires the foundation from P1/P2.
+**Why this priority**: ngrok shows simple examples first, then advanced. Documentation should not front-load complexity.
 
-**Independent Test**: Can be tested by documenting how a team shares, versions, and maintains a library of Wave workflows.
+**Independent Test**: Track which documentation paths users follow - simple → complex should be the natural flow.
 
 **Acceptance Scenarios**:
 
-1. **Given** a team has multiple Wave workflows, **When** they organize them in a shared repository, **Then** new team members can discover and use existing workflows
-2. **Given** workflow standards exist, **When** team members create new workflows, **Then** they follow established patterns and contract schemas
-3. **Given** workflows are in production use, **When** updates are needed, **Then** teams can version and rollout changes safely
+1. **Given** a developer sees their first pipeline example, **When** they read it, **Then** it contains maximum 10 lines of YAML
+2. **Given** a developer needs output validation, **When** they look for contracts, **Then** examples show adding one line to existing pipeline
+3. **Given** a developer needs multi-step workflows, **When** they find the guide, **Then** progression from simple → complex is explicit
+
+---
+
+### User Story 4 - Team Adoption Path (Priority: P4)
+
+A team lead can follow a clear adoption path from individual use to team-wide standardization.
+
+**Why this priority**: Enterprise adoption requires clear progression. ngrok provides this via guides section.
+
+**Independent Test**: Team lead can articulate adoption steps after reading team-adoption guide.
+
+**Acceptance Scenarios**:
+
+1. **Given** a team lead evaluates Wave, **When** they find the team adoption guide, **Then** steps are clear and actionable
+2. **Given** a team uses Wave individually, **When** they want to standardize, **Then** documentation shows git-based sharing patterns
+3. **Given** an organization needs security controls, **When** they review enterprise patterns, **Then** permission and audit controls are documented
 
 ### Edge Cases
 
-- What happens when developers try to understand Wave through persona-focused documentation?
-- How does the system handle users who expect traditional CI/CD documentation patterns?
-- What if developers don't immediately see the Infrastructure as Code parallel?
+- What happens when developers don't have Claude CLI installed?
+- How does documentation handle users without existing codebases to analyze?
+- What if quickstart examples fail due to API key issues?
 
 ## Requirements _(mandatory)_
 
 ### Functional Requirements
 
-- **FR-001**: Landing page MUST lead with "AI as Code" paradigm rather than persona descriptions
-- **FR-002**: Documentation MUST emphasize YAML files as the primary interface
-- **FR-003**: Examples MUST show complete workflow files before explaining individual components
-- **FR-004**: Value proposition MUST focus on deliverables + contracts guarantee rather than AI agent capabilities
-- **FR-005**: Navigation MUST organize content around workflow creation, not persona configuration
-- **FR-006**: Documentation MUST include Infrastructure as Code parallels (Kubernetes, Docker Compose, Terraform)
-- **FR-007**: Content MUST demonstrate reproducibility and shareability of workflows
-- **FR-008**: Documentation MUST show community workflow ecosystem patterns
-- **FR-009**: Technical examples MUST be file-centric rather than CLI-command-centric
-- **FR-010**: Success stories MUST emphasize workflow standardization rather than AI automation
+**Landing & First Impression**
+- **FR-001**: Landing page MUST have one clear CTA: "Get started in 60 seconds"
+- **FR-002**: "What is Wave" MUST be explainable in one sentence with one diagram
+- **FR-003**: Hero section MUST NOT mention personas - focus on "pipelines for AI"
+
+**Content Structure (ngrok patterns)**
+- **FR-004**: Documentation MUST use task-oriented navigation (not feature-oriented)
+- **FR-005**: Every concept page MUST follow "1-2 sentences + code block" pattern
+- **FR-006**: Examples MUST progress from simple (5-10 lines) to complex
+- **FR-007**: Each page MUST have clear "Next Steps" with 2-3 pathways
+
+**Quickstart Requirements**
+- **FR-008**: Quickstart MUST work with copy-paste commands (no manual file creation)
+- **FR-009**: Quickstart MUST include "escape routes" for common blockers
+- **FR-010**: First successful output MUST be visible within 60 seconds
+
+**Use-Case Documentation**
+- **FR-011**: Use-cases MUST be organized by task: code-review, security-audit, docs-generation, test-generation
+- **FR-012**: Each use-case MUST include complete, runnable pipeline example
+- **FR-013**: Use-cases MUST show expected output
+
+**Reference Documentation**
+- **FR-014**: CLI reference MUST show command + expected output pairs
+- **FR-015**: Pipeline schema MUST be scannable with clear required vs optional fields
+- **FR-016**: Manifest reference MUST include copy-paste examples for each section
+
+**Progressive Disclosure**
+- **FR-017**: Simple pipelines shown before contracts
+- **FR-018**: Single-step pipelines before multi-step
+- **FR-019**: Default personas before custom personas
+- **FR-020**: Git sharing before enterprise patterns
 
 ### Key Entities
 
-- **Workflow YAML**: Primary interface for defining AI workflows, including steps, personas, contracts, and deliverables
-- **Deliverable**: Any output artifact (file, report, commit, PR) produced by a workflow step
-- **Contract**: Validation schema (JSON Schema, TypeScript interface, test suite) that guarantees deliverable quality
-- **Community Workflow**: Shareable, versioned workflow templates that teams can adopt and customize
+- **Pipeline**: YAML definition of AI workflow steps - the primary user interface
+- **Persona**: Pre-configured AI agent with specific permissions and system prompt
+- **Contract**: Output validation (jsonschema, typescript, testsuite, markdownspec)
+- **Artifact**: Output file produced by a pipeline step
+- **Manifest**: Project configuration file (`wave.yaml`) defining personas and runtime settings
 
 ## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
-- **SC-001**: Infrastructure engineers can understand Wave's value proposition within 30 seconds of landing on documentation
-- **SC-002**: 80% of new users create their first YAML workflow rather than exploring persona configurations
-- **SC-003**: Documentation bounce rate decreases by 40% compared to persona-focused version
-- **SC-004**: Community workflow sharing increases by 200% within 3 months of documentation refresh
-- **SC-005**: Support questions about "how Wave works" decrease by 60% as paradigm becomes clearer
-- **SC-006**: Time from documentation arrival to first successful workflow execution decreases by 50%
+- **SC-001**: New users complete quickstart in under 60 seconds (measured via user testing)
+- **SC-002**: Task-based navigation finds relevant content in under 5 seconds (user testing)
+- **SC-003**: Documentation pages follow "1-2 sentences + code" pattern (100% of concept pages)
+- **SC-004**: Every code example is copy-paste runnable (validation testing)
+- **SC-005**: Escape routes present for all common blockers in quickstart
+- **SC-006**: Progressive complexity path explicit: simple → contracts → multi-step → team → enterprise
+
+## Documentation Structure _(reference)_
+
+### Proposed Hierarchy (ngrok-inspired)
+
+```
+docs/
+├── index.md                    # "What is Wave" - one paragraph, one diagram, quickstart link
+├── quickstart.md               # 60-second first pipeline (CRITICAL)
+│
+├── use-cases/                  # Task-oriented (PRIMARY navigation)
+│   ├── index.md               # Use-case overview with cards
+│   ├── code-review.md         # Complete code review pipeline
+│   ├── security-audit.md      # Security analysis pipeline
+│   ├── docs-generation.md     # Documentation generation
+│   └── test-generation.md     # Test generation pipeline
+│
+├── concepts/                   # Short explanations + examples (SECONDARY)
+│   ├── index.md               # Concept overview
+│   ├── pipelines.md           # What pipelines are (1-2 sentences + example)
+│   ├── personas.md            # What personas are (supporting concept)
+│   ├── contracts.md           # Output validation (progressive from simple)
+│   ├── artifacts.md           # Output files and handovers
+│   └── execution.md           # How Wave runs pipelines
+│
+├── reference/                  # Technical specs (TERTIARY)
+│   ├── cli.md                 # All commands with examples
+│   ├── manifest.md            # wave.yaml complete reference
+│   ├── pipeline-schema.md     # Pipeline YAML schema
+│   └── contract-types.md      # All contract type references
+│
+└── guides/                     # Advanced patterns (ADOPTION)
+    ├── ci-cd.md               # CI/CD integration
+    ├── team-adoption.md       # Team rollout patterns
+    └── enterprise.md          # Enterprise patterns
+```
+
+### Key Differences from Current Structure
+
+| Current | Proposed | Rationale |
+|---------|----------|-----------|
+| paradigm/ section | Removed - integrated into index.md | ngrok doesn't have separate "paradigm" section |
+| workflows/ | use-cases/ | Task-oriented naming |
+| migration/ | guides/ | Clearer purpose |
+| Feature-organized nav | Task-organized nav | Users arrive with tasks |
+| Dense concept pages | 1-2 sentences + code | ngrok pattern |
+| No quickstart | Dedicated quickstart.md | 60-second first success |
+
+## Assumptions
+
+- Claude CLI is installed and API key configured (quickstart will provide escape routes)
+- Users have a codebase to analyze (will provide sample project fallback)
+- Git is available for version control examples
+- Users can read YAML (reasonable for developer audience)
+
+## Out of Scope
+
+- Video tutorials (text-first approach)
+- Interactive playground (future consideration)
+- Community registry/marketplace (just git-based sharing)
+- Multiple language translations

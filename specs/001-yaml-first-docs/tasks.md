@@ -1,122 +1,140 @@
-# Tasks: Declarative Configuration Documentation Paradigm
+# Tasks: ngrok-Inspired Documentation Restructure
 
 **Input**: Design documents from `/specs/001-yaml-first-docs/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+**Prerequisites**: plan.md, spec.md
+**Design Reference**: [ngrok documentation](https://ngrok.com/docs)
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks grouped by user story for independent implementation.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
-- Include exact file paths in descriptions
+- **[Story]**: Which user story (US1, US2, US3, US4)
+- Include exact file paths
 
 ## Path Conventions
 
-Documentation restructure - paths are relative to repository root `/home/libretech/Repos/wave/`
+Repository root: `/home/libretech/Repos/wave/`
 
 ---
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup (Directory Structure)
 
-**Purpose**: Project initialization and foundational structure
+**Purpose**: Create new directory structure, preserve existing content
 
-- [x] T001 Create docs/paradigm/ directory structure for AI-as-Code positioning
-- [x] T002 Create docs/workflows/ directory structure for declarative workflow organization
-- [x] T003 [P] Create docs/migration/ directory structure for team adoption guides
-- [x] T004 [P] Backup existing docs/index.md as docs/index.md.backup before transformation
-
----
-
-## Phase 2: Foundational (Blocking Prerequisites)
-
-**Purpose**: Core paradigm content that MUST be complete before ANY user story can be implemented
-
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
-
-- [x] T005 Write docs/paradigm/ai-as-code.md with Infrastructure-as-Code parallels and declarative configuration emphasis
-- [x] T006 [P] Write docs/paradigm/infrastructure-parallels.md with Kubernetes, Docker Compose, Terraform comparisons
-- [x] T007 [P] Write docs/paradigm/deliverables-contracts.md explaining guaranteed outputs concept
-- [x] T008 Create docs/concepts/pipeline-execution.md explaining how declarative config becomes execution
-- [x] T009 [P] Update docs/concepts/contracts.md to emphasize as core differentiator for guaranteed outputs
-
-**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+- [ ] T001 Create docs/use-cases/ directory for task-oriented documentation
+- [ ] T002 [P] Create docs/guides/ directory for advanced patterns
+- [ ] T003 [P] Backup docs/paradigm/ to docs/.archive/paradigm/ before removal
+- [ ] T004 [P] Backup docs/workflows/ to docs/.archive/workflows/ before removal
+- [ ] T005 [P] Backup docs/migration/ to docs/.archive/migration/ before removal
 
 ---
 
-## Phase 3: User Story 1 - Infrastructure Engineer Discovers Wave (Priority: P1) 🎯 MVP
+## Phase 2: User Story 1 - First Pipeline in 60 Seconds (Priority: P1)
 
-**Goal**: Infrastructure engineers familiar with IaC immediately understand Wave's value proposition within 30 seconds
+**Goal**: Developer runs first pipeline within 60 seconds of landing
 
-**Independent Test**: IaC-experienced developer reviews landing page and confirms understanding of Wave's purpose
+**Independent Test**: Time new developer from landing to first `wave run`
 
-### Implementation for User Story 1
+### Implementation
 
-- [x] T010 [P] [US1] Update docs/index.md hero section to lead with "Infrastructure as Code for AI" paradigm
-- [x] T011 [P] [US1] Update docs/index.md tagline to emphasize declarative, version-controlled, shareable workflows
-- [x] T012 [US1] Replace docs/index.md quick start examples with complete declarative workflow files before CLI commands
-- [x] T013 [US1] Add Infrastructure Parallels comparison table to docs/index.md (Docker Compose vs Wave workflows)
-- [x] T014 [US1] Add "Guaranteed Deliverables" section to docs/index.md emphasizing contracts over traditional AI unpredictability
-- [x] T015 [US1] Update docs/index.md features section to emphasize workflow reproducibility over persona capabilities
-- [x] T016 [US1] Add "Version Control Your AI" section demonstrating git-based workflow sharing
+- [ ] T006 [US1] Create docs/quickstart.md with 60-second pipeline flow (CRITICAL)
+- [ ] T007 [US1] Add escape route for missing Claude CLI in docs/quickstart.md
+- [ ] T008 [US1] Add escape route for missing API key in docs/quickstart.md
+- [ ] T009 [US1] Add escape route for no codebase (self-analysis fallback) in docs/quickstart.md
+- [ ] T010 [P] [US1] Rewrite docs/index.md hero: one paragraph explaining Wave
+- [ ] T011 [P] [US1] Add "What is Wave" diagram to docs/index.md
+- [ ] T012 [US1] Add single CTA "Get started in 60 seconds" linking to quickstart
+- [ ] T013 [US1] Remove persona mentions from docs/index.md hero section
 
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
-
----
-
-## Phase 4: User Story 2 - Developer Creates Shareable Workflow (Priority: P2)
-
-**Goal**: Developers can create custom declarative workflows that teams can version control, share, and reproduce
-
-**Independent Test**: Create sample workflow, share via git, have another developer run with identical results
-
-### Implementation for User Story 2
-
-- [x] T017 [P] [US2] Create docs/workflows/creating-workflows.md with complete configuration examples first
-- [x] T018 [P] [US2] Create docs/workflows/sharing-workflows.md for git-based workflow distribution
-- [x] T019 [P] [US2] Create docs/workflows/community-library.md for ecosystem and discovery patterns
-- [x] T020 [US2] Create docs/workflows/examples/ directory with complete workflow specimens (feature-development.yaml, code-review.yaml, documentation-sync.yaml)
-- [x] T021 [US2] Add contract modification examples to docs/workflows/creating-workflows.md for output format changes
-- [x] T022 [US2] Add reproducibility guarantees section to docs/workflows/sharing-workflows.md demonstrating identical team results
-
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
+**Checkpoint**: Quickstart flow testable - time to first pipeline
 
 ---
 
-## Phase 5: User Story 3 - Team Adopts Wave Workflows (Priority: P3)
+## Phase 3: User Story 2 - Task-Based Discovery (Priority: P2)
 
-**Goal**: Development teams standardize AI-assisted workflows across projects and members
+**Goal**: Developer finds relevant use-case in under 5 seconds
 
-**Independent Test**: Document how teams share, version, and maintain workflow libraries
+**Independent Test**: Give developers tasks, measure time to find documentation
 
-### Implementation for User Story 3
+### Implementation
 
-- [x] T023 [P] [US3] Restructure docs/concepts/personas.md from primary focus to supporting role concept
-- [x] T024 [P] [US3] Update docs/concepts/workspaces.md to maintain as technical implementation detail
-- [x] T025 [P] [US3] Review and align docs/concepts/architecture.md with Infrastructure-as-Code positioning
-- [x] T026 [US3] Create docs/reference/yaml-schema.md with workflow-focused organization instead of persona-centric
-- [x] T027 [US3] Update docs/reference/cli-commands.md to emphasize workflow lifecycle operations
-- [x] T028 [US3] Update docs/reference/troubleshooting.md to focus on team workflow adoption issues
-- [x] T029 [US3] Create docs/migration/from-personas-to-workflows.md with practical migration examples
-- [x] T030 [US3] Create docs/migration/team-adoption.md with organizational patterns for team workflows
-- [x] T031 [US3] Create docs/migration/enterprise-patterns.md with scaling strategies for large organizations
-- [x] T032 [US3] Update cross-references between concept files to support new hierarchy
+- [ ] T014 [US2] Create docs/use-cases/index.md with card-based overview
+- [ ] T015 [P] [US2] Create docs/use-cases/code-review.md with complete runnable pipeline
+- [ ] T016 [P] [US2] Create docs/use-cases/security-audit.md with complete runnable pipeline
+- [ ] T017 [P] [US2] Create docs/use-cases/docs-generation.md with complete runnable pipeline
+- [ ] T018 [P] [US2] Create docs/use-cases/test-generation.md with complete runnable pipeline
+- [ ] T019 [US2] Add expected output examples to each use-case page
+- [ ] T020 [US2] Add "Next Steps" section to each use-case page
 
-**Checkpoint**: All user stories should now be independently functional
+**Checkpoint**: Task-based navigation testable
 
 ---
 
-## Phase 6: Polish & Cross-Cutting Concerns
+## Phase 4: User Story 3 - Progressive Complexity (Priority: P3)
 
-**Purpose**: Improvements that affect multiple user stories and validation
+**Goal**: Simple examples first, complexity added progressively
 
-- [x] T033 [P] Validate landing page content against specs/001-yaml-first-docs/contracts/landing-page-content.json
-- [x] T034 [P] Validate workflow documentation against specs/001-yaml-first-docs/contracts/workflow-documentation.json
-- [x] T035 [P] Test all configuration examples for syntactic validity (no invalid YAML/JSON)
-- [x] T036 Add navigation updates to docs/.vitepress/config.js for new paradigm and workflow sections
-- [x] T037 [P] Update all internal documentation links to reflect new structure
-- [x] T038 [P] Add analytics tracking setup for bounce rate measurement (SC-003)
-- [x] T039 Run final content validation against all success criteria from spec.md
+**Independent Test**: Verify first example on each page is under 10 lines
+
+### Concept Pages (1-2 sentences + code pattern)
+
+- [ ] T021 [US3] Create docs/concepts/index.md with concept overview
+- [ ] T022 [P] [US3] Rewrite docs/concepts/pipelines.md: 1-2 sentences + minimal example
+- [ ] T023 [P] [US3] Rewrite docs/concepts/personas.md: 1-2 sentences + minimal example
+- [ ] T024 [P] [US3] Rewrite docs/concepts/contracts.md: progressive examples (simple → complex)
+- [ ] T025 [P] [US3] Create docs/concepts/artifacts.md: 1-2 sentences + minimal example
+- [ ] T026 [P] [US3] Rewrite docs/concepts/execution.md from pipeline-execution.md
+- [ ] T027 [US3] Add "Next Steps" section to every concept page
+- [ ] T028 [US3] Verify all first examples are under 10 lines YAML
+
+### Reference Pages (command + output pairs)
+
+- [ ] T029 [P] [US3] Rewrite docs/reference/cli.md with command + expected output pairs
+- [ ] T030 [P] [US3] Create docs/reference/manifest.md with copy-paste examples
+- [ ] T031 [P] [US3] Create docs/reference/pipeline-schema.md with required/optional fields
+- [ ] T032 [P] [US3] Create docs/reference/contract-types.md with all contract types
+
+**Checkpoint**: Progressive complexity testable
+
+---
+
+## Phase 5: User Story 4 - Team Adoption Path (Priority: P4)
+
+**Goal**: Clear adoption path from individual to team to enterprise
+
+**Independent Test**: Team lead can articulate adoption steps
+
+### Implementation
+
+- [ ] T033 [US4] Create docs/guides/ci-cd.md with GitHub Actions and GitLab CI examples
+- [ ] T034 [P] [US4] Rewrite docs/guides/team-adoption.md from migration/team-adoption.md
+- [ ] T035 [P] [US4] Rewrite docs/guides/enterprise.md from migration/enterprise-patterns.md
+- [ ] T036 [US4] Add "Next Steps" section to all guide pages
+- [ ] T037 [US4] Ensure progression: git sharing → team patterns → enterprise controls
+
+**Checkpoint**: Adoption path clear and testable
+
+---
+
+## Phase 6: Cleanup & Validation
+
+**Purpose**: Remove deprecated content, validate all examples
+
+### Cleanup
+
+- [ ] T038 [P] Remove docs/paradigm/ directory (content integrated elsewhere)
+- [ ] T039 [P] Remove docs/workflows/ directory (replaced by use-cases/)
+- [ ] T040 [P] Remove docs/migration/ directory (replaced by guides/)
+- [ ] T041 Update docs navigation config for new structure
+
+### Validation
+
+- [ ] T042 [P] Validate all YAML examples are syntactically correct
+- [ ] T043 [P] Validate all code examples are copy-paste runnable
+- [ ] T044 [P] Verify every page has "Next Steps" section
+- [ ] T045 Test quickstart flow end-to-end (target: 60 seconds)
+- [ ] T046 Test task-based navigation (target: 5 seconds to find use-case)
 
 ---
 
@@ -124,97 +142,90 @@ Documentation restructure - paths are relative to repository root `/home/librete
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
-- **User Stories (Phase 3+)**: All depend on Foundational phase completion
-  - User stories can then proceed in parallel (if staffed)
-  - Or sequentially in priority order (P1 → P2 → P3)
-- **Polish (Phase 6)**: Depends on all desired user stories being complete
-
-### User Story Dependencies
-
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
-- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - Independent but references paradigm content from US1
-- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May reference workflow patterns from US2
-
-### Within Each User Story
-
-- Tasks marked [P] can run in parallel within the same story
-- Content creation before validation
-- Directory structure before file creation
-- Core content before cross-references
+- **Phase 1 (Setup)**: No dependencies - start immediately
+- **Phase 2 (US1)**: Depends on Phase 1
+- **Phase 3 (US2)**: Depends on Phase 1, can run parallel to US1
+- **Phase 4 (US3)**: Depends on Phase 1, can run parallel to US1/US2
+- **Phase 5 (US4)**: Depends on Phase 1, can run parallel to US1/US2/US3
+- **Phase 6 (Cleanup)**: Depends on all user stories complete
 
 ### Parallel Opportunities
 
-- All Setup tasks (T001-T004) can run in parallel
-- Foundational tasks T006-T007, T009 can run in parallel after T005, T008
-- Once Foundational phase completes, all user stories can start in parallel
-- Within each user story, all tasks marked [P] can run in parallel
-- Validation tasks (T033-T035, T038) can run in parallel during Polish phase
+**Phase 1**: All tasks can run in parallel (T001-T005)
+
+**After Phase 1 completes**: All user stories can run in parallel:
+- Agent A: User Story 1 (quickstart + landing)
+- Agent B: User Story 2 (use-cases)
+- Agent C: User Story 3 (concepts + reference)
+- Agent D: User Story 4 (guides)
+
+**Within each phase**: Tasks marked [P] can run in parallel
 
 ---
 
-## Parallel Example: User Story 1
+## Parallel Example: 6 Agents
 
-```bash
-# Launch core landing page updates together:
-Task: "Update docs/index.md hero section to lead with 'Infrastructure as Code for AI'"
-Task: "Update docs/index.md tagline to emphasize declarative workflows"
-Task: "Update docs/index.md features section to emphasize reproducibility"
+```
+Agent 1: T001-T005 (Setup - sequential)
+         Then: T006-T013 (US1 - quickstart/landing)
 
-# After hero/tagline/features are done:
-Task: "Add Infrastructure Parallels comparison table to docs/index.md"
+Agent 2: Wait for T001
+         Then: T014-T020 (US2 - use-cases)
+
+Agent 3: Wait for T001
+         Then: T021-T028 (US3 concepts)
+
+Agent 4: Wait for T001
+         Then: T029-T032 (US3 reference)
+
+Agent 5: Wait for T001
+         Then: T033-T037 (US4 - guides)
+
+Agent 6: Wait for all user stories
+         Then: T038-T046 (cleanup/validation)
 ```
 
 ---
 
-## Implementation Strategy
+## Content Standards
 
-### MVP First (User Story 1 Only)
+### Every Page Must Have
 
-1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
-3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test User Story 1 independently (30-second comprehension test)
-5. Deploy/demo if ready
+1. **Opening**: 1-2 sentences explaining the concept/task
+2. **Code Example**: Minimal working example (first example < 10 lines)
+3. **Next Steps**: 2-3 links to related content
 
-### Incremental Delivery
+### Code Examples Must Be
 
-1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
-5. Each story adds value without breaking previous stories
+1. **Copy-paste runnable**: No modifications needed
+2. **Progressive**: Simple → complex within each page
+3. **Real**: Based on actual Wave syntax (no invented features)
 
-### Parallel Team Strategy
+### ngrok Patterns to Follow
 
-With multiple developers:
-
-1. Team completes Setup + Foundational together
-2. Once Foundational is done:
-   - Developer A: User Story 1 (Infrastructure Engineer Discovery)
-   - Developer B: User Story 2 (Shareable Workflow Creation)
-   - Developer C: User Story 3 (Team Adoption Patterns)
-3. Stories complete and integrate independently
+1. **Problem-outcome framing**: Explain why before how
+2. **Escape routes**: "Don't have X? Try this instead"
+3. **Task-oriented**: Organize by what users want to do
+4. **Minimal prose**: Let code examples speak
 
 ---
 
-## Key Content Principles
+## Key Metrics
 
-- **Declarative Configuration Focus**: Emphasize infrastructure-as-code patterns, not format-specific (YAML/JSON agnostic)
-- **Infrastructure-as-Code Parallels**: Reference Kubernetes, Docker Compose, Terraform patterns developers know
-- **Complete Examples First**: Show full working configurations before explaining components
-- **Deliverables + Contracts**: Emphasize guaranteed outputs as core differentiator
-- **Team Collaboration**: Focus on sharing, versioning, and reproducible workflows
-- **File-Centric Approach**: Emphasize configuration files over CLI commands
+| Metric | Target | How to Test |
+|--------|--------|-------------|
+| Time to first pipeline | < 60 seconds | User testing |
+| Time to find use-case | < 5 seconds | Navigation testing |
+| First example size | < 10 lines | Manual review |
+| Pages with Next Steps | 100% | Automated check |
+| Runnable examples | 100% | YAML validation |
 
 ---
 
 ## Notes
 
-- Tasks follow strict checkbox format for trackability
-- [P] tasks target different files and can run concurrently
-- [Story] labels enable independent user story implementation
-- Each user story should be independently completable and testable
-- Focus on declarative configuration paradigm rather than specific formats
-- Emphasize Infrastructure-as-Code familiarity over AI tool novelty
+- All tasks use checkbox format for trackability
+- [P] tasks can run concurrently within same phase
+- [Story] labels enable independent user story work
+- Focus on ngrok patterns: task-oriented, minimal prose, progressive complexity
+- Remove paradigm/ section entirely - integrate key points into index.md
