@@ -29,6 +29,7 @@ type RunOptions struct {
 	Mock         bool
 	NoProgress   bool
 	PlainProgress bool
+	NoLogs       bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -54,6 +55,7 @@ Supports dry-run mode, step resumption, and custom timeouts.`,
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().BoolVar(&opts.NoProgress, "no-progress", false, "Disable enhanced progress display")
 	cmd.Flags().BoolVar(&opts.PlainProgress, "plain", false, "Use plain text progress (no colors/animations)")
+	cmd.Flags().BoolVar(&opts.NoLogs, "no-logs", false, "Suppress JSON log output (show only progress display)")
 
 	cmd.MarkFlagRequired("pipeline")
 
@@ -127,14 +129,26 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 
 		// Create emitter with progress display
-		emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		if opts.NoLogs {
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
+		} else {
+			emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		}
 	} else if opts.PlainProgress {
 		// Use basic text progress
 		progressDisplay = display.NewBasicProgressDisplay()
-		emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		if opts.NoLogs {
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
+		} else {
+			emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		}
 	} else {
 		// Use standard human-readable output
-		emitter = event.NewNDJSONEmitterWithHumanReadable()
+		if opts.NoLogs {
+			emitter = event.NewNDJSONEmitter() // Silent mode - no output
+		} else {
+			emitter = event.NewNDJSONEmitterWithHumanReadable()
+		}
 	}
 
 	// Initialize workspace manager under .wave/workspaces

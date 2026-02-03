@@ -52,6 +52,7 @@ type EventEmitter interface {
 type NDJSONEmitter struct {
 	encoder         *json.Encoder
 	humanReadable   bool
+	suppressJSON    bool            // When true, suppresses JSON output to stdout
 	mu              sync.Mutex
 	progressEmitter ProgressEmitter // Optional enhanced progress emitter
 }
@@ -66,6 +67,7 @@ func NewNDJSONEmitter() *NDJSONEmitter {
 	return &NDJSONEmitter{
 		encoder:         json.NewEncoder(os.Stdout),
 		humanReadable:   false,
+		suppressJSON:    false,
 		progressEmitter: nil,
 	}
 }
@@ -74,6 +76,7 @@ func NewNDJSONEmitterWithHumanReadable() *NDJSONEmitter {
 	return &NDJSONEmitter{
 		encoder:         json.NewEncoder(os.Stdout),
 		humanReadable:   true,
+		suppressJSON:    false,
 		progressEmitter: nil,
 	}
 }
@@ -84,6 +87,18 @@ func NewNDJSONEmitterWithProgress(progressEmitter ProgressEmitter) *NDJSONEmitte
 	return &NDJSONEmitter{
 		encoder:         json.NewEncoder(os.Stdout),
 		humanReadable:   false,
+		suppressJSON:    false,
+		progressEmitter: progressEmitter,
+	}
+}
+
+// NewProgressOnlyEmitter creates an emitter that only shows progress (no JSON logs).
+// Progress goes to stderr, JSON logs are suppressed entirely.
+func NewProgressOnlyEmitter(progressEmitter ProgressEmitter) *NDJSONEmitter {
+	return &NDJSONEmitter{
+		encoder:         json.NewEncoder(os.Stdout), // Still needs encoder but won't use it
+		humanReadable:   false,
+		suppressJSON:    true, // Suppress JSON output to stdout
 		progressEmitter: progressEmitter,
 	}
 }
@@ -109,7 +124,12 @@ func (e *NDJSONEmitter) Emit(event Event) {
 		}
 	}
 
-	// Always emit NDJSON to stdout (backward compatibility)
+	// Emit NDJSON to stdout unless suppressed (backward compatibility)
+	if e.suppressJSON {
+		// Don't emit JSON when --no-logs is used
+		return
+	}
+
 	if e.humanReadable {
 		stateColors := map[string]string{
 			"started":              "\033[36m",
