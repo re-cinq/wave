@@ -563,14 +563,17 @@ func parseSinceDuration(s string) (time.Duration, error) {
 }
 
 // formatTokens formats a token count with appropriate units.
+// Uses integer-based thousands suffix to match existing callers/tests (e.g., "1k", "45k").
 func formatTokens(tokens int) string {
 	if tokens < 1000 {
 		return fmt.Sprintf("%d", tokens)
 	}
 	if tokens < 1000000 {
-		return fmt.Sprintf("%.1fk", float64(tokens)/1000.0)
+		// Use integer-based thousands suffix to match existing callers/tests (e.g., "1k", "45k").
+		return fmt.Sprintf("%dk", tokens/1000)
 	}
-	return fmt.Sprintf("%.2fM", float64(tokens)/1000000.0)
+	// Use integer-based millions suffix (e.g., "1M", "12M").
+	return fmt.Sprintf("%dM", tokens/1000000)
 }
 
 // renderPerformanceSummary displays aggregated performance metrics for a run.
