@@ -1,0 +1,427 @@
+kind: WavePipeline
+metadata:
+  name: prototype
+  description: "Prototype-driven development pipeline with 5 phases (9 steps): spec, docs, dummy, implement, pr-cycle"
+  version: "1.0.0"
+  created: "2026-02-03"
+  author: "Wave prototype-driven development feature"
+
+input:
+  source: cli
+
+steps:
+  # Phase 1: Spec - Requirements capture with speckit integration
+  - id: spec
+    persona: craftsman
+    exec:
+      source: |
+        You are beginning the specification phase of a prototype-driven development pipeline.
+
+        Your goal is to analyze the project description and create a comprehensive feature specification:
+
+        Project description: {{ input }}
+
+        CRITICAL: Create both spec.md and requirements.md files:
+
+        spec.md should contain the complete feature specification including:
+        - Feature overview and business value
+        - User stories with acceptance criteria
+        - Functional requirements
+        - Success criteria and measurable outcomes
+        - Constraints and assumptions
+
+        requirements.md should contain extracted requirements (optional additional detail).
+
+        Use speckit integration where available to enhance specification quality.
+
+        The specification must be technology-agnostic and focused on user value.
+
+        CRITICAL: You MUST also create an artifact.json file with the following structure for contract validation:
+        {
+          "phase": "spec",
+          "artifacts": {
+            "spec": {"path": "spec.md", "exists": true, "content_type": "markdown"},
+            "requirements": {"path": "requirements.md", "exists": true, "content_type": "markdown"}
+          },
+          "validation": {
+            "completeness_score": 85,
+            "clarity_score": 90,
+            "testability_score": 80,
+            "specification_quality": "good"
+          },
+          "metadata": {
+            "timestamp": "{{ timestamp }}",
+            "duration_seconds": 120.5,
+            "input_description": "{{ input }}"
+          }
+        }
+
+        This artifact.json overrides the normal no-write constraint for pipeline data flow.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+    output_artifacts:
+      - name: "spec"
+        path: "spec.md"
+        type: "specification"
+      - name: "requirements"
+        path: "requirements.md"
+        type: "specification"
+      - name: "contract_data"
+        path: "artifact.json"
+        type: "json"
+
+    handover:
+      contract:
+        type: "json_schema"
+        schema_path: ".wave/contracts/spec-phase.schema.json"
+        must_pass: true
+        max_retries: 2
+
+  # Phase 2: Docs - Generate runnable documentation from specification
+  - id: docs
+    persona: philosopher
+    dependencies: ["spec"]
+
+    memory:
+      inject_artifacts:
+        - step: "spec"
+          artifact: "spec"
+          as: "input-spec.md"
+
+    exec:
+      source: |
+        You are in the documentation phase of prototype-driven development.
+
+        Your goal is to create comprehensive, runnable documentation from the specification.
+
+        Input specification is available in artifacts/input-spec.md
+
+        Create feature documentation that includes:
+        - User-friendly explanation of the feature
+        - Usage examples and scenarios
+        - Integration guide for developers
+        - Stakeholder summary for non-technical audiences
+
+        Generate VitePress-compatible markdown that can be served as runnable documentation.
+
+        CRITICAL: Create both feature-docs.md and stakeholder-summary.md files.
+
+        CRITICAL: You MUST also create an artifact.json file with the following structure for contract validation:
+        {
+          "phase": "docs",
+          "artifacts": {
+            "feature_docs": {"path": "feature-docs.md", "exists": true, "content_type": "markdown"},
+            "stakeholder_summary": {"path": "stakeholder-summary.md", "exists": true, "content_type": "markdown"}
+          },
+          "validation": {
+            "coverage_percentage": 95,
+            "readability_score": 90,
+            "documentation_quality": "excellent"
+          },
+          "metadata": {
+            "timestamp": "{{ timestamp }}",
+            "duration_seconds": 180.0,
+            "source_spec_path": "artifacts/input-spec.md"
+          }
+        }
+
+        This artifact.json overrides the normal no-write constraint for pipeline data flow.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+    output_artifacts:
+      - name: "feature-docs"
+        path: "feature-docs.md"
+        type: "documentation"
+      - name: "stakeholder-summary"
+        path: "stakeholder-summary.md"
+        type: "documentation"
+      - name: "contract_data"
+        path: "artifact.json"
+        type: "json"
+
+    handover:
+      contract:
+        type: "json_schema"
+        schema_path: ".wave/contracts/docs-phase.schema.json"
+        must_pass: true
+        max_retries: 2
+
+  # Phase 3: Dummy - Build authentic functional prototype
+  - id: dummy
+    persona: craftsman
+    dependencies: ["docs"]
+
+    memory:
+      inject_artifacts:
+        - step: "docs"
+          artifact: "feature-docs"
+          as: "feature-docs.md"
+        - step: "spec"
+          artifact: "spec"
+          as: "spec.md"
+
+    exec:
+      source: |
+        You are in the dummy/prototype phase of development.
+
+        Your goal is to create a working prototype with authentic I/O handling but stub business logic.
+
+        Available context:
+        - artifacts/feature-docs.md - Feature documentation
+        - artifacts/spec.md - Original specification
+
+        Create a functional prototype that:
+        - Handles real input and output properly
+        - Implements all user interfaces and endpoints
+        - Uses placeholder/stub implementations for business logic
+        - Can be run and demonstrated to stakeholders
+        - Shows the complete user experience flow
+
+        Focus on proving the interface design and user flows work correctly.
+
+        CRITICAL: Create prototype/ directory with working code and interfaces.md with interface definitions.
+
+        CRITICAL: You MUST also create an artifact.json file with the following structure for contract validation:
+        {
+          "phase": "dummy",
+          "artifacts": {
+            "prototype": {"path": "prototype/", "exists": true, "content_type": "code"},
+            "interface_definitions": {"path": "interfaces.md", "exists": true, "content_type": "markdown"}
+          },
+          "validation": {
+            "runnable": true,
+            "interface_completeness": 100,
+            "prototype_quality": "excellent"
+          },
+          "metadata": {
+            "timestamp": "{{ timestamp }}",
+            "duration_seconds": 300.0,
+            "source_docs_path": "artifacts/feature-docs.md"
+          }
+        }
+
+        This artifact.json overrides the normal no-write constraint for pipeline data flow.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+    output_artifacts:
+      - name: "prototype"
+        path: "prototype/"
+        type: "code"
+      - name: "interface-definitions"
+        path: "interfaces.md"
+        type: "documentation"
+      - name: "contract_data"
+        path: "artifact.json"
+        type: "json"
+
+    handover:
+      contract:
+        type: "json_schema"
+        schema_path: ".wave/contracts/dummy-phase.schema.json"
+        must_pass: true
+        max_retries: 2
+
+  # Phase 4: Implement - Transition to full implementation
+  - id: implement
+    persona: craftsman
+    dependencies: ["dummy"]
+
+    memory:
+      inject_artifacts:
+        - step: "spec"
+          artifact: "spec"
+          as: "spec.md"
+        - step: "docs"
+          artifact: "feature-docs"
+          as: "feature-docs.md"
+        - step: "dummy"
+          artifact: "prototype"
+          as: "prototype/"
+
+    exec:
+      source: |
+        You are in the implementation phase - transitioning from prototype to production code.
+
+        Available context:
+        - artifacts/spec.md - Original specification
+        - artifacts/feature-docs.md - Feature documentation
+        - artifacts/prototype/ - Working prototype with interfaces
+
+        Your goal is to provide implementation guidance and begin real implementation:
+        - Review all previous artifacts for implementation readiness
+        - Create implementation plan and checklist
+        - Begin replacing stub logic with real implementations
+        - Ensure test coverage for all functionality
+        - Maintain compatibility with established interfaces
+
+        Focus on production-quality code that fulfills the original specification.
+
+        CRITICAL: Create implementation-plan.md and implementation-checklist.md files.
+
+        CRITICAL: You MUST also create an artifact.json file with the following structure for contract validation:
+        {
+          "phase": "implement",
+          "artifacts": {
+            "implementation_plan": {"path": "implementation-plan.md", "exists": true, "content_type": "markdown"},
+            "progress_checklist": {"path": "implementation-checklist.md", "exists": true, "content_type": "markdown"}
+          },
+          "validation": {
+            "tests_executed": true,
+            "test_results": {"total": 10, "passed": 10, "failed": 0, "coverage_percent": 85.5},
+            "implementation_readiness": "ready"
+          },
+          "metadata": {
+            "timestamp": "{{ timestamp }}",
+            "duration_seconds": 450.0,
+            "previous_phases": ["spec", "docs", "dummy"]
+          }
+        }
+
+        This artifact.json overrides the normal no-write constraint for pipeline data flow.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+    output_artifacts:
+      - name: "implementation-plan"
+        path: "implementation-plan.md"
+        type: "documentation"
+      - name: "progress-checklist"
+        path: "implementation-checklist.md"
+        type: "checklist"
+      - name: "contract_data"
+        path: "artifact.json"
+        type: "json"
+
+    handover:
+      contract:
+        type: "json_schema"
+        schema_path: ".wave/contracts/implement-phase.schema.json"
+        must_pass: true
+        max_retries: 2
+
+  # Phase 5: PR-Cycle - Automated pull request lifecycle
+  - id: pr-create
+    persona: navigator
+    dependencies: ["implement"]
+
+    memory:
+      inject_artifacts:
+        - step: "implement"
+          artifact: "implementation-plan"
+          as: "implementation-plan.md"
+
+    exec:
+      source: |
+        You are creating a pull request for the implemented feature.
+
+        Available context:
+        - artifacts/implementation-plan.md - Implementation details
+
+        Create a comprehensive pull request:
+        - Clear PR title and description
+        - Link to related issues
+        - Include testing instructions
+        - Add appropriate labels and reviewers
+        - Request Copilot review
+
+        Use GitHub CLI to create the PR and configure automated review workflow.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+    output_artifacts:
+      - name: "pr-info"
+        path: "pr-info.json"
+        type: "metadata"
+
+  - id: pr-review
+    persona: auditor
+    dependencies: ["pr-create"]
+
+    exec:
+      source: |
+        Monitor and manage the PR review process.
+
+        Poll for Copilot review completion and analyze feedback.
+        Prepare response strategy for review comments.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+  - id: pr-respond
+    persona: philosopher
+    dependencies: ["pr-review"]
+
+    exec:
+      source: |
+        Analyze review comments and prepare thoughtful responses.
+
+        Generate responses to review feedback that:
+        - Address technical concerns professionally
+        - Explain design decisions clearly
+        - Propose solutions for identified issues
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+  - id: pr-fix
+    persona: craftsman
+    dependencies: ["pr-respond"]
+
+    exec:
+      source: |
+        Implement small fixes based on review feedback.
+
+        For larger changes, create follow-up issues instead of expanding this PR.
+        Focus on quick, low-risk improvements that address reviewer concerns.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"
+
+  - id: pr-merge
+    persona: navigator
+    dependencies: ["pr-fix"]
+
+    exec:
+      source: |
+        Complete the PR lifecycle with merge.
+
+        Verify all checks pass, reviews are approved, and merge the PR.
+        Clean up branch and notify stakeholders of completion.
+
+    workspace:
+      mount:
+        - source: "."
+          target: "/workspace"
+          mode: "readwrite"

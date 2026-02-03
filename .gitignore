@@ -11,9 +11,18 @@
 # .wave/pipelines/   — committed
 # .wave/contracts/   — committed
 
-# Go build
+# Go build artifacts
 /wave
 *.exe
+*.test
+*.out
+vendor/
+*.prof
+coverage.txt
+coverage.out
+debug
+release
+*.dSYM
 
 # Traces and logs
 *.log
