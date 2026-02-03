@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: WaveManifest
+metadata:
+    description: A Wave multi-agent project
+    name: wave-project
 adapters:
     claude:
         binary: claude
@@ -13,11 +18,6 @@ adapters:
         project_files:
             - CLAUDE.md
             - .claude/settings.json
-apiVersion: v1
-kind: WaveManifest
-metadata:
-    description: A Wave multi-agent project
-    name: wave-project
 personas:
     auditor:
         adapter: claude
@@ -32,7 +32,6 @@ personas:
                 - Write(*)
                 - Edit(*)
         system_prompt_file: .wave/personas/auditor.md
-        temperature: 0.1
     craftsman:
         adapter: claude
         description: Code implementation and testing
@@ -45,7 +44,6 @@ personas:
             deny:
                 - Bash(rm -rf /*)
         system_prompt_file: .wave/personas/craftsman.md
-        temperature: 0.7
     debugger:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
@@ -62,7 +60,6 @@ personas:
                 - Write(*)
                 - Edit(*)
         system_prompt_file: .wave/personas/debugger.md
-        temperature: 0.2
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
@@ -79,7 +76,6 @@ personas:
                 - Bash(git commit*)
                 - Bash(git push*)
         system_prompt_file: .wave/personas/navigator.md
-        temperature: 0.1
     philosopher:
         adapter: claude
         description: Architecture design and specification
@@ -90,7 +86,6 @@ personas:
             deny:
                 - Bash(*)
         system_prompt_file: .wave/personas/philosopher.md
-        temperature: 0.3
     planner:
         adapter: claude
         description: Task breakdown and project planning
@@ -104,7 +99,6 @@ personas:
                 - Edit(*)
                 - Bash(*)
         system_prompt_file: .wave/personas/planner.md
-        temperature: 0.3
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
@@ -115,7 +109,6 @@ personas:
                 - Write(*)
                 - Bash(*)
         system_prompt_file: .wave/personas/summarizer.md
-        temperature: 0
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
@@ -125,7 +118,6 @@ personas:
                 - Bash
                 - Write
         system_prompt_file: .wave/personas/github-analyst.md
-        temperature: 0.2
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
@@ -137,7 +129,6 @@ personas:
             deny:
                 - Bash(rm *)
         system_prompt_file: .wave/personas/github-enhancer.md
-        temperature: 0.3
     github-pr-creator:
         adapter: claude
         description: GitHub pull request creation and management
@@ -150,7 +141,6 @@ personas:
                 - Bash(rm *)
                 - Bash(git push --force*)
         system_prompt_file: .wave/personas/github-pr-creator.md
-        temperature: 0.3
 runtime:
     audit:
         log_all_file_operations: false
