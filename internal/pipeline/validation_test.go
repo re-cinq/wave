@@ -338,7 +338,7 @@ func TestErrorMessageProvider(t *testing.T) {
 				"Phase 'docs' failed",
 				"artifacts/input-spec.md is accessible",
 				"wave run --pipeline prototype --from-step docs",
-				"resume from previous phase: wave run --pipeline prototype --from-step spec",
+				"Resume from previous phase: wave run --pipeline prototype --from-step spec",
 			},
 		},
 		{
@@ -349,7 +349,7 @@ func TestErrorMessageProvider(t *testing.T) {
 				"Phase 'dummy' failed",
 				"prototype/ directory is created",
 				"interfaces.md documents all interfaces",
-				"resume from previous phase: wave run --pipeline prototype --from-step docs",
+				"Resume from previous phase: wave run --pipeline prototype --from-step docs",
 			},
 		},
 	}
