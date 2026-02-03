@@ -222,7 +222,8 @@ func createPrototypeTestManifest() *manifest.Manifest {
 
 func loadTestPrototypePipeline() (*Pipeline, error) {
 	// Load the actual prototype pipeline definition
-	pipelineData, err := os.ReadFile(".wave/pipelines/prototype.yaml")
+	// Navigate up to project root from internal/pipeline directory
+	pipelineData, err := os.ReadFile("../../.wave/pipelines/prototype.yaml")
 	if err != nil {
 		return nil, err
 	}
