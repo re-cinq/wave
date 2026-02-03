@@ -455,36 +455,36 @@ if __name__ == "__main__":
 The prototype provides a command-line interface with the following operations:
 
 ### Create Item
-\`\`\`bash
+` + "```bash" + `
 python main.py --action create --name "Item Name" [--description "Description"]
-\`\`\`
+` + "```" + `
 
 ### List Items
-\`\`\`bash
+` + "```bash" + `
 python main.py --action list
-\`\`\`
+` + "```" + `
 
 ### Get Item
-\`\`\`bash
+` + "```bash" + `
 python main.py --action get --id <item_id>
-\`\`\`
+` + "```" + `
 
 ### Delete Item
-\`\`\`bash
+` + "```bash" + `
 python main.py --action delete --id <item_id>
-\`\`\`
+` + "```" + `
 
 ## Data Structures
 
 ### Item Object
-\`\`\`json
+` + "```json" + `
 {
   "id": 1,
   "name": "Item Name",
   "description": "Item Description",
   "status": "active"
 }
-\`\`\`
+` + "```" + `
 
 ## Stub Implementation Notes
 
