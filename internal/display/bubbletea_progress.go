@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,8 +26,6 @@ type BubbleTeaProgressDisplay struct {
 	stepOrder          []string
 	stepDurations      map[string]int64  // Track step durations in milliseconds
 	stepStartTimes     map[string]time.Time  // Track when each step started
-	stepLogs           map[string]string     // Track current log message for each step
-	stepLogHistory     map[string][]string   // Track recent log messages for each step
 	startTime          time.Time
 	enabled            bool
 	deliverableTracker *deliverable.Tracker
@@ -82,8 +79,6 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		stepOrder:          make([]string, 0, totalSteps),
 		stepDurations:      make(map[string]int64),
 		stepStartTimes:     make(map[string]time.Time),
-		stepLogs:           make(map[string]string),
-		stepLogHistory:     make(map[string][]string),
 		startTime:          time.Now(),
 		enabled:            true,
 		model:              model,
@@ -197,80 +192,6 @@ func (btpd *BubbleTeaProgressDisplay) SetDeliverableTracker(tracker *deliverable
 	btpd.mu.Lock()
 	defer btpd.mu.Unlock()
 	btpd.deliverableTracker = tracker
-}
-
-// UpdateStepLog updates the current log message for a step
-func (btpd *BubbleTeaProgressDisplay) UpdateStepLog(stepID, message string) {
-	if !btpd.enabled {
-		return
-	}
-
-	btpd.mu.Lock()
-	defer btpd.mu.Unlock()
-
-	// Filter out noise - only show important log messages
-	if btpd.isImportantLog(message) {
-		btpd.stepLogs[stepID] = message
-
-		// Add to history (keep last 5 messages)
-		if btpd.stepLogHistory[stepID] == nil {
-			btpd.stepLogHistory[stepID] = make([]string, 0, 5)
-		}
-		history := btpd.stepLogHistory[stepID]
-		history = append(history, message)
-		if len(history) > 5 {
-			history = history[1:] // Remove oldest
-		}
-		btpd.stepLogHistory[stepID] = history
-
-		// Update the model with new context
-		if btpd.model != nil {
-			ctx := btpd.toPipelineContext()
-			if btpd.program != nil {
-				btpd.program.Send(UpdateContextMsg(ctx))
-			}
-		}
-	}
-}
-
-// isImportantLog filters out noise and keeps only meaningful log messages
-func (btpd *BubbleTeaProgressDisplay) isImportantLog(message string) bool {
-	message = strings.TrimSpace(strings.ToLower(message))
-
-	// Skip empty or very short messages
-	if len(message) < 3 {
-		return false
-	}
-
-	// Skip common noise patterns
-	noisePatterns := []string{
-		"checking", "processing", "loading", "waiting",
-		"debug:", "trace:", "info:", "initializing",
-		"starting", "finishing", "completed",
-		"token", "memory", "gc", "allocation",
-	}
-
-	for _, pattern := range noisePatterns {
-		if strings.Contains(message, pattern) {
-			return false
-		}
-	}
-
-	// Show important patterns
-	importantPatterns := []string{
-		"reading", "writing", "creating", "analyzing", "found", "error", "warning",
-		"generated", "executed", "running", "calling", "tool:", "file:",
-		"searching", "examining", "implementing", "fixing", "deploying",
-	}
-
-	for _, pattern := range importantPatterns {
-		if strings.Contains(message, pattern) {
-			return true
-		}
-	}
-
-	// Default to showing if it's not obviously noise
-	return !strings.Contains(message, "...")
 }
 
 // updateFromEvent updates internal state based on an event.
@@ -421,8 +342,6 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepOrder:          btpd.stepOrder,
 		StepDurations:      btpd.stepDurations,
 		DeliverablesByStep: deliverablesByStep,
-		StepLogs:           btpd.stepLogs,
-		StepLogHistory:     btpd.stepLogHistory,
 		ElapsedTimeMs:      elapsedMs,
 		EstimatedTimeMs:    0, // Not calculated
 		ManifestPath:       "wave.yaml",
