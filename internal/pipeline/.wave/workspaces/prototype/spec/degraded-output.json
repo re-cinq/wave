@@ -1,0 +1,7 @@
+{
+  "attempts": 4,
+  "content": "{\n  \"error\": \"malformed_output_recovery\",\n  \"message\": \"Original output could not be parsed, using fallback template\",\n  \"status\": \"partial_failure\",\n  \"recovered\": true\n}",
+  "degraded_at": "2026-02-03T19:22:24+01:00",
+  "original_error": "contract validation failed [json_schema]: failed to read schema file: .wave/contracts/spec-phase.schema.json\n  Details:\n    - open .wave/contracts/spec-phase.schema.json: no such file or directory",
+  "status": "degraded"
+}
