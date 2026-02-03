@@ -320,9 +320,9 @@ Users can interact with this feature through the following interfaces:
 3. Start using the feature
 
 ### Usage Examples
-\`\`\`
+` + "```" + `
 example command --option value
-\`\`\`
+` + "```" + `
 
 ## Developer Integration Guide
 Developers can integrate this feature by following these steps:
