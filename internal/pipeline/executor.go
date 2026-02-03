@@ -88,6 +88,7 @@ type PipelineExecution struct {
 	WorkspacePaths map[string]string // stepID -> workspace path
 	Input          string
 	Status         *PipelineStatus
+	Context        *PipelineContext  // Dynamic template variables
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -121,6 +122,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	pipelineID := p.Metadata.Name
+	pipelineContext := NewPipelineContext(pipelineID, "")
 	execution := &PipelineExecution{
 		Pipeline:       p,
 		Manifest:       m,
@@ -129,6 +131,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		ArtifactPaths:  make(map[string]string),
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
+		Context:        pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			State:          StatePending,
@@ -406,13 +409,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Validate handover contract if configured
 	if step.Handover.Contract.Type != "" {
+		// Resolve contract source path using pipeline context
+		resolvedSource := execution.Context.ResolveContractSource(step.Handover.Contract)
+
 		contractCfg := contract.ContractConfig{
 			Type:       step.Handover.Contract.Type,
-			Source:     step.Handover.Contract.Source,
+			Source:     resolvedSource,
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    step.Handover.Contract.Command,
 			StrictMode: step.Handover.Contract.MustPass,
+			MustPass:   step.Handover.Contract.MustPass,
+			MaxRetries: step.Handover.Contract.MaxRetries,
 		}
 
 		e.emit(event.Event{
@@ -479,10 +487,12 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	}
 
 	if e.wsManager != nil && len(step.Workspace.Mount) > 0 {
-		templateVars := map[string]string{
-			"pipeline_id": pipelineID,
-			"step_id":     step.ID,
-		}
+		// Update pipeline context with current step
+		execution.Context.StepID = step.ID
+
+		// Use pipeline context for template variables
+		templateVars := execution.Context.ToTemplateVars()
+
 		return e.wsManager.Create(workspace.WorkspaceConfig{
 			Root:  wsRoot,
 			Mount: toWorkspaceMounts(step.Workspace.Mount),
@@ -641,6 +651,9 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		}
 	}
 
+	// Resolve remaining template variables using pipeline context
+	prompt = execution.Context.ResolvePlaceholders(prompt)
+
 	return prompt
 }
 
@@ -708,7 +721,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecution, step *Step, workspacePath string, stdout []byte) {
 	for _, art := range step.OutputArtifacts {
-		artPath := filepath.Join(workspacePath, art.Path)
+		// Resolve artifact path using pipeline context
+		resolvedPath := execution.Context.ResolveArtifactPath(art)
+		artPath := filepath.Join(workspacePath, resolvedPath)
 		os.MkdirAll(filepath.Dir(artPath), 0755)
 		os.WriteFile(artPath, stdout, 0644)
 		key := step.ID + ":" + art.Name
