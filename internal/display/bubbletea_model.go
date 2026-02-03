@@ -161,16 +161,32 @@ func (m *ProgressModel) renderProgress() string {
 	var progressBar string
 	progressBar = "["
 
-	// Calculate pulse position (moves across the empty area)
+	// Calculate gradient breathing animation
 	now := time.Now().UnixMilli()
-	pulseInterval := int64(1000) // 1 second cycle for faster, more visible animation
-	pulseCycle := now % pulseInterval
+	breatheInterval := int64(1500) // 1.5 second breathing cycle
+	breatheCycle := now % breatheInterval
 
-	// Pulse moves across the entire empty area in one cycle
-	pulsePos := -1 // -1 means no pulse
-	if empty > 0 {
-		// Pulse position within empty area (0 to empty-1)
-		pulsePos = int((pulseCycle * int64(empty)) / pulseInterval)
+	// Create breathing phases: expand -> peak -> contract -> soft
+	var gradientSize int
+	phase := float64(breatheCycle) / float64(breatheInterval)
+
+	if phase < 0.25 {
+		// Expanding phase: 0 -> 3 gradient chars
+		gradientSize = int(phase * 12) // 0 to 3
+	} else if phase < 0.5 {
+		// Peak phase: hold at 3 gradient chars
+		gradientSize = 3
+	} else if phase < 0.75 {
+		// Contracting phase: 3 -> 2 gradient chars
+		gradientSize = 3 - int((phase-0.5)*4) // 3 to 2
+	} else {
+		// Soft phase: 2 gradient chars
+		gradientSize = 2
+	}
+
+	// Ensure gradient doesn't exceed empty space
+	if gradientSize > empty {
+		gradientSize = empty
 	}
 
 	// Render filled portion - Wave cyan color (matches logo)
@@ -179,18 +195,29 @@ func (m *ProgressModel) renderProgress() string {
 		progressBar += filledChar
 	}
 
-	// Render empty portion with pulsing wave
+	// Render empty portion with gradient breathing effect
 	for i := 0; i < empty; i++ {
 		var char string
 		var style lipgloss.Style
 
-		if i == pulsePos {
-			// Pulse character - wave-like character fitting Wave theme
-			char = "~"
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true) // Wave cyan, bold
+		if i < gradientSize {
+			// Gradient area - different characters based on position
+			if i == 0 {
+				// First gradient character (closest to filled)
+				char = "▒"
+				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
+			} else if i < gradientSize-1 {
+				// Middle gradient characters
+				char = "▓"
+				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
+			} else {
+				// Last gradient character (fading edge)
+				char = "▒"
+				style = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Medium gray
+			}
 		} else {
-			// Normal empty character - simple ASCII with muted color
-			char = "."
+			// Normal empty character - light shade block
+			char = "░"
 			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
 		}
 
