@@ -212,6 +212,26 @@ func createPrototypeTestManifest() *manifest.Manifest {
 					Deny:         []string{"Write(*)", "Edit(*)"},
 				},
 			},
+			"craftsman": {
+				Adapter:          "claude",
+				Description:      "Implementation specialist",
+				SystemPromptFile: ".wave/personas/craftsman.md",
+				Temperature:      0.7,
+				Permissions: manifest.Permissions{
+					AllowedTools: []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
+					Deny:         []string{},
+				},
+			},
+			"philosopher": {
+				Adapter:          "claude",
+				Description:      "Documentation and design specialist",
+				SystemPromptFile: ".wave/personas/philosopher.md",
+				Temperature:      0.5,
+				Permissions: manifest.Permissions{
+					AllowedTools: []string{"Read", "Write", "Edit", "Glob", "Grep"},
+					Deny:         []string{"Bash(*)"},
+				},
+			},
 		},
 		Runtime: manifest.Runtime{
 			DefaultTimeoutMin: 30,
