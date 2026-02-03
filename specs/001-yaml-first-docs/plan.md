@@ -1,106 +1,254 @@
 # Implementation Plan: YAML-First Documentation Paradigm
 
 **Branch**: `001-yaml-first-docs` | **Date**: 2026-02-03 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/001-yaml-first-docs/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Design Reference**: [ngrok documentation](https://ngrok.com/docs)
 
 ## Summary
 
-Refresh Wave documentation to position it as "Infrastructure as Code for AI" rather than an AI persona tool. Primary requirement is to lead with the YAML-first paradigm where developers can create reproducible, shareable, version-controlled AI workflows. Technical approach focuses on restructuring content hierarchy, creating Infrastructure-as-Code parallels, and emphasizing deliverables + contracts as guaranteed output mechanism.
+Restructure Wave documentation following ngrok's enterprise-grade patterns:
+- **Task-oriented navigation** instead of feature-oriented
+- **60-second quickstart** as primary entry point
+- **1-2 sentences + code block** pattern for all concept pages
+- **Progressive complexity** from simple → contracts → multi-step → team → enterprise
+- **Escape routes** at every potential blocker
 
 ## Technical Context
 
 **Documentation Format**: Markdown with VitePress/similar static site generator
 **Primary Dependencies**: None (static documentation site)
-**Storage**: File-based markdown + assets (no database)
-**Testing**: Documentation validation via manual review + user testing
+**Storage**: File-based markdown + assets
+**Testing**: Documentation validation via user testing + example validation
 **Target Platform**: Static site hosting (Netlify, Vercel, GitHub Pages)
-**Project Type**: Documentation restructure and content refresh
-**Performance Goals**: Page load < 2s, content discoverability within 30s of landing
-**Constraints**: Must maintain existing technical accuracy while shifting paradigm presentation
-**Scale/Scope**: ~40 existing docs files, new content structure for 3 primary user journeys
+**Performance Goals**: Page load < 2s, first pipeline success in < 60s
 
 ## Constitution Check
 
-_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
-
-### Relevant Principles Assessment
-
-**✅ Principle 2: Manifest as Single Source of Truth**
-- Documentation MUST emphasize `wave.yaml` as the primary interface
-- YAML-first approach aligns perfectly with this principle
-
-**✅ Principle 4: Fresh Memory at Every Step Boundary**
-- Documentation MUST explain this architecture clearly as a key differentiator
-- Essential for Infrastructure-as-Code positioning
-
-**✅ Principle 6: Contracts at Every Handover**
-- Documentation MUST prominently feature contracts as output guarantees
-- Core to the deliverables + contracts value proposition
-
-**✅ Principle 10: Observable Progress, Auditable Operations**
-- Documentation should present structured events as monitoring/GitOps integration
-
-**No Constitutional Violations**: This is a documentation refresh that better aligns with existing architectural principles rather than changing them.
-
-### Post-Design Constitution Re-Check ✅
-
-After Phase 1 design completion:
-
-**✅ All principles maintained**: Documentation reorganization supports constitutional architecture
+**No Constitutional Violations**: Documentation restructure aligns with existing principles:
 - YAML-first approach reinforces Principle 2 (Manifest as Single Source of Truth)
-- Contract validation emphasis supports Principle 6 (Contracts at Every Handover)
-- Infrastructure-as-Code positioning highlights Principle 10 (Observable Progress)
-- Fresh memory architecture (Principle 4) prominently explained as differentiator
-
-**✅ No new violations introduced**: Documentation changes only improve principle presentation
+- Contract emphasis supports Principle 6 (Contracts at Every Handover)
+- Task-oriented docs highlight observable progress (Principle 10)
 
 ## Project Structure
 
-### Documentation (this feature)
-
-```
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
-```
-
-### Documentation Structure (repository root)
+### Current Documentation (to be restructured)
 
 ```
 docs/
-├── index.md                     # YAML-first landing page
-├── paradigm/                    # NEW: AI-as-Code positioning
-│   ├── ai-as-code.md           # Core paradigm explanation
-│   ├── infrastructure-parallels.md  # K8s, Docker Compose comparisons
-│   └── deliverables-contracts.md    # Guaranteed outputs concept
-├── workflows/                   # RESTRUCTURED: YAML-first organization
-│   ├── creating-workflows.md    # Primary how-to content
-│   ├── sharing-workflows.md     # Git-based workflow sharing
-│   ├── community-library.md     # Ecosystem and discovery
-│   └── examples/               # Complete YAML workflow examples
-├── concepts/                    # UPDATED: Supporting concepts
-│   ├── personas.md             # Demoted from primary focus
-│   ├── contracts.md            # Elevated as core concept
-│   ├── workspaces.md          # Technical implementation detail
-│   └── pipeline-execution.md   # How YAML becomes execution
-├── reference/                   # MAINTAINED: Technical specs
-│   ├── yaml-schema.md          # Comprehensive YAML reference
-│   ├── cli-commands.md         # Command reference
-│   └── troubleshooting.md      # Common issues and solutions
-└── migration/                   # NEW: Adoption guides
+├── index.md                     # Landing (needs rewrite)
+├── paradigm/                    # TO BE REMOVED - integrate into index
+│   ├── ai-as-code.md
+│   ├── infrastructure-parallels.md
+│   └── deliverables-contracts.md
+├── workflows/                   # RENAME to use-cases/
+│   ├── creating-workflows.md
+│   ├── sharing-workflows.md
+│   └── community-library.md
+├── concepts/                    # REWRITE with 1-2 sentences + code
+│   └── pipeline-execution.md
+├── reference/                   # ENHANCE with command+output pairs
+└── migration/                   # RENAME to guides/
     ├── from-personas-to-workflows.md
     ├── team-adoption.md
     └── enterprise-patterns.md
 ```
 
-**Structure Decision**: Paradigm-first organization where users encounter the "AI as Code" concept immediately, then progress through workflow creation (YAML-first) to supporting concepts. Traditional persona-focused content becomes supporting reference material.
+### Target Documentation (ngrok-inspired)
 
-## Complexity Tracking
+```
+docs/
+├── index.md                    # "What is Wave" - ONE paragraph, ONE diagram, quickstart CTA
+├── quickstart.md               # 60-second first pipeline (NEW - CRITICAL)
+│
+├── use-cases/                  # Task-oriented (PRIMARY navigation)
+│   ├── index.md               # Card-based overview
+│   ├── code-review.md         # Complete runnable example
+│   ├── security-audit.md      # Complete runnable example
+│   ├── docs-generation.md     # Complete runnable example
+│   └── test-generation.md     # Complete runnable example
+│
+├── concepts/                   # 1-2 sentences + code (SECONDARY)
+│   ├── index.md               # Overview
+│   ├── pipelines.md           # Core concept
+│   ├── personas.md            # Supporting concept
+│   ├── contracts.md           # Progressive examples
+│   ├── artifacts.md           # Output handling
+│   └── execution.md           # How Wave runs
+│
+├── reference/                  # Command + output pairs (TERTIARY)
+│   ├── cli.md                 # All commands
+│   ├── manifest.md            # wave.yaml reference
+│   ├── pipeline-schema.md     # Pipeline YAML schema
+│   └── contract-types.md      # Contract type reference
+│
+└── guides/                     # Advanced patterns (ADOPTION)
+    ├── ci-cd.md               # CI/CD integration
+    ├── team-adoption.md       # Team rollout
+    └── enterprise.md          # Enterprise patterns
+```
 
-_No constitutional violations identified - section not needed._
+## Content Patterns (from ngrok analysis)
+
+### Pattern 1: Concept Pages
+
+```markdown
+# Concept Name
+
+One sentence explaining what it is.
+
+​```yaml
+# Minimal working example (5-10 lines max)
+​```
+
+One sentence explaining when to use it.
+
+## Next Steps
+
+- [Related concept](/concepts/related) - brief description
+- [Use case](/use-cases/example) - brief description
+```
+
+### Pattern 2: Use-Case Pages
+
+```markdown
+# Task Name (e.g., "Automate Code Review")
+
+One paragraph: problem → solution → outcome.
+
+## Quick Start
+
+​```bash
+wave run code-review "Review my PR"
+​```
+
+Expected output shown.
+
+## Complete Pipeline
+
+​```yaml
+# Full runnable example
+​```
+
+## Customization
+
+Progressive examples adding complexity.
+
+## Next Steps
+
+- Related use cases
+- Relevant concepts
+```
+
+### Pattern 3: Quickstart Page
+
+```markdown
+# Quickstart
+
+Get your first pipeline running in 60 seconds.
+
+## 1. Install Wave
+
+​```bash
+# Installation command
+​```
+
+> **Don't have X?** [Escape route link]
+
+## 2. Initialize
+
+​```bash
+wave init
+​```
+
+## 3. Run Your First Pipeline
+
+​```bash
+wave run code-review "Hello Wave"
+​```
+
+## What Just Happened?
+
+Brief explanation of what executed.
+
+## Next Steps
+
+- [Code Review](/use-cases/code-review) - deeper dive
+- [Create Custom Pipeline](/concepts/pipelines) - build your own
+- [Add Contracts](/concepts/contracts) - guarantee outputs
+```
+
+## Migration Strategy
+
+### Phase 1: Core Infrastructure
+1. Create quickstart.md (CRITICAL - enables 60-second success)
+2. Rewrite index.md (one paragraph + diagram + CTA)
+3. Create use-cases/ directory structure
+
+### Phase 2: Use-Case Documentation
+1. Create use-cases/index.md with card layout
+2. Create code-review.md with complete example
+3. Create security-audit.md, docs-generation.md, test-generation.md
+
+### Phase 3: Concept Rewrite
+1. Rewrite each concept page to 1-2 sentences + code pattern
+2. Add "Next Steps" to every page
+3. Ensure progressive complexity
+
+### Phase 4: Reference Enhancement
+1. Add command + output pairs to CLI reference
+2. Create pipeline-schema.md with clear required/optional
+3. Create contract-types.md reference
+
+### Phase 5: Guides Consolidation
+1. Rename migration/ to guides/
+2. Consolidate content into ci-cd.md, team-adoption.md, enterprise.md
+3. Remove paradigm/ section (integrate key points into index.md)
+
+### Phase 6: Cleanup
+1. Remove deprecated files
+2. Update navigation config
+3. Validate all examples are runnable
+4. Test 60-second quickstart flow
+
+## File Mapping
+
+| Current File | Action | Target File |
+|-------------|--------|-------------|
+| index.md | Rewrite | index.md |
+| - | Create | quickstart.md |
+| paradigm/ai-as-code.md | Delete | (integrate into index.md) |
+| paradigm/infrastructure-parallels.md | Delete | (integrate into index.md) |
+| paradigm/deliverables-contracts.md | Delete | (integrate into concepts/contracts.md) |
+| workflows/creating-workflows.md | Rewrite | concepts/pipelines.md |
+| workflows/sharing-workflows.md | Rewrite | guides/team-adoption.md |
+| workflows/community-library.md | Delete | (patterns in use-cases/) |
+| concepts/pipeline-execution.md | Rewrite | concepts/execution.md |
+| - | Create | use-cases/index.md |
+| - | Create | use-cases/code-review.md |
+| - | Create | use-cases/security-audit.md |
+| - | Create | use-cases/docs-generation.md |
+| - | Create | use-cases/test-generation.md |
+| - | Create | concepts/index.md |
+| - | Create | concepts/artifacts.md |
+| - | Create | reference/pipeline-schema.md |
+| - | Create | reference/contract-types.md |
+| migration/from-personas-to-workflows.md | Delete | (concepts explain this) |
+| migration/team-adoption.md | Rewrite | guides/team-adoption.md |
+| migration/enterprise-patterns.md | Rewrite | guides/enterprise.md |
+| - | Create | guides/ci-cd.md |
+
+## Key Metrics
+
+- **60 seconds**: Time to first successful pipeline run
+- **5 seconds**: Time to find relevant use-case documentation
+- **10 lines**: Maximum YAML in first example on any page
+- **100%**: Pages with "Next Steps" section
+- **100%**: Code examples that are copy-paste runnable
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Quickstart fails due to missing Claude CLI | Add escape route with installation link |
+| API key not configured | Add escape route with setup link |
+| No codebase to analyze | Provide sample repository or self-analysis |
+| Examples become outdated | Validation script to test all YAML examples |
