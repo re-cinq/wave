@@ -117,8 +117,8 @@ func runRun(opts RunOptions, debug bool) error {
 	useEnhancedProgress := !opts.NoProgress && !opts.PlainProgress && termInfo.IsTTY() && termInfo.SupportsANSI()
 
 	if useEnhancedProgress {
-		// Create bubbletea enhanced progress display
-		progressDisplay = display.NewBubbleTeaProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps))
+		// Create bubbletea enhanced progress display with deliverable tracking
+		progressDisplay = display.NewBubbleTeaProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps), nil) // Will be set later
 
 		// Register steps for tracking
 		btpd := progressDisplay.(*display.BubbleTeaProgressDisplay)
@@ -206,6 +206,11 @@ func runRun(opts RunOptions, debug bool) error {
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
+	// Connect deliverable tracker to progress display
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+	}
+
 	timeout := time.Duration(opts.Timeout) * time.Minute
 	if opts.Timeout == 0 {
 		timeout = m.Runtime.GetDefaultTimeout()
@@ -236,7 +241,17 @@ func runRun(opts RunOptions, debug bool) error {
 		btpd.Clear()
 	}
 
-	fmt.Printf("\n✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+	// Ensure clean cursor position for final output
+	fmt.Print("\r")  // Move to start of line
+	fmt.Printf("✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+
+	// Show deliverables summary with clean positioning
+	if deliverables := executor.GetDeliverables(); deliverables != "" {
+		fmt.Print("\n")
+		fmt.Print(deliverables)
+		fmt.Print("\n")
+	}
+
 	return nil
 }
 
