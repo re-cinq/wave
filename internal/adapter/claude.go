@@ -65,6 +65,13 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	}
 
 	mergedEnv := append(os.Environ(), cfg.Env...)
+	// Disable telemetry, error reporting, and interactive prompts for subprocess
+	mergedEnv = append(mergedEnv,
+		"DISABLE_TELEMETRY=1",
+		"DISABLE_ERROR_REPORTING=1",
+		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
+		"DISABLE_BUG_COMMAND=1",
+	)
 	cmd.Env = mergedEnv
 
 	// Set up process group for clean timeout kill
