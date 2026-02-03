@@ -118,11 +118,11 @@ type ProgressRenderer interface {
 
 // ColorScheme provides color mappings for different terminal types.
 var DefaultColorScheme = ColorPalette{
-	Primary:    "\033[36m", // Cyan
-	Success:    "\033[32m", // Green
-	Warning:    "\033[33m", // Yellow
-	Error:      "\033[31m", // Red
-	Muted:      "\033[90m", // Bright black/gray
+	Primary:    "\033[36m", // Standard cyan
+	Success:    "\033[32m", // Standard green
+	Warning:    "\033[33m", // Standard yellow
+	Error:      "\033[31m", // Standard red
+	Muted:      "\033[37m", // Standard white/light gray (readable)
 	Background: "\033[40m", // Black background
 	Reset:      "\033[0m",  // Reset
 }
