@@ -20,3 +20,4 @@
 
 # Node modules (docs site)
 node_modules/
+integration.test
