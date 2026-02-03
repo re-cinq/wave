@@ -8,52 +8,51 @@ export default withMermaid(
     themeConfig: {
       logo: '/logo.svg',
       nav: [
-        { text: 'Workflows', link: '/workflows/creating-workflows' },
-        {
-          text: 'AI as Code',
-          items: [
-            { text: 'Core Paradigm', link: '/paradigm/ai-as-code' },
-            { text: 'Infrastructure Parallels', link: '/paradigm/infrastructure-parallels' },
-            { text: 'Deliverables + Contracts', link: '/paradigm/deliverables-contracts' }
-          ]
-        },
+        { text: 'Quickstart', link: '/quickstart' },
+        { text: 'Use Cases', link: '/use-cases/' },
         {
           text: 'Concepts',
           items: [
-            { text: 'Contracts', link: '/concepts/contracts' },
-            { text: 'Pipeline Execution', link: '/concepts/pipeline-execution' },
+            { text: 'Overview', link: '/concepts/' },
+            { text: 'Pipelines', link: '/concepts/pipelines' },
             { text: 'Personas', link: '/concepts/personas' },
+            { text: 'Contracts', link: '/concepts/contracts' },
+            { text: 'Artifacts', link: '/concepts/artifacts' },
             { text: 'Workspaces', link: '/concepts/workspaces' }
+          ]
+        },
+        {
+          text: 'Guides',
+          items: [
+            { text: 'Team Adoption', link: '/guides/team-adoption' },
+            { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+            { text: 'Enterprise Patterns', link: '/guides/enterprise' },
+            { text: 'Audit Logging', link: '/guides/audit-logging' },
+            { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
+            { text: 'State & Resumption', link: '/guides/state-resumption' },
+            { text: 'Context Relay', link: '/guides/relay-compaction' },
+            { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
           ]
         },
         {
           text: 'Reference',
           items: [
-            { text: 'YAML Schema', link: '/reference/yaml-schema' },
-            { text: 'CLI Commands', link: '/reference/cli-commands' },
+            { text: 'CLI Commands', link: '/reference/cli' },
+            { text: 'Manifest Schema', link: '/reference/manifest-schema' },
+            { text: 'Pipeline Schema', link: '/reference/pipeline-schema' },
+            { text: 'Adapters', link: '/reference/adapters' },
+            { text: 'Events', link: '/reference/events' },
+            { text: 'Environment', link: '/reference/environment' },
             { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
         }
       ],
       sidebar: {
-        '/workflows/': [
+        '/use-cases/': [
           {
-            text: 'Workflows',
+            text: 'Use Cases',
             items: [
-              { text: 'Creating Workflows', link: '/workflows/creating-workflows' },
-              { text: 'Sharing Workflows', link: '/workflows/sharing-workflows' },
-              { text: 'Community Library', link: '/workflows/community-library' },
-              { text: 'Examples', link: '/workflows/examples/' }
-            ]
-          }
-        ],
-        '/paradigm/': [
-          {
-            text: 'AI as Code',
-            items: [
-              { text: 'Core Paradigm', link: '/paradigm/ai-as-code' },
-              { text: 'Infrastructure Parallels', link: '/paradigm/infrastructure-parallels' },
-              { text: 'Deliverables + Contracts', link: '/paradigm/deliverables-contracts' }
+              { text: 'Overview', link: '/use-cases/' }
             ]
           }
         ],
@@ -61,10 +60,36 @@ export default withMermaid(
           {
             text: 'Concepts',
             items: [
-              { text: 'Contracts', link: '/concepts/contracts' },
-              { text: 'Pipeline Execution', link: '/concepts/pipeline-execution' },
+              { text: 'Overview', link: '/concepts/' },
+              { text: 'Pipelines', link: '/concepts/pipelines' },
               { text: 'Personas', link: '/concepts/personas' },
-              { text: 'Workspaces', link: '/concepts/workspaces' }
+              { text: 'Contracts', link: '/concepts/contracts' },
+              { text: 'Artifacts', link: '/concepts/artifacts' },
+              { text: 'Execution', link: '/concepts/execution' },
+              { text: 'Workspaces', link: '/concepts/workspaces' },
+              { text: 'Adapters', link: '/concepts/adapters' },
+              { text: 'Manifests', link: '/concepts/manifests' },
+              { text: 'Architecture', link: '/concepts/architecture' }
+            ]
+          }
+        ],
+        '/guides/': [
+          {
+            text: 'Adoption',
+            items: [
+              { text: 'Team Adoption', link: '/guides/team-adoption' },
+              { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+              { text: 'Enterprise Patterns', link: '/guides/enterprise' }
+            ]
+          },
+          {
+            text: 'Advanced',
+            items: [
+              { text: 'Audit Logging', link: '/guides/audit-logging' },
+              { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
+              { text: 'State & Resumption', link: '/guides/state-resumption' },
+              { text: 'Context Relay', link: '/guides/relay-compaction' },
+              { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
             ]
           }
         ],
@@ -72,24 +97,18 @@ export default withMermaid(
           {
             text: 'Reference',
             items: [
-              { text: 'YAML Schema', link: '/reference/yaml-schema' },
-              { text: 'CLI Commands', link: '/reference/cli-commands' },
+              { text: 'CLI Commands', link: '/reference/cli' },
+              { text: 'Manifest Schema', link: '/reference/manifest-schema' },
+              { text: 'Pipeline Schema', link: '/reference/pipeline-schema' },
+              { text: 'Adapters', link: '/reference/adapters' },
+              { text: 'Events', link: '/reference/events' },
+              { text: 'Environment', link: '/reference/environment' },
               { text: 'Troubleshooting', link: '/reference/troubleshooting' }
-            ]
-          }
-        ],
-        '/migration/': [
-          {
-            text: 'Adoption',
-            items: [
-              { text: 'From Personas to Workflows', link: '/migration/from-personas-to-workflows' },
-              { text: 'Team Adoption', link: '/migration/team-adoption' },
-              { text: 'Enterprise Patterns', link: '/migration/enterprise-patterns' }
             ]
           }
         ]
       },
-        socialLinks: [
+      socialLinks: [
         { icon: 'github', link: 'https://github.com/recinq/wave' }
       ],
       search: {

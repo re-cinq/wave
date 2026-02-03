@@ -2,143 +2,107 @@
 layout: home
 hero:
   name: Wave
-  text: Infrastructure as Code for AI
-  tagline: Define reproducible AI workflows with declarative config files. Version control them like infrastructure, share them like Docker Compose.
+  text: AI Pipelines as Code
+  tagline: Define multi-step AI workflows in YAML. Run them with validation, isolation, and reproducible results.
   actions:
     - theme: brand
-      text: Create Workflow
-      link: /workflows/creating-workflows
+      text: Get Started in 60 Seconds
+      link: /quickstart
     - theme: alt
-      text: View Examples
-      link: /workflows/examples
+      text: Use Cases
+      link: /use-cases/
     - theme: alt
       text: GitHub
       link: https://github.com/recinq/wave
 features:
-  - icon: 📋
-    title: Declarative Workflows
-    details: Define multi-step AI workflows in config files. Like Kubernetes manifests or Docker Compose, but for AI tasks with guaranteed outputs.
-    link: /workflows/creating-workflows
-  - icon: 🤝
-    title: Guaranteed Contracts
-    details: Every workflow step validates its output against schemas. No more unpredictable AI responses — get exactly what you specify.
-    link: /concepts/contracts
-  - icon: 🔄
-    title: Version Controlled & Shareable
-    details: Workflows are files in git. Share them with your team, deploy them to environments, track changes like any infrastructure code.
-    link: /workflows/sharing-workflows
-  - icon: 🏗️
-    title: Familiar Patterns
-    details: "If you know Terraform, Kubernetes, or Docker Compose, you already understand Wave's declarative approach to AI automation."
-    link: /paradigm/infrastructure-parallels
-  - icon: 🎯
-    title: Reproducible Deliverables
-    details: "Same input, same workflow → identical outputs. No variance, no surprises. AI becomes as predictable as your build pipeline."
-    link: /paradigm/deliverables-contracts
-  - icon: 🔧
-    title: Ready-to-Use Library
-    details: "Start with built-in workflows: code review, refactoring, documentation, testing. Customize or create your own patterns."
-    link: /workflows/community-library
+  - icon: ">"
+    title: Pipelines as Code
+    details: Define multi-step AI workflows in YAML. Version control them, share them, run them anywhere.
+    link: /concepts/pipelines
+  - icon: "#"
+    title: Contract Validation
+    details: Every step validates its output against schemas. Get structured, predictable results every time.
+    link: /guide/contracts
+  - icon: "~"
+    title: Step Isolation
+    details: Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.
+    link: /concepts/workspaces
+  - icon: "@"
+    title: Ready-to-Run Pipelines
+    details: Built-in pipelines for code review, security audits, documentation, and test generation.
+    link: /use-cases/
 ---
 
-## AI Workflows as Code
+## What is Wave?
 
-Define AI automation like you define infrastructure — declarative, version-controlled, shareable.
+Wave is a pipeline orchestrator that runs AI workflows defined in YAML files. You define a sequence of steps, each executed by an AI agent with specific permissions. Wave handles isolation between steps, validates outputs against schemas, and passes artifacts through the pipeline. The result: repeatable, auditable AI automation that you can version control and share.
+
+```
+                        wave.yaml
+                            |
+                            v
+                    +---------------+
+                    |  Wave Engine  |
+                    +---------------+
+                            |
+        +-------------------+-------------------+
+        |                   |                   |
+        v                   v                   v
+   +--------+          +--------+          +--------+
+   | Step 1 |    ->    | Step 2 |    ->    | Step 3 |
+   | analyze|          | review |          | report |
+   +--------+          +--------+          +--------+
+        |                   |                   |
+        v                   v                   v
+    artifact            artifact            artifact
+    (JSON)             (markdown)           (summary)
+```
+
+Each step runs in complete isolation with fresh memory. Artifacts flow between steps automatically. Contracts validate outputs before the next step begins.
+
+## Your First Pipeline
+
+```bash
+# Install and initialize
+curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
+chmod +x wave && sudo mv wave /usr/local/bin/
+cd your-project && wave init
+
+# Run your first pipeline
+wave run --pipeline hello-world --input "testing Wave"
+```
+
+## Example: Code Review Pipeline
 
 ```yaml
-# workflow.yaml
-name: code-review
-description: Automated PR review with security and quality checks
+kind: WavePipeline
+metadata:
+  name: code-review
+  description: "Automated code review"
 
 steps:
-  - name: analyze-diff
+  - id: analyze
     persona: navigator
-    input: "${pr.diff}"
-    output:
-      type: json
-      schema: analysis-schema.json
+    exec:
+      source: "Analyze the code changes: {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
 
-  - name: security-review
+  - id: review
     persona: auditor
-    depends: [analyze-diff]
-    input: "${steps.analyze-diff.output}"
-    contracts:
-      - type: test-suite
-        path: ./tests/security-checks.js
-
-  - name: summary
-    persona: summarizer
-    depends: [security-review]
-    output:
-      type: markdown
-      deliverable: pr-review-comment.md
+    dependencies: [analyze]
+    exec:
+      source: "Review for security and quality issues"
+    output_artifacts:
+      - name: review
+        path: output/review.md
+        type: markdown
 ```
 
 ```bash
-# Run like any infrastructure tool
-wave apply workflow.yaml --input pr=123
-
-# Version control your AI automation
-git add workflow.yaml
-git commit -m "Add automated security review workflow"
-git push origin main
-
-# Share with your team
-wave run workflow.yaml --input pr=456
+wave run --pipeline code-review --input "authentication module"
 ```
 
-## Infrastructure Parallels
-
-If you know these tools, you already understand Wave's approach:
-
-| Tool Pattern | Wave Equivalent | Shared Concept |
-|--------------|-----------------|----------------|
-| `docker-compose.yml` | `workflow.yaml` | Declarative service orchestration |
-| Kubernetes manifests | Wave workflows | Multi-step deployment with dependencies |
-| Terraform configs | Wave pipelines | State management with guaranteed outputs |
-| CI/CD pipelines | Wave automation | Reproducible, version-controlled execution |
-
-## Guaranteed Deliverables
-
-Unlike traditional AI tools, Wave enforces **contracts** at every step:
-
-```yaml
-# Traditional AI: unpredictable outputs
-prompt: "Review this code for security issues"
-# Result: ¯\_(ツ)_/¯ (might be thorough, might miss issues)
-
-# Wave: guaranteed deliverables
-steps:
-  - name: security-review
-    contracts:
-      - type: json-schema
-        schema: security-findings.schema.json
-      - type: test-suite
-        tests: ./validate-security-report.js
-    output:
-      format: structured-report
-      required_fields: [vulnerabilities, risk_score, recommendations]
-# Result: Always gets validated JSON with required security fields
-```
-
-## Version Control Your AI
-
-```bash
-# Create workflow
-wave init security-review
-
-# Test and iterate
-wave run security-review.yaml --input ./src
-
-# Commit like infrastructure
-git add security-review.yaml
-git commit -m "Add automated security review workflow"
-
-# Deploy to CI/CD
-wave run security-review.yaml --input ${{ github.workspace }}
-
-# Share with team
-git clone repo && wave run workflows/security-review.yaml
-```
-
-Wave makes AI automation as **predictable**, **shareable**, and **maintainable** as your infrastructure code.
+[Get started in 60 seconds](/quickstart) or explore [use cases](/use-cases/).
