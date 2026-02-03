@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
@@ -241,15 +242,22 @@ func runRun(opts RunOptions, debug bool) error {
 		btpd.Clear()
 	}
 
-	// Ensure clean cursor position for final output
+	// Add spacing after Press section and ensure clean cursor position
 	fmt.Print("\r")  // Move to start of line
-	fmt.Printf("✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+	fmt.Print("\n")  // Space after Press section
+	fmt.Printf("  ✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
 
-	// Show deliverables summary with clean positioning
+	// Show deliverables summary with proper spacing and indentation
 	if deliverables := executor.GetDeliverables(); deliverables != "" {
 		fmt.Print("\n")
-		fmt.Print(deliverables)
-		fmt.Print("\n")
+		// Add left padding to each line of deliverables
+		lines := strings.Split(deliverables, "\n")
+		for _, line := range lines {
+			if line != "" {
+				fmt.Printf("  %s\n", line)
+			}
+		}
+		fmt.Print("\n") // Bottom spacing
 	}
 
 	return nil

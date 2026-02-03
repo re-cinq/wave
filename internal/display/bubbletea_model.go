@@ -157,15 +157,47 @@ func (m *ProgressModel) renderProgress() string {
 	filled := (m.ctx.OverallProgress * width) / 100
 	empty := width - filled
 
-	// Create progress bar with proper block characters
+	// Create progress bar with pulsing wave animation
 	var progressBar string
 	progressBar = "["
+
+	// Calculate pulse position (moves across the empty area)
+	now := time.Now().UnixMilli()
+	pulseInterval := int64(1000) // 1 second cycle for faster, more visible animation
+	pulseCycle := now % pulseInterval
+
+	// Pulse moves across the entire empty area in one cycle
+	pulsePos := -1 // -1 means no pulse
+	if empty > 0 {
+		// Pulse position within empty area (0 to empty-1)
+		pulsePos = int((pulseCycle * int64(empty)) / pulseInterval)
+	}
+
+	// Render filled portion - Wave cyan color (matches logo)
 	for i := 0; i < filled; i++ {
-		progressBar += "█" // Filled block
+		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("█")
+		progressBar += filledChar
 	}
+
+	// Render empty portion with pulsing wave
 	for i := 0; i < empty; i++ {
-		progressBar += "░" // Empty block
+		var char string
+		var style lipgloss.Style
+
+		if i == pulsePos {
+			// Pulse character - wave-like character fitting Wave theme
+			char = "~"
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true) // Wave cyan, bold
+		} else {
+			// Normal empty character - simple ASCII with muted color
+			char = "."
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
+		}
+
+		styledChar := style.Render(char)
+		progressBar += styledChar
 	}
+
 	progressBar += "]"
 
 	stepInfo := fmt.Sprintf(" %d%% Step %d/%d",
@@ -201,16 +233,18 @@ func (m *ProgressModel) renderCurrentStep() string {
 	var steps []string
 
 	// Show all completed steps first, then current step
-	// We need to iterate in proper order, not random map order
+	// Use proper step order from StepOrder slice, not random map iteration
 	completedSteps := []string{}
 	currentStep := ""
 
-	// Collect completed and current steps
-	for stepID, stepState := range m.ctx.StepStatuses {
-		if stepState == StateCompleted {
-			completedSteps = append(completedSteps, stepID)
-		} else if stepState == StateRunning && stepID == m.ctx.CurrentStepID {
-			currentStep = stepID
+	// Collect completed and current steps in proper order
+	for _, stepID := range m.ctx.StepOrder {
+		if stepState, exists := m.ctx.StepStatuses[stepID]; exists {
+			if stepState == StateCompleted {
+				completedSteps = append(completedSteps, stepID)
+			} else if stepState == StateRunning && stepID == m.ctx.CurrentStepID {
+				currentStep = stepID
+			}
 		}
 	}
 
@@ -231,12 +265,17 @@ func (m *ProgressModel) renderCurrentStep() string {
 		if m.ctx.DeliverablesByStep != nil {
 			if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
 				for _, deliverable := range stepDeliverables {
-					deliverableLine := fmt.Sprintf("  ├─ %s", deliverable)
+					deliverableLine := fmt.Sprintf("   ├─ %s", deliverable)
 					deliverableLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(deliverableLine) // Medium gray
 					steps = append(steps, deliverableLine)
 				}
 			}
 		}
+	}
+
+	// Add spacing after deliverables if any were shown
+	if len(completedSteps) > 0 {
+		steps = append(steps, "")
 	}
 
 	// Show current running step
@@ -271,9 +310,9 @@ func (m *ProgressModel) renderCurrentStep() string {
 	return lipgloss.JoinVertical(lipgloss.Left, steps...)
 }
 
-// tickCmd returns a command that ticks every 200ms for smooth but not overwhelming updates
+// tickCmd returns a command that ticks every 33ms for 30 FPS smooth updates (matching spinner rate)
 func tickCmd() tea.Cmd {
-	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(33*time.Millisecond, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
 }
