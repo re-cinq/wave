@@ -317,8 +317,8 @@ func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
 
 	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
 
-	// Check phases in reverse order to find the last incomplete phase
-	prototypePhasesOrder := []string{"implement", "dummy", "docs", "spec"}
+	// Check phases in forward order to find the first incomplete phase
+	prototypePhasesOrder := []string{"spec", "docs", "dummy", "implement"}
 
 	for _, phase := range prototypePhasesOrder {
 		phaseWorkspace := filepath.Join(workspaceRoot, phase)
