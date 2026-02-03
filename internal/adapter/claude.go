@@ -168,8 +168,12 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	}
 
 	// Generate settings.json for this step's persona
+	model := cfg.Model
+	if model == "" {
+		model = "opus" // Default to opus for best quality
+	}
 	settings := ClaudeSettings{
-		Model:        "claude-sonnet-4-20250514",
+		Model:        model,
 		Temperature:  cfg.Temperature,
 		OutputFormat: "json",
 		AllowedTools: allowedTools,
@@ -207,6 +211,13 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 
 func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args := []string{"-p"}
+
+	// Set model - default to opus for best quality
+	model := cfg.Model
+	if model == "" {
+		model = "opus"
+	}
+	args = append(args, "--model", model)
 
 	if len(cfg.AllowedTools) > 0 {
 		args = append(args, "--allowedTools", strings.Join(cfg.AllowedTools, ","))
