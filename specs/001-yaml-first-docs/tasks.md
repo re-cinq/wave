@@ -38,14 +38,14 @@ Repository root: `/home/libretech/Repos/wave/`
 
 ### Implementation
 
-- [ ] T006 [US1] Create docs/quickstart.md with 60-second pipeline flow (CRITICAL)
-- [ ] T007 [US1] Add escape route for missing Claude CLI in docs/quickstart.md
-- [ ] T008 [US1] Add escape route for missing API key in docs/quickstart.md
-- [ ] T009 [US1] Add escape route for no codebase (self-analysis fallback) in docs/quickstart.md
-- [ ] T010 [P] [US1] Rewrite docs/index.md hero: one paragraph explaining Wave
-- [ ] T011 [P] [US1] Add "What is Wave" diagram to docs/index.md
-- [ ] T012 [US1] Add single CTA "Get started in 60 seconds" linking to quickstart
-- [ ] T013 [US1] Remove persona mentions from docs/index.md hero section
+- [x] T006 [US1] Create docs/quickstart.md with 60-second pipeline flow (CRITICAL)
+- [x] T007 [US1] Add escape route for missing Claude CLI in docs/quickstart.md
+- [x] T008 [US1] Add escape route for missing API key in docs/quickstart.md
+- [x] T009 [US1] Add escape route for no codebase (self-analysis fallback) in docs/quickstart.md
+- [x] T010 [P] [US1] Rewrite docs/index.md hero: one paragraph explaining Wave
+- [x] T011 [P] [US1] Add "What is Wave" diagram to docs/index.md
+- [x] T012 [US1] Add single CTA "Get started in 60 seconds" linking to quickstart
+- [x] T013 [US1] Remove persona mentions from docs/index.md hero section
 
 **Checkpoint**: Quickstart flow testable - time to first pipeline
 
@@ -59,13 +59,13 @@ Repository root: `/home/libretech/Repos/wave/`
 
 ### Implementation
 
-- [ ] T014 [US2] Create docs/use-cases/index.md with card-based overview
-- [ ] T015 [P] [US2] Create docs/use-cases/code-review.md with complete runnable pipeline
-- [ ] T016 [P] [US2] Create docs/use-cases/security-audit.md with complete runnable pipeline
-- [ ] T017 [P] [US2] Create docs/use-cases/docs-generation.md with complete runnable pipeline
-- [ ] T018 [P] [US2] Create docs/use-cases/test-generation.md with complete runnable pipeline
-- [ ] T019 [US2] Add expected output examples to each use-case page
-- [ ] T020 [US2] Add "Next Steps" section to each use-case page
+- [x] T014 [US2] Create docs/use-cases/index.md with card-based overview
+- [x] T015 [P] [US2] Create docs/use-cases/code-review.md with complete runnable pipeline
+- [x] T016 [P] [US2] Create docs/use-cases/security-audit.md with complete runnable pipeline
+- [x] T017 [P] [US2] Create docs/use-cases/docs-generation.md with complete runnable pipeline
+- [x] T018 [P] [US2] Create docs/use-cases/test-generation.md with complete runnable pipeline
+- [x] T019 [US2] Add expected output examples to each use-case page
+- [x] T020 [US2] Add "Next Steps" section to each use-case page
 
 **Checkpoint**: Task-based navigation testable
 
@@ -79,21 +79,21 @@ Repository root: `/home/libretech/Repos/wave/`
 
 ### Concept Pages (1-2 sentences + code pattern)
 
-- [ ] T021 [US3] Create docs/concepts/index.md with concept overview
-- [ ] T022 [P] [US3] Rewrite docs/concepts/pipelines.md: 1-2 sentences + minimal example
-- [ ] T023 [P] [US3] Rewrite docs/concepts/personas.md: 1-2 sentences + minimal example
-- [ ] T024 [P] [US3] Rewrite docs/concepts/contracts.md: progressive examples (simple → complex)
-- [ ] T025 [P] [US3] Create docs/concepts/artifacts.md: 1-2 sentences + minimal example
-- [ ] T026 [P] [US3] Rewrite docs/concepts/execution.md from pipeline-execution.md
-- [ ] T027 [US3] Add "Next Steps" section to every concept page
-- [ ] T028 [US3] Verify all first examples are under 10 lines YAML
+- [x] T021 [US3] Create docs/concepts/index.md with concept overview
+- [x] T022 [P] [US3] Rewrite docs/concepts/pipelines.md: 1-2 sentences + minimal example
+- [x] T023 [P] [US3] Rewrite docs/concepts/personas.md: 1-2 sentences + minimal example
+- [x] T024 [P] [US3] Rewrite docs/concepts/contracts.md: progressive examples (simple → complex)
+- [x] T025 [P] [US3] Create docs/concepts/artifacts.md: 1-2 sentences + minimal example
+- [x] T026 [P] [US3] Rewrite docs/concepts/execution.md from pipeline-execution.md
+- [x] T027 [US3] Add "Next Steps" section to every concept page
+- [x] T028 [US3] Verify all first examples are under 10 lines YAML
 
 ### Reference Pages (command + output pairs)
 
-- [ ] T029 [P] [US3] Rewrite docs/reference/cli.md with command + expected output pairs
-- [ ] T030 [P] [US3] Create docs/reference/manifest.md with copy-paste examples
-- [ ] T031 [P] [US3] Create docs/reference/pipeline-schema.md with required/optional fields
-- [ ] T032 [P] [US3] Create docs/reference/contract-types.md with all contract types
+- [x] T029 [P] [US3] Rewrite docs/reference/cli.md with command + expected output pairs
+- [x] T030 [P] [US3] Create docs/reference/manifest.md with copy-paste examples
+- [x] T031 [P] [US3] Create docs/reference/pipeline-schema.md with required/optional fields
+- [x] T032 [P] [US3] Create docs/reference/contract-types.md with all contract types
 
 **Checkpoint**: Progressive complexity testable
 
@@ -107,11 +107,11 @@ Repository root: `/home/libretech/Repos/wave/`
 
 ### Implementation
 
-- [ ] T033 [US4] Create docs/guides/ci-cd.md with GitHub Actions and GitLab CI examples
-- [ ] T034 [P] [US4] Rewrite docs/guides/team-adoption.md from migration/team-adoption.md
-- [ ] T035 [P] [US4] Rewrite docs/guides/enterprise.md from migration/enterprise-patterns.md
-- [ ] T036 [US4] Add "Next Steps" section to all guide pages
-- [ ] T037 [US4] Ensure progression: git sharing → team patterns → enterprise controls
+- [x] T033 [US4] Create docs/guides/ci-cd.md with GitHub Actions and GitLab CI examples
+- [x] T034 [P] [US4] Rewrite docs/guides/team-adoption.md from migration/team-adoption.md
+- [x] T035 [P] [US4] Rewrite docs/guides/enterprise.md from migration/enterprise-patterns.md
+- [x] T036 [US4] Add "Next Steps" section to all guide pages
+- [x] T037 [US4] Ensure progression: git sharing → team patterns → enterprise controls
 
 **Checkpoint**: Adoption path clear and testable
 
@@ -123,18 +123,18 @@ Repository root: `/home/libretech/Repos/wave/`
 
 ### Cleanup
 
-- [ ] T038 [P] Remove docs/paradigm/ directory (content integrated elsewhere)
-- [ ] T039 [P] Remove docs/workflows/ directory (replaced by use-cases/)
-- [ ] T040 [P] Remove docs/migration/ directory (replaced by guides/)
-- [ ] T041 Update docs navigation config for new structure
+- [x] T038 [P] Remove docs/paradigm/ directory (content integrated elsewhere)
+- [x] T039 [P] Remove docs/workflows/ directory (replaced by use-cases/)
+- [x] T040 [P] Remove docs/migration/ directory (replaced by guides/)
+- [x] T041 Update docs navigation config for new structure
 
 ### Validation
 
-- [ ] T042 [P] Validate all YAML examples are syntactically correct
-- [ ] T043 [P] Validate all code examples are copy-paste runnable
-- [ ] T044 [P] Verify every page has "Next Steps" section
-- [ ] T045 Test quickstart flow end-to-end (target: 60 seconds)
-- [ ] T046 Test task-based navigation (target: 5 seconds to find use-case)
+- [x] T042 [P] Validate all YAML examples are syntactically correct
+- [x] T043 [P] Validate all code examples are copy-paste runnable
+- [x] T044 [P] Verify every page has "Next Steps" section
+- [x] T045 Test quickstart flow end-to-end (target: 60 seconds)
+- [x] T046 Test task-based navigation (target: 5 seconds to find use-case)
 
 ---
 
