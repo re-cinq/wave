@@ -30,18 +30,16 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: Use the Bash tool for all commands. Do NOT generate fake output.
+        MANDATORY: You MUST call the Bash tool. NEVER say "gh CLI not installed" without trying.
 
         Input: {{ input }}
 
-        Step 1: Use Bash tool to verify gh works:
-        gh --version
+        Execute these commands using the Bash tool:
 
-        Step 2: Use Bash tool to fetch issues (parse repo from input):
-        gh issue list --repo <REPO> --limit 50 --json number,title,body,labels,url
+        1. gh --version
+        2. gh issue list --repo re-cinq/wave --limit 50 --json number,title,body,labels,url
 
-        Step 3: Score each issue 0-100, save low-scoring ones to artifact.json:
-        {"repository": {...}, "total_issues": N, "poor_quality_issues": [...], "quality_threshold": 70}
+        After getting REAL results from Bash, analyze issues and save to artifact.json.
     output_artifacts:
       - name: issue_analysis
         path: artifact.json
