@@ -184,8 +184,17 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	// Clean previous run artifacts to ensure fresh state
-	os.RemoveAll(pipelineWsPath)
-	os.MkdirAll(pipelineWsPath, 0755)
+	if err := os.RemoveAll(pipelineWsPath); err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      "warning",
+			Message:    fmt.Sprintf("failed to clean workspace: %v", err),
+		})
+	}
+	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
