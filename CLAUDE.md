@@ -147,13 +147,8 @@ All development must comply with the Wave Constitution:
 - Memory usage should remain bounded during execution
 - Concurrent pipeline support without resource contention
 
-<<<<<<< HEAD
-## Debugging
-- Use `--debug` flag for detailed execution logging
-- Check `.wave/traces/` for audit logs
-- Workspace contents preserved for post-mortem analysis
-- Structured events for programmatic monitoring
-=======
+## Testing
+
 ```bash
 # Run all tests
 go test ./...
@@ -179,12 +174,16 @@ Follow standard Go conventions:
 - Keep functions focused and testable
 - Use interfaces for dependency injection
 
+## Debugging
+- Use `--debug` flag for detailed execution logging
+- Check `.wave/traces/` for audit logs
+- Workspace contents preserved for post-mortem analysis
+- Structured events for programmatic monitoring
+
 ## Recent Changes
 - 017-prototype-driven-development: Added Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
-
 - Phase 15: Added thread-safe event emission with mutex protection
 - Phase 15: Added comprehensive credential scrubbing tests
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
->>>>>>> cc4501f (feat: complete speckit workflow for prototype-driven development pipeline)

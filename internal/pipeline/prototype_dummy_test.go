@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -310,19 +311,6 @@ func TestPrototypeDummyPhasePrototypeGeneration(t *testing.T) {
 
 // Helper function for case-insensitive string checking
 func containsIgnoreCase(text, substr string) bool {
-	return len(text) >= len(substr) &&
-		   (text == substr ||
-		    len(text) > len(substr) &&
-		    (text[:len(substr)] == substr ||
-		     text[len(text)-len(substr):] == substr ||
-		     findInString(text, substr)))
+	return strings.Contains(strings.ToLower(text), strings.ToLower(substr))
 }
 
-func findInString(text, substr string) bool {
-	for i := 0; i <= len(text)-len(substr); i++ {
-		if text[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
