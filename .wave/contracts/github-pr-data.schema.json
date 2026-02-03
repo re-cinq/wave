@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub PR Data",
+  "description": "Schema for fetched GitHub pull request data",
+  "type": "object",
+  "required": ["pr_number", "repository", "title", "state", "base", "head"],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repository": {
+      "type": "object",
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "body": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed", "merged"]
+    },
+    "base": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Base branch"
+    },
+    "head": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Head branch"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "author": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["added", "modified", "removed", "renamed"]
+          },
+          "additions": {
+            "type": "integer"
+          },
+          "deletions": {
+            "type": "integer"
+          },
+          "changes": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "diff_stats": {
+      "type": "object",
+      "properties": {
+        "total_additions": {
+          "type": "integer"
+        },
+        "total_deletions": {
+          "type": "integer"
+        },
+        "total_files": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
