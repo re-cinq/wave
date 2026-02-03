@@ -30,90 +30,18 @@ steps:
     exec:
       type: prompt
       source: |
-        **GITHUB ISSUE ANALYSIS - ACTION MODE**
-
-        You are in ACTION MODE. You MUST execute real GitHub CLI commands to analyze actual repository data.
+        CRITICAL: Use the Bash tool for all commands. Do NOT generate fake output.
 
         Input: {{ input }}
-        (Parse the JSON input to get "repo" for the repository and optional "threshold" for quality threshold, default 70)
 
-        ## STEP 1: EXECUTE GITHUB CLI COMMAND (REQUIRED)
+        Step 1: Use Bash tool to verify gh works:
+        gh --version
 
-        **First, you MUST run this exact command (replace REPO with the repo value from input):**
-        ```bash
-        gh issue list --repo REPO --limit 100 --json number,title,body,labels,url,state
-        ```
+        Step 2: Use Bash tool to fetch issues (parse repo from input):
+        gh issue list --repo <REPO> --limit 50 --json number,title,body,labels,url
 
-        **Show the command execution and output like this:**
-        ```
-        > gh issue list --repo re-cinq/wave --limit 100 --json number,title,body,labels,url,state
-        [{"number": 3, "title": "add reverse engineering pipeline", "body": "", "labels": [], "state": "OPEN"}, ...]
-        ```
-
-        ## STEP 2: ANALYZE EACH REAL ISSUE
-
-        For each issue returned by the command, calculate quality score (0-100):
-        - Title quality (0-30): length, capitalization, clarity
-        - Description quality (0-40): completeness, structure, context
-        - Metadata quality (0-30): labels, categorization
-
-        ## STEP 3: USE REAL DATA ONLY
-
-        **CRITICAL**: Use ONLY the actual data from the gh command. No fictional examples.
-
-        ## STEP 4: CREATE ARTIFACT
-
-        After analyzing real GitHub data, create artifact.json with actual results.
-
-        1. **Generate JSON incrementally**: Build your JSON step by step, validating each section
-        2. **Save immediately**: `echo '{"repository": {"owner": "...", "name": "..."}}' > artifact.json`
-        3. **Test syntax**: `jq empty artifact.json && echo "✓ Valid JSON so far" || echo "✗ Fix JSON now"`
-        4. **Continue building**: Add more fields only after previous section validates
-        5. **Final validation**:
-           ```bash
-           # Test complete JSON structure
-           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ Invalid JSON - MUST FIX"
-
-           # Verify required fields
-           jq -e '.repository.owner and .repository.name and .total_issues and .poor_quality_issues' artifact.json || echo "✗ Missing required fields"
-
-           # Check data types
-           jq -e '.total_issues | type == "number"' artifact.json || echo "✗ total_issues must be integer"
-           jq -e '.poor_quality_issues | type == "array"' artifact.json || echo "✗ poor_quality_issues must be array"
-
-           # Validate issue structure
-           jq -e '.poor_quality_issues[] | .number and .title and .quality_score and .problems' artifact.json || echo "✗ Invalid issue structure"
-           ```
-        6. **Common error fixes**:
-           - Remove trailing commas: `sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json`
-           - Quote unquoted keys: Fix manually by adding quotes around keys
-           - Fix boolean/number types: Remove quotes from true/false/numbers
-
-        **REQUIREMENT**: JSON must validate successfully before proceeding. Invalid JSON will cause pipeline failure.
-
-        Output to artifact.json with this structure:
-        {
-          "repository": {
-            "owner": "owner-name",
-            "name": "repo-name"
-          },
-          "total_issues": 50,
-          "analyzed_count": 50,
-          "poor_quality_issues": [
-            {
-              "number": 123,
-              "title": "current title",
-              "body": "current description",
-              "quality_score": 45,
-              "problems": ["Title too short", "No description"],
-              "recommendations": ["Expand title", "Add structured description"],
-              "labels": ["bug"],
-              "url": "https://github.com/owner/repo/issues/123"
-            }
-          ],
-          "quality_threshold": 70,
-          "timestamp": "2026-02-03T10:00:00Z"
-        }
+        Step 3: Score each issue 0-100, save low-scoring ones to artifact.json:
+        {"repository": {...}, "total_issues": N, "poor_quality_issues": [...], "quality_threshold": 70}
     output_artifacts:
       - name: issue_analysis
         path: artifact.json
@@ -144,82 +72,20 @@ steps:
     exec:
       type: prompt
       source: |
-        Create an enhancement plan for poor quality issues.
+        Read artifacts/analysis.json which contains poor_quality_issues from the scan step.
 
-        Based on the analysis, for each issue that needs improvement:
-        1. Draft improved title (if needed) - clear, specific, properly capitalized
-        2. Create enhanced description template that preserves original content
-        3. Suggest appropriate labels based on content
-        4. Provide rationale for each enhancement
-        5. Prioritize issues (high/medium/low based on severity of quality problems)
+        For EACH issue in poor_quality_issues, create an enhancement plan with:
+        - issue_number: the issue number
+        - suggested_title: improved title (or keep original if good)
+        - suggested_labels: appropriate labels
+        - enhancements: list of changes to make
 
-        Guidelines:
-        - Preserve all original information
-        - Add structure, don't replace content
-        - Use markdown formatting for clarity
-        - Suggest actionable, specific improvements
-
-        **CRITICAL JSON VALIDATION PROTOCOL**:
-        Follow this step-by-step validation for enhancement plan JSON:
-
-        1. **Build JSON incrementally with validation**:
-           ```bash
-           # Start with basic structure
-           echo '{"issues_to_enhance": []}' > artifact.json
-           jq empty artifact.json && echo "✓ Basic structure valid"
-
-           # Add issues one by one
-           jq '.issues_to_enhance += [{"issue_number": 123, "enhancements": ["test"]}]' artifact.json > temp.json && mv temp.json artifact.json
-           jq empty artifact.json && echo "✓ Issue addition valid"
-           ```
-
-        2. **Final validation sequence**:
-           ```bash
-           # Test JSON syntax
-           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ Invalid JSON - MUST FIX"
-
-           # Verify required fields per schema
-           jq -e '.issues_to_enhance' artifact.json || echo "✗ Missing issues_to_enhance array"
-
-           # Validate issue structure
-           jq -e '.issues_to_enhance[] | .issue_number and .enhancements' artifact.json || echo "✗ Missing required issue fields"
-
-           # Check data types
-           jq -e '.issues_to_enhance[].issue_number | type == "number"' artifact.json || echo "✗ issue_number must be integer"
-           jq -e '.issues_to_enhance[].enhancements | type == "array"' artifact.json || echo "✗ enhancements must be array"
-
-           # Validate enhancements array is not empty
-           jq -e '.issues_to_enhance[] | .enhancements | length > 0' artifact.json || echo "✗ enhancements array cannot be empty"
-           ```
-
-        3. **Error recovery commands**:
-           ```bash
-           # Remove trailing commas
-           sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json
-
-           # Test fix
-           jq empty artifact.json && echo "✓ Fixed" || echo "✗ Still broken"
-           ```
-
-        **REQUIREMENT**: All validation checks must pass before step completion.
-
-        Output to artifact.json:
+        Save to artifact.json:
         {
           "issues_to_enhance": [
-            {
-              "issue_number": 123,
-              "current_title": "bug",
-              "suggested_title": "Authentication Fails When Using OAuth Provider",
-              "current_body": "doesn't work",
-              "body_template": "## Description\ndoesn't work\n\n## Steps to Reproduce\n1. [To be added]\n\n## Expected Behavior\n[To be added]\n\n## Actual Behavior\n[To be added]",
-              "suggested_labels": ["bug", "authentication", "needs-reproduction"],
-              "enhancements": ["Expand vague title", "Add structured template", "Add relevant labels"],
-              "rationale": "Issue lacks essential debugging information",
-              "priority": "high"
-            }
+            {"issue_number": 22, "suggested_title": "...", "suggested_labels": ["..."], "enhancements": ["..."]}
           ],
-          "total_to_enhance": 5,
-          "enhancement_strategy": "Add structure and clarity while preserving original content"
+          "total_to_enhance": 3
         }
     output_artifacts:
       - name: enhancement_plan
@@ -251,129 +117,19 @@ steps:
     exec:
       type: prompt
       source: |
-        **GITHUB ISSUE ENHANCEMENT - ACTION MODE**
+        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
 
-        You are in ACTION MODE. You MUST execute real GitHub CLI commands to apply enhancements.
-        The gh CLI IS available - the scan-issues step already used it successfully.
+        Step 1: Use Bash tool to verify gh works:
+        gh --version
 
-        **DO NOT ASSUME gh is unavailable. ACTUALLY RUN the commands.**
+        Step 2: Read artifacts/plan.json for issues to enhance.
 
-        ## STEP 1: VERIFY gh IS WORKING (REQUIRED FIRST)
+        Step 3: For EACH issue, use Bash tool to run:
+        gh issue edit <N> --repo re-cinq/wave --title "suggested_title"
+        gh issue edit <N> --repo re-cinq/wave --add-label "label1,label2"
 
-        Run this command to confirm gh access:
-        ```bash
-        gh auth status
-        ```
-
-        ## STEP 2: APPLY ENHANCEMENTS
-
-        For each issue in the enhancement plan, execute these REAL commands:
-
-        **Update title:**
-        ```bash
-        gh issue edit <number> --repo <repo> --title "new title"
-        ```
-
-        **Update body:**
-        ```bash
-        gh issue edit <number> --repo <repo> --body "enhanced body content"
-        ```
-
-        **Add labels:**
-        ```bash
-        gh issue edit <number> --repo <repo> --add-label "label1,label2"
-        ```
-
-        **Add comment:**
-        ```bash
-        gh issue comment <number> --repo <repo> --body "Issue enhanced by Wave automation for improved clarity and completeness."
-        ```
-
-        ## STEP 3: RECORD RESULTS
-
-        After ACTUALLY executing each command, record success or failure based on the REAL output.
-
-        Track all changes and errors from ACTUAL command execution.
-
-        **CRITICAL JSON VALIDATION PROTOCOL**:
-        Execute this comprehensive validation for enhancement results:
-
-        1. **Real-time JSON building with validation**:
-           ```bash
-           # Start with base structure
-           echo '{"enhanced_issues": [], "total_attempted": 0, "total_successful": 0, "total_failed": 0}' > artifact.json
-           jq empty artifact.json && echo "✓ Base structure valid"
-
-           # Add issues incrementally, validating each addition
-           # Example: jq '.enhanced_issues += [{"issue_number": 123, "success": true, "changes_made": ["test"]}]' artifact.json > temp.json && mv temp.json artifact.json
-           ```
-
-        2. **Comprehensive final validation**:
-           ```bash
-           # JSON syntax test
-           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ CRITICAL: Invalid JSON syntax"
-
-           # Required field validation
-           jq -e '.enhanced_issues and .total_attempted and .total_successful' artifact.json && echo "✓ Required fields present" || echo "✗ CRITICAL: Missing required fields"
-
-           # Data type validation
-           jq -e '.total_attempted | type == "number"' artifact.json && echo "✓ total_attempted type" || echo "✗ total_attempted must be integer"
-           jq -e '.enhanced_issues | type == "array"' artifact.json && echo "✓ enhanced_issues type" || echo "✗ enhanced_issues must be array"
-
-           # Issue structure validation
-           jq -e '.enhanced_issues[] | .issue_number and .success and .changes_made' artifact.json && echo "✓ Issue structure valid" || echo "✗ Missing required issue fields"
-
-           # Boolean type validation (critical!)
-           jq -e '.enhanced_issues[].success | type == "boolean"' artifact.json && echo "✓ Boolean types correct" || echo "✗ CRITICAL: Booleans must be unquoted true/false"
-
-           # Logic consistency check
-           ATTEMPTED=$(jq '.total_attempted' artifact.json)
-           SUCCESSFUL=$(jq '.total_successful' artifact.json)
-           FAILED=$(jq '.total_failed' artifact.json)
-           if [ $((SUCCESSFUL + FAILED)) -eq $ATTEMPTED ]; then echo "✓ Logic consistent"; else echo "✗ CRITICAL: total_attempted ≠ successful + failed"; fi
-           ```
-
-        3. **Common fixes for validation failures**:
-           ```bash
-           # Fix trailing commas
-           sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json
-
-           # Fix quoted booleans (CRITICAL FIX)
-           sed -i 's/"true"/true/g' artifact.json
-           sed -i 's/"false"/false/g' artifact.json
-
-           # Fix quoted numbers
-           sed -i 's/"total_attempted": "\([0-9]*\)"/\"total_attempted\": \1/g' artifact.json
-
-           # Re-test after fixes
-           jq empty artifact.json && echo "✓ Repairs successful" || echo "✗ Still broken - manual fix required"
-           ```
-
-        **CRITICAL REQUIREMENT**: All validation checks must pass. Failed validation breaks the pipeline and wastes time.
-
-        Output to artifact.json:
-        {
-          "enhanced_issues": [
-            {
-              "issue_number": 123,
-              "success": true,
-              "changes_made": [
-                "Updated title from 'bug in thing' to 'Authentication fails during OAuth login'",
-                "Added structured issue template with description, reproduction steps, environment",
-                "Applied labels: authentication, needs-reproduction"
-              ],
-              "title_updated": true,
-              "body_updated": true,
-              "labels_added": ["authentication", "needs-reproduction"],
-              "comment_added": true,
-              "url": "https://github.com/owner/repo/issues/123"
-            }
-          ],
-          "total_attempted": 5,
-          "total_successful": 5,
-          "total_failed": 0,
-          "timestamp": "2026-02-03T10:05:00Z"
-        }
+        Step 4: Save actual results to artifact.json:
+        {"enhanced_issues": [...], "total_attempted": N, "total_successful": N, "total_failed": 0}
     output_artifacts:
       - name: enhancement_results
         path: artifact.json
@@ -407,44 +163,16 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify that issue enhancements were successful.
+        Read artifacts/results.json for enhancement results.
 
-        For each enhanced issue:
-        1. Fetch current issue state with gh CLI
-        2. Verify title was updated (if planned)
-        3. Verify body was updated with template
-        4. Verify labels were added
-        5. Check that enhancement comment was posted
+        For each issue, verify with: gh issue view <N> --repo re-cinq/wave --json title,labels
 
-        Commands:
-        - gh issue view <number> --repo <repo> --json number,title,body,labels,comments
-
-        Compare with original analysis and enhancement plan.
-
-        Output to artifact.json:
+        Save verification to artifact.json:
         {
-          "total_enhanced": 5,
-          "successful_enhancements": [
-            {
-              "issue_number": 123,
-              "verified_changes": [
-                "title_updated",
-                "body_enhanced",
-                "labels_added",
-                "comment_posted"
-              ],
-              "quality_score_before": 45,
-              "quality_score_after": 85,
-              "url": "https://github.com/owner/repo/issues/123"
-            }
-          ],
+          "total_enhanced": N,
+          "successful_enhancements": [{"issue_number": N, "verified_changes": ["..."]}],
           "failed_enhancements": [],
-          "quality_improvement": {
-            "average_score_before": 45.2,
-            "average_score_after": 84.6,
-            "improvement_percentage": 87.2
-          },
-          "summary": "Successfully enhanced 5 issues with improved titles, descriptions, and labels."
+          "summary": "..."
         }
     output_artifacts:
       - name: verification_report
