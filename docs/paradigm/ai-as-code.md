@@ -1,222 +1,193 @@
-# AI as Code: Infrastructure Patterns for AI Workflows
+# AI as Code
 
-Wave brings Infrastructure-as-Code (IaC) principles to AI development, treating AI workflows the same way you'd treat your infrastructure: **declarative, version-controlled, and reproducible**.
+Wave brings Infrastructure-as-Code principles to AI development. Like Terraform for infrastructure or Docker Compose for containers, Wave lets you define AI workflows as declarative configuration files that are version-controlled, reproducible, and shareable.
 
-## The Infrastructure-as-Code Revolution
+## The Problem with Traditional AI Development
 
-Infrastructure-as-Code transformed how we deploy and manage systems by replacing manual, error-prone procedures with declarative configurations:
+When developers use AI assistants today, they face fundamental challenges:
 
-**Before IaC:**
-- Manual server setup through GUI consoles
-- Undocumented configuration changes
-- Environment drift between dev/staging/production
-- "Works on my machine" deployment issues
+- **Ephemeral sessions**: Conversations disappear after use
+- **Copy-paste workflows**: Prompts shared via Slack or scattered docs
+- **Inconsistent outputs**: Same task produces different results each time
+- **No quality gates**: Outputs accepted on faith without validation
+- **Individual knowledge**: What works for one developer stays with them
 
-**After IaC:**
-- Declarative configuration files (`terraform plan`, `docker-compose.yml`, `k8s.yaml`)
-- Version-controlled infrastructure changes
-- Reproducible environments across all stages
-- Collaborative infrastructure development
+This mirrors where infrastructure was before Infrastructure-as-Code: manual, undocumented, and unreproducible.
 
-Wave applies these same principles to AI workflows.
+## Wave's Solution
 
-## AI Development Needs the Same Revolution
+Wave treats AI workflows like infrastructure code. You declare what you want in YAML files, commit them to git, and Wave handles execution with built-in quality guarantees.
 
-**Traditional AI Development:**
-- Copy-paste prompts between chat sessions
-- Manual, undocumented prompt iterations
-- Lost conversation history and context
-- "Works for me" AI outputs that can't be shared
-
-**AI-as-Code with Wave:**
-- Declarative workflow configurations (`wave.yaml`)
-- Version-controlled AI workflow evolution
-- Reproducible AI outputs across team members
-- Collaborative AI workflow development
-
-## Declarative Configuration Philosophy
-
-Like Infrastructure-as-Code tools, Wave follows a declarative approach:
-
-### You Describe the "What", Wave Handles the "How"
+### Your First Pipeline
 
 ```yaml
-# wave.yaml - Like docker-compose.yml for AI workflows
-pipeline:
-  name: feature-development
-  steps:
-    - id: analyze
-      persona: navigator
-      task: "Analyze the codebase for implementing {feature}"
-      artifacts: ["codebase-scan"]
-
-    - id: implement
-      persona: craftsman
-      dependencies: [analyze]
-      task: "Implement the feature based on analysis"
-      deliverables: ["implementation", "tests"]
-```
-
-**You declare what you want** (feature analysis → implementation), **Wave orchestrates how it happens** (workspace isolation, persona execution, artifact flow).
-
-### Configuration as the Source of Truth
-
-Just as `terraform.tf` files are the authoritative definition of your infrastructure, `wave.yaml` files are the authoritative definition of your AI workflows:
-
-- **Version Control**: Track workflow evolution in git
-- **Collaboration**: Share workflows like you share Docker Compose files
-- **Documentation**: The configuration IS the documentation
-- **Reproducibility**: Same config = same results, anywhere
-
-## Infrastructure Parallels in Action
-
-Wave's design directly parallels proven infrastructure tools:
-
-| Infrastructure Pattern | Wave Equivalent | Purpose |
-|------------------------|----------------|---------|
-| Docker containers | Workspace isolation | Reproducible execution environment |
-| Service composition | Pipeline steps | Orchestrated multi-stage workflows |
-| Health checks | Contract validation | Quality gates between stages |
-| Environment variables | Artifact injection | Data flow between components |
-| Rolling deployments | Step dependencies | Controlled execution ordering |
-
-### Example: Docker Compose → Wave Pipeline
-
-**Docker Compose** (Infrastructure orchestration):
-```yaml
-services:
-  web:
-    build: .
-    depends_on: [database]
-    environment:
-      - DB_URL=${DATABASE_URL}
-
-  database:
-    image: postgres:13
-    volumes:
-      - db_data:/var/lib/postgresql/data
-```
-
-**Wave Pipeline** (AI workflow orchestration):
-```yaml
-pipeline:
+kind: WavePipeline
+metadata:
   name: code-review
-  steps:
-    - id: analyze
-      persona: navigator
-      artifacts: ["codebase-analysis"]
+  description: "Automated code review with security analysis"
 
-    - id: review
-      persona: reviewer
-      dependencies: [analyze]
-      inputs: ["analysis"]
-      deliverables: ["review-report"]
+input:
+  source: cli
+
+steps:
+  - id: analyze
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the code changes: {{ input }}
+
+        Identify:
+        1. Files changed and their purposes
+        2. Potential security concerns
+        3. Test coverage gaps
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
+
+  - id: review
+    persona: auditor
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: context
+    exec:
+      type: prompt
+      source: |
+        Based on the analysis, generate a code review.
+
+        Context: {{ artifacts.context }}
+    output_artifacts:
+      - name: review
+        path: output/review.md
+        type: markdown
 ```
 
-Both define **what should happen** (services/steps), **how they connect** (depends_on/dependencies), and **what data flows between them** (environment/artifacts).
+Run it:
 
-## Guaranteed Deliverables
+```bash
+wave run code-review "Review changes in src/auth"
+```
 
-Traditional AI interactions are unpredictable. Infrastructure-as-Code tools succeed because they provide **guarantees**:
+### Key Concepts
 
-- Terraform guarantees your infrastructure matches the configuration
-- Docker guarantees your application runs the same way everywhere
-- Kubernetes guarantees your services meet declared requirements
+**Pipelines** define multi-step AI workflows. Each step uses a specific persona (an AI agent with defined capabilities and constraints) and can depend on outputs from previous steps.
 
-**Wave guarantees your AI workflows produce validated outputs.**
+**Personas** are configured in your `wave.yaml` manifest with specific permissions and system prompts:
 
 ```yaml
-steps:
-  - id: generate-docs
-    persona: documenter
-    task: "Generate API documentation"
-    handover:
-      contract:
-        type: json_schema
-        schema: .wave/contracts/api-docs.schema.json
-        on_failure: retry
-        max_retries: 2
+# wave.yaml
+apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: my-project
+
+personas:
+  navigator:
+    adapter: claude
+    description: "Read-only codebase analysis"
+    system_prompt_file: .wave/personas/navigator.md
+    permissions:
+      allowed_tools: [Read, Glob, Grep]
+      deny: [Write, Edit, Bash]
+
+  auditor:
+    adapter: claude
+    description: "Security and quality review"
+    system_prompt_file: .wave/personas/auditor.md
+    permissions:
+      allowed_tools: [Read, Grep]
+      deny: [Write, Edit]
 ```
 
-The contract system ensures outputs meet your requirements before proceeding. No more "the AI didn't format the output correctly" - either it passes validation or the step retries until it does.
+**Fresh memory** at step boundaries ensures reproducibility. Each step starts with a clean context, receiving only explicitly declared artifacts from previous steps.
 
-## Version Control as First-Class Citizen
+**Contracts** validate outputs before handover to the next step:
 
-Infrastructure tools made version control central to operations. Wave does the same for AI:
+```yaml
+handover:
+  contract:
+    type: jsonschema
+    schema_path: .wave/contracts/analysis.schema.json
+    on_failure: retry
+    max_retries: 2
+```
 
-### Workflow Evolution
+## Infrastructure-as-Code Parallels
+
+If you've used Terraform, Kubernetes, or Docker Compose, Wave's model will feel familiar:
+
+| IaC Pattern | Wave Equivalent |
+|-------------|-----------------|
+| Terraform resources | Pipeline steps |
+| Container images | Personas |
+| Health checks | Contract validation |
+| Volume mounts | Artifact injection |
+| State management | SQLite execution tracking |
+
+Like infrastructure code, Wave configurations are:
+
+- **Declarative**: Describe what, not how
+- **Version-controlled**: Track changes in git
+- **Reproducible**: Same config produces same results
+- **Reviewable**: Pull requests for workflow changes
+
+## Core Execution Model
+
+Wave executes pipelines with these guarantees:
+
+1. **Dependency resolution**: Steps run in correct order based on declared dependencies
+2. **Workspace isolation**: Each step gets a fresh, ephemeral workspace
+3. **Fresh context**: No conversation history inherited between steps
+4. **Artifact flow**: Outputs explicitly passed via `inject_artifacts`
+5. **Contract validation**: Outputs validated before proceeding
+6. **State persistence**: Execution state stored in SQLite for resumption
+
 ```bash
-git log --oneline -- .wave/pipelines/feature-development.yaml
+# Run a pipeline
+wave run code-review "Review authentication changes"
 
-a1b2c3d feat: add code review step to feature pipeline
-d4e5f6g fix: improve test generation persona prompts
-g7h8i9j initial: basic feature development workflow
+# Check status
+wave status
+
+# View logs
+wave logs
+
+# Resume interrupted pipeline
+wave resume <run-id>
 ```
 
-### Branching Strategies
-```bash
-# Experimental workflow changes
-git checkout -b experiment/ai-generated-tests
-# Modify .wave/pipelines/testing.yaml
-git add .wave/
-git commit -m "experiment: add AI test generation step"
+## Benefits
 
-# Production workflow
-git checkout main
-git merge experiment/ai-generated-tests  # After validation
-```
+**For Individual Developers**
+- Capture working prompts as reusable pipelines
+- Consistent results across sessions
+- Quality guarantees through contracts
 
-### Team Collaboration
-```bash
-# Developer A creates workflow
-git add .wave/pipelines/onboarding.yaml
-git commit -m "add: team onboarding workflow"
-git push
+**For Teams**
+- Share workflows via git
+- Review AI workflow changes in PRs
+- Standardize on proven patterns
 
-# Developer B uses it immediately
-git pull
-wave run onboarding --feature=authentication
-```
-
-## The Benefits of AI-as-Code
-
-### Reproducibility
-Same workflow configuration produces consistent results across:
-- Different developers on the team
-- Different environments (local, CI, production)
-- Different points in time
-
-### Collaboration
-Teams can:
-- Share workflows like infrastructure code
-- Review AI workflow changes in pull requests
-- Build libraries of organizational AI patterns
-
-### Transparency
-- Every AI interaction is auditable
-- Workflow logic is explicitly declared
-- Changes tracked through version control
-
-### Reliability
-- Contracts ensure quality at every step
-- Failed steps automatically retry
-- Observable execution with structured logging
-
-## Beyond Individual Productivity
-
-Infrastructure-as-Code didn't just make individual deployments easier - it enabled DevOps, CI/CD, and cloud-native architectures.
-
-AI-as-Code doesn't just make individual AI interactions more reliable - it enables:
-
-- **AI-native development workflows** where AI assistance is built into your team's processes
-- **Organizational AI standards** through shared workflow libraries
-- **Quality-assured AI outputs** through systematic contract validation
-- **Scalable AI adoption** without sacrificing consistency or control
-
-Wave brings the infrastructure revolution to AI development: predictable, collaborative, and version-controlled workflows that teams can rely on.
+**For Organizations**
+- Audit trails for AI usage
+- Permission controls via personas
+- Observable, measurable AI workflows
 
 ## Next Steps
 
 - [Infrastructure Parallels](/paradigm/infrastructure-parallels) - Detailed comparisons with Docker, Kubernetes, and Terraform
-- [Deliverables and Contracts](/paradigm/deliverables-contracts) - How Wave guarantees AI output quality
-- [Pipeline Execution](/concepts/pipeline-execution) - How declarative configurations become running workflows
+- [Contracts](/paradigm/deliverables-contracts) - How Wave guarantees output quality
+- [Pipeline Execution](/concepts/pipeline-execution) - Execution model in depth
+- [Creating Workflows](/workflows/creating-workflows) - Build your first pipeline
