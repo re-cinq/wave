@@ -1,76 +1,91 @@
-# Infrastructure Parallels: Wave and IaC Tools
+# Infrastructure Parallels
 
-Wave's architecture directly mirrors proven Infrastructure-as-Code patterns. If you understand Docker Compose, Kubernetes, or Terraform, you already understand Wave's mental model.
+Wave's architecture directly maps to proven Infrastructure-as-Code patterns. If you understand Docker Compose, Kubernetes, or Terraform, Wave's concepts will feel immediately familiar.
 
-## Declarative Configuration Comparison
+## Docker Compose and Wave
 
-### Docker Compose ↔ Wave Pipelines
+Docker Compose orchestrates container services. Wave orchestrates AI workflow steps.
 
-**Docker Compose** orchestrates containers:
+### Service Definition
+
+**Docker Compose:**
 ```yaml
 services:
   web:
     build: .
-    depends_on: [database, cache]
+    depends_on: [database]
     environment:
-      - DATABASE_URL=${DB_URL}
-      - CACHE_URL=${CACHE_URL}
+      DATABASE_URL: ${DB_URL}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-
-  database:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=app
-    volumes:
-      - db_data:/var/lib/postgresql/data
-
-  cache:
-    image: redis:alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
 ```
 
-**Wave** orchestrates AI steps:
+**Wave Pipeline:**
 ```yaml
-pipeline:
-  name: feature-development
-  steps:
-    - id: analyze
-      persona: navigator
-      task: "Analyze codebase structure"
-      artifacts: ["analysis-report"]
+kind: WavePipeline
+metadata:
+  name: code-review
 
-    - id: implement
-      persona: craftsman
-      dependencies: [analyze]
-      inputs: ["analysis-report"]
-      task: "Implement feature based on analysis"
-      handover:
-        contract:
-          type: json_schema
-          schema: .wave/contracts/implementation.schema.json
+steps:
+  - id: analyze
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: "Analyze the codebase structure for {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
 
-    - id: test
-      persona: tester
-      dependencies: [implement]
-      inputs: ["implementation"]
-      task: "Generate comprehensive tests"
-      handover:
-        contract:
-          type: test_suite
-          command: "npm test"
+  - id: review
+    persona: auditor
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: context
+    handover:
+      contract:
+        type: jsonschema
+        schema_path: .wave/contracts/review.schema.json
 ```
 
-**Key Parallels:**
-- **Services ↔ Steps**: Individual units of work
-- **depends_on ↔ dependencies**: Execution ordering
-- **environment ↔ inputs**: Data injection
-- **healthcheck ↔ contract**: Validation gates
+### Concept Mapping
 
-### Kubernetes ↔ Wave Execution
+| Docker Compose | Wave | Purpose |
+|---------------|------|---------|
+| `services` | `steps` | Independent units of work |
+| `depends_on` | `dependencies` | Execution ordering |
+| `environment` | `inject_artifacts` | Data injection |
+| `healthcheck` | `handover.contract` | Quality validation |
+| `volumes` | `workspace.mount` | File system access |
+| `image` | `persona` | Pre-configured execution unit |
 
-**Kubernetes Deployment**:
+### Lifecycle Commands
+
+| Docker Compose | Wave | Purpose |
+|----------------|------|---------|
+| `docker-compose up` | `wave run <pipeline>` | Start execution |
+| `docker-compose ps` | `wave status` | View running state |
+| `docker-compose logs` | `wave logs` | View output logs |
+| `docker-compose down` | `wave clean` | Cleanup resources |
+
+## Kubernetes and Wave
+
+Kubernetes orchestrates containerized applications with declarative state management. Wave applies similar patterns to AI workflows.
+
+### Deployment Configuration
+
+**Kubernetes Deployment:**
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -82,9 +97,6 @@ spec:
     matchLabels:
       app: web-app
   template:
-    metadata:
-      labels:
-        app: web-app
     spec:
       containers:
       - name: app
@@ -92,50 +104,77 @@ spec:
         resources:
           requests:
             memory: "64Mi"
-            cpu: "250m"
           limits:
             memory: "128Mi"
-            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
+          failureThreshold: 3
 ```
 
-**Wave Step Configuration**:
+**Wave Pipeline Step:**
 ```yaml
+kind: WavePipeline
+metadata:
+  name: feature-development
+
 steps:
-  - id: code-review
-    persona: reviewer
-    resources:
-      memory_limit: "2GB"
-      timeout: "10m"
-    task: "Review implementation for quality"
+  - id: implement
+    persona: craftsman
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./src
+          target: /workspace
+          mode: readwrite
+    exec:
+      type: prompt
+      source: "Implement the feature: {{ input }}"
+    output_artifacts:
+      - name: implementation
+        path: output/code.patch
+        type: patch
     handover:
       contract:
-        type: test_suite
-        command: "npm run lint && npm test"
-        on_failure: retry
-        max_retries: 2
-    permissions:
-      allow:
-        - "file_read:**/*.js"
-        - "file_write:output/**"
-      deny:
-        - "network_access:*"
+        type: testsuite
+        command: "npm test"
+        must_pass: true
+      on_review_fail: retry
+      max_retries: 3
 ```
 
-**Key Parallels:**
-- **Containers ↔ Personas**: Execution units with specific capabilities
-- **Resource limits ↔ Persona permissions**: Constrained execution
-- **Probes ↔ Contracts**: Health/quality validation
-- **Labels ↔ Artifacts**: Metadata and identification
+### Concept Mapping
 
-### Terraform ↔ Wave State Management
+| Kubernetes | Wave | Purpose |
+|-----------|------|---------|
+| `kind: Deployment` | `kind: WavePipeline` | Resource type declaration |
+| `metadata.name` | `metadata.name` | Resource identification |
+| Container image | Persona | Execution environment |
+| Resource limits | Persona permissions | Execution constraints |
+| `livenessProbe` | `handover.contract` | Health/quality validation |
+| `failureThreshold` | `max_retries` | Retry policy |
+| ConfigMaps/Secrets | Artifacts | Data management |
+| `replicas` | `strategy.max_concurrency` | Parallel execution |
 
-**Terraform State**:
+### Resource Management
+
+Like Kubernetes manages container resources, Wave manages AI execution:
+
+- **Personas** define what tools an AI agent can use (similar to container security contexts)
+- **Workspaces** provide isolated execution environments (similar to pods)
+- **Artifacts** flow between steps (similar to ConfigMaps/Secrets)
+- **Contracts** validate outputs (similar to liveness/readiness probes)
+
+## Terraform and Wave
+
+Terraform manages infrastructure state with plan/apply cycles. Wave manages pipeline state with similar patterns.
+
+### State Management
+
+**Terraform:**
 ```hcl
-# main.tf
 resource "aws_instance" "web" {
   ami           = "ami-0c02fb55956c7d316"
   instance_type = "t3.micro"
@@ -145,253 +184,149 @@ resource "aws_instance" "web" {
   }
 }
 
-resource "aws_s3_bucket" "data" {
-  bucket = "my-app-data-bucket"
-}
-
 # Terraform tracks:
-# - Resource dependencies
 # - Current state vs desired state
-# - Change planning and application
+# - Resource dependencies
+# - Change planning
 ```
 
-**Wave State**:
+**Wave:**
 ```yaml
-# wave.yaml
-pipeline:
-  name: documentation-generation
-  steps:
-    - id: analyze-api
-      persona: navigator
-      artifacts: ["api-schema"]
+kind: WavePipeline
+metadata:
+  name: documentation
 
-    - id: generate-docs
-      persona: documenter
-      dependencies: [analyze-api]
-      inputs: ["api-schema"]
-      artifacts: ["documentation"]
+steps:
+  - id: extract-api
+    persona: navigator
+    output_artifacts:
+      - name: api-spec
+        path: output/api.json
+        type: json
+
+  - id: generate-docs
+    persona: documenter
+    dependencies: [extract-api]
+    memory:
+      inject_artifacts:
+        - step: extract-api
+          artifact: api-spec
+          as: spec
+    output_artifacts:
+      - name: documentation
+        path: output/docs.md
+        type: markdown
 
 # Wave tracks:
-# - Step dependencies
-# - Execution state vs desired state
-# - Pipeline resumption and rollback
+# - Step execution state
+# - Artifact availability
+# - Pipeline resumption points
 ```
 
-**Key Parallels:**
-- **Resources ↔ Steps**: Managed entities with state
-- **State file ↔ SQLite database**: Persistent execution tracking
-- **Plan/Apply ↔ Run/Resume**: State transition management
-- **Dependencies ↔ Dependencies**: Ordering and relationships
+### Concept Mapping
 
-## Operational Patterns
+| Terraform | Wave | Purpose |
+|-----------|------|---------|
+| Resources | Steps | Managed entities |
+| State file | SQLite database | Execution tracking |
+| `terraform plan` | `wave validate` | Validate configuration |
+| `terraform apply` | `wave run` | Execute changes |
+| `terraform destroy` | `wave clean` | Cleanup |
+| State refresh | `wave status` | Check current state |
+| Dependencies | `dependencies` | Ordering and relationships |
 
-### Configuration Management
+### Lifecycle Comparison
 
-| Pattern | Docker/K8s | Terraform | Wave |
-|---------|------------|-----------|------|
-| **Environments** | Multiple compose files | Workspaces/vars | Multiple wave.yaml files |
-| **Secrets** | Environment variables | Variable files | Environment injection |
-| **Validation** | Schema validation | `terraform validate` | `wave validate` |
-| **Dry Run** | `docker-compose config` | `terraform plan` | `wave plan` |
+| Operation | Terraform | Wave |
+|-----------|-----------|------|
+| Validate config | `terraform validate` | `wave validate` |
+| Preview changes | `terraform plan` | Configuration validation |
+| Apply changes | `terraform apply` | `wave run` |
+| Check state | `terraform show` | `wave status` |
+| Resume | `terraform apply` (continues) | `wave resume` |
+| Cleanup | `terraform destroy` | `wave clean` |
 
-### Lifecycle Management
+## Common Patterns
 
-| Operation | Docker Compose | Terraform | Wave |
-|-----------|----------------|-----------|------|
-| **Deploy** | `docker-compose up` | `terraform apply` | `wave run` |
-| **Status** | `docker-compose ps` | `terraform show` | `wave status` |
-| **Logs** | `docker-compose logs` | Provider logs | `wave logs` |
-| **Cleanup** | `docker-compose down` | `terraform destroy` | `wave cleanup` |
-| **Resume** | `docker-compose restart` | `terraform apply` | `wave resume` |
+### Dependency Graphs
 
-### Debugging and Troubleshooting
+All three tools build execution graphs from dependencies:
 
-| Issue Type | Docker/K8s Approach | Wave Approach |
-|------------|---------------------|---------------|
-| **Container failures** | `kubectl describe pod`, `docker logs` | `wave trace pipeline-id`, `wave logs step-id` |
-| **Network issues** | `kubectl port-forward`, `docker network ls` | Workspace inspection, artifact flow validation |
-| **Resource constraints** | `kubectl top`, resource monitoring | Persona permission analysis, timeout debugging |
-| **Configuration errors** | YAML validation, schema checking | `wave validate`, contract schema validation |
-
-## Advanced Patterns
-
-### Blue-Green Deployments ↔ Pipeline Versioning
-
-**Kubernetes Blue-Green**:
 ```yaml
-# Blue deployment (current)
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-blue
-  labels:
-    version: blue
-
-# Green deployment (new)
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-green
-  labels:
-    version: green
-
-# Switch traffic via service selector
-```
-
-**Wave Pipeline Versioning**:
-```yaml
-# Production pipeline (current)
-# .wave/pipelines/feature-dev-v1.yaml
-pipeline:
-  name: feature-development
-  version: v1
-  steps: [...]
-
-# Experimental pipeline (new)
-# .wave/pipelines/feature-dev-v2.yaml
-pipeline:
-  name: feature-development
-  version: v2
-  steps: [...]
-
-# Switch via configuration reference
-```
-
-### Rolling Updates ↔ Incremental Pipeline Migration
-
-**Kubernetes Rolling Update**:
-```yaml
-spec:
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-```
-
-**Wave Incremental Migration**:
-```yaml
-# Gradually migrate steps to new personas
+# Wave dependency resolution
 steps:
-  - id: analyze
-    persona: navigator-v2  # Upgraded
+  - id: analyze        # No dependencies - runs first
 
-  - id: implement
-    persona: craftsman-v1  # Still old version
+  - id: backend        # Depends on analyze
+    dependencies: [analyze]
 
-  - id: test
-    persona: tester-v2     # Upgraded
+  - id: frontend       # Depends on analyze (parallel with backend)
+    dependencies: [analyze]
+
+  - id: integrate      # Waits for both
+    dependencies: [backend, frontend]
 ```
 
-### Circuit Breakers ↔ Contract Failure Handling
+Wave resolves this to:
+```
+analyze → backend  ↘
+                    → integrate
+analyze → frontend ↗
+```
 
-**Microservices Circuit Breaker**:
+### Idempotency and Reproducibility
+
+Like Terraform's `terraform plan` shows what would change, Wave's execution model provides:
+
+- **Deterministic artifact flow**: Same inputs produce same outputs
+- **Fresh memory at boundaries**: No hidden state between steps
+- **Contract validation**: Outputs verified before use
+
+### Configuration as Documentation
+
+In all three paradigms, configuration files serve as living documentation:
+
 ```yaml
-resilience4j:
-  circuitbreaker:
-    failure-rate-threshold: 50
-    wait-duration-in-open-state: 60s
-    sliding-window-size: 10
+# This Wave pipeline IS the documentation for how code reviews work
+kind: WavePipeline
+metadata:
+  name: code-review
+  description: "Security-focused code review with quality gates"
+
+steps:
+  - id: security-scan
+    persona: auditor
+    # The configuration explains what happens at each step
 ```
-
-**Wave Contract Circuit Breaker**:
-```yaml
-handover:
-  contract:
-    type: json_schema
-    on_failure: retry
-    max_retries: 3
-    backoff_strategy: exponential
-    failure_threshold: 0.5  # Halt pipeline if 50% of recent attempts fail
-```
-
-## Migration Strategies
-
-### From Manual to Infrastructure-as-Code
-
-**Traditional Infrastructure Migration**:
-1. Document current manual processes
-2. Create IaC configurations for existing resources
-3. Test configurations in staging
-4. Gradually migrate production workloads
-5. Decommission manual processes
-
-**AI Workflow Migration**:
-1. Document current manual AI interactions
-2. Create Wave configurations for existing workflows
-3. Test pipelines with same inputs/outputs
-4. Gradually migrate team workflows
-5. Decommission copy-paste AI processes
-
-### Team Adoption Patterns
-
-**Infrastructure Teams**:
-- Start with simple, single-environment configurations
-- Add complexity gradually (multi-environment, advanced features)
-- Establish conventions and standards
-- Build reusable modules/templates
-
-**AI Workflow Teams**:
-- Start with simple, single-step pipelines
-- Add complexity gradually (multi-step, contracts, parallelism)
-- Establish persona and pipeline conventions
-- Build reusable workflow libraries
-
-## Tool Ecosystem Parallels
-
-### Validation and Testing
-
-| Category | Infrastructure | AI Workflows |
-|----------|----------------|--------------|
-| **Syntax** | YAML/JSON linters | `wave validate` |
-| **Security** | Container scanning, RBAC | Persona permissions, credential scrubbing |
-| **Testing** | Infrastructure tests | Contract validation, test suite execution |
-| **Policy** | OPA, Falco | Contract schemas, permission policies |
-
-### Monitoring and Observability
-
-| Category | Infrastructure | AI Workflows |
-|----------|----------------|--------------|
-| **Metrics** | Prometheus, CloudWatch | Pipeline execution metrics |
-| **Logs** | ELK stack, Fluentd | Structured audit logs |
-| **Tracing** | Jaeger, Zipkin | Execution traces, artifact lineage |
-| **Alerts** | AlertManager, PagerDuty | Contract failures, step timeouts |
-
-### Development Workflow
-
-| Stage | Infrastructure | AI Workflows |
-|-------|----------------|--------------|
-| **Local** | docker-compose, minikube | `wave run` with local personas |
-| **CI/CD** | GitHub Actions, Jenkins | Pipeline execution in CI |
-| **Staging** | Pre-prod environments | Test pipeline configurations |
-| **Production** | Production deployment | Production AI workflow execution |
 
 ## Why These Patterns Work
 
-Infrastructure-as-Code succeeded because it addressed fundamental problems:
+Infrastructure-as-Code succeeded because it solved fundamental problems:
 
-1. **Reproducibility**: Same configuration produces same results
-2. **Version Control**: Track changes over time
-3. **Collaboration**: Teams can share and modify configurations
-4. **Automation**: Eliminate manual, error-prone processes
-5. **Scaling**: Patterns that work for one resource work for thousands
+| Problem | IaC Solution | Wave Implementation |
+|---------|-------------|---------------------|
+| Manual, error-prone processes | Declarative configuration | YAML pipeline definitions |
+| Inconsistent environments | Reproducible execution | Fresh memory, isolated workspaces |
+| Undocumented changes | Version-controlled configs | Git-tracked `.wave/` directory |
+| No quality gates | Automated validation | Contract validation at handovers |
+| Difficult collaboration | Shared configuration | Teams share pipeline definitions |
 
-Wave applies these same solutions to AI workflows, inheriting decades of proven operational wisdom from the infrastructure community.
+Wave applies these battle-tested patterns to AI workflows, inheriting decades of operational wisdom from the infrastructure community.
 
 ## Getting Started with IaC Background
 
-If you're already comfortable with Infrastructure-as-Code tools:
+If you're already comfortable with Infrastructure-as-Code:
 
-1. **Think of personas as container images** - pre-configured execution environments
-2. **Think of pipelines as docker-compose files** - orchestrated multi-step workflows
-3. **Think of contracts as health checks** - validation gates ensuring quality
-4. **Think of artifacts as mounted volumes** - data flow between steps
-5. **Think of workspaces as ephemeral containers** - isolated execution environments
+1. **Think of personas as container images** - Pre-configured execution environments with specific capabilities
+2. **Think of pipelines as compose files** - Multi-step workflows with dependencies
+3. **Think of contracts as health checks** - Quality gates ensuring valid outputs
+4. **Think of artifacts as volumes** - Data flow between execution units
+5. **Think of workspaces as containers** - Isolated, ephemeral environments
 
-Your existing IaC knowledge directly transfers to Wave - you're not learning a new paradigm, you're applying a familiar one to AI development.
+Your IaC knowledge transfers directly to Wave.
 
 ## Next Steps
 
-- [AI as Code](/paradigm/ai-as-code) - The foundational paradigm explanation
-- [Deliverables and Contracts](/paradigm/deliverables-contracts) - Quality guarantees in AI workflows
-- [Pipeline Execution](/concepts/pipeline-execution) - How Wave orchestrates your configurations
+- [AI as Code](/paradigm/ai-as-code) - The foundational paradigm
+- [Contracts](/paradigm/deliverables-contracts) - Quality guarantees in AI workflows
+- [Pipeline Execution](/concepts/pipeline-execution) - Execution model details
