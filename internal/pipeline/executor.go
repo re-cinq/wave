@@ -156,10 +156,12 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	execution.Status.State = StateRunning
 
 	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		State:      "started",
-		Message:    fmt.Sprintf("input=%q steps=%d", input, len(p.Steps)),
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		State:          "started",
+		Message:        fmt.Sprintf("input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:     len(p.Steps),
+		CompletedSteps: 0,
 	})
 
 	// Ensure workspace root exists
@@ -176,7 +178,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
-	for _, step := range sortedSteps {
+	for stepIdx, step := range sortedSteps {
 		if err := e.executeStep(ctx, execution, step); err != nil {
 			execution.Status.State = StateFailed
 			execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
@@ -193,6 +195,18 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			return fmt.Errorf("step %q failed: %w", step.ID, err)
 		}
 		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+
+		// Emit overall pipeline progress after each step
+		completedCount := stepIdx + 1
+		e.emit(event.Event{
+			Timestamp:      time.Now(),
+			PipelineID:     pipelineID,
+			State:          "running",
+			TotalSteps:     len(p.Steps),
+			CompletedSteps: completedCount,
+			Progress:       (completedCount * 100) / len(p.Steps),
+			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, len(p.Steps)),
+		})
 	}
 
 	now := time.Now()
@@ -319,12 +333,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.WorkspacePaths[step.ID] = workspacePath
 
 	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      "running",
-		Persona:    step.Persona,
-		Message:    fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
+		Timestamp:     time.Now(),
+		PipelineID:    pipelineID,
+		StepID:        step.ID,
+		State:         "running",
+		Persona:       step.Persona,
+		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
+		CurrentAction: "Initializing",
 	})
 
 	// Inject artifacts from dependencies
@@ -362,6 +377,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Debug:         e.debug,
 	}
 
+	// Emit step progress: executing
+	e.emit(event.Event{
+		Timestamp:     time.Now(),
+		PipelineID:    pipelineID,
+		StepID:        step.ID,
+		State:         "step_progress",
+		Persona:       step.Persona,
+		Progress:      25,
+		CurrentAction: "Executing agent",
+	})
+
 	stepStart := time.Now()
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
@@ -369,6 +395,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	stepDuration := time.Since(stepStart).Milliseconds()
+
+	// Emit step progress: processing results
+	e.emit(event.Event{
+		Timestamp:     time.Now(),
+		PipelineID:    pipelineID,
+		StepID:        step.ID,
+		State:         "step_progress",
+		Persona:       step.Persona,
+		Progress:      75,
+		CurrentAction: "Processing results",
+		TokensUsed:    result.TokensUsed,
+	})
 
 	output := make(map[string]interface{})
 	stdoutData, err := io.ReadAll(result.Stdout)
@@ -424,11 +462,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 
 		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "validating",
-			Message:    fmt.Sprintf("Validating %s contract", step.Handover.Contract.Type),
+			Timestamp:       time.Now(),
+			PipelineID:      pipelineID,
+			StepID:          step.ID,
+			State:           "validating",
+			Message:         fmt.Sprintf("Validating %s contract", step.Handover.Contract.Type),
+			CurrentAction:   "Validating contract",
+			ValidationPhase: step.Handover.Contract.Type,
 		})
 
 		if err := contract.Validate(contractCfg, workspacePath); err != nil {

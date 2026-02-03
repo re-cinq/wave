@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
@@ -19,13 +20,15 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline string
-	Input    string
-	DryRun   bool
-	FromStep string
-	Timeout  int
-	Manifest string
-	Mock     bool
+	Pipeline     string
+	Input        string
+	DryRun       bool
+	FromStep     string
+	Timeout      int
+	Manifest     string
+	Mock         bool
+	NoProgress   bool
+	PlainProgress bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -49,6 +52,8 @@ Supports dry-run mode, step resumption, and custom timeouts.`,
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
+	cmd.Flags().BoolVar(&opts.NoProgress, "no-progress", false, "Disable enhanced progress display")
+	cmd.Flags().BoolVar(&opts.PlainProgress, "plain", false, "Use plain text progress (no colors/animations)")
 
 	cmd.MarkFlagRequired("pipeline")
 
@@ -98,8 +103,39 @@ func runRun(opts RunOptions, debug bool) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	// Initialize event emitter
-	emitter := event.NewNDJSONEmitterWithHumanReadable()
+	// Initialize event emitter with optional enhanced progress display
+	var emitter *event.NDJSONEmitter
+	var progressDisplay event.ProgressEmitter
+
+	// Detect terminal capabilities and user preferences
+	termInfo := display.NewTerminalInfo()
+	useEnhancedProgress := !opts.NoProgress && !opts.PlainProgress && termInfo.IsTTY() && termInfo.SupportsANSI()
+
+	if useEnhancedProgress {
+		// Create enhanced progress display
+		progressDisplay = display.NewProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps))
+
+		// Register steps for tracking
+		pd := progressDisplay.(*display.ProgressDisplay)
+		for _, step := range p.Steps {
+			// Get persona name for display
+			personaName := step.Persona
+			if persona := m.GetPersona(step.Persona); persona != nil {
+				personaName = step.Persona
+			}
+			pd.AddStep(step.ID, step.ID, personaName)
+		}
+
+		// Create emitter with progress display
+		emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+	} else if opts.PlainProgress {
+		// Use basic text progress
+		progressDisplay = display.NewBasicProgressDisplay()
+		emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+	} else {
+		// Use standard human-readable output
+		emitter = event.NewNDJSONEmitterWithHumanReadable()
+	}
 
 	// Initialize workspace manager under .wave/workspaces
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -163,11 +199,26 @@ func runRun(opts RunOptions, debug bool) error {
 
 	pipelineStart := time.Now()
 
+	// Ensure progress display cleanup on exit
+	if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
+		defer pd.Finish()
+	}
+
 	if err := executor.Execute(execCtx, p, &m, opts.Input); err != nil {
+		// Clear progress display before showing error
+		if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
+			pd.Clear()
+		}
 		return fmt.Errorf("pipeline execution failed: %w", err)
 	}
 
 	elapsed := time.Since(pipelineStart)
+
+	// Clear enhanced progress display before final message
+	if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
+		pd.Clear()
+	}
+
 	fmt.Printf("\n✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
 	return nil
 }
