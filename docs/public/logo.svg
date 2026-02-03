@@ -1,5 +1,24 @@
-<!-- Simple SVG logo -->
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="20" fill="#2563eb"/>
-  <text x="100" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">M</text>
+  <!-- Rounded square background -->
+  <rect width="200" height="200" rx="24" fill="#2563eb"/>
+
+  <!-- Wavey W as a single flowing path -->
+  <path d="M 35 50
+           L 60 140
+           Q 75 100, 100 90
+           Q 125 100, 140 140
+           L 165 50"
+        fill="none"
+        stroke="white"
+        stroke-width="14"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Wave accent underneath -->
+  <path d="M 30 165 Q 65 150, 100 165 Q 135 180, 170 165"
+        fill="none"
+        stroke="white"
+        stroke-width="6"
+        stroke-linecap="round"
+        opacity="0.5"/>
 </svg>
