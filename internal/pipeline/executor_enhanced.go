@@ -192,13 +192,11 @@ func (e *DefaultPipelineExecutor) executeStepWithValidation(ctx context.Context,
 	return nil
 }
 
-// simulateStepExecution simulates step execution for testing purposes
+// simulateStepExecution delegates to the real step execution logic.
 func (e *DefaultPipelineExecutor) simulateStepExecution(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	// This is a placeholder - in real implementation, this would call the existing
-	// step execution logic from the DefaultPipelineExecutor
-
-	// For testing purposes, we'll return success
-	return nil
+	// This was previously a placeholder that always returned success.
+	// Now it calls the existing step execution logic from DefaultPipelineExecutor.
+	return e.executeStep(ctx, execution, step)
 }
 
 // isContractValidationError checks if an error is related to contract validation

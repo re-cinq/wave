@@ -45,7 +45,7 @@ func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string)
 	}
 
 	// Verify that all prerequisite phases have been completed
-	workspaceRoot := ".wave/workspaces/prototype"
+	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
 
 	for i := 0; i < fromIndex; i++ {
 		prerequisitePhase := v.prototypePhasesOrder[i]
@@ -124,7 +124,7 @@ func (d *StaleArtifactDetector) DetectStaleArtifacts(p *Pipeline, currentStep st
 	}
 
 	staleReasons := []string{}
-	workspaceRoot := ".wave/workspaces/prototype"
+	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
 
 	// Get current step dependencies
 	var currentStepObj *Step
@@ -250,9 +250,7 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 	guidance.WriteString("\n📋 Debug Information:\n")
 	guidance.WriteString(fmt.Sprintf("  • Phase: %s\n", phase))
 	guidance.WriteString("  • Pipeline: prototype\n")
-	guidance.WriteString("  • Workspace: .wave/workspaces/prototype/")
-	guidance.WriteString(phase)
-	guidance.WriteString("/\n")
+	guidance.WriteString(fmt.Sprintf("  • Workspace: .wave/workspaces/prototype/%s/\n", phase))
 	guidance.WriteString("  • Logs: .wave/traces/\n")
 
 	return fmt.Errorf("%s", guidance.String())

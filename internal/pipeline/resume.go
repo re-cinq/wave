@@ -252,11 +252,13 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 	return nil
 }
 
-// executeStep executes a single pipeline step (simplified version of executor logic)
+// executeStep executes a single pipeline step by delegating to the underlying executor.
 func (r *ResumeManager) executeStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	// This would integrate with the existing step execution logic in executor.go
-	// For now, return a placeholder implementation
-	return fmt.Errorf("step execution integration required")
+	if r.executor == nil {
+		return fmt.Errorf("pipeline executor is not configured")
+	}
+
+	return r.executor.executeStep(ctx, execution, step)
 }
 
 // getAvailableSteps returns a formatted string of available steps in the pipeline
