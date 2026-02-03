@@ -31,12 +31,25 @@ This document defines the artifact paths and naming conventions for the prototyp
 
 Each phase executes in an isolated workspace following this pattern:
 ```
-.wave/workspaces/prototype-{timestamp}/
-├── {step-id}/              # Current step workspace
-│   ├── artifacts/          # Injected artifacts from previous steps
-│   ├── {output-files}      # Step output files
-│   └── workspace/          # Working directory
-└── shared/                 # Cross-step shared resources (if needed)
+.wave/workspaces/
+└── prototype/              # Pipeline-specific workspace root
+    ├── spec/               # Spec phase workspace
+    │   ├── artifacts/      # Injected artifacts from previous steps
+    │   ├── spec.md         # Phase output files
+    │   └── workspace/      # Working directory
+    ├── docs/               # Docs phase workspace
+    │   ├── artifacts/      # Injected artifacts (spec.md)
+    │   ├── feature-docs.md # Phase output files
+    │   └── workspace/      # Working directory
+    ├── dummy/              # Dummy phase workspace
+    │   ├── artifacts/      # Injected artifacts (docs + spec)
+    │   ├── prototype/      # Generated prototype code
+    │   ├── interfaces.md   # Phase output files
+    │   └── workspace/      # Working directory
+    └── implement/          # Implement phase workspace
+        ├── artifacts/      # Injected artifacts from dummy phase
+        ├── implementation-plan.md
+        └── workspace/      # Working directory
 ```
 
 ## Artifact Injection Mapping
