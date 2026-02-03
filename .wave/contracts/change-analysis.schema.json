@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "commit_analysis",
+    "affected_docs",
+    "api_changes",
+    "feature_impacts",
+    "deprecation_notes"
+  ],
+  "properties": {
+    "commit_analysis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "commit_hash": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "files_changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "documentation_impact": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "affected_docs": {
+      "type": "object",
+      "properties": {
+        "readmes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help_texts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "api_docs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inline_comments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "api_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string"
+          },
+          "documentation_needed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "feature_impacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string"
+          },
+          "impact_level": {
+            "type": "string"
+          },
+          "documentation_areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "deprecation_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "deprecated_item": {
+            "type": "string"
+          },
+          "replacement": {
+            "type": "string"
+          },
+          "timeline": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
