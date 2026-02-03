@@ -417,14 +417,6 @@ func formatElapsed(d time.Duration) string {
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
 }
 
-// formatTokens formats token count with "k" suffix for thousands.
-func formatTokens(tokens int) string {
-	if tokens >= 1000 {
-		return fmt.Sprintf("%dk", tokens/1000)
-	}
-	return fmt.Sprintf("%d", tokens)
-}
-
 // statusColor returns the ANSI color code for a status.
 func statusColor(status string) string {
 	switch status {
