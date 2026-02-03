@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
@@ -19,13 +21,16 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline string
-	Input    string
-	DryRun   bool
-	FromStep string
-	Timeout  int
-	Manifest string
-	Mock     bool
+	Pipeline     string
+	Input        string
+	DryRun       bool
+	FromStep     string
+	Timeout      int
+	Manifest     string
+	Mock         bool
+	NoProgress   bool
+	PlainProgress bool
+	NoLogs       bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -49,6 +54,9 @@ Supports dry-run mode, step resumption, and custom timeouts.`,
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
+	cmd.Flags().BoolVar(&opts.NoProgress, "no-progress", false, "Disable enhanced progress display")
+	cmd.Flags().BoolVar(&opts.PlainProgress, "plain", false, "Use plain text progress (no colors/animations)")
+	cmd.Flags().BoolVar(&opts.NoLogs, "no-logs", false, "Suppress JSON log output (show only progress display)")
 
 	cmd.MarkFlagRequired("pipeline")
 
@@ -88,7 +96,10 @@ func runRun(opts RunOptions, debug bool) error {
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter()
+		// Add simulated delay to see progress animations in action
+		runner = adapter.NewMockAdapter(
+			adapter.WithSimulatedDelay(5*time.Second),
+		)
 	} else {
 		var adapterName string
 		for name := range m.Adapters {
@@ -98,8 +109,53 @@ func runRun(opts RunOptions, debug bool) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	// Initialize event emitter
-	emitter := event.NewNDJSONEmitterWithHumanReadable()
+	// Initialize event emitter with optional enhanced progress display
+	var emitter *event.NDJSONEmitter
+	var progressDisplay event.ProgressEmitter
+
+	// Detect terminal capabilities and user preferences
+	termInfo := display.NewTerminalInfo()
+	useEnhancedProgress := !opts.NoProgress && !opts.PlainProgress && termInfo.IsTTY() && termInfo.SupportsANSI()
+
+	if useEnhancedProgress {
+		// Create bubbletea enhanced progress display with deliverable tracking
+		progressDisplay = display.NewBubbleTeaProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps), nil) // Will be set later
+
+		// Register steps for tracking
+		btpd := progressDisplay.(*display.BubbleTeaProgressDisplay)
+		for _, step := range p.Steps {
+			// Get persona name for display
+			personaName := step.Persona
+			if persona := m.GetPersona(step.Persona); persona != nil {
+				personaName = step.Persona
+			}
+			btpd.AddStep(step.ID, step.ID, personaName)
+		}
+
+		// Create emitter with progress display
+		if opts.NoLogs {
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
+		} else {
+			emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		}
+	} else if opts.PlainProgress {
+		// Use basic text progress
+		progressDisplay = display.NewBasicProgressDisplay()
+		if opts.NoLogs {
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
+		} else {
+			emitter = event.NewNDJSONEmitterWithProgress(progressDisplay)
+		}
+	} else {
+		// Use standard human-readable output
+		if opts.NoLogs {
+			// Avoid NDJSON logs; use a progress-only emitter with a basic display.
+			progressDisplay = display.NewBasicProgressDisplay()
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
+		} else {
+			emitter = event.NewNDJSONEmitterWithHumanReadable()
+		}
+	}
 
 	// Initialize workspace manager under .wave/workspaces
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -153,6 +209,11 @@ func runRun(opts RunOptions, debug bool) error {
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
+	// Connect deliverable tracker to progress display
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+	}
+
 	timeout := time.Duration(opts.Timeout) * time.Minute
 	if opts.Timeout == 0 {
 		timeout = m.Runtime.GetDefaultTimeout()
@@ -163,12 +224,44 @@ func runRun(opts RunOptions, debug bool) error {
 
 	pipelineStart := time.Now()
 
+	// Ensure progress display cleanup on exit
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		defer btpd.Finish()
+	}
+
 	if err := executor.Execute(execCtx, p, &m, opts.Input); err != nil {
+		// Clear progress display before showing error
+		if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+			btpd.Clear()
+		}
 		return fmt.Errorf("pipeline execution failed: %w", err)
 	}
 
 	elapsed := time.Since(pipelineStart)
-	fmt.Printf("\n✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+
+	// Clear enhanced progress display before final message
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		btpd.Clear()
+	}
+
+	// Add spacing after Press section and ensure clean cursor position
+	fmt.Print("\r")  // Move to start of line
+	fmt.Print("\n")  // Space after Press section
+	fmt.Printf("  ✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+
+	// Show deliverables summary with proper spacing and indentation
+	if deliverables := executor.GetDeliverables(); deliverables != "" {
+		fmt.Print("\n")
+		// Add left padding to each line of deliverables
+		lines := strings.Split(deliverables, "\n")
+		for _, line := range lines {
+			if line != "" {
+				fmt.Printf("  %s\n", line)
+			}
+		}
+		fmt.Print("\n") // Bottom spacing
+	}
+
 	return nil
 }
 

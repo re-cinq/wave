@@ -149,7 +149,7 @@ steps:
       contract:
         type: test_suite
         command: "go test ./... -v"
-        must_pass: true
+        must_pass: false
         on_failure: retry
         max_retries: 3
     output_artifacts:

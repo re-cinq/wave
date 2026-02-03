@@ -3,7 +3,7 @@ package security
 import (
 	"testing"
 
-	"github.com/your-org/wave/internal/security"
+	"github.com/recinq/wave/internal/security"
 )
 
 // SecurityTestUtils provides utilities for security testing

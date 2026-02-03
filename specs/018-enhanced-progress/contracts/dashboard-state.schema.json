@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/dashboard-state.schema.json",
+  "title": "Wave Dashboard State",
+  "description": "Schema for dashboard display state and configuration",
+  "type": "object",
+  "properties": {
+    "terminal": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 40,
+          "maximum": 500,
+          "description": "Terminal width in characters"
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 200,
+          "description": "Terminal height in lines"
+        },
+        "supports_color": {
+          "type": "boolean",
+          "description": "Whether terminal supports ANSI colors"
+        },
+        "supports_unicode": {
+          "type": "boolean",
+          "description": "Whether terminal supports Unicode characters"
+        },
+        "color_depth": {
+          "type": "string",
+          "enum": ["none", "basic", "256", "truecolor"],
+          "description": "Level of color support available"
+        }
+      },
+      "required": ["width", "height", "supports_color", "supports_unicode"],
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["minimal", "standard", "detailed"],
+          "description": "Dashboard layout complexity level"
+        },
+        "panels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": ["logo", "progress", "metrics", "info", "status"],
+                "description": "Panel identifier"
+              },
+              "visible": {
+                "type": "boolean",
+                "description": "Whether panel is currently displayed"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "y": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": ["x", "y", "width", "height"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["id", "visible"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["style", "panels"],
+      "additionalProperties": false
+    },
+    "animation": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether animations are enabled"
+        },
+        "refresh_rate_ms": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 1000,
+          "description": "Animation refresh rate in milliseconds"
+        },
+        "spinner_style": {
+          "type": "string",
+          "enum": ["dots", "line", "pipe", "star", "bounce"],
+          "description": "Style of loading spinner animation"
+        },
+        "progress_style": {
+          "type": "string",
+          "enum": ["bar", "blocks", "gradient", "minimal"],
+          "description": "Progress bar visual style"
+        }
+      },
+      "required": ["enabled", "refresh_rate_ms"],
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "show_tokens": {
+          "type": "boolean",
+          "description": "Display token usage metrics"
+        },
+        "show_timing": {
+          "type": "boolean",
+          "description": "Display timing and ETA information"
+        },
+        "show_files": {
+          "type": "boolean",
+          "description": "Display file modification counts"
+        },
+        "show_artifacts": {
+          "type": "boolean",
+          "description": "Display artifact generation counts"
+        },
+        "token_format": {
+          "type": "string",
+          "enum": ["raw", "k_suffix", "abbreviated"],
+          "description": "How to format token counts"
+        },
+        "time_format": {
+          "type": "string",
+          "enum": ["seconds", "mm:ss", "hh:mm:ss"],
+          "description": "Time display format"
+        }
+      },
+      "required": ["show_tokens", "show_timing", "show_files", "show_artifacts"],
+      "additionalProperties": false
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": ["default", "dark", "light", "high_contrast"],
+          "description": "Color theme preference"
+        },
+        "accent_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Hexadecimal accent color for highlights"
+        },
+        "state_colors": {
+          "type": "object",
+          "properties": {
+            "pending": {
+              "type": "string",
+              "description": "ANSI color code for pending state"
+            },
+            "running": {
+              "type": "string",
+              "description": "ANSI color code for running state"
+            },
+            "completed": {
+              "type": "string",
+              "description": "ANSI color code for completed state"
+            },
+            "failed": {
+              "type": "string",
+              "description": "ANSI color code for failed state"
+            },
+            "retrying": {
+              "type": "string",
+              "description": "ANSI color code for retrying state"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["theme"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["terminal", "layout", "animation", "metrics"],
+  "additionalProperties": false
+}
