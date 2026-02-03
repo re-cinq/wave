@@ -1,0 +1,256 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/pipeline-progress.schema.json",
+  "title": "Wave Pipeline Progress Context",
+  "description": "Schema for pipeline execution progress and status information",
+  "type": "object",
+  "properties": {
+    "pipeline": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique pipeline execution identifier",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable pipeline name",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "description": "Pipeline description from manifest"
+        },
+        "start_time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Pipeline execution start timestamp"
+        },
+        "estimated_duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Estimated total runtime in seconds"
+        },
+        "workspace_path": {
+          "type": "string",
+          "description": "Root workspace directory path"
+        },
+        "manifest_path": {
+          "type": "string",
+          "description": "Path to wave.yaml manifest file"
+        }
+      },
+      "required": ["id", "name", "start_time"],
+      "additionalProperties": false
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "overall_progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall pipeline completion percentage"
+        },
+        "current_step_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based index of current step"
+        },
+        "total_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of steps in pipeline"
+        },
+        "completed_steps": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of completed steps"
+        },
+        "failed_steps": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failed steps"
+        },
+        "estimated_time_remaining": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Estimated seconds until completion"
+        },
+        "current_step_description": {
+          "type": "string",
+          "description": "Human-readable current activity description"
+        }
+      },
+      "required": [
+        "overall_progress",
+        "current_step_index",
+        "total_steps",
+        "completed_steps",
+        "failed_steps"
+      ],
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "total_tokens_used": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cumulative tokens across all steps"
+        },
+        "token_burn_rate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tokens consumed per minute"
+        },
+        "files_modified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of files changed during execution"
+        },
+        "artifacts_generated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total artifacts produced"
+        },
+        "average_step_duration": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average step completion time in seconds"
+        },
+        "peak_memory_usage": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Peak memory usage in bytes"
+        }
+      },
+      "required": [
+        "total_tokens_used",
+        "files_modified",
+        "artifacts_generated"
+      ],
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "description": "Unique step identifier",
+            "minLength": 1
+          },
+          "persona": {
+            "type": "string",
+            "description": "Persona name executing this step"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["pending", "running", "completed", "failed", "retrying"],
+            "description": "Current step execution state"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Step start timestamp"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Step completion timestamp"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Milliseconds elapsed since start"
+          },
+          "progress": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Step progress percentage"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tokens consumed by this step"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Artifacts generated by this step"
+          },
+          "contract_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "validating",
+              "schema_check",
+              "compilation_check",
+              "test_execution",
+              "passed",
+              "failed"
+            ],
+            "description": "Contract validation status"
+          },
+          "retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of retry attempts"
+          },
+          "max_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum allowed retries"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Error details if step failed"
+          }
+        },
+        "required": ["step_id", "state"],
+        "additionalProperties": false
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Snapshot timestamp"
+          },
+          "overall_progress": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "current_step_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_used": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimated_eta": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["timestamp", "overall_progress", "current_step_index"],
+        "additionalProperties": false
+      },
+      "description": "Historical progress snapshots for trend analysis"
+    }
+  },
+  "required": ["pipeline", "progress", "metrics", "steps"],
+  "additionalProperties": false
+}

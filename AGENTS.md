@@ -138,6 +138,25 @@ Wave/
 - Include validation sections in specifications
 - Provide clear acceptance criteria
 
+## Attribution and Co-Authoring Policy
+
+**IMPORTANT**: This project does NOT accept automatic AI attribution or co-authoring credits.
+
+### Prohibited Attribution
+- Do not include "🤖 Generated with Claude Code" or similar automatic attribution
+- Do not add "Co-Authored-By: Claude Sonnet 4" or similar co-authoring credits
+- Do not include automatic AI attribution in:
+  - Commit messages
+  - Pull request descriptions
+  - Code comments
+  - Documentation
+  - Any other project text
+
+### Code Ownership
+- All code contributions are attributed to human developers
+- AI tools are considered development assistants, not co-authors
+- Maintain clean git history without AI attribution clutter
+
 ## Agent-Specific Guidelines
 
 ### For Claude Agents
@@ -145,12 +164,14 @@ Wave/
 - Follow frontmatter format with description
 - Use constitution-driven governance checks
 - Leverage template patterns for consistency
+- **Do not add automatic attribution or co-authoring credits**
 
-### For OpenCode Agents  
+### For OpenCode Agents
 - Skills located in `.opencode/skills/`
 - Mirror Claude skill structure
 - Use package.json for dependency management
 - Follow JavaScript/TypeScript conventions where applicable
+- **Do not add automatic attribution or co-authoring credits**
 
 ## Constitutional Governance
 

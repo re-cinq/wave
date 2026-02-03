@@ -185,7 +185,13 @@ func copyRecursive(src, dst string) error {
 			}
 			targetPath := filepath.Join(dst, relPath)
 			if info.IsDir() {
-				return os.MkdirAll(targetPath, 0755)
+				if err := os.MkdirAll(targetPath, 0755); err != nil {
+					// Try with more permissive mode if initial creation fails
+					if err := os.MkdirAll(targetPath, 0777); err != nil {
+						return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+					}
+				}
+				return nil
 			}
 			// Skip large files (>10MB) and errors
 			if info.Size() > 10*1024*1024 {

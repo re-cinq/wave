@@ -1,21 +1,23 @@
 <!--
   Sync Impact Report
-  Version change: N/A → 1.0.0 (initial creation)
-  Added sections: All (initial constitution)
-  Modified principles: N/A
-  Removed sections: N/A
+  Version change: 1.0.0 → 2.0.0 (MAJOR: backward-incompatible principle redefinition)
+  Added sections: None
+  Modified principles: Principle 1 (Single Binary, Zero Dependencies → Single Binary, Minimal Dependencies)
+  Removed sections: None
+  Rationale: Allow essential UI/UX libraries (e.g., Bubble Tea) for enhanced user experience
+             while maintaining single binary deployment model
   Templates requiring updates:
     - .specify/templates/plan-template.md: ✅ compatible (Constitution Check section exists)
     - .specify/templates/spec-template.md: ✅ compatible (no changes needed)
     - .specify/templates/tasks-template.md: ✅ compatible (no changes needed)
-  Follow-up TODOs: None
+  Follow-up TODOs: Update PR #14 to reference constitutional amendment
 -->
 
 # Wave Project Constitution
 
-**Version**: 1.0.0
+**Version**: 2.0.0
 **Ratification Date**: 2026-02-01
-**Last Amended**: 2026-02-01
+**Last Amended**: 2026-02-03
 **Project**: Wave — Multi-agent orchestrator wrapping LLM CLIs
 
 ## Preamble
@@ -26,19 +28,24 @@ contracts, and relay/compaction into a continuous development system.
 This constitution defines the non-negotiable principles governing all
 design, implementation, and operational decisions.
 
-## Principle 1: Single Binary, Zero Dependencies
+## Principle 1: Single Binary, Minimal Dependencies
 
-Wave MUST be a single statically-linked Go binary with no runtime
-dependencies. Installation is `curl | sh` or a single `COPY` in a
+Wave MUST be a single statically-linked Go binary with minimal runtime
+dependencies. Installation remains `curl | sh` or a single `COPY` in a
 Dockerfile. No interpreters, no package managers, no virtual
 environments required on the target host.
 
-- The binary MUST NOT require Node.js, Python, or any runtime to
+- The binary MUST NOT require Node.js, Python, or language runtimes to
   function.
+- Essential UI/UX libraries (e.g., terminal handling, progress display)
+  MAY be included as Go dependencies when they significantly enhance
+  user experience without compromising deployment simplicity.
 - Adapter binaries (e.g., `claude`, `opencode`) are external
   prerequisites provided by the host, not bundled by Wave.
 - Compilation tools for contract validation (e.g., `tsc`) are
   optional; Wave MUST degrade gracefully when absent.
+- Dependencies MUST be justified by clear user value and MUST NOT
+  require additional system-level package installation.
 
 ## Principle 2: Manifest as Single Source of Truth
 
