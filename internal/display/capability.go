@@ -1,6 +1,7 @@
 package display
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -239,7 +240,7 @@ func (ac *ANSICodec) CursorUp(lines int) string {
 	if lines == 1 {
 		return "\033[A"
 	}
-	return "\033[" + string(rune(lines)) + "A"
+	return fmt.Sprintf("\033[%dA", lines)
 }
 
 // CursorHome returns ANSI code to move cursor to beginning of line.

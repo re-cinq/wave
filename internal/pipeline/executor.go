@@ -283,7 +283,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		}
 
 		// Start progress ticker for smooth animation updates during step execution
-		cancelTicker := e.startProgressTicker(ctx, step.ID)
+		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
 
 		err := e.runStepExecution(ctx, execution, step)
 
@@ -808,7 +808,7 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 
 // startProgressTicker starts a background ticker to emit periodic progress events
 // during step execution to ensure smooth animation updates
-func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, stepID string) context.CancelFunc {
+func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipelineID string, stepID string) context.CancelFunc {
 	tickerCtx, cancel := context.WithCancel(ctx)
 
 	if e.emitter != nil {
@@ -823,7 +823,7 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, stepI
 				case <-ticker.C:
 					// Emit a progress heartbeat to keep the display updating
 					e.emit(event.Event{
-						PipelineID: stepID,
+						PipelineID: pipelineID,
 						StepID:     stepID,
 						State:      event.StateStepProgress,
 						Timestamp:  time.Now(),
