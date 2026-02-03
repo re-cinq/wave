@@ -50,12 +50,19 @@ steps:
         - step: navigate
           artifact: analysis
           as: navigation_report
+    workspace:
+      mount:
+        - source: ./specs
+          target: /workspace/specs
+          mode: readwrite
     exec:
       type: prompt
       source: |
         Based on the navigation report, create a feature specification for: {{ input }}
-        
+
         Run /speckit.specify to generate the spec.
+
+        The navigation report shows: {{ navigation_report }}
 
         Include:
         1. User stories with acceptance criteria
@@ -65,8 +72,15 @@ steps:
         5. Testing strategy
     output_artifacts:
       - name: spec
-        path: output/spec.md
+        path: specs/{{ pipeline_context.branch_name }}/spec.md
         type: markdown
+    handover:
+      contract:
+        type: markdown_spec
+        source: specs/{{ pipeline_context.branch_name }}/spec.md
+        schema_path: .wave/contracts/specification.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: plan
     persona: philosopher
@@ -80,12 +94,19 @@ steps:
         - step: specify
           artifact: spec
           as: feature_spec
+    workspace:
+      mount:
+        - source: ./specs
+          target: /workspace/specs
+          mode: readwrite
     exec:
       type: prompt
       source: |
         Create an implementation plan for the feature specification.
-        
+
         Run /speckit.plan to generate the plan.
+
+        The feature specification shows: {{ feature_spec }}
 
         Include:
         1. Ordered list of implementation steps
@@ -94,8 +115,15 @@ steps:
         4. Risk assessment
     output_artifacts:
       - name: plan
-        path: output/plan.md
+        path: specs/{{ pipeline_context.branch_name }}/plan.md
         type: markdown
+    handover:
+      contract:
+        type: markdown_spec
+        source: specs/{{ pipeline_context.branch_name }}/plan.md
+        schema_path: .wave/contracts/implementation-plan.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: implement
     persona: craftsman
