@@ -147,6 +147,40 @@ All development must comply with the Wave Constitution:
 - Memory usage should remain bounded during execution
 - Concurrent pipeline support without resource contention
 
+## Database Migrations
+
+Wave uses a comprehensive migration system for schema management:
+
+### Adding New Migrations
+1. Add migration definition in `internal/state/migration_definitions.go`
+2. Include both `Up` (forward) and `Down` (rollback) SQL
+3. Write comprehensive tests in `*_test.go` files
+4. Test rollback functionality thoroughly
+5. Update documentation for user-facing changes
+
+### Environment Configuration
+- `WAVE_MIGRATION_ENABLED=true` - Enable migration system (default: true)
+- `WAVE_AUTO_MIGRATE=true` - Auto-apply on startup (default: true)
+- `WAVE_MAX_MIGRATION_VERSION=N` - Limit migrations for gradual rollout
+- `WAVE_SKIP_MIGRATION_VALIDATION=true` - Skip checksums (dev only)
+
+### CLI Commands
+```bash
+# Check migration status
+wave migrate status
+
+# Apply pending migrations
+wave migrate up
+
+# Rollback to specific version (with confirmation)
+wave migrate down 3
+
+# Validate migration integrity
+wave migrate validate
+```
+
+See `docs/migrations.md` for complete migration documentation.
+
 ## Testing
 
 ```bash
@@ -158,6 +192,9 @@ go test -race ./...
 
 # Run specific package
 go test ./internal/pipeline/...
+
+# Test migration system specifically
+go test ./internal/state -v -run Migration
 
 # Run with verbose output
 go test -v ./...

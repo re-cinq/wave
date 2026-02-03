@@ -79,6 +79,7 @@ func TestPrototypeSpecPhaseInitialization(t *testing.T) {
 				status, err := executor.GetStatus(pipeline.Metadata.Name)
 				if err != nil {
 					t.Errorf("Failed to get pipeline status: %v", err)
+					return // Return early if status is unavailable
 				}
 
 				// Should have completed at least the spec step

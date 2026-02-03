@@ -547,6 +547,7 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				Context:        NewPipelineContext("worker-count-test", "matrix_step"), // Fix: Add missing context
 			}
 
 			step := &Step{
@@ -689,6 +690,7 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				Context:        NewPipelineContext("concurrency-test", "matrix_step"), // Fix: Add missing context
 			}
 
 			step := &Step{
