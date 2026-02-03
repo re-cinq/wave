@@ -124,12 +124,12 @@ func (m *ProgressModel) renderHeader() string {
 
 	// Project info with real-time elapsed time calculation
 	pipelineStart := time.Unix(0, m.ctx.PipelineStartTime)
-	elapsed := time.Since(pipelineStart).Seconds()
+	elapsed := time.Since(pipelineStart)
 
 	projectLines := []string{
 		fmt.Sprintf("Pipeline: %s", m.ctx.PipelineName),
 		fmt.Sprintf("Config:   %s", m.ctx.ManifestPath),
-		fmt.Sprintf("Elapsed:  %.1fs", elapsed), // Real-time elapsed time
+		fmt.Sprintf("Elapsed:  %s", formatElapsed(elapsed)),
 	}
 
 	// Create columns with proper spacing and bright colors
@@ -317,10 +317,10 @@ func (m *ProgressModel) renderCurrentStep() string {
 		if m.ctx.CurrentPersona != "" {
 			stepLine += fmt.Sprintf(" (%s)", m.ctx.CurrentPersona)
 		}
-		// Real-time step timing in seconds with one decimal
+		// Real-time step timing
 		stepStart := time.Unix(0, m.ctx.CurrentStepStart)
-		stepElapsed := time.Since(stepStart).Seconds()
-		stepLine += fmt.Sprintf(" (%.1fs)", stepElapsed)
+		stepElapsed := time.Since(stepStart)
+		stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
 
 		if m.ctx.CurrentAction != "" {
 			stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
@@ -349,4 +349,14 @@ func SendUpdate(p *tea.Program, ctx *PipelineContext) {
 	if p != nil {
 		p.Send(UpdateContextMsg(ctx))
 	}
+}
+
+// formatElapsed formats a duration for display (e.g., "2m 20s")
+func formatElapsed(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	minutes := int(d.Minutes())
+	seconds := int(d.Seconds()) % 60
+	return fmt.Sprintf("%dm %ds", minutes, seconds)
 }
