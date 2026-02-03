@@ -94,7 +94,7 @@ func TestJSONSchemaValidator_ValidationFailure_TableDriven(t *testing.T) {
 			schema:        `{"type": "object"}`,
 			artifact:      `{not valid json}`,
 			expectError:   true,
-			errorContains: "failed to parse artifact",
+			errorContains: "failed to clean malformed JSON",
 		},
 		{
 			name:          "array instead of object",

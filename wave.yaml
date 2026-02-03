@@ -116,6 +116,45 @@ personas:
                 - Bash(*)
         system_prompt_file: .wave/personas/summarizer.md
         temperature: 0
+    github-analyst:
+        adapter: claude
+        description: GitHub issue analysis and quality assessment
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(gh *)
+            deny:
+                - Write(*)
+                - Edit(*)
+        system_prompt_file: .wave/personas/github-analyst.md
+        temperature: 0.2
+    github-enhancer:
+        adapter: claude
+        description: GitHub issue enhancement and improvement
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(artifact.json)
+                - Bash(gh *)
+            deny:
+                - Bash(rm *)
+                - Bash(git push*)
+        system_prompt_file: .wave/personas/github-enhancer.md
+        temperature: 0.3
+    github-pr-creator:
+        adapter: claude
+        description: GitHub pull request creation and management
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(artifact.json)
+                - Bash(gh *)
+                - Bash(git *)
+            deny:
+                - Bash(rm *)
+                - Bash(git push --force*)
+        system_prompt_file: .wave/personas/github-pr-creator.md
+        temperature: 0.3
 runtime:
     audit:
         log_all_file_operations: false

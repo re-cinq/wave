@@ -1,0 +1,172 @@
+kind: WavePipeline
+metadata:
+    name: github-issue-enhancement
+    description: Production-ready pipeline to analyze and enhance GitHub issues
+input:
+    source: meta
+steps:
+    - id: analyze
+      persona: github-analyst
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: |
+          Analyze GitHub issues for the repository specified in: {{ input }}
+
+          Use the GitHub CLI (gh) to:
+          1. List all open issues
+          2. Analyze each issue for quality (title, description, labels, etc.)
+          3. Score each issue (0-100 based on completeness)
+          4. Identify issues with quality scores below 70
+
+          Output a structured JSON analysis to artifact.json with:
+          - Repository info (owner, name)
+          - Total issues analyzed
+          - Poor quality issues (score < 70) with detailed analysis
+          - For each poor issue: number, current title, current body, quality score, problems identified
+
+          Use gh issue list and gh issue view commands.
+          Save results to artifact.json.
+      output_artifacts:
+        - name: analysis
+          path: artifact.json
+          type: json
+          required: true
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/github-issue-analysis.schema.json
+            validate: true
+            must_pass: true
+
+    - id: generate-enhancements
+      persona: github-analyst
+      dependencies:
+        - analyze
+      memory:
+        strategy: fresh
+        inject_artifacts:
+            - step: analyze
+              artifact: analysis
+              as: issue_analysis
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: |
+          Based on the issue analysis, generate specific enhancement recommendations.
+
+          For each poor-quality issue identified:
+          1. Suggest improved title (if needed)
+          2. Generate enhanced description template
+          3. Recommend appropriate labels
+          4. Identify missing sections (steps to reproduce, environment, etc.)
+
+          Output to artifact.json with structure:
+          - issues_to_enhance: array of enhancement plans
+          - Each plan includes: issue_number, suggested_title, body_template, labels, rationale
+
+          Be specific and actionable in recommendations.
+      output_artifacts:
+        - name: enhancement_plan
+          path: artifact.json
+          type: json
+          required: true
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/github-enhancement-plan.schema.json
+            validate: true
+            must_pass: true
+
+    - id: enhance-issues
+      persona: github-enhancer
+      dependencies:
+        - generate-enhancements
+      memory:
+        strategy: fresh
+        inject_artifacts:
+            - step: generate-enhancements
+              artifact: enhancement_plan
+              as: plan
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: |
+          Execute the enhancement plan using GitHub CLI.
+
+          For each issue in the plan:
+          1. Update the issue title (if suggested and improved)
+          2. Update the issue body (preserve original, add structure)
+          3. Add recommended labels using gh issue edit
+          4. Post a comment explaining the enhancements made
+
+          Use these commands:
+          - gh issue edit <number> --title "new title"
+          - gh issue edit <number> --body "enhanced body"
+          - gh issue edit <number> --add-label "label1,label2"
+          - gh issue comment <number> --body "enhancement explanation"
+
+          Track each enhancement in artifact.json with:
+          - issue_number, changes_made, success status, any errors
+
+          Be respectful in comments - explain you're improving structure to help track the issue.
+      output_artifacts:
+        - name: enhancement_results
+          path: artifact.json
+          type: json
+          required: true
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/github-enhancement-results.schema.json
+            validate: true
+            must_pass: true
+        on_review_fail: retry
+        max_retries: 2
+
+    - id: verify
+      persona: github-analyst
+      dependencies:
+        - enhance-issues
+      memory:
+        strategy: fresh
+        inject_artifacts:
+            - step: enhance-issues
+              artifact: enhancement_results
+              as: results
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: |
+          Verify the enhancements were successfully applied.
+
+          For each enhanced issue:
+          1. Use gh issue view <number> to retrieve current state
+          2. Confirm title was updated (if planned)
+          3. Confirm body was enhanced
+          4. Confirm labels were added
+          5. Check for the enhancement comment
+
+          Output verification report to artifact.json with:
+          - total_enhanced: count
+          - successful_enhancements: array of verified issues
+          - failed_enhancements: array of issues with problems
+          - quality_improvement: before/after quality scores
+
+          Provide summary statistics and any issues needing attention.
+      output_artifacts:
+        - name: verification_report
+          path: artifact.json
+          type: json
+          required: true
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/github-verification-report.schema.json
+            validate: true
