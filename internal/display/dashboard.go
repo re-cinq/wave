@@ -239,13 +239,15 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 	var bar strings.Builder
 	bar.WriteString("[")
 
-	// Filled portion - same color as text
+	// Filled portion - Wave cyan color (matches logo)
 	filled := strings.Repeat(d.charSet.Block, filledWidth)
-	bar.WriteString(filled)
+	filledStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(filled) // Bright cyan like Wave logo
+	bar.WriteString(filledStyled)
 
-	// Empty portion - same color as text
+	// Empty portion - muted gray
 	empty := strings.Repeat(d.charSet.LightBlock, emptyWidth)
-	bar.WriteString(empty)
+	emptyStyled := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(empty) // Dark gray
+	bar.WriteString(emptyStyled)
 
 	bar.WriteString("]")
 	return bar.String()

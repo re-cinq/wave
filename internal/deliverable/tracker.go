@@ -75,7 +75,7 @@ func (t *Tracker) AddContract(stepID, name, contractPath, description string) {
 	t.Add(NewContractDeliverable(stepID, name, contractPath, description))
 }
 
-// GetAll returns all deliverables
+// GetAll returns all deliverables, sorted by creation time
 func (t *Tracker) GetAll() []*Deliverable {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -83,10 +83,16 @@ func (t *Tracker) GetAll() []*Deliverable {
 	// Return a copy to avoid race conditions
 	result := make([]*Deliverable, len(t.deliverables))
 	copy(result, t.deliverables)
+
+	// Sort by creation time to maintain consistent ordering
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
+
 	return result
 }
 
-// GetByStep returns deliverables for a specific step
+// GetByStep returns deliverables for a specific step, sorted by creation time
 func (t *Tracker) GetByStep(stepID string) []*Deliverable {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -97,6 +103,12 @@ func (t *Tracker) GetByStep(stepID string) []*Deliverable {
 			result = append(result, d)
 		}
 	}
+
+	// Sort by creation time to maintain consistent ordering
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
+
 	return result
 }
 
