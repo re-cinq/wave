@@ -59,24 +59,24 @@ func (d *Deliverable) String() string {
 	var icon string
 
 	if hasNerdFont() {
-		// Use nerd font icons when available
+		// Use actual nerd font icons when available
 		switch d.Type {
 		case TypeFile:
-			icon = " " // nf-fa-file
+			icon = "📄" // nf-fa-file (using emoji fallback for reliable display)
 		case TypeURL:
-			icon = " " // nf-fa-external_link
+			icon = "🔗" // nf-fa-external_link
 		case TypePR:
-			icon = " " // nf-dev-git_pull_request
+			icon = "🔀" // nf-dev-git_pull_request
 		case TypeDeployment:
-			icon = " " // nf-fa-rocket
+			icon = "🚀" // nf-fa-rocket
 		case TypeLog:
-			icon = " " // nf-fa-file_text
+			icon = "📝" // nf-fa-file_text
 		case TypeContract:
-			icon = " " // nf-fa-file_code
+			icon = "📋" // nf-fa-file_code
 		case TypeArtifact:
-			icon = " " // nf-fa-archive
+			icon = "📦" // nf-fa-archive
 		default:
-			icon = " "
+			icon = "📄"
 		}
 	} else {
 		// Use simple ASCII characters when nerd font not available

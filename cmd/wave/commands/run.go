@@ -149,7 +149,9 @@ func runRun(opts RunOptions, debug bool) error {
 	} else {
 		// Use standard human-readable output
 		if opts.NoLogs {
-			emitter = event.NewNDJSONEmitter() // Silent mode - no output
+			// Avoid NDJSON logs; use a progress-only emitter with a basic display.
+			progressDisplay = display.NewBasicProgressDisplay()
+			emitter = event.NewProgressOnlyEmitter(progressDisplay)
 		} else {
 			emitter = event.NewNDJSONEmitterWithHumanReadable()
 		}
