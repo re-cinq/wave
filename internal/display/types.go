@@ -221,6 +221,9 @@ type PipelineContext struct {
 	// Step status mapping
 	StepStatuses map[string]ProgressState // stepID -> state
 
+	// Deliverables by step
+	DeliverablesByStep map[string][]string // stepID -> deliverable strings
+
 	// Additional context
 	Message string
 	Error   string

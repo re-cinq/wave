@@ -52,6 +52,10 @@ func (m *ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TickMsg:
 		m.lastUpdate = time.Time(msg)
+		// Don't continue ticking when paused
+		if m.paused {
+			return m, nil
+		}
 		return m, tickCmd()
 
 	case UpdateContextMsg:
@@ -196,25 +200,48 @@ func (m *ProgressModel) renderProgress() string {
 func (m *ProgressModel) renderCurrentStep() string {
 	var steps []string
 
-	// First, show all completed steps with their real names
+	// Show all completed steps first, then current step
+	// We need to iterate in proper order, not random map order
+	completedSteps := []string{}
+	currentStep := ""
+
+	// Collect completed and current steps
 	for stepID, stepState := range m.ctx.StepStatuses {
 		if stepState == StateCompleted {
-			// Show completed step with actual name and estimated completion time
-			stepLine := fmt.Sprintf("✓ %s (5.0s)", stepID) // Real step name
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine) // Bright cyan like logo
-			steps = append(steps, stepLine)
+			completedSteps = append(completedSteps, stepID)
+		} else if stepState == StateRunning && stepID == m.ctx.CurrentStepID {
+			currentStep = stepID
 		}
 	}
 
-	// Then show current running step
-	if m.ctx.CurrentStepID != "" {
+	// Show completed steps with deliverables
+	for _, stepID := range completedSteps {
+		// Show completed step with actual name and estimated completion time
+		stepLine := fmt.Sprintf("✓ %s (5.0s)", stepID) // Real step name
+		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine) // Bright cyan like logo
+		steps = append(steps, stepLine)
+
+		// Show deliverables for this step in tree format
+		if m.ctx.DeliverablesByStep != nil {
+			if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
+				for _, deliverable := range stepDeliverables {
+					deliverableLine := fmt.Sprintf("  ├─ %s", deliverable)
+					deliverableLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(deliverableLine) // Medium gray
+					steps = append(steps, deliverableLine)
+				}
+			}
+		}
+	}
+
+	// Show current running step
+	if currentStep != "" {
 		// Show current running step with spinner
 		spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		now := time.Now().UnixMilli()
 		frame := (now / 80) % int64(len(spinners)) // 80ms per frame
 		icon := spinners[frame]
 
-		stepLine := fmt.Sprintf("%s %s", icon, m.ctx.CurrentStepID)
+		stepLine := fmt.Sprintf("%s %s", icon, currentStep)
 		if m.ctx.CurrentPersona != "" {
 			stepLine += fmt.Sprintf(" (%s)", m.ctx.CurrentPersona)
 		}

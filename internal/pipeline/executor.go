@@ -6,12 +6,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/contract"
+	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/relay"
@@ -51,6 +53,8 @@ type DefaultPipelineExecutor struct {
 	pathValidator  *security.PathValidator
 	inputSanitizer *security.InputSanitizer
 	securityLogger *security.SecurityLogger
+	// Deliverable tracking
+	deliverableTracker *deliverable.Tracker
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -97,12 +101,13 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled)
 
 	ex := &DefaultPipelineExecutor{
-		runner:         runner,
-		pipelines:      make(map[string]*PipelineExecution),
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		runner:             runner,
+		pipelines:          make(map[string]*PipelineExecution),
+		securityConfig:     securityConfig,
+		pathValidator:      security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer:     security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger:     securityLogger,
+		deliverableTracker: deliverable.NewTracker(""),
 	}
 	for _, opt := range opts {
 		opt(ex)
@@ -123,6 +128,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	pipelineID := p.Metadata.Name
 	pipelineContext := NewPipelineContext(pipelineID, "")
+
+	// Initialize deliverable tracker for this pipeline (only if not already set)
+	if e.deliverableTracker == nil {
+		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	} else {
+		// Update pipeline ID if tracker already exists
+		e.deliverableTracker.SetPipelineID(pipelineID)
+	}
 	execution := &PipelineExecution{
 		Pipeline:       p,
 		Manifest:       m,
@@ -292,6 +305,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 		}
+
+		// Track deliverables from completed step
+		e.trackStepDeliverables(execution, step)
+
 		return nil
 	}
 
@@ -317,6 +334,10 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 	if e.store != nil {
 		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
+
+	// Track deliverables from completed matrix step
+	e.trackStepDeliverables(execution, step)
+
 	return nil
 }
 
@@ -909,6 +930,97 @@ func (e *DefaultPipelineExecutor) injectCheckpointIfExists(workspacePath string,
 
 	// Prepend checkpoint context to the prompt
 	return checkpointPrompt + "\n\n" + prompt
+}
+
+// trackStepDeliverables automatically tracks deliverables produced by a completed step
+func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecution, step *Step) {
+	if e.deliverableTracker == nil {
+		return
+	}
+
+	// Get workspace path for this step
+	workspacePath, exists := execution.WorkspacePaths[step.ID]
+	if !exists {
+		return
+	}
+
+	// Track workspace files automatically
+	e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
+
+	// Track explicit output artifacts
+	for _, artifact := range step.OutputArtifacts {
+		resolvedPath := execution.Context.ResolveArtifactPath(artifact)
+		artifactPath := filepath.Join(workspacePath, resolvedPath)
+
+		// Get absolute path
+		absPath, err := filepath.Abs(artifactPath)
+		if err != nil {
+			absPath = artifactPath
+		}
+
+		e.deliverableTracker.AddFile(step.ID, artifact.Name, absPath, artifact.Type)
+	}
+
+	// Check for common deliverable patterns
+	e.trackCommonDeliverables(step.ID, workspacePath, execution)
+}
+
+// trackCommonDeliverables looks for common deliverable patterns like PR links, deployment URLs, etc.
+func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath string, execution *PipelineExecution) {
+	// Check step results for URLs, PRs, deployments
+	if results, exists := execution.Results[stepID]; exists {
+		// Look for PR URLs in results
+		if prURL, ok := results["pr_url"].(string); ok && prURL != "" {
+			e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Generated pull request")
+		}
+
+		// Look for deployment URLs in results
+		if deployURL, ok := results["deploy_url"].(string); ok && deployURL != "" {
+			e.deliverableTracker.AddDeployment(stepID, "Deployment", deployURL, "Deployed application")
+		}
+
+		// Look for any URLs in results
+		for key, value := range results {
+			if strValue, ok := value.(string); ok {
+				if strings.HasPrefix(strValue, "http://") || strings.HasPrefix(strValue, "https://") {
+					e.deliverableTracker.AddURL(stepID, key, strValue, fmt.Sprintf("URL from %s", key))
+				}
+			}
+		}
+	}
+
+	// Check for log files
+	logFiles := []string{"step.log", "execution.log", "debug.log", "output.log"}
+	for _, logFile := range logFiles {
+		logPath := filepath.Join(workspacePath, logFile)
+		if _, err := os.Stat(logPath); err == nil {
+			absPath, _ := filepath.Abs(logPath)
+			e.deliverableTracker.AddLog(stepID, logFile, absPath, "Step execution log")
+		}
+	}
+
+	// Check for contract artifacts
+	contractFiles := []string{"contract.json", "schema.json", "api-spec.yaml", "openapi.yaml"}
+	for _, contractFile := range contractFiles {
+		contractPath := filepath.Join(workspacePath, contractFile)
+		if _, err := os.Stat(contractPath); err == nil {
+			absPath, _ := filepath.Abs(contractPath)
+			e.deliverableTracker.AddContract(stepID, contractFile, absPath, "Contract artifact")
+		}
+	}
+}
+
+// GetDeliverables returns the deliverables summary for the completed pipeline
+func (e *DefaultPipelineExecutor) GetDeliverables() string {
+	if e.deliverableTracker == nil {
+		return ""
+	}
+	return e.deliverableTracker.FormatSummary()
+}
+
+// GetDeliverableTracker returns the deliverable tracker for external access
+func (e *DefaultPipelineExecutor) GetDeliverableTracker() *deliverable.Tracker {
+	return e.deliverableTracker
 }
 
 func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {

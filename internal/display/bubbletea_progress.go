@@ -2,31 +2,35 @@ package display
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 )
 
 // BubbleTeaProgressDisplay implements ProgressEmitter using bubbletea for proper terminal handling.
 type BubbleTeaProgressDisplay struct {
-	mu           sync.Mutex
-	program      *tea.Program
-	model        *ProgressModel
-	ctx          context.Context
-	cancel       context.CancelFunc
-	pipelineID   string
-	pipelineName string
-	totalSteps   int
-	steps        map[string]*StepStatus
-	stepOrder    []string
-	startTime    time.Time
-	enabled      bool
+	mu                 sync.Mutex
+	program            *tea.Program
+	model              *ProgressModel
+	ctx                context.Context
+	cancel             context.CancelFunc
+	pipelineID         string
+	pipelineName       string
+	totalSteps         int
+	steps              map[string]*StepStatus
+	stepOrder          []string
+	startTime          time.Time
+	enabled            bool
+	deliverableTracker *deliverable.Tracker
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
-func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int) *BubbleTeaProgressDisplay {
+func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int, tracker *deliverable.Tracker) *BubbleTeaProgressDisplay {
 	termInfo := NewTerminalInfo()
 	enabled := termInfo.IsTTY() && termInfo.SupportsANSI()
 
@@ -63,21 +67,23 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 	model := NewProgressModel(initialCtx)
 
 	display := &BubbleTeaProgressDisplay{
-		ctx:          ctx,
-		cancel:       cancel,
-		pipelineID:   pipelineID,
-		pipelineName: pipelineName,
-		totalSteps:   totalSteps,
-		steps:        make(map[string]*StepStatus),
-		stepOrder:    make([]string, 0, totalSteps),
-		startTime:    time.Now(),
-		enabled:      true,
-		model:        model,
+		ctx:                ctx,
+		cancel:             cancel,
+		pipelineID:         pipelineID,
+		pipelineName:       pipelineName,
+		totalSteps:         totalSteps,
+		steps:              make(map[string]*StepStatus),
+		stepOrder:          make([]string, 0, totalSteps),
+		startTime:          time.Now(),
+		enabled:            true,
+		model:              model,
+		deliverableTracker: tracker,
 	}
 
 	// Create the bubbletea program (no alt screen to avoid terminal corruption)
 	display.program = tea.NewProgram(model,
-		tea.WithContext(ctx), // Cancellation context only
+		tea.WithContext(ctx),    // Cancellation context only
+		tea.WithInput(os.Stdin), // Enable keyboard input
 	)
 
 	// Start the program in a goroutine
@@ -130,7 +136,7 @@ func (btpd *BubbleTeaProgressDisplay) AddStep(stepID, stepName, persona string) 
 	}
 }
 
-// Clear stops the bubbletea program.
+// Clear stops the bubbletea program and resets terminal state.
 func (btpd *BubbleTeaProgressDisplay) Clear() {
 	if !btpd.enabled {
 		return
@@ -139,7 +145,12 @@ func (btpd *BubbleTeaProgressDisplay) Clear() {
 	btpd.cancel()
 	if btpd.program != nil {
 		btpd.program.Quit()
+		btpd.program.Wait() // Wait for program to fully exit
 	}
+
+	// Simple cleanup - just ensure cursor is visible
+	fmt.Print("\033[?25h") // Show cursor
+	fmt.Print("\033[0m")   // Reset formatting
 }
 
 // Finish stops the bubbletea program and shows completion.
@@ -165,6 +176,16 @@ func (btpd *BubbleTeaProgressDisplay) Finish() {
 	time.Sleep(100 * time.Millisecond)
 
 	btpd.Clear()
+}
+
+// SetDeliverableTracker sets the deliverable tracker after construction
+func (btpd *BubbleTeaProgressDisplay) SetDeliverableTracker(tracker *deliverable.Tracker) {
+	if !btpd.enabled {
+		return
+	}
+	btpd.mu.Lock()
+	defer btpd.mu.Unlock()
+	btpd.deliverableTracker = tracker
 }
 
 // updateFromEvent updates internal state based on an event.
@@ -242,24 +263,34 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		stepStatuses[stepID] = step.State
 	}
 
+	// Get deliverables by step
+	deliverablesByStep := make(map[string][]string)
+	if btpd.deliverableTracker != nil {
+		stepDeliverables := btpd.deliverableTracker.FormatByStep()
+		for stepID, deliverables := range stepDeliverables {
+			deliverablesByStep[stepID] = deliverables
+		}
+	}
+
 	return &PipelineContext{
-		PipelineName:      btpd.pipelineName,
-		OverallProgress:   overallProgress,
-		CurrentStepNum:    currentStepIdx + 1, // 1-indexed for display
-		TotalSteps:        btpd.totalSteps,
-		CurrentStepID:     currentStepID,
-		CurrentPersona:    currentPersona,
-		CompletedSteps:    completed,
-		FailedSteps:       failed,
-		SkippedSteps:      skipped,
-		StepStatuses:      stepStatuses,
-		ElapsedTimeMs:     elapsedMs,
-		EstimatedTimeMs:   0, // Not calculated
-		ManifestPath:      "wave.yaml",
-		WorkspacePath:     ".wave/workspaces",
-		CurrentAction:     "",
-		CurrentStepName:   currentStepID,
-		PipelineStartTime: btpd.startTime.UnixNano(),
-		CurrentStepStart:  btpd.startTime.UnixNano(), // Simplified
+		PipelineName:       btpd.pipelineName,
+		OverallProgress:    overallProgress,
+		CurrentStepNum:     currentStepIdx + 1, // 1-indexed for display
+		TotalSteps:         btpd.totalSteps,
+		CurrentStepID:      currentStepID,
+		CurrentPersona:     currentPersona,
+		CompletedSteps:     completed,
+		FailedSteps:        failed,
+		SkippedSteps:       skipped,
+		StepStatuses:       stepStatuses,
+		DeliverablesByStep: deliverablesByStep,
+		ElapsedTimeMs:      elapsedMs,
+		EstimatedTimeMs:    0, // Not calculated
+		ManifestPath:       "wave.yaml",
+		WorkspacePath:      ".wave/workspaces",
+		CurrentAction:      "",
+		CurrentStepName:    currentStepID,
+		PipelineStartTime:  btpd.startTime.UnixNano(),
+		CurrentStepStart:   btpd.startTime.UnixNano(), // Simplified
 	}
 }
