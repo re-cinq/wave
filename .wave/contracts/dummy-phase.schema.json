@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/dummy-phase.schema.json",
+  "title": "Wave Dummy Phase Output Contract",
+  "description": "Validates dummy phase outputs for prototype-driven development pipeline",
+  "type": "object",
+  "properties": {
+    "phase": {
+      "type": "string",
+      "const": "dummy",
+      "description": "Phase identifier"
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "prototype": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*prototype/?$",
+              "description": "Path to prototype directory"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Prototype directory must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "code",
+              "description": "Prototype content type"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        },
+        "interface_definitions": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*interfaces\\.md$",
+              "description": "Path to interface definitions file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Interface definitions file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Interface definitions content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["prototype", "interface_definitions"],
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "runnable": {
+          "type": "boolean",
+          "description": "Whether the prototype can be executed"
+        },
+        "interface_completeness": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of interfaces stubbed"
+        },
+        "prototype_quality": {
+          "type": "string",
+          "enum": ["poor", "fair", "good", "excellent"],
+          "description": "Overall prototype quality assessment"
+        }
+      },
+      "required": ["runnable", "prototype_quality"],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When dummy phase was completed"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken for dummy phase"
+        },
+        "source_docs_path": {
+          "type": "string",
+          "description": "Path to source documentation file"
+        }
+      },
+      "required": ["timestamp", "source_docs_path"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["phase", "artifacts", "validation", "metadata"],
+  "additionalProperties": false
+}
