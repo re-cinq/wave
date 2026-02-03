@@ -360,6 +360,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 		WorkspacePaths: map[string]string{step.ID: workspacePath},
 		Input:          execution.Input,
 		Status:         execution.Status,
+		Context:        execution.Context, // Fix: Copy context to prevent nil pointer dereference
 	}
 
 	// Copy artifact paths from parent execution

@@ -133,16 +133,106 @@ func NewStateStore(dbPath string) (StateStore, error) {
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
-	schema, err := schemaFS.ReadFile("schema.sql")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read schema: %w", err)
+	// Load migration configuration from environment
+	migrationConfig := LoadMigrationConfigFromEnv()
+
+	if err := migrationConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid migration configuration: %w", err)
 	}
 
-	if _, err := db.Exec(string(schema)); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
+	if migrationConfig.ShouldUseMigrations() {
+		// Use new migration system
+		if err := initializeWithMigrations(db, migrationConfig); err != nil {
+			return nil, fmt.Errorf("failed to initialize with migrations: %w", err)
+		}
+	} else {
+		// Fall back to old schema system for compatibility
+		schema, err := schemaFS.ReadFile("schema.sql")
+		if err != nil {
+			return nil, fmt.Errorf("failed to read schema: %w", err)
+		}
+
+		if _, err := db.Exec(string(schema)); err != nil {
+			return nil, fmt.Errorf("failed to initialize schema: %w", err)
+		}
 	}
 
 	return &stateStore{db: db}, nil
+}
+
+// initializeWithMigrations initializes the database using the migration system
+func initializeWithMigrations(db *sql.DB, config *MigrationConfig) error {
+	// Initialize migration system
+	migrationManager := NewMigrationManager(db)
+
+	// Create migration tracking table
+	if err := migrationManager.InitializeMigrationTable(); err != nil {
+		return fmt.Errorf("failed to initialize migration table: %w", err)
+	}
+
+	// Only auto-migrate if configured to do so
+	if !config.ShouldAutoMigrate() {
+		return nil
+	}
+
+	// Check if this is a fresh database or needs migration
+	currentVersion, err := migrationManager.GetCurrentVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get current schema version: %w", err)
+	}
+
+	allMigrations := GetAllMigrations()
+
+	// Filter migrations based on max version config
+	if config.MaxMigrationVersion > 0 {
+		var filteredMigrations []Migration
+		for _, migration := range allMigrations {
+			if migration.Version <= config.MaxMigrationVersion {
+				filteredMigrations = append(filteredMigrations, migration)
+			}
+		}
+		allMigrations = filteredMigrations
+	}
+
+	if currentVersion == 0 {
+		// Fresh database - check if it has existing tables from old schema system
+		var tableCount int
+		err := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT IN ('schema_migrations')").Scan(&tableCount)
+		if err != nil {
+			return fmt.Errorf("failed to check existing tables: %w", err)
+		}
+
+		if tableCount > 0 {
+			// Existing database without migration tracking - mark all migrations as applied
+			fmt.Printf("Detected existing database without migration tracking, marking schema up to version %d as applied\n", len(allMigrations))
+			for _, migration := range allMigrations {
+				checksum := calculateChecksum(migration.Up)
+				now := time.Now().Unix()
+
+				_, err := db.Exec(
+					"INSERT INTO schema_migrations (version, description, applied_at, checksum) VALUES (?, ?, ?, ?)",
+					migration.Version, migration.Description, now, checksum,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to mark migration %d as applied: %w", migration.Version, err)
+				}
+			}
+		} else {
+			// Fresh database - apply all migrations
+			maxVersion := config.GetMaxVersion()
+			if err := migrationManager.MigrateUp(allMigrations, maxVersion); err != nil {
+				return fmt.Errorf("failed to apply initial migrations: %w", err)
+			}
+		}
+	} else {
+		// Apply any pending migrations up to the max version
+		maxVersion := config.GetMaxVersion()
+		if err := migrationManager.MigrateUp(allMigrations, maxVersion); err != nil {
+			return fmt.Errorf("failed to apply pending migrations: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *stateStore) SavePipelineState(id string, status string, input string) error {
