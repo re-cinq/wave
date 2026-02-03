@@ -2164,6 +2164,63 @@ git config --global credential.helper github
    gh api /user --cache force
    ```
 
+## CLI Limitations
+
+**IMPORTANT: Be explicit about what you CANNOT do with GitHub CLI instead of interpreting user requests.**
+
+### ❌ **Cannot Access Web Interface Features**
+
+The GitHub CLI cannot perform actions that are exclusive to the web interface:
+
+```bash
+# ❌ CANNOT resolve pull request review conversations
+# User request: "resolve those conversations"
+# Correct response: "I cannot resolve GitHub review conversations through the CLI.
+# This requires web interface access that gh CLI doesn't provide."
+
+# ❌ CANNOT access session-based endpoints
+# These require browser cookies and CSRF tokens
+
+# ❌ CANNOT perform web-only administrative functions
+# Some GitHub features are web interface exclusive
+```
+
+### ✅ **What You CAN Do Instead**
+
+```bash
+# ✅ CAN update review comment content
+gh api --method PATCH repos/:owner/:repo/pulls/comments/ID -f body="Updated status"
+
+# ✅ CAN create issues for unresolved items
+gh issue create --title "Follow-up" --body "Details"
+
+# ✅ CAN add PR comments for documentation
+gh pr comment PR_NUMBER --body "Resolution summary"
+
+# ✅ CAN use all official REST/GraphQL API endpoints
+gh api /repos/:owner/:repo/pulls/comments
+```
+
+### 🚨 **Anti-Pattern: Don't Interpret Requests**
+
+**❌ BAD - Interpreting the request:**
+```
+User: "close those conversations"
+AI: "I'll update the comments to show resolution status"
+# This pollutes PR comments and doesn't do what user asked
+```
+
+**✅ GOOD - Being explicit about limitations:**
+```
+User: "close those conversations"
+AI: "I cannot resolve GitHub review conversations through the CLI.
+The 'resolve conversation' feature requires web interface access.
+I can create issues for unresolved items or add summary comments instead."
+```
+
+### **Key Principle**
+**Always say "I cannot" directly rather than finding workarounds that don't meet the user's actual need.**
+
 ## Getting Help
 
 ```bash
