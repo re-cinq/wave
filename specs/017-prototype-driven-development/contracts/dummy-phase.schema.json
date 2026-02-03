@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.dev/contracts/dummy-phase.schema.json",
+  "title": "Dummy Phase Output",
+  "description": "Schema for the dummy/prototype phase manifest artifact",
+  "type": "object",
+  "required": ["prototype_path", "interfaces_implemented", "runnable"],
+  "properties": {
+    "prototype_path": {
+      "type": "string",
+      "description": "Relative path to the prototype directory"
+    },
+    "interfaces_implemented": {
+      "type": "array",
+      "description": "List of implemented interface stubs",
+      "items": {
+        "type": "object",
+        "required": ["name", "stub_type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Interface or operation name"
+          },
+          "stub_type": {
+            "type": "string",
+            "enum": ["hardcoded", "mock", "noop", "echo"],
+            "description": "Type of stub implementation"
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file containing the stub"
+          },
+          "description": {
+            "type": "string",
+            "description": "What the stub returns or does"
+          }
+        }
+      }
+    },
+    "runnable": {
+      "type": "boolean",
+      "description": "Whether the prototype can be executed"
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "Command or script to run the prototype (required if runnable=true)"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "description": "External dependencies required to run the prototype"
+    },
+    "todo_markers": {
+      "type": "array",
+      "description": "Locations marked for real implementation",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "description"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "File path containing the TODO"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Line number of the TODO marker"
+          },
+          "description": {
+            "type": "string",
+            "description": "What needs to be implemented"
+          },
+          "complexity": {
+            "type": "string",
+            "enum": ["S", "M", "L", "XL"],
+            "description": "Estimated implementation complexity"
+          }
+        }
+      }
+    },
+    "user_flows_demonstrated": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "User flows that can be demonstrated with the prototype"
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Known limitations of the prototype"
+    }
+  },
+  "if": {
+    "properties": {
+      "runnable": { "const": true }
+    }
+  },
+  "then": {
+    "required": ["prototype_path", "interfaces_implemented", "runnable", "entry_point"]
+  }
+}

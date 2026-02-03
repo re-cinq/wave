@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.recinq.com/wave/docs-phase.schema.json",
+  "title": "Wave Docs Phase Output Contract",
+  "description": "Validates docs phase outputs for prototype-driven development pipeline",
+  "type": "object",
+  "properties": {
+    "phase": {
+      "type": "string",
+      "const": "docs",
+      "description": "Phase identifier"
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "feature_docs": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*feature-docs\\.md$",
+              "description": "Path to feature documentation file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Feature documentation file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Documentation content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        },
+        "stakeholder_summary": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^.*stakeholder-summary\\.md$",
+              "description": "Path to stakeholder summary file"
+            },
+            "exists": {
+              "type": "boolean",
+              "const": true,
+              "description": "Stakeholder summary file must exist"
+            },
+            "content_type": {
+              "type": "string",
+              "const": "markdown",
+              "description": "Summary content format"
+            }
+          },
+          "required": ["path", "exists", "content_type"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["feature_docs", "stakeholder_summary"],
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "coverage_percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Specification coverage in documentation"
+        },
+        "readability_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Documentation readability rating"
+        },
+        "documentation_quality": {
+          "type": "string",
+          "enum": ["poor", "fair", "good", "excellent"],
+          "description": "Overall documentation quality assessment"
+        }
+      },
+      "required": ["documentation_quality"],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When docs phase was completed"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time taken for docs phase"
+        },
+        "source_spec_path": {
+          "type": "string",
+          "description": "Path to source specification file"
+        }
+      },
+      "required": ["timestamp", "source_spec_path"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["phase", "artifacts", "validation", "metadata"],
+  "additionalProperties": false
+}
