@@ -28,10 +28,10 @@ Based on Wave's Go project structure:
 
 **Purpose**: Project initialization and basic structure for enhanced progress visualization
 
-- [ ] T001 Create internal/display package structure per implementation plan
-- [ ] T002 [P] Create internal/display/terminal.go for TTY detection and terminal capability queries
-- [ ] T003 [P] Create internal/display/capability.go for ANSI color and Unicode support detection
-- [ ] T004 [P] Create internal/display/types.go for shared progress visualization types and constants
+- [x] T001 Create internal/display package structure per implementation plan
+- [x] T002 [P] Create internal/display/terminal.go for TTY detection and terminal capability queries
+- [x] T003 [P] Create internal/display/capability.go for ANSI color and Unicode support detection
+- [x] T004 [P] Create internal/display/types.go for shared progress visualization types and constants
 
 ---
 
@@ -41,13 +41,13 @@ Based on Wave's Go project structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Extend Event struct in internal/event/types.go with optional progress fields (Progress, SubTaskCurrent, SubTaskTotal, EstimatedETA, FilesProcessed, ArtifactCount, WorkspacePath, ContractProgress)
-- [ ] T006 Add new event state constants in internal/event/types.go (step_progress, eta_updated, contract_validating, compaction_progress)
-- [ ] T007 Enhance NDJSONEmitter in internal/event/emitter.go to support dual-stream output (stderr for enhanced display, stdout for NDJSON)
-- [ ] T008 [P] Create internal/display/formatter.go for ANSI escape sequence management and color formatting
-- [ ] T009 [P] Add terminal size detection and window resize handling in internal/display/terminal.go
-- [ ] T010 [P] Extend SQLite schema in internal/state/store.go to add progress tracking columns to event_log table
-- [ ] T011 [P] Create new SQLite tables in internal/state/store.go (progress_snapshots, step_performance, display_settings)
+- [x] T005 Extend Event struct in internal/event/types.go with optional progress fields (Progress, SubTaskCurrent, SubTaskTotal, EstimatedETA, FilesProcessed, ArtifactCount, WorkspacePath, ContractProgress)
+- [x] T006 Add new event state constants in internal/event/types.go (step_progress, eta_updated, contract_validating, compaction_progress)
+- [x] T007 Enhance NDJSONEmitter in internal/event/emitter.go to support dual-stream output (stderr for enhanced display, stdout for NDJSON)
+- [x] T008 [P] Create internal/display/formatter.go for ANSI escape sequence management and color formatting
+- [x] T009 [P] Add terminal size detection and window resize handling in internal/display/terminal.go
+- [x] T010 [P] Extend SQLite schema in internal/state/store.go to add progress tracking columns to event_log table
+- [x] T011 [P] Create new SQLite tables in internal/state/store.go (progress_snapshots, step_performance, display_settings)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -61,14 +61,14 @@ Based on Wave's Go project structure:
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create ProgressBar struct and rendering logic in internal/display/progress.go
-- [ ] T013 [P] [US1] Create StepStatus display components in internal/display/progress.go for current step visualization
-- [ ] T014 [P] [US1] Implement spinner animations in internal/display/animation.go for active processing indicators
-- [ ] T015 [US1] Add real-time step progress event emission in internal/pipeline/executor.go during step execution
-- [ ] T016 [US1] Integrate enhanced progress display in cmd/wave/commands/run.go for pipeline execution
-- [ ] T017 [US1] Add step state transition detection and visual updates in internal/display/progress.go
-- [ ] T018 [US1] Implement graceful fallback to basic text progress for non-TTY environments in internal/event/emitter.go
-- [ ] T019 [US1] Add elapsed time tracking and display for currently executing step in internal/display/progress.go
+- [x] T012 [P] [US1] Create ProgressBar struct and rendering logic in internal/display/progress.go
+- [x] T013 [P] [US1] Create StepStatus display components in internal/display/progress.go for current step visualization
+- [x] T014 [P] [US1] Implement spinner animations in internal/display/animation.go for active processing indicators
+- [x] T015 [US1] Add real-time step progress event emission in internal/pipeline/executor.go during step execution
+- [x] T016 [US1] Integrate enhanced progress display in cmd/wave/commands/run.go for pipeline execution
+- [x] T017 [US1] Add step state transition detection and visual updates in internal/display/progress.go
+- [x] T018 [US1] Implement graceful fallback to basic text progress for non-TTY environments in internal/event/emitter.go
+- [x] T019 [US1] Add elapsed time tracking and display for currently executing step in internal/display/progress.go
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - users can see current step execution with animated progress indicators
 
@@ -82,15 +82,15 @@ Based on Wave's Go project structure:
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create PipelineContext struct in internal/display/types.go for overall progress tracking
-- [ ] T021 [P] [US2] Implement dashboard panel system in internal/display/dashboard.go with Wave ASCII logo integration
-- [ ] T022 [P] [US2] Create ProgressContext calculation logic in internal/display/progress.go for overall pipeline completion percentage
-- [ ] T023 [US2] Add pipeline overview display in internal/display/dashboard.go showing "Step X of Y" with progress bar
-- [ ] T024 [US2] Implement ETA calculation based on completed vs remaining steps in internal/display/progress.go
-- [ ] T025 [US2] Add project information panel in internal/display/dashboard.go (manifest path, pipeline name, workspace)
-- [ ] T026 [US2] Integrate dashboard display with cmd/wave/commands/run.go for pipeline execution
-- [ ] T027 [US2] Add step completion status indicators (✓ ✗ ⏳) in internal/display/dashboard.go
-- [ ] T028 [US2] Implement responsive layout for different terminal sizes in internal/display/dashboard.go
+- [x] T020 [P] [US2] Create PipelineContext struct in internal/display/types.go for overall progress tracking
+- [x] T021 [P] [US2] Implement dashboard panel system in internal/display/dashboard.go with Wave ASCII logo integration
+- [x] T022 [P] [US2] Create ProgressContext calculation logic in internal/display/progress.go for overall pipeline completion percentage
+- [x] T023 [US2] Add pipeline overview display in internal/display/dashboard.go showing "Step X of Y" with progress bar
+- [x] T024 [US2] Implement ETA calculation based on completed vs remaining steps in internal/display/progress.go
+- [x] T025 [US2] Add project information panel in internal/display/dashboard.go (manifest path, pipeline name, workspace)
+- [x] T026 [US2] Integrate dashboard display with cmd/wave/commands/run.go for pipeline execution
+- [x] T027 [US2] Add step completion status indicators (✓ ✗ ⏳) in internal/display/dashboard.go
+- [x] T028 [US2] Implement responsive layout for different terminal sizes in internal/display/dashboard.go
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - users see both current step progress and overall pipeline context
 
@@ -104,15 +104,15 @@ Based on Wave's Go project structure:
 
 ### Implementation for User Story 3
 
-- [ ] T029 [P] [US3] Create PerformanceMetric collection in internal/state/store.go for historical step duration tracking
-- [ ] T030 [P] [US3] Implement step duration display in internal/display/progress.go showing elapsed and completed times
-- [ ] T031 [P] [US3] Add animated counter components in internal/display/animation.go for "numbers going up" effect on tokens/files/artifacts
-- [ ] T032 [US3] Add historical performance queries in internal/state/store.go for step duration averages and trends
-- [ ] T033 [US3] Implement performance metrics panel in internal/display/dashboard.go (tokens used, files modified, artifacts generated)
-- [ ] T034 [US3] Add performance comparison indicators in internal/display/dashboard.go to highlight unusually slow steps
-- [ ] T035 [US3] Integrate performance insights with cmd/wave/commands/logs.go for enhanced log analysis
-- [ ] T036 [US3] Add token burn rate calculation and display in internal/display/dashboard.go
-- [ ] T037 [US3] Implement performance history cleanup and retention in internal/state/store.go
+- [x] T029 [P] [US3] Create PerformanceMetric collection in internal/state/store.go for historical step duration tracking
+- [x] T030 [P] [US3] Implement step duration display in internal/display/progress.go showing elapsed and completed times
+- [x] T031 [P] [US3] Add animated counter components in internal/display/animation.go for "numbers going up" effect on tokens/files/artifacts
+- [x] T032 [US3] Add historical performance queries in internal/state/store.go for step duration averages and trends
+- [x] T033 [US3] Implement performance metrics panel in internal/display/dashboard.go (tokens used, files modified, artifacts generated)
+- [x] T034 [US3] Add performance comparison indicators in internal/display/dashboard.go to highlight unusually slow steps
+- [x] T035 [US3] Integrate performance insights with cmd/wave/commands/logs.go for enhanced log analysis
+- [x] T036 [US3] Add token burn rate calculation and display in internal/display/dashboard.go
+- [x] T037 [US3] Implement performance history cleanup and retention in internal/state/store.go
 
 **Checkpoint**: All user stories should now be independently functional - complete progress visualization system with performance insights
 
@@ -122,13 +122,13 @@ Based on Wave's Go project structure:
 
 **Purpose**: Improvements that affect multiple user stories and overall system integration
 
-- [ ] T038 [P] Add enhanced progress display integration to cmd/wave/commands/status.go for pipeline status queries
-- [ ] T039 [P] Add enhanced progress display integration to cmd/wave/commands/logs.go for real-time log streaming
-- [ ] T040 [P] Implement display configuration options in internal/display/types.go (animation enable/disable, refresh rate, color themes)
-- [ ] T041 [P] Add progress display tests in tests/unit/display/progress_test.go for progress bar rendering and animation logic
-- [ ] T042 [P] Add dashboard tests in tests/unit/display/dashboard_test.go for panel layout and responsive design
-- [ ] T043 [P] Add integration tests in tests/integration/progress_test.go for end-to-end progress display functionality
-- [ ] T044 [P] Add performance monitoring for progress display overhead (target <5%) in internal/display/metrics.go
+- [x] T038 [P] Add enhanced progress display integration to cmd/wave/commands/status.go for pipeline status queries
+- [x] T039 [P] Add enhanced progress display integration to cmd/wave/commands/logs.go for real-time log streaming
+- [x] T040 [P] Implement display configuration options in internal/display/types.go (animation enable/disable, refresh rate, color themes)
+- [x] T041 [P] Add progress display tests in tests/unit/display/progress_test.go for progress bar rendering and animation logic
+- [x] T042 [P] Add dashboard tests in tests/unit/display/dashboard_test.go for panel layout and responsive design
+- [x] T043 [P] Add integration tests in tests/integration/progress_test.go for end-to-end progress display functionality
+- [x] T044 [P] Add performance monitoring for progress display overhead (target <5%) in internal/display/metrics.go
 - [ ] T045 Code cleanup and optimization across all display components
 - [ ] T046 Documentation updates for new progress visualization features in relevant docs/
 - [ ] T047 Run quickstart.md validation to ensure implementation meets specification requirements
