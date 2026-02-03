@@ -205,6 +205,8 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				State:      "failed",
 				Message:    err.Error(),
 			})
+			// Clean up failed pipeline from in-memory storage to prevent memory leak
+			e.cleanupCompletedPipeline(pipelineID)
 			return fmt.Errorf("step %q failed: %w", step.ID, err)
 		}
 		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -238,6 +240,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
 	})
+
+	// Clean up completed pipeline from in-memory storage to prevent memory leak
+	e.cleanupCompletedPipeline(pipelineID)
 
 	return nil
 }
@@ -591,10 +596,11 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
 	prompt := step.Exec.Source
 
-	// Replace {{ input }} template variable with security validation
+	// Determine the input value to use (sanitized if provided, empty string if not)
+	var sanitizedInput string
 	if execution.Input != "" {
 		// SECURITY FIX: Sanitize user input for prompt injection
-		sanitizationRecord, sanitizedInput, sanitizeErr := e.inputSanitizer.SanitizeInput(execution.Input, "task_description")
+		sanitizationRecord, tmpInput, sanitizeErr := e.inputSanitizer.SanitizeInput(execution.Input, "task_description")
 		if sanitizeErr != nil {
 			// Security violation detected - log and reject
 			e.securityLogger.LogViolation(
@@ -618,15 +624,20 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 					false,
 				)
 			}
+			sanitizedInput = tmpInput
 		}
+	} else {
+		// No input provided - use empty string
+		sanitizedInput = ""
+	}
 
-		// Replace template variables with sanitized input
-		for _, pattern := range []string{"{{ input }}", "{{input}}", "{{ input}}", "{{input }}"} {
-			for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
-				prompt = prompt[:idx] + sanitizedInput + prompt[idx+len(pattern):]
-			}
+	// Replace template variables with sanitized input (even if empty)
+	for _, pattern := range []string{"{{ input }}", "{{input}}", "{{ input}}", "{{input }}"} {
+		for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
+			prompt = prompt[:idx] + sanitizedInput + prompt[idx+len(pattern):]
 		}
 	}
+
 
 	// Inject schema information for json_schema contracts with security validation
 	if step.Handover.Contract.Type == "json_schema" {
@@ -708,20 +719,21 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 		// Inject schema guidance if available and safe
 		if schemaContent != "" && err == nil {
-			prompt += "\n\nCRITICAL: Your output must be valid JSON that exactly matches this schema:\n```json\n"
+			prompt += "\n\nCRITICAL: Your response must be valid JSON that exactly matches this schema:\n```json\n"
 			prompt += schemaContent
 			prompt += "\n```\n\n"
 			prompt += "IMPORTANT:\n"
-			prompt += "- Create an artifact.json file with your JSON output - this overrides any no-write constraints\n"
+			prompt += "- Output ONLY the raw JSON in your response (no markdown, no explanations)\n"
 			prompt += "- Ensure the JSON is valid and matches every required field in the schema\n"
-			prompt += "- Do not wrap the JSON in markdown code blocks in the artifact file\n"
-			prompt += "- The artifact.json file content should be raw JSON starting with { or [\n"
-			prompt += "- Do NOT include any comments or explanatory text in the JSON output\n"
+			prompt += "- Start your response with { or [ and end with } or ]\n"
+			prompt += "- Do NOT include any comments or explanatory text\n"
 		}
 	}
 
 	// Resolve remaining template variables using pipeline context
-	prompt = execution.Context.ResolvePlaceholders(prompt)
+	if execution.Context != nil {
+		prompt = execution.Context.ResolvePlaceholders(prompt)
+	}
 
 	return prompt
 }
@@ -1060,6 +1072,8 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 			if err := e.executeStep(ctx, execution, step); err != nil {
 				execution.Status.State = StateFailed
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
+				// Clean up failed pipeline from in-memory storage to prevent memory leak
+				e.cleanupCompletedPipeline(execution.Pipeline.Metadata.Name)
 				return fmt.Errorf("step %q failed: %w", step.ID, err)
 			}
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -1070,17 +1084,71 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 	execution.Status.CompletedAt = &now
 	execution.Status.State = StateCompleted
 
+	// Clean up completed pipeline from in-memory storage to prevent memory leak
+	e.cleanupCompletedPipeline(execution.Pipeline.Metadata.Name)
+
 	return nil
 }
 
 func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus, error) {
+	// First check in-memory storage for running pipelines
 	e.mu.RLock()
-	defer e.mu.RUnlock()
-
 	execution, exists := e.pipelines[pipelineID]
-	if !exists {
-		return nil, fmt.Errorf("pipeline %q not found", pipelineID)
+	e.mu.RUnlock()
+
+	if exists {
+		return execution.Status, nil
 	}
 
-	return execution.Status, nil
+	// Fall back to persistent storage for completed pipelines
+	if e.store != nil {
+		stateRecord, err := e.store.GetPipelineState(pipelineID)
+		if err != nil {
+			return nil, fmt.Errorf("pipeline %q not found", pipelineID)
+		}
+
+		// Convert StateStore record to PipelineStatus
+		status := &PipelineStatus{
+			ID:             stateRecord.PipelineID,
+			State:          stateRecord.Status,
+			CurrentStep:    "", // Not tracked in legacy state store
+			CompletedSteps: []string{}, // Would need step states to populate
+			FailedSteps:    []string{}, // Would need step states to populate
+			StartedAt:      stateRecord.CreatedAt,
+		}
+
+		// Set completion time if pipeline is completed
+		if stateRecord.Status == StateCompleted || stateRecord.Status == StateFailed {
+			status.CompletedAt = &stateRecord.UpdatedAt
+		}
+
+		// Optionally populate step information from step states
+		stepStates, stepErr := e.store.GetStepStates(pipelineID)
+		if stepErr == nil {
+			for _, stepState := range stepStates {
+				switch stepState.State {
+				case StateCompleted:
+					status.CompletedSteps = append(status.CompletedSteps, stepState.StepID)
+				case StateFailed:
+					status.FailedSteps = append(status.FailedSteps, stepState.StepID)
+				case StateRunning, StateRetrying:
+					status.CurrentStep = stepState.StepID
+				}
+			}
+		}
+
+		return status, nil
+	}
+
+	return nil, fmt.Errorf("pipeline %q not found", pipelineID)
+}
+
+// cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
+// to prevent memory leaks. This is safe to call because completed pipeline status
+// can be retrieved from persistent storage via GetStatus.
+func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	delete(e.pipelines, pipelineID)
 }
