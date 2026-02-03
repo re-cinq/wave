@@ -95,7 +95,10 @@ func runRun(opts RunOptions, debug bool) error {
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter()
+		// Add simulated delay to see progress animations in action
+		runner = adapter.NewMockAdapter(
+			adapter.WithSimulatedDelay(5*time.Second),
+		)
 	} else {
 		var adapterName string
 		for name := range m.Adapters {
@@ -114,18 +117,18 @@ func runRun(opts RunOptions, debug bool) error {
 	useEnhancedProgress := !opts.NoProgress && !opts.PlainProgress && termInfo.IsTTY() && termInfo.SupportsANSI()
 
 	if useEnhancedProgress {
-		// Create enhanced progress display
-		progressDisplay = display.NewProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps))
+		// Create bubbletea enhanced progress display
+		progressDisplay = display.NewBubbleTeaProgressDisplay(p.Metadata.Name, p.Metadata.Name, len(p.Steps))
 
 		// Register steps for tracking
-		pd := progressDisplay.(*display.ProgressDisplay)
+		btpd := progressDisplay.(*display.BubbleTeaProgressDisplay)
 		for _, step := range p.Steps {
 			// Get persona name for display
 			personaName := step.Persona
 			if persona := m.GetPersona(step.Persona); persona != nil {
 				personaName = step.Persona
 			}
-			pd.AddStep(step.ID, step.ID, personaName)
+			btpd.AddStep(step.ID, step.ID, personaName)
 		}
 
 		// Create emitter with progress display
@@ -214,14 +217,14 @@ func runRun(opts RunOptions, debug bool) error {
 	pipelineStart := time.Now()
 
 	// Ensure progress display cleanup on exit
-	if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
-		defer pd.Finish()
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		defer btpd.Finish()
 	}
 
 	if err := executor.Execute(execCtx, p, &m, opts.Input); err != nil {
 		// Clear progress display before showing error
-		if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
-			pd.Clear()
+		if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+			btpd.Clear()
 		}
 		return fmt.Errorf("pipeline execution failed: %w", err)
 	}
@@ -229,8 +232,8 @@ func runRun(opts RunOptions, debug bool) error {
 	elapsed := time.Since(pipelineStart)
 
 	// Clear enhanced progress display before final message
-	if pd, ok := progressDisplay.(*display.ProgressDisplay); ok {
-		pd.Clear()
+	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
+		btpd.Clear()
 	}
 
 	fmt.Printf("\n✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
