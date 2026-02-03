@@ -177,12 +177,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		CompletedSteps: 0,
 	})
 
-	// Ensure workspace root exists
+	// Ensure workspace root exists and is clean for this pipeline run
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
 		wsRoot = ".wave/workspaces"
 	}
-	os.MkdirAll(filepath.Join(wsRoot, pipelineID), 0755)
+	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
+	// Clean previous run artifacts to ensure fresh state
+	os.RemoveAll(pipelineWsPath)
+	os.MkdirAll(pipelineWsPath, 0755)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -405,6 +408,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:  systemPrompt,
 		Timeout:       timeout,
 		Temperature:   persona.Temperature,
+		Model:         persona.Model,
 		AllowedTools:  persona.Permissions.AllowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
