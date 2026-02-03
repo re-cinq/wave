@@ -1,4 +1,5 @@
 ---
+name: software-design
 description: Expert software design principles including SOLID, design patterns, system design, and architectural decision making
 ---
 

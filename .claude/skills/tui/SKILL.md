@@ -1,4 +1,5 @@
 ---
+name: tui
 description: Expert terminal user interface development including interactive console applications, cross-platform TUI libraries, and responsive terminal layouts
 ---
 
