@@ -32,8 +32,8 @@ type LogsOptions struct {
 
 // LogsOutput represents the JSON output for logs command.
 type LogsOutput struct {
-	RunID string        `json:"run_id"`
-	Logs  []LogsEntry   `json:"logs"`
+	RunID string      `json:"run_id"`
+	Logs  []LogsEntry `json:"logs"`
 }
 
 // LogsEntry represents a single log entry.
@@ -166,7 +166,17 @@ func runLogsOnce(db *sql.DB, runID string, opts LogsOptions) error {
 		return nil
 	}
 
-	return outputLogs(runID, logs, opts)
+	err = outputLogs(runID, logs, opts)
+	if err != nil {
+		return err
+	}
+
+	// Show performance summary in text mode (not for --errors or --step filters)
+	if opts.Format == "text" && !opts.Errors && opts.Step == "" {
+		renderPerformanceSummary(db, runID)
+	}
+
+	return nil
 }
 
 // runLogsFollow streams logs in real-time.
@@ -550,4 +560,62 @@ func parseSinceDuration(s string) (time.Duration, error) {
 	}
 
 	return time.ParseDuration(s)
+}
+
+// formatTokens formats a token count with appropriate units.
+func formatTokens(tokens int) string {
+	if tokens < 1000 {
+		return fmt.Sprintf("%d", tokens)
+	}
+	if tokens < 1000000 {
+		return fmt.Sprintf("%.1fk", float64(tokens)/1000.0)
+	}
+	return fmt.Sprintf("%.2fM", float64(tokens)/1000000.0)
+}
+
+// renderPerformanceSummary displays aggregated performance metrics for a run.
+func renderPerformanceSummary(db *sql.DB, runID string) {
+	// Query aggregated metrics
+	query := `SELECT
+	              COUNT(*) as total_events,
+	              SUM(COALESCE(tokens_used, 0)) as total_tokens,
+	              AVG(COALESCE(duration_ms, 0)) as avg_duration,
+	              MIN(COALESCE(duration_ms, 0)) as min_duration,
+	              MAX(COALESCE(duration_ms, 0)) as max_duration
+	          FROM event_log
+	          WHERE run_id = ? AND state IN ('completed', 'failed')`
+
+	var totalEvents, totalTokens int
+	var avgDuration, minDuration, maxDuration sql.NullFloat64
+
+	err := db.QueryRow(query, runID).Scan(&totalEvents, &totalTokens, &avgDuration, &minDuration, &maxDuration)
+	if err != nil || totalEvents == 0 {
+		return
+	}
+
+	fmt.Println("\n--- Performance Summary ---")
+	fmt.Printf("Total Steps: %d\n", totalEvents)
+
+	if totalTokens > 0 {
+		fmt.Printf("Total Tokens: %s\n", formatTokens(totalTokens))
+	}
+
+	if avgDuration.Valid && avgDuration.Float64 > 0 {
+		fmt.Printf("Avg Duration: %.1fs\n", avgDuration.Float64/1000.0)
+	}
+
+	if minDuration.Valid && maxDuration.Valid && minDuration.Float64 > 0 {
+		fmt.Printf("Duration Range: %.1fs - %.1fs\n",
+			minDuration.Float64/1000.0,
+			maxDuration.Float64/1000.0)
+	}
+
+	// Calculate token burn rate
+	if avgDuration.Valid && avgDuration.Float64 > 0 && totalTokens > 0 {
+		totalDuration := avgDuration.Float64 * float64(totalEvents)
+		burnRate := float64(totalTokens) / (totalDuration / 1000.0)
+		if burnRate >= 1.0 {
+			fmt.Printf("Token Burn Rate: %.1f tokens/s\n", burnRate)
+		}
+	}
 }
