@@ -376,7 +376,7 @@ func formatDashboardDuration(ms int64) string {
 	duration := time.Duration(ms) * time.Millisecond
 
 	if duration < time.Minute {
-		return fmt.Sprintf("%.0fs", duration.Seconds())
+		return fmt.Sprintf("%ds", int(duration.Seconds()))
 	}
 
 	if duration < time.Hour {
