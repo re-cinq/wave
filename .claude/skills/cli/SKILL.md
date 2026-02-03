@@ -1,4 +1,5 @@
 ---
+name: cli
 description: Expert command-line interface development including argument parsing, subcommands, interactive prompts, and CLI best practices
 ---
 
