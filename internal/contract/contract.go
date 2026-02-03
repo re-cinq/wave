@@ -18,6 +18,16 @@ type ContractConfig struct {
 	MustPass    bool     `json:"must_pass,omitempty"`   // New: determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"`
 	QualityGates []QualityGateConfig `json:"quality_gates,omitempty"` // Quality gates to enforce
+
+	// Progressive validation settings
+	ProgressiveValidation bool   `json:"progressive_validation,omitempty"` // Enable progressive validation with warnings
+	RecoveryLevel         string `json:"recovery_level,omitempty"`         // "conservative", "progressive", or "aggressive"
+	AllowRecovery         bool   `json:"allow_recovery,omitempty"`         // Enable automatic JSON recovery
+	WarnOnRecovery        bool   `json:"warn_on_recovery,omitempty"`       // Generate warnings instead of errors for recoverable issues
+
+	// Wrapper detection settings
+	DisableWrapperDetection bool `json:"disable_wrapper_detection,omitempty"` // Disable error wrapper detection (default: false, detection enabled)
+	DebugMode              bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
 }
 
 // ValidationError provides detailed information about contract validation failures.

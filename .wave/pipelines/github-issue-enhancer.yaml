@@ -30,23 +30,66 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze GitHub repository issues for quality.
+        **GITHUB ISSUE ANALYSIS - ACTION MODE**
+
+        You are in ACTION MODE. You MUST execute real GitHub CLI commands to analyze actual repository data.
 
         Repository: {{ input.repo }}
         Quality threshold: {{ input.threshold | default: 70 }}
 
-        Your task:
-        1. Use gh CLI to list all open issues in the repository
-        2. Analyze each issue for completeness and clarity
-        3. Calculate quality scores based on:
-           - Title quality (length, specificity, capitalization)
-           - Description quality (completeness, structure, examples)
-           - Label presence and appropriateness
-        4. Identify issues scoring below the threshold
+        ## STEP 1: EXECUTE GITHUB CLI COMMAND (REQUIRED)
 
-        Commands to use:
-        - gh issue list --repo {{ input.repo }} --limit 100 --json number,title,body,labels,url,state
-        - Parse and analyze each issue
+        **First, you MUST run this exact command:**
+        ```bash
+        gh issue list --repo {{ input.repo }} --limit 100 --json number,title,body,labels,url,state
+        ```
+
+        **Show the command execution and output like this:**
+        ```
+        > gh issue list --repo re-cinq/wave --limit 100 --json number,title,body,labels,url,state
+        [{"number": 3, "title": "add reverse engineering pipeline", "body": "", "labels": [], "state": "OPEN"}, ...]
+        ```
+
+        ## STEP 2: ANALYZE EACH REAL ISSUE
+
+        For each issue returned by the command, calculate quality score (0-100):
+        - Title quality (0-30): length, capitalization, clarity
+        - Description quality (0-40): completeness, structure, context
+        - Metadata quality (0-30): labels, categorization
+
+        ## STEP 3: USE REAL DATA ONLY
+
+        **CRITICAL**: Use ONLY the actual data from the gh command. No fictional examples.
+
+        ## STEP 4: CREATE ARTIFACT
+
+        After analyzing real GitHub data, create artifact.json with actual results.
+
+        1. **Generate JSON incrementally**: Build your JSON step by step, validating each section
+        2. **Save immediately**: `echo '{"repository": {"owner": "...", "name": "..."}}' > artifact.json`
+        3. **Test syntax**: `jq empty artifact.json && echo "✓ Valid JSON so far" || echo "✗ Fix JSON now"`
+        4. **Continue building**: Add more fields only after previous section validates
+        5. **Final validation**:
+           ```bash
+           # Test complete JSON structure
+           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ Invalid JSON - MUST FIX"
+
+           # Verify required fields
+           jq -e '.repository.owner and .repository.name and .total_issues and .poor_quality_issues' artifact.json || echo "✗ Missing required fields"
+
+           # Check data types
+           jq -e '.total_issues | type == "number"' artifact.json || echo "✗ total_issues must be integer"
+           jq -e '.poor_quality_issues | type == "array"' artifact.json || echo "✗ poor_quality_issues must be array"
+
+           # Validate issue structure
+           jq -e '.poor_quality_issues[] | .number and .title and .quality_score and .problems' artifact.json || echo "✗ Invalid issue structure"
+           ```
+        6. **Common error fixes**:
+           - Remove trailing commas: `sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json`
+           - Quote unquoted keys: Fix manually by adding quotes around keys
+           - Fix boolean/number types: Remove quotes from true/false/numbers
+
+        **REQUIREMENT**: JSON must validate successfully before proceeding. Invalid JSON will cause pipeline failure.
 
         Output to artifact.json with this structure:
         {
@@ -77,11 +120,15 @@ steps:
         type: json
         required: true
     handover:
+      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/github-issue-analysis.schema.json
         validate: true
         must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
 
   - id: plan-enhancements
     persona: github-analyst
@@ -112,6 +159,50 @@ steps:
         - Use markdown formatting for clarity
         - Suggest actionable, specific improvements
 
+        **CRITICAL JSON VALIDATION PROTOCOL**:
+        Follow this step-by-step validation for enhancement plan JSON:
+
+        1. **Build JSON incrementally with validation**:
+           ```bash
+           # Start with basic structure
+           echo '{"issues_to_enhance": []}' > artifact.json
+           jq empty artifact.json && echo "✓ Basic structure valid"
+
+           # Add issues one by one
+           jq '.issues_to_enhance += [{"issue_number": 123, "enhancements": ["test"]}]' artifact.json > temp.json && mv temp.json artifact.json
+           jq empty artifact.json && echo "✓ Issue addition valid"
+           ```
+
+        2. **Final validation sequence**:
+           ```bash
+           # Test JSON syntax
+           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ Invalid JSON - MUST FIX"
+
+           # Verify required fields per schema
+           jq -e '.issues_to_enhance' artifact.json || echo "✗ Missing issues_to_enhance array"
+
+           # Validate issue structure
+           jq -e '.issues_to_enhance[] | .issue_number and .enhancements' artifact.json || echo "✗ Missing required issue fields"
+
+           # Check data types
+           jq -e '.issues_to_enhance[].issue_number | type == "number"' artifact.json || echo "✗ issue_number must be integer"
+           jq -e '.issues_to_enhance[].enhancements | type == "array"' artifact.json || echo "✗ enhancements must be array"
+
+           # Validate enhancements array is not empty
+           jq -e '.issues_to_enhance[] | .enhancements | length > 0' artifact.json || echo "✗ enhancements array cannot be empty"
+           ```
+
+        3. **Error recovery commands**:
+           ```bash
+           # Remove trailing commas
+           sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json
+
+           # Test fix
+           jq empty artifact.json && echo "✓ Fixed" || echo "✗ Still broken"
+           ```
+
+        **REQUIREMENT**: All validation checks must pass before step completion.
+
         Output to artifact.json:
         {
           "issues_to_enhance": [
@@ -136,11 +227,15 @@ steps:
         type: json
         required: true
     handover:
+      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/github-enhancement-plan.schema.json
         validate: true
         must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
 
   - id: apply-enhancements
     persona: github-enhancer
@@ -178,22 +273,84 @@ steps:
 
         Track all changes and errors.
 
+        **CRITICAL JSON VALIDATION PROTOCOL**:
+        Execute this comprehensive validation for enhancement results:
+
+        1. **Real-time JSON building with validation**:
+           ```bash
+           # Start with base structure
+           echo '{"enhanced_issues": [], "total_attempted": 0, "total_successful": 0, "total_failed": 0}' > artifact.json
+           jq empty artifact.json && echo "✓ Base structure valid"
+
+           # Add issues incrementally, validating each addition
+           # Example: jq '.enhanced_issues += [{"issue_number": 123, "success": true, "changes_made": ["test"]}]' artifact.json > temp.json && mv temp.json artifact.json
+           ```
+
+        2. **Comprehensive final validation**:
+           ```bash
+           # JSON syntax test
+           jq empty artifact.json && echo "✓ Valid JSON" || echo "✗ CRITICAL: Invalid JSON syntax"
+
+           # Required field validation
+           jq -e '.enhanced_issues and .total_attempted and .total_successful' artifact.json && echo "✓ Required fields present" || echo "✗ CRITICAL: Missing required fields"
+
+           # Data type validation
+           jq -e '.total_attempted | type == "number"' artifact.json && echo "✓ total_attempted type" || echo "✗ total_attempted must be integer"
+           jq -e '.enhanced_issues | type == "array"' artifact.json && echo "✓ enhanced_issues type" || echo "✗ enhanced_issues must be array"
+
+           # Issue structure validation
+           jq -e '.enhanced_issues[] | .issue_number and .success and .changes_made' artifact.json && echo "✓ Issue structure valid" || echo "✗ Missing required issue fields"
+
+           # Boolean type validation (critical!)
+           jq -e '.enhanced_issues[].success | type == "boolean"' artifact.json && echo "✓ Boolean types correct" || echo "✗ CRITICAL: Booleans must be unquoted true/false"
+
+           # Logic consistency check
+           ATTEMPTED=$(jq '.total_attempted' artifact.json)
+           SUCCESSFUL=$(jq '.total_successful' artifact.json)
+           FAILED=$(jq '.total_failed' artifact.json)
+           if [ $((SUCCESSFUL + FAILED)) -eq $ATTEMPTED ]; then echo "✓ Logic consistent"; else echo "✗ CRITICAL: total_attempted ≠ successful + failed"; fi
+           ```
+
+        3. **Common fixes for validation failures**:
+           ```bash
+           # Fix trailing commas
+           sed -i 's/,\(\s*[}\]]\)/\1/g' artifact.json
+
+           # Fix quoted booleans (CRITICAL FIX)
+           sed -i 's/"true"/true/g' artifact.json
+           sed -i 's/"false"/false/g' artifact.json
+
+           # Fix quoted numbers
+           sed -i 's/"total_attempted": "\([0-9]*\)"/\"total_attempted\": \1/g' artifact.json
+
+           # Re-test after fixes
+           jq empty artifact.json && echo "✓ Repairs successful" || echo "✗ Still broken - manual fix required"
+           ```
+
+        **CRITICAL REQUIREMENT**: All validation checks must pass. Failed validation breaks the pipeline and wastes time.
+
         Output to artifact.json:
         {
           "enhanced_issues": [
             {
               "issue_number": 123,
               "success": true,
+              "changes_made": [
+                "Updated title from 'bug in thing' to 'Authentication fails during OAuth login'",
+                "Added structured issue template with description, reproduction steps, environment",
+                "Applied labels: authentication, needs-reproduction"
+              ],
               "title_updated": true,
               "body_updated": true,
               "labels_added": ["authentication", "needs-reproduction"],
-              "url": "https://github.com/owner/repo/issues/123",
-              "timestamp": "2026-02-03T10:05:00Z"
+              "comment_added": true,
+              "url": "https://github.com/owner/repo/issues/123"
             }
           ],
-          "total_enhanced": 5,
+          "total_attempted": 5,
+          "total_successful": 5,
           "total_failed": 0,
-          "errors": []
+          "timestamp": "2026-02-03T10:05:00Z"
         }
     output_artifacts:
       - name: enhancement_results
@@ -201,11 +358,15 @@ steps:
         type: json
         required: true
     handover:
+      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/github-enhancement-results.schema.json
         validate: true
         must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
 
   - id: verify-enhancements
     persona: navigator
@@ -240,20 +401,27 @@ steps:
 
         Output to artifact.json:
         {
-          "verified_issues": [
+          "total_enhanced": 5,
+          "successful_enhancements": [
             {
               "issue_number": 123,
-              "verified": true,
-              "title_matches": true,
-              "body_enhanced": true,
-              "labels_added": true,
-              "comment_posted": true,
+              "verified_changes": [
+                "title_updated",
+                "body_enhanced",
+                "labels_added",
+                "comment_posted"
+              ],
+              "quality_score_before": 45,
+              "quality_score_after": 85,
               "url": "https://github.com/owner/repo/issues/123"
             }
           ],
-          "total_verified": 5,
-          "all_successful": true,
-          "issues_found": [],
+          "failed_enhancements": [],
+          "quality_improvement": {
+            "average_score_before": 45.2,
+            "average_score_after": 84.6,
+            "improvement_percentage": 87.2
+          },
           "summary": "Successfully enhanced 5 issues with improved titles, descriptions, and labels."
         }
     output_artifacts:
@@ -262,7 +430,12 @@ steps:
         type: json
         required: true
     handover:
+      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/github-verification-report.schema.json
         validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
