@@ -143,7 +143,7 @@ Each adapter can use different credentials. They're all inherited from the paren
 export ANTHROPIC_API_KEY="sk-ant-..."    # For Claude
 export OLLAMA_HOST="http://localhost:11434"  # For local Ollama
 
-wave run --pipeline .wave/pipelines/hybrid-flow.yaml \
+wave run hybrid-flow \
   --input "add feature"
 ```
 

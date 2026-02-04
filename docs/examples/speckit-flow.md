@@ -232,11 +232,11 @@ steps:
 
 ```bash
 # Full run
-wave run --pipeline .wave/pipelines/speckit-flow.yaml \
+wave run speckit-flow \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-wave run --pipeline .wave/pipelines/speckit-flow.yaml --dry-run
+wave run .wave/pipelines/speckit-flow.yaml --dry-run
 
 # Resume after interruption
 wave resume --pipeline-id <uuid-from-output>
@@ -245,7 +245,7 @@ wave resume --pipeline-id <uuid-from-output>
 ## Expected Output
 
 ```
-$ wave run --pipeline speckit-flow.yaml --input "add JWT auth"
+$ wave run speckit-flow.yaml "add JWT auth"
 {"step_id":"navigate","state":"running","message":"Starting navigator persona"}
 {"step_id":"navigate","state":"completed","duration_ms":87000,"artifacts":["output/analysis.json"]}
 {"step_id":"specify","state":"running","message":"Starting philosopher persona"}

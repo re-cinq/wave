@@ -5,7 +5,7 @@ Automate pull request reviews with security checks, quality analysis, and action
 ## Quick Start
 
 ```bash
-wave run --pipeline code-review --input "review the authentication module"
+wave run code-review "review the authentication module"
 ```
 
 Expected output:
@@ -194,13 +194,13 @@ The pipeline produces `output/review-summary.md`:
 ### Focus on specific areas
 
 ```bash
-wave run --pipeline code-review --input "focus on error handling in the API layer"
+wave run code-review "focus on error handling in the API layer"
 ```
 
 ### Review a specific PR
 
 ```bash
-wave run --pipeline code-review --input "review changes in PR #123"
+wave run code-review "review changes in PR #123"
 ```
 
 ### Add contract validation
