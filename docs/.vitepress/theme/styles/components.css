@@ -1,0 +1,487 @@
+/**
+ * Wave Documentation - Component Styles
+ * Styles for custom Vue components
+ */
+
+/* ===========================================
+   CopyButton Component
+   =========================================== */
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copy-button:hover {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-mute);
+  border-color: var(--vp-c-brand-1);
+}
+
+.copy-button.copied {
+  color: var(--wave-trust-green);
+  border-color: var(--wave-trust-green);
+}
+
+.copy-button svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+}
+
+/* ===========================================
+   HeroSection Component
+   =========================================== */
+.hero-section {
+  text-align: center;
+  padding: 80px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.hero-section h1 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-section .tagline {
+  font-size: 1.5rem;
+  color: var(--vp-c-text-2);
+  margin-bottom: 32px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.hero-actions .btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.hero-actions .btn-primary {
+  background: var(--wave-primary);
+  color: white;
+}
+
+.hero-actions .btn-primary:hover {
+  background: var(--wave-primary-dark);
+  transform: translateY(-2px);
+}
+
+.hero-actions .btn-secondary {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-divider);
+}
+
+.hero-actions .btn-secondary:hover {
+  border-color: var(--wave-primary);
+  color: var(--wave-primary);
+}
+
+/* ===========================================
+   FeatureCards Component
+   =========================================== */
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  padding: 48px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.feature-card {
+  padding: 28px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--wave-primary);
+}
+
+.feature-card .icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  color: white;
+  font-size: 24px;
+}
+
+.feature-card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--vp-c-text-1);
+}
+
+.feature-card p {
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+
+/* ===========================================
+   TrustSignals Component
+   =========================================== */
+.trust-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+}
+
+.trust-badge.certified {
+  border-color: var(--wave-certified);
+  color: var(--wave-certified);
+}
+
+.trust-badge.in-progress {
+  border-color: var(--wave-in-progress);
+  color: var(--wave-in-progress);
+}
+
+.trust-badge .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ===========================================
+   PlatformTabs Component
+   =========================================== */
+.platform-tabs {
+  margin: 24px 0;
+}
+
+.platform-tabs .tabs-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  margin-bottom: 16px;
+}
+
+.platform-tabs .tab-button {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.platform-tabs .tab-button:hover {
+  color: var(--vp-c-text-1);
+}
+
+.platform-tabs .tab-button.active {
+  color: var(--wave-primary);
+  border-bottom-color: var(--wave-primary);
+}
+
+.platform-tabs .tab-content {
+  padding: 8px 0;
+}
+
+/* ===========================================
+   PipelineVisualizer Component
+   =========================================== */
+.pipeline-visualizer {
+  padding: 24px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  margin: 24px 0;
+  overflow-x: auto;
+}
+
+.pipeline-visualizer .mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+/* ===========================================
+   YamlPlayground Component
+   =========================================== */
+.yaml-playground {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+@media (max-width: 768px) {
+  .yaml-playground {
+    grid-template-columns: 1fr;
+  }
+}
+
+.yaml-playground .editor-pane,
+.yaml-playground .output-pane {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.yaml-playground .pane-header {
+  padding: 12px 16px;
+  background: var(--vp-c-bg-soft);
+  border-bottom: 1px solid var(--vp-c-divider);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.yaml-playground textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 16px;
+  font-family: var(--wave-font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  border: none;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  resize: vertical;
+}
+
+.yaml-playground .validation-result {
+  padding: 16px;
+  font-family: var(--wave-font-mono);
+  font-size: 13px;
+}
+
+.yaml-playground .validation-result.valid {
+  color: var(--wave-trust-green);
+}
+
+.yaml-playground .validation-result.error {
+  color: var(--wave-danger);
+}
+
+/* ===========================================
+   UseCaseGallery Component
+   =========================================== */
+.use-case-gallery {
+  padding: 24px 0;
+}
+
+.use-case-gallery .filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.use-case-gallery .filter-chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.use-case-gallery .filter-chip:hover,
+.use-case-gallery .filter-chip.active {
+  background: var(--wave-primary);
+  border-color: var(--wave-primary);
+  color: white;
+}
+
+.use-case-gallery .gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.use-case-card {
+  padding: 24px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.use-case-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--wave-primary);
+}
+
+.use-case-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.use-case-card p {
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.use-case-card .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.use-case-card .tag {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--vp-c-bg);
+  border-radius: 4px;
+  color: var(--vp-c-text-2);
+}
+
+/* ===========================================
+   PermissionMatrix Component
+   =========================================== */
+.permission-matrix {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+
+.permission-matrix table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.permission-matrix th,
+.permission-matrix td {
+  padding: 12px 16px;
+  text-align: left;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.permission-matrix th {
+  background: var(--vp-c-bg-soft);
+  font-weight: 600;
+}
+
+.permission-matrix .permission-allow {
+  color: var(--wave-trust-green);
+  font-weight: 600;
+}
+
+.permission-matrix .permission-deny {
+  color: var(--wave-danger);
+  font-weight: 600;
+}
+
+.permission-matrix .permission-conditional {
+  color: var(--wave-warning);
+  font-weight: 600;
+}
+
+/* ===========================================
+   Breadcrumb Component
+   =========================================== */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--vp-c-text-2);
+  margin-bottom: 24px;
+}
+
+.breadcrumb a {
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--wave-primary);
+}
+
+.breadcrumb .separator {
+  color: var(--vp-c-divider);
+}
+
+.breadcrumb .current {
+  color: var(--vp-c-text-1);
+  font-weight: 500;
+}
+
+/* ===========================================
+   Responsive Adjustments
+   =========================================== */
+@media (max-width: 640px) {
+  .hero-section h1 {
+    font-size: 2.5rem;
+  }
+
+  .hero-section .tagline {
+    font-size: 1.2rem;
+  }
+
+  .feature-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-signals {
+    flex-direction: column;
+    align-items: center;
+  }
+}

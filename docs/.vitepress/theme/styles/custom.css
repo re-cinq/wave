@@ -1,0 +1,141 @@
+/**
+ * Wave Documentation - Custom Styles
+ * Enterprise-grade documentation theming
+ */
+
+:root {
+  /* Brand Colors */
+  --wave-primary: #4f46e5;
+  --wave-primary-dark: #4338ca;
+  --wave-secondary: #06b6d4;
+  --wave-accent: #8b5cf6;
+
+  /* Trust & Security Colors */
+  --wave-trust-green: #10b981;
+  --wave-trust-blue: #3b82f6;
+  --wave-warning: #f59e0b;
+  --wave-danger: #ef4444;
+
+  /* Status Colors */
+  --wave-certified: #10b981;
+  --wave-in-progress: #f59e0b;
+  --wave-planned: #6b7280;
+
+  /* VitePress Theme Overrides */
+  --vp-c-brand-1: var(--wave-primary);
+  --vp-c-brand-2: var(--wave-primary-dark);
+  --vp-c-brand-3: var(--wave-accent);
+
+  /* Typography */
+  --wave-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Dark mode adjustments */
+.dark {
+  --wave-primary: #818cf8;
+  --wave-primary-dark: #6366f1;
+  --wave-secondary: #22d3ee;
+}
+
+/* Hero Section Enhancements */
+.VPHero {
+  padding-bottom: 64px !important;
+}
+
+.VPHero .name {
+  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Feature Cards */
+.VPFeature {
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Trust Badges Container */
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 24px 0;
+}
+
+/* Code Block Enhancements */
+.vp-doc div[class*='language-'] {
+  position: relative;
+  border-radius: 8px;
+}
+
+/* Copy Button Positioning */
+.vp-doc div[class*='language-'] .copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.vp-doc div[class*='language-']:hover .copy-button {
+  opacity: 1;
+}
+
+/* Callout Boxes */
+.callout {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin: 16px 0;
+  border-left: 4px solid;
+}
+
+.callout-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--wave-trust-blue);
+}
+
+.callout-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--wave-warning);
+}
+
+.callout-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--wave-danger);
+}
+
+.callout-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--wave-trust-green);
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .VPFeature,
+  .copy-button {
+    transition: none;
+  }
+}
+
+/* Focus states for keyboard navigation */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--wave-primary);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .VPNav,
+  .VPSidebar,
+  .copy-button {
+    display: none !important;
+  }
+}
