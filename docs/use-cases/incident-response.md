@@ -47,6 +47,8 @@ Artifacts: output/incident-report.md
 
 Save the following YAML to `.wave/pipelines/incident-response.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -238,6 +240,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces five artifacts:
@@ -363,6 +367,8 @@ wave run incident-response "502 errors after AWS us-east-1 degradation announcem
 
 Create a minimal pipeline for initial assessment:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -374,7 +380,11 @@ steps:
     # Only the triage step for rapid assessment
 ```
 
+</div>
+
 ### Add automated rollback check
+
+<div v-pre>
 
 ```yaml
 - id: rollback-assessment
@@ -391,6 +401,8 @@ steps:
 
       Recommendation: ROLLBACK / HOTFIX / INVESTIGATE
 ```
+
+</div>
 
 ## Incident Response Checklist
 

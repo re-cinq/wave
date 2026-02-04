@@ -43,6 +43,8 @@ Artifacts: output/api-spec.yaml
 
 Save the following YAML to `.wave/pipelines/api-design.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -156,6 +158,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces three artifacts:
@@ -169,6 +173,8 @@ The pipeline produces three artifacts:
 ### Example Output
 
 The pipeline produces `output/api-spec.yaml`:
+
+<div v-pre>
 
 ```yaml
 openapi: 3.0.3
@@ -441,6 +447,8 @@ security:
   - bearerAuth: []
 ```
 
+</div>
+
 ## Customization
 
 ### Design specific API type
@@ -456,6 +464,8 @@ wave run api-design "design WebSocket API for real-time notifications"
 ### Include implementation
 
 Add a code generation step:
+
+<div v-pre>
 
 ```yaml
 - id: implement
@@ -480,7 +490,11 @@ Add a code generation step:
       type: code
 ```
 
+</div>
+
 ### Add contract tests
+
+<div v-pre>
 
 ```yaml
 - id: contract-tests
@@ -509,6 +523,8 @@ Add a code generation step:
       path: output/api_test.go
       type: code
 ```
+
+</div>
 
 ## API Design Best Practices
 

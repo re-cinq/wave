@@ -26,6 +26,8 @@ Artifacts: output/generated-docs.md
 
 This is the full `docs` pipeline from `.wave/pipelines/docs.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -125,6 +127,8 @@ steps:
         path: output/doc-review.md
         type: markdown
 ```
+
+</div>
 
 ## Example Output
 
@@ -229,6 +233,8 @@ wave run docs "generate changelog from git history since v1.0.0"
 
 Modify the generate step to update rather than replace:
 
+<div v-pre>
+
 ```yaml
 - id: generate
   exec:
@@ -237,9 +243,13 @@ Modify the generate step to update rather than replace:
       Preserve existing content. Add new sections for undocumented APIs.
 ```
 
+</div>
+
 ## Example: API Reference Pipeline
 
 For comprehensive API documentation, create a specialized pipeline:
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -278,6 +288,8 @@ steps:
         path: output/api-reference.md
         type: markdown
 ```
+
+</div>
 
 ## Next Steps
 

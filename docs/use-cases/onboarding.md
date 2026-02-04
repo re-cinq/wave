@@ -40,6 +40,8 @@ Artifacts: output/onboarding-guide.md
 
 Save the following YAML to `.wave/pipelines/onboarding.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -124,6 +126,8 @@ steps:
         path: output/onboarding-guide.md
         type: markdown
 ```
+
+</div>
 
 ## Expected Outputs
 
@@ -315,6 +319,8 @@ wave run onboarding "onboarding guide focused on the API layer"
 
 Add a diagram generation step:
 
+<div v-pre>
+
 ```yaml
 - id: diagrams
   persona: philosopher
@@ -327,7 +333,11 @@ Add a diagram generation step:
       3. Deployment topology
 ```
 
+</div>
+
 ### Add interactive exercises
+
+<div v-pre>
 
 ```yaml
 - id: exercises
@@ -344,9 +354,13 @@ Add a diagram generation step:
       5. Review a sample PR
 ```
 
+</div>
+
 ## Extended Pipeline
 
 For comprehensive onboarding, create an extended version:
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -412,6 +426,8 @@ steps:
         path: output/onboarding-package.md
         type: markdown
 ```
+
+</div>
 
 ## Related Use Cases
 

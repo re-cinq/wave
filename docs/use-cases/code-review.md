@@ -44,6 +44,10 @@ Artifacts: output/review-summary.md
 
 This is the full `code-review` pipeline from `.wave/pipelines/code-review.yaml`:
 
+<div v-pre>
+
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -171,6 +175,10 @@ steps:
         type: markdown
 ```
 
+</div>
+
+</div>
+
 ## Expected Outputs
 
 The pipeline produces three artifacts:
@@ -233,6 +241,8 @@ wave run code-review "review changes in PR #123"
 
 Add a JSON schema to ensure structured output:
 
+<div v-pre>
+
 ```yaml
 - id: diff-analysis
   handover:
@@ -244,9 +254,13 @@ Add a JSON schema to ensure structured output:
       max_retries: 2
 ```
 
+</div>
+
 ### Customize severity thresholds
 
 Modify the security review step to focus on specific severity levels:
+
+<div v-pre>
 
 ```yaml
 - id: security-review
@@ -256,6 +270,8 @@ Modify the security review step to focus on specific severity levels:
       Skip informational findings.
       ...
 ```
+
+</div>
 
 ## Related Use Cases
 

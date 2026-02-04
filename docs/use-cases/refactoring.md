@@ -45,6 +45,8 @@ Artifacts: output/refactoring-report.md
 
 Save the following YAML to `.wave/pipelines/refactor.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -191,6 +193,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces four artifacts:
@@ -277,6 +281,8 @@ wave run refactor "add dependency injection to the user service for testability"
 
 Create a variant that only produces a plan:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -291,6 +297,8 @@ steps:
     # ... same as above
     # No implement step - just output the plan
 ```
+
+</div>
 
 ## Best Practices
 

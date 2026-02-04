@@ -37,6 +37,8 @@ Artifacts: output/review-summary.md
 
 Every use-case pipeline follows the same pattern:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -63,6 +65,8 @@ steps:
         path: output/result.md
         type: markdown
 ```
+
+</div>
 
 ## Complexity Levels
 
