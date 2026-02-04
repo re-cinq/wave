@@ -60,7 +60,7 @@ Expected output:
 ## 4. Run First Pipeline
 
 ```bash
-wave run --pipeline speckit-flow --input "add user authentication"
+wave run speckit-flow "add user authentication"
 ```
 
 You'll see structured progress events:

@@ -37,17 +37,40 @@ func NewRunCmd() *cobra.Command {
 	var opts RunOptions
 
 	cmd := &cobra.Command{
-		Use:   "run",
+		Use:   "run [pipeline] [input]",
 		Short: "Run a pipeline",
 		Long: `Execute a pipeline from the wave manifest.
-Supports dry-run mode, step resumption, and custom timeouts.`,
+Supports dry-run mode, step resumption, and custom timeouts.
+
+Arguments can be provided as positional args or flags:
+  wave run code-review "Review auth module"
+  wave run --pipeline code-review --input "Review auth module"
+  wave run code-review --input "Review auth module"`,
+		Example: `  wave run code-review "Review the authentication changes"
+  wave run --pipeline speckit-flow --input "add user auth"
+  wave run hotfix --dry-run
+  wave run migrate --from-step validate`,
+		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle positional arguments
+			if len(args) >= 1 && opts.Pipeline == "" {
+				opts.Pipeline = args[0]
+			}
+			if len(args) >= 2 && opts.Input == "" {
+				opts.Input = args[1]
+			}
+
+			// Validate pipeline is provided
+			if opts.Pipeline == "" {
+				return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
+			}
+
 			debug, _ := cmd.Flags().GetBool("debug")
 			return runRun(opts, debug)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Pipeline name to run (required)")
+	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Pipeline name to run")
 	cmd.Flags().StringVar(&opts.Input, "input", "", "Input data for the pipeline")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be executed without running")
 	cmd.Flags().StringVar(&opts.FromStep, "from-step", "", "Start execution from specific step")
@@ -57,8 +80,6 @@ Supports dry-run mode, step resumption, and custom timeouts.`,
 	cmd.Flags().BoolVar(&opts.NoProgress, "no-progress", false, "Disable enhanced progress display")
 	cmd.Flags().BoolVar(&opts.PlainProgress, "plain", false, "Use plain text progress (no colors/animations)")
 	cmd.Flags().BoolVar(&opts.NoLogs, "no-logs", false, "Suppress JSON log output (show only progress display)")
-
-	cmd.MarkFlagRequired("pipeline")
 
 	return cmd
 }

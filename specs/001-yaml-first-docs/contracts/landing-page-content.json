@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Landing Page Content Contract",
+  "description": "Validates that landing page content follows YAML-first paradigm requirements",
+  "type": "object",
+  "properties": {
+    "hero_section": {
+      "type": "object",
+      "properties": {
+        "paradigm_statement": {
+          "type": "string",
+          "pattern": ".*(AI as Code|Infrastructure as Code for AI|YAML-first).*",
+          "description": "Must mention core paradigm within hero section"
+        },
+        "yaml_example_present": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must include YAML code example in hero section"
+        },
+        "infrastructure_parallel": {
+          "type": "string",
+          "pattern": ".*(Kubernetes|Docker Compose|Terraform|Infrastructure as Code).*",
+          "description": "Must draw Infrastructure-as-Code parallel"
+        }
+      },
+      "required": ["paradigm_statement", "yaml_example_present", "infrastructure_parallel"]
+    },
+    "value_proposition": {
+      "type": "object",
+      "properties": {
+        "deliverables_emphasis": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must emphasize deliverables + contracts"
+        },
+        "persona_focus": {
+          "type": "boolean",
+          "const": false,
+          "description": "Must NOT lead with persona descriptions"
+        },
+        "workflow_shareability": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must highlight workflow sharing capabilities"
+        }
+      },
+      "required": ["deliverables_emphasis", "persona_focus", "workflow_shareability"]
+    },
+    "technical_examples": {
+      "type": "object",
+      "properties": {
+        "complete_yaml_first": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must show complete YAML before component breakdown"
+        },
+        "file_centric": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must be file-centric rather than CLI-command-centric"
+        }
+      },
+      "required": ["complete_yaml_first", "file_centric"]
+    }
+  },
+  "required": ["hero_section", "value_proposition", "technical_examples"]
+}

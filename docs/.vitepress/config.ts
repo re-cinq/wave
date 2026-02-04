@@ -4,21 +4,35 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Wave',
-    description: 'Multi-Agent Orchestrator for Claude Code',
+    description: 'Infrastructure as Code for AI - Define reproducible AI workflows with declarative configuration',
     themeConfig: {
       logo: '/logo.svg',
       nav: [
-        { text: 'Guide', link: '/guide/installation' },
+        { text: 'Quickstart', link: '/quickstart' },
+        { text: 'Use Cases', link: '/use-cases/' },
         {
           text: 'Concepts',
           items: [
-            { text: 'Architecture', link: '/concepts/architecture' },
-            { text: 'Manifests', link: '/concepts/manifests' },
+            { text: 'Overview', link: '/concepts/' },
             { text: 'Pipelines', link: '/concepts/pipelines' },
             { text: 'Personas', link: '/concepts/personas' },
-            { text: 'Adapters', link: '/concepts/adapters' },
-            { text: 'Workspaces', link: '/concepts/workspaces' },
-            { text: 'Contracts', link: '/concepts/contracts' }
+            { text: 'Contracts', link: '/concepts/contracts' },
+            { text: 'Artifacts', link: '/concepts/artifacts' },
+            { text: 'Workspaces', link: '/concepts/workspaces' }
+          ]
+        },
+        {
+          text: 'Guides',
+          items: [
+            { text: 'Team Adoption', link: '/guides/team-adoption' },
+            { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+            { text: 'GitHub Integration', link: '/github-integration' },
+            { text: 'Enterprise Patterns', link: '/guides/enterprise' },
+            { text: 'Audit Logging', link: '/guides/audit-logging' },
+            { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
+            { text: 'State & Resumption', link: '/guides/state-resumption' },
+            { text: 'Context Relay', link: '/guides/relay-compaction' },
+            { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
           ]
         },
         {
@@ -27,20 +41,19 @@ export default withMermaid(
             { text: 'CLI Commands', link: '/reference/cli' },
             { text: 'Manifest Schema', link: '/reference/manifest-schema' },
             { text: 'Pipeline Schema', link: '/reference/pipeline-schema' },
-            { text: 'Event Format', link: '/reference/events' },
-            { text: 'Environment', link: '/reference/environment' }
+            { text: 'Adapters', link: '/reference/adapters' },
+            { text: 'Events', link: '/reference/events' },
+            { text: 'Environment', link: '/reference/environment' },
+            { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
-        },
-        { text: 'Examples', link: '/examples/' }
+        }
       ],
       sidebar: {
-        '/guide/': [
+        '/use-cases/': [
           {
-            text: 'Getting Started',
+            text: 'Use Cases',
             items: [
-              { text: 'Installation', link: '/guide/installation' },
-              { text: 'Quick Start', link: '/guide/quick-start' },
-              { text: 'Configuration', link: '/guide/configuration' }
+              { text: 'Overview', link: '/use-cases/' }
             ]
           }
         ],
@@ -48,25 +61,38 @@ export default withMermaid(
           {
             text: 'Concepts',
             items: [
-              { text: 'Architecture', link: '/concepts/architecture' },
-              { text: 'Manifests', link: '/concepts/manifests' },
+              { text: 'Overview', link: '/concepts/' },
               { text: 'Pipelines', link: '/concepts/pipelines' },
               { text: 'Personas', link: '/concepts/personas' },
-              { text: 'Adapters', link: '/concepts/adapters' },
+              { text: 'Contracts', link: '/concepts/contracts' },
+              { text: 'Artifacts', link: '/concepts/artifacts' },
+              { text: 'Execution', link: '/concepts/execution' },
+              { text: 'Pipeline Execution', link: '/concepts/pipeline-execution' },
               { text: 'Workspaces', link: '/concepts/workspaces' },
-              { text: 'Contracts', link: '/concepts/contracts' }
+              { text: 'Adapters', link: '/concepts/adapters' },
+              { text: 'Manifests', link: '/concepts/manifests' },
+              { text: 'Architecture', link: '/concepts/architecture' }
             ]
           }
         ],
         '/guides/': [
           {
-            text: 'Guides',
+            text: 'Adoption',
             items: [
-              { text: 'Context Relay', link: '/guides/relay-compaction' },
+              { text: 'Team Adoption', link: '/guides/team-adoption' },
+              { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+              { text: 'GitHub Integration', link: '/github-integration' },
+              { text: 'Enterprise Patterns', link: '/guides/enterprise' }
+            ]
+          },
+          {
+            text: 'Advanced',
+            items: [
+              { text: 'Audit Logging', link: '/guides/audit-logging' },
               { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
-              { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' },
               { text: 'State & Resumption', link: '/guides/state-resumption' },
-              { text: 'Audit Logging', link: '/guides/audit-logging' }
+              { text: 'Context Relay', link: '/guides/relay-compaction' },
+              { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
             ]
           }
         ],
@@ -77,24 +103,16 @@ export default withMermaid(
               { text: 'CLI Commands', link: '/reference/cli' },
               { text: 'Manifest Schema', link: '/reference/manifest-schema' },
               { text: 'Pipeline Schema', link: '/reference/pipeline-schema' },
-              { text: 'Event Format', link: '/reference/events' },
-              { text: 'Environment', link: '/reference/environment' }
-            ]
-          }
-        ],
-        '/examples/': [
-          {
-            text: 'Examples',
-            items: [
-              { text: 'Overview', link: '/examples/' },
-              { text: 'Speckit Flow', link: '/examples/speckit-flow' },
-              { text: 'Hotfix Pipeline', link: '/examples/hotfix-pipeline' },
-              { text: 'Custom Adapter', link: '/examples/custom-adapter' }
+              { text: 'Adapters', link: '/reference/adapters' },
+              { text: 'Events', link: '/reference/events' },
+              { text: 'Environment', link: '/reference/environment' },
+              { text: 'Contract Types', link: '/reference/contract-types' },
+              { text: 'Troubleshooting', link: '/reference/troubleshooting' }
             ]
           }
         ]
       },
-        socialLinks: [
+      socialLinks: [
         { icon: 'github', link: 'https://github.com/recinq/wave' }
       ],
       search: {

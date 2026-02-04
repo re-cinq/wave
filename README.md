@@ -4,7 +4,7 @@
 
 Wave orchestrates LLM agents through structured pipelines — each step runs a specialized persona with scoped permissions, validated contracts, and isolated workspaces.
 
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -33,7 +33,7 @@ go install github.com/recinq/wave/cmd/wave@latest
 wave init
 
 # Run your first pipeline
-wave run --pipeline speckit-flow --input "add user authentication"
+wave run speckit-flow "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
@@ -125,16 +125,16 @@ Use "wave [command] --help" for more information about a command.
 
 ```bash
 # Feature development
-wave run --pipeline speckit-flow --input "add OAuth2 with Google"
+wave run speckit-flow "add OAuth2 with Google"
 
 # Fix production bug
-wave run --pipeline hotfix --input "500 errors on /api/users"
+wave run hotfix "500 errors on /api/users"
 
 # Review PR
-wave run --pipeline code-review --input "review auth module changes"
+wave run code-review "review auth module changes"
 
 # Generate tests
-wave run --pipeline test-gen --input "improve coverage for internal/cache"
+wave run test-gen "improve coverage for internal/cache"
 
 # Quick fixes
 wave do "fix typo in README"
@@ -262,7 +262,7 @@ personas:
       deny: [Write(*), Edit(*)]
 ```
 
-7 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`
+9 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`, `github-analyst`, `github-enhancer`
 
 ### Pipelines — DAG Workflows
 
@@ -325,6 +325,8 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 | `debugger` | 0.2 | Root cause analysis | Read + git bisect |
 | `auditor` | 0.1 | Security review | Read + audit tools |
 | `summarizer` | 0.0 | Context compaction | Read-only |
+| `github-analyst` | 0.1 | GitHub issue analysis | Read + Bash |
+| `github-enhancer` | 0.3 | GitHub issue enhancement | Read + Write + Bash |
 
 ---
 
@@ -365,7 +367,7 @@ wave.yaml                    # Project manifest
 
 ## Requirements
 
-- Go 1.22+
+- Go 1.25+
 - An LLM CLI adapter (`claude`, `opencode`, or custom)
 
 ---

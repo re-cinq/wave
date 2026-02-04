@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workflow Documentation Contract",
+  "description": "Validates that workflow documentation follows YAML-first presentation",
+  "type": "object",
+  "properties": {
+    "yaml_examples": {
+      "type": "object",
+      "properties": {
+        "complete_before_breakdown": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must show complete YAML workflow before explaining components"
+        },
+        "syntactically_valid": {
+          "type": "boolean",
+          "const": true,
+          "description": "All YAML examples must be syntactically valid"
+        },
+        "includes_contracts": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must demonstrate contract validation in examples"
+        },
+        "demonstrates_deliverables": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must show clear deliverable outputs"
+        }
+      },
+      "required": ["complete_before_breakdown", "syntactically_valid", "includes_contracts", "demonstrates_deliverables"]
+    },
+    "infrastructure_parallels": {
+      "type": "object",
+      "properties": {
+        "explicit_comparisons": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must include explicit comparisons to K8s, Docker Compose, etc."
+        },
+        "familiar_patterns": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must reference patterns developers already know"
+        }
+      },
+      "required": ["explicit_comparisons", "familiar_patterns"]
+    },
+    "shareability_emphasis": {
+      "type": "object",
+      "properties": {
+        "git_workflow_shown": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must show git-based workflow sharing"
+        },
+        "version_control_mentioned": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must emphasize version control capabilities"
+        },
+        "team_collaboration": {
+          "type": "boolean",
+          "const": true,
+          "description": "Must show team collaboration patterns"
+        }
+      },
+      "required": ["git_workflow_shown", "version_control_mentioned", "team_collaboration"]
+    }
+  },
+  "required": ["yaml_examples", "infrastructure_parallels", "shareability_emphasis"]
+}

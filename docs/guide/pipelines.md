@@ -34,16 +34,16 @@ Wave ships with 9 pipelines organized by use case:
 
 ```bash
 # Run with input
-wave run --pipeline speckit-flow --input "add user authentication"
+wave run speckit-flow "add user authentication"
 
 # Preview execution plan
-wave run --pipeline hotfix --dry-run
+wave run hotfix --dry-run
 
 # Start from specific step
-wave run --pipeline speckit-flow --from-step implement
+wave run speckit-flow --from-step implement
 
 # Custom timeout
-wave run --pipeline migrate --timeout 120
+wave run migrate --timeout 120
 ```
 
 ## Pipeline Structure
@@ -141,7 +141,7 @@ Validate step output before proceeding:
 handover:
   contract:
     type: json_schema
-    schema: .wave/contracts/analysis.schema.json
+    schema_path: .wave/contracts/analysis.schema.json
     source: output/analysis.json
     on_failure: retry
     max_retries: 2

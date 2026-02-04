@@ -691,8 +691,9 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 	}
 
 	type wsInfo struct {
-		name    string
-		modTime time.Time
+		name      string
+		modTime   time.Time
+		startTime time.Time
 	}
 
 	var workspaces []wsInfo
@@ -711,9 +712,17 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 			continue
 		}
 
+		// Get creation time (start time) from directory
+		wsPath := filepath.Join(wsDir, entry.Name())
+		startTime := getDirectoryCreationTime(wsPath)
+		if startTime.IsZero() {
+			startTime = info.ModTime() // Fallback to mod time
+		}
+
 		workspaces = append(workspaces, wsInfo{
-			name:    entry.Name(),
-			modTime: info.ModTime(),
+			name:      entry.Name(),
+			modTime:   info.ModTime(),
+			startTime: startTime,
 		})
 	}
 
@@ -729,22 +738,170 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 
 	var runs []RunInfo
 	for _, ws := range workspaces {
-		// Infer status from workspace name or default to "unknown"
-		status := "unknown"
+		// Infer status from workspace contents
+		wsPath := filepath.Join(wsDir, ws.name)
+		status, endTime := inferWorkspaceStatus(wsPath, ws.name)
+
+		// Apply status filter
 		if opts.Status != "" && strings.ToLower(status) != strings.ToLower(opts.Status) {
 			continue
 		}
 
+		// Calculate duration
+		var duration string
+		var durationMs int64
+		if !endTime.IsZero() && !ws.startTime.IsZero() {
+			d := endTime.Sub(ws.startTime)
+			durationMs = d.Milliseconds()
+			duration = formatDuration(d)
+		} else {
+			duration = "-"
+		}
+
 		runs = append(runs, RunInfo{
-			RunID:     ws.name,
-			Pipeline:  ws.name,
-			Status:    status,
-			StartedAt: ws.modTime.Format("2006-01-02 15:04:05"),
-			Duration:  "-",
+			RunID:      ws.name,
+			Pipeline:   ws.name,
+			Status:     status,
+			StartedAt:  ws.startTime.Format("2006-01-02 15:04:05"),
+			Duration:   duration,
+			DurationMs: durationMs,
 		})
 	}
 
 	return runs, nil
+}
+
+// inferWorkspaceStatus determines the status of a run by examining its workspace
+func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, endTime time.Time) {
+	// Try to find and load the pipeline definition to know expected steps
+	pipelinePath := ".wave/pipelines/" + pipelineName + ".yaml"
+	pipelineData, err := os.ReadFile(pipelinePath)
+	if err != nil {
+		// Can't determine expected steps, check if any step dirs exist
+		stepDirs, _ := os.ReadDir(wsPath)
+		if len(stepDirs) == 0 {
+			return "pending", time.Time{}
+		}
+		// Has step dirs but can't verify completion
+		return "unknown", getLatestFileTime(wsPath)
+	}
+
+	// Parse pipeline to get expected steps
+	var p struct {
+		Steps []struct {
+			ID string `yaml:"id"`
+		} `yaml:"steps"`
+	}
+	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
+		return "unknown", getLatestFileTime(wsPath)
+	}
+
+	expectedSteps := make(map[string]bool)
+	for _, step := range p.Steps {
+		expectedSteps[step.ID] = false
+	}
+
+	// Check which steps have directories in the workspace
+	stepDirs, err := os.ReadDir(wsPath)
+	if err != nil {
+		return "unknown", time.Time{}
+	}
+
+	completedSteps := 0
+	var latestTime time.Time
+	for _, dir := range stepDirs {
+		if !dir.IsDir() {
+			continue
+		}
+		stepID := dir.Name()
+		if _, expected := expectedSteps[stepID]; expected {
+			// Check if step has output (indicates completion)
+			stepPath := filepath.Join(wsPath, stepID)
+			if hasStepOutput(stepPath) {
+				expectedSteps[stepID] = true
+				completedSteps++
+			}
+			// Track latest modification time
+			if info, err := dir.Info(); err == nil {
+				if info.ModTime().After(latestTime) {
+					latestTime = info.ModTime()
+				}
+			}
+		}
+	}
+
+	// Determine overall status
+	if completedSteps == 0 {
+		return "pending", time.Time{}
+	}
+	if completedSteps == len(expectedSteps) {
+		return "completed", latestTime
+	}
+	// Some steps completed but not all - could be running or failed
+	return "partial", latestTime
+}
+
+// hasStepOutput checks if a step directory contains output files
+func hasStepOutput(stepPath string) bool {
+	// Check for common output locations
+	outputDirs := []string{"", "output", "artifacts"}
+	for _, subdir := range outputDirs {
+		checkPath := stepPath
+		if subdir != "" {
+			checkPath = filepath.Join(stepPath, subdir)
+		}
+		entries, err := os.ReadDir(checkPath)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				// Found at least one file
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getLatestFileTime finds the most recent modification time in a directory tree
+func getLatestFileTime(dirPath string) time.Time {
+	var latest time.Time
+	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+		return nil
+	})
+	return latest
+}
+
+// getDirectoryCreationTime gets the creation time of a directory (best effort)
+func getDirectoryCreationTime(path string) time.Time {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}
+	}
+	// On most systems, we can only reliably get ModTime
+	// But we can approximate creation time by finding the oldest file
+	var oldest time.Time
+	filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if oldest.IsZero() || fi.ModTime().Before(oldest) {
+			oldest = fi.ModTime()
+		}
+		return nil
+	})
+	// Use the directory's own mod time as a fallback
+	if oldest.IsZero() {
+		return info.ModTime()
+	}
+	return oldest
 }
 
 // listRuns displays run information in table format

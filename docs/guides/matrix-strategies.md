@@ -111,7 +111,7 @@ Workers beyond the concurrency limit are queued and start as running workers com
 When multiple matrix workers modify the same file, Wave detects the conflict at the merge phase:
 
 ```
-$ wave run --pipeline parallel-tasks.yaml --input "migrate services"
+$ wave run parallel-tasks.yaml "migrate services"
 ...
 ERROR: Matrix conflict detected in step 'execute'
   Workers 0 and 2 both modified: src/config/database.go
