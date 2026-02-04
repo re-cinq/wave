@@ -6,21 +6,21 @@ Contracts validate step output before dependent steps begin. This page documents
 
 | Type | Validates | Use When |
 |------|-----------|----------|
-| `testsuite` | Command exit code | Verifying code compiles and tests pass |
-| `jsonschema` | JSON structure | Ensuring data format and required fields |
-| `typescript` | TypeScript compiles | Validating generated type definitions |
-| `markdownspec` | Markdown structure | Checking documentation format |
+| `test_suite` | Command exit code | Verifying code compiles and tests pass |
+| `json_schema` | JSON structure | Ensuring data format and required fields |
+| `typescript_interface` | TypeScript compiles | Validating generated type definitions |
+| `markdown_spec` | Markdown structure | Checking documentation format |
 
 ---
 
-## testsuite
+## test_suite
 
 Run a command and validate exit code.
 
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "npm test"
 ```
 
@@ -31,7 +31,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "go test ./... && go vet ./..."
     must_pass: true
     on_failure: retry
@@ -53,7 +53,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "go build ./... && go test ./..."
 ```
 
@@ -61,7 +61,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "npm test"
 ```
 
@@ -69,7 +69,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "pytest"
 ```
 
@@ -77,21 +77,21 @@ handover:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: ".wave/scripts/validate.sh"
 ```
 
 ---
 
-## jsonschema
+## json_schema
 
 Validate JSON output against a JSON Schema.
 
 ```yaml
 handover:
   contract:
-    type: jsonschema
-    schema: .wave/contracts/analysis.schema.json
+    type: json_schema
+    schema_path: .wave/contracts/analysis.schema.json
     source: output/analysis.json
 ```
 
@@ -102,8 +102,8 @@ handover:
 ```yaml
 handover:
   contract:
-    type: jsonschema
-    schema: .wave/contracts/analysis.schema.json
+    type: json_schema
+    schema_path: .wave/contracts/analysis.schema.json
     source: output/analysis.json
     must_pass: true
     on_failure: retry
@@ -114,7 +114,7 @@ handover:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `schema` | **yes** | - | Path to JSON Schema file |
+| `schema_path` | **yes** | - | Path to JSON Schema file |
 | `source` | **yes** | - | Path to JSON file to validate |
 | `must_pass` | no | `true` | Whether failure blocks progression |
 | `on_failure` | no | `retry` | `retry` or `halt` |
@@ -186,14 +186,14 @@ handover:
 
 ---
 
-## typescript
+## typescript_interface
 
 Validate that generated TypeScript compiles successfully.
 
 ```yaml
 handover:
   contract:
-    type: typescript
+    type: typescript_interface
     source: output/types.ts
 ```
 
@@ -204,7 +204,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: typescript
+    type: typescript_interface
     source: output/types.ts
     validate: true
     must_pass: true
@@ -243,20 +243,20 @@ steps:
         path: output/api.types.ts
     handover:
       contract:
-        type: typescript
+        type: typescript_interface
         source: output/api.types.ts
 ```
 
 ---
 
-## markdownspec
+## markdown_spec
 
 Validate Markdown document structure.
 
 ```yaml
 handover:
   contract:
-    type: markdownspec
+    type: markdown_spec
     source: output/spec.md
 ```
 
@@ -267,7 +267,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: markdownspec
+    type: markdown_spec
     source: output/spec.md
     must_pass: true
     on_failure: retry
@@ -304,7 +304,7 @@ steps:
         path: output/spec.md
     handover:
       contract:
-        type: markdownspec
+        type: markdown_spec
         source: output/spec.md
 ```
 
@@ -325,8 +325,8 @@ When `on_failure: retry`:
 ```yaml
 handover:
   contract:
-    type: jsonschema
-    schema: .wave/contracts/output.schema.json
+    type: json_schema
+    schema_path: .wave/contracts/output.schema.json
     source: output/data.json
     on_failure: retry
     max_retries: 3
@@ -343,7 +343,7 @@ When `on_failure: halt`:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "npm test"
     on_failure: halt
 ```
@@ -355,7 +355,7 @@ Use `must_pass: false` for warnings that don't block:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "npm run lint"
     must_pass: false
 ```
@@ -371,7 +371,7 @@ Use a shell script for multiple validation steps:
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: ".wave/scripts/validate-all.sh"
 ```
 
@@ -423,7 +423,7 @@ wave logs run-abc123 --errors
 
 **Output:**
 ```
-[14:32:15] contract_failure  analyze  jsonschema
+[14:32:15] contract_failure  analyze  json_schema
   Error: Missing required property 'summary'
   File: output/analysis.json
   Schema: .wave/contracts/analysis.schema.json

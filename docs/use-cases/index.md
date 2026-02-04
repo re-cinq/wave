@@ -7,7 +7,7 @@ Find the right pipeline for your task. Each use case includes a complete, runnab
 | Use Case | Description | Pipeline |
 |----------|-------------|----------|
 | [Code Review](/use-cases/code-review) | Automated PR review with security checks and quality analysis | `code-review` |
-| [Security Audit](/use-cases/security-audit) | Vulnerability scanning, dependency checks, compliance verification | `code-review` |
+| [Security Audit](/use-cases/security-audit) | Vulnerability scanning, dependency checks, compliance verification | `code-review` (or custom) |
 | [Documentation](/use-cases/docs-generation) | Generate API docs, README files, and usage guides from code | `docs` |
 | [Test Generation](/use-cases/test-generation) | Analyze coverage gaps and generate comprehensive tests | `test-gen` |
 

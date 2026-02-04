@@ -83,6 +83,6 @@ Pipelines are separate files because a project may have many workflows (feature 
 ## Further Reading
 
 - [Manifest Schema Reference](/reference/manifest-schema) — complete field-by-field reference
-- [Configuration Guide](/guide/configuration) - practical configuration walkthrough
+- [Quickstart](/quickstart) - practical configuration walkthrough
 - [Adapters](/concepts/adapters) — how adapters work
 - [Personas](/concepts/personas) — the persona system
