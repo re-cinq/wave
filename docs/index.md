@@ -13,7 +13,7 @@ hero:
       link: /use-cases/
     - theme: alt
       text: GitHub
-      link: https://github.com/recinq/wave
+      link: https://github.com/re-cinq/wave
 features:
   - icon: ">"
     title: Pipelines as Code
@@ -63,10 +63,12 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
 ## Your First Pipeline
 
 ```bash
-# Install and initialize
-curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
-chmod +x wave && sudo mv wave /usr/local/bin/
-cd your-project && wave init
+# Install
+git clone https://github.com/re-cinq/wave.git
+cd wave && ./install.sh
+
+# Initialize your project
+cd /path/to/your-project && wave init
 
 # Run your first pipeline
 wave run hello-world "testing Wave"
