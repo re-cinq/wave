@@ -217,16 +217,16 @@
 
 - [X] T082 [P] Add breadcrumb navigation component in docs/.vitepress/theme/components/Breadcrumb.vue
 - [X] T083 [P] Create changelog page in docs/changelog.md with version history
-- [ ] T084 [P] Add visual card navigation to major section index pages
-- [ ] T085 Enhance existing docs/concepts/ pages with improved formatting and copy buttons
-- [ ] T086 Enhance existing docs/guides/ pages with improved formatting and copy buttons
-- [ ] T087 Update docs/reference/cli.md with improved structure and copy buttons
-- [ ] T088 Update docs/reference/manifest-schema.md with interactive examples
+- [X] T084 [P] Add visual card navigation to major section index pages
+- [X] T085 Enhance existing docs/concepts/ pages with improved formatting and copy buttons
+- [X] T086 Enhance existing docs/guides/ pages with improved formatting and copy buttons
+- [X] T087 Update docs/reference/cli.md with improved structure and copy buttons
+- [X] T088 Update docs/reference/manifest-schema.md with interactive examples
 - [ ] T089 Add Go interface documentation to docs/reference/ (when programmatic usage available)
 - [X] T090 Run VitePress build validation and fix any errors
 - [X] T091 Run link checker and fix broken links
-- [ ] T092 Verify WCAG 2.1 AA accessibility compliance across all components
-- [ ] T093 Performance optimization: Verify page load < 2s and component response < 100ms
+- [X] T092 Verify WCAG 2.1 AA accessibility compliance across all components
+- [X] T093 Performance optimization: Verify page load < 2s and component response < 100ms
 - [X] T094 Add meta descriptions and Open Graph tags for SEO in docs/.vitepress/config.ts
 
 ---
