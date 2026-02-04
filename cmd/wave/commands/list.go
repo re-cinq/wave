@@ -138,11 +138,11 @@ func runList(opts ListOptions, filter string) error {
 	showAll := filter == ""
 	showPipelines := showAll || filter == "pipelines"
 	showPersonas := showAll || filter == "personas"
-	showAdapters := filter == "adapters"
-	showRuns := filter == "runs"
+	showAdapters := showAll || filter == "adapters"
+	showRuns := showAll || filter == "runs"
 
-	// Handle runs filter separately (redirect to runListRuns)
-	if showRuns {
+	// Handle runs-only filter separately (redirect to runListRuns which prints its own logo)
+	if filter == "runs" {
 		return runListRuns(ListRunsOptions{
 			Limit:    listRunsLimit,
 			Pipeline: listRunsPipeline,
@@ -174,6 +174,17 @@ func runList(opts ListOptions, filter string) error {
 			}
 			if showAdapters {
 				output.Adapters = collectAdapters(m.Adapters)
+			}
+		}
+
+		if showRuns {
+			runs, err := collectRuns(ListRunsOptions{
+				Limit:    listRunsLimit,
+				Pipeline: listRunsPipeline,
+				Status:   listRunsStatus,
+			})
+			if err == nil {
+				output.Runs = runs
 			}
 		}
 
@@ -211,13 +222,27 @@ func runList(opts ListOptions, filter string) error {
 
 	if showPersonas {
 		listPersonasTable(m.Personas)
-		if showAll && showAdapters {
+		if showAll {
 			fmt.Println()
 		}
 	}
 
 	if showAdapters {
 		listAdaptersTable(m.Adapters)
+		if showAll {
+			fmt.Println()
+		}
+	}
+
+	if showRuns {
+		runs, err := collectRuns(ListRunsOptions{
+			Limit:    listRunsLimit,
+			Pipeline: listRunsPipeline,
+			Status:   listRunsStatus,
+		})
+		if err == nil {
+			listRunsTable(runs)
+		}
 	}
 
 	return nil
