@@ -173,6 +173,10 @@ func (m *MockStateStore) UpdatePipelineProgress(runID string, totalSteps int, co
 func (m *MockStateStore) GetPipelineProgress(runID string) (*state.PipelineProgressRecord, error) { return nil, nil }
 func (m *MockStateStore) SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error { return nil }
 func (m *MockStateStore) GetArtifactMetadata(artifactID int64) (*state.ArtifactMetadataRecord, error) { return nil, nil }
+func (m *MockStateStore) SetRunTags(runID string, tags []string) error { return nil }
+func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil, nil }
+func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
+func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
