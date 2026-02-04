@@ -39,7 +39,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .wave/contracts/navigation.schema.json
+        schema_path: .wave/contracts/navigation.schema.json
         source: output/analysis.json
 
   - id: specify
@@ -130,8 +130,8 @@ For parallel sub-tasks:
 
 ```bash
 wave validate --pipeline feature-flow.yaml
-wave run --pipeline feature-flow.yaml --dry-run
-wave run --pipeline feature-flow.yaml --input "Add user profile"
+wave run feature-flow.yaml --dry-run
+wave run feature-flow.yaml "Add user profile"
 ```
 
 ## Best Practices

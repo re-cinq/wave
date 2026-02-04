@@ -102,10 +102,10 @@ steps:
 ### Running the Example
 
 ```bash
-wave run --pipeline .wave/pipelines/add-feature.yaml --input "Add user profile with avatar"
+wave run .wave/pipelines/add-feature.yaml "Add user profile with avatar"
 ```
 
-> **Tip:** You can also use the shorthand `wave run --pipeline add-feature --input "Add user profile with avatar"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
+> **Tip:** You can also use the shorthand `wave run add-feature "Add user profile with avatar"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
 
 ### Expected Output
 

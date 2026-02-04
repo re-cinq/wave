@@ -1,179 +1,115 @@
-# Handover Contracts
+# Contracts
 
-Contracts are validation gates at step boundaries. They ensure that a step's output meets quality requirements before the next step begins. Without contracts, a poorly-formed artifact propagates through the entire pipeline before anyone notices.
-
-## Why Contracts?
-
-Consider a pipeline where the navigator produces a codebase analysis, and the craftsman implements based on it. If the analysis is missing critical file paths, the craftsman wastes tokens implementing the wrong thing. Contracts catch this at the boundary.
-
-```mermaid
-graph LR
-    S1[Step A Output] --> V{Contract Validation}
-    V -->|Pass| S2[Step B Starts]
-    V -->|Fail| R[Retry Step A]
-    R --> V
-```
-
-## Contract Types
-
-Wave supports three contract types, each validating at a different level:
-
-### JSON Schema
-
-Validates output structure against a JSON Schema definition. Best for checking that artifacts contain required fields and correct types.
-
-```yaml
-handover:
-  contract:
-    type: json_schema
-    schema: .wave/contracts/navigation.schema.json
-    source: output/analysis.json
-    on_failure: retry
-    max_retries: 2
-```
-
-Example schema:
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "required": ["files", "patterns", "dependencies"],
-  "properties": {
-    "files": {
-      "type": "array",
-      "items": { "type": "string" },
-      "minItems": 1
-    },
-    "patterns": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "description"],
-        "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" }
-        }
-      }
-    },
-    "dependencies": { "type": "object" }
-  }
-}
-```
-
-### TypeScript Interface
-
-Validates that generated TypeScript compiles against a declared interface. Best for checking that generated types or contracts are syntactically valid.
-
-```yaml
-handover:
-  contract:
-    type: typescript_interface
-    source: output/types.ts
-    validate: true
-    on_failure: retry
-    max_retries: 2
-```
-
-If `tsc` is not available in the environment, this degrades to syntax-only validation.
-
-### Test Suite
-
-Validates step output by running a test command. The most flexible contract type — any executable check can serve as validation.
+A contract validates that a step's output meets requirements before the next step begins. Contracts catch malformed artifacts early, preventing wasted work downstream.
 
 ```yaml
 handover:
   contract:
     type: test_suite
-    command: "npm test -- --testPathPattern=profile.test"
-    must_pass: true
-    on_failure: retry
-    max_retries: 3
+    command: "go test ./..."
 ```
 
-## Failure Handling
+Use contracts when you need guaranteed output quality - structure validation, type checking, or test verification.
 
-When a contract fails:
+## Simple: Test Suite Contract
 
-| `on_failure` | Behavior |
-|-------------|----------|
-| `retry` | Re-run the step with a fresh workspace. Retry count increments. |
-| `halt` | Stop the pipeline immediately. Step transitions to `failed`. |
+Run tests to validate implementation:
+
+```yaml
+steps:
+  - id: implement
+    persona: craftsman
+    exec:
+      type: prompt
+      source: "Implement the feature"
+    handover:
+      contract:
+        type: test_suite
+        command: "npm test"
+```
+
+## Intermediate: JSON Schema Contract
+
+Validate output structure against a schema:
+
+```yaml
+steps:
+  - id: analyze
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Analyze: {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/analysis.schema.json
+        source: output/analysis.json
+```
+
+Example schema file (`.wave/contracts/analysis.schema.json`):
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["files", "summary"],
+  "properties": {
+    "files": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string" }
+  }
+}
+```
+
+## Advanced: Retry on Failure
+
+Configure automatic retry when validation fails:
 
 ```yaml
 handover:
   contract:
-    on_failure: retry    # Try again
-    max_retries: 3       # Up to 3 attempts
+    type: json_schema
+    schema_path: .wave/contracts/spec.schema.json
+    source: output/spec.json
+    on_failure: retry
+    max_retries: 3
 ```
 
-After `max_retries` is exceeded, the step transitions to `failed` regardless of `on_failure` setting.
+## Contract Types
 
-### Retry Behavior
+| Type | Validates | Use When |
+|------|-----------|----------|
+| `test_suite` | Command exit code | Verifying code works |
+| `json_schema` | JSON structure | Ensuring data format |
+| `typescript_interface` | TypeScript compiles | Validating generated types |
+| `markdown_spec` | Markdown structure | Checking documentation |
 
-- Each retry gets a **fresh workspace** — no leftover state from the failed attempt.
-- The retry budget is **per-step**, not per-pipeline.
-- Retries use **exponential backoff** between attempts.
-- Subprocess crashes and timeouts count as failures and use the same retry mechanism.
+## Contract Fields
 
-## Contract Placement
+### Required Fields
+- `type` - Contract type (see table above)
 
-Contracts live on the **producing** step (the step whose output is validated), not the consuming step:
+### Optional Fields
+- `must_pass: true/false` - Whether validation must pass for step to succeed (default: true)
+- `on_failure: retry|halt` - Behavior when validation fails
+- `max_retries: N` - Maximum retry attempts (default: 0)
+- `source` - Path to artifact being validated (for schema contracts)
+- `schema_path` - Path to schema file (for `json_schema` type)
+- `command` - Test command to run (for `test_suite` type)
 
-```yaml
-steps:
-  - id: navigate
-    # ... execution config ...
-    handover:
-      contract:          # ← Validates navigate's output
-        type: json_schema
-        schema: .wave/contracts/nav.schema.json
-        source: output/analysis.json
+## Failure Handling
 
-  - id: implement
-    dependencies: [navigate]
-    # If we get here, navigate's output is guaranteed valid
-```
+| Setting | Behavior |
+|---------|----------|
+| `on_failure: retry` | Re-run step with fresh workspace |
+| `on_failure: halt` | Stop pipeline immediately |
 
-## Contract Design Patterns
+After `max_retries` is exceeded, the step fails regardless of `on_failure` setting.
 
-### Progressive Validation
+## Next Steps
 
-Use stricter contracts as the pipeline progresses:
-
-```yaml
-# Early steps: structural checks only
-- id: navigate
-  handover:
-    contract:
-      type: json_schema        # "Does the output have the right shape?"
-
-# Middle steps: compilation checks
-- id: specify
-  handover:
-    contract:
-      type: typescript_interface  # "Does the output compile?"
-
-# Late steps: behavioral checks
-- id: implement
-  handover:
-    contract:
-      type: test_suite           # "Does the output work correctly?"
-```
-
-### Schema Reuse
-
-Store contract schemas in `.wave/contracts/` and reference them across pipelines:
-
-```
-.wave/contracts/
-├── navigation.schema.json
-├── specification.schema.json
-├── implementation.schema.json
-└── review.schema.json
-```
-
-## Further Reading
-
-- [Pipeline Schema — HandoverConfig](/reference/pipeline-schema#handoverconfig) — complete field reference
-- [Pipelines](/concepts/pipelines) — how contracts fit into step execution
-- [Speckit Flow Example](/examples/speckit-flow) — contracts in a real pipeline
+- [Artifacts](/concepts/artifacts) - Output files validated by contracts
+- [Pipelines](/concepts/pipelines) - Use contracts in multi-step workflows
+- [Contract Types Reference](/reference/contract-types) - Complete contract options
