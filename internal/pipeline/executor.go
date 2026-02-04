@@ -560,7 +560,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
 		Artifacts:  result.Artifacts,
-		Message:    fmt.Sprintf("%dk tokens", result.TokensUsed/1000),
 	})
 
 	return nil
