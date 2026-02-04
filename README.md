@@ -125,16 +125,16 @@ Use "wave [command] --help" for more information about a command.
 
 ```bash
 # Feature development
-wave run --pipeline speckit-flow --input "add OAuth2 with Google"
+wave run speckit-flow "add OAuth2 with Google"
 
 # Fix production bug
-wave run --pipeline hotfix --input "500 errors on /api/users"
+wave run hotfix "500 errors on /api/users"
 
 # Review PR
-wave run --pipeline code-review --input "review auth module changes"
+wave run code-review "review auth module changes"
 
 # Generate tests
-wave run --pipeline test-gen --input "improve coverage for internal/cache"
+wave run test-gen "improve coverage for internal/cache"
 
 # Quick fixes
 wave do "fix typo in README"
