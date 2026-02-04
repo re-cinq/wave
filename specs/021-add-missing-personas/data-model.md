@@ -89,17 +89,10 @@ reviewer:
       - Write(artifacts/*)
       - Bash(go test*)
       - Bash(npm test*)
-      - Bash(cargo test*)
-      - Bash(pytest*)
     deny:
       - Write(*.go)
       - Write(*.ts)
-      - Write(*.py)
-      - Write(*.rs)
       - Edit(*)
-      - Bash(rm *)
-      - Bash(git push*)
-      - Bash(git commit*)
   system_prompt_file: .wave/personas/reviewer.md
 ```
 
