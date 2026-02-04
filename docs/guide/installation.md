@@ -33,11 +33,14 @@ WAVE_INSTALL_DIR=~/bin ./install.sh
 WAVE_NO_MODIFY_PATH=1 ./install.sh
 ```
 
-::: info Coming Soon
-Once the repository is public, you'll be able to install with a single command:
+#### One-liner Install
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
 ```
+
+::: warning Private Repository
+The curl one-liner only works when the repository is **public**. While the repository is private or internal, use the git clone method above.
 :::
 
 ### Manual Download
