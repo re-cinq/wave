@@ -430,11 +430,10 @@ Generate a valid WavePipeline YAML that follows these STRICT requirements:
 5. Each step should have clear dependencies when needed
 6. Use appropriate personas for each step (navigator, philosopher, implementer, reviewer)
 7. For navigator steps: Use simple, focused analysis prompts to prevent hanging
-8. Navigator steps should have limited scope and clear output requirements
-9. Prompts must explicitly instruct saving JSON output to "artifact.json"
-10. Navigator prompts must override the no-write constraint for artifact.json creation
-11. Steps that depend on previous steps MUST use inject_artifacts in their memory config to receive artifacts
-12. CRITICAL: When a step has inject_artifacts, the prompt MUST explicitly tell the persona where to find them (e.g., "Read the analysis from artifacts/analysis"). Personas cannot discover files on their own - they must be told the exact path.
+8. Navigator steps should have limited scope and clear deliverables
+9. Keep prompts SIMPLE - do NOT embed schema details or JSON output instructions (the executor injects these automatically from the contract schema)
+10. Steps that depend on previous steps MUST use inject_artifacts in their memory config to receive artifacts
+11. When a step has inject_artifacts, the prompt should mention where to find them (e.g., "Read the analysis from artifacts/analysis")
 
 CRITICAL: Output your response in the following format:
 
@@ -473,7 +472,7 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Identify key files and patterns for: {{ input }}. Output structured JSON with files, patterns, dependencies, and impact_areas. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow."
+      source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas relevant to the task."
     output_artifacts:
       - name: analysis
         path: artifact.json
@@ -496,7 +495,7 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Implement the feature based on the codebase analysis. The analysis has been injected into your workspace at artifacts/analysis - read this file first to understand the codebase structure and patterns. Task: {{ input }}"
+      source: "Read artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
     output_artifacts:
       - name: result
         path: artifact.json
