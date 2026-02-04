@@ -9,7 +9,7 @@ Wave composes personas, pipelines, contracts, and relay/compaction into a contin
 ## Architecture Principles
 
 ### Active Technologies
-- Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
+- Go 1.25+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
 - SQLite for pipeline state, filesystem for workspaces and artifacts
 
 ### Core Components
@@ -49,7 +49,10 @@ internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
+├── deliverable/  # Pipeline deliverable tracking and output
+├── display/      # Terminal progress display and formatting
 ├── event/        # Progress event emission and monitoring
+├── github/       # GitHub API integration for issue enhancement
 ├── manifest/     # Configuration loading and validation
 ├── pipeline/     # Pipeline execution and step management
 ├── relay/        # Context compaction and summarization
@@ -225,8 +228,8 @@ Follow standard Go conventions:
 - Structured events for programmatic monitoring
 
 ## Recent Changes
-- 001-yaml-first-docs: Added None (static documentation site)
-- 017-prototype-driven-development: Added Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
+- 001-yaml-first-docs: Documentation refresh with YAML-first paradigm, positional CLI args
+- 017-prototype-driven-development: Added Go 1.25+ + gopkg.in/yaml.v3, github.com/spf13/cobra
 - Phase 15: Added thread-safe event emission with mutex protection
 
 <!-- MANUAL ADDITIONS START -->
