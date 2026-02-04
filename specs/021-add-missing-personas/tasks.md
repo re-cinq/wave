@@ -29,9 +29,9 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 **Purpose**: Verify existing state and prepare for persona additions
 
-- [ ] T001 Verify current branch is `021-add-missing-personas` with `git branch --show-current`
-- [ ] T002 Run `go test ./...` to establish baseline - all tests must pass before changes
-- [ ] T003 [P] Verify `.wave/personas/` directory exists and review existing persona structure
+- [x] T001 Verify current branch is `021-add-missing-personas` with `git branch --show-current`
+- [x] T002 Run `go test ./...` to establish baseline - all tests must pass before changes
+- [x] T003 [P] Verify `.wave/personas/` directory exists and review existing persona structure
 
 ---
 
@@ -51,15 +51,15 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 ### Implementation for User Story 1
 
-- [ ] T004 [P] [US1] Create implementer system prompt at `.wave/personas/implementer.md` following craftsman pattern
-- [ ] T005 [P] [US1] Create reviewer system prompt at `.wave/personas/reviewer.md` following auditor pattern
-- [ ] T006 [US1] Add implementer persona definition to `wave.yaml` in personas section with permissions: Read, Write, Edit, Bash, Glob, Grep and deny: Bash(rm -rf /*), Bash(sudo *)
-- [ ] T007 [US1] Add reviewer persona definition to `wave.yaml` in personas section with permissions: Read, Glob, Grep, Write(artifact.json), Write(artifacts/*), Bash(go test*), Bash(npm test*) and deny: Write(*.go), Write(*.ts), Edit(*)
+- [x] T004 [P] [US1] Create implementer system prompt at `.wave/personas/implementer.md` following craftsman pattern
+- [x] T005 [P] [US1] Create reviewer system prompt at `.wave/personas/reviewer.md` following auditor pattern
+- [x] T006 [US1] Add implementer persona definition to `wave.yaml` in personas section with permissions: Read, Write, Edit, Bash, Glob, Grep and deny: Bash(rm -rf /*), Bash(sudo *)
+- [x] T007 [US1] Add reviewer persona definition to `wave.yaml` in personas section with permissions: Read, Glob, Grep, Write(artifact.json), Write(artifacts/*), Bash(go test*), Bash(npm test*) and deny: Write(*.go), Write(*.ts), Edit(*)
 
 ### Verification for User Story 1
 
-- [ ] T008 [US1] Run `wave validate` and verify no "persona not found" errors for implementer or reviewer
-- [ ] T009 [US1] Run `wave run gh-poor-issues --dry-run "test"` to verify pipeline can resolve personas
+- [x] T008 [US1] Run `wave validate` and verify no "persona not found" errors for implementer or reviewer
+- [x] T009 [US1] Run `wave run gh-poor-issues --dry-run "test"` to verify pipeline can resolve personas
 
 **Checkpoint**: User Story 1 complete - default pipelines can now resolve implementer and reviewer personas
 
@@ -73,14 +73,14 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Verify implementer in `wave.yaml` has Write permission (already added in T006 - confirm no wildcards blocking artifact.json)
-- [ ] T011 [US2] Verify reviewer in `wave.yaml` has Write(artifact.json) and Write(artifacts/*) permissions (already added in T007 - confirm pattern correctness)
-- [ ] T012 [US2] Update implementer.md Output Format section to emphasize artifact.json output for contract compatibility
-- [ ] T013 [US2] Update reviewer.md Output Format section to emphasize artifact.json output for contract compatibility
+- [x] T010 [US2] Verify implementer in `wave.yaml` has Write permission (already added in T006 - confirm no wildcards blocking artifact.json)
+- [x] T011 [US2] Verify reviewer in `wave.yaml` has Write(artifact.json) and Write(artifacts/*) permissions (already added in T007 - confirm pattern correctness)
+- [x] T012 [US2] Update implementer.md Output Format section to emphasize artifact.json output for contract compatibility
+- [x] T013 [US2] Update reviewer.md Output Format section to emphasize artifact.json output for contract compatibility
 
 ### Verification for User Story 2
 
-- [ ] T014 [US2] Review persona markdown files confirm JSON output guidance without embedded schema details
+- [x] T014 [US2] Review persona markdown files confirm JSON output guidance without embedded schema details
 
 **Checkpoint**: User Story 2 complete - personas can write artifacts for pipeline handoff
 
@@ -94,13 +94,13 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Verify implementer.md does NOT contain embedded schema details (schemas injected at runtime by executor)
-- [ ] T016 [US3] Verify reviewer.md does NOT contain embedded schema details (schemas injected at runtime by executor)
-- [ ] T017 [US3] Confirm both personas mention "schema will be injected" in Output Format section
+- [x] T015 [US3] Verify implementer.md does NOT contain embedded schema details (schemas injected at runtime by executor)
+- [x] T016 [US3] Verify reviewer.md does NOT contain embedded schema details (schemas injected at runtime by executor)
+- [x] T017 [US3] Confirm both personas mention "schema will be injected" in Output Format section
 
 ### Verification for User Story 3
 
-- [ ] T018 [US3] Run `grep -i "schema" .wave/personas/implementer.md .wave/personas/reviewer.md` and verify only references to injected schemas, not embedded ones
+- [x] T018 [US3] Run `grep -i "schema" .wave/personas/implementer.md .wave/personas/reviewer.md` and verify only references to injected schemas, not embedded ones
 
 **Checkpoint**: User Story 3 complete - personas compatible with contract validation
 
@@ -114,14 +114,14 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 ### Implementation for User Story 4
 
-- [ ] T019 [P] [US4] Copy `.wave/personas/implementer.md` to `internal/defaults/personas/implementer.md`
-- [ ] T020 [P] [US4] Copy `.wave/personas/reviewer.md` to `internal/defaults/personas/reviewer.md`
-- [ ] T021 [US4] Verify `internal/defaults/embed.go` uses `//go:embed personas/*` directive (should auto-include new files)
+- [x] T019 [P] [US4] Copy `.wave/personas/implementer.md` to `internal/defaults/personas/implementer.md`
+- [x] T020 [P] [US4] Copy `.wave/personas/reviewer.md` to `internal/defaults/personas/reviewer.md`
+- [x] T021 [US4] Verify `internal/defaults/embed.go` uses `//go:embed personas/*` directive (should auto-include new files)
 
 ### Verification for User Story 4
 
-- [ ] T022 [US4] Run `go build ./...` to verify embedded files compile correctly
-- [ ] T023 [US4] Test `wave init` in temporary directory: `mkdir /tmp/test-wave-init && cd /tmp/test-wave-init && wave init && ls .wave/personas/`
+- [x] T022 [US4] Run `go build ./...` to verify embedded files compile correctly
+- [x] T023 [US4] Test `wave init` in temporary directory: `mkdir /tmp/test-wave-init && cd /tmp/test-wave-init && wave init && ls .wave/personas/`
 
 **Checkpoint**: User Story 4 complete - wave init includes new personas
 
@@ -131,10 +131,10 @@ internal/defaults/personas/            # Embedded defaults for wave init
 
 **Purpose**: Final verification and cleanup
 
-- [ ] T024 Run full test suite: `go test ./...` and verify all tests pass
-- [ ] T025 Run `wave validate` final verification
-- [ ] T026 [P] Review all changes with `git diff` for consistency
-- [ ] T027 Commit all changes with descriptive message
+- [x] T024 Run full test suite: `go test ./...` and verify all tests pass
+- [x] T025 Run `wave validate` final verification
+- [x] T026 [P] Review all changes with `git diff` for consistency
+- [x] T027 Commit all changes with descriptive message
 
 ---
 
