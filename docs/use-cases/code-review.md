@@ -212,7 +212,7 @@ Add a JSON schema to ensure structured output:
   handover:
     contract:
       type: json_schema
-      schema: .wave/contracts/diff-analysis.schema.json
+      schema_path: .wave/contracts/diff-analysis.schema.json
       source: output/diff-analysis.json
       on_failure: retry
       max_retries: 2
@@ -222,4 +222,4 @@ Add a JSON schema to ensure structured output:
 
 - [Security Audit](/use-cases/security-audit) - Deep security analysis beyond code review
 - [Test Generation](/use-cases/test-generation) - Generate tests for uncovered code
-- [Concepts: Contracts](/guide/contracts) - Add validation to your pipelines
+- [Concepts: Contracts](/concepts/contracts) - Add validation to your pipelines
