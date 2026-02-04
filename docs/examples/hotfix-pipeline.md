@@ -149,7 +149,7 @@ steps:
 
 ```bash
 # Investigate and fix
-wave run --pipeline .wave/pipelines/hotfix.yaml \
+wave run hotfix \
   --input "Users receiving 500 error on login when email contains '+' character"
 
 # Or use ad-hoc mode for simpler fixes

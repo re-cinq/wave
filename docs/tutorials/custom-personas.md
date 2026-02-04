@@ -113,7 +113,7 @@ steps:
 
 ```bash
 wave validate --verbose
-wave run --pipeline .wave/pipelines/security-audit.yaml \
+wave run security-audit \
   --input "authentication"
 ```
 

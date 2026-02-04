@@ -3,7 +3,7 @@
 Pipeline execution transforms your YAML configuration into orchestrated AI steps. Wave handles dependency resolution, workspace isolation, and artifact passing automatically.
 
 ```bash
-wave run --pipeline code-review --input "Review auth changes"
+wave run code-review "Review auth changes"
 ```
 
 Use `wave run` when you need to execute a multi-step AI workflow with guaranteed output validation.

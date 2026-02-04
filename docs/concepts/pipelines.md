@@ -84,7 +84,7 @@ In this example, `security` and `quality` run in parallel after `navigate` compl
 ## Running Pipelines
 
 ```bash
-wave run --pipeline code-review --input "Review authentication changes"
+wave run code-review "Review authentication changes"
 ```
 
 ## Next Steps

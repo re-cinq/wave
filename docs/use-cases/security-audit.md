@@ -7,7 +7,7 @@ Perform comprehensive security analysis of your codebase. For quick security che
 For basic security review, use the built-in `code-review` pipeline:
 
 ```bash
-wave run --pipeline code-review --input "security audit of the entire codebase"
+wave run code-review "security audit of the entire codebase"
 ```
 
 Expected output:
@@ -173,7 +173,7 @@ steps:
 After saving the pipeline template above to `.wave/pipelines/security-audit.yaml`, run:
 
 ```bash
-wave run --pipeline security-audit --input "full security audit"
+wave run security-audit "full security audit"
 ```
 
 ## Example Output
@@ -225,13 +225,13 @@ and dependency management.
 ### Focus on specific areas
 
 ```bash
-wave run --pipeline security-audit --input "audit authentication and session management"
+wave run security-audit "audit authentication and session management"
 ```
 
 ### Audit specific files
 
 ```bash
-wave run --pipeline security-audit --input "security review of internal/api/ directory"
+wave run security-audit "security review of internal/api/ directory"
 ```
 
 ### Add dependency scanning

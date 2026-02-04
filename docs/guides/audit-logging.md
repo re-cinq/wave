@@ -129,7 +129,7 @@ For long-running pipelines, audit log files can grow large. Monitor disk usage i
 ```yaml
 # GitHub Actions: upload audit logs as artifacts
 - name: Run Wave pipeline
-  run: wave run --pipeline flow.yaml --input "deploy"
+  run: wave run flow.yaml "deploy"
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
