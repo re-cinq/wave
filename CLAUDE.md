@@ -211,6 +211,13 @@ Follow standard Go conventions:
 - Keep functions focused and testable
 - Use interfaces for dependency injection
 
+## Git Commits
+
+- **No Co-Authored-By** - Never include Co-Authored-By lines in commit messages
+- **No AI attribution** - Do not add "Generated with Claude Code" or similar attribution
+- Keep commit messages concise and focused on the change
+- Use conventional commit prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+
 ## Debugging
 - Use `--debug` flag for detailed execution logging
 - Check `.wave/traces/` for audit logs
