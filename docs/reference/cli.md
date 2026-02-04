@@ -479,19 +479,6 @@ All commands support:
 
 ---
 
-## Shell Completion
-
-```bash
-# Bash
-wave completion bash > /etc/bash_completion.d/wave
-
-# Zsh
-wave completion zsh > "${fpath[1]}/_wave"
-
-# Fish
-wave completion fish > ~/.config/fish/completions/wave.fish
-```
-
 ## Next Steps
 
 - [Quickstart](/quickstart) - Run your first pipeline

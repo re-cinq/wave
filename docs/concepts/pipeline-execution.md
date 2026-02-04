@@ -183,7 +183,7 @@ After step completion, Wave validates outputs:
 ```yaml
 handover:
   contract:
-    type: jsonschema
+    type: json_schema
     schema_path: .wave/contracts/review.schema.json
     on_failure: retry
     max_retries: 2

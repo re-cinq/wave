@@ -119,7 +119,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .wave/contracts/pipeline.schema.json
+        schema_path: .wave/contracts/pipeline.schema.json
         source: output/pipeline.yaml
         on_failure: retry
         max_retries: 2

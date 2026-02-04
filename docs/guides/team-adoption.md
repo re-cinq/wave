@@ -246,7 +246,7 @@ When you need consistent output format:
 ```yaml
 handover:
   contract:
-    type: jsonschema
+    type: json_schema
     schema_path: .wave/contracts/review.schema.json
 ```
 

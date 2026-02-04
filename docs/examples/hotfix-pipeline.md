@@ -59,7 +59,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: |
+        schema_path: |
           {
             "type": "object",
             "required": ["root_cause", "affected_files", "fix_approach"],
