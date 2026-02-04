@@ -732,14 +732,15 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 		// Inject schema guidance if available and safe
 		if schemaContent != "" && err == nil {
-			prompt += "\n\nCRITICAL: Your response must be valid JSON that exactly matches this schema:\n```json\n"
+			prompt += "\n\nOUTPUT REQUIREMENTS:\n"
+			prompt += "After completing all required tool calls (Bash, Read, Write, etc.), save your final output to artifact.json.\n"
+			prompt += "The artifact.json must be valid JSON matching this schema:\n```json\n"
 			prompt += schemaContent
 			prompt += "\n```\n\n"
 			prompt += "IMPORTANT:\n"
-			prompt += "- Output ONLY the raw JSON in your response (no markdown, no explanations)\n"
-			prompt += "- Ensure the JSON is valid and matches every required field in the schema\n"
-			prompt += "- Start your response with { or [ and end with } or ]\n"
-			prompt += "- Do NOT include any comments or explanatory text\n"
+			prompt += "- First, execute any tool calls needed to gather data\n"
+			prompt += "- Then, use the Write tool to save valid JSON to artifact.json\n"
+			prompt += "- The JSON must match every required field in the schema\n"
 		}
 	}
 
