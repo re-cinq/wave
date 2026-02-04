@@ -264,7 +264,9 @@ personas:
       deny: [Write(*), Edit(*)]
 ```
 
-9 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`, `github-analyst`, `github-enhancer`
+**10 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
+
+> Explore all personas in [`.wave/personas/`](.wave/personas/)
 
 ### Pipelines — DAG Workflows
 
@@ -280,7 +282,9 @@ steps:
     dependencies: [implement]
 ```
 
-9 built-in pipelines: `speckit-flow`, `hotfix`, `code-review`, `refactor`, `debug`, `test-gen`, `docs`, `plan`, `migrate`
+**16 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+
+> Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
 ### Contracts — Validated Handoffs
 
@@ -290,33 +294,49 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
+A selection of the 16 built-in pipelines:
+
 ### Development
 
-| Pipeline | Flow | Use Case |
-|----------|------|----------|
-| `speckit-flow` | navigate → specify → plan → implement → review | Feature development |
-| `hotfix` | investigate → fix → verify | Production bugs |
-| `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
+| Pipeline | Description |
+|----------|-------------|
+| `speckit-flow` | Specification-driven feature development |
+| `hotfix` | Quick investigation and fix for production issues |
+| `refactor` | Safe refactoring with comprehensive test coverage |
+| `prototype` | Prototype-driven development (spec → docs → dummy → implement → pr) |
 
-### Quality
+### Quality & Debugging
 
-| Pipeline | Flow | Use Case |
-|----------|------|----------|
-| `code-review` | diff → security + quality → summary | PR reviews |
-| `test-gen` | analyze-coverage → generate → verify | Test coverage |
-| `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+| Pipeline | Description |
+|----------|-------------|
+| `code-review` | Comprehensive code review for pull requests |
+| `test-gen` | Generate comprehensive test coverage |
+| `debug` | Systematic debugging with hypothesis testing |
 
-### Planning & Docs
+### Planning & Documentation
 
-| Pipeline | Flow | Use Case |
-|----------|------|----------|
-| `plan` | explore → breakdown → review | Task planning |
-| `docs` | discover → generate → review | Documentation |
-| `migrate` | impact → plan → implement → review | Migrations |
+| Pipeline | Description |
+|----------|-------------|
+| `plan` | Break down a feature into actionable tasks |
+| `docs` | Generate or update documentation |
+| `migrate` | Database or API migration with rollback plan |
+
+### GitHub Automation
+
+| Pipeline | Description |
+|----------|-------------|
+| `github-issue-enhancer` | Analyze and enhance poorly documented issues |
+| `doc-loop` | Documentation impact analysis before merge |
+
+> **More pipelines:** `hello-world`, `smoke-test`, `gh-poor-issues`, `umami`
+>
+> Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
 ---
 
 ## Personas
+
+A selection of the 10 built-in personas:
 
 | Persona | Temp | Purpose | Key Permissions |
 |---------|------|---------|--------------------|
@@ -327,8 +347,10 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 | `debugger` | 0.2 | Root cause analysis | Read + git bisect |
 | `auditor` | 0.1 | Security review | Read + audit tools |
 | `summarizer` | 0.0 | Context compaction | Read-only |
-| `github-analyst` | 0.1 | GitHub issue analysis | Read + Bash |
-| `github-enhancer` | 0.3 | GitHub issue enhancement | Read + Write + Bash |
+
+> **More personas:** `github-analyst`, `github-enhancer`, `github-pr-creator`
+>
+> Explore all in [`.wave/personas/`](.wave/personas/)
 
 ---
 
