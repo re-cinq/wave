@@ -1,23 +1,24 @@
 <!--
   Sync Impact Report
-  Version change: 1.0.0 → 2.0.0 (MAJOR: backward-incompatible principle redefinition)
-  Added sections: None
-  Modified principles: Principle 1 (Single Binary, Zero Dependencies → Single Binary, Minimal Dependencies)
-  Removed sections: None
-  Rationale: Allow essential UI/UX libraries (e.g., Bubble Tea) for enhanced user experience
-             while maintaining single binary deployment model
-  Templates requiring updates:
-    - .specify/templates/plan-template.md: ✅ compatible (Constitution Check section exists)
-    - .specify/templates/spec-template.md: ✅ compatible (no changes needed)
-    - .specify/templates/tasks-template.md: ✅ compatible (no changes needed)
-  Follow-up TODOs: Update PR #14 to reference constitutional amendment
+  Version change: 2.0.0 → 2.1.0 (MINOR: new principle added)
+  Added sections:
+    - Project Phase: Rapid Prototype (establishes prototype-first mindset)
+    - Principle 13: Test Ownership for Core Primitives
+  Modified sections:
+    - Governance/Amendment Procedure (simplified for prototype phase)
+  Rationale: Enable rapid iteration by removing backward compatibility constraints
+             and making tests the primary validation mechanism. Changes to core
+             primitives (personas, pipelines, contracts, meta-pipelines) require
+             full test suite validation. Hypothesis: non-deterministic systems
+             can act predictably with the right guardrails.
+  Templates requiring updates: None (no structural changes)
 -->
 
 # Wave Project Constitution
 
-**Version**: 2.0.0
+**Version**: 2.1.0
 **Ratification Date**: 2026-02-01
-**Last Amended**: 2026-02-03
+**Last Amended**: 2026-02-04
 **Project**: Wave — Multi-agent orchestrator wrapping LLM CLIs
 
 ## Preamble
@@ -27,6 +28,18 @@ and other LLM CLIs via subprocess. It composes personas, pipelines,
 contracts, and relay/compaction into a continuous development system.
 This constitution defines the non-negotiable principles governing all
 design, implementation, and operational decisions.
+
+## Project Phase: Rapid Prototype
+
+**Hypothesis**: Non-deterministic systems can act predictably with
+the right guardrails — enough structure to ensure correctness, not
+so much that iteration slows to a crawl.
+
+During prototype phase:
+- **Move fast** — Backward compatibility is NOT a constraint
+- **Tests are the contract** — If tests pass, the change is valid
+- **Primitives are load-bearing** — Changes to personas, pipelines,
+  contracts, or meta-pipelines require extra care (see Test Ownership)
 
 ## Principle 1: Single Binary, Minimal Dependencies
 
@@ -187,18 +200,36 @@ Pipeline steps transition through exactly 5 states:
   use the same retry mechanism as contract failures.
 - No additional states may be added without a constitution amendment.
 
+## Principle 13: Test Ownership for Core Primitives
+
+Changes to **personas**, **pipelines**, **contracts**, or **meta-pipelines**
+MUST pass all existing tests. A failing test is the immediate concern of
+whoever caused it.
+
+- Before merging: `go test ./...` MUST pass
+- If a test fails after your change, you own fixing it or deleting it
+  (with justification)
+- No "skip this for now" — broken tests block the work
+- CI/pre-commit hooks SHOULD enforce this automatically
+- When modifying core primitives, run the full test suite, not just
+  the package you touched
+
+This ensures we can move fast without accumulating broken windows.
+Tests are our guardrails — they prove the hypothesis that
+non-deterministic systems can behave predictably.
+
 ## Governance
 
-### Amendment Procedure
+### Amendment Procedure (Prototype Phase)
 
-1. Propose amendment as a pull request modifying this file.
-2. Amendment MUST include rationale and impact analysis.
-3. All dependent templates MUST be updated in the same PR.
-4. Version MUST be incremented per semantic versioning:
-   - MAJOR: Principle removal or backward-incompatible redefinition.
-   - MINOR: New principle added or existing principle materially
-     expanded.
-   - PATCH: Clarification, wording fix, non-semantic refinement.
+During prototype phase, amendments are lightweight:
+
+1. Propose amendment as a commit or PR modifying this file.
+2. Include a brief rationale (one sentence is fine).
+3. Bump the version (MAJOR/MINOR/PATCH as appropriate).
+4. Ensure tests pass — that's the real validation.
+
+Post-prototype, we may add heavier governance. For now, velocity wins.
 
 ### Compliance Review
 
