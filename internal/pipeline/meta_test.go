@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -1343,5 +1344,310 @@ func createTestMetaManifest() *manifest.Manifest {
 				MaxTotalTokens: 100000,
 			},
 		},
+	}
+}
+
+// =============================================================================
+// Tests for buildPhilosopherPrompt - Issue #24 fix verification
+// =============================================================================
+
+// TestBuildPhilosopherPrompt_NoEmbeddedSchemaInstructions verifies that the
+// generated prompt does NOT contain embedded schema instructions that would
+// cause LLMs to redundantly embed schema details in their prompts.
+// This is the fix for issue #24.
+func TestBuildPhilosopherPrompt_NoEmbeddedSchemaInstructions(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	// These patterns indicate bad instructions that embed schema details
+	badPatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{
+			pattern:     "Your output must be a JSON object",
+			description: "should not instruct to output JSON in specific format",
+		},
+		{
+			pattern:     "output the following JSON structure",
+			description: "should not prescribe JSON structure in prompt",
+		},
+		{
+			pattern:     "must include these fields:",
+			description: "should not list required fields in prompt",
+		},
+		{
+			pattern:     "JSON with the following schema",
+			description: "should not embed schema in prompt instructions",
+		},
+		{
+			pattern:     "save the JSON to",
+			description: "should not instruct about file saving (executor handles this)",
+		},
+		{
+			pattern:     "Write the output to artifact.json",
+			description: "should not have verbose artifact instructions",
+		},
+	}
+
+	for _, bp := range badPatterns {
+		if strings.Contains(strings.ToLower(prompt), strings.ToLower(bp.pattern)) {
+			t.Errorf("prompt contains bad pattern: %q - %s", bp.pattern, bp.description)
+		}
+	}
+}
+
+// TestBuildPhilosopherPrompt_HasSchemaDecouplingInstruction verifies that
+// instruction 9 tells the LLM NOT to embed schema details. This is critical
+// for issue #24 - the executor injects these automatically.
+func TestBuildPhilosopherPrompt_HasSchemaDecouplingInstruction(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	// Instruction 9 should tell LLM not to embed schema details
+	requiredInstructionParts := []string{
+		"do NOT embed schema details",
+		"executor injects these automatically",
+	}
+
+	for _, part := range requiredInstructionParts {
+		if !strings.Contains(prompt, part) {
+			t.Errorf("prompt missing critical instruction part: %q", part)
+		}
+	}
+
+	// The instruction should be numbered (9.)
+	if !strings.Contains(prompt, "9.") {
+		t.Error("prompt should have numbered instruction 9 about schema decoupling")
+	}
+
+	// Verify the instruction is about keeping prompts simple
+	if !strings.Contains(prompt, "Keep prompts SIMPLE") {
+		t.Error("instruction 9 should emphasize keeping prompts simple")
+	}
+}
+
+// TestBuildPhilosopherPrompt_ExamplePromptsAreSimple verifies that the example
+// prompts in the philosopher prompt are simple and follow the pattern of
+// working pipelines (like hotfix.yaml, hello-world.yaml).
+func TestBuildPhilosopherPrompt_ExamplePromptsAreSimple(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	// Find the "Example response format:" section which contains the actual example
+	// The prompt has two "--- PIPELINE ---" markers - one for format description
+	// (with placeholder text) and one in the actual example.
+	exampleStart := strings.Index(prompt, "Example response format:")
+	if exampleStart == -1 {
+		t.Fatal("prompt should contain 'Example response format:' section")
+	}
+
+	exampleSection := prompt[exampleStart:]
+
+	// Good patterns from working pipelines - simple prompts
+	goodPatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{
+			pattern:     "source:",
+			description: "example should have exec.source field",
+		},
+		{
+			pattern:     "{{ input }}",
+			description: "example should use input template variable",
+		},
+	}
+
+	for _, gp := range goodPatterns {
+		if !strings.Contains(exampleSection, gp.pattern) {
+			t.Errorf("example section missing good pattern: %q - %s", gp.pattern, gp.description)
+		}
+	}
+
+	// The example prompts should NOT contain verbose JSON instructions
+	badExamplePatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{
+			pattern:     "Save the JSON",
+			description: "example prompt should not mention saving JSON",
+		},
+		{
+			pattern:     "output exactly this JSON",
+			description: "example should not prescribe exact JSON format",
+		},
+		{
+			pattern:     "Your response must be",
+			description: "example should not be prescriptive about format",
+		},
+	}
+
+	for _, bp := range badExamplePatterns {
+		if strings.Contains(exampleSection, bp.pattern) {
+			t.Errorf("example section contains bad pattern: %q - %s", bp.pattern, bp.description)
+		}
+	}
+}
+
+// TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern verifies that the
+// example prompts follow the same pattern as working pipelines in the codebase.
+func TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	// Working pipelines have these characteristics:
+	// 1. Simple, task-focused prompts
+	// 2. Use inject_artifacts for step communication
+	// 3. Reference artifacts by path (e.g., "Read artifacts/analysis")
+	// 4. Don't embed schema details in prompts
+
+	// Check for inject_artifacts pattern
+	if !strings.Contains(prompt, "inject_artifacts") {
+		t.Error("prompt should demonstrate inject_artifacts for step communication")
+	}
+
+	// Check for artifact reference pattern (like in hotfix.yaml)
+	if !strings.Contains(prompt, "artifacts/") {
+		t.Error("prompt should show how to reference injected artifacts")
+	}
+
+	// Check that the example has fresh memory strategy (required pattern)
+	if !strings.Contains(prompt, "strategy: fresh") {
+		t.Error("prompt should show fresh memory strategy")
+	}
+
+	// Check that handover.contract pattern is shown
+	if !strings.Contains(prompt, "handover:") || !strings.Contains(prompt, "contract:") {
+		t.Error("prompt should demonstrate handover.contract configuration")
+	}
+}
+
+// TestBuildPhilosopherPrompt_TaskAndDepthAreIncluded verifies the prompt
+// correctly includes the task and depth parameters.
+func TestBuildPhilosopherPrompt_TaskAndDepthAreIncluded(t *testing.T) {
+	tests := []struct {
+		task  string
+		depth int
+	}{
+		{"implement feature X", 0},
+		{"fix bug in module Y", 1},
+		{"refactor authentication", 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.task, func(t *testing.T) {
+			prompt := buildPhilosopherPrompt(tt.task, tt.depth)
+
+			if !strings.Contains(prompt, tt.task) {
+				t.Errorf("prompt should contain task: %q", tt.task)
+			}
+
+			expectedDepth := fmt.Sprintf("CURRENT DEPTH: %d", tt.depth)
+			if !strings.Contains(prompt, expectedDepth) {
+				t.Errorf("prompt should contain depth: %q", expectedDepth)
+			}
+		})
+	}
+}
+
+// TestBuildPhilosopherPrompt_RequiredInstructionsPresent verifies all required
+// instructions are present in the prompt.
+func TestBuildPhilosopherPrompt_RequiredInstructionsPresent(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	requiredInstructions := []struct {
+		number      string
+		keyContent  string
+		description string
+	}{
+		{"1.", "navigator", "first step must use navigator"},
+		{"2.", "fresh", "all steps must use fresh memory"},
+		{"3.", "handover.contract", "all steps must have contract"},
+		{"4.", "output_artifacts", "json_schema steps need artifacts"},
+		{"5.", "dependencies", "clear dependencies"},
+		{"6.", "personas", "appropriate personas"},
+		{"7.", "simple", "simple focused prompts"},
+		{"8.", "limited scope", "navigator limited scope"},
+		{"9.", "do NOT embed schema", "don't embed schema in prompts"},
+		{"10.", "inject_artifacts", "use inject_artifacts"},
+		{"11.", "artifacts/", "mention artifact paths"},
+	}
+
+	for _, ri := range requiredInstructions {
+		if !strings.Contains(prompt, ri.number) {
+			t.Errorf("prompt missing instruction %s: %s", ri.number, ri.description)
+			continue
+		}
+
+		// Check the instruction number exists and its key content is nearby
+		idx := strings.Index(prompt, ri.number)
+		// Look within 500 chars of the instruction number
+		searchEnd := idx + 500
+		if searchEnd > len(prompt) {
+			searchEnd = len(prompt)
+		}
+		section := strings.ToLower(prompt[idx:searchEnd])
+		keyLower := strings.ToLower(ri.keyContent)
+
+		if !strings.Contains(section, keyLower) {
+			t.Errorf("instruction %s should mention %q (%s)", ri.number, ri.keyContent, ri.description)
+		}
+	}
+}
+
+// TestBuildPhilosopherPrompt_SchemaRequirementsSection verifies the SCHEMA
+// REQUIREMENTS section is present and contains best practices.
+func TestBuildPhilosopherPrompt_SchemaRequirementsSection(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	if !strings.Contains(prompt, "SCHEMA REQUIREMENTS:") {
+		t.Fatal("prompt should have SCHEMA REQUIREMENTS section")
+	}
+
+	// Essential schema requirements that should be present
+	requirements := []string{
+		"JSON Schema Draft 07",
+		"$schema",
+		"required",
+		"description",
+		"properties",
+	}
+
+	for _, req := range requirements {
+		if !strings.Contains(prompt, req) {
+			t.Errorf("SCHEMA REQUIREMENTS should mention: %q", req)
+		}
+	}
+}
+
+// TestBuildPhilosopherPrompt_ExampleSchemaIsComplete verifies the example
+// schema in the prompt is a valid, complete JSON Schema.
+func TestBuildPhilosopherPrompt_ExampleSchemaIsComplete(t *testing.T) {
+	prompt := buildPhilosopherPrompt("test task", 0)
+
+	// Find the example schema section
+	schemasStart := strings.Index(prompt, "--- SCHEMAS ---")
+	if schemasStart == -1 {
+		t.Fatal("prompt should have SCHEMAS section")
+	}
+
+	schemaSection := prompt[schemasStart:]
+
+	// The example schema should have key JSON Schema fields
+	schemaFields := []string{
+		`"$schema"`,
+		`"type": "object"`,
+		`"required"`,
+		`"properties"`,
+		`"description"`,
+	}
+
+	for _, field := range schemaFields {
+		if !strings.Contains(schemaSection, field) {
+			t.Errorf("example schema should contain: %s", field)
+		}
+	}
+
+	// Should not have incomplete/vague schemas
+	if strings.Contains(schemaSection, `"type": "object"}`) && !strings.Contains(schemaSection, `"properties"`) {
+		t.Error("example schema should not be vague - must define properties")
 	}
 }
