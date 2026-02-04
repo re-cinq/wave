@@ -229,12 +229,19 @@ func runRun(opts RunOptions, debug bool) error {
 		defer btpd.Finish()
 	}
 
-	if err := executor.Execute(execCtx, p, &m, opts.Input); err != nil {
+	var execErr error
+	if opts.FromStep != "" {
+		// Resume from specific step - uses ResumeWithValidation which handles artifacts
+		execErr = executor.ResumeWithValidation(execCtx, p, &m, opts.Input, opts.FromStep)
+	} else {
+		execErr = executor.Execute(execCtx, p, &m, opts.Input)
+	}
+	if execErr != nil {
 		// Clear progress display before showing error
 		if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
 			btpd.Clear()
 		}
-		return fmt.Errorf("pipeline execution failed: %w", err)
+		return fmt.Errorf("pipeline execution failed: %w", execErr)
 	}
 
 	elapsed := time.Since(pipelineStart)

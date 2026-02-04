@@ -1,3 +1,9 @@
+//go:build integration
+// +build integration
+
+// Integration tests for prototype dummy phase.
+// Run with: go test -tags=integration ./internal/pipeline/...
+
 package pipeline
 
 import (
@@ -33,17 +39,25 @@ func TestPrototypeDummyPhaseInitialization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup test environment
-			tempDir := t.TempDir()
-
-			// Create test manifest
+			// Create test manifest and load pipeline BEFORE changing directory
 			testManifest := createPrototypeTestManifest()
-
-			// Load prototype pipeline
 			pipeline, err := loadTestPrototypePipeline()
 			if err != nil {
 				t.Fatalf("Failed to load prototype pipeline: %v", err)
 			}
+
+			// Change to project root for schema file access during execution
+			originalWd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chdir("../.."); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chdir(originalWd)
+
+			// Setup test environment
+			tempDir := t.TempDir()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()

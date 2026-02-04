@@ -283,12 +283,12 @@ func TestFormatStepDuration(t *testing.T) {
 		{
 			name:     "seconds",
 			duration: 5 * time.Second,
-			want:     "5.0s",
+			want:     "5s",
 		},
 		{
 			name:     "minutes and seconds",
 			duration: 90 * time.Second,
-			want:     "1m30s",
+			want:     "1m 30s",
 		},
 	}
 

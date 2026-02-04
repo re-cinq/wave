@@ -266,18 +266,18 @@ func (f *Formatter) FormatDuration(durationMs int64) string {
 	}
 
 	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
+		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
 
 	if d < time.Hour {
 		minutes := int(d.Minutes())
 		seconds := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%ds", minutes, seconds)
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
 	}
 
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%dm", hours, minutes)
+	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 
 // FormatETA formats estimated time remaining.
@@ -525,16 +525,16 @@ func FormatDuration(durationMs int64) string {
 	}
 
 	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
+		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
 
 	if d < time.Hour {
 		minutes := int(d.Minutes())
 		seconds := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%ds", minutes, seconds)
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
 	}
 
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%dm", hours, minutes)
+	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
