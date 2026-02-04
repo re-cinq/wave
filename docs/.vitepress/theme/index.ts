@@ -25,6 +25,9 @@ import YamlPlayground from './components/YamlPlayground.vue'
 // Use Case Discovery Components
 import UseCaseGallery from './components/UseCaseGallery.vue'
 
+// Navigation Components
+import Breadcrumb from './components/Breadcrumb.vue'
+
 // Plugins
 import { setupCopyCode, injectCopyCodeStyles } from '../plugins/copy-code'
 
@@ -49,6 +52,9 @@ export default {
 
     // Register use case discovery components
     app.component('UseCaseGallery', UseCaseGallery)
+
+    // Register navigation components
+    app.component('Breadcrumb', Breadcrumb)
   },
   setup() {
     // Client-side only setup
