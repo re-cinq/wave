@@ -39,9 +39,11 @@ Wave composes personas, pipelines, contracts, and relay/compaction into a contin
 ### Critical Constraints
 1. **Single static binary** - No runtime dependencies except adapter binaries
 2. **Constitutional compliance** - All changes must align with Wave constitution
-3. **Backward compatibility** - Never break existing manifests or APIs
+3. **Test ownership** - Every failing test is the concern of the worker who caused it. Fix or delete (with justification), never ignore. Changes to personas, pipelines, contracts, or meta-pipelines require running the full test suite.
 4. **Security first** - All inputs validated, paths sanitized, permissions enforced
 5. **Observable execution** - Structured progress events for monitoring
+
+**Note**: Backward compatibility is NOT a constraint during prototype phase. We move fast and let tests catch regressions.
 
 ### File Structure
 ```
@@ -91,6 +93,19 @@ tests/            # Comprehensive test coverage
 - **Security tests** for validation and sanitization
 - **Race condition testing** with `-race` flag
 - **Performance tests** for critical paths
+
+### Test Ownership (Prototype Discipline)
+
+**Hypothesis**: Non-deterministic systems can act predictably with the right guardrails.
+
+Tests ARE those guardrails. When you change core primitives (personas, pipelines, contracts, meta-pipelines):
+
+1. Run `go test ./...` before committing
+2. If tests fail, YOU own fixing them — not "someone later"
+3. Delete tests only with clear justification (outdated, wrong assumption)
+4. No `t.Skip()` without a linked issue
+
+This lets us move fast while maintaining confidence that Wave actually works.
 
 ### Constitutional Compliance
 All development must comply with the Wave Constitution:
