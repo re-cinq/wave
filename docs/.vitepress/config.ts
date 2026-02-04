@@ -4,7 +4,21 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Wave',
-    description: 'Infrastructure as Code for AI - Define reproducible AI workflows with declarative configuration',
+    description: 'AI Pipelines as Code - Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.',
+
+    head: [
+      ['meta', { name: 'keywords', content: 'AI, pipelines, orchestration, LLM, Claude, automation, YAML, DevOps' }],
+      ['meta', { name: 'author', content: 'Michael W. Czechowski' }],
+      ['meta', { property: 'og:title', content: 'Wave - AI Pipelines as Code' }],
+      ['meta', { property: 'og:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:image', content: '/og-image.png' }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:title', content: 'Wave - AI Pipelines as Code' }],
+      ['meta', { name: 'twitter:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
+    ],
+
     themeConfig: {
       logo: '/logo.svg',
       nav: [
@@ -65,7 +79,8 @@ export default withMermaid(
             { text: 'Compliance', link: '/trust-center/compliance' },
             { text: 'Audit Logging', link: '/trust-center/audit-logging' }
           ]
-        }
+        },
+        { text: 'Changelog', link: '/changelog' }
       ],
       sidebar: {
         '/use-cases/': [
@@ -98,7 +113,8 @@ export default withMermaid(
           {
             text: 'Getting Started',
             items: [
-              { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' }
+              { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+              { text: 'Custom Personas', link: '/guides/custom-personas' }
             ]
           },
           {
