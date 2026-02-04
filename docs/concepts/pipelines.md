@@ -1,6 +1,6 @@
 # Pipelines
 
-A pipeline is a multi-step AI workflow where each step runs one persona in an isolated workspace.
+A pipeline is a multi-step AI workflow where each step runs one persona in an isolated workspace. Pipelines enable complex AI workflows by breaking tasks into focused steps with clear boundaries.
 
 ```yaml
 kind: WavePipeline
@@ -11,14 +11,26 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze: {{ input }}"
+      source: "Analyze: {% raw %}{{ input }}{% endraw %}"
 ```
 
 Use pipelines when you need coordinated AI tasks that build on each other's outputs.
 
-## Adding Dependencies
+## Pipeline Structure
 
-Steps can depend on other steps. Dependencies run first, and their artifacts are available to dependent steps.
+Every pipeline has three main sections:
+
+| Section | Purpose |
+|---------|---------|
+| `metadata` | Name, description, and pipeline identity |
+| `input` | How the pipeline receives its input |
+| `steps` | The sequence of AI tasks to execute |
+
+## Dependency Patterns
+
+### Linear Dependencies
+
+Steps execute in sequence when dependencies are specified:
 
 ```yaml
 steps:
@@ -26,7 +38,7 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze the codebase for: {{ input }}"
+      source: "Analyze the codebase for: {% raw %}{{ input }}{% endraw %}"
     output_artifacts:
       - name: analysis
         path: output/analysis.json
@@ -45,9 +57,9 @@ steps:
       source: "Implement based on the analysis."
 ```
 
-## Parallel Execution
+### Parallel Execution (Fan-Out)
 
-Steps without mutual dependencies run in parallel:
+Steps without mutual dependencies run in parallel. This pattern is useful when you need multiple perspectives on the same input:
 
 ```yaml
 steps:
@@ -55,41 +67,286 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze: {{ input }}"
+      source: "Analyze: {% raw %}{{ input }}{% endraw %}"
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
 
   - id: security
     persona: auditor
     dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: context
     exec:
       type: prompt
       source: "Security review"
+    output_artifacts:
+      - name: findings
+        path: output/security.md
+        type: markdown
 
   - id: quality
     persona: auditor
     dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: context
     exec:
       type: prompt
       source: "Quality review"
-
-  - id: summary
-    persona: navigator
-    dependencies: [security, quality]
-    exec:
-      type: prompt
-      source: "Summarize all findings"
+    output_artifacts:
+      - name: findings
+        path: output/quality.md
+        type: markdown
 ```
 
 In this example, `security` and `quality` run in parallel after `navigate` completes.
 
+### Convergence (Fan-In)
+
+Multiple parallel steps can feed into a single summary step:
+
+```yaml
+steps:
+  # ... parallel steps above ...
+
+  - id: summary
+    persona: summarizer
+    dependencies: [security, quality]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: security
+          artifact: findings
+          as: security_report
+        - step: quality
+          artifact: findings
+          as: quality_report
+    exec:
+      type: prompt
+      source: "Synthesize all findings into a final report"
+```
+
+### Dependency Visualization
+
+The following diagram shows how dependencies create the execution flow:
+
+```mermaid
+flowchart TD
+  navigate[navigate<br/><small>navigator</small>]
+  security[security<br/><small>auditor</small>]
+  quality[quality<br/><small>auditor</small>]
+  summary[summary<br/><small>summarizer</small>]
+
+  navigate --> security
+  navigate --> quality
+  security --> summary
+  quality --> summary
+
+  navigate -.->|"analysis"| security
+  navigate -.->|"analysis"| quality
+  security -.->|"findings"| summary
+  quality -.->|"findings"| summary
+
+  style navigate fill:#4a90d9,color:#fff
+  style security fill:#d94a4a,color:#fff
+  style quality fill:#d94a4a,color:#fff
+  style summary fill:#9a4ad9,color:#fff
+```
+
+## Artifact Patterns
+
+Artifacts are the primary mechanism for passing data between steps.
+
+### Producing Artifacts
+
+Declare what a step outputs:
+
+```yaml
+output_artifacts:
+  - name: analysis        # Artifact identifier
+    path: output/data.json  # Where the step writes it
+    type: json             # Type hint for consumers
+```
+
+### Consuming Artifacts
+
+Inject artifacts from previous steps:
+
+```yaml
+memory:
+  strategy: fresh
+  inject_artifacts:
+    - step: analyze      # Source step
+      artifact: analysis  # Artifact name
+      as: context         # Mount name in workspace
+```
+
+The artifact appears at `artifacts/<as-name>` in the step's workspace.
+
+### Artifact Types
+
+| Type | Description | Best For |
+|------|-------------|----------|
+| `json` | Structured data | Analysis results, configs |
+| `markdown` | Formatted text | Reports, documentation |
+| `file` | Single file | Code, configs |
+| `directory` | Folder | Multiple files, assets |
+
+### Multi-Artifact Injection
+
+A step can consume multiple artifacts:
+
+```yaml
+memory:
+  strategy: fresh
+  inject_artifacts:
+    - step: analyze
+      artifact: code_analysis
+      as: code
+    - step: security
+      artifact: findings
+      as: security
+    - step: quality
+      artifact: findings
+      as: quality
+```
+
+All artifacts are available under `artifacts/`:
+- `artifacts/code`
+- `artifacts/security`
+- `artifacts/quality`
+
+## Memory Strategies
+
+Control how context flows between steps:
+
+| Strategy | Behavior | Use When |
+|----------|----------|----------|
+| `fresh` | Clean slate, only injected artifacts | Most cases (recommended) |
+| `inherit` | Carry forward previous context | Continuation tasks |
+
+Fresh memory is recommended to prevent context pollution and ensure reproducible results.
+
 ## Running Pipelines
+
+Execute a pipeline with input:
 
 ```bash
 wave run code-review "Review authentication changes"
+```
+
+Check pipeline status:
+
+```bash
+wave status code-review
+```
+
+View artifacts from a run:
+
+```bash
+wave artifacts <run-id>
+```
+
+## Complete Example
+
+A production-ready code review pipeline:
+
+```yaml
+kind: WavePipeline
+metadata:
+  name: code-review
+  description: "Multi-perspective code review with security and quality checks"
+
+input:
+  source: cli
+
+steps:
+  - id: diff-analysis
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the changes: {% raw %}{{ input }}{% endraw %}
+        Output as JSON with files, modules, and breaking changes.
+    output_artifacts:
+      - name: diff
+        path: output/diff.json
+        type: json
+
+  - id: security-review
+    persona: auditor
+    dependencies: [diff-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: "Review artifacts/changes for security vulnerabilities"
+    output_artifacts:
+      - name: security
+        path: output/security.md
+        type: markdown
+
+  - id: quality-review
+    persona: auditor
+    dependencies: [diff-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: "Review artifacts/changes for code quality issues"
+    output_artifacts:
+      - name: quality
+        path: output/quality.md
+        type: markdown
+
+  - id: final-verdict
+    persona: summarizer
+    dependencies: [security-review, quality-review]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: security-review
+          artifact: security
+          as: security_findings
+        - step: quality-review
+          artifact: quality
+          as: quality_findings
+    exec:
+      type: prompt
+      source: |
+        Synthesize findings into: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
+    output_artifacts:
+      - name: verdict
+        path: output/verdict.md
+        type: markdown
 ```
 
 ## Next Steps
 
 - [Personas](/concepts/personas) - Configure the AI agents that run in each step
 - [Contracts](/concepts/contracts) - Validate step outputs before handover
-- [Artifacts](/concepts/artifacts) - Pass data between pipeline steps
+- [Artifacts](/concepts/artifacts) - Deep dive into artifact passing
+- [Pipeline Configuration Guide](/guides/pipeline-configuration) - Step-by-step configuration guide
 - [Pipeline Schema Reference](/reference/pipeline-schema) - Complete field reference
