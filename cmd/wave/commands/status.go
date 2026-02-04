@@ -401,22 +401,6 @@ func scanRuns(rows *sql.Rows) ([]StatusRunInfo, error) {
 	return runs, nil
 }
 
-// formatElapsed formats a duration as "1m23s" or "1h23m".
-func formatElapsed(d time.Duration) string {
-	if d < 0 {
-		d = -d
-	}
-
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	seconds := int(d.Seconds()) % 60
-
-	if hours > 0 {
-		return fmt.Sprintf("%dh%dm", hours, minutes)
-	}
-	return fmt.Sprintf("%dm%ds", minutes, seconds)
-}
-
 // statusColor returns the ANSI color code for a status.
 func statusColor(status string) string {
 	switch status {
@@ -432,5 +416,3 @@ func statusColor(status string) string {
 		return ""
 	}
 }
-
-// truncateString is defined in resume.go

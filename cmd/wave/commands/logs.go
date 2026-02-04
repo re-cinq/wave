@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -535,46 +534,8 @@ func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
 	return id
 }
 
-// parseSinceDuration parses duration strings like "10m", "1h", "2d".
-func parseSinceDuration(s string) (time.Duration, error) {
-	if s == "" {
-		return 0, nil
-	}
-
-	// Check for day suffix (not supported by time.ParseDuration)
-	dayRegex := regexp.MustCompile(`^(\d+)d(.*)$`)
-	if matches := dayRegex.FindStringSubmatch(s); len(matches) == 3 {
-		days, err := strconv.Atoi(matches[1])
-		if err != nil {
-			return 0, fmt.Errorf("invalid days value: %s", matches[1])
-		}
-		remaining := matches[2]
-		var extraDuration time.Duration
-		if remaining != "" {
-			extraDuration, err = time.ParseDuration(remaining)
-			if err != nil {
-				return 0, fmt.Errorf("invalid duration: %s", s)
-			}
-		}
-		return time.Duration(days)*24*time.Hour + extraDuration, nil
-	}
-
-	return time.ParseDuration(s)
-}
-
-// formatTokens formats a token count with appropriate units.
-// Uses integer-based thousands suffix to match existing callers/tests (e.g., "1k", "45k").
-func formatTokens(tokens int) string {
-	if tokens < 1000 {
-		return fmt.Sprintf("%d", tokens)
-	}
-	if tokens < 1000000 {
-		// Use integer-based thousands suffix to match existing callers/tests (e.g., "1k", "45k").
-		return fmt.Sprintf("%dk", tokens/1000)
-	}
-	// Use integer-based millions suffix (e.g., "1M", "12M").
-	return fmt.Sprintf("%dM", tokens/1000000)
-}
+// parseSinceDuration is an alias for parseDuration to maintain semantic clarity in logs context.
+var parseSinceDuration = parseDuration
 
 // renderPerformanceSummary displays aggregated performance metrics for a run.
 func renderPerformanceSummary(db *sql.DB, runID string) {

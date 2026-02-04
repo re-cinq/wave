@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -56,34 +54,6 @@ Use --quiet to suppress output for scripting (clean exit when nothing to clean).
 	cmd.Flags().BoolVar(&opts.Quiet, "quiet", false, "Suppress output for scripting")
 
 	return cmd
-}
-
-// parseDuration parses duration strings like "7d", "24h", "1h30m"
-func parseDuration(s string) (time.Duration, error) {
-	if s == "" {
-		return 0, nil
-	}
-
-	// Check for day suffix (not supported by time.ParseDuration)
-	dayRegex := regexp.MustCompile(`^(\d+)d(.*)$`)
-	if matches := dayRegex.FindStringSubmatch(s); len(matches) == 3 {
-		days, err := strconv.Atoi(matches[1])
-		if err != nil {
-			return 0, fmt.Errorf("invalid days value: %s", matches[1])
-		}
-		remaining := matches[2]
-		var extraDuration time.Duration
-		if remaining != "" {
-			var err error
-			extraDuration, err = time.ParseDuration(remaining)
-			if err != nil {
-				return 0, fmt.Errorf("invalid duration: %s", s)
-			}
-		}
-		return time.Duration(days)*24*time.Hour + extraDuration, nil
-	}
-
-	return time.ParseDuration(s)
 }
 
 // getWorkspacesWithStatus returns workspace names that match the given status from the database
@@ -141,20 +111,6 @@ func calculateDirectorySize(path string) (int64, error) {
 		return nil
 	})
 	return size, err
-}
-
-// formatSize formats bytes into human-readable format
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // isTTY checks if stdin is a terminal
