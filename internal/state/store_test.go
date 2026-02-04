@@ -1791,3 +1791,189 @@ func TestOldRunsCleanup(t *testing.T) {
 		assert.Equal(t, oldRunID, runs[0].RunID)
 	})
 }
+
+// TestRunTags tests the tag management functionality.
+func TestRunTags(t *testing.T) {
+	t.Run("set and get tags", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "")
+		require.NoError(t, err)
+
+		// Initially empty tags
+		tags, err := store.GetRunTags(runID)
+		require.NoError(t, err)
+		assert.Empty(t, tags)
+
+		// Set tags
+		err = store.SetRunTags(runID, []string{"production", "critical"})
+		require.NoError(t, err)
+
+		// Get tags
+		tags, err = store.GetRunTags(runID)
+		require.NoError(t, err)
+		assert.Len(t, tags, 2)
+		assert.Contains(t, tags, "production")
+		assert.Contains(t, tags, "critical")
+
+		// Verify GetRun also includes tags
+		run, err := store.GetRun(runID)
+		require.NoError(t, err)
+		assert.Len(t, run.Tags, 2)
+		assert.Contains(t, run.Tags, "production")
+		assert.Contains(t, run.Tags, "critical")
+	})
+
+	t.Run("add tag", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "")
+		require.NoError(t, err)
+
+		// Add tags one by one
+		err = store.AddRunTag(runID, "production")
+		require.NoError(t, err)
+
+		err = store.AddRunTag(runID, "deploy")
+		require.NoError(t, err)
+
+		// Adding duplicate should be idempotent
+		err = store.AddRunTag(runID, "production")
+		require.NoError(t, err)
+
+		tags, err := store.GetRunTags(runID)
+		require.NoError(t, err)
+		assert.Len(t, tags, 2)
+		assert.Contains(t, tags, "production")
+		assert.Contains(t, tags, "deploy")
+	})
+
+	t.Run("remove tag", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "")
+		require.NoError(t, err)
+
+		// Set initial tags
+		err = store.SetRunTags(runID, []string{"prod", "staging", "test"})
+		require.NoError(t, err)
+
+		// Remove a tag
+		err = store.RemoveRunTag(runID, "staging")
+		require.NoError(t, err)
+
+		tags, err := store.GetRunTags(runID)
+		require.NoError(t, err)
+		assert.Len(t, tags, 2)
+		assert.Contains(t, tags, "prod")
+		assert.Contains(t, tags, "test")
+		assert.NotContains(t, tags, "staging")
+
+		// Removing non-existent tag should be idempotent
+		err = store.RemoveRunTag(runID, "nonexistent")
+		require.NoError(t, err)
+
+		tags, err = store.GetRunTags(runID)
+		require.NoError(t, err)
+		assert.Len(t, tags, 2)
+	})
+
+	t.Run("tags not found error", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		_, err := store.GetRunTags("nonexistent-run")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "run not found")
+	})
+
+	t.Run("set tags not found error", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		err := store.SetRunTags("nonexistent-run", []string{"tag"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "run not found")
+	})
+}
+
+// TestListRunsWithTags tests filtering runs by tags.
+func TestListRunsWithTags(t *testing.T) {
+	t.Run("filter by single tag", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		// Create runs with different tags
+		run1, err := store.CreateRun("pipeline-1", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run1, []string{"production", "critical"})
+		require.NoError(t, err)
+
+		run2, err := store.CreateRun("pipeline-2", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run2, []string{"staging"})
+		require.NoError(t, err)
+
+		run3, err := store.CreateRun("pipeline-3", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run3, []string{"production"})
+		require.NoError(t, err)
+
+		// Filter by production tag
+		runs, err := store.ListRuns(ListRunsOptions{Tags: []string{"production"}})
+		require.NoError(t, err)
+		assert.Len(t, runs, 2)
+
+		runIDs := []string{runs[0].RunID, runs[1].RunID}
+		assert.Contains(t, runIDs, run1)
+		assert.Contains(t, runIDs, run3)
+	})
+
+	t.Run("filter by multiple tags (OR)", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		// Create runs with different tags
+		run1, err := store.CreateRun("pipeline-1", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run1, []string{"production"})
+		require.NoError(t, err)
+
+		run2, err := store.CreateRun("pipeline-2", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run2, []string{"staging"})
+		require.NoError(t, err)
+
+		run3, err := store.CreateRun("pipeline-3", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run3, []string{"development"})
+		require.NoError(t, err)
+
+		// Filter by production OR staging
+		runs, err := store.ListRuns(ListRunsOptions{Tags: []string{"production", "staging"}})
+		require.NoError(t, err)
+		assert.Len(t, runs, 2)
+
+		runIDs := []string{runs[0].RunID, runs[1].RunID}
+		assert.Contains(t, runIDs, run1)
+		assert.Contains(t, runIDs, run2)
+		assert.NotContains(t, runIDs, run3)
+	})
+
+	t.Run("no results for non-matching tag", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		run1, err := store.CreateRun("pipeline-1", "")
+		require.NoError(t, err)
+		err = store.SetRunTags(run1, []string{"production"})
+		require.NoError(t, err)
+
+		runs, err := store.ListRuns(ListRunsOptions{Tags: []string{"nonexistent"}})
+		require.NoError(t, err)
+		assert.Empty(t, runs)
+	})
+}

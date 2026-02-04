@@ -182,7 +182,7 @@ func TestPartialRollbackAndReapply(t *testing.T) {
 
 	finalVersion, err := manager.GetCurrentVersion()
 	require.NoError(t, err)
-	assert.Equal(t, 5, finalVersion)
+	assert.Equal(t, 6, finalVersion)
 
 	// Verify all tables exist again
 	expectedTables := []string{
@@ -195,6 +195,12 @@ func TestPartialRollbackAndReapply(t *testing.T) {
 		exists := checkTableExists(t, db, tableName)
 		assert.True(t, exists, "Table %s should exist after reapply", tableName)
 	}
+
+	// Verify tags column exists (migration 6)
+	var colExists bool
+	err = db.QueryRow(`SELECT 1 FROM pragma_table_info('pipeline_run') WHERE name = 'tags_json'`).Scan(&colExists)
+	assert.NoError(t, err)
+	assert.True(t, colExists, "tags_json column should exist after reapply")
 }
 
 // TestRollbackWithConstraints tests that foreign key constraints are handled correctly during rollback

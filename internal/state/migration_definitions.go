@@ -240,5 +240,54 @@ DROP INDEX IF EXISTS idx_artifact_meta_run;
 DROP TABLE IF EXISTS artifact_metadata;
 `,
 		},
+		{
+			Version:     6,
+			Description: "Add tags support for pipeline runs",
+			Up: `
+-- Add tags column to pipeline_run for categorization and filtering
+-- Stores JSON array of tag strings e.g. ["production", "critical", "deploy"]
+ALTER TABLE pipeline_run ADD COLUMN tags_json TEXT DEFAULT '[]';
+
+-- Create index for efficient tag-based filtering
+-- Note: SQLite's json_each can be used for searching within tags
+CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
+`,
+			Down: `
+-- SQLite doesn't support DROP COLUMN directly before 3.35.0
+-- We need to recreate the table without the column
+DROP INDEX IF EXISTS idx_run_tags;
+
+-- Create temporary table with original schema
+CREATE TABLE pipeline_run_backup (
+    run_id TEXT PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+    input TEXT,
+    current_step TEXT,
+    total_tokens INTEGER DEFAULT 0,
+    started_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    cancelled_at INTEGER,
+    error_message TEXT
+);
+
+-- Copy data to backup
+INSERT INTO pipeline_run_backup SELECT
+    run_id, pipeline_name, status, input, current_step, total_tokens,
+    started_at, completed_at, cancelled_at, error_message
+FROM pipeline_run;
+
+-- Drop original table (cascades will handle dependent tables)
+DROP TABLE pipeline_run;
+
+-- Rename backup to original
+ALTER TABLE pipeline_run_backup RENAME TO pipeline_run;
+
+-- Recreate indexes
+CREATE INDEX IF NOT EXISTS idx_run_pipeline ON pipeline_run(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_run_status ON pipeline_run(status);
+CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
+`,
+		},
 	}
 }
