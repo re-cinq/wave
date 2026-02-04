@@ -69,7 +69,7 @@ chmod +x wave && sudo mv wave /usr/local/bin/
 cd your-project && wave init
 
 # Run your first pipeline
-wave run --pipeline hello-world --input "testing Wave"
+wave run hello-world "testing Wave"
 ```
 
 ## Example: Code Review Pipeline
@@ -102,7 +102,7 @@ steps:
 ```
 
 ```bash
-wave run --pipeline code-review --input "authentication module"
+wave run code-review "authentication module"
 ```
 
 [Get started in 60 seconds](/quickstart) or explore [use cases](/use-cases/).

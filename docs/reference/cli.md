@@ -55,10 +55,17 @@ wave init -y                    # Answer yes to all confirmation prompts
 
 ## wave run
 
-Execute a pipeline.
+Execute a pipeline. Arguments can be provided as positional args or flags.
 
 ```bash
+# Positional arguments (recommended for quick usage)
+wave run code-review "Review auth module"
+
+# Flag-based (explicit)
 wave run --pipeline code-review --input "Review auth module"
+
+# Mixed
+wave run code-review --input "Review auth module"
 ```
 
 **Output:**
@@ -74,13 +81,13 @@ wave run --pipeline code-review --input "Review auth module"
 ### Options
 
 ```bash
-wave run --pipeline hotfix --dry-run           # Preview without executing
-wave run --pipeline speckit-flow --from-step implement  # Start from step
-wave run --pipeline migrate --timeout 60       # Custom timeout (minutes)
-wave run --pipeline test --mock                # Use mock adapter for testing
-wave run --pipeline build --no-progress        # Disable enhanced progress display
-wave run --pipeline deploy --plain             # Use plain text progress (no colors/animations)
-wave run --pipeline review --no-logs           # Suppress JSON log output, show only progress display
+wave run hotfix --dry-run                      # Preview without executing
+wave run speckit-flow --from-step implement    # Start from step
+wave run migrate --timeout 60                  # Custom timeout (minutes)
+wave run test --mock                           # Use mock adapter for testing
+wave run build --no-progress                   # Disable enhanced progress display
+wave run deploy --plain                        # Use plain text progress (no colors/animations)
+wave run review --no-logs                      # Suppress JSON log output, show only progress display
 ```
 
 ---

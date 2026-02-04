@@ -33,7 +33,7 @@ go install github.com/recinq/wave/cmd/wave@latest
 wave init
 
 # Run your first pipeline
-wave run --pipeline speckit-flow --input "add user authentication"
+wave run speckit-flow "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
