@@ -5,19 +5,16 @@ Get your first pipeline running in 60 seconds.
 ## 1. Install Wave
 
 ```bash
-# Linux
-curl -L https://github.com/recinq/wave/releases/latest/download/wave-linux-amd64 -o wave
-chmod +x wave && sudo mv wave /usr/local/bin/
-
-# macOS
-curl -L https://github.com/recinq/wave/releases/latest/download/wave-darwin-amd64 -o wave
-chmod +x wave && sudo mv wave /usr/local/bin/
+git clone https://github.com/re-cinq/wave.git
+cd wave && ./install.sh
 ```
+
+The install script auto-detects your OS and architecture.
 
 Verify installation:
 
 ```bash
-wave --version
+wave --help
 ```
 
 ## 2. Install Claude CLI
@@ -55,7 +52,7 @@ This creates:
 
 > **Don't have a codebase?** Wave works great for self-analysis:
 > ```bash
-> git clone https://github.com/recinq/wave.git
+> git clone https://github.com/re-cinq/wave.git
 > cd wave && wave init
 > ```
 

@@ -27,9 +27,11 @@ Each persona runs in isolation with explicit permissions. Deny patterns always w
 
 ```bash
 # Install
-go install github.com/recinq/wave/cmd/wave@latest
+git clone https://github.com/re-cinq/wave.git
+cd wave && ./install.sh
 
-# Initialize project
+# Initialize project (in your target project)
+cd /path/to/your/project
 wave init
 
 # Run your first pipeline
