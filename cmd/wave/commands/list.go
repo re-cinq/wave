@@ -78,6 +78,20 @@ var listRunsLimit int
 var listRunsPipeline string
 var listRunsStatus string
 
+// printLogo prints the Wave ASCII logo header
+func printLogo() {
+	f := display.NewFormatter()
+	logo := []string{
+		"╦ ╦╔═╗╦  ╦╔═╗",
+		"║║║╠═╣╚╗╔╝║╣",
+		"╚╩╝╩ ╩ ╚╝ ╚═╝",
+	}
+	fmt.Println()
+	for _, line := range logo {
+		fmt.Printf("  %s\n", f.Primary(line))
+	}
+}
+
 func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
@@ -171,9 +185,11 @@ func runList(opts ListOptions, filter string) error {
 		return nil
 	}
 
-	// Table format (default)
+	// Table format (default) - print logo once
+	printLogo()
+
 	if showPipelines {
-		if err := listPipelines(); err != nil {
+		if err := listPipelinesTable(); err != nil {
 			return err
 		}
 		if showAll {
@@ -194,14 +210,14 @@ func runList(opts ListOptions, filter string) error {
 	}
 
 	if showPersonas {
-		listPersonas(m.Personas)
+		listPersonasTable(m.Personas)
 		if showAll && showAdapters {
 			fmt.Println()
 		}
 	}
 
 	if showAdapters {
-		listAdapters(m.Adapters)
+		listAdaptersTable(m.Adapters)
 	}
 
 	return nil
@@ -342,7 +358,7 @@ func collectAdapters(adapters map[string]struct {
 	return result
 }
 
-func listPipelines() error {
+func listPipelinesTable() error {
 	pipelineDir := ".wave/pipelines"
 	entries, err := os.ReadDir(pipelineDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -454,7 +470,7 @@ func formatStepsFlow(steps []string, f *display.Formatter) string {
 	return strings.Join(parts, " ")
 }
 
-func listPersonas(personas map[string]struct {
+func listPersonasTable(personas map[string]struct {
 	Adapter          string  `yaml:"adapter"`
 	Description      string  `yaml:"description"`
 	SystemPromptFile string  `yaml:"system_prompt_file"`
@@ -534,8 +550,8 @@ func formatPermissionSummary(allowed []string, denied []string) string {
 	return strings.Join(parts, " ")
 }
 
-// listAdapters lists all configured adapters with binary availability check.
-func listAdapters(adapters map[string]struct {
+// listAdaptersTable lists all configured adapters with binary availability check.
+func listAdaptersTable(adapters map[string]struct {
 	Binary       string `yaml:"binary"`
 	Mode         string `yaml:"mode"`
 	OutputFormat string `yaml:"output_format"`
@@ -613,7 +629,8 @@ func runListRuns(opts ListRunsOptions) error {
 	}
 
 	// Table format
-	listRuns(runs)
+	printLogo()
+	listRunsTable(runs)
 	return nil
 }
 
@@ -1001,8 +1018,8 @@ func getDirectoryCreationTime(path string) time.Time {
 	return oldest
 }
 
-// listRuns displays run information in table format
-func listRuns(runs []RunInfo) {
+// listRunsTable displays run information in table format
+func listRunsTable(runs []RunInfo) {
 	f := display.NewFormatter()
 
 	// Header
