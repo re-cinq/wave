@@ -6,7 +6,7 @@ input:
     source: meta
 steps:
     - id: create-feature-branch
-      persona: navigator
+      persona: implementer
       memory:
         strategy: fresh
       workspace:
@@ -474,7 +474,7 @@ steps:
             type: json_schema
             schema_path: .wave/contracts/impl-plan.schema.json
     - id: create-proposal-pr
-      persona: navigator
+      persona: implementer
       dependencies:
         - plan-issue-1
         - plan-issue-2
