@@ -1,0 +1,50 @@
+kind: WavePipeline
+metadata:
+  name: hello-world
+  description: "Simple test pipeline to verify Wave is working"
+
+input:
+  source: cli
+
+steps:
+  - id: greet
+    persona: craftsman
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        You are a simple greeting bot. The user said: "{{ input }}"
+
+        Your final response must be ONLY this text (nothing else - no explanation, no markdown):
+
+        Hello from Wave! Your message was: {{ input }}
+    output_artifacts:
+      - name: greeting
+        path: greeting.txt
+        type: text
+
+  - id: verify
+    persona: navigator
+    dependencies: [greet]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: greet
+          artifact: greeting
+          as: greeting_file
+    exec:
+      type: prompt
+      source: |
+        Read the file at artifacts/greeting_file and verify it exists and contains content.
+
+        Output EXACTLY this JSON (replace placeholder with actual file content):
+        {
+          "status": "verified",
+          "file_exists": true,
+          "content_preview": "[content from artifacts/greeting_file]"
+        }
+    output_artifacts:
+      - name: result
+        path: output/result.json
+        type: json

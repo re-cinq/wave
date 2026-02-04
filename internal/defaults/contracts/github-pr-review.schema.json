@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub PR Review",
+  "description": "Schema for automated GitHub pull request review",
+  "type": "object",
+  "required": ["pr_number", "repository", "review_comments", "overall_assessment"],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repository": {
+      "type": "object",
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pr_title": {
+      "type": "string"
+    },
+    "pr_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "review_comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "severity", "message"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["security", "quality", "performance", "style", "testing", "documentation", "positive"]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 10
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path to file if comment is file-specific"
+          },
+          "line_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Line number if comment is line-specific"
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "Suggested fix or improvement"
+          }
+        }
+      }
+    },
+    "overall_assessment": {
+      "type": "string",
+      "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"],
+      "description": "Overall review decision"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Overall review summary"
+    },
+    "security_issues": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "quality_issues": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positive_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "must_fix": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Critical issues that must be fixed"
+    },
+    "should_fix": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Recommended improvements"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

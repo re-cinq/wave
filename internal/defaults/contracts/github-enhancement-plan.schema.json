@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Enhancement Plan",
+  "description": "Schema for GitHub issue enhancement recommendations",
+  "type": "object",
+  "required": ["issues_to_enhance"],
+  "properties": {
+    "issues_to_enhance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_number", "enhancements"],
+        "properties": {
+          "issue_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "current_title": {
+            "type": "string"
+          },
+          "suggested_title": {
+            "type": "string"
+          },
+          "current_body": {
+            "type": "string"
+          },
+          "body_template": {
+            "type": ["string", "null"],
+            "description": "Enhanced body template preserving original content"
+          },
+          "suggested_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enhancements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "List of specific enhancements to apply"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Why these enhancements are recommended"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        }
+      }
+    },
+    "total_to_enhance": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "enhancement_strategy": {
+      "type": "string",
+      "description": "Overall strategy for enhancements"
+    }
+  }
+}
