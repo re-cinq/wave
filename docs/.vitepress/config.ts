@@ -24,6 +24,7 @@ export default withMermaid(
         {
           text: 'Guides',
           items: [
+            { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
             { text: 'Team Adoption', link: '/guides/team-adoption' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
             { text: 'GitHub Integration', link: '/github-integration' },
@@ -44,7 +45,25 @@ export default withMermaid(
             { text: 'Adapters', link: '/reference/adapters' },
             { text: 'Events', link: '/reference/events' },
             { text: 'Environment', link: '/reference/environment' },
+            { text: 'Error Codes', link: '/reference/error-codes' },
             { text: 'Troubleshooting', link: '/reference/troubleshooting' }
+          ]
+        },
+        {
+          text: 'Integrations',
+          items: [
+            { text: 'Overview', link: '/integrations/' },
+            { text: 'GitHub Actions', link: '/integrations/github-actions' },
+            { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+          ]
+        },
+        {
+          text: 'Trust Center',
+          items: [
+            { text: 'Overview', link: '/trust-center/' },
+            { text: 'Security Model', link: '/trust-center/security-model' },
+            { text: 'Compliance', link: '/trust-center/compliance' },
+            { text: 'Audit Logging', link: '/trust-center/audit-logging' }
           ]
         }
       ],
@@ -77,6 +96,12 @@ export default withMermaid(
         ],
         '/guides/': [
           {
+            text: 'Getting Started',
+            items: [
+              { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' }
+            ]
+          },
+          {
             text: 'Adoption',
             items: [
               { text: 'Team Adoption', link: '/guides/team-adoption' },
@@ -107,7 +132,29 @@ export default withMermaid(
               { text: 'Events', link: '/reference/events' },
               { text: 'Environment', link: '/reference/environment' },
               { text: 'Contract Types', link: '/reference/contract-types' },
+              { text: 'Error Codes', link: '/reference/error-codes' },
               { text: 'Troubleshooting', link: '/reference/troubleshooting' }
+            ]
+          }
+        ],
+        '/integrations/': [
+          {
+            text: 'Integrations',
+            items: [
+              { text: 'Overview', link: '/integrations/' },
+              { text: 'GitHub Actions', link: '/integrations/github-actions' },
+              { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+            ]
+          }
+        ],
+        '/trust-center/': [
+          {
+            text: 'Trust Center',
+            items: [
+              { text: 'Overview', link: '/trust-center/' },
+              { text: 'Security Model', link: '/trust-center/security-model' },
+              { text: 'Compliance', link: '/trust-center/compliance' },
+              { text: 'Audit Logging', link: '/trust-center/audit-logging' }
             ]
           }
         ]

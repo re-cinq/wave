@@ -12,6 +12,15 @@ import TerminalOutput from './components/TerminalOutput.vue'
 
 // New Enterprise Components
 import CopyButton from './components/CopyButton.vue'
+import PlatformTabs from './components/PlatformTabs.vue'
+import PermissionMatrix from './components/PermissionMatrix.vue'
+import HeroSection from './components/HeroSection.vue'
+import FeatureCards from './components/FeatureCards.vue'
+import TrustSignals from './components/TrustSignals.vue'
+
+// Pipeline Learning Components
+import PipelineVisualizer from './components/PipelineVisualizer.vue'
+import YamlPlayground from './components/YamlPlayground.vue'
 
 // Plugins
 import { setupCopyCode, injectCopyCodeStyles } from '../plugins/copy-code'
@@ -25,6 +34,15 @@ export default {
 
     // Register new enterprise components
     app.component('CopyButton', CopyButton)
+    app.component('PlatformTabs', PlatformTabs)
+    app.component('PermissionMatrix', PermissionMatrix)
+    app.component('HeroSection', HeroSection)
+    app.component('FeatureCards', FeatureCards)
+    app.component('TrustSignals', TrustSignals)
+
+    // Register pipeline learning components
+    app.component('PipelineVisualizer', PipelineVisualizer)
+    app.component('YamlPlayground', YamlPlayground)
   },
   setup() {
     // Client-side only setup
