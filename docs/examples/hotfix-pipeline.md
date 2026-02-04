@@ -59,7 +59,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: |
+        schema_path: |
           {
             "type": "object",
             "required": ["root_cause", "affected_files", "fix_approach"],
@@ -149,7 +149,7 @@ steps:
 
 ```bash
 # Investigate and fix
-wave run --pipeline .wave/pipelines/hotfix.yaml \
+wave run hotfix \
   --input "Users receiving 500 error on login when email contains '+' character"
 
 # Or use ad-hoc mode for simpler fixes

@@ -20,7 +20,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema: .wave/contracts/navigation.schema.json
+        schema_path: .wave/contracts/navigation.schema.json
         source: output/analysis.json
         on_failure: retry
         max_retries: 2
@@ -46,7 +46,7 @@ Validates output structure:
 handover:
   contract:
     type: json_schema
-    schema: .wave/contracts/navigation.schema.json
+    schema_path: .wave/contracts/navigation.schema.json
     source: output/analysis.json
 ```
 
@@ -141,7 +141,7 @@ handover:
   handover:
     contract:
       type: json_schema
-      schema: .wave/contracts/navigation.schema.json
+      schema_path: .wave/contracts/navigation.schema.json
       source: output/analysis.json
 ```
 

@@ -1,5 +1,18 @@
-<!-- Simple SVG logo -->
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="200" rx="20" fill="#2563eb"/>
-  <text x="100" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">M</text>
+  <!-- Rounded square background -->
+  <rect width="200" height="200" rx="24" fill="#2563eb"/>
+
+  <!-- Three diagonal lines - full opacity (top) -->
+  <g stroke="white" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="M 20 130 C 50 130, 130 50, 130 20"/>
+    <line x1="20" y1="80" x2="80" y2="20"/>
+    <line x1="20" y1="30" x2="30" y2="20"/>
+  </g>
+
+  <!-- Three diagonal lines - 20% opacity (bottom) -->
+  <g stroke="white" stroke-width="10" stroke-linecap="round" opacity="0.2" fill="none">
+    <path d="M 70 180 C 70 150, 150 70, 180 70"/>
+    <line x1="120" y1="180" x2="180" y2="120"/>
+    <line x1="170" y1="180" x2="180" y2="170"/>
+  </g>
 </svg>

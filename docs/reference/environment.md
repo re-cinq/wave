@@ -88,22 +88,22 @@ jobs:
       WAVE_WORKSPACE_ROOT: /tmp/wave-ci
     steps:
       - uses: actions/checkout@v4
-      - run: wave run --pipeline .wave/pipelines/ci-flow.yaml --input "CI run"
+      - run: wave run .wave/pipelines/ci-flow.yaml "CI run"
 ```
 
-> **Note:** You can also use the shorthand `wave run --pipeline ci-flow --input "CI run"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
+> **Note:** You can also use the shorthand `wave run ci-flow "CI run"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
 
 ```yaml
 # GitLab CI example
 wave-pipeline:
   script:
-    - wave run --pipeline .wave/pipelines/ci-flow.yaml --input "CI run"
+    - wave run .wave/pipelines/ci-flow.yaml "CI run"
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
     WAVE_LOG_FORMAT: json
 ```
 
-> **Note:** Shorthand `wave run --pipeline ci-flow --input "CI run"` also works.
+> **Note:** Shorthand `wave run ci-flow "CI run"` also works.
 
 ## Adapter Environment Variables
 

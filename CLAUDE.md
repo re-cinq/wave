@@ -225,9 +225,9 @@ Follow standard Go conventions:
 - Structured events for programmatic monitoring
 
 ## Recent Changes
+- 001-yaml-first-docs: Added None (static documentation site)
 - 017-prototype-driven-development: Added Go 1.22+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
 - Phase 15: Added thread-safe event emission with mutex protection
-- Phase 15: Added comprehensive credential scrubbing tests
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
