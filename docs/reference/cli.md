@@ -46,6 +46,9 @@ Project initialized. Run 'wave validate' to check configuration.
 wave init --adapter opencode    # Use different adapter
 wave init --force               # Overwrite existing files
 wave init --merge               # Merge into existing config
+wave init --workspace ./ws      # Custom workspace directory path
+wave init --output config.yaml  # Custom output path for wave.yaml
+wave init -y                    # Answer yes to all confirmation prompts
 ```
 
 ---
@@ -74,6 +77,10 @@ wave run --pipeline code-review --input "Review auth module"
 wave run --pipeline hotfix --dry-run           # Preview without executing
 wave run --pipeline speckit-flow --from-step implement  # Start from step
 wave run --pipeline migrate --timeout 60       # Custom timeout (minutes)
+wave run --pipeline test --mock                # Use mock adapter for testing
+wave run --pipeline build --no-progress        # Disable enhanced progress display
+wave run --pipeline deploy --plain             # Use plain text progress (no colors/animations)
+wave run --pipeline review --no-logs           # Suppress JSON log output, show only progress display
 ```
 
 ---
@@ -100,9 +107,10 @@ wave do "fix the typo in README.md"
 
 ```bash
 wave do "audit auth" --persona auditor         # Use specific persona
-wave do "build API" --meta                     # Generate custom pipeline
+wave do "build API" --meta                     # Generate pipeline dynamically using philosopher persona
 wave do "refactor" --save my-pipeline.yaml     # Save generated pipeline
 wave do "test" --dry-run                       # Preview only
+wave do "deploy" --mock                        # Use mock adapter for testing
 ```
 
 ---
@@ -176,6 +184,8 @@ wave logs --errors               # Show only errors
 wave logs --tail 20              # Last 20 entries
 wave logs --follow               # Stream in real-time
 wave logs --since 10m            # Last 10 minutes
+wave logs --level error          # Log level filter (all, info, error)
+wave logs --format json          # Output as JSON for scripting
 ```
 
 ---
@@ -224,6 +234,7 @@ Pipeline will stop after current step completes.
 
 ```bash
 wave cancel run-abc123 --force
+wave cancel run-abc123 -f              # Short flag for --force
 ```
 
 **Output:**
@@ -382,6 +393,8 @@ wave clean --older-than 7d           # Clean runs older than 7 days
 wave clean --status completed        # Clean only completed runs
 wave clean --keep-last 5             # Keep 5 most recent
 wave clean --force                   # Skip confirmation
+wave clean --dry-run                 # Preview what would be deleted
+wave clean --quiet                   # Suppress output for scripting
 ```
 
 ---
@@ -445,10 +458,10 @@ All commands support:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--help` | `-h` | Show help |
-| `--version` | `-v` | Show version |
-| `--manifest` | `-m` | Path to wave.yaml |
-| `--debug` | `-d` | Enable debug logging |
-| `--log-format` | | Output format: text, json |
+| `--version` | | Show version |
+| `--manifest` | `-m` | Path to manifest file (default: wave.yaml) |
+| `--debug` | `-d` | Enable debug mode |
+| `--log-format` | | Log format: text, json |
 
 ---
 

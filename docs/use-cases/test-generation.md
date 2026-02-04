@@ -335,4 +335,4 @@ This ensures generated tests at least compile. Set `must_pass: true` to require 
 
 - [Code Review](/use-cases/code-review) - Review generated tests in PRs
 - [Documentation](/use-cases/docs-generation) - Document test patterns
-- [Concepts: Contracts](/guide/contracts) - Learn about test suite validation
+- [Concepts: Contracts](/concepts/contracts) - Learn about test suite validation

@@ -253,4 +253,4 @@ Extend the pipeline with a dependency-focused step:
 
 - [Code Review](/use-cases/code-review) - Regular PR reviews with security checks
 - [Test Generation](/use-cases/test-generation) - Generate security-focused tests
-- [Concepts: Contracts](/guide/contracts) - Validate audit output format
+- [Concepts: Contracts](/concepts/contracts) - Validate audit output format

@@ -397,7 +397,7 @@ Wave skips completed steps and resumes execution.
 
 ## Next Steps
 
-- [AI as Code](/paradigm/ai-as-code) - The paradigm behind pipeline design
-- [Contracts](/paradigm/deliverables-contracts) - Output validation
+- [Pipelines](/concepts/pipelines) - The paradigm behind pipeline design
+- [Contracts](/concepts/contracts) - Output validation
 - [Personas](/concepts/personas) - Configuring AI agents
-- [Creating Pipelines](/workflows/creating-workflows) - Build your first pipeline
+- [Creating Pipelines](/guide/pipelines) - Build your first pipeline

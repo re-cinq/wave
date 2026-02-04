@@ -22,7 +22,7 @@ features:
   - icon: "#"
     title: Contract Validation
     details: Every step validates its output against schemas. Get structured, predictable results every time.
-    link: /guide/contracts
+    link: /concepts/contracts
   - icon: "~"
     title: Step Isolation
     details: Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.
