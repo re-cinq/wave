@@ -1,6 +1,22 @@
+---
+title: Documentation Generation
+description: Generate API docs, README files, and usage guides automatically from your code
+---
+
 # Documentation Generation
 
+<div class="use-case-meta">
+  <span class="complexity-badge beginner">Beginner</span>
+  <span class="category-badge">Documentation</span>
+</div>
+
 Generate and update documentation from your code. Wave's docs pipeline analyzes your codebase, identifies public APIs, and produces structured documentation with examples.
+
+## Prerequisites
+
+- Wave installed and initialized (`wave init`)
+- Codebase with exported functions, types, or APIs to document
+- Basic understanding of YAML configuration
 
 ## Quick Start
 
@@ -130,7 +146,17 @@ steps:
 
 </div>
 
-## Example Output
+## Expected Outputs
+
+The pipeline produces three artifacts:
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `discovery` | `output/discovery.json` | JSON inventory of APIs and existing docs |
+| `docs` | `output/generated-docs.md` | Generated documentation |
+| `review` | `output/doc-review.md` | Review feedback and approval status |
+
+### Example Output
 
 The pipeline produces `output/generated-docs.md`:
 
@@ -142,46 +168,46 @@ resolution, artifact passing, and contract validation.
 
 ## Installation
 
-```go
+` ` `go
 import "github.com/recinq/wave/internal/pipeline"
-```
+` ` `
 
 ## Quick Start
 
-```go
+` ` `go
 executor := pipeline.NewExecutor(config)
 result, err := executor.Run(ctx, pipelineDef, input)
 if err != nil {
     log.Fatalf("pipeline failed: %v", err)
 }
 fmt.Printf("Completed %d steps\n", len(result.Steps))
-```
+` ` `
 
 ## API Reference
 
 ### Executor
 
-```go
+` ` `go
 type Executor struct {
     // contains filtered or unexported fields
 }
-```
+` ` `
 
 `Executor` runs pipeline workflows. Create one with `NewExecutor`.
 
 #### func NewExecutor
 
-```go
+` ` `go
 func NewExecutor(config ExecutorConfig) *Executor
-```
+` ` `
 
 NewExecutor creates a pipeline executor with the given configuration.
 
 #### func (*Executor) Run
 
-```go
+` ` `go
 func (e *Executor) Run(ctx context.Context, pipeline Pipeline, input string) (*Result, error)
-```
+` ` `
 
 Run executes the pipeline and returns the result. Steps are executed
 in dependency order with parallel execution where possible.
@@ -198,7 +224,7 @@ in dependency order with parallel execution where possible.
 
 The executor returns structured errors:
 
-```go
+` ` `go
 result, err := executor.Run(ctx, pipeline, input)
 if err != nil {
     var stepErr *pipeline.StepError
@@ -206,7 +232,7 @@ if err != nil {
         fmt.Printf("Step %s failed: %v\n", stepErr.StepID, stepErr.Cause)
     }
 }
-```
+` ` `
 ```
 
 ## Customization
@@ -291,8 +317,48 @@ steps:
 
 </div>
 
-## Next Steps
+## Related Use Cases
 
 - [Code Review](/use-cases/code-review) - Review documentation changes in PRs
 - [Test Generation](/use-cases/test-generation) - Generate tests from documented behavior
+- [API Design](/use-cases/api-design) - Design APIs with documentation-first approach
+
+## Next Steps
+
 - [Concepts: Artifacts](/concepts/artifacts) - Understand how docs are passed between steps
+- [Concepts: Personas](/concepts/personas) - Learn about the philosopher persona
+
+<style>
+.use-case-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.complexity-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+.complexity-badge.beginner {
+  background: #dcfce7;
+  color: #166534;
+}
+.complexity-badge.intermediate {
+  background: #fef3c7;
+  color: #92400e;
+}
+.complexity-badge.advanced {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.category-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+</style>

@@ -1,0 +1,391 @@
+# Documentation Pipeline
+# Automated documentation generation from code analysis
+#
+# Usage: wave run documentation "Document the API module"
+#
+# This pipeline demonstrates:
+# - Code analysis for documentation extraction
+# - Multiple documentation outputs (API docs, guides, examples)
+# - Artifact aggregation for final compilation
+
+kind: WavePipeline
+metadata:
+  name: documentation
+  description: "Generate comprehensive documentation from code analysis"
+
+input:
+  source: cli
+
+steps:
+  # Step 1: Analyze code structure and extract documentation candidates
+  - id: code-analysis
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze codebase for documentation: {{ input }}
+
+        Extract:
+
+        1. **Public API Surface**:
+           - Exported functions/methods
+           - Public types/interfaces
+           - Constants and configuration options
+
+        2. **Architecture Overview**:
+           - Package/module structure
+           - Key dependencies
+           - Data flow patterns
+
+        3. **Existing Documentation**:
+           - README files
+           - Code comments
+           - Inline documentation
+
+        4. **Documentation Gaps**:
+           - Undocumented public APIs
+           - Missing examples
+           - Unclear error messages
+
+        Output as JSON:
+        {
+          "public_api": [
+            {
+              "name": "",
+              "type": "function|method|type|const",
+              "file": "",
+              "line": 0,
+              "signature": "",
+              "existing_docs": "",
+              "needs_docs": true
+            }
+          ],
+          "architecture": {
+            "packages": [],
+            "dependencies": [],
+            "data_flows": []
+          },
+          "existing_docs": [],
+          "gaps": []
+        }
+    output_artifacts:
+      - name: analysis
+        path: output/code-analysis.json
+        type: json
+
+  # Step 2a: Generate API reference documentation
+  - id: api-reference
+    persona: craftsman
+    dependencies: [code-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: code-analysis
+          artifact: analysis
+          as: analysis
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Generate API reference documentation.
+
+        Code analysis available at: artifacts/analysis
+
+        For each public API element, document:
+
+        **Functions/Methods**:
+        ```markdown
+        ## FunctionName
+
+        Brief description of what this function does.
+
+        ### Signature
+        \`\`\`go
+        func FunctionName(param1 Type1, param2 Type2) (ReturnType, error)
+        \`\`\`
+
+        ### Parameters
+        | Name | Type | Description |
+        |------|------|-------------|
+        | param1 | Type1 | Description |
+
+        ### Returns
+        | Type | Description |
+        |------|-------------|
+        | ReturnType | Description |
+        | error | When it can fail |
+
+        ### Example
+        \`\`\`go
+        result, err := FunctionName(value1, value2)
+        \`\`\`
+
+        ### Notes
+        - Important considerations
+        - Thread safety
+        - Performance characteristics
+        ```
+
+        **Types/Interfaces**:
+        - Field descriptions
+        - Method descriptions
+        - Usage examples
+
+        Organize by package/module.
+    output_artifacts:
+      - name: api-docs
+        path: output/api-reference.md
+        type: markdown
+
+  # Step 2b: Generate getting started guide
+  - id: getting-started
+    persona: craftsman
+    dependencies: [code-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: code-analysis
+          artifact: analysis
+          as: analysis
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Generate a getting started guide.
+
+        Code analysis available at: artifacts/analysis
+
+        Create a guide that includes:
+
+        1. **Introduction**:
+           - What this module/package does
+           - Key features
+           - When to use it
+
+        2. **Installation**:
+           - Prerequisites
+           - Installation commands
+           - Verification steps
+
+        3. **Quick Start**:
+           - Minimal working example
+           - Step-by-step walkthrough
+           - Expected output
+
+        4. **Basic Usage**:
+           - Common use cases
+           - Code examples for each
+           - Best practices
+
+        5. **Configuration**:
+           - Available options
+           - Environment variables
+           - Config file format
+
+        6. **Next Steps**:
+           - Links to advanced topics
+           - Related documentation
+           - Community resources
+
+        Make it beginner-friendly with clear explanations.
+    output_artifacts:
+      - name: guide
+        path: output/getting-started.md
+        type: markdown
+
+  # Step 2c: Generate usage examples
+  - id: examples
+    persona: craftsman
+    dependencies: [code-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: code-analysis
+          artifact: analysis
+          as: analysis
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Generate comprehensive usage examples.
+
+        Code analysis available at: artifacts/analysis
+
+        Create examples for:
+
+        1. **Basic Examples**:
+           - Hello world equivalent
+           - Simple CRUD operations
+           - Common patterns
+
+        2. **Intermediate Examples**:
+           - Error handling
+           - Configuration
+           - Integration patterns
+
+        3. **Advanced Examples**:
+           - Performance optimization
+           - Custom extensions
+           - Complex workflows
+
+        4. **Real-World Scenarios**:
+           - Web service integration
+           - CLI tool usage
+           - Testing patterns
+
+        Each example should include:
+        - Description of what it demonstrates
+        - Complete, runnable code
+        - Expected output
+        - Common variations
+        - Potential pitfalls
+
+        Format as markdown with language-specific code blocks.
+    output_artifacts:
+      - name: examples
+        path: output/examples.md
+        type: markdown
+
+  # Step 2d: Generate architecture documentation
+  - id: architecture-docs
+    persona: philosopher
+    dependencies: [code-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: code-analysis
+          artifact: analysis
+          as: analysis
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Generate architecture documentation.
+
+        Code analysis available at: artifacts/analysis
+
+        Document:
+
+        1. **System Overview**:
+           - High-level architecture diagram (as mermaid)
+           - Component responsibilities
+           - External dependencies
+
+        2. **Package Structure**:
+           - Directory layout
+           - Package purposes
+           - Import relationships
+
+        3. **Data Flow**:
+           - Request/response flows
+           - Data transformation pipeline
+           - State management
+
+        4. **Design Decisions**:
+           - Key architectural choices
+           - Trade-offs made
+           - Rationale
+
+        5. **Extension Points**:
+           - How to extend the system
+           - Plugin/hook mechanisms
+           - Customization options
+
+        6. **Deployment**:
+           - Runtime requirements
+           - Scaling considerations
+           - Monitoring points
+
+        Include mermaid diagrams where helpful.
+    output_artifacts:
+      - name: architecture
+        path: output/architecture.md
+        type: markdown
+
+  # Step 3: Compile all documentation into final output
+  - id: compile-docs
+    persona: summarizer
+    dependencies: [api-reference, getting-started, examples, architecture-docs]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: code-analysis
+          artifact: analysis
+          as: analysis
+        - step: api-reference
+          artifact: api-docs
+          as: api
+        - step: getting-started
+          artifact: guide
+          as: guide
+        - step: examples
+          artifact: examples
+          as: examples
+        - step: architecture-docs
+          artifact: architecture
+          as: architecture
+    exec:
+      type: prompt
+      source: |
+        Compile all documentation into a cohesive package.
+
+        Available documentation:
+        - artifacts/analysis: Original code analysis
+        - artifacts/api: API reference
+        - artifacts/guide: Getting started guide
+        - artifacts/examples: Usage examples
+        - artifacts/architecture: Architecture docs
+
+        Create:
+
+        1. **Documentation Index** (index.md):
+           - Overview of available documentation
+           - Quick links to each section
+           - Suggested reading order
+
+        2. **Unified Table of Contents**:
+           - Hierarchical structure
+           - Cross-references between sections
+
+        3. **Changelog/Version Notes**:
+           - What's new
+           - Breaking changes
+           - Migration guides
+
+        4. **Quality Check**:
+           - Identify any inconsistencies
+           - Note areas needing more detail
+           - Suggest improvements
+
+        Output the documentation index with embedded content
+        from all sections, properly organized and cross-linked.
+    output_artifacts:
+      - name: final-docs
+        path: output/documentation.md
+        type: markdown
+      - name: index
+        path: output/index.md
+        type: markdown

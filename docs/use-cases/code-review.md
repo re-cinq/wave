@@ -1,6 +1,22 @@
+---
+title: Code Review
+description: Automated PR reviews with security checks, quality analysis, and actionable feedback
+---
+
 # Code Review
 
+<div class="use-case-meta">
+  <span class="complexity-badge beginner">Beginner</span>
+  <span class="category-badge">Code Quality</span>
+</div>
+
 Automate pull request reviews with security checks, quality analysis, and actionable feedback. Wave's code review pipeline analyzes changes, identifies issues, and produces a structured review summary.
+
+## Prerequisites
+
+- Wave installed and initialized (`wave init`)
+- Git repository with changes to review
+- Basic understanding of YAML configuration
 
 ## Quick Start
 
@@ -27,6 +43,10 @@ Artifacts: output/review-summary.md
 ## Complete Pipeline
 
 This is the full `code-review` pipeline from `.wave/pipelines/code-review.yaml`:
+
+<div v-pre>
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -155,7 +175,21 @@ steps:
         type: markdown
 ```
 
-## Example Output
+</div>
+
+</div>
+
+## Expected Outputs
+
+The pipeline produces three artifacts:
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `diff` | `output/diff-analysis.json` | JSON analysis of changed files and scope |
+| `security` | `output/security-review.md` | Security findings with severity levels |
+| `verdict` | `output/review-summary.md` | Final review summary and recommendation |
+
+### Example Output
 
 The pipeline produces `output/review-summary.md`:
 
@@ -207,6 +241,8 @@ wave run code-review "review changes in PR #123"
 
 Add a JSON schema to ensure structured output:
 
+<div v-pre>
+
 ```yaml
 - id: diff-analysis
   handover:
@@ -218,8 +254,67 @@ Add a JSON schema to ensure structured output:
       max_retries: 2
 ```
 
-## Next Steps
+</div>
+
+### Customize severity thresholds
+
+Modify the security review step to focus on specific severity levels:
+
+<div v-pre>
+
+```yaml
+- id: security-review
+  exec:
+    source: |
+      Security review focusing on CRITICAL and HIGH severity only.
+      Skip informational findings.
+      ...
+```
+
+</div>
+
+## Related Use Cases
 
 - [Security Audit](/use-cases/security-audit) - Deep security analysis beyond code review
 - [Test Generation](/use-cases/test-generation) - Generate tests for uncovered code
+- [Multi-Agent Review](/use-cases/multi-agent-review) - Comprehensive parallel reviews
+
+## Next Steps
+
 - [Concepts: Contracts](/concepts/contracts) - Add validation to your pipelines
+- [Concepts: Personas](/concepts/personas) - Understand persona capabilities
+
+<style>
+.use-case-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.complexity-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+.complexity-badge.beginner {
+  background: #dcfce7;
+  color: #166534;
+}
+.complexity-badge.intermediate {
+  background: #fef3c7;
+  color: #92400e;
+}
+.complexity-badge.advanced {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.category-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+</style>

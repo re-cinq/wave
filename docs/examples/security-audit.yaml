@@ -1,0 +1,381 @@
+# Security Audit Pipeline
+# A comprehensive security-focused analysis pipeline
+#
+# Usage: wave run security-audit "Audit the authentication module"
+#
+# This pipeline demonstrates:
+# - Multi-phase security analysis
+# - Dependency vulnerability scanning
+# - Compliance checking
+# - Prioritized remediation planning
+
+kind: WavePipeline
+metadata:
+  name: security-audit
+  description: "Multi-phase security audit with vulnerability scanning and remediation planning"
+
+input:
+  source: cli
+
+steps:
+  # Step 1: Reconnaissance - map the attack surface
+  - id: reconnaissance
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Security reconnaissance for: {{ input }}
+
+        Map the attack surface by identifying:
+
+        1. **Entry Points**:
+           - HTTP endpoints (routes, handlers)
+           - WebSocket connections
+           - Message queue consumers
+           - CLI commands
+           - File upload handlers
+
+        2. **Data Flows**:
+           - User input paths
+           - Database queries
+           - External API calls
+           - File system operations
+
+        3. **Authentication Boundaries**:
+           - Public vs authenticated routes
+           - Role-based access control points
+           - Session management
+
+        4. **Sensitive Data**:
+           - Where credentials are stored/used
+           - PII handling locations
+           - Encryption usage
+
+        5. **Dependencies**:
+           - External libraries with known CVEs
+           - Outdated packages
+
+        Output as JSON:
+        {
+          "entry_points": [...],
+          "data_flows": [...],
+          "auth_boundaries": [...],
+          "sensitive_data_locations": [...],
+          "dependencies": [...]
+        }
+    output_artifacts:
+      - name: attack-surface
+        path: output/attack-surface.json
+        type: json
+
+  # Step 2a: Static analysis for code vulnerabilities
+  - id: static-analysis
+    persona: auditor
+    dependencies: [reconnaissance]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reconnaissance
+          artifact: attack-surface
+          as: surface
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Static security analysis.
+
+        Attack surface analysis available at: artifacts/surface
+
+        Analyze code for:
+
+        **Injection Vulnerabilities**:
+        - SQL injection
+        - NoSQL injection
+        - Command injection
+        - LDAP injection
+        - XPath injection
+
+        **Cross-Site Scripting (XSS)**:
+        - Reflected XSS
+        - Stored XSS
+        - DOM-based XSS
+
+        **Authentication Issues**:
+        - Weak password requirements
+        - Missing brute force protection
+        - Insecure session management
+        - Missing MFA support
+
+        **Authorization Issues**:
+        - Broken access control
+        - IDOR vulnerabilities
+        - Missing function-level access control
+
+        **Cryptographic Issues**:
+        - Weak algorithms
+        - Hardcoded keys
+        - Missing encryption
+
+        For each finding:
+        {
+          "id": "VULN-001",
+          "category": "injection|xss|auth|authz|crypto|other",
+          "severity": "critical|high|medium|low",
+          "cwe": "CWE-XXX",
+          "location": {"file": "", "line": 0},
+          "description": "",
+          "proof": "code snippet showing the issue",
+          "remediation": ""
+        }
+    output_artifacts:
+      - name: static-findings
+        path: output/static-analysis.json
+        type: json
+
+  # Step 2b: Configuration and secrets audit
+  - id: config-audit
+    persona: auditor
+    dependencies: [reconnaissance]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reconnaissance
+          artifact: attack-surface
+          as: surface
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Configuration and secrets audit.
+
+        Attack surface analysis available at: artifacts/surface
+
+        Check for:
+
+        **Exposed Secrets**:
+        - API keys in code
+        - Passwords in config files
+        - Private keys committed
+        - Tokens in URLs
+
+        **Insecure Configurations**:
+        - Debug mode enabled in production configs
+        - Verbose error messages
+        - Missing security headers
+        - CORS misconfiguration
+        - Insecure cookie settings
+
+        **Infrastructure Security**:
+        - Database connection security
+        - TLS/SSL configuration
+        - Network exposure settings
+
+        **Compliance Gaps**:
+        - Missing audit logging
+        - Data retention issues
+        - Privacy policy violations
+
+        For each finding:
+        {
+          "id": "CFG-001",
+          "category": "secrets|config|infra|compliance",
+          "severity": "critical|high|medium|low",
+          "location": {"file": "", "line": 0},
+          "current_value": "sanitized representation",
+          "expected": "what it should be",
+          "remediation": ""
+        }
+    output_artifacts:
+      - name: config-findings
+        path: output/config-audit.json
+        type: json
+
+  # Step 2c: Dependency vulnerability scan
+  - id: dependency-scan
+    persona: auditor
+    dependencies: [reconnaissance]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reconnaissance
+          artifact: attack-surface
+          as: surface
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Dependency vulnerability analysis.
+
+        Attack surface analysis available at: artifacts/surface
+
+        Analyze dependencies for:
+
+        **Known Vulnerabilities**:
+        - Check package.json / go.mod / requirements.txt etc.
+        - Identify packages with known CVEs
+        - Check for outdated versions
+
+        **Supply Chain Risks**:
+        - Unmaintained packages
+        - Packages with few maintainers
+        - Recent ownership transfers
+        - Typosquatting risks
+
+        **License Compliance**:
+        - License compatibility
+        - Copyleft implications
+
+        For each finding:
+        {
+          "package": "",
+          "current_version": "",
+          "vulnerability": {
+            "cve": "CVE-XXXX-XXXXX",
+            "severity": "critical|high|medium|low",
+            "description": ""
+          },
+          "fixed_version": "",
+          "remediation": ""
+        }
+    output_artifacts:
+      - name: dependency-findings
+        path: output/dependency-scan.json
+        type: json
+
+  # Step 3: Consolidate findings and create remediation plan
+  - id: remediation-plan
+    persona: philosopher
+    dependencies: [static-analysis, config-audit, dependency-scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: reconnaissance
+          artifact: attack-surface
+          as: surface
+        - step: static-analysis
+          artifact: static-findings
+          as: static
+        - step: config-audit
+          artifact: config-findings
+          as: config
+        - step: dependency-scan
+          artifact: dependency-findings
+          as: deps
+    exec:
+      type: prompt
+      source: |
+        Create a prioritized remediation plan.
+
+        Available findings:
+        - artifacts/surface: Attack surface analysis
+        - artifacts/static: Static analysis findings
+        - artifacts/config: Configuration audit findings
+        - artifacts/deps: Dependency scan results
+
+        Create a comprehensive security report with:
+
+        1. **Executive Summary**:
+           - Overall security posture (CRITICAL / HIGH / MEDIUM / LOW)
+           - Total findings by severity
+           - Key risk areas
+
+        2. **Critical Findings** (fix immediately):
+           - Consolidated list of critical/high severity issues
+           - Potential impact if exploited
+           - Estimated effort to fix
+
+        3. **Remediation Roadmap**:
+           - Phase 1: Critical (1-7 days)
+           - Phase 2: High (1-4 weeks)
+           - Phase 3: Medium (1-3 months)
+           - Phase 4: Low (ongoing)
+
+        4. **Quick Wins**:
+           - Easy fixes with high impact
+           - Configuration changes
+           - Dependency updates
+
+        5. **Long-term Recommendations**:
+           - Architectural improvements
+           - Security tooling to adopt
+           - Process improvements
+
+        6. **Appendix**:
+           - Full findings list by category
+           - References and resources
+
+        Format as a professional security audit report in markdown.
+    output_artifacts:
+      - name: report
+        path: output/security-audit-report.md
+        type: markdown
+
+  # Step 4: Generate actionable tickets
+  - id: ticket-generation
+    persona: craftsman
+    dependencies: [remediation-plan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: remediation-plan
+          artifact: report
+          as: audit_report
+    exec:
+      type: prompt
+      source: |
+        Generate actionable tickets from the security audit.
+
+        Audit report available at: artifacts/audit_report
+
+        For each finding that needs remediation, create a ticket:
+
+        ```
+        ## [SEVERITY] Title
+
+        **Category**: injection|xss|auth|config|dependency
+        **Priority**: P0|P1|P2|P3
+        **Estimated Effort**: hours|days|weeks
+
+        ### Description
+        What the vulnerability is and why it matters.
+
+        ### Reproduction Steps
+        How to verify the issue exists.
+
+        ### Remediation
+        Step-by-step fix instructions.
+
+        ### Acceptance Criteria
+        - [ ] Vulnerability is fixed
+        - [ ] Tests added
+        - [ ] Security review passed
+
+        ### References
+        - CWE link
+        - OWASP link
+        ```
+
+        Group tickets by phase (Critical, High, Medium, Low).
+    output_artifacts:
+      - name: tickets
+        path: output/remediation-tickets.md
+        type: markdown
