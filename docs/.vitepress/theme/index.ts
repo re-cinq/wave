@@ -28,6 +28,9 @@ import UseCaseGallery from './components/UseCaseGallery.vue'
 // Navigation Components
 import Breadcrumb from './components/Breadcrumb.vue'
 
+// Installation Components
+import InstallTabs from './components/InstallTabs.vue'
+
 // Plugins
 import { setupCopyCode, injectCopyCodeStyles } from '../plugins/copy-code'
 
@@ -55,6 +58,9 @@ export default {
 
     // Register navigation components
     app.component('Breadcrumb', Breadcrumb)
+
+    // Register installation components
+    app.component('InstallTabs', InstallTabs)
   },
   setup() {
     // Client-side only setup
