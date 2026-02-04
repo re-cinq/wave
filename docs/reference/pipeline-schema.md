@@ -16,7 +16,7 @@ steps:
       source: "Execute: {{ input }}"
 ```
 
-Copy this to `.wave/pipelines/simple-task.yaml` and run with `wave run --pipeline simple-task --input "your task"`.
+Copy this to `.wave/pipelines/simple-task.yaml` and run with `wave run simple-task "your task"`.
 
 ---
 

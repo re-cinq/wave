@@ -18,7 +18,7 @@ Run any built-in pipeline immediately:
 ```bash
 cd your-project
 wave init
-wave run --pipeline code-review --input "review the authentication module"
+wave run code-review "review the authentication module"
 ```
 
 Expected output:

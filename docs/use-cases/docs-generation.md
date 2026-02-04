@@ -5,7 +5,7 @@ Generate and update documentation from your code. Wave's docs pipeline analyzes 
 ## Quick Start
 
 ```bash
-wave run --pipeline docs --input "generate API documentation"
+wave run docs "generate API documentation"
 ```
 
 Expected output:
@@ -210,19 +210,19 @@ if err != nil {
 ### Generate README
 
 ```bash
-wave run --pipeline docs --input "generate README.md for the project"
+wave run docs "generate README.md for the project"
 ```
 
 ### Document specific package
 
 ```bash
-wave run --pipeline docs --input "document the internal/contract package"
+wave run docs "document the internal/contract package"
 ```
 
 ### Generate changelog
 
 ```bash
-wave run --pipeline docs --input "generate changelog from git history since v1.0.0"
+wave run docs "generate changelog from git history since v1.0.0"
 ```
 
 ### Add to existing docs

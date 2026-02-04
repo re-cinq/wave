@@ -5,7 +5,7 @@ Analyze coverage gaps and generate comprehensive tests. Wave's test-gen pipeline
 ## Quick Start
 
 ```bash
-wave run --pipeline test-gen --input "generate tests for the pipeline package"
+wave run test-gen "generate tests for the pipeline package"
 ```
 
 Expected output:
@@ -251,19 +251,19 @@ func TestJSONSchemaValidator_Validate(t *testing.T) {
 ### Target specific coverage
 
 ```bash
-wave run --pipeline test-gen --input "increase coverage to 80% for internal/contract"
+wave run test-gen "increase coverage to 80% for internal/contract"
 ```
 
 ### Generate benchmark tests
 
 ```bash
-wave run --pipeline test-gen --input "add benchmarks for hot paths in the executor"
+wave run test-gen "add benchmarks for hot paths in the executor"
 ```
 
 ### Focus on error paths
 
 ```bash
-wave run --pipeline test-gen --input "test error handling in api/handlers"
+wave run test-gen "test error handling in api/handlers"
 ```
 
 ### Generate integration tests
