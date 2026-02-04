@@ -131,16 +131,20 @@ func (e *NDJSONEmitter) Emit(event Event) {
 	}
 
 	if e.humanReadable {
+		// Skip heartbeat events - they're for progress displays only
+		if event.State == StateStepProgress ||
+			event.State == StateETAUpdated ||
+			event.State == StateCompactionProgress {
+			return
+		}
+
 		stateColors := map[string]string{
-			"started":              "\033[36m",
-			"running":              "\033[33m",
-			"completed":            "\033[32m",
-			"failed":               "\033[31m",
-			"retrying":             "\033[35m",
-			"step_progress":        "\033[36m",
-			"eta_updated":          "\033[90m",
-			"contract_validating":  "\033[35m",
-			"compaction_progress":  "\033[90m",
+			"started":             "\033[36m", // Primary (cyan)
+			"running":             "\033[33m", // Warning (yellow)
+			"completed":           "\033[32m", // Success (green)
+			"failed":              "\033[31m", // Error (red)
+			"retrying":            "\033[33m", // Warning (yellow)
+			"contract_validating": "\033[36m", // Primary (cyan)
 		}
 		color := stateColors[event.State]
 		if color == "" {
@@ -150,23 +154,33 @@ func (e *NDJSONEmitter) Emit(event Event) {
 
 		ts := event.Timestamp.Format("15:04:05")
 		if event.StepID != "" {
-			fmt.Printf("%s[%s]%s %s%-10s%s %s", "\033[90m", ts, reset, color, event.State, reset, event.StepID)
+			// Base format: timestamp, state, stepID
+			fmt.Printf("%s[%s]%s %s%-10s%s %-20s",
+				"\033[90m", ts, reset,
+				color, event.State, reset,
+				event.StepID)
+
 			if event.Persona != "" {
 				fmt.Printf(" (%s)", event.Persona)
 			}
-			if event.Progress > 0 {
-				fmt.Printf(" %d%%", event.Progress)
-			}
-			if event.CurrentAction != "" {
-				fmt.Printf(" [%s]", event.CurrentAction)
-			}
+
 			if event.DurationMs > 0 {
 				secs := float64(event.DurationMs) / 1000.0
-				fmt.Printf(" %.1fs", secs)
+				if secs < 10 {
+					fmt.Printf(" %5.1fs", secs)
+				} else {
+					fmt.Printf(" %5.0fs", secs)
+				}
 			}
+
 			if event.TokensUsed > 0 {
-				fmt.Printf(" %dk tokens", event.TokensUsed/1000)
+				if event.TokensUsed >= 1000 {
+					fmt.Printf(" %4.1fk", float64(event.TokensUsed)/1000.0)
+				} else {
+					fmt.Printf(" %d", event.TokensUsed)
+				}
 			}
+
 			if len(event.Artifacts) > 0 {
 				fmt.Printf(" → %v", event.Artifacts)
 			}
