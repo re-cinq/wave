@@ -32,25 +32,30 @@ onMounted(() => {
     return
   }
 
-  // Auto-detect from user agent
-  const userAgent = navigator.userAgent.toLowerCase()
+  // Auto-detect from user agent (client-side only)
+  if (typeof navigator !== 'undefined') {
+    const userAgent = navigator.userAgent.toLowerCase()
 
-  if (userAgent.includes('mac')) {
-    activePlatform.value = 'macos'
-  } else if (userAgent.includes('win')) {
-    activePlatform.value = 'windows'
-  } else if (userAgent.includes('linux') || userAgent.includes('x11')) {
-    activePlatform.value = 'linux'
+    if (userAgent.includes('mac')) {
+      activePlatform.value = 'macos'
+    } else if (userAgent.includes('win')) {
+      activePlatform.value = 'windows'
+    } else if (userAgent.includes('linux') || userAgent.includes('x11')) {
+      activePlatform.value = 'linux'
+    }
   }
 
   // Fallback to first available tab if detected platform not in tabs
-  const availablePlatforms = props.tabs.map(t => t.platform)
-  if (!availablePlatforms.includes(activePlatform.value)) {
-    activePlatform.value = props.tabs[0]?.platform || 'macos'
+  if (props.tabs && props.tabs.length > 0) {
+    const availablePlatforms = props.tabs.map(t => t.platform)
+    if (!availablePlatforms.includes(activePlatform.value)) {
+      activePlatform.value = props.tabs[0]?.platform || 'macos'
+    }
   }
 })
 
 const activeTab = computed(() => {
+  if (!props.tabs || props.tabs.length === 0) return undefined
   return props.tabs.find(t => t.platform === activePlatform.value)
 })
 
