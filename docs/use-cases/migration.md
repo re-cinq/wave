@@ -48,6 +48,8 @@ Artifacts: output/migration-report.md
 
 Save the following YAML to `.wave/pipelines/migrate.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -265,6 +267,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces five artifacts:
@@ -441,6 +445,8 @@ wave run migrate "upgrade all dependencies to latest stable versions"
 
 Create a planning-only variant:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -456,7 +462,11 @@ steps:
     # No implement step - just output the plan
 ```
 
+</div>
+
 ### Add rollback testing
+
+<div v-pre>
 
 ```yaml
 - id: rollback-test
@@ -471,6 +481,8 @@ steps:
       4. Re-apply migration
       5. Verify migration succeeds again
 ```
+
+</div>
 
 ## Migration Best Practices
 

@@ -43,6 +43,8 @@ Artifacts: output/generated-tests.md
 
 This is the full `test-gen` pipeline from `.wave/pipelines/test-gen.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -146,6 +148,8 @@ steps:
         path: output/coverage-verification.md
         type: markdown
 ```
+
+</div>
 
 ## Expected Outputs
 
@@ -297,6 +301,8 @@ wave run test-gen "test error handling in api/handlers"
 
 Create a specialized pipeline for integration tests:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -342,9 +348,13 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Contract Validation
 
 The test-gen pipeline includes a contract that runs the generated tests:
+
+<div v-pre>
 
 ```yaml
 handover:
@@ -355,6 +365,8 @@ handover:
     on_failure: retry     # Retry to fix compilation errors
     max_retries: 3
 ```
+
+</div>
 
 This ensures generated tests at least compile. Set `must_pass: true` to require all tests pass.
 

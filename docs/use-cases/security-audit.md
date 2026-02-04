@@ -53,6 +53,8 @@ Artifacts: output/security-report.md
 
 Save the following YAML to `.wave/pipelines/security-audit.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -193,6 +195,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces four artifacts:
@@ -266,6 +270,8 @@ wave run security-audit "security review of internal/api/ directory"
 
 Extend the pipeline with a dependency-focused step:
 
+<div v-pre>
+
 ```yaml
 - id: dependency-audit
   persona: navigator
@@ -279,9 +285,13 @@ Extend the pipeline with a dependency-focused step:
       Check for outdated packages with security patches available.
 ```
 
+</div>
+
 ### Add contract validation
 
 Ensure compliance report follows expected format:
+
+<div v-pre>
 
 ```yaml
 - id: compliance-check
@@ -293,6 +303,8 @@ Ensure compliance report follows expected format:
       on_failure: retry
       max_retries: 2
 ```
+
+</div>
 
 ## Related Use Cases
 
