@@ -49,6 +49,8 @@ Artifacts: output/multi-review-verdict.md
 
 Save the following YAML to `.wave/pipelines/multi-review.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -270,6 +272,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Expected Outputs
 
 The pipeline produces six artifacts:
@@ -367,6 +371,8 @@ wave run multi-review "focus on security and performance for the auth module"
 
 Add a compliance-focused step:
 
+<div v-pre>
+
 ```yaml
 - id: compliance-review
   persona: auditor
@@ -379,9 +385,13 @@ Add a compliance-focused step:
       - SOC 2 controls
 ```
 
+</div>
+
 ### Weighted scoring
 
 Add scoring to the synthesis step:
+
+<div v-pre>
 
 ```yaml
 - id: synthesis
@@ -395,6 +405,8 @@ Add scoring to the synthesis step:
 
       Calculate weighted total and grade.
 ```
+
+</div>
 
 ## Pipeline Visualization
 

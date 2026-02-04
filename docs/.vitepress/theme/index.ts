@@ -32,9 +32,6 @@ import CardGrid from './components/CardGrid.vue'
 // Installation Components
 import InstallTabs from './components/InstallTabs.vue'
 
-// Plugins
-import { setupCopyCode, injectCopyCodeStyles } from '../plugins/copy-code'
-
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
@@ -63,12 +60,5 @@ export default {
 
     // Register installation components
     app.component('InstallTabs', InstallTabs)
-  },
-  setup() {
-    // Client-side only setup
-    if (typeof window !== 'undefined') {
-      injectCopyCodeStyles()
-      setupCopyCode()
-    }
   }
 } satisfies Theme
