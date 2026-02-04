@@ -38,7 +38,7 @@ steps:
       strategy: fresh
     exec:
       type: prompt
-      source: "Analyze: {{ input }}"
+      source: "Analyze: {​{ input }}"
     output_artifacts:
       - name: analysis
         path: output/analysis.json
@@ -143,12 +143,13 @@ memory:
 Artifacts from previous steps are explicitly injected:
 - Wave retrieves the artifact from the dependency step
 - Artifact content is included in the step's context
-- Referenced via template: `{{ artifacts.context }}`
+- Referenced via template: `{​{ artifacts.context }}`
 
 ## Step Execution
 
 Wave executes each step through the configured adapter:
 
+::: v-pre
 ```yaml
 steps:
   - id: review
@@ -158,10 +159,11 @@ steps:
       source: |
         Review the code changes:
 
-        Context: {{ artifacts.context }}
+        Context: {​{ artifacts.context }}
 
         Provide structured feedback.
 ```
+:::
 
 **Execution process:**
 
