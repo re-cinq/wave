@@ -53,11 +53,26 @@ type RunInfo struct {
 	DurationMs int64  `json:"duration_ms,omitempty"`
 }
 
+// ContractInfo holds information about a contract schema
+type ContractInfo struct {
+	Name      string            `json:"name"`
+	Type      string            `json:"type"`
+	UsedBy    []ContractUsage   `json:"used_by,omitempty"`
+}
+
+// ContractUsage shows where a contract is used
+type ContractUsage struct {
+	Pipeline string `json:"pipeline"`
+	Step     string `json:"step"`
+	Persona  string `json:"persona"`
+}
+
 type ListOutput struct {
-	Pipelines []PipelineInfo `json:"pipelines,omitempty"`
-	Personas  []PersonaInfo  `json:"personas,omitempty"`
 	Adapters  []AdapterInfo  `json:"adapters,omitempty"`
 	Runs      []RunInfo      `json:"runs,omitempty"`
+	Pipelines []PipelineInfo `json:"pipelines,omitempty"`
+	Personas  []PersonaInfo  `json:"personas,omitempty"`
+	Contracts []ContractInfo `json:"contracts,omitempty"`
 }
 
 type ListOptions struct {
@@ -96,24 +111,24 @@ func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
 	cmd := &cobra.Command{
-		Use:   "list [pipelines|personas|adapters|runs]",
-		Short: "List pipelines and personas",
-		Long: `List available pipelines, personas, and their configurations.
-Shows pipeline steps, persona bindings, and execution status.
+		Use:   "list [adapters|runs|pipelines|personas|contracts]",
+		Short: "List Wave configuration and resources",
+		Long: `List Wave configuration, resources, and execution history.
 
 Arguments:
-  pipelines   List available pipelines
-  personas    List configured personas
-  adapters    List configured adapters
+  adapters    List configured LLM adapters with availability status
   runs        List recent pipeline executions
+  pipelines   List available pipelines with step flows
+  personas    List configured personas with permissions
+  contracts   List contract schemas and their usage in pipelines
 
-With no arguments, lists pipelines and personas.
+With no arguments, lists all categories.
 
 For 'list runs', additional flags are available:
   --limit N           Maximum number of runs to show (default 10)
   --run-pipeline P    Filter to specific pipeline
   --run-status S      Filter by status (running, completed, failed, cancelled)`,
-		ValidArgs: []string{"pipelines", "personas", "adapters", "runs"},
+		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := ""
 			if len(args) > 0 {
@@ -136,10 +151,11 @@ For 'list runs', additional flags are available:
 
 func runList(opts ListOptions, filter string) error {
 	showAll := filter == ""
-	showPipelines := showAll || filter == "pipelines"
-	showPersonas := showAll || filter == "personas"
 	showAdapters := showAll || filter == "adapters"
 	showRuns := showAll || filter == "runs"
+	showPipelines := showAll || filter == "pipelines"
+	showPersonas := showAll || filter == "personas"
+	showContracts := showAll || filter == "contracts"
 
 	// Handle runs-only filter separately (redirect to runListRuns which prints its own logo)
 	if filter == "runs" {
@@ -155,25 +171,17 @@ func runList(opts ListOptions, filter string) error {
 	if opts.Format == "json" {
 		output := ListOutput{}
 
-		if showPipelines {
-			pipelines, err := collectPipelines()
-			if err != nil {
-				return err
-			}
-			output.Pipelines = pipelines
-		}
-
 		// Load manifest for personas/adapters
 		manifestData, err := os.ReadFile(opts.Manifest)
 		if err == nil {
 			var m manifestData2
 			yaml.Unmarshal(manifestData, &m)
 
-			if showPersonas {
-				output.Personas = collectPersonas(m.Personas)
-			}
 			if showAdapters {
 				output.Adapters = collectAdapters(m.Adapters)
+			}
+			if showPersonas {
+				output.Personas = collectPersonas(m.Personas)
 			}
 		}
 
@@ -185,6 +193,21 @@ func runList(opts ListOptions, filter string) error {
 			})
 			if err == nil {
 				output.Runs = runs
+			}
+		}
+
+		if showPipelines {
+			pipelines, err := collectPipelines()
+			if err != nil {
+				return err
+			}
+			output.Pipelines = pipelines
+		}
+
+		if showContracts {
+			contracts, err := collectContracts()
+			if err == nil {
+				output.Contracts = contracts
 			}
 		}
 
@@ -211,11 +234,25 @@ func runList(opts ListOptions, filter string) error {
 		yaml.Unmarshal(manifestData, &m)
 	}
 
-	// Order: adapters, pipelines, personas, runs
+	// Order: adapters, runs, pipelines, personas, contracts
 	if showAdapters {
 		listAdaptersTable(m.Adapters)
 		if showAll {
 			fmt.Println()
+		}
+	}
+
+	if showRuns {
+		runs, err := collectRuns(ListRunsOptions{
+			Limit:    listRunsLimit,
+			Pipeline: listRunsPipeline,
+			Status:   listRunsStatus,
+		})
+		if err == nil {
+			listRunsTable(runs)
+			if showAll {
+				fmt.Println()
+			}
 		}
 	}
 
@@ -235,14 +272,10 @@ func runList(opts ListOptions, filter string) error {
 		}
 	}
 
-	if showRuns {
-		runs, err := collectRuns(ListRunsOptions{
-			Limit:    listRunsLimit,
-			Pipeline: listRunsPipeline,
-			Status:   listRunsStatus,
-		})
+	if showContracts {
+		contracts, err := collectContracts()
 		if err == nil {
-			listRunsTable(runs)
+			listContractsTable(contracts)
 		}
 	}
 
@@ -1098,6 +1131,156 @@ func listRunsTable(runs []RunInfo) {
 
 		fmt.Printf("  %-24s  %-16s  %s  %-18s  %s\n",
 			runID, pipeline, statusStr, run.StartedAt, f.Muted(run.Duration))
+	}
+
+	fmt.Println()
+}
+
+// collectContracts collects contract information from .wave/contracts/ and finds their usage in pipelines
+func collectContracts() ([]ContractInfo, error) {
+	contractDir := ".wave/contracts"
+	entries, err := os.ReadDir(contractDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// First collect all contract files (handles both .json and .schema.json)
+	contractsByFile := make(map[string]*ContractInfo) // keyed by filename for matching
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		filename := entry.Name()
+		// Display name: strip .schema.json or .json
+		displayName := strings.TrimSuffix(filename, ".json")
+		displayName = strings.TrimSuffix(displayName, ".schema")
+
+		contractsByFile[filename] = &ContractInfo{
+			Name:   displayName,
+			Type:   "json-schema",
+			UsedBy: []ContractUsage{},
+		}
+	}
+
+	// Now scan pipelines to find where contracts are used
+	pipelineDir := ".wave/pipelines"
+	pipelineEntries, err := os.ReadDir(pipelineDir)
+	if err == nil {
+		for _, entry := range pipelineEntries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+				continue
+			}
+
+			pipelineName := strings.TrimSuffix(entry.Name(), ".yaml")
+			pipelinePath := filepath.Join(pipelineDir, entry.Name())
+
+			data, err := os.ReadFile(pipelinePath)
+			if err != nil {
+				continue
+			}
+
+			var p struct {
+				Steps []struct {
+					ID       string `yaml:"id"`
+					Persona  string `yaml:"persona"`
+					Contract struct {
+						SchemaPath string `yaml:"schema_path"`
+					} `yaml:"contract"`
+					Handover struct {
+						Contract struct {
+							SchemaPath string `yaml:"schema_path"`
+						} `yaml:"contract"`
+					} `yaml:"handover"`
+				} `yaml:"steps"`
+			}
+			if err := yaml.Unmarshal(data, &p); err != nil {
+				continue
+			}
+
+			for _, step := range p.Steps {
+				// Check both direct contract and handover.contract
+				schemaPath := step.Contract.SchemaPath
+				if schemaPath == "" {
+					schemaPath = step.Handover.Contract.SchemaPath
+				}
+				if schemaPath == "" {
+					continue
+				}
+
+				// Extract contract filename from path (e.g., ".wave/contracts/navigation.schema.json")
+				contractFile := filepath.Base(schemaPath)
+
+				// If this contract exists in our map, add the usage
+				if contract, exists := contractsByFile[contractFile]; exists {
+					contract.UsedBy = append(contract.UsedBy, ContractUsage{
+						Pipeline: pipelineName,
+						Step:     step.ID,
+						Persona:  step.Persona,
+					})
+				} else {
+					// Contract referenced but not found - add it with usage info
+					displayName := strings.TrimSuffix(contractFile, ".json")
+					displayName = strings.TrimSuffix(displayName, ".schema")
+					contractsByFile[contractFile] = &ContractInfo{
+						Name:   displayName,
+						Type:   "json-schema (missing)",
+						UsedBy: []ContractUsage{{Pipeline: pipelineName, Step: step.ID, Persona: step.Persona}},
+					}
+				}
+			}
+		}
+	}
+
+	// Convert map to slice and sort by display name
+	var contracts []ContractInfo
+	for _, contract := range contractsByFile {
+		contracts = append(contracts, *contract)
+	}
+	sort.Slice(contracts, func(i, j int) bool {
+		return contracts[i].Name < contracts[j].Name
+	})
+
+	return contracts, nil
+}
+
+// listContractsTable displays contract information in table format
+func listContractsTable(contracts []ContractInfo) {
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Bold("Contracts"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+
+	if len(contracts) == 0 {
+		fmt.Printf("  %s\n", f.Muted("(none found in .wave/contracts/)"))
+		fmt.Println()
+		return
+	}
+
+	for _, contract := range contracts {
+		// Contract name with type badge
+		typeBadge := f.Muted(fmt.Sprintf("[%s]", contract.Type))
+		fmt.Printf("\n  %s %s\n", f.Primary(contract.Name), typeBadge)
+
+		// Show usage
+		if len(contract.UsedBy) == 0 {
+			fmt.Printf("    %s\n", f.Muted("(unused)"))
+		} else {
+			fmt.Printf("    %s\n", f.Muted("used by:"))
+			for _, usage := range contract.UsedBy {
+				// Format: pipeline → step (persona)
+				usageStr := fmt.Sprintf("%s → %s", usage.Pipeline, usage.Step)
+				if usage.Persona != "" {
+					usageStr += fmt.Sprintf(" (%s)", usage.Persona)
+				}
+				fmt.Printf("      %s %s\n", f.Success("•"), usageStr)
+			}
+		}
 	}
 
 	fmt.Println()
