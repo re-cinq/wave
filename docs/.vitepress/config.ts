@@ -26,6 +26,7 @@ export default withMermaid(
           items: [
             { text: 'Team Adoption', link: '/guides/team-adoption' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+            { text: 'GitHub Integration', link: '/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
             { text: 'Audit Logging', link: '/guides/audit-logging' },
             { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
@@ -79,6 +80,7 @@ export default withMermaid(
             items: [
               { text: 'Team Adoption', link: '/guides/team-adoption' },
               { text: 'CI/CD Integration', link: '/guides/ci-cd' },
+              { text: 'GitHub Integration', link: '/github-integration' },
               { text: 'Enterprise Patterns', link: '/guides/enterprise' }
             ]
           },
