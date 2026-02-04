@@ -129,6 +129,38 @@ personas:
             deny:
                 - Bash(rm *)
         system_prompt_file: .wave/personas/github-enhancer.md
+    implementer:
+        adapter: claude
+        description: Code execution and artifact generation for pipeline steps
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Edit
+                - Bash
+                - Glob
+                - Grep
+            deny:
+                - Bash(rm -rf /*)
+                - Bash(sudo *)
+        system_prompt_file: .wave/personas/implementer.md
+    reviewer:
+        adapter: claude
+        description: Quality review, validation, and assessment
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - Write(artifact.json)
+                - Write(artifacts/*)
+                - Bash(go test*)
+                - Bash(npm test*)
+            deny:
+                - Write(*.go)
+                - Write(*.ts)
+                - Edit(*)
+        system_prompt_file: .wave/personas/reviewer.md
 runtime:
     audit:
         log_all_file_operations: false
