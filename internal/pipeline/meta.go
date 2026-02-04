@@ -248,16 +248,23 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 
 	prompt := buildPhilosopherPrompt(task, e.currentDepth)
 
+	// Create isolated workspace for meta pipeline to avoid overwriting project CLAUDE.md
+	metaWorkspace := filepath.Join(".wave", "workspaces", "meta-philosopher")
+	if err := os.MkdirAll(metaWorkspace, 0755); err != nil {
+		return nil, 0, fmt.Errorf("failed to create meta workspace: %w", err)
+	}
+
 	cfg := adapter.AdapterRunConfig{
-		Adapter:      adapterDef.Binary,
-		Persona:      PhilosopherPersona,
-		Prompt:       prompt,
-		Timeout:      e.getTimeout(m),
-		Temperature:  persona.Temperature,
-		Model:        persona.Model,
-		AllowedTools: persona.Permissions.AllowedTools,
-		DenyTools:    persona.Permissions.Deny,
-		OutputFormat: "yaml",
+		Adapter:       adapterDef.Binary,
+		Persona:       PhilosopherPersona,
+		WorkspacePath: metaWorkspace,
+		Prompt:        prompt,
+		Timeout:       e.getTimeout(m),
+		Temperature:   persona.Temperature,
+		Model:         persona.Model,
+		AllowedTools:  persona.Permissions.AllowedTools,
+		DenyTools:     persona.Permissions.Deny,
+		OutputFormat:  "yaml",
 	}
 
 	e.emit(event.Event{
@@ -426,6 +433,8 @@ Generate a valid WavePipeline YAML that follows these STRICT requirements:
 8. Navigator steps should have limited scope and clear output requirements
 9. Prompts must explicitly instruct saving JSON output to "artifact.json"
 10. Navigator prompts must override the no-write constraint for artifact.json creation
+11. Steps that depend on previous steps MUST use inject_artifacts in their memory config to receive artifacts
+12. CRITICAL: When a step has inject_artifacts, the prompt MUST explicitly tell the persona where to find them (e.g., "Read the analysis from artifacts/analysis"). Personas cannot discover files on their own - they must be told the exact path.
 
 CRITICAL: Output your response in the following format:
 
@@ -473,6 +482,29 @@ steps:
       contract:
         type: json_schema
         schema_path: ".wave/contracts/navigation-analysis.schema.json"
+
+  - id: implement
+    persona: craftsman
+    dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Implement the feature based on the codebase analysis. The analysis has been injected into your workspace at artifacts/analysis - read this file first to understand the codebase structure and patterns. Task: {{ input }}"
+    output_artifacts:
+      - name: result
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/implementation-result.schema.json"
 
 --- SCHEMAS ---
 SCHEMA: .wave/contracts/navigation-analysis.schema.json
@@ -555,7 +587,7 @@ func extractPipelineAndSchemas(output string) (*PipelineGenerationResult, error)
 	}
 
 	// Extract pipeline YAML
-	pipelineContent := output[pipelineStart+len("--- PIPELINE ---"):schemasStart]
+	pipelineContent := output[pipelineStart+len("--- PIPELINE ---") : schemasStart]
 	result.PipelineYAML = strings.TrimSpace(pipelineContent)
 
 	// Remove markdown code blocks from pipeline if present

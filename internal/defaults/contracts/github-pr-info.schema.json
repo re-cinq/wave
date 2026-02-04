@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub PR Info",
+  "description": "Schema for created pull request information",
+  "type": "object",
+  "required": ["pr_number", "pr_url", "title", "state", "success"],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pr_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Full URL to the pull request"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed", "merged"]
+    },
+    "draft": {
+      "type": "boolean"
+    },
+    "head": {
+      "type": "string",
+      "description": "Source branch"
+    },
+    "base": {
+      "type": "string",
+      "description": "Target branch"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether PR creation was successful"
+    },
+    "labels_applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reviewers_assigned": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if creation failed"
+    }
+  }
+}

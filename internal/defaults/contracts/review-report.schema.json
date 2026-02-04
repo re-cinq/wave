@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "GitHub Issue Enhancement Review Report Schema",
+  "required": [
+    "summary",
+    "enhancement_results",
+    "quality_assessment",
+    "recommendations"
+  ],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "required": ["total_issues_reviewed", "issues_enhanced", "overall_quality_score"],
+      "properties": {
+        "total_issues_reviewed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of GitHub issues reviewed"
+        },
+        "issues_enhanced": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of issues that were successfully enhanced"
+        },
+        "overall_quality_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Overall quality score (0-10) for the enhancements made"
+        },
+        "completion_status": {
+          "type": "string",
+          "enum": ["completed", "partial", "failed"],
+          "description": "Status of the enhancement process"
+        }
+      }
+    },
+    "enhancement_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_id", "enhancement_status", "improvements_made"],
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "description": "GitHub issue identifier"
+          },
+          "enhancement_status": {
+            "type": "string",
+            "enum": ["enhanced", "partially_enhanced", "unchanged", "error"],
+            "description": "Status of enhancement for this specific issue"
+          },
+          "improvements_made": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of specific improvements made to the issue"
+          },
+          "quality_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "Quality score for this specific enhancement"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes about the enhancement process"
+          }
+        }
+      }
+    },
+    "quality_assessment": {
+      "type": "object",
+      "required": ["adherence_to_best_practices", "clarity_improvement", "actionability_improvement"],
+      "properties": {
+        "adherence_to_best_practices": {
+          "type": "string",
+          "enum": ["excellent", "good", "satisfactory", "needs_improvement"],
+          "description": "How well the enhancements follow GitHub best practices"
+        },
+        "clarity_improvement": {
+          "type": "string",
+          "enum": ["significant", "moderate", "minimal", "none"],
+          "description": "Level of clarity improvement achieved"
+        },
+        "actionability_improvement": {
+          "type": "string",
+          "enum": ["significant", "moderate", "minimal", "none"],
+          "description": "How much more actionable the issues became"
+        },
+        "areas_for_improvement": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Areas that could be further improved"
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "description"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["process", "quality", "tools", "training", "automation"],
+            "description": "Category of recommendation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of the recommendation"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Priority level of the recommendation"
+          }
+        }
+      },
+      "description": "Recommendations for future issue enhancement processes"
+    }
+  },
+  "additionalProperties": false
+}
