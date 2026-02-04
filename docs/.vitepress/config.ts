@@ -113,13 +113,13 @@ export default withMermaid(
         ]
       },
       socialLinks: [
-        { icon: 'github', link: 'https://github.com/recinq/wave' }
+        { icon: 'github', link: 'https://github.com/re-cinq/wave' }
       ],
       search: {
         provider: 'local'
       },
       editLink: {
-        pattern: 'https://github.com/recinq/wave/edit/main/docs/:path',
+        pattern: 'https://github.com/re-cinq/wave/edit/main/docs/:path',
         text: 'Edit this page on GitHub'
       },
       footer: {
