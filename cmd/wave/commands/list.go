@@ -199,16 +199,7 @@ func runList(opts ListOptions, filter string) error {
 	// Table format (default) - print logo once
 	printLogo()
 
-	if showPipelines {
-		if err := listPipelinesTable(); err != nil {
-			return err
-		}
-		if showAll {
-			fmt.Println()
-		}
-	}
-
-	// Load manifest for personas/adapters
+	// Load manifest for adapters/personas
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil && (showPersonas || showAdapters) {
 		fmt.Printf("(manifest not found: %s)\n", opts.Manifest)
@@ -220,15 +211,25 @@ func runList(opts ListOptions, filter string) error {
 		yaml.Unmarshal(manifestData, &m)
 	}
 
-	if showPersonas {
-		listPersonasTable(m.Personas)
+	// Order: adapters, pipelines, personas, runs
+	if showAdapters {
+		listAdaptersTable(m.Adapters)
 		if showAll {
 			fmt.Println()
 		}
 	}
 
-	if showAdapters {
-		listAdaptersTable(m.Adapters)
+	if showPipelines {
+		if err := listPipelinesTable(); err != nil {
+			return err
+		}
+		if showAll {
+			fmt.Println()
+		}
+	}
+
+	if showPersonas {
+		listPersonasTable(m.Personas)
 		if showAll {
 			fmt.Println()
 		}
