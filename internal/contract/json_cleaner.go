@@ -3,7 +3,6 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -12,82 +11,29 @@ type JSONCleaner struct{}
 
 // CleanJSONOutput attempts to fix common JSON formatting issues while preserving content
 // This is useful for AI-generated JSON that may have minor syntax errors
+// This is now a wrapper around the more sophisticated JSONRecoveryParser
 func (jc *JSONCleaner) CleanJSONOutput(input string) (string, []string, error) {
-	changes := []string{}
+	// Use the progressive recovery parser for comprehensive cleaning
+	parser := NewJSONRecoveryParser(ProgressiveRecovery)
+	result, err := parser.ParseWithRecovery(input)
 
-	// First, try to parse as-is
-	var test interface{}
-	if err := json.Unmarshal([]byte(input), &test); err == nil {
-		// Already valid JSON
-		return input, changes, nil
-	}
+	if err != nil || !result.IsValid {
+		// If progressive recovery fails, try conservative
+		conservativeParser := NewJSONRecoveryParser(ConservativeRecovery)
+		conservativeResult, conservativeErr := conservativeParser.ParseWithRecovery(input)
 
-	content := input
-
-	// Fix unquoted property names (common in AI-generated JSON)
-	// This is a limited fix for simple cases like: {name: "value"} -> {"name": "value"}
-	// Only apply if it looks like it might be an object
-	if strings.TrimSpace(content)[0] == '{' {
-		// Pattern for unquoted keys: word: followed by quote or { or [
-		unquotedKeyRegex := regexp.MustCompile(`(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:`)
-		if unquotedKeyRegex.MatchString(content) {
-			content = unquotedKeyRegex.ReplaceAllString(content, `$1"$2":`)
-			changes = append(changes, "quoted_unquoted_keys")
+		if conservativeErr == nil && conservativeResult.IsValid {
+			return conservativeResult.RecoveredJSON, conservativeResult.AppliedFixes, nil
 		}
-	}
 
-	// Remove single-line comments (// comment) - only at line level
-	singleLineCommentRegex := regexp.MustCompile(`(?m)\s*//[^\n]*`)
-	if singleLineCommentRegex.MatchString(content) {
-		content = singleLineCommentRegex.ReplaceAllString(content, "")
-		changes = append(changes, "removed_single_line_comments")
-	}
-
-	// Remove multi-line comments (/* comment */)
-	multiLineCommentRegex := regexp.MustCompile(`(?s)/\*.*?\*/`)
-	if multiLineCommentRegex.MatchString(content) {
-		content = multiLineCommentRegex.ReplaceAllString(content, "")
-		changes = append(changes, "removed_multi_line_comments")
-	}
-
-	// Remove trailing commas before } or ]
-	trailingCommaRegex := regexp.MustCompile(`,(\s*[}\]])`)
-	if trailingCommaRegex.MatchString(content) {
-		content = trailingCommaRegex.ReplaceAllString(content, "$1")
-		changes = append(changes, "removed_trailing_commas")
-	}
-
-	// Fix single quotes around values (single-quoted strings instead of double-quoted)
-	// Be careful: only fix if the JSON parser would fail otherwise
-	// Pattern: 'string' that's not inside a double-quoted string
-	singleQuoteRegex := regexp.MustCompile(`'([^']*)'`)
-	if singleQuoteRegex.MatchString(content) {
-		// Check if double quotes would parse better
-		testWithDoubleQuotes := singleQuoteRegex.ReplaceAllString(content, `"$1"`)
-		var testParse interface{}
-		if err := json.Unmarshal([]byte(testWithDoubleQuotes), &testParse); err == nil {
-			content = testWithDoubleQuotes
-			changes = append(changes, "converted_single_quotes_to_double_quotes")
+		// If both fail, return the original progressive error
+		if err != nil {
+			return input, result.AppliedFixes, err
 		}
+		return input, result.AppliedFixes, fmt.Errorf("JSON recovery failed: %s", strings.Join(result.Warnings, ", "))
 	}
 
-	// Normalize whitespace but preserve structure
-	// Split by lines to preserve multiline strings (they should already be \n escaped)
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		// Collapse multiple spaces/tabs to single space, but preserve structure
-		line = regexp.MustCompile(`[ \t]+`).ReplaceAllString(line, " ")
-		lines[i] = strings.TrimRight(line, " \t")
-	}
-	content = strings.Join(lines, "\n")
-	content = strings.TrimSpace(content)
-
-	// Final validation
-	if err := json.Unmarshal([]byte(content), &test); err != nil {
-		return input, changes, fmt.Errorf("JSON still invalid after cleaning: %w", err)
-	}
-
-	return content, changes, nil
+	return result.RecoveredJSON, result.AppliedFixes, nil
 }
 
 // ValidateAndFormatJSON validates JSON and returns it in canonical format
@@ -115,6 +61,27 @@ func (jc *JSONCleaner) IsValidJSON(input string) bool {
 // ExtractJSONFromText attempts to extract a JSON object or array from text
 // Useful when AI output includes explanation text before/after JSON
 func (jc *JSONCleaner) ExtractJSONFromText(text string) (string, error) {
+	// Use the recovery parser's more sophisticated extraction
+	parser := NewJSONRecoveryParser(ProgressiveRecovery)
+	result, err := parser.ParseWithRecovery(text)
+
+	if err == nil && result.IsValid {
+		// Check if extraction was performed
+		for _, fix := range result.AppliedFixes {
+			if strings.Contains(fix, "extracted") {
+				return result.RecoveredJSON, nil
+			}
+		}
+		// If no extraction was needed, the input was already valid JSON
+		return result.RecoveredJSON, nil
+	}
+
+	// Fallback to original extraction logic if recovery fails
+	return jc.extractJSONFromTextLegacy(text)
+}
+
+// extractJSONFromTextLegacy is the original extraction logic kept as fallback
+func (jc *JSONCleaner) extractJSONFromTextLegacy(text string) (string, error) {
 	text = strings.TrimSpace(text)
 
 	// Find the first { or [ and match it to the corresponding } or ]
@@ -178,4 +145,104 @@ func (jc *JSONCleaner) ExtractJSONFromText(text string) (string, error) {
 	}
 
 	return jsonStr, nil
+}
+
+// NormalizeJSONFormat takes valid JSON and normalizes its formatting for consistency
+func (jc *JSONCleaner) NormalizeJSONFormat(input string, indent string) (string, error) {
+	var data interface{}
+	if err := json.Unmarshal([]byte(input), &data); err != nil {
+		return "", fmt.Errorf("input is not valid JSON: %w", err)
+	}
+
+	// Re-marshal with consistent formatting
+	var formatted []byte
+	var err error
+
+	if indent == "" {
+		formatted, err = json.Marshal(data)
+	} else {
+		formatted, err = json.MarshalIndent(data, "", indent)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to format JSON: %w", err)
+	}
+
+	return string(formatted), nil
+}
+
+// CleanAndNormalizeJSON combines cleaning and normalization in one step
+func (jc *JSONCleaner) CleanAndNormalizeJSON(input string, indent string) (string, []string, error) {
+	// First clean the JSON
+	cleaned, changes, err := jc.CleanJSONOutput(input)
+	if err != nil {
+		return input, changes, err
+	}
+
+	// Then normalize the format
+	normalized, err := jc.NormalizeJSONFormat(cleaned, indent)
+	if err != nil {
+		// Return cleaned version even if normalization fails
+		return cleaned, changes, nil
+	}
+
+	return normalized, changes, nil
+}
+
+// ValidateJSONStructure performs structural validation beyond basic JSON parsing
+func (jc *JSONCleaner) ValidateJSONStructure(input string, requirements map[string]interface{}) ([]string, error) {
+	var data interface{}
+	if err := json.Unmarshal([]byte(input), &data); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	issues := []string{}
+
+	// Convert to map for inspection if it's an object
+	if obj, ok := data.(map[string]interface{}); ok {
+		issues = append(issues, jc.validateObjectStructure(obj, requirements)...)
+	}
+
+	return issues, nil
+}
+
+// validateObjectStructure checks object-level requirements
+func (jc *JSONCleaner) validateObjectStructure(obj map[string]interface{}, requirements map[string]interface{}) []string {
+	issues := []string{}
+
+	// Check for required fields
+	if requiredFields, ok := requirements["required_fields"].([]string); ok {
+		for _, field := range requiredFields {
+			if _, exists := obj[field]; !exists {
+				issues = append(issues, fmt.Sprintf("missing required field: %s", field))
+			}
+		}
+	}
+
+	// Check for forbidden fields
+	if forbiddenFields, ok := requirements["forbidden_fields"].([]string); ok {
+		for _, field := range forbiddenFields {
+			if _, exists := obj[field]; exists {
+				issues = append(issues, fmt.Sprintf("forbidden field found: %s", field))
+			}
+		}
+	}
+
+	// Check minimum number of fields
+	if minFields, ok := requirements["min_fields"].(int); ok {
+		if len(obj) < minFields {
+			issues = append(issues, fmt.Sprintf("object has %d fields, minimum required: %d", len(obj), minFields))
+		}
+	}
+
+	// Check for empty string values
+	if checkEmpty, ok := requirements["no_empty_strings"].(bool); ok && checkEmpty {
+		for key, value := range obj {
+			if str, ok := value.(string); ok && strings.TrimSpace(str) == "" {
+				issues = append(issues, fmt.Sprintf("field '%s' has empty string value", key))
+			}
+		}
+	}
+
+	return issues
 }

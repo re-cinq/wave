@@ -65,6 +65,13 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	}
 
 	mergedEnv := append(os.Environ(), cfg.Env...)
+	// Disable telemetry, error reporting, and interactive prompts for subprocess
+	mergedEnv = append(mergedEnv,
+		"DISABLE_TELEMETRY=1",
+		"DISABLE_ERROR_REPORTING=1",
+		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
+		"DISABLE_BUG_COMMAND=1",
+	)
 	cmd.Env = mergedEnv
 
 	// Set up process group for clean timeout kill
@@ -131,7 +138,16 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	tokens, artifacts, resultContent := a.parseOutput(stdoutBuf.Bytes())
 	result.TokensUsed = tokens
 	result.Artifacts = artifacts
-	result.ResultContent = resultContent
+
+	// Apply output validation and correction
+	correctedContent, err := a.validateAndCorrectOutput(resultContent, cfg.OutputFormat)
+	if err != nil && cfg.Debug {
+		fmt.Printf("[DEBUG] Output validation/correction failed: %v\n", err)
+		fmt.Printf("[DEBUG] Using original content\n")
+		result.ResultContent = resultContent
+	} else {
+		result.ResultContent = correctedContent
+	}
 
 	if cfg.Debug {
 		fmt.Printf("[DEBUG] Claude exit code: %d\n", result.ExitCode)
@@ -159,8 +175,12 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	}
 
 	// Generate settings.json for this step's persona
+	model := cfg.Model
+	if model == "" {
+		model = "opus" // Default to opus for best quality
+	}
 	settings := ClaudeSettings{
-		Model:        "claude-sonnet-4-20250514",
+		Model:        model,
 		Temperature:  cfg.Temperature,
 		OutputFormat: "json",
 		AllowedTools: allowedTools,
@@ -198,6 +218,13 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 
 func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args := []string{"-p"}
+
+	// Set model - default to opus for best quality
+	model := cfg.Model
+	if model == "" {
+		model = "opus"
+	}
+	args = append(args, "--model", model)
 
 	if len(cfg.AllowedTools) > 0 {
 		args = append(args, "--allowedTools", strings.Join(cfg.AllowedTools, ","))
@@ -292,5 +319,112 @@ func ExtractJSONFromMarkdown(content string) string {
 	}
 
 	return jsonStr
+}
+
+// validateAndCorrectOutput validates and attempts to fix common output format issues
+func (a *ClaudeAdapter) validateAndCorrectOutput(content, outputFormat string) (string, error) {
+	if content == "" {
+		return "", fmt.Errorf("empty output content")
+	}
+
+	// Apply format-specific validation and correction
+	switch outputFormat {
+	case "json":
+		return a.validateAndCorrectJSON(content)
+	default:
+		// For non-JSON formats, return as-is
+		return content, nil
+	}
+}
+
+// validateAndCorrectJSON validates JSON output and applies automatic corrections
+func (a *ClaudeAdapter) validateAndCorrectJSON(content string) (string, error) {
+	// First, try to parse the content as-is
+	var js json.RawMessage
+	if json.Unmarshal([]byte(content), &js) == nil {
+		// Already valid JSON
+		return content, nil
+	}
+
+	// Try extracting JSON from markdown code blocks
+	if strings.Contains(content, "```") {
+		if extracted := ExtractJSONFromMarkdown(content); extracted != "" {
+			if json.Unmarshal([]byte(extracted), &js) == nil {
+				return extracted, nil
+			}
+		}
+	}
+
+	// Try basic JSON cleanup
+	cleaned := a.cleanJSONContent(content)
+	if cleaned != "" {
+		if json.Unmarshal([]byte(cleaned), &js) == nil {
+			return cleaned, nil
+		}
+	}
+
+	// If all corrections failed, return original with error
+	return content, fmt.Errorf("could not correct malformed JSON output")
+}
+
+// cleanJSONContent performs basic JSON cleanup operations
+func (a *ClaudeAdapter) cleanJSONContent(content string) string {
+	// Remove common non-JSON text patterns
+	lines := strings.Split(content, "\n")
+	var jsonLines []string
+	inJSON := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Skip empty lines
+		if trimmed == "" {
+			continue
+		}
+
+		// Skip lines that look like explanatory text
+		if strings.HasPrefix(trimmed, "Here") ||
+		   strings.HasPrefix(trimmed, "This") ||
+		   strings.HasPrefix(trimmed, "The") ||
+		   strings.Contains(strings.ToLower(trimmed), "explanation") ||
+		   strings.Contains(strings.ToLower(trimmed), "here is") {
+			continue
+		}
+
+		// Look for JSON start
+		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+			inJSON = true
+		}
+
+		if inJSON {
+			jsonLines = append(jsonLines, line)
+		}
+
+		// Look for JSON end
+		if (strings.HasSuffix(trimmed, "}") || strings.HasSuffix(trimmed, "]")) && inJSON {
+			// Check if this completes the JSON
+			candidate := strings.Join(jsonLines, "\n")
+			var js json.RawMessage
+			if json.Unmarshal([]byte(candidate), &js) == nil {
+				return candidate
+			}
+		}
+	}
+
+	// If we collected JSON lines but validation failed, try the full content
+	if len(jsonLines) > 0 {
+		candidate := strings.Join(jsonLines, "\n")
+
+		// Try some common fixes
+		candidate = strings.TrimSpace(candidate)
+
+		// Remove trailing commas before closing braces/brackets
+		candidate = strings.ReplaceAll(candidate, ",}", "}")
+		candidate = strings.ReplaceAll(candidate, ",]", "]")
+
+		return candidate
+	}
+
+	return content
 }
 

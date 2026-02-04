@@ -545,6 +545,12 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create required docs artifacts for contract validation
+	err = os.WriteFile(filepath.Join(docsWorkspace, "artifact.json"), []byte("{}"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Create spec workspace (newer - simulating re-run after docs)
 	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
 	err = os.MkdirAll(specWorkspace, 0755)
@@ -568,6 +574,23 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create dummy workspace (older than docs re-run scenario)
+	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/dummy")
+	err = os.MkdirAll(dummyWorkspace, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(dummyWorkspace, "artifact.json"), []byte("{}"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Set dummy workspace time to be older than docs
+	dummyFile := filepath.Join(dummyWorkspace, "artifact.json")
+	err = os.Chtimes(dummyFile, baseTime.Add(-30*time.Minute), baseTime.Add(-30*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Validate resume point - should succeed despite stale artifacts
 	err = manager.ValidateResumePoint(pipeline, "dummy")
 	if err != nil {
@@ -586,16 +609,16 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 		t.Error("Expected stale artifacts to be detected")
 	}
 
-	// Verify stale reason mentions the upstream change
+	// Verify stale reason mentions the upstream change (dummy depends on docs)
 	found := false
 	for _, reason := range staleReasons {
-		if strings.Contains(reason, "upstream phase 'spec'") {
+		if strings.Contains(reason, "upstream phase 'docs'") {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		t.Errorf("Expected stale reason to mention upstream spec phase, got: %v", staleReasons)
+		t.Errorf("Expected stale reason to mention upstream docs phase, got: %v", staleReasons)
 	}
 }

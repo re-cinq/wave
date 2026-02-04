@@ -29,6 +29,7 @@ type AdapterRunConfig struct {
 	DenyTools     []string
 	OutputFormat  string
 	Debug         bool
+	Model         string // Model to use (e.g., "opus", "sonnet", "claude-opus-4-5-20251101")
 }
 
 type AdapterResult struct {

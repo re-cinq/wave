@@ -177,12 +177,24 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		CompletedSteps: 0,
 	})
 
-	// Ensure workspace root exists
+	// Ensure workspace root exists and is clean for this pipeline run
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
 		wsRoot = ".wave/workspaces"
 	}
-	os.MkdirAll(filepath.Join(wsRoot, pipelineID), 0755)
+	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
+	// Clean previous run artifacts to ensure fresh state
+	if err := os.RemoveAll(pipelineWsPath); err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      "warning",
+			Message:    fmt.Sprintf("failed to clean workspace: %v", err),
+		})
+	}
+	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -405,6 +417,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:  systemPrompt,
 		Timeout:       timeout,
 		Temperature:   persona.Temperature,
+		Model:         persona.Model,
 		AllowedTools:  persona.Permissions.AllowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
@@ -719,14 +732,15 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 		// Inject schema guidance if available and safe
 		if schemaContent != "" && err == nil {
-			prompt += "\n\nCRITICAL: Your response must be valid JSON that exactly matches this schema:\n```json\n"
+			prompt += "\n\nOUTPUT REQUIREMENTS:\n"
+			prompt += "After completing all required tool calls (Bash, Read, Write, etc.), save your final output to artifact.json.\n"
+			prompt += "The artifact.json must be valid JSON matching this schema:\n```json\n"
 			prompt += schemaContent
 			prompt += "\n```\n\n"
 			prompt += "IMPORTANT:\n"
-			prompt += "- Output ONLY the raw JSON in your response (no markdown, no explanations)\n"
-			prompt += "- Ensure the JSON is valid and matches every required field in the schema\n"
-			prompt += "- Start your response with { or [ and end with } or ]\n"
-			prompt += "- Do NOT include any comments or explanatory text\n"
+			prompt += "- First, execute any tool calls needed to gather data\n"
+			prompt += "- Then, use the Write tool to save valid JSON to artifact.json\n"
+			prompt += "- The JSON must match every required field in the schema\n"
 		}
 	}
 

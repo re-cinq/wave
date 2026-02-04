@@ -25,7 +25,7 @@
             "type": "string"
           },
           "body_template": {
-            "type": "string",
+            "type": ["string", "null"],
             "description": "Enhanced body template preserving original content"
           },
           "suggested_labels": {

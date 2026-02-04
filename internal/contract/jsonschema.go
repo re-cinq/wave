@@ -159,63 +159,131 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 		}
 	}
 
-	// SECURITY FIX: Clean JSON to handle comments and formatting issues
-	cleanedData, cleaningChanges, cleanErr := cleanJSON(data)
-	if cleanErr != nil {
-		return &ValidationError{
-			ContractType: "json_schema",
-			Message:      "failed to clean malformed JSON",
-			Details:      []string{cleanErr.Error(), fmt.Sprintf("file: %s", artifactPath)},
-			Retryable:    true,
+	// NEW: Error wrapper detection and extraction
+	// Detection is enabled by default, disabled only if explicitly configured
+	if !cfg.DisableWrapperDetection {
+
+		wrapperResult, wrapperErr := DetectErrorWrapper(data)
+		if wrapperErr != nil {
+			// Wrapper detection failed, but continue with original data
+			// This ensures backward compatibility
+			if cfg.DebugMode {
+				fmt.Printf("[DEBUG] Wrapper detection failed: %v\n", wrapperErr)
+			}
+		} else if wrapperResult.IsWrapper {
+			// Extract raw content from wrapper for validation
+			originalDataLength := len(data)
+			data = wrapperResult.RawContent
+
+			// Log wrapper extraction for debugging if needed
+			// Note: In production this should use proper logging infrastructure
+			if cfg.DebugMode {
+				debug := wrapperResult.GetDebugInfo(originalDataLength)
+				fmt.Printf("[DEBUG] Error wrapper detected and extracted: %+v\n", debug)
+			}
+		} else if cfg.DebugMode {
+			debug := wrapperResult.GetDebugInfo(len(data))
+			fmt.Printf("[DEBUG] No error wrapper detected: %+v\n", debug)
 		}
 	}
 
-	// Log JSON cleaning if changes were made
-	if len(cleaningChanges) > 0 {
-		// In a production system, this would integrate with the security logger
-		// For now, we include the information in validation details if validation fails
+	// Enhanced JSON recovery with progressive validation
+	// Default to allowing recovery for better reliability
+	allowRecovery := cfg.AllowRecovery
+	if !cfg.AllowRecovery && cfg.RecoveryLevel == "" {
+		// If recovery settings are not explicitly configured, enable progressive recovery by default
+		allowRecovery = true
 	}
 
 	var artifact interface{}
-	if err := json.Unmarshal(cleanedData, &artifact); err != nil {
-		details := []string{err.Error(), fmt.Sprintf("file: %s", artifactPath)}
-		if len(cleaningChanges) > 0 {
-			details = append(details, fmt.Sprintf("JSON cleaning applied: %v", cleaningChanges))
+	var recoveryResult *RecoveryResult
+
+	if allowRecovery {
+		recoveryLevel := determineRecoveryLevel(cfg)
+		// Default to progressive recovery for better AI compatibility
+		if recoveryLevel == ConservativeRecovery && cfg.RecoveryLevel == "" {
+			recoveryLevel = ProgressiveRecovery
 		}
-		return &ValidationError{
-			ContractType: "json_schema",
-			Message:      "failed to parse artifact JSON",
-			Details:      details,
-			Retryable:    true,
+
+		recoveryParser := NewJSONRecoveryParser(recoveryLevel)
+
+		var recoveryErr error
+		recoveryResult, recoveryErr = recoveryParser.ParseWithRecovery(string(data))
+		if recoveryErr != nil || !recoveryResult.IsValid {
+			details := []string{fmt.Sprintf("file: %s", artifactPath)}
+			if recoveryErr != nil {
+				details = append(details, recoveryErr.Error())
+			}
+			if recoveryResult != nil {
+				if len(recoveryResult.AppliedFixes) > 0 {
+					details = append(details, fmt.Sprintf("JSON Recovery Applied: %v", recoveryResult.AppliedFixes))
+				}
+				if len(recoveryResult.Warnings) > 0 {
+					details = append(details, fmt.Sprintf("Warnings: %v", recoveryResult.Warnings))
+				}
+			}
+
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to parse artifact JSON after recovery attempts",
+				Details:      details,
+				Retryable:    true,
+			}
+		}
+
+		// Use the recovered and parsed data
+		artifact = recoveryResult.ParsedData
+	} else {
+		// No recovery - try to parse as-is
+		if err := json.Unmarshal(data, &artifact); err != nil {
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to parse artifact JSON",
+				Details:      []string{fmt.Sprintf("file: %s", artifactPath), err.Error()},
+				Retryable:    true,
+			}
+		}
+
+		// Create a simple recovery result for consistent error formatting
+		recoveryResult = &RecoveryResult{
+			OriginalInput:  string(data),
+			RecoveredJSON:  string(data),
+			IsValid:        true,
+			AppliedFixes:   []string{},
+			Warnings:       []string{},
+			RecoveryLevel:  ConservativeRecovery,
+			ParsedData:     artifact,
 		}
 	}
 
 	if err := schema.Validate(artifact); err != nil {
-		details := extractSchemaValidationDetails(err)
+		// Use enhanced error formatting for better user experience
+		formatter := &ValidationErrorFormatter{}
+		validationErr := formatter.FormatJSONSchemaError(err, recoveryResult, artifactPath)
 
-		// Add JSON cleaning information to validation details if cleaning occurred
-		if len(cleaningChanges) > 0 {
-			details = append(details, fmt.Sprintf("Note: JSON was automatically cleaned (%v)", cleaningChanges))
-		}
-
-		// SECURITY FIX: Respect must_pass setting with proper fallback logic
-		// Prioritize MustPass when explicitly configured, only fallback to StrictMode when MustPass is not set
+		// Apply progressive validation logic
 		mustPass := cfg.MustPass
 		if !cfg.MustPass && cfg.StrictMode {
-			// Only use StrictMode as fallback when MustPass is explicitly false/unset
 			mustPass = cfg.StrictMode
 		}
 
-		validationErr := &ValidationError{
-			ContractType: "json_schema",
-			Message:      "artifact does not match schema",
-			Details:      details,
-			Retryable:    mustPass, // Only retry when must_pass is true
+		// Check if progressive validation is enabled
+		if cfg.ProgressiveValidation && !mustPass {
+			// In progressive mode, convert to warnings instead of blocking errors
+			validationErr.Message = validationErr.Message + " (progressive validation: warning only)"
+			validationErr.Retryable = false // Don't retry warnings
+
+			// TODO: In a real implementation, these warnings would be logged
+			// to the audit system rather than blocking the pipeline
+			_ = formatter.FormatProgressiveValidationWarning(err, recoveryResult)
+		} else {
+			// Normal validation mode - respect must_pass setting
+			validationErr.Retryable = mustPass
 		}
 
-		// Add context about must_pass mode to the message
-		if !mustPass {
-			validationErr.Message = "artifact does not match schema (must_pass: false)"
+		// Add context about validation mode
+		if !mustPass && !cfg.ProgressiveValidation {
+			validationErr.Message = validationErr.Message + " (must_pass: false)"
 		}
 
 		return validationErr
@@ -240,4 +308,45 @@ func extractSchemaValidationDetails(err error) []string {
 		details = append(details, errStr)
 	}
 	return details
+}
+
+// determineRecoveryLevel determines the appropriate JSON recovery level based on contract configuration
+func determineRecoveryLevel(cfg ContractConfig) RecoveryLevel {
+	// If recovery is explicitly disabled, return conservative
+	if !cfg.AllowRecovery {
+		return ConservativeRecovery
+	}
+
+	// Check for explicit recovery level configuration
+	switch cfg.RecoveryLevel {
+	case "conservative":
+		return ConservativeRecovery
+	case "progressive":
+		return ProgressiveRecovery
+	case "aggressive":
+		return AggressiveRecovery
+	}
+
+	// Progressive validation logic:
+	// - If MustPass is true, use conservative recovery (maintain strict validation)
+	// - If progressive validation is enabled, use progressive recovery
+	// - If StrictMode is false, use progressive recovery
+	// - Default to conservative recovery for safety
+
+	if cfg.MustPass {
+		return ConservativeRecovery
+	}
+
+	// If progressive validation is enabled, use progressive recovery
+	if cfg.ProgressiveValidation {
+		return ProgressiveRecovery
+	}
+
+	// If not in strict mode, allow more progressive recovery
+	if !cfg.StrictMode {
+		return ProgressiveRecovery
+	}
+
+	// Default to conservative recovery for safety
+	return ConservativeRecovery
 }

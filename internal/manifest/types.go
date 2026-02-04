@@ -35,6 +35,7 @@ type Persona struct {
 	Description      string      `yaml:"description,omitempty"`
 	SystemPromptFile string      `yaml:"system_prompt_file"`
 	Temperature      float64     `yaml:"temperature,omitempty"`
+	Model            string      `yaml:"model,omitempty"` // Model to use (e.g., "opus", "sonnet")
 	Permissions      Permissions `yaml:"permissions,omitempty"`
 	Hooks            HookConfig  `yaml:"hooks,omitempty"`
 }
