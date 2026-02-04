@@ -2168,16 +2168,51 @@ git config --global credential.helper github
 
 **IMPORTANT: Be explicit about what you CANNOT do with GitHub CLI instead of interpreting user requests.**
 
+### ✅ **Resolving PR Review Threads via GraphQL**
+
+You CAN resolve review threads using the GraphQL API:
+
+```bash
+# Step 1: Get review thread IDs
+gh api graphql -f query='
+query {
+  repository(owner: "OWNER", name: "REPO") {
+    pullRequest(number: PR_NUMBER) {
+      reviewThreads(first: 20) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { body }
+          }
+        }
+      }
+    }
+  }
+}'
+
+# Step 2: Resolve threads using their IDs
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "PRRT_xxxxx"}) {
+    thread { isResolved }
+  }
+}'
+
+# Resolve multiple threads in one request
+gh api graphql -f query='
+mutation {
+  t1: resolveReviewThread(input: {threadId: "PRRT_id1"}) { thread { isResolved } }
+  t2: resolveReviewThread(input: {threadId: "PRRT_id2"}) { thread { isResolved } }
+  t3: resolveReviewThread(input: {threadId: "PRRT_id3"}) { thread { isResolved } }
+}'
+```
+
 ### ❌ **Cannot Access Web Interface Features**
 
 The GitHub CLI cannot perform actions that are exclusive to the web interface:
 
 ```bash
-# ❌ CANNOT resolve pull request review conversations
-# User request: "resolve those conversations"
-# Correct response: "I cannot resolve GitHub review conversations through the CLI.
-# This requires web interface access that gh CLI doesn't provide."
-
 # ❌ CANNOT access session-based endpoints
 # These require browser cookies and CSRF tokens
 
