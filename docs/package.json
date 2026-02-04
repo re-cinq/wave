@@ -15,7 +15,7 @@
     "orchestrator",
     "claude"
   ],
-  "author": "Wave Team",
+  "author": "Michael W. Czechowski <michael@recinq.com>",
   "license": "MIT",
   "type": "module",
   "devDependencies": {
