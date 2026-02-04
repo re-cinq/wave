@@ -29,8 +29,8 @@ steps:
         path: output/analysis.json
     handover:
       contract:              # Validates output
-        type: jsonschema
-        schema: .wave/contracts/analysis.schema.json
+        type: json_schema
+        schema_path: .wave/contracts/analysis.schema.json
 ```
 
 ## Next Steps
