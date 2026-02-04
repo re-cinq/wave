@@ -1,6 +1,14 @@
 # Personas
 
-A persona is a specialized AI agent with specific permissions and behavior. Personas control what an AI can see, do, and how it responds.
+A persona is a specialized AI agent with specific permissions and behavior. Personas control what an AI can see, do, and how it responds. They are fundamental to Wave's security model, enforcing separation of concerns and preventing unintended actions.
+
+## Overview
+
+Personas serve three critical functions in Wave:
+
+1. **Permission Enforcement** - Control which tools and files an AI can access
+2. **Behavior Customization** - Define how the AI approaches tasks via system prompts
+3. **Security Isolation** - Prevent cross-contamination between pipeline steps
 
 ```yaml
 personas:
@@ -13,57 +21,279 @@ personas:
       deny: ["Write(*)", "Edit(*)"]
 ```
 
-Use personas to enforce separation of concerns - a read-only navigator cannot accidentally modify files, and a craftsman has full write access.
-
 ## Built-in Personas
 
-Wave includes these personas by default:
+Wave includes four core personas designed for secure, specialized execution:
 
-| Persona | Purpose | Permissions |
-|---------|---------|-------------|
-| `navigator` | Read-only codebase exploration | Read, Glob, Grep |
-| `philosopher` | Design and specification | Read, Write to specs only |
-| `planner` | Task breakdown and project planning | Read, Glob, Grep |
-| `craftsman` | Implementation and testing | Full Read/Write/Bash |
-| `debugger` | Issue diagnosis and root cause analysis | Read, Grep, Glob, git bisect |
-| `auditor` | Security and quality review | Read-only with analysis tools |
-| `summarizer` | Context compaction | Read-only |
-| `github-analyst` | GitHub issue analysis | Read, Bash, Write |
-| `github-enhancer` | GitHub issue enhancement | Read, Write, Bash |
+<script setup>
+const builtInPersonas = [
+  {
+    persona: 'navigator',
+    description: 'Read-only codebase explorer, produces navigation context and analysis',
+    permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
+  },
+  {
+    persona: 'auditor',
+    description: 'Security and code review, read-only analysis with detailed reporting',
+    permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
+  },
+  {
+    persona: 'implementer',
+    description: 'Code generation and modification with scoped write access',
+    permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
+  },
+  {
+    persona: 'tester',
+    description: 'Test generation and execution with test file write access',
+    permissions: { read: 'allow', write: 'conditional', execute: 'allow', network: 'deny' }
+  }
+]
+</script>
+
+<PermissionMatrix :personas="builtInPersonas" :showLegend="true" />
+
+### Navigator
+
+The Navigator is a read-only codebase explorer. It produces navigation context without modifying any files.
+
+```yaml
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: .wave/personas/navigator.md
+    temperature: 0.1
+    permissions:
+      allowed_tools: ["Read", "Glob", "Grep"]
+      deny: ["Write(*)", "Edit(*)", "Bash(*)"]
+```
+
+**Use cases:**
+- Codebase analysis and understanding
+- Architecture documentation generation
+- Finding relevant code for implementation tasks
+- Creating navigation context for downstream steps
+
+### Auditor
+
+The Auditor performs security and code review analysis. It has read-only access to analyze code quality and security issues.
+
+```yaml
+personas:
+  auditor:
+    adapter: claude
+    system_prompt_file: .wave/personas/auditor.md
+    temperature: 0.2
+    permissions:
+      allowed_tools: ["Read", "Glob", "Grep"]
+      deny: ["Write(*)", "Edit(*)", "Bash(*)"]
+```
+
+**Use cases:**
+- Security vulnerability analysis
+- Code quality assessment
+- Compliance checking
+- Review of proposed changes
+
+### Implementer
+
+The Implementer handles code generation and modification with scoped write access.
+
+```yaml
+personas:
+  implementer:
+    adapter: claude
+    system_prompt_file: .wave/personas/implementer.md
+    temperature: 0.3
+    permissions:
+      allowed_tools:
+        - "Read"
+        - "Glob"
+        - "Grep"
+        - "Write(src/*)"
+        - "Edit(src/*)"
+        - "Bash(go build*)"
+        - "Bash(go fmt*)"
+      deny:
+        - "Write(*.env)"
+        - "Bash(rm -rf *)"
+```
+
+**Use cases:**
+- Feature implementation
+- Bug fixes
+- Code refactoring
+- Applying reviewer suggestions
+
+### Tester
+
+The Tester generates and executes tests with access to test file directories.
+
+```yaml
+personas:
+  tester:
+    adapter: claude
+    system_prompt_file: .wave/personas/tester.md
+    temperature: 0.2
+    permissions:
+      allowed_tools:
+        - "Read"
+        - "Glob"
+        - "Grep"
+        - "Write(*_test.go)"
+        - "Write(tests/*)"
+        - "Bash(go test*)"
+        - "Bash(npm test*)"
+      deny:
+        - "Write(src/*)"
+        - "Bash(rm *)"
+```
+
+**Use cases:**
+- Unit test generation
+- Integration test creation
+- Test execution and analysis
+- Coverage improvement
 
 ## Permission Model
+
+Wave's permission system uses a **deny-first evaluation** model. This means all actions are denied by default unless explicitly allowed.
+
+### Evaluation Order
+
+```mermaid
+flowchart TD
+    A[Tool Call Request] --> B{{"Check deny patterns"}}
+    B -->|Pattern matches| C[BLOCKED]
+    B -->|No match| D{{"Check allowed_tools"}}
+    D -->|Pattern matches| E[PERMITTED]
+    D -->|No match| F[BLOCKED - Implicit Deny]
+
+    style C fill:#fee2e2,stroke:#ef4444
+    style E fill:#dcfce7,stroke:#22c55e
+    style F fill:#fee2e2,stroke:#ef4444
+```
+
+1. **Check deny patterns** - If any `deny` pattern matches, the action is blocked immediately
+2. **Check allowed_tools** - If any `allowed_tools` pattern matches, the action is permitted
+3. **Implicit deny** - If no pattern matches, the action is blocked (default deny)
+
+### Permission Patterns
 
 Permissions use glob patterns to control tool access:
 
 ```yaml
 permissions:
   allowed_tools:
-    - "Read"                    # All Read calls
-    - "Write(src/*.ts)"         # Write to TypeScript in src/
+    - "Read"                    # All Read calls allowed
+    - "Write(src/*.ts)"         # Write to TypeScript files in src/
+    - "Write(docs/**/*.md)"     # Write to markdown files anywhere in docs/
     - "Bash(npm test*)"         # Only npm test commands
+    - "Bash(go build ./...)"    # Specific go build command
   deny:
     - "Write(*.env)"            # Never write env files
+    - "Write(**/.env*)"         # Block .env files anywhere
     - "Bash(rm -rf *)"          # Block destructive commands
+    - "Bash(*secret*)"          # Block commands with 'secret'
 ```
 
-**Evaluation order:**
-1. Check `deny` patterns - if any match, blocked
-2. Check `allowed_tools` - if any match, permitted
-3. No match - blocked (implicit deny)
+### Pattern Syntax
 
-## Custom Personas
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| `Tool` | Allow all calls to tool | `Read` - allows all reads |
+| `Tool(path)` | Allow specific path | `Write(src/main.go)` |
+| `Tool(path/*)` | Allow files in directory | `Write(src/*)` |
+| `Tool(path/**)` | Allow recursive directory | `Write(src/**)` |
+| `Tool(*pattern*)` | Wildcard matching | `Bash(*test*)` |
 
-Define custom personas in your `wave.yaml`:
+## Fresh Memory at Step Boundaries
+
+A critical security feature of Wave is **fresh memory at every step boundary**. Each pipeline step starts with a clean context:
+
+```mermaid
+flowchart LR
+    subgraph Step1["Step 1: Navigator"]
+        A1[Fresh Context] --> B1[Execution]
+        B1 --> C1[Artifacts Only]
+    end
+
+    subgraph Step2["Step 2: Implementer"]
+        A2[Fresh Context] --> B2[Execution]
+        B2 --> C2[Artifacts Only]
+    end
+
+    C1 -->|"Artifacts (no chat history)"| A2
+
+    style A1 fill:#dbeafe,stroke:#3b82f6
+    style A2 fill:#dbeafe,stroke:#3b82f6
+    style C1 fill:#fef3c7,stroke:#f59e0b
+    style C2 fill:#fef3c7,stroke:#f59e0b
+```
+
+### What This Means
+
+- **No chat history inheritance** - Each step cannot see previous conversations
+- **Artifact-only communication** - Steps communicate through explicit artifacts
+- **Clean context** - Each persona starts fresh with only:
+  - Its system prompt
+  - Injected artifacts from dependencies
+  - The current step's prompt
+
+### Why Fresh Memory Matters
+
+1. **Security** - Prevents prompt injection from propagating across steps
+2. **Reliability** - Each step behaves consistently regardless of previous execution
+3. **Audit trail** - All inter-step communication is explicit and logged
+4. **Isolation** - A compromised step cannot influence future steps via memory
+
+## Workspace Isolation
+
+Each pipeline step executes in an **ephemeral workspace** - an isolated filesystem environment:
+
+```mermaid
+flowchart TB
+    subgraph Pipeline["Pipeline Execution"]
+        subgraph WS1["Ephemeral Workspace 1"]
+            N[Navigator Persona]
+            F1[Cloned Codebase]
+        end
+
+        subgraph WS2["Ephemeral Workspace 2"]
+            I[Implementer Persona]
+            F2[Cloned Codebase]
+            A1[Injected Artifacts]
+        end
+
+        subgraph WS3["Ephemeral Workspace 3"]
+            T[Tester Persona]
+            F3[Cloned Codebase]
+            A2[Injected Artifacts]
+        end
+    end
+
+    WS1 -->|"Cleanup after step"| WS2
+    WS2 -->|"Cleanup after step"| WS3
+
+    style WS1 fill:#f0fdf4,stroke:#22c55e
+    style WS2 fill:#f0fdf4,stroke:#22c55e
+    style WS3 fill:#f0fdf4,stroke:#22c55e
+```
+
+### Workspace Features
+
+- **Fresh clone** - Each step gets a fresh copy of the codebase
+- **Isolated filesystem** - Changes in one workspace don't affect others
+- **Automatic cleanup** - Workspaces are destroyed after step completion
+- **Artifact extraction** - Only declared outputs are preserved
+- **No cross-contamination** - File modifications cannot leak between steps
+
+### Workspace Configuration
 
 ```yaml
-personas:
-  docs-writer:
-    adapter: claude
-    system_prompt_file: .wave/personas/docs-writer.md
-    temperature: 0.5
-    permissions:
-      allowed_tools: ["Read", "Write(docs/*)"]
-      deny: ["Bash(*)"]
+workspace:
+  type: ephemeral          # Always isolated
+  clone_depth: 1           # Shallow clone for speed
+  preserve_on_failure: true # Keep workspace for debugging
 ```
 
 ## Using Personas in Pipelines
@@ -71,23 +301,40 @@ personas:
 Reference personas by name in pipeline steps:
 
 ```yaml
-steps:
-  - id: analyze
-    persona: navigator
-    exec:
-      type: prompt
-      source: "Analyze the codebase structure"
+pipelines:
+  code-review:
+    description: "Review and improve code quality"
+    steps:
+      - id: analyze
+        persona: navigator
+        exec:
+          type: prompt
+          source: "Analyze the codebase structure and identify areas for improvement"
+        outputs:
+          - analysis.md
 
-  - id: implement
-    persona: craftsman
-    dependencies: [analyze]
-    exec:
-      type: prompt
-      source: "Implement the feature"
+      - id: review
+        persona: auditor
+        dependencies: [analyze]
+        inputs:
+          - from: analyze
+            artifact: analysis.md
+        exec:
+          type: prompt
+          source: "Review the analysis and identify security concerns"
+
+      - id: implement
+        persona: implementer
+        dependencies: [review]
+        exec:
+          type: prompt
+          source: "Implement the suggested improvements"
 ```
 
 ## Next Steps
 
+- [Custom Personas Guide](/guides/custom-personas) - Create specialized personas for your workflows
 - [Pipelines](/concepts/pipelines) - Use personas in multi-step workflows
 - [Contracts](/concepts/contracts) - Validate persona outputs
-- [Manifest Reference](/reference/manifest) - Complete persona configuration
+- [Workspaces](/concepts/workspaces) - Understand workspace isolation
+- [Manifest Reference](/reference/manifest) - Complete persona configuration options
