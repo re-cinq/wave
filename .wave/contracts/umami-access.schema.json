@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Umami analytics API access configuration and capabilities",
+  "required": [
+    "api_endpoints",
+    "auth_method",
+    "available_metrics",
+    "query_params"
+  ],
+  "properties": {
+    "api_endpoints": {
+      "type": "array",
+      "description": "Available Umami API endpoints",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "purpose"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "API endpoint path"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What data this endpoint provides"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "description": "HTTP method for the endpoint"
+          }
+        }
+      }
+    },
+    "auth_method": {
+      "type": "string",
+      "description": "Authentication method required for API access"
+    },
+    "available_metrics": {
+      "type": "array",
+      "description": "List of available metrics from Umami",
+      "items": {
+        "type": "string"
+      }
+    },
+    "query_params": {
+      "type": "object",
+      "description": "Query parameters for filtering data",
+      "properties": {
+        "date_range": {
+          "type": "object",
+          "properties": {
+            "start_param": {
+              "type": "string",
+              "description": "Parameter name for start date"
+            },
+            "end_param": {
+              "type": "string",
+              "description": "Parameter name for end date"
+            },
+            "format": {
+              "type": "string",
+              "description": "Expected date format"
+            }
+          }
+        },
+        "filters": {
+          "type": "array",
+          "description": "Available filter parameters",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

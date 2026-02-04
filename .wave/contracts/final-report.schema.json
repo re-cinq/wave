@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Final reviewed and approved action plan report",
+  "required": [
+    "review_summary",
+    "data_validation",
+    "adjusted_plans",
+    "risk_assessment",
+    "resource_requirements",
+    "final_roadmap",
+    "next_review_date"
+  ],
+  "properties": {
+    "review_summary": {
+      "type": "string",
+      "description": "Overall assessment of the action plans"
+    },
+    "data_validation": {
+      "type": "object",
+      "description": "Confirmation that plans are grounded in data",
+      "required": [
+        "is_valid",
+        "coverage_assessment"
+      ],
+      "properties": {
+        "is_valid": {
+          "type": "boolean",
+          "description": "Whether plans align with data"
+        },
+        "coverage_assessment": {
+          "type": "string",
+          "description": "Assessment of how well plans cover identified issues"
+        },
+        "gaps_identified": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Any gaps found during validation"
+        },
+        "unsupported_claims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Any claims not supported by data"
+        }
+      }
+    },
+    "adjusted_plans": {
+      "type": "object",
+      "description": "Refined action plans after review",
+      "properties": {
+        "modifications_made": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "original": {
+                "type": "string"
+              },
+              "adjusted": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "additions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "New actions added during review"
+        },
+        "removals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Actions removed during review"
+        },
+        "priority_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "old_priority": {
+                "type": "string"
+              },
+              "new_priority": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "risk_assessment": {
+      "type": "array",
+      "description": "Risk evaluation for major initiatives",
+      "items": {
+        "type": "object",
+        "required": [
+          "initiative",
+          "risk_level",
+          "risks"
+        ],
+        "properties": {
+          "initiative": {
+            "type": "string",
+            "description": "Name of the initiative"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "Overall risk level"
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "likelihood": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "impact": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "mitigation": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "resource_requirements": {
+      "type": "object",
+      "description": "Estimated resources needed",
+      "properties": {
+        "personnel": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "effort_level": {
+                "type": "string",
+                "enum": [
+                  "full-time",
+                  "part-time",
+                  "occasional"
+                ]
+              },
+              "responsibilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "cost_estimate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "budget_considerations": {
+          "type": "string",
+          "description": "Overall budget considerations"
+        }
+      }
+    },
+    "final_roadmap": {
+      "type": "array",
+      "description": "Prioritized sequence of actions",
+      "items": {
+        "type": "object",
+        "required": [
+          "sequence",
+          "action",
+          "priority",
+          "category"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "description": "Order in the roadmap"
+          },
+          "action": {
+            "type": "string",
+            "description": "Action item"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "quick-win",
+              "content",
+              "traffic",
+              "optimization",
+              "strategic"
+            ]
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Sequence numbers of dependent actions"
+          }
+        }
+      }
+    },
+    "next_review_date": {
+      "type": "string",
+      "description": "Suggested date for next analytics review"
+    }
+  }
+}

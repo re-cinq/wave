@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Investigation Findings",
+  "type": "object",
+  "required": [
+    "root_cause",
+    "affected_files",
+    "fix_approach"
+  ],
+  "properties": {
+    "root_cause": {
+      "type": "string",
+      "description": "Description of the root cause"
+    },
+    "affected_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of affected file paths"
+    },
+    "recent_commits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of relevant commit hashes"
+    },
+    "blast_radius": {
+      "type": "string",
+      "description": "Assessment of what else could be affected"
+    },
+    "fix_approach": {
+      "type": "string",
+      "description": "Recommended approach to fix the issue"
+    }
+  }
+}

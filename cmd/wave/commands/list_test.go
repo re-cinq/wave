@@ -188,7 +188,7 @@ func TestListCmd_Pipelines_TableFormat(t *testing.T) {
 	stdout, _, err := executeListCmd("pipelines")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Pipelines:")
+	assert.Contains(t, stdout, "Pipelines")
 	assert.Contains(t, stdout, "feature")
 	assert.Contains(t, stdout, "hotfix")
 	assert.Contains(t, stdout, "Feature development pipeline")
@@ -269,7 +269,7 @@ func TestListCmd_Pipelines_NoPipelinesDirectory(t *testing.T) {
 	stdout, _, err := executeListCmd("pipelines")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Pipelines:")
+	assert.Contains(t, stdout, "Pipelines")
 	assert.Contains(t, stdout, "(none found", "should indicate no pipelines found")
 }
 
@@ -335,7 +335,7 @@ func TestListCmd_Personas_TableFormat(t *testing.T) {
 	stdout, _, err := executeListCmd("personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Personas:")
+	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "navigator")
 	assert.Contains(t, stdout, "craftsman")
 	assert.Contains(t, stdout, "auditor")
@@ -354,8 +354,8 @@ func TestListCmd_Personas_ShowsAdapter(t *testing.T) {
 	stdout, _, err := executeListCmd("personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "adapter:claude")
-	assert.Contains(t, stdout, "adapter:opencode")
+	assert.Contains(t, stdout, "adapter: claude")
+	assert.Contains(t, stdout, "adapter: opencode")
 }
 
 func TestListCmd_Personas_ShowsTemperature(t *testing.T) {
@@ -371,8 +371,8 @@ func TestListCmd_Personas_ShowsTemperature(t *testing.T) {
 	stdout, _, err := executeListCmd("personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "temp:0.1")
-	assert.Contains(t, stdout, "temp:0.7")
+	assert.Contains(t, stdout, "temp: 0.1")
+	assert.Contains(t, stdout, "temp: 0.7")
 }
 
 func TestListCmd_Personas_ShowsDescription(t *testing.T) {
@@ -433,7 +433,7 @@ runtime:
 	stdout, _, err := executeListCmd("personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Personas:")
+	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "(none defined)")
 }
 
@@ -474,7 +474,7 @@ func TestListCmd_Adapters_TableFormat(t *testing.T) {
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Adapters:")
+	assert.Contains(t, stdout, "Adapters")
 	assert.Contains(t, stdout, "claude")
 	assert.Contains(t, stdout, "opencode")
 }
@@ -492,8 +492,8 @@ func TestListCmd_Adapters_ShowsBinary(t *testing.T) {
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "binary:claude")
-	assert.Contains(t, stdout, "binary:opencode")
+	assert.Contains(t, stdout, "binary: claude")
+	assert.Contains(t, stdout, "binary: opencode")
 }
 
 func TestListCmd_Adapters_ShowsMode(t *testing.T) {
@@ -509,7 +509,7 @@ func TestListCmd_Adapters_ShowsMode(t *testing.T) {
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "mode:headless")
+	assert.Contains(t, stdout, "mode: headless")
 }
 
 func TestListCmd_Adapters_ShowsOutputFormat(t *testing.T) {
@@ -525,7 +525,7 @@ func TestListCmd_Adapters_ShowsOutputFormat(t *testing.T) {
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "format:json")
+	assert.Contains(t, stdout, "format: json")
 }
 
 func TestListCmd_Adapters_ShowsBinaryAvailability(t *testing.T) {
@@ -551,7 +551,7 @@ runtime:
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Adapters:")
+	assert.Contains(t, stdout, "Adapters")
 	assert.Contains(t, stdout, "fake-adapter")
 	// Should indicate binary is not found
 	assert.True(t,
@@ -588,7 +588,7 @@ runtime:
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Adapters:")
+	assert.Contains(t, stdout, "Adapters")
 	assert.Contains(t, stdout, "ls-adapter")
 }
 
@@ -610,7 +610,7 @@ runtime:
 	stdout, _, err := executeListCmd("adapters")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Adapters:")
+	assert.Contains(t, stdout, "Adapters")
 	assert.Contains(t, stdout, "(none defined)")
 }
 
@@ -630,8 +630,8 @@ func TestListCmd_All_ShowsEverything(t *testing.T) {
 	stdout, _, err := executeListCmd()
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Pipelines:")
-	assert.Contains(t, stdout, "Personas:")
+	assert.Contains(t, stdout, "Pipelines")
+	assert.Contains(t, stdout, "Personas")
 	// No adapters without explicit filter when showing all
 }
 
@@ -662,7 +662,7 @@ func TestListCmd_CustomManifestPath(t *testing.T) {
 	stdout, _, err := executeListCmd("--manifest", "config/custom-wave.yaml", "personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Personas:")
+	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "navigator")
 }
 
@@ -695,7 +695,7 @@ func TestListCmd_Pipelines_WithTestdataFixtures(t *testing.T) {
 	stdout, _, err := executeListCmd("pipelines")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Pipelines:")
+	assert.Contains(t, stdout, "Pipelines")
 }
 
 func TestListCmd_Personas_WithTestdataFixtures(t *testing.T) {
@@ -709,7 +709,7 @@ func TestListCmd_Personas_WithTestdataFixtures(t *testing.T) {
 	stdout, _, err := executeListCmd("--manifest", testdataPath, "personas")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Personas:")
+	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "navigator")
 	assert.Contains(t, stdout, "craftsman")
 }
@@ -725,17 +725,17 @@ func TestListCmd_FilterOptions(t *testing.T) {
 		{
 			name:         "pipelines filter",
 			filter:       "pipelines",
-			wantContains: []string{"Pipelines:"},
+			wantContains: []string{"Pipelines"},
 		},
 		{
 			name:         "personas filter",
 			filter:       "personas",
-			wantContains: []string{"Personas:"},
+			wantContains: []string{"Personas"},
 		},
 		{
 			name:         "adapters filter",
 			filter:       "adapters",
-			wantContains: []string{"Adapters:"},
+			wantContains: []string{"Adapters"},
 		},
 	}
 
@@ -899,7 +899,7 @@ func TestListRunsCmd_NoData(t *testing.T) {
 	stdout, _, err := executeListRunsCmd()
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+	assert.Contains(t, stdout, "Recent Pipeline Runs")
 	assert.Contains(t, stdout, "no runs found")
 }
 
@@ -916,7 +916,7 @@ func TestListRunsCmd_WorkspaceFallback(t *testing.T) {
 	stdout, _, err := executeListRunsCmd()
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+	assert.Contains(t, stdout, "Recent Pipeline Runs")
 	// Should show workspaces as runs
 	assert.True(t,
 		strings.Contains(stdout, "pipeline-1") || strings.Contains(stdout, "pipeline-2"),
@@ -1035,7 +1035,7 @@ func TestListCmd_RunsFilter(t *testing.T) {
 	stdout, _, err := executeListCmd("runs")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "Recent Pipeline Runs:")
+	assert.Contains(t, stdout, "Recent Pipeline Runs")
 }
 
 // Test list runs with database (if available)

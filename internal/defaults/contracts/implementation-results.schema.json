@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "files_created",
+    "test_content",
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "partial",
+        "failed"
+      ],
+      "description": "Implementation status"
+    },
+    "files_created": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "type"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "test_content": {
+      "type": "object",
+      "properties": {
+        "test_count": {
+          "type": "integer"
+        },
+        "assertions_count": {
+          "type": "integer"
+        },
+        "coverage_areas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "run_instructions": {
+      "type": "string",
+      "description": "How to run the created test"
+    },
+    "issues_encountered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Any issues or challenges during implementation"
+    }
+  }
+}

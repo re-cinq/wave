@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "documentation_issues",
+    "feature_requests",
+    "bug_reports",
+    "community_feedback",
+    "pr_documentation_changes"
+  ],
+  "properties": {
+    "documentation_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "issue_number",
+          "title",
+          "description",
+          "priority",
+          "affected_docs"
+        ],
+        "properties": {
+          "issue_number": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "affected_docs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignee": {
+            "type": "string"
+          },
+          "created_date": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "feature_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "issue_number",
+          "feature_description",
+          "documentation_needs"
+        ],
+        "properties": {
+          "issue_number": {
+            "type": "integer"
+          },
+          "feature_description": {
+            "type": "string"
+          },
+          "documentation_needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_stories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "implementation_status": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "bug_reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "issue_number",
+          "bug_description",
+          "documentation_clarity"
+        ],
+        "properties": {
+          "issue_number": {
+            "type": "integer"
+          },
+          "bug_description": {
+            "type": "string"
+          },
+          "documentation_clarity": {
+            "type": "string",
+            "enum": [
+              "clear",
+              "unclear",
+              "missing"
+            ]
+          },
+          "suggests_doc_improvement": {
+            "type": "boolean"
+          },
+          "confusion_source": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "community_feedback": {
+      "type": "object",
+      "required": [
+        "common_confusion_points",
+        "frequently_asked_questions",
+        "documentation_gaps"
+      ],
+      "properties": {
+        "common_confusion_points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "frequently_asked_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documentation_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "positive_feedback": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "improvement_suggestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pr_documentation_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "pr_number",
+          "documentation_files_changed",
+          "change_quality"
+        ],
+        "properties": {
+          "pr_number": {
+            "type": "integer"
+          },
+          "documentation_files_changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "change_quality": {
+            "type": "string",
+            "enum": [
+              "comprehensive",
+              "adequate",
+              "minimal",
+              "poor"
+            ]
+          },
+          "review_status": {
+            "type": "string"
+          },
+          "merge_status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
