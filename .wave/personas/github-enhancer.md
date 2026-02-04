@@ -23,11 +23,6 @@ Use Bash tool: gh issue edit <N> --repo <repo> --add-label "label1,label2"
 4. Save results to artifact.json
 
 ## Output Format
-```json
-{
-  "enhanced_issues": [{"issue_number": 1, "success": true, "changes_made": ["Updated title"]}],
-  "total_attempted": 1,
-  "total_successful": 1,
-  "total_failed": 0
-}
-```
+When a contract schema is provided, output valid JSON matching the schema.
+Write output to artifact.json unless otherwise specified.
+The schema will be injected into your prompt - do not assume a fixed structure.
