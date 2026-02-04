@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "enhanced_issues",
+    "summary",
+    "errors"
+  ],
+  "properties": {
+    "enhanced_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue_number": {
+            "type": "number"
+          },
+          "original_title": {
+            "type": "string"
+          },
+          "new_title": {
+            "type": "string"
+          },
+          "original_description": {
+            "type": "string"
+          },
+          "new_description": {
+            "type": "string"
+          },
+          "changes_applied": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_issues_processed": {
+          "type": "number"
+        },
+        "successful_enhancements": {
+          "type": "number"
+        },
+        "failed_enhancements": {
+          "type": "number"
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue_number": {
+            "type": "number"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "attempted_action": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

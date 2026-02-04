@@ -97,7 +97,7 @@ Use "wave [command] --help" for more information about a command.
 | `wave init` | Initialize project with personas and pipelines |
 | `wave run --pipeline <name>` | Execute a pipeline |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
-| `wave do --meta "<task>"` | Generate custom multi-step pipeline with schemas |
+| `wave meta "<task>"` | Generate custom multi-step pipeline with schemas |
 | `wave resume` | Resume interrupted pipeline |
 | `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
 
@@ -144,22 +144,22 @@ wave do "review for SQL injection" --persona auditor
 
 ### Meta Pipeline Generation
 
-Generate custom pipelines dynamically using the `--meta` flag:
+Generate custom pipelines dynamically using `wave meta`:
 
 ```bash
 # Generate a custom pipeline for your task
-wave do --meta "implement user authentication"
-wave do --meta "add database migrations"
-wave do --meta "create REST API endpoints"
+wave meta "implement user authentication"
+wave meta "add database migrations"
+wave meta "create REST API endpoints"
 
 # Save generated pipeline for reuse
-wave do --meta "implement caching layer" --save my-cache-pipeline.yaml
+wave meta "implement caching layer" --save my-cache-pipeline.yaml
 
 # Dry run to see what would be generated
-wave do --meta "add monitoring dashboard" --dry-run
+wave meta "add monitoring dashboard" --dry-run
 ```
 
-**What happens with `--meta`:**
+**What happens with `wave meta`:**
 1. **AI Architect** analyzes your task and designs a custom pipeline
 2. **Auto-generates schemas** for data validation between steps
 3. **Creates optimized workflow** with appropriate personas and dependencies

@@ -9,9 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
-
-	"github.com/recinq/wave/internal/pipeline"
 )
 
 // Test helper functions
@@ -180,88 +177,6 @@ func TestDoCommand_DryRunOutput(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "workspace should not be created in dry-run mode")
 }
 
-// TestDoCommand_SaveWritesPipelineFile verifies that --save flag writes
-// a valid pipeline YAML file
-func TestDoCommand_SaveWritesPipelineFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     "my-pipeline",
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	output := captureOutput(t, func() {
-		err := runDo("build feature Y", opts)
-		require.NoError(t, err)
-	})
-
-	// Verify save confirmation in output
-	assert.Contains(t, output, "Pipeline saved")
-	assert.Contains(t, output, "my-pipeline.yaml")
-
-	// Verify the pipeline file was created
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/my-pipeline.yaml")
-	assert.FileExists(t, pipelinePath)
-
-	// Read and validate the saved pipeline
-	data, err := os.ReadFile(pipelinePath)
-	require.NoError(t, err)
-
-	var p pipeline.Pipeline
-	err = yaml.Unmarshal(data, &p)
-	require.NoError(t, err)
-
-	assert.Equal(t, "WavePipeline", p.Kind)
-	assert.Equal(t, "adhoc", p.Metadata.Name)
-	assert.Len(t, p.Steps, 2)
-	assert.Equal(t, "navigate", p.Steps[0].ID)
-	assert.Equal(t, "execute", p.Steps[1].ID)
-	assert.Equal(t, "navigator", p.Steps[0].Persona)
-	assert.Equal(t, "craftsman", p.Steps[1].Persona)
-}
-
-// TestDoCommand_SaveWithAbsolutePath verifies that --save with an absolute
-// path writes to that location directly
-func TestDoCommand_SaveWithAbsolutePath(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	customPath := filepath.Join(tmpDir, "custom/location/pipeline.yaml")
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     customPath,
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	output := captureOutput(t, func() {
-		err := runDo("build feature", opts)
-		require.NoError(t, err)
-	})
-
-	// Verify save confirmation with custom path
-	assert.Contains(t, output, "Pipeline saved")
-	assert.Contains(t, output, customPath)
-
-	// Verify the pipeline file was created at the custom path
-	assert.FileExists(t, customPath)
-}
-
 // TestDoCommand_MissingManifestError verifies that missing manifest
 // produces a clear error message with helpful guidance
 func TestDoCommand_MissingManifestError(t *testing.T) {
@@ -381,35 +296,17 @@ func TestDoCommand_CustomPersonaOverride(t *testing.T) {
 	opts := DoOptions{
 		Manifest: "wave.yaml",
 		Persona:  "debugger",
-		Save:     "debug-pipeline",
 		DryRun:   true,
 		Mock:     true,
 	}
 
-	captureOutput(t, func() {
+	output := captureOutput(t, func() {
 		err := runDo("debug issue", opts)
 		require.NoError(t, err)
 	})
 
-	// Read the saved pipeline and verify persona
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/debug-pipeline.yaml")
-	data, err := os.ReadFile(pipelinePath)
-	require.NoError(t, err)
-
-	var p pipeline.Pipeline
-	err = yaml.Unmarshal(data, &p)
-	require.NoError(t, err)
-
-	// Find execute step and verify persona
-	var executeStep *pipeline.Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "execute" {
-			executeStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, executeStep)
-	assert.Equal(t, "debugger", executeStep.Persona)
+	// Verify the debugger persona is used for execute step
+	assert.Contains(t, output, "debugger")
 }
 
 // TestNewDoCmd verifies the command structure and flags
@@ -427,10 +324,6 @@ func TestNewDoCmd(t *testing.T) {
 	require.NotNil(t, personaFlag)
 	assert.Equal(t, "", personaFlag.DefValue)
 
-	saveFlag := flags.Lookup("save")
-	require.NotNil(t, saveFlag)
-	assert.Equal(t, "", saveFlag.DefValue)
-
 	manifestFlag := flags.Lookup("manifest")
 	require.NotNil(t, manifestFlag)
 	assert.Equal(t, "wave.yaml", manifestFlag.DefValue)
@@ -442,6 +335,10 @@ func TestNewDoCmd(t *testing.T) {
 	dryRunFlag := flags.Lookup("dry-run")
 	require.NotNil(t, dryRunFlag)
 	assert.Equal(t, "false", dryRunFlag.DefValue)
+
+	// Verify --save and --meta flags no longer exist (moved to wave meta command)
+	assert.Nil(t, flags.Lookup("save"), "save flag should not exist on do command")
+	assert.Nil(t, flags.Lookup("meta"), "meta flag should not exist on do command")
 }
 
 // TestDoCommand_MultiWordTaskDescription verifies that multi-word task
@@ -471,209 +368,6 @@ func TestDoCommand_MultiWordTaskDescription(t *testing.T) {
 	assert.Contains(t, output, "implement a new feature with multiple components")
 }
 
-// TestDoCommand_PipelineStepsHaveDependencies verifies that the generated
-// pipeline has proper step dependencies
-func TestDoCommand_PipelineStepsHaveDependencies(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     "test-deps",
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	captureOutput(t, func() {
-		err := runDo("test dependencies", opts)
-		require.NoError(t, err)
-	})
-
-	// Read the saved pipeline
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/test-deps.yaml")
-	data, err := os.ReadFile(pipelinePath)
-	require.NoError(t, err)
-
-	var p pipeline.Pipeline
-	err = yaml.Unmarshal(data, &p)
-	require.NoError(t, err)
-
-	// Find execute step and verify it depends on navigate
-	var executeStep *pipeline.Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "execute" {
-			executeStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, executeStep)
-	assert.Contains(t, executeStep.Dependencies, "navigate")
-}
-
-// TestDoCommand_PipelineHasArtifactInjection verifies that the execute step
-// has artifact injection from navigate step
-func TestDoCommand_PipelineHasArtifactInjection(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     "test-artifacts",
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	captureOutput(t, func() {
-		err := runDo("test artifacts", opts)
-		require.NoError(t, err)
-	})
-
-	// Read the saved pipeline
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/test-artifacts.yaml")
-	data, err := os.ReadFile(pipelinePath)
-	require.NoError(t, err)
-
-	var p pipeline.Pipeline
-	err = yaml.Unmarshal(data, &p)
-	require.NoError(t, err)
-
-	// Find execute step and verify artifact injection
-	var executeStep *pipeline.Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "execute" {
-			executeStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, executeStep)
-	assert.NotEmpty(t, executeStep.Memory.InjectArtifacts)
-
-	// Verify artifact comes from navigate step
-	found := false
-	for _, ref := range executeStep.Memory.InjectArtifacts {
-		if ref.Step == "navigate" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "execute step should inject artifacts from navigate step")
-}
-
-// TestDoCommand_SaveAddsYamlExtension verifies that .yaml extension is
-// added when missing
-func TestDoCommand_SaveAddsYamlExtension(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     "no-extension",
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	captureOutput(t, func() {
-		err := runDo("test extension", opts)
-		require.NoError(t, err)
-	})
-
-	// Verify .yaml was added
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/no-extension.yaml")
-	assert.FileExists(t, pipelinePath)
-}
-
-// TestDoCommand_VerifyWorkspaceConfig verifies that workspace configuration
-// in generated pipeline is correct
-func TestDoCommand_VerifyWorkspaceConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Save:     "test-workspace",
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	captureOutput(t, func() {
-		err := runDo("test workspace", opts)
-		require.NoError(t, err)
-	})
-
-	// Read the saved pipeline
-	pipelinePath := filepath.Join(tmpDir, ".wave/pipelines/test-workspace.yaml")
-	data, err := os.ReadFile(pipelinePath)
-	require.NoError(t, err)
-
-	var p pipeline.Pipeline
-	err = yaml.Unmarshal(data, &p)
-	require.NoError(t, err)
-
-	// Verify navigate step has readonly mount
-	var navigateStep *pipeline.Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "navigate" {
-			navigateStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, navigateStep)
-	require.NotEmpty(t, navigateStep.Workspace.Mount)
-
-	foundReadonly := false
-	for _, mount := range navigateStep.Workspace.Mount {
-		if mount.Mode == "readonly" {
-			foundReadonly = true
-			break
-		}
-	}
-	assert.True(t, foundReadonly, "navigate step should have readonly mount")
-
-	// Verify execute step has readwrite mount
-	var executeStep *pipeline.Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "execute" {
-			executeStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, executeStep)
-	require.NotEmpty(t, executeStep.Workspace.Mount)
-
-	foundReadwrite := false
-	for _, mount := range executeStep.Workspace.Mount {
-		if mount.Mode == "readwrite" {
-			foundReadwrite = true
-			break
-		}
-	}
-	assert.True(t, foundReadwrite, "execute step should have readwrite mount")
-}
-
 // TestDoCommand_EmptyInput verifies that empty input is handled (by cobra)
 func TestDoCommand_EmptyInput(t *testing.T) {
 	cmd := NewDoCmd()
@@ -685,135 +379,3 @@ func TestDoCommand_EmptyInput(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "at least") || strings.Contains(err.Error(), "requires"))
 }
 
-// setupTestManifestWithPhilosopher creates a test manifest with philosopher persona
-// required for meta-pipeline testing
-func setupTestManifestWithPhilosopher(t *testing.T, dir string) string {
-	t.Helper()
-
-	manifestContent := `apiVersion: v1
-kind: WaveManifest
-metadata:
-  name: test-project
-  description: Test project for meta-pipeline
-adapters:
-  claude:
-    binary: claude
-    mode: headless
-    output_format: json
-personas:
-  navigator:
-    adapter: claude
-    system_prompt_file: personas/navigator.md
-    temperature: 0.7
-    permissions:
-      allowed_tools:
-        - Read
-      deny: []
-  craftsman:
-    adapter: claude
-    system_prompt_file: personas/craftsman.md
-    temperature: 0.7
-    permissions:
-      allowed_tools:
-        - Read
-        - Write
-      deny: []
-  philosopher:
-    adapter: claude
-    system_prompt_file: personas/philosopher.md
-    temperature: 0.7
-    permissions:
-      allowed_tools:
-        - Read
-      deny: []
-runtime:
-  workspace_root: .wave/workspaces
-  default_timeout_minutes: 30
-  meta_pipeline:
-    max_depth: 2
-    max_total_steps: 20
-    max_total_tokens: 500000
-    timeout_minutes: 60
-skill_mounts: []
-`
-
-	// Create personas directory and files
-	personasDir := filepath.Join(dir, "personas")
-	require.NoError(t, os.MkdirAll(personasDir, 0755))
-
-	personas := []string{"navigator", "craftsman", "philosopher"}
-	for _, p := range personas {
-		promptContent := "You are a " + p + " persona for testing."
-		require.NoError(t, os.WriteFile(filepath.Join(personasDir, p+".md"), []byte(promptContent), 0644))
-	}
-
-	manifestPath := filepath.Join(dir, "wave.yaml")
-	require.NoError(t, os.WriteFile(manifestPath, []byte(manifestContent), 0644))
-
-	return manifestPath
-}
-
-// TestNewDoCmd_MetaFlag verifies the --meta flag exists
-func TestNewDoCmd_MetaFlag(t *testing.T) {
-	cmd := NewDoCmd()
-
-	flags := cmd.Flags()
-
-	metaFlag := flags.Lookup("meta")
-	require.NotNil(t, metaFlag)
-	assert.Equal(t, "false", metaFlag.DefValue)
-	assert.Contains(t, metaFlag.Usage, "philosopher")
-}
-
-// TestDoCommand_MetaDryRunMissingPhilosopher verifies that --meta without
-// philosopher persona produces a clear error
-func TestDoCommand_MetaDryRunMissingPhilosopher(t *testing.T) {
-	tmpDir := t.TempDir()
-	// Setup manifest without philosopher persona
-	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		UseMeta:  true,
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	err = runDo("implement feature X", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "philosopher")
-}
-
-// TestDoCommand_MetaIgnoresPersonaFlag verifies that --persona is not used
-// when --meta is set (meta uses philosopher, not custom persona)
-func TestDoCommand_MetaIgnoresPersonaFlag(t *testing.T) {
-	tmpDir := t.TempDir()
-	setupTestManifestWithPhilosopher(t, tmpDir)
-
-	// Change to test directory
-	oldWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(oldWd)
-	require.NoError(t, os.Chdir(tmpDir))
-
-	opts := DoOptions{
-		Manifest: "wave.yaml",
-		Persona:  "craftsman", // This should be ignored when --meta is set
-		UseMeta:  true,
-		DryRun:   true,
-		Mock:     true,
-	}
-
-	// With mock adapter, this will fail at philosopher invocation
-	// but the error should be about philosopher, not craftsman
-	err = runDo("implement feature X", opts)
-	require.Error(t, err)
-	// The error should be from meta-pipeline (philosopher invocation), not ad-hoc pipeline
-	assert.Contains(t, err.Error(), "meta-pipeline")
-}

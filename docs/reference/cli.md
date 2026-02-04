@@ -114,10 +114,42 @@ wave do "fix the typo in README.md"
 
 ```bash
 wave do "audit auth" --persona auditor         # Use specific persona
-wave do "build API" --meta                     # Generate pipeline dynamically using philosopher persona
-wave do "refactor" --save my-pipeline.yaml     # Save generated pipeline
 wave do "test" --dry-run                       # Preview only
 wave do "deploy" --mock                        # Use mock adapter for testing
+```
+
+---
+
+## wave meta
+
+Generate and execute a custom multi-step pipeline dynamically using the philosopher persona.
+
+```bash
+wave meta "implement user authentication"
+```
+
+**Output:**
+```
+Invoking philosopher to generate pipeline...
+This may take a moment while the AI designs your pipeline.
+
+Generated pipeline: implement-auth
+Steps:
+  1. navigate [navigator]
+  2. specify [philosopher]
+  3. implement [craftsman]
+  4. review [auditor]
+
+Meta pipeline completed (3m28s)
+  Total steps: 4, Total tokens: 45k
+```
+
+### Options
+
+```bash
+wave meta "build API" --save api-pipeline.yaml  # Save generated pipeline
+wave meta "refactor code" --dry-run             # Preview without executing
+wave meta "add tests" --mock                    # Use mock adapter for testing
 ```
 
 ---

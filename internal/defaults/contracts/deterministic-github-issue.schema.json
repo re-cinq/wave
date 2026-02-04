@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deterministic GitHub Issue Creation",
+  "description": "Strict schema for GitHub issue creation with format validation",
+  "type": "object",
+  "required": ["title", "body", "labels"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200,
+      "pattern": "^[^\\[TODO\\]|\\[PLACEHOLDER\\]].*$",
+      "description": "Issue title must be clear, specific, and actionable"
+    },
+    "body": {
+      "type": "string",
+      "minLength": 100,
+      "description": "Issue body must include Description, Acceptance Criteria, and context"
+    },
+    "labels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["bug", "enhancement", "documentation", "question", "help wanted", "good first issue", "priority-high", "priority-medium", "priority-low"]
+      },
+      "description": "At least one label is required"
+    },
+    "assignees": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "GitHub usernames to assign"
+    },
+    "milestone": {
+      "type": "integer",
+      "description": "Milestone number if applicable"
+    },
+    "related_issues": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "description": "Related issue numbers for cross-referencing"
+    },
+    "estimated_effort": {
+      "type": "string",
+      "enum": ["small", "medium", "large", "extra-large"],
+      "description": "Estimated implementation effort"
+    }
+  }
+}
