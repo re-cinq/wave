@@ -62,7 +62,7 @@ This creates:
 ## 5. Run Your First Pipeline
 
 ```bash
-wave run --pipeline hello-world --input "testing Wave"
+wave run hello-world "testing Wave"
 ```
 
 Expected output:
@@ -89,7 +89,7 @@ Pipeline hello-world completed in 26s
 Run a code review on your project:
 
 ```bash
-wave run --pipeline code-review --input "review the main module"
+wave run code-review "review the main module"
 ```
 
 Or run an ad-hoc task without a pipeline file:
