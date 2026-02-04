@@ -23,9 +23,14 @@ Wave includes these personas by default:
 |---------|---------|-------------|
 | `navigator` | Read-only codebase exploration | Read, Glob, Grep |
 | `philosopher` | Design and specification | Read, Write to specs only |
+| `planner` | Task breakdown and project planning | Read, Glob, Grep |
 | `craftsman` | Implementation and testing | Full Read/Write/Bash |
+| `debugger` | Issue diagnosis and root cause analysis | Read, Grep, Glob, git bisect |
 | `auditor` | Security and quality review | Read-only with analysis tools |
 | `summarizer` | Context compaction | Read-only |
+| `github-analyst` | GitHub issue analysis | Read, Bash, Write |
+| `github-enhancer` | GitHub issue enhancement | Read, Write, Bash |
+| `github-pr-creator` | Pull request creation | Read, Write, Bash |
 
 ## Permission Model
 

@@ -5,7 +5,7 @@ A contract validates that a step's output meets requirements before the next ste
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "go test ./..."
 ```
 
@@ -24,7 +24,7 @@ steps:
       source: "Implement the feature"
     handover:
       contract:
-        type: testsuite
+        type: test_suite
         command: "npm test"
 ```
 
@@ -44,8 +44,8 @@ steps:
         path: output/analysis.json
     handover:
       contract:
-        type: jsonschema
-        schema: .wave/contracts/analysis.schema.json
+        type: json_schema
+        schema_path: .wave/contracts/analysis.schema.json
         source: output/analysis.json
 ```
 
@@ -70,8 +70,8 @@ Configure automatic retry when validation fails:
 ```yaml
 handover:
   contract:
-    type: jsonschema
-    schema: .wave/contracts/spec.schema.json
+    type: json_schema
+    schema_path: .wave/contracts/spec.schema.json
     source: output/spec.json
     on_failure: retry
     max_retries: 3
@@ -81,10 +81,24 @@ handover:
 
 | Type | Validates | Use When |
 |------|-----------|----------|
-| `testsuite` | Command exit code | Verifying code works |
-| `jsonschema` | JSON structure | Ensuring data format |
-| `typescript` | TypeScript compiles | Validating generated types |
-| `markdownspec` | Markdown structure | Checking documentation |
+| `test_suite` | Command exit code | Verifying code works |
+| `json_schema` | JSON structure | Ensuring data format |
+| `typescript_interface` | TypeScript compiles | Validating generated types |
+| `markdown_spec` | Markdown structure | Checking documentation |
+
+## Contract Fields
+
+### Required Fields
+- `type` - Contract type (see table above)
+
+### Optional Fields
+- `must_pass: true/false` - Whether validation must pass for step to succeed (default: true)
+- `on_failure: retry|halt` - Behavior when validation fails
+- `on_review_fail: retry|halt` - Alternative name for failure handling (equivalent to `on_failure`)
+- `max_retries: N` - Maximum retry attempts (default: 0)
+- `source` - Path to artifact being validated (for schema contracts)
+- `schema_path` - Path to schema file (for `json_schema` type)
+- `command` - Test command to run (for `test_suite` type)
 
 ## Failure Handling
 
@@ -92,6 +106,8 @@ handover:
 |---------|----------|
 | `on_failure: retry` | Re-run step with fresh workspace |
 | `on_failure: halt` | Stop pipeline immediately |
+
+Note: Both `on_failure` and `on_review_fail` are supported and behave identically.
 
 After `max_retries` is exceeded, the step fails regardless of `on_failure` setting.
 

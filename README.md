@@ -4,7 +4,7 @@
 
 Wave orchestrates LLM agents through structured pipelines — each step runs a specialized persona with scoped permissions, validated contracts, and isolated workspaces.
 
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -262,7 +262,7 @@ personas:
       deny: [Write(*), Edit(*)]
 ```
 
-7 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`
+10 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`, `github-analyst`, `github-enhancer`, `github-pr-creator`
 
 ### Pipelines — DAG Workflows
 
@@ -325,6 +325,9 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 | `debugger` | 0.2 | Root cause analysis | Read + git bisect |
 | `auditor` | 0.1 | Security review | Read + audit tools |
 | `summarizer` | 0.0 | Context compaction | Read-only |
+| `github-analyst` | 0.1 | GitHub issue analysis | Read + Bash |
+| `github-enhancer` | 0.3 | GitHub issue enhancement | Read + Write + Bash |
+| `github-pr-creator` | 0.3 | Pull request creation | Read + Write + Bash |
 
 ---
 
@@ -365,7 +368,7 @@ wave.yaml                    # Project manifest
 
 ## Requirements
 
-- Go 1.22+
+- Go 1.25+
 - An LLM CLI adapter (`claude`, `opencode`, or custom)
 
 ---
