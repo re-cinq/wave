@@ -1,0 +1,556 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wave.re-cinq.com/schemas/audit-log.json",
+  "title": "Wave Audit Log Entry",
+  "description": "Schema for Wave audit log entries in NDJSON format",
+  "type": "object",
+  "required": ["timestamp", "pipeline_id", "type"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp with milliseconds"
+    },
+    "pipeline_id": {
+      "type": "string",
+      "description": "Unique identifier for the pipeline execution"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "pipeline_start",
+        "pipeline_complete",
+        "pipeline_failed",
+        "step_start",
+        "step_complete",
+        "step_failed",
+        "step_retry",
+        "tool_call",
+        "file_read",
+        "file_write",
+        "file_delete",
+        "permission_denied",
+        "security_violation",
+        "prompt_injection_detected",
+        "contract_validation",
+        "contract_violation",
+        "hook_executed",
+        "relay_triggered",
+        "checkpoint_created"
+      ],
+      "description": "Type of audit log event"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "pipeline_start" }
+        }
+      },
+      "then": {
+        "properties": {
+          "pipeline_name": {
+            "type": "string",
+            "description": "Name of the pipeline being executed"
+          },
+          "task": {
+            "type": "string",
+            "description": "Task description provided to the pipeline"
+          },
+          "manifest_path": {
+            "type": "string",
+            "description": "Path to the Wave manifest file"
+          }
+        },
+        "required": ["pipeline_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "pipeline_complete" }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["success", "failed", "cancelled"],
+            "description": "Final pipeline status"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total pipeline duration in milliseconds"
+          },
+          "steps_completed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of steps completed successfully"
+          },
+          "steps_total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total number of steps in the pipeline"
+          }
+        },
+        "required": ["status", "duration_ms"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "pipeline_failed" }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing the failure"
+          },
+          "failed_step": {
+            "type": "string",
+            "description": "ID of the step that caused the failure"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Duration until failure in milliseconds"
+          }
+        },
+        "required": ["error"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "step_start" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "description": "Unique identifier for the step"
+          },
+          "persona": {
+            "type": "string",
+            "description": "Persona executing the step"
+          },
+          "workspace": {
+            "type": "string",
+            "description": "Path to the step's workspace directory"
+          }
+        },
+        "required": ["step_id", "persona"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "step_complete" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["success", "failed"]
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "artifacts_produced": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of artifacts produced by the step"
+          }
+        },
+        "required": ["step_id", "persona", "status", "duration_ms"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "tool_call" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string",
+            "description": "Name of the tool invoked (Read, Write, Bash, etc.)"
+          },
+          "args": {
+            "type": "object",
+            "description": "Arguments passed to the tool (credentials scrubbed)"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "error"],
+            "description": "Result of the tool invocation"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Error message if result is 'error'"
+          }
+        },
+        "required": ["step_id", "persona", "tool", "result"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "enum": ["file_read", "file_write", "file_delete"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "File path (relative to workspace)"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "File size in bytes (for read/write operations)"
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["create", "update", "append"],
+            "description": "Type of write operation"
+          }
+        },
+        "required": ["step_id", "persona", "path"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "permission_denied" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string",
+            "description": "Tool that was denied"
+          },
+          "args": {
+            "type": "object",
+            "description": "Arguments of the denied operation"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for permission denial"
+          }
+        },
+        "required": ["step_id", "persona", "tool", "reason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "security_violation" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "violation_type": {
+            "type": "string",
+            "enum": [
+              "path_traversal",
+              "prompt_injection",
+              "invalid_persona",
+              "malformed_json",
+              "input_validation"
+            ],
+            "description": "Type of security violation detected"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+            "description": "Severity level of the violation"
+          },
+          "blocked": {
+            "type": "boolean",
+            "description": "Whether the violation was blocked"
+          },
+          "details": {
+            "type": "string",
+            "description": "Sanitized details about the violation"
+          }
+        },
+        "required": ["violation_type", "severity", "blocked"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "prompt_injection_detected" }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["user_input", "schema_content", "artifact_content"],
+            "description": "Source of the detected injection"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "patterns_matched": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Injection patterns that were matched"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["rejected", "sanitized"],
+            "description": "Action taken in response"
+          }
+        },
+        "required": ["source", "severity", "blocked", "action"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "contract_validation" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "contract_type": {
+            "type": "string",
+            "enum": ["json_schema", "typescript", "test_suite"],
+            "description": "Type of contract validation"
+          },
+          "schema": {
+            "type": "string",
+            "description": "Path to the contract schema"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["pass", "fail"]
+          },
+          "validation_duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["step_id", "contract_type", "result"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "contract_violation" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "contract_type": {
+            "type": "string",
+            "enum": ["json_schema", "typescript", "test_suite"]
+          },
+          "schema": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "JSON path to the invalid field"
+                },
+                "message": {
+                  "type": "string",
+                  "description": "Validation error message"
+                }
+              },
+              "required": ["message"]
+            },
+            "description": "List of validation errors"
+          }
+        },
+        "required": ["step_id", "contract_type", "errors"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "hook_executed" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "hook_type": {
+            "type": "string",
+            "enum": ["pre", "post"],
+            "description": "Whether this is a pre or post hook"
+          },
+          "hook_name": {
+            "type": "string",
+            "description": "Name of the hook executed"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["pass", "fail"]
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["step_id", "hook_type", "hook_name", "result"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "relay_triggered" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["token_threshold", "manual", "timeout"],
+            "description": "Reason for triggering relay"
+          },
+          "token_usage": {
+            "type": "integer",
+            "description": "Current token usage when relay triggered"
+          },
+          "token_threshold": {
+            "type": "integer",
+            "description": "Token threshold that triggered relay"
+          }
+        },
+        "required": ["step_id", "reason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "checkpoint_created" }
+        }
+      },
+      "then": {
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "checkpoint_path": {
+            "type": "string",
+            "description": "Path to the checkpoint file"
+          },
+          "summary_length": {
+            "type": "integer",
+            "description": "Length of the checkpoint summary in characters"
+          }
+        },
+        "required": ["step_id", "checkpoint_path"]
+      }
+    }
+  ],
+  "examples": [
+    {
+      "timestamp": "2026-02-01T10:00:00.000Z",
+      "pipeline_id": "a1b2c3d4",
+      "type": "pipeline_start",
+      "pipeline_name": "speckit-flow",
+      "task": "Implement user authentication",
+      "manifest_path": "wave.yaml"
+    },
+    {
+      "timestamp": "2026-02-01T10:01:15.234Z",
+      "pipeline_id": "a1b2c3d4",
+      "type": "tool_call",
+      "step_id": "implement",
+      "persona": "craftsman",
+      "tool": "Write",
+      "args": {
+        "path": "src/models/user.go"
+      },
+      "result": "success",
+      "duration_ms": 12
+    },
+    {
+      "timestamp": "2026-02-01T10:02:30.000Z",
+      "pipeline_id": "a1b2c3d4",
+      "type": "permission_denied",
+      "step_id": "navigate",
+      "persona": "navigator",
+      "tool": "Write",
+      "args": {
+        "path": "src/config.go"
+      },
+      "reason": "Tool 'Write' denied for persona 'navigator'"
+    },
+    {
+      "timestamp": "2026-02-01T10:02:45.000Z",
+      "pipeline_id": "a1b2c3d4",
+      "type": "security_violation",
+      "step_id": "implement",
+      "violation_type": "path_traversal",
+      "severity": "CRITICAL",
+      "blocked": true,
+      "details": "Path traversal attempt detected"
+    }
+  ]
+}
