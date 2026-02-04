@@ -1,0 +1,201 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "recent_commits",
+    "changed_files_analysis",
+    "feature_changes",
+    "api_changes",
+    "documentation_debt"
+  ],
+  "properties": {
+    "recent_commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hash",
+          "message",
+          "date",
+          "files_changed",
+          "documentation_impact"
+        ],
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "files_changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "documentation_impact": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "none"
+            ]
+          },
+          "requires_doc_update": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "changed_files_analysis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file_path",
+          "change_type",
+          "documentation_implications"
+        ],
+        "properties": {
+          "file_path": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "added",
+              "modified",
+              "deleted",
+              "renamed"
+            ]
+          },
+          "documentation_implications": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "affects_public_api": {
+            "type": "boolean"
+          },
+          "breaking_change": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "feature_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_name",
+          "change_description",
+          "documentation_needs"
+        ],
+        "properties": {
+          "feature_name": {
+            "type": "string"
+          },
+          "change_description": {
+            "type": "string"
+          },
+          "documentation_needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_facing": {
+            "type": "boolean"
+          },
+          "complexity": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "moderate",
+              "complex"
+            ]
+          }
+        }
+      }
+    },
+    "api_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "endpoint_or_function",
+          "change_type",
+          "backward_compatible"
+        ],
+        "properties": {
+          "endpoint_or_function": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string"
+          },
+          "backward_compatible": {
+            "type": "boolean"
+          },
+          "documentation_status": {
+            "type": "string",
+            "enum": [
+              "updated",
+              "outdated",
+              "missing"
+            ]
+          },
+          "example_needs_update": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "documentation_debt": {
+      "type": "object",
+      "required": [
+        "total_debt_score",
+        "critical_issues",
+        "medium_issues",
+        "low_issues"
+      ],
+      "properties": {
+        "total_debt_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "critical_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "medium_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "low_issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trends": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Enhancement Verification Report",
+  "description": "Schema for verifying GitHub issue enhancements were applied",
+  "type": "object",
+  "required": ["total_enhanced", "successful_enhancements", "failed_enhancements"],
+  "properties": {
+    "total_enhanced": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "successful_enhancements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_number", "verified_changes"],
+        "properties": {
+          "issue_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "verified_changes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quality_score_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "quality_score_after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "failed_enhancements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_number", "problems"],
+        "properties": {
+          "issue_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "quality_improvement": {
+      "type": "object",
+      "properties": {
+        "average_score_before": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "average_score_after": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "improvement_percentage": {
+          "type": "number"
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Human-readable summary of verification results"
+    }
+  }
+}

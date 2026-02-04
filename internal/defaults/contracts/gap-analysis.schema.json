@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "critical_gaps",
+    "high_priority_gaps",
+    "medium_priority_gaps",
+    "low_priority_gaps",
+    "gap_categories",
+    "impact_assessment"
+  ],
+  "properties": {
+    "critical_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gap_id",
+          "description",
+          "affected_users",
+          "business_impact",
+          "effort_estimate"
+        ],
+        "properties": {
+          "gap_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "affected_users": {
+            "type": "string",
+            "enum": [
+              "all",
+              "developers",
+              "end_users",
+              "admins",
+              "specific_group"
+            ]
+          },
+          "business_impact": {
+            "type": "string",
+            "enum": [
+              "blocker",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "effort_estimate": {
+            "type": "string",
+            "enum": [
+              "small",
+              "medium",
+              "large",
+              "extra_large"
+            ]
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "root_cause": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "high_priority_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gap_id",
+          "description",
+          "effort_estimate"
+        ],
+        "properties": {
+          "gap_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "effort_estimate": {
+            "type": "string"
+          },
+          "user_pain_level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "frequency_of_issue": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly",
+              "rare"
+            ]
+          },
+          "workaround_exists": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "medium_priority_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gap_id",
+          "description",
+          "effort_estimate"
+        ],
+        "properties": {
+          "gap_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "effort_estimate": {
+            "type": "string"
+          },
+          "nice_to_have": {
+            "type": "boolean"
+          },
+          "enhancement_opportunity": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "low_priority_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gap_id",
+          "description"
+        ],
+        "properties": {
+          "gap_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "cosmetic": {
+            "type": "boolean"
+          },
+          "future_consideration": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "gap_categories": {
+      "type": "object",
+      "required": [
+        "api_documentation",
+        "user_guides",
+        "examples",
+        "troubleshooting",
+        "configuration"
+      ],
+      "properties": {
+        "api_documentation": {
+          "type": "integer"
+        },
+        "user_guides": {
+          "type": "integer"
+        },
+        "examples": {
+          "type": "integer"
+        },
+        "troubleshooting": {
+          "type": "integer"
+        },
+        "configuration": {
+          "type": "integer"
+        },
+        "installation": {
+          "type": "integer"
+        },
+        "migration": {
+          "type": "integer"
+        },
+        "best_practices": {
+          "type": "integer"
+        }
+      }
+    },
+    "impact_assessment": {
+      "type": "object",
+      "required": [
+        "total_effort_estimate",
+        "user_experience_impact",
+        "development_velocity_impact"
+      ],
+      "properties": {
+        "total_effort_estimate": {
+          "type": "string"
+        },
+        "user_experience_impact": {
+          "type": "string",
+          "enum": [
+            "severe",
+            "moderate",
+            "minor",
+            "minimal"
+          ]
+        },
+        "development_velocity_impact": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "risk_of_inaction": {
+          "type": "string"
+        },
+        "competitive_advantage": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

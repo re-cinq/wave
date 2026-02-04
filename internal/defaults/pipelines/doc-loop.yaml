@@ -1,0 +1,92 @@
+kind: WavePipeline
+metadata:
+    name: documentation-sync-analysis
+    description: Comprehensive documentation impact analysis before merge
+input:
+    source: meta
+steps:
+    - id: navigate-changes
+      persona: navigator
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Analyze git commits and changes to identify documentation impact areas. Examine: 1) Recent git log entries, 2) Modified files and their documentation implications, 3) API changes that affect docs, 4) New features requiring documentation updates, 5) Deprecated features needing doc removal. Output structured JSON with commit_analysis, affected_docs, api_changes, feature_impacts, and deprecation_notes. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: change_analysis
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/change-analysis.schema.json
+    - id: analyze-documentation-state
+      persona: navigator
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Examine current documentation state across READMEs, docs/, help texts, comments, and inline documentation. Cross-reference with change analysis from previous step. Identify: 1) Outdated documentation sections, 2) Missing documentation for new features, 3) Inconsistent help texts, 4) Stale comments in code, 5) Documentation gaps. Output structured JSON with current_state, inconsistencies, gaps, and priority_areas. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: documentation_state
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/documentation-state.schema.json
+    - id: investigate-issue-pr-context
+      persona: navigator
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Investigate open issues and PRs for documentation-related context. Analyze: 1) Open issues mentioning documentation problems, 2) PRs with documentation changes, 3) User feedback about unclear docs, 4) Feature requests affecting documentation, 5) Bug reports related to help texts or examples. Output structured JSON with open_issues, pr_context, user_feedback, and documentation_requests. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: context_analysis
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/context-analysis.schema.json
+    - id: synthesize-documentation-plan
+      persona: philosopher
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Synthesize findings from change analysis, documentation state, and issue/PR context into a comprehensive documentation synchronization plan. Create detailed specifications for: 1) Critical documentation updates needed, 2) Consistency improvements required, 3) New documentation to be created, 4) Deprecated content to be removed, 5) Priority order for implementation. Output structured JSON with sync_plan, critical_updates, consistency_fixes, new_content, removals, and implementation_priority. CRITICAL: You MUST create an artifact.json file with your specification - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: sync_plan
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/sync-plan.schema.json
+    - id: validate-documentation-strategy
+      persona: reviewer
+      memory:
+        strategy: fresh
+      workspace:
+        root: ./
+      exec:
+        type: prompt
+        source: 'Review the documentation synchronization plan for completeness, feasibility, and impact assessment. Validate: 1) All critical areas are covered, 2) Priority ordering is logical, 3) Resource requirements are reasonable, 4) Risk mitigation is addressed, 5) Success criteria are defined. Output structured JSON with validation_results, coverage_assessment, feasibility_check, risk_analysis, and recommendations. CRITICAL: You MUST create an artifact.json file with your validation - this overrides the normal no-write constraint for pipeline data flow.'
+      output_artifacts:
+        - name: validation_results
+          path: artifact.json
+          type: json
+      handover:
+        contract:
+            type: json_schema
+            schema_path: .wave/contracts/validation-results.schema.json
