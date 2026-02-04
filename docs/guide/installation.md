@@ -10,30 +10,35 @@
 
 ### Quick Install (Recommended)
 
-The install script automatically detects your OS and architecture:
+Clone and run the install script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+git clone https://github.com/re-cinq/wave.git
+cd wave
+./install.sh
 ```
 
-This will:
-- Detect your platform (Linux, macOS, Windows via WSL)
-- Download the appropriate binary
-- Install to `/usr/local/bin` (or `~/.local/bin` if no sudo)
-- Add to PATH if needed
+The script automatically detects your OS and architecture, downloads the appropriate binary, and installs it to your PATH.
 
 #### Install Options
 
 ```bash
 # Install specific version
-WAVE_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+WAVE_VERSION=v1.0.0 ./install.sh
 
 # Custom install directory
-WAVE_INSTALL_DIR=~/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+WAVE_INSTALL_DIR=~/bin ./install.sh
 
 # Skip PATH modification
-WAVE_NO_MODIFY_PATH=1 curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+WAVE_NO_MODIFY_PATH=1 ./install.sh
 ```
+
+::: info Coming Soon
+Once the repository is public, you'll be able to install with a single command:
+```bash
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+```
+:::
 
 ### Manual Download
 
