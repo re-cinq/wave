@@ -300,6 +300,5 @@ runtime:
 
 ## Next Steps
 
-- [Team Adoption](/guides/team-adoption) - Share pipelines across your team
 - [Enterprise Patterns](/guides/enterprise) - Scale Wave to your organization
 - [Audit Logging](/guides/audit-logging) - Track all pipeline activity

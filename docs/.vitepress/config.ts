@@ -4,7 +4,21 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Wave',
-    description: 'Infrastructure as Code for AI - Define reproducible AI workflows with declarative configuration',
+    description: 'AI Pipelines as Code - Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.',
+
+    head: [
+      ['meta', { name: 'keywords', content: 'AI, pipelines, orchestration, LLM, Claude, automation, YAML, DevOps' }],
+      ['meta', { name: 'author', content: 'Michael W. Czechowski' }],
+      ['meta', { property: 'og:title', content: 'Wave - AI Pipelines as Code' }],
+      ['meta', { property: 'og:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:image', content: '/og-image.png' }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:title', content: 'Wave - AI Pipelines as Code' }],
+      ['meta', { name: 'twitter:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
+    ],
+
     themeConfig: {
       logo: '/logo.svg',
       nav: [
@@ -24,9 +38,9 @@ export default withMermaid(
         {
           text: 'Guides',
           items: [
-            { text: 'Team Adoption', link: '/guides/team-adoption' },
+            { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
-            { text: 'GitHub Integration', link: '/github-integration' },
+            { text: 'GitHub Integration', link: '/guides/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
             { text: 'Audit Logging', link: '/guides/audit-logging' },
             { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
@@ -44,16 +58,45 @@ export default withMermaid(
             { text: 'Adapters', link: '/reference/adapters' },
             { text: 'Events', link: '/reference/events' },
             { text: 'Environment', link: '/reference/environment' },
+            { text: 'Error Codes', link: '/reference/error-codes' },
             { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
-        }
+        },
+        {
+          text: 'Integrations',
+          items: [
+            { text: 'Overview', link: '/integrations/' },
+            { text: 'GitHub Actions', link: '/integrations/github-actions' },
+            { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+          ]
+        },
+        {
+          text: 'Trust Center',
+          items: [
+            { text: 'Overview', link: '/trust-center/' },
+            { text: 'Security Model', link: '/trust-center/security-model' },
+            { text: 'Compliance', link: '/trust-center/compliance' },
+            { text: 'Audit Logging', link: '/trust-center/audit-logging' }
+          ]
+        },
+        { text: 'Changelog', link: '/changelog' }
       ],
       sidebar: {
         '/use-cases/': [
           {
             text: 'Use Cases',
             items: [
-              { text: 'Overview', link: '/use-cases/' }
+              { text: 'Overview', link: '/use-cases/' },
+              { text: 'Code Review', link: '/use-cases/code-review' },
+              { text: 'Security Audit', link: '/use-cases/security-audit' },
+              { text: 'Documentation Generation', link: '/use-cases/documentation-generation' },
+              { text: 'Test Generation', link: '/use-cases/test-generation' },
+              { text: 'Refactoring', link: '/use-cases/refactoring' },
+              { text: 'Multi-Agent Review', link: '/use-cases/multi-agent-review' },
+              { text: 'Incident Response', link: '/use-cases/incident-response' },
+              { text: 'Developer Onboarding', link: '/use-cases/onboarding' },
+              { text: 'API Design', link: '/use-cases/api-design' },
+              { text: 'Migration', link: '/use-cases/migration' }
             ]
           }
         ],
@@ -77,11 +120,17 @@ export default withMermaid(
         ],
         '/guides/': [
           {
+            text: 'Getting Started',
+            items: [
+              { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+              { text: 'Custom Personas', link: '/guides/custom-personas' }
+            ]
+          },
+          {
             text: 'Adoption',
             items: [
-              { text: 'Team Adoption', link: '/guides/team-adoption' },
               { text: 'CI/CD Integration', link: '/guides/ci-cd' },
-              { text: 'GitHub Integration', link: '/github-integration' },
+              { text: 'GitHub Integration', link: '/guides/github-integration' },
               { text: 'Enterprise Patterns', link: '/guides/enterprise' }
             ]
           },
@@ -107,7 +156,29 @@ export default withMermaid(
               { text: 'Events', link: '/reference/events' },
               { text: 'Environment', link: '/reference/environment' },
               { text: 'Contract Types', link: '/reference/contract-types' },
+              { text: 'Error Codes', link: '/reference/error-codes' },
               { text: 'Troubleshooting', link: '/reference/troubleshooting' }
+            ]
+          }
+        ],
+        '/integrations/': [
+          {
+            text: 'Integrations',
+            items: [
+              { text: 'Overview', link: '/integrations/' },
+              { text: 'GitHub Actions', link: '/integrations/github-actions' },
+              { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+            ]
+          }
+        ],
+        '/trust-center/': [
+          {
+            text: 'Trust Center',
+            items: [
+              { text: 'Overview', link: '/trust-center/' },
+              { text: 'Security Model', link: '/trust-center/security-model' },
+              { text: 'Compliance', link: '/trust-center/compliance' },
+              { text: 'Audit Logging', link: '/trust-center/audit-logging' }
             ]
           }
         ]
