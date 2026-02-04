@@ -39,9 +39,8 @@ export default withMermaid(
           text: 'Guides',
           items: [
             { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
-            { text: 'Team Adoption', link: '/guides/team-adoption' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
-            { text: 'GitHub Integration', link: '/github-integration' },
+            { text: 'GitHub Integration', link: '/guides/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
             { text: 'Audit Logging', link: '/guides/audit-logging' },
             { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
@@ -87,7 +86,17 @@ export default withMermaid(
           {
             text: 'Use Cases',
             items: [
-              { text: 'Overview', link: '/use-cases/' }
+              { text: 'Overview', link: '/use-cases/' },
+              { text: 'Code Review', link: '/use-cases/code-review' },
+              { text: 'Security Audit', link: '/use-cases/security-audit' },
+              { text: 'Documentation Generation', link: '/use-cases/documentation-generation' },
+              { text: 'Test Generation', link: '/use-cases/test-generation' },
+              { text: 'Refactoring', link: '/use-cases/refactoring' },
+              { text: 'Multi-Agent Review', link: '/use-cases/multi-agent-review' },
+              { text: 'Incident Response', link: '/use-cases/incident-response' },
+              { text: 'Developer Onboarding', link: '/use-cases/onboarding' },
+              { text: 'API Design', link: '/use-cases/api-design' },
+              { text: 'Migration', link: '/use-cases/migration' }
             ]
           }
         ],
@@ -120,9 +129,8 @@ export default withMermaid(
           {
             text: 'Adoption',
             items: [
-              { text: 'Team Adoption', link: '/guides/team-adoption' },
               { text: 'CI/CD Integration', link: '/guides/ci-cd' },
-              { text: 'GitHub Integration', link: '/github-integration' },
+              { text: 'GitHub Integration', link: '/guides/github-integration' },
               { text: 'Enterprise Patterns', link: '/guides/enterprise' }
             ]
           },
