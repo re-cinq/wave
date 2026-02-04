@@ -291,10 +291,8 @@ go test -cover ./internal/contract/...
 ## Examples
 
 See:
-- `deterministic-feature-pipeline.yaml` - Complete example pipeline
 - `format_validator_test.go` - Format validation examples
 - `rollback_test.go` - Rollback mechanism examples
-- `docs/DETERMINISTIC_OUTPUTS.md` - Comprehensive guide
 
 ## Integration Points
 
