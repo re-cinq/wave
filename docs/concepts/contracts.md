@@ -94,7 +94,6 @@ handover:
 ### Optional Fields
 - `must_pass: true/false` - Whether validation must pass for step to succeed (default: true)
 - `on_failure: retry|halt` - Behavior when validation fails
-- `on_review_fail: retry|halt` - Alternative name for failure handling (equivalent to `on_failure`)
 - `max_retries: N` - Maximum retry attempts (default: 0)
 - `source` - Path to artifact being validated (for schema contracts)
 - `schema_path` - Path to schema file (for `json_schema` type)
@@ -106,8 +105,6 @@ handover:
 |---------|----------|
 | `on_failure: retry` | Re-run step with fresh workspace |
 | `on_failure: halt` | Stop pipeline immediately |
-
-Note: Both `on_failure` and `on_review_fail` are supported and behave identically.
 
 After `max_retries` is exceeded, the step fails regardless of `on_failure` setting.
 

@@ -262,7 +262,7 @@ personas:
       deny: [Write(*), Edit(*)]
 ```
 
-10 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`, `github-analyst`, `github-enhancer`, `github-pr-creator`
+9 built-in personas: `navigator`, `philosopher`, `planner`, `craftsman`, `debugger`, `auditor`, `summarizer`, `github-analyst`, `github-enhancer`
 
 ### Pipelines — DAG Workflows
 
@@ -327,7 +327,6 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 | `summarizer` | 0.0 | Context compaction | Read-only |
 | `github-analyst` | 0.1 | GitHub issue analysis | Read + Bash |
 | `github-enhancer` | 0.3 | GitHub issue enhancement | Read + Write + Bash |
-| `github-pr-creator` | 0.3 | Pull request creation | Read + Write + Bash |
 
 ---
 
