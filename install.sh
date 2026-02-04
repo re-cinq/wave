@@ -26,7 +26,7 @@ else
     NC=''
 fi
 
-GITHUB_REPO="recinq/wave"
+GITHUB_REPO="re-cinq/wave"
 BINARY_NAME="wave"
 
 # Print colored output
