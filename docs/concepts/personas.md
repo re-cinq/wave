@@ -30,7 +30,6 @@ Wave includes these personas by default:
 | `summarizer` | Context compaction | Read-only |
 | `github-analyst` | GitHub issue analysis | Read, Bash, Write |
 | `github-enhancer` | GitHub issue enhancement | Read, Write, Bash |
-| `github-pr-creator` | Pull request creation | Read, Write, Bash |
 
 ## Permission Model
 

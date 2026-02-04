@@ -1,8 +1,10 @@
 # Security Audit
 
-Perform comprehensive security analysis of your codebase. This pipeline scans for vulnerabilities, checks dependencies, and verifies compliance with security best practices.
+Perform comprehensive security analysis of your codebase. For quick security checks, use the built-in `code-review` pipeline. For deeper analysis, create a dedicated security audit pipeline using the template below.
 
 ## Quick Start
+
+For basic security review, use the built-in `code-review` pipeline:
 
 ```bash
 wave run --pipeline code-review --input "security audit of the entire codebase"
@@ -24,9 +26,9 @@ Pipeline code-review completed in 99s
 Artifacts: output/review-summary.md
 ```
 
-## Complete Pipeline
+## Custom Security Audit Pipeline
 
-Create a dedicated security audit pipeline for deeper analysis:
+For comprehensive security audits, create a dedicated pipeline using this template. Save the following YAML to `.wave/pipelines/security-audit.yaml`:
 
 ```yaml
 kind: WavePipeline
@@ -168,7 +170,7 @@ steps:
         type: markdown
 ```
 
-Save this as `.wave/pipelines/security-audit.yaml` and run:
+After saving the pipeline template above to `.wave/pipelines/security-audit.yaml`, run:
 
 ```bash
 wave run --pipeline security-audit --input "full security audit"

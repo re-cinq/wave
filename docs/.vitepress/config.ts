@@ -67,6 +67,7 @@ export default withMermaid(
               { text: 'Contracts', link: '/concepts/contracts' },
               { text: 'Artifacts', link: '/concepts/artifacts' },
               { text: 'Execution', link: '/concepts/execution' },
+              { text: 'Pipeline Execution', link: '/concepts/pipeline-execution' },
               { text: 'Workspaces', link: '/concepts/workspaces' },
               { text: 'Adapters', link: '/concepts/adapters' },
               { text: 'Manifests', link: '/concepts/manifests' },
@@ -105,6 +106,7 @@ export default withMermaid(
               { text: 'Adapters', link: '/reference/adapters' },
               { text: 'Events', link: '/reference/events' },
               { text: 'Environment', link: '/reference/environment' },
+              { text: 'Contract Types', link: '/reference/contract-types' },
               { text: 'Troubleshooting', link: '/reference/troubleshooting' }
             ]
           }

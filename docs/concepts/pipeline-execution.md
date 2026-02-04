@@ -400,4 +400,4 @@ Wave skips completed steps and resumes execution.
 - [Pipelines](/concepts/pipelines) - The paradigm behind pipeline design
 - [Contracts](/concepts/contracts) - Output validation
 - [Personas](/concepts/personas) - Configuring AI agents
-- [Creating Pipelines](/guide/pipelines) - Build your first pipeline
+- [Pipelines Overview](/concepts/pipelines) - Build your first pipeline
