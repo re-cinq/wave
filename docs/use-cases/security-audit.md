@@ -1,6 +1,23 @@
+---
+title: Security Audit
+description: Comprehensive vulnerability scanning, dependency checks, and compliance verification
+---
+
 # Security Audit
 
-Perform comprehensive security analysis of your codebase. For quick security checks, use the built-in `code-review` pipeline. For deeper analysis, create a dedicated security audit pipeline using the template below.
+<div class="use-case-meta">
+  <span class="complexity-badge intermediate">Intermediate</span>
+  <span class="category-badge">Security</span>
+</div>
+
+Perform comprehensive security analysis of your codebase. This pipeline performs deep vulnerability scanning, dependency auditing, compliance checking, and produces an executive security report.
+
+## Prerequisites
+
+- Wave installed and initialized (`wave init`)
+- Git repository to audit
+- Understanding of [code-review](/use-cases/code-review) pipeline (recommended)
+- Familiarity with OWASP Top 10 and common vulnerability types
 
 ## Quick Start
 
@@ -10,25 +27,31 @@ For basic security review, use the built-in `code-review` pipeline:
 wave run code-review "security audit of the entire codebase"
 ```
 
+For comprehensive security audits, create a dedicated pipeline (see below):
+
+```bash
+wave run security-audit "full security audit"
+```
+
 Expected output:
 
 ```
-[10:00:01] started   diff-analysis     (navigator)              Starting step
-[10:00:35] completed diff-analysis     (navigator)   34s   3.2k Analysis complete
-[10:00:36] started   security-review   (auditor)                Starting step
-[10:00:36] started   quality-review    (auditor)                Starting step
-[10:01:15] completed security-review   (auditor)     39s   4.5k Review complete
-[10:01:18] completed quality-review    (auditor)     42s   3.8k Review complete
-[10:01:19] started   summary           (summarizer)             Starting step
-[10:01:40] completed summary           (summarizer)  21s   2.1k Summary complete
+[10:00:01] started   inventory          (navigator)              Starting step
+[10:00:35] completed inventory          (navigator)   34s   3.2k Analysis complete
+[10:00:36] started   vulnerability-scan (auditor)                Starting step
+[10:00:36] started   compliance-check   (auditor)                Starting step
+[10:01:15] completed vulnerability-scan (auditor)     39s   4.5k Scan complete
+[10:01:18] completed compliance-check   (auditor)     42s   3.8k Check complete
+[10:01:19] started   report             (summarizer)             Starting step
+[10:01:40] completed report             (summarizer)  21s   2.1k Report complete
 
-Pipeline code-review completed in 99s
-Artifacts: output/review-summary.md
+Pipeline security-audit completed in 99s
+Artifacts: output/security-report.md
 ```
 
-## Custom Security Audit Pipeline
+## Complete Pipeline
 
-For comprehensive security audits, create a dedicated pipeline using this template. Save the following YAML to `.wave/pipelines/security-audit.yaml`:
+Save the following YAML to `.wave/pipelines/security-audit.yaml`:
 
 ```yaml
 kind: WavePipeline
@@ -170,20 +193,25 @@ steps:
         type: markdown
 ```
 
-After saving the pipeline template above to `.wave/pipelines/security-audit.yaml`, run:
+## Expected Outputs
 
-```bash
-wave run security-audit "full security audit"
-```
+The pipeline produces four artifacts:
 
-## Example Output
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `inventory` | `output/security-inventory.json` | Security-relevant codebase inventory |
+| `vulnerabilities` | `output/vulnerabilities.md` | Detailed vulnerability findings |
+| `compliance` | `output/compliance-report.md` | Standards compliance status |
+| `report` | `output/security-report.md` | Executive summary report |
+
+### Example Output
 
 The pipeline produces `output/security-report.md`:
 
 ```markdown
 # Security Audit Report
 
-**Date**: 2026-02-03
+**Date**: 2026-02-04
 **Scope**: Full codebase
 **Risk Rating**: HIGH
 
@@ -251,8 +279,63 @@ Extend the pipeline with a dependency-focused step:
       Check for outdated packages with security patches available.
 ```
 
-## Next Steps
+### Add contract validation
+
+Ensure compliance report follows expected format:
+
+```yaml
+- id: compliance-check
+  handover:
+    contract:
+      type: json_schema
+      schema_path: .wave/contracts/compliance.schema.json
+      source: output/compliance-report.json
+      on_failure: retry
+      max_retries: 2
+```
+
+## Related Use Cases
 
 - [Code Review](/use-cases/code-review) - Regular PR reviews with security checks
 - [Test Generation](/use-cases/test-generation) - Generate security-focused tests
+- [Incident Response](/use-cases/incident-response) - Respond to security incidents
+
+## Next Steps
+
 - [Concepts: Contracts](/concepts/contracts) - Validate audit output format
+- [Concepts: Personas](/concepts/personas) - Understanding the auditor persona
+
+<style>
+.use-case-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.complexity-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+.complexity-badge.beginner {
+  background: #dcfce7;
+  color: #166534;
+}
+.complexity-badge.intermediate {
+  background: #fef3c7;
+  color: #92400e;
+}
+.complexity-badge.advanced {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.category-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+</style>
