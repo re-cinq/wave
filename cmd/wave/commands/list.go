@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/display"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -348,9 +349,15 @@ func listPipelines() error {
 		return fmt.Errorf("failed to read pipelines directory: %w", err)
 	}
 
-	fmt.Printf("Pipelines:\n")
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Bold("Pipelines"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+
 	if len(entries) == 0 {
-		fmt.Printf("  (none found in %s/)\n", pipelineDir)
+		fmt.Printf("  %s\n", f.Muted("(none found in "+pipelineDir+"/)"))
 		return nil
 	}
 
@@ -358,6 +365,14 @@ func listPipelines() error {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	})
+
+	// Collect valid pipelines
+	type pipelineEntry struct {
+		name        string
+		description string
+		steps       []string
+	}
+	var pipelines []pipelineEntry
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
@@ -369,7 +384,7 @@ func listPipelines() error {
 
 		data, err := os.ReadFile(pipelinePath)
 		if err != nil {
-			fmt.Printf("  %-20s (error reading)\n", name)
+			pipelines = append(pipelines, pipelineEntry{name: name, description: "(error reading)"})
 			continue
 		}
 
@@ -383,24 +398,60 @@ func listPipelines() error {
 			} `yaml:"steps"`
 		}
 		if err := yaml.Unmarshal(data, &p); err != nil {
-			fmt.Printf("  %-20s (error parsing)\n", name)
+			pipelines = append(pipelines, pipelineEntry{name: name, description: "(error parsing)"})
 			continue
-		}
-
-		desc := p.Metadata.Description
-		if desc == "" {
-			desc = "(no description)"
 		}
 
 		stepIDs := []string{}
 		for _, s := range p.Steps {
 			stepIDs = append(stepIDs, s.ID)
 		}
-		fmt.Printf("  %-20s %d steps  %s\n", name, len(p.Steps), desc)
-		fmt.Printf("  %-20s steps: %s\n", "", strings.Join(stepIDs, " → "))
+
+		pipelines = append(pipelines, pipelineEntry{
+			name:        name,
+			description: p.Metadata.Description,
+			steps:       stepIDs,
+		})
 	}
 
+	// Render each pipeline
+	for _, p := range pipelines {
+		// Pipeline name with step count badge
+		stepBadge := f.Muted(fmt.Sprintf("[%d steps]", len(p.steps)))
+		fmt.Printf("\n  %s %s\n", f.Primary(p.name), stepBadge)
+
+		// Description
+		if p.description != "" {
+			fmt.Printf("    %s\n", f.Muted(p.description))
+		}
+
+		// Steps flow
+		if len(p.steps) > 0 {
+			stepsFlow := formatStepsFlow(p.steps, f)
+			fmt.Printf("    %s\n", stepsFlow)
+		}
+	}
+
+	fmt.Println()
 	return nil
+}
+
+// formatStepsFlow formats pipeline steps as a visual flow with arrows
+func formatStepsFlow(steps []string, f *display.Formatter) string {
+	if len(steps) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for i, step := range steps {
+		if i == 0 {
+			parts = append(parts, f.Success("○")+f.Muted(" "+step))
+		} else {
+			parts = append(parts, f.Muted("→ "+step))
+		}
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func listPersonas(personas map[string]struct {
@@ -413,9 +464,15 @@ func listPersonas(personas map[string]struct {
 		Deny         []string `yaml:"deny"`
 	} `yaml:"permissions"`
 }) {
-	fmt.Printf("Personas:\n")
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Bold("Personas"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+
 	if len(personas) == 0 {
-		fmt.Printf("  (none defined)\n")
+		fmt.Printf("  %s\n", f.Muted("(none defined)"))
 		return
 	}
 
@@ -428,23 +485,33 @@ func listPersonas(personas map[string]struct {
 
 	for _, name := range names {
 		persona := personas[name]
-		desc := persona.Description
-		if desc == "" {
-			desc = "(no description)"
-		}
-		// T089: Add permission summary
+
+		// Persona name
+		fmt.Printf("\n  %s\n", f.Primary(name))
+
+		// Metadata line: adapter, temperature, permissions
+		metaParts := []string{}
+		metaParts = append(metaParts, fmt.Sprintf("adapter: %s", persona.Adapter))
+		metaParts = append(metaParts, fmt.Sprintf("temp: %.1f", persona.Temperature))
+
+		// Permission summary
 		permSummary := formatPermissionSummary(
 			persona.Permissions.AllowedTools,
 			persona.Permissions.Deny,
 		)
-		fmt.Printf("  %-20s adapter:%-10s temp:%.1f  %s\n",
-			name,
-			persona.Adapter,
-			persona.Temperature,
-			permSummary,
-		)
-		fmt.Printf("  %-20s %s\n", "", desc)
+		if permSummary != "" {
+			metaParts = append(metaParts, permSummary)
+		}
+
+		fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
+
+		// Description
+		if persona.Description != "" {
+			fmt.Printf("    %s\n", persona.Description)
+		}
 	}
+
+	fmt.Println()
 }
 
 // formatPermissionSummary creates a concise summary of persona permissions.
@@ -473,9 +540,15 @@ func listAdapters(adapters map[string]struct {
 	Mode         string `yaml:"mode"`
 	OutputFormat string `yaml:"output_format"`
 }) {
-	fmt.Printf("Adapters:\n")
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Bold("Adapters"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+
 	if len(adapters) == 0 {
-		fmt.Printf("  (none defined)\n")
+		fmt.Printf("  %s\n", f.Muted("(none defined)"))
 		return
 	}
 
@@ -488,14 +561,38 @@ func listAdapters(adapters map[string]struct {
 
 	for _, name := range names {
 		adapter := adapters[name]
-		// T087: Check binary availability
-		available := "OK"
+
+		// Check binary availability
+		available := true
 		if _, err := exec.LookPath(adapter.Binary); err != nil {
-			available = "[X] not found"
+			available = false
 		}
-		fmt.Printf("  %-20s binary:%-10s mode:%-10s format:%-6s %s\n",
-			name, adapter.Binary, adapter.Mode, adapter.OutputFormat, available)
+
+		// Status icon
+		var statusIcon string
+		if available {
+			statusIcon = f.Success("✓")
+		} else {
+			statusIcon = f.Error("✗")
+		}
+
+		// Adapter name with status
+		fmt.Printf("\n  %s %s\n", statusIcon, f.Primary(name))
+
+		// Metadata
+		metaParts := []string{
+			fmt.Sprintf("binary: %s", adapter.Binary),
+			fmt.Sprintf("mode: %s", adapter.Mode),
+			fmt.Sprintf("format: %s", adapter.OutputFormat),
+		}
+		fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
+
+		if !available {
+			fmt.Printf("    %s\n", f.Error("binary not found in PATH"))
+		}
 	}
+
+	fmt.Println()
 }
 
 // runListRuns executes the 'list runs' subcommand
@@ -906,44 +1003,61 @@ func getDirectoryCreationTime(path string) time.Time {
 
 // listRuns displays run information in table format
 func listRuns(runs []RunInfo) {
-	fmt.Printf("Recent Pipeline Runs:\n")
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Bold("Recent Pipeline Runs"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 80)))
+
 	if len(runs) == 0 {
-		fmt.Printf("  (no runs found)\n")
+		fmt.Printf("  %s\n\n", f.Muted("(no runs found)"))
 		return
 	}
 
-	// Print header
-	fmt.Printf("  %-36s %-20s %-12s %-20s %s\n",
-		"RUN_ID", "PIPELINE", "STATUS", "STARTED", "DURATION")
-	fmt.Printf("  %s %s %s %s %s\n",
-		strings.Repeat("-", 36),
-		strings.Repeat("-", 20),
-		strings.Repeat("-", 12),
-		strings.Repeat("-", 20),
-		strings.Repeat("-", 15))
+	// Table header
+	fmt.Printf("  %s  %s  %s  %s  %s\n",
+		f.Muted(fmt.Sprintf("%-24s", "RUN_ID")),
+		f.Muted(fmt.Sprintf("%-16s", "PIPELINE")),
+		f.Muted(fmt.Sprintf("%-12s", "STATUS")),
+		f.Muted(fmt.Sprintf("%-18s", "STARTED")),
+		f.Muted("DURATION"),
+	)
 
 	for _, run := range runs {
 		// Truncate long run IDs
 		runID := run.RunID
-		if len(runID) > 36 {
-			runID = runID[:33] + "..."
+		if len(runID) > 24 {
+			runID = runID[:21] + "..."
 		}
 
 		// Truncate long pipeline names
 		pipeline := run.Pipeline
-		if len(pipeline) > 20 {
-			pipeline = pipeline[:17] + "..."
+		if len(pipeline) > 16 {
+			pipeline = pipeline[:13] + "..."
 		}
 
-		// Format status with color hints (for terminal)
+		// Format status with color
 		status := run.Status
-		if len(status) > 12 {
-			status = status[:9] + "..."
+		var statusStr string
+		switch strings.ToLower(status) {
+		case "completed":
+			statusStr = f.Success(fmt.Sprintf("%-12s", status))
+		case "failed":
+			statusStr = f.Error(fmt.Sprintf("%-12s", status))
+		case "running":
+			statusStr = f.Primary(fmt.Sprintf("%-12s", status))
+		case "cancelled":
+			statusStr = f.Warning(fmt.Sprintf("%-12s", status))
+		default:
+			statusStr = f.Muted(fmt.Sprintf("%-12s", status))
 		}
 
-		fmt.Printf("  %-36s %-20s %-12s %-20s %s\n",
-			runID, pipeline, status, run.StartedAt, run.Duration)
+		fmt.Printf("  %-24s  %-16s  %s  %-18s  %s\n",
+			runID, pipeline, statusStr, run.StartedAt, f.Muted(run.Duration))
 	}
+
+	fmt.Println()
 }
 
 // formatDuration formats a duration into a human-readable string
