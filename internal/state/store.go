@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -96,6 +97,12 @@ type StateStore interface {
 	GetPipelineProgress(runID string) (*PipelineProgressRecord, error)
 	SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error
 	GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRecord, error)
+
+	// Tags support
+	SetRunTags(runID string, tags []string) error
+	GetRunTags(runID string) ([]string, error)
+	AddRunTag(runID string, tag string) error
+	RemoveRunTag(runID string, tag string) error
 }
 
 type stateStore struct {
@@ -474,14 +481,14 @@ func (s *stateStore) UpdateRunStatus(runID string, status string, currentStep st
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message
+	                 started_at, completed_at, cancelled_at, error_message, tags_json
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
 	var record RunRecord
 	var startedAt int64
 	var completedAt, cancelledAt sql.NullInt64
-	var input, currentStep, errorMessage sql.NullString
+	var input, currentStep, errorMessage, tagsJSON sql.NullString
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -494,6 +501,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&completedAt,
 		&cancelledAt,
 		&errorMessage,
+		&tagsJSON,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -520,6 +528,12 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if errorMessage.Valid {
 		record.ErrorMessage = errorMessage.String
 	}
+	if tagsJSON.Valid && tagsJSON.String != "" {
+		if err := json.Unmarshal([]byte(tagsJSON.String), &record.Tags); err != nil {
+			// If JSON parsing fails, treat as empty tags
+			record.Tags = []string{}
+		}
+	}
 
 	return &record, nil
 }
@@ -527,7 +541,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message
+	                 started_at, completed_at, cancelled_at, error_message, tags_json
 	          FROM pipeline_run
 	          WHERE status = 'running'
 	          ORDER BY started_at DESC`
@@ -538,7 +552,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 // ListRuns returns runs matching the specified options.
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message
+	                 started_at, completed_at, cancelled_at, error_message, tags_json
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -555,6 +569,19 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 		cutoff := time.Now().Add(-opts.OlderThan).Unix()
 		query += " AND started_at < ?"
 		args = append(args, cutoff)
+	}
+	// Filter by tags - run must have at least one of the specified tags
+	if len(opts.Tags) > 0 {
+		// Use SQLite's json_each to search within tags_json array
+		query += " AND ("
+		for i, tag := range opts.Tags {
+			if i > 0 {
+				query += " OR "
+			}
+			query += "EXISTS (SELECT 1 FROM json_each(tags_json) WHERE json_each.value = ?)"
+			args = append(args, tag)
+		}
+		query += ")"
 	}
 
 	query += " ORDER BY started_at DESC"
@@ -834,7 +861,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var record RunRecord
 		var startedAt int64
 		var completedAt, cancelledAt sql.NullInt64
-		var input, currentStep, errorMessage sql.NullString
+		var input, currentStep, errorMessage, tagsJSON sql.NullString
 
 		err := rows.Scan(
 			&record.RunID,
@@ -847,6 +874,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&completedAt,
 			&cancelledAt,
 			&errorMessage,
+			&tagsJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -869,6 +897,12 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if errorMessage.Valid {
 			record.ErrorMessage = errorMessage.String
+		}
+		if tagsJSON.Valid && tagsJSON.String != "" {
+			if err := json.Unmarshal([]byte(tagsJSON.String), &record.Tags); err != nil {
+				// If JSON parsing fails, treat as empty tags
+				record.Tags = []string{}
+			}
 		}
 
 		records = append(records, record)
@@ -1584,4 +1618,103 @@ func (s *stateStore) GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRec
 	record.IndexedAt = time.Unix(indexedAt, 0)
 
 	return &record, nil
+}
+
+// =============================================================================
+// Tags Support Methods
+// =============================================================================
+
+// SetRunTags sets the tags for a pipeline run, replacing any existing tags.
+func (s *stateStore) SetRunTags(runID string, tags []string) error {
+	// Ensure tags is not nil for JSON encoding
+	if tags == nil {
+		tags = []string{}
+	}
+
+	tagsJSON, err := json.Marshal(tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	query := `UPDATE pipeline_run SET tags_json = ? WHERE run_id = ?`
+
+	result, err := s.db.Exec(query, string(tagsJSON), runID)
+	if err != nil {
+		return fmt.Errorf("failed to set run tags: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("run not found: %s", runID)
+	}
+
+	return nil
+}
+
+// GetRunTags retrieves the tags for a pipeline run.
+func (s *stateStore) GetRunTags(runID string) ([]string, error) {
+	query := `SELECT tags_json FROM pipeline_run WHERE run_id = ?`
+
+	var tagsJSON sql.NullString
+	err := s.db.QueryRow(query, runID).Scan(&tagsJSON)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("run not found: %s", runID)
+		}
+		return nil, fmt.Errorf("failed to get run tags: %w", err)
+	}
+
+	if !tagsJSON.Valid || tagsJSON.String == "" {
+		return []string{}, nil
+	}
+
+	var tags []string
+	if err := json.Unmarshal([]byte(tagsJSON.String), &tags); err != nil {
+		return []string{}, nil
+	}
+
+	return tags, nil
+}
+
+// AddRunTag adds a tag to a pipeline run if it doesn't already exist.
+func (s *stateStore) AddRunTag(runID string, tag string) error {
+	// Get current tags
+	tags, err := s.GetRunTags(runID)
+	if err != nil {
+		return err
+	}
+
+	// Check if tag already exists
+	for _, existingTag := range tags {
+		if existingTag == tag {
+			return nil // Tag already exists, nothing to do
+		}
+	}
+
+	// Add the new tag
+	tags = append(tags, tag)
+
+	return s.SetRunTags(runID, tags)
+}
+
+// RemoveRunTag removes a tag from a pipeline run.
+func (s *stateStore) RemoveRunTag(runID string, tag string) error {
+	// Get current tags
+	tags, err := s.GetRunTags(runID)
+	if err != nil {
+		return err
+	}
+
+	// Filter out the tag to remove
+	newTags := make([]string, 0, len(tags))
+	for _, existingTag := range tags {
+		if existingTag != tag {
+			newTags = append(newTags, existingTag)
+		}
+	}
+
+	return s.SetRunTags(runID, newTags)
 }

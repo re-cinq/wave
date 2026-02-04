@@ -30,6 +30,7 @@ Migrations are numbered sequentially starting from 1:
 - **Version 3**: Performance metrics tables (spec 018 - part 1)
 - **Version 4**: Progress tracking tables (spec 018 - part 2)
 - **Version 5**: Artifact metadata extension (spec 018 - part 3)
+- **Version 6**: Tags support for pipeline runs (categorization and filtering)
 
 Each migration includes:
 - **Version number** (sequential integer)

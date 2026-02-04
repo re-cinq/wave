@@ -14,6 +14,7 @@ type RunRecord struct {
 	CompletedAt  *time.Time
 	CancelledAt  *time.Time
 	ErrorMessage string
+	Tags         []string // Tags for categorization and filtering
 }
 
 // ListRunsOptions specifies filters for listing runs.
@@ -22,6 +23,7 @@ type ListRunsOptions struct {
 	Status       string
 	OlderThan    time.Duration
 	Limit        int
+	Tags         []string // Filter runs that have any of these tags
 }
 
 // LogRecord holds an event log entry.
