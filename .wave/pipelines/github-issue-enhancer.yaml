@@ -72,16 +72,20 @@ steps:
       source: |
         Read artifacts/analysis.json which contains poor_quality_issues from the scan step.
 
-        For EACH issue in poor_quality_issues, create an enhancement plan with:
+        For EACH issue in poor_quality_issues, use gh CLI to fetch the current body:
+        gh issue view <NUMBER> --repo re-cinq/wave --json body
+
+        Then create an enhancement plan with:
         - issue_number: the issue number
         - suggested_title: improved title (or keep original if good)
+        - body_template: enhanced body text (improve the existing body, add missing sections)
         - suggested_labels: appropriate labels
-        - enhancements: list of changes to make
+        - enhancements: list of changes being made
 
         Save to artifact.json:
         {
           "issues_to_enhance": [
-            {"issue_number": 22, "suggested_title": "...", "suggested_labels": ["..."], "enhancements": ["..."]}
+            {"issue_number": 22, "suggested_title": "...", "body_template": "...", "suggested_labels": ["..."], "enhancements": ["..."]}
           ],
           "total_to_enhance": 3
         }
@@ -122,9 +126,10 @@ steps:
 
         Step 2: Read artifacts/plan.json for issues to enhance.
 
-        Step 3: For EACH issue, use Bash tool to run:
-        gh issue edit <N> --repo re-cinq/wave --title "suggested_title"
-        gh issue edit <N> --repo re-cinq/wave --add-label "label1,label2"
+        Step 3: For EACH issue in the plan, use Bash tool to apply changes:
+        - If suggested_title differs from current: gh issue edit <N> --repo re-cinq/wave --title "suggested_title"
+        - If body_template is provided: gh issue edit <N> --repo re-cinq/wave --body "body_template"
+        - If suggested_labels: gh issue edit <N> --repo re-cinq/wave --add-label "label1,label2"
 
         Step 4: Save actual results to artifact.json:
         {"enhanced_issues": [...], "total_attempted": N, "total_successful": N, "total_failed": 0}
