@@ -1,3 +1,9 @@
+//go:build integration
+// +build integration
+
+// Integration tests for prototype pipeline end-to-end flows.
+// Run with: go test -tags=integration ./internal/pipeline/...
+
 package pipeline
 
 import (
@@ -280,11 +286,12 @@ func TestPrototypePipelineContractSchemas(t *testing.T) {
 		t.Fatalf("Failed to load prototype pipeline: %v", err)
 	}
 
+	// Navigate up to project root from internal/pipeline directory
 	expectedSchemas := []string{
-		".wave/contracts/spec-phase.schema.json",
-		".wave/contracts/docs-phase.schema.json",
-		".wave/contracts/dummy-phase.schema.json",
-		".wave/contracts/implement-phase.schema.json",
+		"../../.wave/contracts/spec-phase.schema.json",
+		"../../.wave/contracts/docs-phase.schema.json",
+		"../../.wave/contracts/dummy-phase.schema.json",
+		"../../.wave/contracts/implement-phase.schema.json",
 	}
 
 	for _, schemaPath := range expectedSchemas {

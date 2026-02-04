@@ -561,11 +561,11 @@ func formatStepDuration(d time.Duration) string {
 		return fmt.Sprintf("%dms", d.Milliseconds())
 	}
 	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
+		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
 	minutes := int(d.Minutes())
 	seconds := int(d.Seconds()) % 60
-	return fmt.Sprintf("%dm%ds", minutes, seconds)
+	return fmt.Sprintf("%dm %ds", minutes, seconds)
 }
 
 // ProgressCalculator provides utilities for calculating pipeline progress metrics,

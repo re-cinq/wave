@@ -100,10 +100,11 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 	}
 
 	return &AdapterResult{
-		ExitCode:   m.Config.ExitCode,
-		Stdout:     bytes.NewReader([]byte(stdout)),
-		TokensUsed: tokens,
-		Artifacts:  artifacts,
+		ExitCode:      m.Config.ExitCode,
+		Stdout:        bytes.NewReader([]byte(stdout)),
+		TokensUsed:    tokens,
+		Artifacts:     artifacts,
+		ResultContent: stdout,
 	}, nil
 }
 
