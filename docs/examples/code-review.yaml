@@ -1,0 +1,209 @@
+# Code Review Pipeline
+# A multi-step pipeline for comprehensive pull request review
+#
+# Usage: wave run code-review "Review authentication changes"
+#
+# This pipeline demonstrates:
+# - Parallel step execution
+# - Artifact passing between steps
+# - Multiple personas with different specializations
+# - Contract validation
+
+kind: WavePipeline
+metadata:
+  name: code-review
+  description: "Comprehensive code review with security, quality, and summary phases"
+
+input:
+  source: cli
+
+steps:
+  # Step 1: Analyze the diff to understand what changed
+  - id: diff-analysis
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the code changes for: {{ input }}
+
+        Tasks:
+        1. Identify all modified files and their purposes
+        2. Map the change scope (which modules/packages affected)
+        3. Find related tests that should be updated
+        4. Check for breaking API changes
+
+        Output as JSON:
+        {
+          "files_changed": [
+            {"path": "", "change_type": "added|modified|deleted", "purpose": ""}
+          ],
+          "modules_affected": [],
+          "related_tests": [],
+          "breaking_changes": [],
+          "summary": ""
+        }
+    output_artifacts:
+      - name: diff
+        path: output/diff-analysis.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/diff-analysis.schema.json
+        source: output/diff-analysis.json
+        on_failure: retry
+        max_retries: 2
+
+  # Step 2a: Security review (runs in parallel with quality review)
+  - id: security-review
+    persona: auditor
+    dependencies: [diff-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Security review of the code changes.
+
+        The diff analysis is available at: artifacts/changes
+
+        Check for:
+        1. SQL injection vulnerabilities
+        2. XSS (Cross-Site Scripting) risks
+        3. CSRF (Cross-Site Request Forgery) issues
+        4. Hardcoded secrets or credentials
+        5. Insecure deserialization
+        6. Missing input validation
+        7. Authentication/authorization gaps
+        8. Sensitive data exposure
+        9. Dependency vulnerabilities
+
+        For each finding, provide:
+        - Severity: CRITICAL / HIGH / MEDIUM / LOW
+        - Location: file and line number
+        - Description: what the vulnerability is
+        - Recommendation: how to fix it
+
+        Format as markdown with clear sections.
+    output_artifacts:
+      - name: security
+        path: output/security-review.md
+        type: markdown
+
+  # Step 2b: Quality review (runs in parallel with security review)
+  - id: quality-review
+    persona: auditor
+    dependencies: [diff-analysis]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Code quality review of the changes.
+
+        The diff analysis is available at: artifacts/changes
+
+        Check for:
+        1. Error handling completeness
+        2. Edge cases not covered
+        3. Code duplication (DRY violations)
+        4. Naming consistency and clarity
+        5. Missing or inadequate tests
+        6. Performance implications
+        7. Documentation gaps
+        8. Code complexity (functions too long, too many parameters)
+        9. Design pattern violations
+        10. Resource cleanup (files, connections, etc.)
+
+        For each finding, provide:
+        - Severity: HIGH / MEDIUM / LOW
+        - Location: file and line number
+        - Description: what the issue is
+        - Suggestion: how to improve
+
+        Format as markdown with clear sections.
+    output_artifacts:
+      - name: quality
+        path: output/quality-review.md
+        type: markdown
+
+  # Step 3: Synthesize all findings into a final verdict
+  - id: summary
+    persona: summarizer
+    dependencies: [security-review, quality-review]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+        - step: security-review
+          artifact: security
+          as: security_findings
+        - step: quality-review
+          artifact: quality
+          as: quality_findings
+    exec:
+      type: prompt
+      source: |
+        Synthesize the review findings into a final PR review.
+
+        Available artifacts:
+        - artifacts/changes: The diff analysis
+        - artifacts/security_findings: Security review results
+        - artifacts/quality_findings: Quality review results
+
+        Create a final review with:
+
+        1. **Overall Assessment**: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
+           - APPROVE: No critical issues, ready to merge
+           - REQUEST_CHANGES: Has issues that must be fixed before merge
+           - NEEDS_DISCUSSION: Architectural decisions need team input
+
+        2. **Critical Issues** (must fix before merge):
+           - List security vulnerabilities (CRITICAL/HIGH)
+           - List quality issues that could cause bugs
+
+        3. **Suggested Improvements** (optional but recommended):
+           - Medium/low severity items
+           - Best practice recommendations
+
+        4. **Positive Observations**:
+           - What was done well
+           - Good patterns to encourage
+
+        5. **Summary Statistics**:
+           - Files changed
+           - Security findings by severity
+           - Quality findings by severity
+
+        Format as a GitHub PR review comment.
+    output_artifacts:
+      - name: verdict
+        path: output/review-summary.md
+        type: markdown

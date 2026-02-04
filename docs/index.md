@@ -1,86 +1,105 @@
 ---
 layout: home
-hero:
-  name: Wave
-  text: AI Pipelines as Code
-  tagline: Define multi-step AI workflows in YAML. Run them with validation, isolation, and reproducible results.
-  actions:
-    - theme: brand
-      text: Get Started in 60 Seconds
-      link: /quickstart
-    - theme: alt
-      text: Use Cases
-      link: /use-cases/
-    - theme: alt
-      text: GitHub
-      link: https://github.com/re-cinq/wave
-features:
-  - icon: ">"
-    title: Pipelines as Code
-    details: Define multi-step AI workflows in YAML. Version control them, share them, run them anywhere.
-    link: /concepts/pipelines
-  - icon: "#"
-    title: Contract Validation
-    details: Every step validates its output against schemas. Get structured, predictable results every time.
-    link: /concepts/contracts
-  - icon: "~"
-    title: Step Isolation
-    details: Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.
-    link: /concepts/workspaces
-  - icon: "@"
-    title: Ready-to-Run Pipelines
-    details: Built-in pipelines for code review, security audits, documentation, and test generation.
-    link: /use-cases/
 ---
 
-## What is Wave?
+<script setup>
+const heroProps = {
+  title: 'AI Pipelines as Code',
+  tagline: 'Define multi-step AI workflows in YAML. Run them with validation, isolation, and reproducible results.',
+  primaryAction: {
+    text: 'Get Started',
+    link: '/quickstart'
+  },
+  secondaryAction: {
+    text: 'View Examples',
+    link: '/use-cases/'
+  }
+}
 
-Wave is a pipeline orchestrator that runs AI workflows defined in YAML files. You define a sequence of steps, each executed by an AI agent with specific permissions. Wave handles isolation between steps, validates outputs against schemas, and passes artifacts through the pipeline. The result: repeatable, auditable AI automation that you can version control and share.
+const features = [
+  {
+    icon: 'pipeline',
+    title: 'Pipelines as Code',
+    description: 'Define multi-step AI workflows in YAML. Version control them, share them, run them anywhere.',
+    link: '/concepts/pipelines'
+  },
+  {
+    icon: 'contract',
+    title: 'Contract Validation',
+    description: 'Every step validates its output against schemas. Get structured, predictable results every time.',
+    link: '/concepts/contracts'
+  },
+  {
+    icon: 'isolation',
+    title: 'Step Isolation',
+    description: 'Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.',
+    link: '/concepts/workspaces'
+  },
+  {
+    icon: 'persona',
+    title: 'Specialized Personas',
+    description: 'AI agents with defined roles, permissions, and capabilities. Navigator, Auditor, Craftsman, and more.',
+    link: '/concepts/personas'
+  },
+  {
+    icon: 'audit',
+    title: 'Audit Logging',
+    description: 'Complete execution traces with credential scrubbing. Full visibility into every pipeline run.',
+    link: '/trust-center/'
+  },
+  {
+    icon: 'ready',
+    title: 'Ready-to-Run Pipelines',
+    description: 'Built-in pipelines for code review, security audits, documentation, and test generation.',
+    link: '/use-cases/'
+  }
+]
 
-```
-                        wave.yaml
-                            |
-                            v
-                    +---------------+
-                    |  Wave Engine  |
-                    +---------------+
-                            |
-        +-------------------+-------------------+
-        |                   |                   |
-        v                   v                   v
-   +--------+          +--------+          +--------+
-   | Step 1 |    ->    | Step 2 |    ->    | Step 3 |
-   | analyze|          | review |          | report |
-   +--------+          +--------+          +--------+
-        |                   |                   |
-        v                   v                   v
-    artifact            artifact            artifact
-    (JSON)             (markdown)           (summary)
-```
+const trustBadges = [
+  {
+    name: 'Ephemeral Isolation',
+    status: 'certified',
+    description: 'Fresh memory each step',
+    link: '/concepts/workspaces'
+  },
+  {
+    name: 'Schema Validation',
+    status: 'certified',
+    description: 'Output contracts enforced',
+    link: '/concepts/contracts'
+  },
+  {
+    name: 'Audit Logging',
+    status: 'certified',
+    description: 'Full execution traces',
+    link: '/trust-center/'
+  }
+]
+</script>
 
-Each step runs in complete isolation with fresh memory. Artifacts flow between steps automatically. Contracts validate outputs before the next step begins.
+<HeroSection v-bind="heroProps" />
 
-## Your First Pipeline
+<FeatureCards :features="features" />
 
-```bash
-# Install
-git clone https://github.com/re-cinq/wave.git
-cd wave && ./install.sh
+<div class="trust-section">
+  <h2 class="trust-heading">Built for Security</h2>
+  <TrustSignals :badges="trustBadges" />
+  <p class="trust-cta">
+    <a href="/trust-center/">Learn more about Wave's security model</a>
+  </p>
+</div>
 
-# Initialize your project
-cd /path/to/your-project && wave init
+<div class="quick-example">
 
-# Run your first pipeline
-wave run hello-world "testing Wave"
-```
+## See Wave in Action
 
-## Example: Code Review Pipeline
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
 metadata:
   name: code-review
-  description: "Automated code review"
+  description: "Automated code review pipeline"
 
 steps:
   - id: analyze
@@ -103,8 +122,55 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ```bash
 wave run code-review "authentication module"
 ```
 
-[Get started in 60 seconds](/quickstart) or explore [use cases](/use-cases/).
+Each step runs in complete isolation with fresh memory. Artifacts flow between steps automatically. Contracts validate outputs before the next step begins.
+
+</div>
+
+<style>
+.trust-section {
+  text-align: center;
+  padding: 48px 24px;
+  margin: 0 -24px;
+}
+
+.trust-heading {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--vp-c-text-1);
+  border-top: none !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.trust-cta {
+  margin-top: 24px;
+}
+
+.trust-cta a {
+  color: var(--wave-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.trust-cta a:hover {
+  text-decoration: underline;
+}
+
+.quick-example {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.quick-example h2 {
+  text-align: center;
+  margin-bottom: 32px;
+}
+</style>

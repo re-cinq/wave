@@ -1,6 +1,23 @@
+---
+title: Test Generation
+description: Analyze coverage gaps and generate comprehensive tests with edge case handling
+---
+
 # Test Generation
 
+<div class="use-case-meta">
+  <span class="complexity-badge intermediate">Intermediate</span>
+  <span class="category-badge">Testing</span>
+</div>
+
 Analyze coverage gaps and generate comprehensive tests. Wave's test-gen pipeline identifies untested code, generates test cases, and verifies they compile and run.
+
+## Prerequisites
+
+- Wave installed and initialized (`wave init`)
+- Go project with existing test infrastructure
+- Understanding of [code-review](/use-cases/code-review) pipeline (recommended)
+- Familiarity with table-driven tests and mocking patterns
 
 ## Quick Start
 
@@ -25,6 +42,8 @@ Artifacts: output/generated-tests.md
 ## Complete Pipeline
 
 This is the full `test-gen` pipeline from `.wave/pipelines/test-gen.yaml`:
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -130,7 +149,19 @@ steps:
         type: markdown
 ```
 
-## Example Output
+</div>
+
+## Expected Outputs
+
+The pipeline produces three artifacts:
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `coverage` | `output/coverage-analysis.json` | Coverage analysis with gaps identified |
+| `tests` | `output/generated-tests.md` | Generated test code and explanations |
+| `verification` | `output/coverage-verification.md` | Coverage improvement verification |
+
+### Example Output
 
 The pipeline produces `output/generated-tests.md`:
 
@@ -149,7 +180,7 @@ The pipeline produces `output/generated-tests.md`:
 
 ### executor_test.go
 
-```go
+` ` `go
 func TestExecutor_Run_Success(t *testing.T) {
     tests := []struct {
         name     string
@@ -207,11 +238,11 @@ func TestExecutor_Run_Timeout(t *testing.T) {
         t.Errorf("expected deadline exceeded, got %v", err)
     }
 }
-```
+` ` `
 
 ### contract_test.go
 
-```go
+` ` `go
 func TestJSONSchemaValidator_Validate(t *testing.T) {
     tests := []struct {
         name    string
@@ -221,14 +252,14 @@ func TestJSONSchemaValidator_Validate(t *testing.T) {
     }{
         {
             name:    "valid object",
-            schema:  `{"type":"object","required":["name"]}`,
-            input:   `{"name":"test"}`,
+            schema:  ` + "`" + `{"type":"object","required":["name"]}` + "`" + `,
+            input:   ` + "`" + `{"name":"test"}` + "`" + `,
             wantErr: false,
         },
         {
             name:    "missing required field",
-            schema:  `{"type":"object","required":["name"]}`,
-            input:   `{}`,
+            schema:  ` + "`" + `{"type":"object","required":["name"]}` + "`" + `,
+            input:   ` + "`" + `{}` + "`" + `,
             wantErr: true,
         },
     }
@@ -243,7 +274,7 @@ func TestJSONSchemaValidator_Validate(t *testing.T) {
         })
     }
 }
-```
+` ` `
 ```
 
 ## Customization
@@ -269,6 +300,8 @@ wave run test-gen "test error handling in api/handlers"
 ### Generate integration tests
 
 Create a specialized pipeline for integration tests:
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -315,9 +348,13 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Contract Validation
 
 The test-gen pipeline includes a contract that runs the generated tests:
+
+<div v-pre>
 
 ```yaml
 handover:
@@ -329,10 +366,52 @@ handover:
     max_retries: 3
 ```
 
+</div>
+
 This ensures generated tests at least compile. Set `must_pass: true` to require all tests pass.
+
+## Related Use Cases
+
+- [Code Review](/use-cases/code-review) - Review generated tests in PRs
+- [Documentation Generation](/use-cases/documentation-generation) - Document test patterns
+- [Refactoring](/use-cases/refactoring) - Generate tests before refactoring
 
 ## Next Steps
 
-- [Code Review](/use-cases/code-review) - Review generated tests in PRs
-- [Documentation](/use-cases/docs-generation) - Document test patterns
 - [Concepts: Contracts](/concepts/contracts) - Learn about test suite validation
+- [Concepts: Personas](/concepts/personas) - Understanding the craftsman persona
+
+<style>
+.use-case-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.complexity-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+.complexity-badge.beginner {
+  background: #dcfce7;
+  color: #166534;
+}
+.complexity-badge.intermediate {
+  background: #fef3c7;
+  color: #92400e;
+}
+.complexity-badge.advanced {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.category-badge {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+</style>
