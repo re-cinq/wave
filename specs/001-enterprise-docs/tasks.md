@@ -223,7 +223,7 @@
 - [ ] T087 Update docs/reference/cli.md with improved structure and copy buttons
 - [ ] T088 Update docs/reference/manifest-schema.md with interactive examples
 - [ ] T089 Add Go interface documentation to docs/reference/ (when programmatic usage available)
-- [ ] T090 Run VitePress build validation and fix any errors
+- [X] T090 Run VitePress build validation and fix any errors
 - [ ] T091 Run link checker and fix broken links
 - [ ] T092 Verify WCAG 2.1 AA accessibility compliance across all components
 - [ ] T093 Performance optimization: Verify page load < 2s and component response < 100ms
