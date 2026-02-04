@@ -22,6 +22,9 @@ import TrustSignals from './components/TrustSignals.vue'
 import PipelineVisualizer from './components/PipelineVisualizer.vue'
 import YamlPlayground from './components/YamlPlayground.vue'
 
+// Use Case Discovery Components
+import UseCaseGallery from './components/UseCaseGallery.vue'
+
 // Plugins
 import { setupCopyCode, injectCopyCodeStyles } from '../plugins/copy-code'
 
@@ -43,6 +46,9 @@ export default {
     // Register pipeline learning components
     app.component('PipelineVisualizer', PipelineVisualizer)
     app.component('YamlPlayground', YamlPlayground)
+
+    // Register use case discovery components
+    app.component('UseCaseGallery', UseCaseGallery)
   },
   setup() {
     // Client-side only setup
