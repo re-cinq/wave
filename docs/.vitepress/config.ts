@@ -124,7 +124,7 @@ export default withMermaid(
       },
       footer: {
         message: 'Released under the MIT License.',
-        copyright: 'Copyright 2026 Wave Contributors'
+        copyright: 'Copyright 2026 Michael W. Czechowski at re:cinq ApS'
       }
     }
   })
