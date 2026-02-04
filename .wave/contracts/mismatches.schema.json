@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Documentation vs implementation mismatch report",
+  "required": [
+    "mismatches",
+    "summary"
+  ],
+  "properties": {
+    "mismatches": {
+      "type": "array",
+      "description": "List of identified mismatches",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this mismatch"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DOCUMENTED_NOT_IMPLEMENTED",
+              "IMPLEMENTED_NOT_DOCUMENTED",
+              "BEHAVIOR_MISMATCH",
+              "CONFIG_MISMATCH",
+              "API_MISMATCH"
+            ],
+            "description": "Category of mismatch"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "Severity level of the mismatch"
+          },
+          "doc_reference": {
+            "type": "string",
+            "description": "File and line in documentation"
+          },
+          "impl_reference": {
+            "type": "string",
+            "description": "File and line in implementation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Clear description of the mismatch"
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Specific evidence of the discrepancy",
+            "properties": {
+              "documented": {
+                "type": "string",
+                "description": "What the docs say"
+              },
+              "implemented": {
+                "type": "string",
+                "description": "What the code does"
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Summary statistics",
+      "required": [
+        "total_count"
+      ],
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "description": "Total number of mismatches found"
+        },
+        "by_type": {
+          "type": "object",
+          "description": "Count by mismatch type",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "by_severity": {
+          "type": "object",
+          "description": "Count by severity level",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
