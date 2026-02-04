@@ -2,14 +2,24 @@
 
 Wave integrates seamlessly with CI/CD platforms, enabling automated AI pipelines as part of your development workflow.
 
-## Supported Platforms
+<script setup>
+const integrationCards = [
+  {
+    title: 'GitHub Actions',
+    description: 'Run Wave pipelines in GitHub workflows with automatic PR reviews',
+    link: '/integrations/github-actions',
+    icon: '🐙'
+  },
+  {
+    title: 'GitLab CI/CD',
+    description: 'Integrate Wave into GitLab pipelines for merge request automation',
+    link: '/integrations/gitlab-ci',
+    icon: '🦊'
+  }
+]
+</script>
 
-| Platform | Status | Guide |
-|----------|--------|-------|
-| GitHub Actions | Supported | [GitHub Actions Guide](./github-actions.md) |
-| GitLab CI/CD | Supported | [GitLab CI Guide](./gitlab-ci.md) |
-| Jenkins | Community | Coming soon |
-| CircleCI | Community | Coming soon |
+<CardGrid :cards="integrationCards" />
 
 ## Quick Start
 
@@ -33,21 +43,21 @@ Wave runs as a single static binary with no runtime dependencies. This makes CI/
 
 ```
 CI Runner
-    |
-    v
-+---------------+
-|  Wave Binary  |
-+---------------+
-    |
-    v
-+---------------+
-|  LLM Adapter  | (e.g., claude, opencode)
-+---------------+
-    |
-    v
-+---------------+
-|    LLM API    |
-+---------------+
+    │
+    ▼
+┌───────────────┐
+│  Wave Binary  │
+└───────────────┘
+    │
+    ▼
+┌───────────────┐
+│  LLM Adapter  │ (e.g., claude, opencode)
+└───────────────┘
+    │
+    ▼
+┌───────────────┐
+│    LLM API    │
+└───────────────┘
 ```
 
 ## Prerequisites
