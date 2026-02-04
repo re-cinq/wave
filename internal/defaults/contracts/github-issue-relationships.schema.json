@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Relationships",
+  "description": "Schema for detected relationships between GitHub issues",
+  "type": "object",
+  "required": ["total_relationships", "relationships"],
+  "properties": {
+    "total_relationships": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_a", "issue_b", "similarity_score", "relationship_type", "rationale"],
+        "properties": {
+          "issue_a": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "issue_b": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "similarity_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Similarity score between 0 and 1"
+          },
+          "relationship_type": {
+            "type": "string",
+            "enum": ["related", "duplicate", "depends-on", "blocks", "part-of"],
+            "description": "Type of relationship between issues"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Explanation of why these issues are related"
+          },
+          "shared_keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shared_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "already_linked": {
+            "type": "boolean",
+            "description": "Whether these issues already reference each other"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        }
+      }
+    },
+    "duplicates_found": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_a", "issue_b", "similarity_score", "rationale"],
+        "properties": {
+          "issue_a": {
+            "type": "integer"
+          },
+          "issue_b": {
+            "type": "integer"
+          },
+          "similarity_score": {
+            "type": "number",
+            "minimum": 0.8,
+            "maximum": 1
+          },
+          "rationale": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "similarity_threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "high_priority_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "medium_priority_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "low_priority_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

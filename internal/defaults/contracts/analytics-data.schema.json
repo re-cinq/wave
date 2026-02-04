@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Umami analytics data for a specific time period",
+  "required": [
+    "date_range",
+    "metrics",
+    "top_pages",
+    "traffic_sources",
+    "raw_data_summary"
+  ],
+  "properties": {
+    "date_range": {
+      "type": "object",
+      "description": "Time period covered by this data",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Start date of the period (YYYY-MM-DD)"
+        },
+        "end": {
+          "type": "string",
+          "format": "date",
+          "description": "End date of the period (YYYY-MM-DD)"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Aggregated metrics for the period",
+      "required": [
+        "page_views",
+        "unique_visitors",
+        "sessions"
+      ],
+      "properties": {
+        "page_views": {
+          "type": "integer",
+          "description": "Total page views"
+        },
+        "unique_visitors": {
+          "type": "integer",
+          "description": "Unique visitor count"
+        },
+        "sessions": {
+          "type": "integer",
+          "description": "Total sessions"
+        },
+        "bounce_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Bounce rate percentage"
+        },
+        "avg_session_duration": {
+          "type": "number",
+          "description": "Average session duration in seconds"
+        },
+        "pages_per_session": {
+          "type": "number",
+          "description": "Average pages viewed per session"
+        }
+      }
+    },
+    "top_pages": {
+      "type": "array",
+      "description": "Top performing pages by views",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "views"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Page URL path"
+          },
+          "views": {
+            "type": "integer",
+            "description": "Number of page views"
+          },
+          "unique_views": {
+            "type": "integer",
+            "description": "Unique page views"
+          },
+          "avg_time_on_page": {
+            "type": "number",
+            "description": "Average time on page in seconds"
+          }
+        }
+      }
+    },
+    "traffic_sources": {
+      "type": "array",
+      "description": "Traffic referrer breakdown",
+      "items": {
+        "type": "object",
+        "required": [
+          "source",
+          "visits"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Referrer source name or domain"
+          },
+          "visits": {
+            "type": "integer",
+            "description": "Number of visits from this source"
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Percentage of total traffic"
+          }
+        }
+      }
+    },
+    "raw_data_summary": {
+      "type": "object",
+      "description": "Summary statistics of the raw data",
+      "properties": {
+        "total_records": {
+          "type": "integer",
+          "description": "Total data points collected"
+        },
+        "data_quality": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "sparse"
+          ],
+          "description": "Quality assessment of the data"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any notes about data collection"
+        }
+      }
+    }
+  }
+}

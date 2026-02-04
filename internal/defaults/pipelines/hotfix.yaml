@@ -1,0 +1,100 @@
+kind: WavePipeline
+metadata:
+  name: hotfix
+  description: "Quick investigation and fix for production issues"
+
+input:
+  source: cli
+
+steps:
+  - id: investigate
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Investigate this production issue: {{ input }}
+
+        1. Search for related code paths
+        2. Check recent commits that may have introduced the bug
+        3. Identify the root cause
+        4. Assess blast radius (what else could be affected)
+
+        Output structured findings as JSON:
+        {
+          "root_cause": "description",
+          "affected_files": ["path1", "path2"],
+          "recent_commits": ["hash1", "hash2"],
+          "blast_radius": "assessment",
+          "fix_approach": "recommended approach"
+        }
+    output_artifacts:
+      - name: findings
+        path: output/findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/findings.json
+        schema_path: .wave/contracts/findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: fix
+    persona: craftsman
+    dependencies: [investigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: investigate
+          artifact: findings
+          as: investigation
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Fix the production issue based on the investigation findings.
+
+        Requirements:
+        1. Apply the minimal fix - don't refactor surrounding code
+        2. Add a regression test that would have caught this bug
+        3. Ensure all existing tests still pass
+        4. Document the fix in a commit-ready message
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -count=1"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [fix]
+    memory:
+      strategy: fresh
+    exec:
+      type: prompt
+      source: |
+        Verify the hotfix:
+
+        1. Is the fix minimal and focused? (no unrelated changes)
+        2. Does the regression test actually test the reported issue?
+        3. Are there other code paths with the same vulnerability?
+        4. Is the fix safe for production deployment?
+
+        Output a go/no-go recommendation with reasoning.
+    output_artifacts:
+      - name: verdict
+        path: output/verdict.md
+        type: markdown

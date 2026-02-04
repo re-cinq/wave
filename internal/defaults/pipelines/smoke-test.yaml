@@ -1,0 +1,70 @@
+kind: WavePipeline
+metadata:
+  name: smoke-test
+  description: "Minimal pipeline for testing contracts and artifacts"
+
+input:
+  source: cli
+
+steps:
+  - id: analyze
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the codebase for: {{ input }}
+
+        Provide a brief analysis as JSON with this exact structure:
+        {
+          "summary": "one sentence summary of what you found",
+          "files_examined": ["list", "of", "files"],
+          "recommendation": "one sentence recommendation"
+        }
+
+        CRITICAL: Your final response must be ONLY the JSON object above.
+        - No markdown code blocks (no ```)
+        - No explanatory text before or after
+        - Just the raw JSON object starting with { and ending with }
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/analysis.json
+        schema_path: .wave/contracts/smoke-test.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: summarize
+    persona: summarizer
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: analysis_data
+    exec:
+      type: prompt
+      source: |
+        Read the analysis from artifacts/analysis_data and write a brief markdown summary.
+
+        Include:
+        - What was analyzed
+        - Key findings
+        - Recommended next steps
+
+        The analysis file is located at: artifacts/analysis_data
+    output_artifacts:
+      - name: summary
+        path: output/summary.md
+        type: markdown
