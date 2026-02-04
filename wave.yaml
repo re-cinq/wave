@@ -129,18 +129,6 @@ personas:
             deny:
                 - Bash(rm *)
         system_prompt_file: .wave/personas/github-enhancer.md
-    github-pr-creator:
-        adapter: claude
-        description: GitHub pull request creation and management
-        permissions:
-            allowed_tools:
-                - Read
-                - Write
-                - Bash
-            deny:
-                - Bash(rm *)
-                - Bash(git push --force*)
-        system_prompt_file: .wave/personas/github-pr-creator.md
 runtime:
     audit:
         log_all_file_operations: false
