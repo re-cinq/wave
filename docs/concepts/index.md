@@ -2,15 +2,48 @@
 
 Wave is a multi-agent pipeline orchestrator. Understanding these core concepts will help you design effective AI workflows.
 
-## Core Concepts
+<script setup>
+const conceptCards = [
+  {
+    title: 'Pipelines',
+    description: 'Multi-step AI workflows with dependencies and artifact passing',
+    link: '/concepts/pipelines',
+    icon: '🔀'
+  },
+  {
+    title: 'Personas',
+    description: 'Specialized AI agents with scoped permissions and system prompts',
+    link: '/concepts/personas',
+    icon: '🎭'
+  },
+  {
+    title: 'Contracts',
+    description: 'Output validation rules ensuring AI outputs meet requirements',
+    link: '/concepts/contracts',
+    icon: '📜'
+  },
+  {
+    title: 'Artifacts',
+    description: 'Files passed between pipeline steps for data sharing',
+    link: '/concepts/artifacts',
+    icon: '📦'
+  },
+  {
+    title: 'Workspaces',
+    description: 'Isolated execution environments for each pipeline step',
+    link: '/concepts/workspaces',
+    icon: '📁'
+  },
+  {
+    title: 'Execution',
+    description: 'How pipelines run, with fresh memory at step boundaries',
+    link: '/concepts/execution',
+    icon: '⚡'
+  }
+]
+</script>
 
-| Concept | What It Is | When You Need It |
-|---------|-----------|------------------|
-| [Pipelines](/concepts/pipelines) | Multi-step AI workflows | Running coordinated AI tasks |
-| [Personas](/concepts/personas) | Specialized AI agents with permissions | Controlling what AI can access |
-| [Contracts](/concepts/contracts) | Output validation rules | Ensuring AI outputs meet requirements |
-| [Artifacts](/concepts/artifacts) | Files passed between steps | Sharing data across pipeline steps |
-| [Execution](/concepts/execution) | How pipelines run | Understanding and debugging runs |
+<CardGrid :cards="conceptCards" />
 
 ## How They Fit Together
 
@@ -31,6 +64,36 @@ steps:
       contract:              # Validates output
         type: json_schema
         schema_path: .wave/contracts/analysis.schema.json
+```
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Wave Manifest                        │
+│                      (wave.yaml)                         │
+└─────────────────────────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│   Personas    │  │   Pipelines   │  │   Contracts   │
+│  (AI agents)  │  │  (workflows)  │  │ (validation)  │
+└───────────────┘  └───────────────┘  └───────────────┘
+        │                  │                  │
+        └──────────────────┼──────────────────┘
+                           ▼
+                ┌───────────────────┐
+                │    Execution      │
+                │   (orchestrator)  │
+                └───────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│   Workspace   │  │   Artifacts   │  │  Audit Logs   │
+│  (isolated)   │  │   (output)    │  │  (tracking)   │
+└───────────────┘  └───────────────┘  └───────────────┘
 ```
 
 ## Next Steps

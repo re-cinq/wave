@@ -27,6 +27,7 @@ import UseCaseGallery from './components/UseCaseGallery.vue'
 
 // Navigation Components
 import Breadcrumb from './components/Breadcrumb.vue'
+import CardGrid from './components/CardGrid.vue'
 
 // Installation Components
 import InstallTabs from './components/InstallTabs.vue'
@@ -58,6 +59,7 @@ export default {
 
     // Register navigation components
     app.component('Breadcrumb', Breadcrumb)
+    app.component('CardGrid', CardGrid)
 
     // Register installation components
     app.component('InstallTabs', InstallTabs)
