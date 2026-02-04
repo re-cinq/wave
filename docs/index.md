@@ -36,6 +36,18 @@ const features = [
     link: '/concepts/workspaces'
   },
   {
+    icon: 'persona',
+    title: 'Specialized Personas',
+    description: 'AI agents with defined roles, permissions, and capabilities. Navigator, Auditor, Craftsman, and more.',
+    link: '/concepts/personas'
+  },
+  {
+    icon: 'audit',
+    title: 'Audit Logging',
+    description: 'Complete execution traces with credential scrubbing. Full visibility into every pipeline run.',
+    link: '/trust-center/'
+  },
+  {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
     description: 'Built-in pipelines for code review, security audits, documentation, and test generation.',
@@ -81,6 +93,8 @@ const trustBadges = [
 
 ## See Wave in Action
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -91,7 +105,7 @@ steps:
   - id: analyze
     persona: navigator
     exec:
-      source: "Analyze the code changes: {<!-- -->{ input }}"
+      source: "Analyze the code changes: {{ input }}"
     output_artifacts:
       - name: analysis
         path: output/analysis.json
@@ -108,6 +122,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ```bash
 wave run code-review "authentication module"
 ```
@@ -120,7 +136,6 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
 .trust-section {
   text-align: center;
   padding: 48px 24px;
-  background: var(--vp-c-bg-soft);
   margin: 0 -24px;
 }
 
@@ -129,6 +144,9 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
   font-weight: 600;
   margin-bottom: 24px;
   color: var(--vp-c-text-1);
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
 }
 
 .trust-cta {
