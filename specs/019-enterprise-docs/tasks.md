@@ -224,7 +224,7 @@
 - [ ] T088 Update docs/reference/manifest-schema.md with interactive examples
 - [ ] T089 Add Go interface documentation to docs/reference/ (when programmatic usage available)
 - [X] T090 Run VitePress build validation and fix any errors
-- [ ] T091 Run link checker and fix broken links
+- [X] T091 Run link checker and fix broken links
 - [ ] T092 Verify WCAG 2.1 AA accessibility compliance across all components
 - [ ] T093 Performance optimization: Verify page load < 2s and component response < 100ms
 - [X] T094 Add meta descriptions and Open Graph tags for SEO in docs/.vitepress/config.ts
