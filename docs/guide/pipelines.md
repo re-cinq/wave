@@ -141,7 +141,7 @@ Validate step output before proceeding:
 handover:
   contract:
     type: json_schema
-    schema: .wave/contracts/analysis.schema.json
+    schema_path: .wave/contracts/analysis.schema.json
     source: output/analysis.json
     on_failure: retry
     max_retries: 2

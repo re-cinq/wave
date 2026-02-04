@@ -47,8 +47,8 @@ steps:
         type: json
     handover:
       contract:
-        type: jsonschema
-        schema: .wave/contracts/analysis.schema.json
+        type: json_schema
+        schema_path: .wave/contracts/analysis.schema.json
         source: output/analysis.json
 
   - id: review
@@ -272,8 +272,8 @@ handover:
 ```yaml
 handover:
   contract:
-    type: jsonschema
-    schema: .wave/contracts/analysis.schema.json
+    type: json_schema
+    schema_path: .wave/contracts/analysis.schema.json
     source: output/analysis.json
     on_failure: retry
     max_retries: 2
