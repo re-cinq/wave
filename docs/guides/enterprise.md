@@ -305,5 +305,4 @@ Workspaces are ephemeral by default. Monitor disk usage and configure retention 
 
 - [Audit Logging](/guides/audit-logging) - Detailed audit configuration
 - [CI/CD Integration](/guides/ci-cd) - Automate pipelines in builds
-- [Team Adoption](/guides/team-adoption) - Basics of sharing pipelines with your team
 - [Contracts](/concepts/contracts) - Validate pipeline outputs
