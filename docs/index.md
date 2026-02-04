@@ -144,9 +144,9 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
   font-weight: 600;
   margin-bottom: 24px;
   color: var(--vp-c-text-1);
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
+  border-top: none !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
 }
 
 .trust-cta {
