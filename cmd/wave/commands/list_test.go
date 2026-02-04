@@ -614,6 +614,87 @@ runtime:
 	assert.Contains(t, stdout, "(none defined)")
 }
 
+// Test contracts listing
+
+func TestListCmd_Contracts_TableFormat(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifest())
+	h.writeFile(".wave/contracts/navigation.json", `{"type": "object", "properties": {"files": {"type": "array"}}}`)
+	h.writeFile(".wave/contracts/output.json", `{"type": "object", "properties": {"result": {"type": "string"}}}`)
+
+	stdout, _, err := executeListCmd("contracts")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Contracts")
+	assert.Contains(t, stdout, "navigation")
+	assert.Contains(t, stdout, "output")
+	assert.Contains(t, stdout, "json-schema")
+}
+
+func TestListCmd_Contracts_ShowsUsage(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifest())
+	h.writeFile(".wave/contracts/navigation.json", `{"type": "object"}`)
+
+	// Create pipeline that uses the contract
+	pipelineWithContract := `apiVersion: v1
+kind: WavePipeline
+metadata:
+  name: test-pipeline
+  description: Test pipeline with contract
+steps:
+  - id: navigate
+    persona: navigator
+    contract:
+      schema_path: .wave/contracts/navigation.json
+`
+	h.writeFile(".wave/pipelines/test-pipeline.yaml", pipelineWithContract)
+
+	stdout, _, err := executeListCmd("contracts")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "navigation")
+	assert.Contains(t, stdout, "used by")
+	assert.Contains(t, stdout, "test-pipeline")
+	assert.Contains(t, stdout, "navigate")
+	assert.Contains(t, stdout, "navigator")
+}
+
+func TestListCmd_Contracts_ShowsUnused(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifest())
+	h.writeFile(".wave/contracts/unused.json", `{"type": "object"}`)
+
+	stdout, _, err := executeListCmd("contracts")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "unused")
+	assert.Contains(t, stdout, "(unused)")
+}
+
+func TestListCmd_Contracts_NoContractsDirectory(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifest())
+
+	stdout, _, err := executeListCmd("contracts")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Contracts")
+	assert.Contains(t, stdout, "(none found")
+}
+
 // Test list all (no filter)
 
 func TestListCmd_All_ShowsEverything(t *testing.T) {
@@ -626,13 +707,15 @@ func TestListCmd_All_ShowsEverything(t *testing.T) {
 	h.writeFile("personas/craftsman.md", "# Craftsman")
 	h.writeFile("personas/auditor.md", "# Auditor")
 	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
+	h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
 
 	stdout, _, err := executeListCmd()
 
 	require.NoError(t, err)
+	assert.Contains(t, stdout, "Adapters")
 	assert.Contains(t, stdout, "Pipelines")
 	assert.Contains(t, stdout, "Personas")
-	// No adapters without explicit filter when showing all
+	assert.Contains(t, stdout, "Contracts")
 }
 
 // Test with missing manifest
@@ -737,6 +820,11 @@ func TestListCmd_FilterOptions(t *testing.T) {
 			filter:       "adapters",
 			wantContains: []string{"Adapters"},
 		},
+		{
+			name:         "contracts filter",
+			filter:       "contracts",
+			wantContains: []string{"Contracts"},
+		},
 	}
 
 	for _, tc := range tests {
@@ -750,6 +838,7 @@ func TestListCmd_FilterOptions(t *testing.T) {
 			h.writeFile("personas/craftsman.md", "# Craftsman")
 			h.writeFile("personas/auditor.md", "# Auditor")
 			h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test", 1))
+			h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
 
 			stdout, _, err := executeListCmd(tc.filter)
 

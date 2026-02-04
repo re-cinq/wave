@@ -14,7 +14,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave resume` | Resume interrupted pipeline |
 | `wave cancel` | Cancel running pipeline |
 | `wave artifacts` | List and export artifacts |
-| `wave list` | List pipelines and personas |
+| `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
 | `wave migrate` | Database migrations |
@@ -323,31 +323,33 @@ wave artifacts --format json     # JSON output
 
 ## wave list
 
-List resources.
+List Wave configuration, resources, and execution history.
 
 ```bash
-wave list pipelines
+wave list                  # Show all categories
+wave list adapters         # List configured adapters
+wave list runs             # List recent pipeline runs
+wave list pipelines        # List available pipelines
+wave list personas         # List configured personas
+wave list contracts        # List contract schemas
+```
+
+### Adapters
+
+```bash
+wave list adapters
 ```
 
 **Output:**
 ```
-NAME          STEPS   DESCRIPTION
-code-review   4       Automated code review
-hotfix        3       Fast-track bug fix
-speckit-flow  5       Feature development
+Adapters
+────────────────────────────────────────────────────────────
+
+  ✓ claude
+    binary: claude • mode: headless • format: json
 ```
 
-```bash
-wave list personas
-```
-
-**Output:**
-```
-NAME          ADAPTER   TEMP   DESCRIPTION
-navigator     claude    0.1    Read-only codebase exploration
-craftsman     claude    0.7    Implementation and testing
-auditor       claude    0.1    Security and quality review
-```
+### Runs
 
 ```bash
 wave list runs
@@ -355,9 +357,74 @@ wave list runs
 
 **Output:**
 ```
-RUN_ID          PIPELINE      STATUS      STARTED               DURATION
-run-abc123      code-review   completed   2026-02-03 14:30:22   5m23s
-run-xyz789      hotfix        failed      2026-02-03 09:30:00   2m15s
+Recent Pipeline Runs
+────────────────────────────────────────────────────────────────────────────────
+  RUN_ID                    PIPELINE          STATUS        STARTED             DURATION
+  run-abc123                code-review       completed     2026-02-03 14:30    5m23s
+  run-xyz789                hotfix            failed        2026-02-03 09:30    2m15s
+```
+
+### Pipelines
+
+```bash
+wave list pipelines
+```
+
+**Output:**
+```
+Pipelines
+────────────────────────────────────────────────────────────
+
+  code-review [4 steps]
+    Automated code review workflow
+    ○ analyze → review → report → notify
+
+  speckit-flow [5 steps]
+    Feature development pipeline
+    ○ navigate → specify → plan → implement → validate
+```
+
+### Personas
+
+```bash
+wave list personas
+```
+
+**Output:**
+```
+Personas
+────────────────────────────────────────────────────────────
+
+  navigator
+    adapter: claude • temp: 0.1 • allow:3
+    Read-only codebase exploration
+
+  craftsman
+    adapter: claude • temp: 0.7 • allow:5
+    Implementation and testing
+```
+
+### Contracts
+
+```bash
+wave list contracts
+```
+
+**Output:**
+```
+Contracts
+────────────────────────────────────────────────────────────
+
+  navigation [json-schema]
+    used by:
+      • speckit-flow → navigate (navigator)
+
+  specification [json-schema]
+    used by:
+      • speckit-flow → specify (philosopher)
+
+  validation-report [json-schema]
+    (unused)
 ```
 
 ### Options
@@ -365,6 +432,7 @@ run-xyz789      hotfix        failed      2026-02-03 09:30:00   2m15s
 ```bash
 wave list runs --status failed           # Filter by status
 wave list runs --limit 20                # Show more runs
+wave list runs --run-pipeline hotfix     # Filter by pipeline
 wave list --format json                  # JSON output
 ```
 
