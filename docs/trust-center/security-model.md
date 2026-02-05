@@ -25,31 +25,14 @@ Wave enforces a strict policy: **credentials never touch disk**. This eliminates
 
 ### Credential Flow Architecture
 
-```
-Environment Variables (Shell)
-         │
-         ▼
-┌─────────────────────────────┐
-│     Wave Process            │
-│  (inherits all env vars)    │
-│  - No credential storage    │
-│  - No credential logging    │
-│  - No credential checkpoints│
-└─────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   Adapter Subprocess        │
-│  (inherits all env vars)    │
-│  - Isolated process         │
-│  - Fresh environment        │
-└─────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│      LLM CLI                │
-│  (uses ANTHROPIC_API_KEY)   │
-└─────────────────────────────┘
+```mermaid
+flowchart TD
+    ENV["Environment Variables (Shell)"]
+    WAVE["Wave Process<br/><small>• Inherits all env vars<br/>• No credential storage<br/>• No credential logging<br/>• No credential checkpoints</small>"]
+    ADAPTER["Adapter Subprocess<br/><small>• Inherits all env vars<br/>• Isolated process<br/>• Fresh environment</small>"]
+    LLM["LLM CLI<br/><small>uses ANTHROPIC_API_KEY</small>"]
+
+    ENV --> WAVE --> ADAPTER --> LLM
 ```
 
 ### Environment Variable Security
@@ -187,24 +170,17 @@ personas:
 
 ### Permission Evaluation Flow
 
-```
-Tool Request
-     │
-     ▼
-┌─────────────────┐
-│ Check Deny List │───▶ DENIED (logged)
-│   (evaluated    │
-│   first)        │
-└────────┬────────┘
-         │ Not in deny list
-         ▼
-┌─────────────────┐
-│ Check Allow     │───▶ DENIED (logged)
-│   List          │     (not explicitly allowed)
-└────────┬────────┘
-         │ In allow list
-         ▼
-    PERMITTED
+```mermaid
+flowchart TD
+    REQ[Tool Request] --> DENY{Check Deny List<br/><small>evaluated first</small>}
+    DENY -->|Match| D1[DENIED<br/><small>logged</small>]
+    DENY -->|No match| ALLOW{Check Allow List}
+    ALLOW -->|No match| D2[DENIED<br/><small>not explicitly allowed</small>]
+    ALLOW -->|Match| P[PERMITTED]
+
+    style D1 fill:#fee2e2,stroke:#ef4444
+    style D2 fill:#fee2e2,stroke:#ef4444
+    style P fill:#dcfce7,stroke:#22c55e
 ```
 
 ### Granular Deny Patterns

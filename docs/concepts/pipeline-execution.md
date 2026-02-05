@@ -79,9 +79,12 @@ steps:
 
 This produces:
 
-```
-analyze ─┬─> security ─┬─> summary
-         └─> quality  ─┘
+```mermaid
+flowchart LR
+    analyze --> security
+    analyze --> quality
+    security --> summary
+    quality --> summary
 ```
 
 Wave determines:
