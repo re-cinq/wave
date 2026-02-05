@@ -1,8 +1,8 @@
-# Wave
+# Wave — AI-as-Code
 
-**Multi-agent pipelines for AI-assisted development.**
+**Infrastructure thinking for AI-native workflows.**
 
-Wave orchestrates LLM agents through structured pipelines — each step runs a specialized persona with scoped permissions, validated contracts, and isolated workspaces.
+Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipelines in YAML, version them in git, and run them with contracts, isolation, and audit trails.
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
