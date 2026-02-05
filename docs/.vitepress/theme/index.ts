@@ -17,6 +17,7 @@ import PermissionMatrix from './components/PermissionMatrix.vue'
 import HeroSection from './components/HeroSection.vue'
 import FeatureCards from './components/FeatureCards.vue'
 import TrustSignals from './components/TrustSignals.vue'
+import TerminalPreview from './components/TerminalPreview.vue'
 
 // Pipeline Learning Components
 import PipelineVisualizer from './components/PipelineVisualizer.vue'
@@ -46,6 +47,7 @@ export default {
     app.component('HeroSection', HeroSection)
     app.component('FeatureCards', FeatureCards)
     app.component('TrustSignals', TrustSignals)
+    app.component('TerminalPreview', TerminalPreview)
 
     // Register pipeline learning components
     app.component('PipelineVisualizer', PipelineVisualizer)

@@ -4,8 +4,8 @@ layout: home
 
 <script setup>
 const heroProps = {
-  title: 'AI Pipelines as Code',
-  tagline: 'Define multi-step AI workflows in YAML. Run them with validation, isolation, and reproducible results.',
+  title: 'Wave · AI-as-Code for multi-agent pipelines',
+  tagline: 'Define, version, and run AI workflows like you manage infrastructure.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -13,10 +13,37 @@ const heroProps = {
   secondaryAction: {
     text: 'View Examples',
     link: '/use-cases/'
-  }
+  },
+  terminal: {
+    title: 'wave',
+    command: 'wave run speckit-flow "add OAuth"',
+    outputLines: [
+      { text: '[wave] Loading pipeline: speckit-flow', variant: 'info' },
+      { text: '[wave] Persona: navigator (read-only)', variant: 'muted' },
+      { text: '[wave] Step 1/4: navigate ............. done  1m 12s', variant: 'success' },
+      { text: '[wave] Step 2/4: specify .............. done  2m 34s', variant: 'success' },
+      { text: '[wave] Step 3/4: implement ............ done  4m 18s', variant: 'success' },
+      { text: '[wave] Step 4/4: review ............... done  1m 45s', variant: 'success' },
+      { text: '' },
+      { text: '[wave] Pipeline completed in 9m 49s', variant: 'success' }
+    ]
+  },
+  valuePills: [
+    { label: 'Declarative', link: '/concepts/pipelines', tooltip: 'YAML-based configuration' },
+    { label: 'Contracts', link: '/concepts/contracts', tooltip: 'Output validation' },
+    { label: 'Isolation', link: '/concepts/workspaces', tooltip: 'Fresh memory each step' },
+    { label: 'Auditable', link: '/trust-center/', tooltip: 'Full execution traces' }
+  ],
+  showBackground: true
 }
 
 const features = [
+  {
+    icon: 'evolution',
+    title: 'The Next X-as-Code',
+    description: 'Infrastructure → Policy → Security → AI. Bring the same rigor to AI that transformed how you manage infrastructure.',
+    link: '/concepts/ai-as-code'
+  },
   {
     icon: 'pipeline',
     title: 'Pipelines as Code',
@@ -34,12 +61,6 @@ const features = [
     title: 'Step Isolation',
     description: 'Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.',
     link: '/concepts/workspaces'
-  },
-  {
-    icon: 'persona',
-    title: 'Specialized Personas',
-    description: 'AI agents with defined roles, permissions, and capabilities. Navigator, Auditor, Craftsman, and more.',
-    link: '/concepts/personas'
   },
   {
     icon: 'audit',
@@ -80,6 +101,23 @@ const trustBadges = [
 <HeroSection v-bind="heroProps" />
 
 <FeatureCards :features="features" />
+
+<div class="comparison-section">
+
+## How Wave Compares
+
+<div class="comparison-table">
+
+| | Wave | Gastown | Claude Flow |
+|--|:----:|:-------:|:-----------:|
+| **Declarative pipelines** | YAML | JSON/TOML | Programmatic |
+| **Git integration** | ✅ | ✅ | ❌ |
+| **Contract validation** | ✅ | ❌ | ❌ |
+| **Step isolation** | Fresh memory | Shared | Shared |
+| **Permission scoping** | Per-persona | ❌ | ❌ |
+
+</div>
+</div>
 
 <div class="trust-section">
   <h2 class="trust-heading">Built for Security</h2>
@@ -133,6 +171,38 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
 </div>
 
 <style>
+.comparison-section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.comparison-section h2 {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.comparison-table {
+  overflow-x: auto;
+}
+
+.comparison-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 12px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+  text-align: left;
+}
+
 .trust-section {
   text-align: center;
   padding: 48px 24px;
