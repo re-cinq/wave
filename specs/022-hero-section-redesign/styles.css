@@ -1,0 +1,788 @@
+/**
+ * Wave Hero Section Redesign - CSS Design Spec
+ *
+ * This file defines the CSS custom properties and styles for the enhanced
+ * hero section featuring a terminal preview, value prop pills, and grid
+ * background pattern.
+ *
+ * Organization:
+ * 1. Custom Properties (Design Tokens)
+ * 2. Grid/Dot Background Pattern
+ * 3. Two-Column Hero Layout
+ * 4. Terminal Preview Component
+ * 5. Value Prop Pills
+ * 6. Typing Animation
+ * 7. Responsive Breakpoints
+ */
+
+/* ===========================================
+   1. CUSTOM PROPERTIES (DESIGN TOKENS)
+   =========================================== */
+
+:root {
+  /* -----------------------------------------
+     Terminal Colors
+     Dark theme colors for the code preview
+     ----------------------------------------- */
+  --hero-terminal-bg: #0d1117;
+  --hero-terminal-border: #30363d;
+  --hero-terminal-header-bg: #161b22;
+  --hero-terminal-shadow: rgba(0, 0, 0, 0.4);
+
+  /* Terminal syntax highlighting (GitHub Dark inspired) */
+  --hero-syntax-comment: #8b949e;
+  --hero-syntax-keyword: #ff7b72;
+  --hero-syntax-string: #a5d6ff;
+  --hero-syntax-function: #d2a8ff;
+  --hero-syntax-variable: #79c0ff;
+  --hero-syntax-constant: #ffa657;
+  --hero-syntax-operator: #ff7b72;
+  --hero-syntax-text: #e6edf3;
+  --hero-syntax-yaml-key: #7ee787;
+  --hero-syntax-yaml-value: #a5d6ff;
+
+  /* Terminal glow effect for emphasis */
+  --hero-terminal-glow: rgba(79, 70, 229, 0.15);
+  --hero-terminal-glow-hover: rgba(79, 70, 229, 0.25);
+
+  /* -----------------------------------------
+     Value Prop Pills
+     Small badges showing key benefits
+     ----------------------------------------- */
+  --hero-pill-bg: rgba(255, 255, 255, 0.05);
+  --hero-pill-border: rgba(255, 255, 255, 0.1);
+  --hero-pill-text: var(--vp-c-text-2);
+  --hero-pill-icon: var(--wave-primary);
+  --hero-pill-hover-bg: rgba(79, 70, 229, 0.1);
+  --hero-pill-hover-border: rgba(79, 70, 229, 0.3);
+
+  /* -----------------------------------------
+     Grid Background Pattern
+     Subtle dot/grid pattern for depth
+     ----------------------------------------- */
+  --hero-grid-color: rgba(79, 70, 229, 0.08);
+  --hero-grid-size: 24px;
+  --hero-grid-dot-size: 1px;
+
+  /* -----------------------------------------
+     Layout Spacing
+     Gaps and padding for the two-column layout
+     ----------------------------------------- */
+  --hero-section-padding-y: 80px;
+  --hero-section-padding-x: 24px;
+  --hero-column-gap: 64px;
+  --hero-content-max-width: 1280px;
+
+  /* -----------------------------------------
+     Animation Timing
+     Durations and easing for animations
+     ----------------------------------------- */
+  --hero-animation-duration: 0.3s;
+  --hero-animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --hero-typing-speed: 50ms;
+  --hero-cursor-blink: 1s;
+}
+
+/* Dark mode adjustments */
+.dark {
+  --hero-terminal-bg: #0d1117;
+  --hero-terminal-border: #30363d;
+  --hero-terminal-glow: rgba(129, 140, 248, 0.2);
+  --hero-terminal-glow-hover: rgba(129, 140, 248, 0.35);
+
+  --hero-pill-bg: rgba(255, 255, 255, 0.03);
+  --hero-pill-border: rgba(255, 255, 255, 0.08);
+  --hero-pill-hover-bg: rgba(129, 140, 248, 0.15);
+  --hero-pill-hover-border: rgba(129, 140, 248, 0.4);
+
+  --hero-grid-color: rgba(129, 140, 248, 0.06);
+}
+
+
+/* ===========================================
+   2. GRID/DOT BACKGROUND PATTERN
+   =========================================== */
+
+/**
+ * Creates a subtle dot grid pattern behind the hero content.
+ * Uses a radial gradient repeated at fixed intervals.
+ * Works well in both light and dark modes.
+ */
+.hero-enhanced {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(
+    circle at center,
+    var(--hero-grid-color) var(--hero-grid-dot-size),
+    transparent var(--hero-grid-dot-size)
+  );
+  background-size: var(--hero-grid-size) var(--hero-grid-size);
+  background-position: center center;
+  pointer-events: none;
+  z-index: 0;
+
+  /* Fade out at edges for softer look */
+  mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    black 0%,
+    transparent 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    black 0%,
+    transparent 100%
+  );
+}
+
+/* Alternative: Line grid pattern (uncomment to use instead of dots) */
+/*
+.hero-enhanced::before {
+  background-image:
+    linear-gradient(var(--hero-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hero-grid-color) 1px, transparent 1px);
+  background-size: var(--hero-grid-size) var(--hero-grid-size);
+}
+*/
+
+
+/* ===========================================
+   3. TWO-COLUMN HERO LAYOUT
+   =========================================== */
+
+/**
+ * Main hero container with two-column layout:
+ * - Left column: Headline, tagline, pills, CTA buttons
+ * - Right column: Terminal preview
+ */
+.hero-enhanced {
+  padding: var(--hero-section-padding-y) var(--hero-section-padding-x);
+}
+
+.hero-enhanced__container {
+  position: relative;
+  z-index: 1;
+  max-width: var(--hero-content-max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hero-column-gap);
+  align-items: center;
+}
+
+/* Left column: Text content */
+.hero-enhanced__content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero-enhanced__headline {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--vp-c-text-1);
+}
+
+/* Gradient text for emphasis */
+.hero-enhanced__headline .gradient-text {
+  background: linear-gradient(
+    135deg,
+    var(--wave-primary) 0%,
+    var(--wave-accent) 50%,
+    var(--wave-secondary) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-enhanced__tagline {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  max-width: 480px;
+}
+
+/* Right column: Terminal */
+.hero-enhanced__preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+/* ===========================================
+   4. TERMINAL PREVIEW COMPONENT
+   =========================================== */
+
+/**
+ * A styled terminal window showing Wave in action.
+ * Features:
+ * - macOS-style window chrome
+ * - Syntax highlighted code
+ * - Subtle glow effect on hover
+ * - Typing animation for the command line
+ */
+.terminal-preview {
+  width: 100%;
+  max-width: 560px;
+  background: var(--hero-terminal-bg);
+  border: 1px solid var(--hero-terminal-border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px -1px var(--hero-terminal-shadow),
+    0 2px 4px -2px var(--hero-terminal-shadow),
+    0 0 0 1px var(--hero-terminal-border),
+    0 0 60px -10px var(--hero-terminal-glow);
+  transition:
+    box-shadow var(--hero-animation-duration) var(--hero-animation-easing),
+    transform var(--hero-animation-duration) var(--hero-animation-easing);
+}
+
+.terminal-preview:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 25px -5px var(--hero-terminal-shadow),
+    0 8px 10px -6px var(--hero-terminal-shadow),
+    0 0 0 1px var(--hero-terminal-border),
+    0 0 80px -5px var(--hero-terminal-glow-hover);
+}
+
+/* Terminal header with traffic light buttons */
+.terminal-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--hero-terminal-header-bg);
+  border-bottom: 1px solid var(--hero-terminal-border);
+}
+
+.terminal-preview__buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.terminal-preview__button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--hero-terminal-border);
+}
+
+.terminal-preview__button--close {
+  background: #ff5f56;
+}
+
+.terminal-preview__button--minimize {
+  background: #ffbd2e;
+}
+
+.terminal-preview__button--maximize {
+  background: #27c93f;
+}
+
+.terminal-preview__title {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hero-syntax-comment);
+  font-family: var(--wave-font-mono);
+}
+
+/* Terminal content area */
+.terminal-preview__content {
+  padding: 20px;
+  font-family: var(--wave-font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--hero-syntax-text);
+  min-height: 280px;
+}
+
+/* Command line prompt */
+.terminal-preview__line {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.terminal-preview__prompt {
+  color: var(--hero-syntax-function);
+  margin-right: 8px;
+  user-select: none;
+}
+
+.terminal-preview__command {
+  color: var(--hero-syntax-text);
+}
+
+/* Output area */
+.terminal-preview__output {
+  margin-top: 16px;
+  padding-left: 0;
+}
+
+.terminal-preview__output-line {
+  margin-bottom: 2px;
+}
+
+/* Syntax highlighting classes */
+.syntax-comment { color: var(--hero-syntax-comment); }
+.syntax-keyword { color: var(--hero-syntax-keyword); }
+.syntax-string { color: var(--hero-syntax-string); }
+.syntax-function { color: var(--hero-syntax-function); }
+.syntax-variable { color: var(--hero-syntax-variable); }
+.syntax-constant { color: var(--hero-syntax-constant); }
+.syntax-operator { color: var(--hero-syntax-operator); }
+.syntax-yaml-key { color: var(--hero-syntax-yaml-key); }
+.syntax-yaml-value { color: var(--hero-syntax-yaml-value); }
+
+/* Status indicators in output */
+.terminal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.terminal-status__dot--success {
+  background: var(--wave-trust-green);
+  box-shadow: 0 0 8px var(--wave-trust-green);
+}
+
+.terminal-status__dot--running {
+  background: var(--wave-secondary);
+  box-shadow: 0 0 8px var(--wave-secondary);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.terminal-status__dot--pending {
+  background: var(--hero-syntax-comment);
+}
+
+
+/* ===========================================
+   5. VALUE PROP PILLS
+   =========================================== */
+
+/**
+ * Small badge-like elements showing key benefits.
+ * Can include optional icons before the text.
+ * Arranged in a horizontal row with wrapping.
+ */
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hero-pill-text);
+  background: var(--hero-pill-bg);
+  border: 1px solid var(--hero-pill-border);
+  border-radius: 20px;
+  transition: all var(--hero-animation-duration) var(--hero-animation-easing);
+  white-space: nowrap;
+}
+
+.hero-pill:hover {
+  background: var(--hero-pill-hover-bg);
+  border-color: var(--hero-pill-hover-border);
+  color: var(--vp-c-text-1);
+}
+
+.hero-pill__icon {
+  width: 14px;
+  height: 14px;
+  color: var(--hero-pill-icon);
+  flex-shrink: 0;
+}
+
+/* Pill variants for different emphasis levels */
+.hero-pill--primary {
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.3);
+  color: var(--wave-primary);
+}
+
+.hero-pill--primary:hover {
+  background: rgba(79, 70, 229, 0.2);
+  border-color: var(--wave-primary);
+}
+
+.hero-pill--security {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--wave-trust-green);
+}
+
+.hero-pill--security:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--wave-trust-green);
+}
+
+
+/* ===========================================
+   6. TYPING ANIMATION
+   =========================================== */
+
+/**
+ * Simulates typing effect for terminal commands.
+ * Uses CSS animations with steps() for character-by-character reveal.
+ * Includes blinking cursor effect.
+ */
+
+/* Typing container - hides overflow during animation */
+.typing-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--hero-syntax-text);
+  animation:
+    typing 2s steps(30, end) forwards,
+    blink-cursor var(--hero-cursor-blink) step-end infinite;
+}
+
+/* Typing animation - reveals text from left to right */
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* Cursor blink animation */
+@keyframes blink-cursor {
+  from, to {
+    border-color: var(--hero-syntax-text);
+  }
+  50% {
+    border-color: transparent;
+  }
+}
+
+/* Remove cursor after typing completes (optional) */
+.typing-text--no-cursor {
+  animation: typing 2s steps(30, end) forwards;
+  border-right: none;
+}
+
+/* Staggered typing for multiple lines */
+.typing-text--delay-1 {
+  animation-delay: 0.5s;
+  opacity: 0;
+  animation:
+    appear 0.01s 0.5s forwards,
+    typing 1.5s 0.5s steps(25, end) forwards,
+    blink-cursor var(--hero-cursor-blink) step-end infinite 0.5s;
+}
+
+.typing-text--delay-2 {
+  animation-delay: 2s;
+  opacity: 0;
+  animation:
+    appear 0.01s 2s forwards,
+    typing 1.5s 2s steps(25, end) forwards,
+    blink-cursor var(--hero-cursor-blink) step-end infinite 2s;
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulse animation for status indicators */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Fade in animation for output lines */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.terminal-preview__output-line {
+  animation: fade-in-up 0.3s ease-out forwards;
+  opacity: 0;
+}
+
+/* Staggered delays for output lines */
+.terminal-preview__output-line:nth-child(1) { animation-delay: 2.5s; }
+.terminal-preview__output-line:nth-child(2) { animation-delay: 2.7s; }
+.terminal-preview__output-line:nth-child(3) { animation-delay: 2.9s; }
+.terminal-preview__output-line:nth-child(4) { animation-delay: 3.1s; }
+.terminal-preview__output-line:nth-child(5) { animation-delay: 3.3s; }
+.terminal-preview__output-line:nth-child(6) { animation-delay: 3.5s; }
+
+
+/* ===========================================
+   7. RESPONSIVE BREAKPOINTS
+   =========================================== */
+
+/**
+ * Breakpoint strategy:
+ * - Desktop (>= 1024px): Two columns, full terminal preview
+ * - Tablet (768px - 1023px): Single column, terminal below
+ * - Mobile (< 768px): Single column, smaller typography, compact terminal
+ */
+
+/* Large desktop: Increase spacing */
+@media (min-width: 1280px) {
+  :root {
+    --hero-column-gap: 80px;
+    --hero-section-padding-y: 100px;
+  }
+
+  .hero-enhanced__headline {
+    font-size: 4rem;
+  }
+}
+
+/* Tablet: Stack to single column */
+@media (max-width: 1023px) {
+  :root {
+    --hero-column-gap: 48px;
+    --hero-section-padding-y: 64px;
+  }
+
+  .hero-enhanced__container {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .hero-enhanced__content {
+    align-items: center;
+  }
+
+  .hero-enhanced__tagline {
+    max-width: 600px;
+  }
+
+  .hero-pills {
+    justify-content: center;
+  }
+
+  .terminal-preview {
+    max-width: 100%;
+  }
+}
+
+/* Small tablet / large mobile */
+@media (max-width: 768px) {
+  :root {
+    --hero-section-padding-y: 48px;
+    --hero-grid-size: 20px;
+  }
+
+  .hero-enhanced__headline {
+    font-size: 2.5rem;
+  }
+
+  .hero-enhanced__tagline {
+    font-size: 1.1rem;
+  }
+
+  .terminal-preview__content {
+    padding: 16px;
+    font-size: 12px;
+    min-height: 240px;
+  }
+
+  .hero-pill {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  :root {
+    --hero-section-padding-x: 16px;
+    --hero-section-padding-y: 40px;
+  }
+
+  .hero-enhanced__headline {
+    font-size: 2rem;
+  }
+
+  .hero-enhanced__tagline {
+    font-size: 1rem;
+  }
+
+  .terminal-preview {
+    border-radius: 8px;
+  }
+
+  .terminal-preview__header {
+    padding: 10px 12px;
+  }
+
+  .terminal-preview__button {
+    width: 10px;
+    height: 10px;
+  }
+
+  .terminal-preview__content {
+    padding: 12px;
+    font-size: 11px;
+    min-height: 200px;
+  }
+
+  .hero-pills {
+    gap: 8px;
+  }
+
+  .hero-pill__icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .terminal-preview,
+  .hero-pill {
+    transition: none;
+  }
+
+  .terminal-preview:hover {
+    transform: none;
+  }
+
+  .typing-text {
+    animation: none;
+    width: 100%;
+    border-right: none;
+  }
+
+  .terminal-preview__output-line {
+    animation: none;
+    opacity: 1;
+  }
+
+  .terminal-status__dot--running {
+    animation: none;
+  }
+}
+
+
+/* ===========================================
+   8. HERO ACTION BUTTONS
+   =========================================== */
+
+/**
+ * CTA buttons in the hero section.
+ * Primary button has gradient background.
+ * Secondary button has outlined style.
+ */
+.hero-enhanced__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all var(--hero-animation-duration) var(--hero-animation-easing);
+  cursor: pointer;
+  border: none;
+}
+
+.hero-btn--primary {
+  background: linear-gradient(
+    135deg,
+    var(--wave-primary) 0%,
+    var(--wave-accent) 100%
+  );
+  color: white;
+  box-shadow:
+    0 4px 14px rgba(79, 70, 229, 0.3),
+    0 0 0 0 rgba(79, 70, 229, 0);
+}
+
+.hero-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 20px rgba(79, 70, 229, 0.4),
+    0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.hero-btn--secondary {
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-divider);
+}
+
+.hero-btn--secondary:hover {
+  border-color: var(--wave-primary);
+  color: var(--wave-primary);
+  background: rgba(79, 70, 229, 0.05);
+}
+
+/* Icon in buttons */
+.hero-btn__icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Button group responsive */
+@media (max-width: 480px) {
+  .hero-enhanced__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .hero-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
