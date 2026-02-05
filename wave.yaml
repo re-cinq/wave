@@ -161,6 +161,41 @@ personas:
                 - Write(*.ts)
                 - Edit(*)
         system_prompt_file: .wave/personas/reviewer.md
+    researcher:
+        adapter: claude
+        description: Web research and information synthesis
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - WebSearch
+                - WebFetch
+                - Write(artifact.json)
+                - Write(output/*)
+            deny:
+                - Edit(*)
+                - Bash(*)
+                - Write(*.go)
+                - Write(*.ts)
+                - Write(*.py)
+        system_prompt_file: .wave/personas/researcher.md
+    github-commenter:
+        adapter: claude
+        description: Post comments on GitHub issues
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(artifact.json)
+                - Write(output/*)
+                - Bash(gh issue comment*)
+                - Bash(gh --version)
+            deny:
+                - Bash(gh issue edit*)
+                - Bash(gh issue close*)
+                - Bash(gh pr*)
+                - Edit(*)
+        system_prompt_file: .wave/personas/github-commenter.md
 runtime:
     audit:
         log_all_file_operations: false
