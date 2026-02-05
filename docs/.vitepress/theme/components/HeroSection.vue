@@ -46,17 +46,11 @@ const githubRepoUrl = computed(() => {
 // Clipboard state for copy button
 const copied = ref(false)
 
-// Copy terminal content to clipboard
+// Copy just the wave command to clipboard
 function copyTerminalContent() {
   if (!props.terminal) return
 
-  const content = [
-    `${terminalPrompt.value} ${props.terminal.command}`,
-    '',
-    ...props.terminal.outputLines.map(line => line.text)
-  ].join('\n')
-
-  navigator.clipboard.writeText(content).then(() => {
+  navigator.clipboard.writeText(props.terminal.command).then(() => {
     copied.value = true
     setTimeout(() => {
       copied.value = false
