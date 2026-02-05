@@ -1,6 +1,6 @@
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <!-- Rounded square background -->
-  <rect width="200" height="200" rx="24" fill="#2563eb"/>
+  <rect width="200" height="200" rx="24" fill="#4f46e5"/>
 
   <!-- Three diagonal lines - full opacity (top) -->
   <g stroke="white" stroke-width="10" stroke-linecap="round" fill="none">
