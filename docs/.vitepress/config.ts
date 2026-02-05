@@ -4,18 +4,18 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Wave',
-    description: 'AI Pipelines as Code - Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.',
+    description: 'AI-as-Code - Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.',
 
     head: [
       ['meta', { name: 'keywords', content: 'AI, pipelines, orchestration, LLM, Claude, automation, YAML, DevOps' }],
       ['meta', { name: 'author', content: 'Michael W. Czechowski' }],
-      ['meta', { property: 'og:title', content: 'Wave - AI Pipelines as Code' }],
-      ['meta', { property: 'og:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['meta', { property: 'og:title', content: 'Wave - AI-as-Code' }],
+      ['meta', { property: 'og:description', content: 'Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.' }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { property: 'og:image', content: '/og-image.png' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-      ['meta', { name: 'twitter:title', content: 'Wave - AI Pipelines as Code' }],
-      ['meta', { name: 'twitter:description', content: 'Define multi-step AI workflows in YAML with validation, isolation, and reproducible results.' }],
+      ['meta', { name: 'twitter:title', content: 'Wave - AI-as-Code' }],
+      ['meta', { name: 'twitter:description', content: 'Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.' }],
       ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
     ],
 
@@ -28,6 +28,7 @@ export default withMermaid(
           text: 'Concepts',
           items: [
             { text: 'Overview', link: '/concepts/' },
+            { text: 'AI-as-Code', link: '/concepts/ai-as-code' },
             { text: 'Pipelines', link: '/concepts/pipelines' },
             { text: 'Personas', link: '/concepts/personas' },
             { text: 'Contracts', link: '/concepts/contracts' },
@@ -105,6 +106,7 @@ export default withMermaid(
             text: 'Concepts',
             items: [
               { text: 'Overview', link: '/concepts/' },
+              { text: 'AI-as-Code', link: '/concepts/ai-as-code' },
               { text: 'Pipelines', link: '/concepts/pipelines' },
               { text: 'Personas', link: '/concepts/personas' },
               { text: 'Contracts', link: '/concepts/contracts' },
