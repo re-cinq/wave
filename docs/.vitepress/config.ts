@@ -4,18 +4,19 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Wave',
-    description: 'AI-as-Code - Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.',
+    titleTemplate: ':title · AI-as-Code for multi-agent pipelines',
+    description: 'Define, version, and run AI workflows like you manage infrastructure.',
 
     head: [
       ['meta', { name: 'keywords', content: 'AI, pipelines, orchestration, LLM, Claude, automation, YAML, DevOps' }],
       ['meta', { name: 'author', content: 'Michael W. Czechowski' }],
-      ['meta', { property: 'og:title', content: 'Wave - AI-as-Code' }],
-      ['meta', { property: 'og:description', content: 'Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.' }],
+      ['meta', { property: 'og:title', content: 'Wave · AI-as-Code for multi-agent pipelines' }],
+      ['meta', { property: 'og:description', content: 'Define, version, and run AI workflows like you manage infrastructure.' }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { property: 'og:image', content: '/og-image.png' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-      ['meta', { name: 'twitter:title', content: 'Wave - AI-as-Code' }],
-      ['meta', { name: 'twitter:description', content: 'Infrastructure thinking for AI-native workflows. Define, version, and run multi-agent pipelines.' }],
+      ['meta', { name: 'twitter:title', content: 'Wave · AI-as-Code for multi-agent pipelines' }],
+      ['meta', { name: 'twitter:description', content: 'Define, version, and run AI workflows like you manage infrastructure.' }],
       ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
     ],
 
