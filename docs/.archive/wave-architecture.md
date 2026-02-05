@@ -2,6 +2,112 @@
 
 This document provides a comprehensive visual overview of Wave's architecture based on codebase analysis.
 
+## Core Concepts
+
+```mermaid
+flowchart TB
+    subgraph Manifest["wave.yaml (Manifest)"]
+        direction TB
+        ADAPTERS[Adapters<br/><small>claude, opencode</small>]
+        PERSONAS[Personas<br/><small>navigator, implementer, reviewer</small>]
+        RUNTIME[Runtime Config<br/><small>workspace, relay, audit</small>]
+    end
+
+    subgraph Pipeline["Pipeline"]
+        direction TB
+        META[Metadata<br/><small>name, description</small>]
+
+        subgraph Steps["Steps (DAG)"]
+            direction LR
+            S1[Step 1<br/><small>persona: navigator</small>]
+            S2[Step 2<br/><small>persona: implementer</small>]
+            S3[Step 3<br/><small>persona: reviewer</small>]
+            S1 --> S2 --> S3
+        end
+    end
+
+    subgraph StepDetail["Step Execution"]
+        direction TB
+        WS[Workspace<br/><small>ephemeral, isolated</small>]
+        EXEC[Exec<br/><small>prompt template</small>]
+
+        subgraph Handover["Handover"]
+            ART[Artifacts<br/><small>output files</small>]
+            CONT[Contract<br/><small>validation schema</small>]
+        end
+    end
+
+    Manifest --> Pipeline
+    PERSONAS -.->|binds| Steps
+    Pipeline --> StepDetail
+    ART -->|inject into next step| Steps
+
+    style Manifest fill:#e0f2fe,stroke:#0284c7
+    style Pipeline fill:#fef3c7,stroke:#f59e0b
+    style StepDetail fill:#dcfce7,stroke:#22c55e
+    style Handover fill:#f3e8ff,stroke:#a855f7
+```
+
+## Concept Relationships
+
+```mermaid
+erDiagram
+    MANIFEST ||--o{ PERSONA : defines
+    MANIFEST ||--o{ ADAPTER : configures
+    MANIFEST ||--|| RUNTIME : sets
+
+    PIPELINE ||--o{ STEP : contains
+    PIPELINE }|--|| MANIFEST : "reads from"
+
+    STEP }|--|| PERSONA : "uses"
+    STEP ||--o{ ARTIFACT : "produces"
+    STEP ||--o| CONTRACT : "validates with"
+    STEP ||--o{ STEP : "depends on"
+
+    ARTIFACT }o--|| STEP : "injected into"
+
+    PERSONA }|--|| ADAPTER : "runs via"
+    PERSONA ||--o{ PERMISSION : "has"
+
+    CONTRACT ||--o{ QUALITY_GATE : "includes"
+```
+
+## Simplified Flow
+
+```mermaid
+flowchart LR
+    subgraph Input
+        USER[User Input]
+        YAML[Pipeline YAML]
+    end
+
+    subgraph Execution
+        direction TB
+        STEP1[Step 1] --> ART1[Artifact]
+        ART1 --> STEP2[Step 2]
+        STEP2 --> ART2[Artifact]
+        ART2 --> STEP3[Step 3]
+    end
+
+    subgraph Validation
+        CONTRACT[Contract Check]
+    end
+
+    subgraph Output
+        RESULT[Pipeline Result]
+    end
+
+    USER --> Execution
+    YAML --> Execution
+    STEP1 & STEP2 & STEP3 --> CONTRACT
+    CONTRACT --> RESULT
+
+    style Input fill:#f0f9ff
+    style Execution fill:#fefce8
+    style Validation fill:#fdf4ff
+    style Output fill:#f0fdf4
+```
+
 ## High-Level System Architecture
 
 ```mermaid
