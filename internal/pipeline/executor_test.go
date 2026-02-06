@@ -1134,6 +1134,57 @@ func TestNilStatusHandlingInTests(t *testing.T) {
 	}
 }
 
+// TestWriteOutputArtifactsPreservesExistingFiles verifies that when a persona writes an artifact
+// file during execution, writeOutputArtifacts does not overwrite it with ResultContent.
+func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create existing artifact file with persona-written content
+	artifactDir := filepath.Join(tmpDir, "workspace-test", "step1", "output")
+	os.MkdirAll(artifactDir, 0755)
+	artifactPath := filepath.Join(artifactDir, "issue-content.json")
+	personaContent := `{"issue": "structured data from persona"}`
+	err := os.WriteFile(artifactPath, []byte(personaContent), 0644)
+	require.NoError(t, err)
+
+	// Mock adapter returns non-empty ResultContent (conversational prose)
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"type": "result", "result": "I analyzed the issue and wrote the file."}`),
+		adapter.WithTokensUsed(1000),
+	)
+
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "preserve-artifact-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "generate output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "issue-content", Path: "output/issue-content.json"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = executor.Execute(ctx, p, m, "workspace-test")
+	require.NoError(t, err)
+
+	// Verify that persona-written content is preserved, not overwritten with ResultContent
+	finalContent, err := os.ReadFile(artifactPath)
+	require.NoError(t, err)
+	assert.Equal(t, personaContent, string(finalContent),
+		"Persona-written artifact should be preserved when file already exists")
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {
