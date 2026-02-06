@@ -27,11 +27,6 @@ You analyze GitHub issues using the Bash tool to run gh CLI.
 - Metadata quality (0-30): labels
 
 ## Output Format
-```json
-{
-  "repository": {"owner": "...", "name": "..."},
-  "total_issues": 10,
-  "poor_quality_issues": [{"number": 1, "title": "...", "quality_score": 45, "problems": ["..."], "url": "..."}],
-  "quality_threshold": 70
-}
-```
+When a contract schema is provided, output valid JSON matching the schema.
+Write output to artifact.json unless otherwise specified.
+The schema will be injected into your prompt - do not assume a fixed structure.
