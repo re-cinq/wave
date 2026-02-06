@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "A simple test plan for validating pipeline execution",
+  "required": [
+    "objective",
+    "steps",
+    "success_criteria"
+  ],
+  "properties": {
+    "objective": {
+      "type": "string",
+      "description": "The main objective of this test plan"
+    },
+    "steps": {
+      "type": "array",
+      "description": "Steps to execute for the test",
+      "items": {
+        "type": "object",
+        "required": [
+          "step_number",
+          "action",
+          "expected_outcome"
+        ],
+        "properties": {
+          "step_number": {
+            "type": "integer",
+            "description": "Order of this step in the test plan"
+          },
+          "action": {
+            "type": "string",
+            "description": "Action to perform in this step"
+          },
+          "expected_outcome": {
+            "type": "string",
+            "description": "Expected result of performing this action"
+          }
+        }
+      }
+    },
+    "success_criteria": {
+      "type": "array",
+      "description": "Criteria that must be met for the test to pass",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
