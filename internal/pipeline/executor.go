@@ -818,9 +818,20 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 		// Resolve artifact path using pipeline context
 		resolvedPath := execution.Context.ResolveArtifactPath(art)
 		artPath := filepath.Join(workspacePath, resolvedPath)
+		key := step.ID + ":" + art.Name
+
+		// If the persona already wrote the file, trust it and don't overwrite
+		if _, err := os.Stat(artPath); err == nil {
+			execution.ArtifactPaths[key] = artPath
+			if e.debug {
+				fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
+			}
+			continue
+		}
+
+		// Fall back to writing ResultContent
 		os.MkdirAll(filepath.Dir(artPath), 0755)
 		os.WriteFile(artPath, stdout, 0644)
-		key := step.ID + ":" + art.Name
 		execution.ArtifactPaths[key] = artPath
 	}
 }
