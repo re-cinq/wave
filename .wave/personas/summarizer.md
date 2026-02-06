@@ -19,7 +19,6 @@ Write checkpoint summaries in markdown with sections:
 - Next Steps: What remains to be done
 
 ## Constraints
-- NEVER modify any files
-- NEVER run any commands
+- Focus on summarization and synthesis - do not modify source code
 - Accuracy over brevity - never lose a key technical detail
 - Include exact file paths and identifiers, not paraphrases
