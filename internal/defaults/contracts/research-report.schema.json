@@ -1,0 +1,206 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Research Report",
+  "description": "Synthesized research report for GitHub issue comment",
+  "type": "object",
+  "required": ["issue_reference", "executive_summary", "detailed_findings", "recommendations", "sources", "markdown_content"],
+  "properties": {
+    "issue_reference": {
+      "type": "object",
+      "required": ["issue_number", "repository", "title"],
+      "properties": {
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "executive_summary": {
+      "type": "object",
+      "required": ["overview", "key_findings", "primary_recommendation"],
+      "properties": {
+        "overview": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 1000,
+          "description": "Brief overview of research conducted and main conclusions"
+        },
+        "key_findings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 7,
+          "items": {
+            "type": "string"
+          },
+          "description": "Top findings as bullet points"
+        },
+        "primary_recommendation": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Single most important recommendation"
+        },
+        "confidence_assessment": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Overall confidence in the research conclusions"
+        }
+      }
+    },
+    "detailed_findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["section_title", "content", "relevance"],
+        "properties": {
+          "section_title": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Section heading"
+          },
+          "topic_id": {
+            "type": "string",
+            "pattern": "^TOPIC-[0-9]{3}$",
+            "description": "Reference to original topic if applicable"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 50,
+            "description": "Detailed markdown content for this section"
+          },
+          "relevance": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "supplementary"],
+            "description": "How relevant this section is to the issue"
+          },
+          "code_examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "language"],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "Code snippet"
+                },
+                "language": {
+                  "type": "string",
+                  "description": "Language for syntax highlighting"
+                },
+                "caption": {
+                  "type": "string",
+                  "description": "Explanation of the code"
+                }
+              }
+            },
+            "description": "Code examples for this section"
+          },
+          "related_sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^SRC-[0-9]{3}$"
+            },
+            "description": "References to sources list"
+          }
+        }
+      },
+      "description": "Detailed findings organized by section"
+    },
+    "recommendations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "priority"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^REC-[0-9]{3}$",
+            "description": "Recommendation identifier"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 100,
+            "description": "Concise recommendation title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Detailed recommendation explanation"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Recommendation priority"
+          },
+          "effort_estimate": {
+            "type": "string",
+            "enum": ["trivial", "small", "medium", "large", "unknown"],
+            "description": "Estimated implementation effort"
+          }
+        }
+      },
+      "description": "Actionable recommendations based on research"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "url", "title"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SRC-[0-9]{3}$",
+            "description": "Source identifier for cross-referencing"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Source URL"
+          },
+          "title": {
+            "type": "string",
+            "description": "Source title"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["official_docs", "github_issue", "github_discussion", "stack_overflow", "blog_post", "tutorial", "api_reference", "academic_paper", "forum_post", "other"]
+          },
+          "reliability": {
+            "type": "string",
+            "enum": ["authoritative", "reputable", "community", "unverified"],
+            "description": "Source reliability assessment"
+          }
+        }
+      },
+      "description": "All sources cited in the report"
+    },
+    "markdown_content": {
+      "type": "string",
+      "minLength": 100,
+      "description": "Pre-rendered markdown content ready for GitHub comment"
+    },
+    "follow_up_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Questions that warrant further investigation"
+    }
+  }
+}
