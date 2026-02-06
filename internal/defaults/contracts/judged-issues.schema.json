@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Judged and prioritized issues from mismatch analysis",
+  "required": [
+    "total_reviewed",
+    "selection_criteria",
+    "selected_issues"
+  ],
+  "properties": {
+    "total_reviewed": {
+      "type": "integer",
+      "description": "Total number of mismatches reviewed"
+    },
+    "selection_criteria": {
+      "type": "object",
+      "description": "Criteria used for evaluation",
+      "required": [
+        "weights"
+      ],
+      "properties": {
+        "weights": {
+          "type": "object",
+          "description": "Weight percentages for each criterion",
+          "properties": {
+            "user_impact": {
+              "type": "number"
+            },
+            "security_risk": {
+              "type": "number"
+            },
+            "breaking_change_risk": {
+              "type": "number"
+            },
+            "fix_complexity": {
+              "type": "number"
+            }
+          }
+        },
+        "methodology": {
+          "type": "string",
+          "description": "Description of the evaluation methodology"
+        }
+      }
+    },
+    "selected_issues": {
+      "type": "array",
+      "description": "The top 3 selected issues",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "mismatch_id",
+          "ranking",
+          "score",
+          "justification",
+          "recommended_approach"
+        ],
+        "properties": {
+          "mismatch_id": {
+            "type": "string",
+            "description": "ID of the original mismatch"
+          },
+          "mismatch_data": {
+            "type": "object",
+            "description": "Copy of the original mismatch data"
+          },
+          "ranking": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "description": "Rank position (1 = highest priority)"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Weighted score (0-100)"
+          },
+          "justification": {
+            "type": "string",
+            "description": "Detailed justification for selection and ranking"
+          },
+          "recommended_approach": {
+            "type": "string",
+            "enum": [
+              "fix_docs",
+              "fix_impl",
+              "fix_both"
+            ],
+            "description": "Recommended approach to resolve the issue"
+          },
+          "estimated_scope": {
+            "type": "array",
+            "description": "Files and areas that would be affected",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "rejected_summary": {
+      "type": "string",
+      "description": "Brief explanation of why other issues weren't selected"
+    }
+  }
+}
