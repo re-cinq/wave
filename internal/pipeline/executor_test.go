@@ -1185,6 +1185,84 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 		"Persona-written artifact should be preserved when file already exists")
 }
 
+// configCapturingAdapter wraps MockAdapter and captures the AdapterRunConfig passed to Run
+type configCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu         sync.Mutex
+	lastConfig adapter.AdapterRunConfig
+}
+
+func (a *configCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.lastConfig = cfg
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+func (a *configCapturingAdapter) getLastConfig() adapter.AdapterRunConfig {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.lastConfig
+}
+
+// TestOutputArtifactPermissionGrants verifies that output artifact paths
+// are auto-granted Write permissions in the adapter config.
+func TestOutputArtifactPermissionGrants(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(500),
+		),
+	}
+
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithEmitter(collector))
+
+	m := createTestManifest(tmpDir)
+	// Use a persona with restricted permissions (no Write by default)
+	m.Personas["restricted"] = manifest.Persona{
+		Adapter:     "claude",
+		Temperature: 0.1,
+		Permissions: manifest.Permissions{
+			AllowedTools: []string{"Read", "Glob", "Grep"},
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "permission-grant-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "restricted",
+				Exec:    ExecConfig{Source: "analyze and write output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "topics", Path: "output/research-topics.json"},
+					{Name: "summary", Path: "results.json"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "permission-test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+
+	// Should include original persona tools plus auto-granted Write paths
+	assert.Contains(t, cfg.AllowedTools, "Read")
+	assert.Contains(t, cfg.AllowedTools, "Glob")
+	assert.Contains(t, cfg.AllowedTools, "Grep")
+	assert.Contains(t, cfg.AllowedTools, "Write(output/*)",
+		"Should auto-grant Write for output/ directory artifacts")
+	assert.Contains(t, cfg.AllowedTools, "Write(results.json)",
+		"Should auto-grant Write for root-level artifacts")
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {
