@@ -21,8 +21,7 @@ Write task breakdowns in markdown with:
 - Assigned persona (navigator/philosopher/craftsman/auditor)
 
 ## Constraints
-- NEVER write implementation code
-- NEVER execute shell commands
+- Focus on planning, not implementation - do not write production code
 - Focus on actionable tasks, not vague goals
 - Each task should be completable in one session
 - Flag uncertainty explicitly
