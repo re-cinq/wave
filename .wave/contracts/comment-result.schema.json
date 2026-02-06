@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Comment Result",
+  "description": "Result of posting research report as a GitHub issue comment",
+  "type": "object",
+  "required": ["success", "issue_reference", "timestamp"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the comment was successfully posted"
+    },
+    "issue_reference": {
+      "type": "object",
+      "required": ["issue_number", "repository"],
+      "properties": {
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Issue number that was commented on"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "Repository full name"
+        },
+        "issue_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the issue"
+        }
+      }
+    },
+    "comment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "GitHub comment ID"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Direct URL to the posted comment"
+        },
+        "body_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Length of the posted comment body in characters"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the comment was created"
+        }
+      },
+      "description": "Details of the posted comment (only present if success=true)"
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["authentication_failed", "rate_limit_exceeded", "issue_not_found", "issue_locked", "permission_denied", "comment_too_long", "network_error", "api_error", "unknown_error"],
+          "description": "Error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the operation can be retried"
+        }
+      },
+      "description": "Error details (only present if success=false)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Operation timestamp"
+    }
+  }
+}
