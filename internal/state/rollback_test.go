@@ -109,19 +109,22 @@ func TestRollbackDataIntegrity(t *testing.T) {
 	err = manager.MigrateUp(migrations[:3], 0)
 	require.NoError(t, err)
 
-	// Insert some test data
-	testData := map[string]string{
-		"INSERT INTO pipeline_state (pipeline_id, pipeline_name, status, input, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)":
-			"test-pipeline|test|running|test input|1234567890|1234567890",
-		"INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at) VALUES (?, ?, ?, ?)":
-			"test-run|test-pipeline|running|1234567890",
-		"INSERT INTO performance_metric (run_id, step_id, pipeline_name, started_at, success) VALUES (?, ?, ?, ?, ?)":
-			"test-run|test-step|test-pipeline|1234567890|1",
+	// Insert test data in FK-safe order (parent rows before child rows)
+	testInserts := []struct {
+		query  string
+		params string
+	}{
+		{"INSERT INTO pipeline_state (pipeline_id, pipeline_name, status, input, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+			"test-pipeline|test|running|test input|1234567890|1234567890"},
+		{"INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at) VALUES (?, ?, ?, ?)",
+			"test-run|test-pipeline|running|1234567890"},
+		{"INSERT INTO performance_metric (run_id, step_id, pipeline_name, started_at, success) VALUES (?, ?, ?, ?, ?)",
+			"test-run|test-step|test-pipeline|1234567890|1"},
 	}
 
-	for query, params := range testData {
-		paramSlice := splitParams(params)
-		_, err := db.Exec(query, paramSlice...)
+	for _, ins := range testInserts {
+		paramSlice := splitParams(ins.params)
+		_, err := db.Exec(ins.query, paramSlice...)
 		require.NoError(t, err)
 	}
 
