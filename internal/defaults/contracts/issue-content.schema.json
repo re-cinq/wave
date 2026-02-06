@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Content",
+  "description": "Parsed content from a GitHub issue for research pipeline processing",
+  "type": "object",
+  "required": ["issue_number", "title", "body", "author", "url", "repository"],
+  "properties": {
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "GitHub issue number"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Issue title"
+    },
+    "body": {
+      "type": "string",
+      "description": "Issue body/description text"
+    },
+    "author": {
+      "type": "object",
+      "required": ["login"],
+      "properties": {
+        "login": {
+          "type": "string",
+          "minLength": 1,
+          "description": "GitHub username of issue author"
+        }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label name"
+          },
+          "color": {
+            "type": "string",
+            "description": "Label color hex code"
+          },
+          "description": {
+            "type": "string",
+            "description": "Label description"
+          }
+        }
+      },
+      "description": "Labels applied to the issue"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "HTML URL to the GitHub issue"
+    },
+    "repository": {
+      "type": "object",
+      "required": ["owner", "name", "full_name"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Repository owner"
+        },
+        "name": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "full_name": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "Full repository name (owner/repo)"
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed"],
+      "description": "Issue state"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Issue creation timestamp"
+    },
+    "comments_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of comments on the issue"
+    }
+  }
+}

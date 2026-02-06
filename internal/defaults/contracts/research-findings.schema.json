@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Research Findings",
+  "description": "Web research results organized by topic with sources and insights",
+  "type": "object",
+  "required": ["issue_reference", "findings_by_topic", "research_metadata"],
+  "properties": {
+    "issue_reference": {
+      "type": "object",
+      "required": ["issue_number", "repository"],
+      "properties": {
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        }
+      }
+    },
+    "findings_by_topic": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["topic_id", "topic_title", "findings", "confidence_level"],
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "pattern": "^TOPIC-[0-9]{3}$",
+            "description": "Reference to topic ID from research-topics"
+          },
+          "topic_title": {
+            "type": "string",
+            "description": "Topic title for readability"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "summary", "source", "relevance_score"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^FINDING-[0-9]{3}$",
+                  "description": "Unique finding identifier"
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 20,
+                  "maxLength": 2000,
+                  "description": "Summarized finding content"
+                },
+                "key_points": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Bullet points of key insights"
+                },
+                "source": {
+                  "type": "object",
+                  "required": ["url", "title", "type"],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Source URL"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Source page/article title"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["official_docs", "github_issue", "github_discussion", "stack_overflow", "blog_post", "tutorial", "api_reference", "academic_paper", "forum_post", "other"],
+                      "description": "Type of source"
+                    },
+                    "author": {
+                      "type": "string",
+                      "description": "Author or organization name"
+                    },
+                    "credibility_score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "Source credibility assessment (0-1)"
+                    }
+                  }
+                },
+                "relevance_score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Relevance to the topic (0-1)"
+                },
+                "quotes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["text"],
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "description": "Direct quote from source"
+                      },
+                      "context": {
+                        "type": "string",
+                        "description": "Context for the quote"
+                      }
+                    }
+                  },
+                  "description": "Notable quotes from the source"
+                }
+              }
+            },
+            "description": "Individual research findings for this topic"
+          },
+          "confidence_level": {
+            "type": "string",
+            "enum": ["high", "medium", "low", "inconclusive"],
+            "description": "Overall confidence in findings for this topic"
+          },
+          "consensus": {
+            "type": "string",
+            "description": "Summary of consensus across sources"
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Questions that couldn't be fully answered"
+          }
+        }
+      },
+      "description": "Research findings organized by topic"
+    },
+    "research_metadata": {
+      "type": "object",
+      "required": ["started_at", "completed_at"],
+      "properties": {
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Research start timestamp"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Research completion timestamp"
+        },
+        "persona": {
+          "type": "string",
+          "description": "Wave persona that conducted research"
+        },
+        "total_sources_consulted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of sources examined"
+        },
+        "sources_included": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of sources included in findings"
+        },
+        "search_queries_used": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Search queries that were used"
+        }
+      }
+    }
+  }
+}
