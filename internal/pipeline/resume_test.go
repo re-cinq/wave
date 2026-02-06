@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -656,5 +657,63 @@ func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(sub); err != nil {
 		t.Errorf("subpipeline DAG should be valid, got: %v", err)
+	}
+}
+
+func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+	manager := NewResumeManager(executor)
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test-project"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"researcher": {
+				Adapter:     "claude",
+				Temperature: 0.1,
+			},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:     tmpDir,
+			DefaultTimeoutMin: 5,
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "prototype"},
+		Steps: []Step{
+			{ID: "spec", Persona: "researcher", Exec: ExecConfig{Source: "generate spec"}},
+			{ID: "docs", Persona: "researcher", Dependencies: []string{"spec"}, Exec: ExecConfig{Source: "generate docs"}},
+		},
+	}
+
+	ctx := context.Background()
+
+	// Without force, this should fail because spec workspace doesn't exist
+	err := manager.ResumeFromStep(ctx, p, m, "test", "docs", false)
+	if err == nil {
+		t.Error("expected error without force when prerequisites are missing")
+	}
+	if err != nil && !strings.Contains(err.Error(), "prerequisite phase") {
+		t.Errorf("expected prerequisite phase error, got: %v", err)
+	}
+
+	// With force, validation should be skipped. Execution may fail for other reasons
+	// (mock adapter, missing workspace, etc.) but NOT due to phase validation.
+	err = manager.ResumeFromStep(ctx, p, m, "test", "docs", true)
+	if err != nil && strings.Contains(err.Error(), "prerequisite phase") {
+		t.Errorf("force should skip phase validation, got: %v", err)
 	}
 }

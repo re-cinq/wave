@@ -21,16 +21,17 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline     string
-	Input        string
-	DryRun       bool
-	FromStep     string
-	Timeout      int
-	Manifest     string
-	Mock         bool
-	NoProgress   bool
+	Pipeline      string
+	Input         string
+	DryRun        bool
+	FromStep      string
+	Force         bool
+	Timeout       int
+	Manifest      string
+	Mock          bool
+	NoProgress    bool
 	PlainProgress bool
-	NoLogs       bool
+	NoLogs        bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -74,6 +75,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.Input, "input", "", "Input data for the pipeline")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be executed without running")
 	cmd.Flags().StringVar(&opts.FromStep, "from-step", "", "Start execution from specific step")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "Skip validation checks when using --from-step")
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
@@ -253,7 +255,7 @@ func runRun(opts RunOptions, debug bool) error {
 	var execErr error
 	if opts.FromStep != "" {
 		// Resume from specific step - uses ResumeWithValidation which handles artifacts
-		execErr = executor.ResumeWithValidation(execCtx, p, &m, opts.Input, opts.FromStep)
+		execErr = executor.ResumeWithValidation(execCtx, p, &m, opts.Input, opts.FromStep, opts.Force)
 	} else {
 		execErr = executor.Execute(execCtx, p, &m, opts.Input)
 	}
