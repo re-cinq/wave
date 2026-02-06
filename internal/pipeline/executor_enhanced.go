@@ -162,10 +162,11 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 	return nil
 }
 
-// ResumeWithValidation resumes a pipeline with full validation and error handling
-func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string) error {
+// ResumeWithValidation resumes a pipeline with full validation and error handling.
+// When force is true, phase validation and stale artifact checks are skipped.
+func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
 	manager := NewResumeManager(e)
-	return manager.ResumeFromStep(ctx, p, m, input, fromStep)
+	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force)
 }
 
 // executeStepWithValidation executes a single step with enhanced error handling

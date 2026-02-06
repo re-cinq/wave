@@ -31,8 +31,9 @@ func NewResumeManager(executor *DefaultPipelineExecutor) *ResumeManager {
 	}
 }
 
-// ResumeFromStep resumes pipeline execution from a specific step with enhanced validation
-func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string) error {
+// ResumeFromStep resumes pipeline execution from a specific step with enhanced validation.
+// When force is true, phase validation and stale artifact checks are skipped.
+func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
 	if fromStep == "" {
 		return fmt.Errorf("fromStep cannot be empty for resume operation")
 	}
@@ -51,23 +52,25 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 			fromStep, p.Metadata.Name, r.getAvailableSteps(p))
 	}
 
-	// Phase skip validation - ensure prerequisites are completed
-	if err := r.validator.ValidatePhaseSequence(p, fromStep); err != nil {
-		return r.errors.FormatPhaseFailureError(fromStep, err)
-	}
-
-	// Stale artifact detection - warn about outdated artifacts
-	staleReasons, err := r.detector.DetectStaleArtifacts(p, fromStep)
-	if err != nil {
-		return fmt.Errorf("failed to detect stale artifacts: %w", err)
-	}
-
-	if len(staleReasons) > 0 {
-		fmt.Printf("⚠️  Warning: Stale artifacts detected for step '%s':\n", fromStep)
-		for _, reason := range staleReasons {
-			fmt.Printf("   • %s\n", reason)
+	if !force {
+		// Phase skip validation - ensure prerequisites are completed
+		if err := r.validator.ValidatePhaseSequence(p, fromStep); err != nil {
+			return r.errors.FormatPhaseFailureError(fromStep, err)
 		}
-		fmt.Printf("\nRecommendation: Consider re-running upstream phases to ensure consistency.\n\n")
+
+		// Stale artifact detection - warn about outdated artifacts
+		staleReasons, err := r.detector.DetectStaleArtifacts(p, fromStep)
+		if err != nil {
+			return fmt.Errorf("failed to detect stale artifacts: %w", err)
+		}
+
+		if len(staleReasons) > 0 {
+			fmt.Printf("Warning: Stale artifacts detected for step '%s':\n", fromStep)
+			for _, reason := range staleReasons {
+				fmt.Printf("   - %s\n", reason)
+			}
+			fmt.Printf("\nRecommendation: Consider re-running upstream phases to ensure consistency.\n\n")
+		}
 	}
 
 	// Concurrency protection - ensure workspace is not in use
