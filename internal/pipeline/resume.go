@@ -162,7 +162,8 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 	return state, nil
 }
 
-// createResumeSubpipeline creates a new pipeline starting from the specified step
+// createResumeSubpipeline creates a new pipeline starting from the specified step.
+// Dependencies on prior (completed) steps are stripped since they're not in the subpipeline.
 func (r *ResumeManager) createResumeSubpipeline(p *Pipeline, fromStep string) *Pipeline {
 	// Find the starting step index
 	startIndex := -1
@@ -177,12 +178,30 @@ func (r *ResumeManager) createResumeSubpipeline(p *Pipeline, fromStep string) *P
 		return p // Fallback to full pipeline
 	}
 
-	// Create new pipeline with steps starting from target
+	// Collect IDs of steps included in the subpipeline
+	includedSteps := make(map[string]bool)
+	for _, step := range p.Steps[startIndex:] {
+		includedSteps[step.ID] = true
+	}
+
+	// Copy steps and strip dependencies on excluded (prior) steps
+	subSteps := make([]Step, len(p.Steps[startIndex:]))
+	copy(subSteps, p.Steps[startIndex:])
+	for i := range subSteps {
+		var kept []string
+		for _, dep := range subSteps[i].Dependencies {
+			if includedSteps[dep] {
+				kept = append(kept, dep)
+			}
+		}
+		subSteps[i].Dependencies = kept
+	}
+
 	resumePipeline := &Pipeline{
 		Kind:     p.Kind,
 		Metadata: p.Metadata,
 		Input:    p.Input,
-		Steps:    p.Steps[startIndex:], // Include fromStep and all subsequent steps
+		Steps:    subSteps,
 	}
 
 	return resumePipeline
