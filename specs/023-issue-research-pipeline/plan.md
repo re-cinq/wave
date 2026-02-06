@@ -61,7 +61,7 @@ All contracts in `.wave/contracts/`:
    - Output: issue-content.json
    - Contract: issue-content.schema.json
 
-2. **analyze-topics** (philosopher)
+2. **analyze-topics** (researcher)
    - Input: issue-content artifact
    - Output: research-topics.json
    - Contract: research-topics.schema.json

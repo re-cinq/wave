@@ -113,7 +113,7 @@ Input: "owner/repo issue_number"
          │
          ▼
 ┌─────────────────┐
-│ analyze-topics  │  persona: philosopher
+│ analyze-topics  │  persona: researcher
 │                 │  output: research-topics.json
 └────────┬────────┘
          │
