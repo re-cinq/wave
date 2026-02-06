@@ -1,92 +1,239 @@
 kind: WavePipeline
 metadata:
-    name: documentation-sync-analysis
-    description: Comprehensive documentation impact analysis before merge
+  name: doc-loop
+  description: Pre-PR documentation consistency gate — scans changes, cross-references docs, and creates a GitHub issue with inconsistencies
+
 input:
-    source: meta
+  source: cli
+
 steps:
-    - id: navigate-changes
-      persona: navigator
-      memory:
-        strategy: fresh
-      workspace:
-        root: ./
-      exec:
-        type: prompt
-        source: 'Analyze git commits and changes to identify documentation impact areas. Examine: 1) Recent git log entries, 2) Modified files and their documentation implications, 3) API changes that affect docs, 4) New features requiring documentation updates, 5) Deprecated features needing doc removal. Output structured JSON with commit_analysis, affected_docs, api_changes, feature_impacts, and deprecation_notes. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
-      output_artifacts:
-        - name: change_analysis
-          path: artifact.json
-          type: json
-      handover:
-        contract:
-            type: json_schema
-            schema_path: .wave/contracts/change-analysis.schema.json
-    - id: analyze-documentation-state
-      persona: navigator
-      memory:
-        strategy: fresh
-      workspace:
-        root: ./
-      exec:
-        type: prompt
-        source: 'Examine current documentation state across READMEs, docs/, help texts, comments, and inline documentation. Cross-reference with change analysis from previous step. Identify: 1) Outdated documentation sections, 2) Missing documentation for new features, 3) Inconsistent help texts, 4) Stale comments in code, 5) Documentation gaps. Output structured JSON with current_state, inconsistencies, gaps, and priority_areas. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
-      output_artifacts:
-        - name: documentation_state
-          path: artifact.json
-          type: json
-      handover:
-        contract:
-            type: json_schema
-            schema_path: .wave/contracts/documentation-state.schema.json
-    - id: investigate-issue-pr-context
-      persona: navigator
-      memory:
-        strategy: fresh
-      workspace:
-        root: ./
-      exec:
-        type: prompt
-        source: 'Investigate open issues and PRs for documentation-related context. Analyze: 1) Open issues mentioning documentation problems, 2) PRs with documentation changes, 3) User feedback about unclear docs, 4) Feature requests affecting documentation, 5) Bug reports related to help texts or examples. Output structured JSON with open_issues, pr_context, user_feedback, and documentation_requests. CRITICAL: You MUST create an artifact.json file with your analysis - this overrides the normal no-write constraint for pipeline data flow.'
-      output_artifacts:
-        - name: context_analysis
-          path: artifact.json
-          type: json
-      handover:
-        contract:
-            type: json_schema
-            schema_path: .wave/contracts/context-analysis.schema.json
-    - id: synthesize-documentation-plan
-      persona: philosopher
-      memory:
-        strategy: fresh
-      workspace:
-        root: ./
-      exec:
-        type: prompt
-        source: 'Synthesize findings from change analysis, documentation state, and issue/PR context into a comprehensive documentation synchronization plan. Create detailed specifications for: 1) Critical documentation updates needed, 2) Consistency improvements required, 3) New documentation to be created, 4) Deprecated content to be removed, 5) Priority order for implementation. Output structured JSON with sync_plan, critical_updates, consistency_fixes, new_content, removals, and implementation_priority. CRITICAL: You MUST create an artifact.json file with your specification - this overrides the normal no-write constraint for pipeline data flow.'
-      output_artifacts:
-        - name: sync_plan
-          path: artifact.json
-          type: json
-      handover:
-        contract:
-            type: json_schema
-            schema_path: .wave/contracts/sync-plan.schema.json
-    - id: validate-documentation-strategy
-      persona: reviewer
-      memory:
-        strategy: fresh
-      workspace:
-        root: ./
-      exec:
-        type: prompt
-        source: 'Review the documentation synchronization plan for completeness, feasibility, and impact assessment. Validate: 1) All critical areas are covered, 2) Priority ordering is logical, 3) Resource requirements are reasonable, 4) Risk mitigation is addressed, 5) Success criteria are defined. Output structured JSON with validation_results, coverage_assessment, feasibility_check, risk_analysis, and recommendations. CRITICAL: You MUST create an artifact.json file with your validation - this overrides the normal no-write constraint for pipeline data flow.'
-      output_artifacts:
-        - name: validation_results
-          path: artifact.json
-          type: json
-      handover:
-        contract:
-            type: json_schema
-            schema_path: .wave/contracts/validation-results.schema.json
+  - id: scan-changes
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Scan the repository to identify changed files and capture the current documentation state.
+
+        ## Determine Scan Scope
+
+        Input: {{ input }}
+
+        - If the input is empty or blank: use `git log --name-status main...HEAD` to find files changed on the current branch vs main.
+        - If the input is "full": skip the diff — treat ALL files as in-scope and scan all documentation.
+        - Otherwise, treat the input as a git ref and use `git log --name-status <input>...HEAD`.
+
+        Run `git log --oneline --name-status` with the appropriate range to get the list of changed files.
+        If no commits are found (e.g. on main with no branch divergence), fall back to `git status --porcelain` for uncommitted changes.
+
+        ## Categorize Changed Files
+
+        Sort each changed file into one of these categories:
+        - **go_code**: `*.go` files (excluding test files and cmd/wave/commands/)
+        - **cli_commands**: files in `cmd/wave/commands/`
+        - **pipelines**: files in `.wave/pipelines/` or `internal/defaults/pipelines/`
+        - **personas**: files in `.wave/personas/` or `internal/defaults/personas/`
+        - **contracts**: files in `.wave/contracts/` or `internal/defaults/contracts/`
+        - **documentation**: `*.md` files, `docs/` directory
+        - **other**: everything else
+
+        ## Read Documentation Surface Area
+
+        Read these key documentation files (if they exist) and write a brief summary of each:
+        - README.md
+        - CLAUDE.md
+        - docs/reference/cli.md
+        - docs/reference/environment.md
+        - docs/guides/ (list all files)
+        - cmd/wave/commands/*.go (scan for cobra command definitions, flags, and help text)
+
+        ## Output
+
+        Write the result as JSON to `output/scan-results.json` matching the doc-scan-results schema.
+        Include:
+        - scan_scope: mode ("diff" or "full"), range used, base_ref
+        - changed_files: total_count + categories object with arrays of file paths
+        - documentation_snapshot: array of {path, exists, summary} for each doc file
+        - timestamp: current ISO 8601 timestamp
+    output_artifacts:
+      - name: scan-results
+        path: output/scan-results.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/scan-results.json
+        schema_path: .wave/contracts/doc-scan-results.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: analyze-consistency
+    persona: reviewer
+    dependencies: [scan-changes]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan-changes
+          artifact: scan-results
+          as: scan
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Analyze documentation consistency by cross-referencing code changes with documentation.
+
+        Read the scan results from: artifacts/scan
+
+        ## Cross-Reference Checks
+
+        For each category of changed files, perform these checks:
+
+        **CLI commands** (changed files in cmd/wave/commands/):
+        - Compare cobra flag definitions and help text against docs/reference/cli.md and README.md
+        - Check for new flags, removed flags, or changed descriptions
+        - Verify command examples still work
+
+        **Personas** (changed persona definitions):
+        - Compare persona list against README.md persona documentation
+        - Check persona descriptions match across wave.yaml, docs, and README
+        - Verify persona permissions documented correctly
+
+        **Pipelines** (changed pipeline definitions):
+        - Compare pipeline list against README.md pipeline documentation
+        - Check pipeline descriptions and step counts match docs
+        - Verify referenced personas and contracts exist
+
+        **Contracts** (changed contract schemas):
+        - Check for orphaned contracts (referenced by no pipeline)
+        - Check for missing contracts (referenced by pipeline but don't exist)
+
+        **Environment variables**:
+        - Scan Go code for os.Getenv/os.LookupEnv calls
+        - Compare against docs/reference/environment.md
+        - Flag undocumented environment variables
+
+        **Go code changes**:
+        - Check for new exported functions/types that might need API docs
+        - Look for stale code comments referencing removed features
+
+        ## Severity Rating
+
+        Rate each inconsistency:
+        - **CRITICAL**: Feature exists in code but completely missing from docs, or docs describe non-existent feature
+        - **HIGH**: Incorrect information in docs (wrong flag name, wrong description, wrong behavior)
+        - **MEDIUM**: Outdated information (stale counts, missing new options, incomplete lists)
+        - **LOW**: Minor style issues, slightly imprecise wording
+
+        ## Output
+
+        Write the result as JSON to `output/consistency-report.json` matching the doc-consistency-report schema.
+        Include:
+        - summary: total_count, by_severity counts, clean (true if zero inconsistencies)
+        - inconsistencies: array of {id (DOC-001 format), severity, category, title, description, source_location, doc_location, fix_description}
+        - timestamp: current ISO 8601 timestamp
+
+        If no inconsistencies are found, output an empty array with clean=true.
+    output_artifacts:
+      - name: consistency-report
+        path: output/consistency-report.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/consistency-report.json
+        schema_path: .wave/contracts/doc-consistency-report.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: create-issue
+    persona: github-analyst
+    dependencies: [analyze-consistency]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-consistency
+          artifact: consistency-report
+          as: report
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Create a GitHub issue summarizing the documentation consistency report.
+
+        Read the consistency report from: artifacts/report
+
+        ## Check for Inconsistencies
+
+        If the report has `summary.clean == true` (zero inconsistencies), skip issue creation:
+        - Write `output/issue-result.json` with success=true, skipped=true, and the repository name
+        - Do not create a GitHub issue
+
+        ## Detect Repository
+
+        Run: `gh repo view --json nameWithOwner --jq .nameWithOwner`
+        Use the result as the repository identifier.
+
+        ## Create the Issue
+
+        Build the issue body as markdown:
+
+        ```
+        ## Documentation Consistency Report
+
+        **Scan date**: <timestamp from report>
+        **Inconsistencies found**: <total_count>
+
+        ### Summary by Severity
+        | Severity | Count |
+        |----------|-------|
+        | Critical | N |
+        | High     | N |
+        | Medium   | N |
+        | Low      | N |
+
+        ### Task List
+
+        For each inconsistency (sorted by severity, critical first):
+        - [ ] **[DOC-001]** (CRITICAL) Title here — `doc_location`
+          Fix: fix_description
+
+        ---
+        *Generated by [Wave](https://github.com/re-cinq/wave) doc-loop pipeline*
+        ```
+
+        Create the issue:
+        ```
+        gh issue create \
+          --title "docs: documentation consistency report — N inconsistencies found" \
+          --body "<markdown body>" \
+          --label "documentation"
+        ```
+
+        If the `documentation` label doesn't exist, create without labels rather than failing.
+
+        ## Output
+
+        Write the result as JSON to `output/issue-result.json` matching the doc-issue-result schema.
+        Include:
+        - success: true/false
+        - repository: owner/repo string
+        - issue: {number, url, title, inconsistency_count} (if created)
+        - skipped: true (if no inconsistencies)
+        - error: {code, message, retryable} (if failed)
+        - timestamp: current ISO 8601 timestamp
+    output_artifacts:
+      - name: issue-result
+        path: output/issue-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/issue-result.json
+        schema_path: .wave/contracts/doc-issue-result.schema.json
+        on_failure: retry
+        max_retries: 3
