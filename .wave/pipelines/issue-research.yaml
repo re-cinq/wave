@@ -42,7 +42,7 @@ steps:
         max_retries: 3
 
   - id: analyze-topics
-    persona: philosopher
+    persona: researcher
     dependencies: [fetch-issue]
     memory:
       strategy: fresh
