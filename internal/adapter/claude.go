@@ -27,10 +27,14 @@ func NewClaudeAdapter() *ClaudeAdapter {
 }
 
 type ClaudeSettings struct {
-	Model        string   `json:"model"`
-	Temperature  float64  `json:"temperature"`
-	OutputFormat string   `json:"output_format"`
-	AllowedTools []string `json:"allowed_tools"`
+	Model        string            `json:"model"`
+	Temperature  float64           `json:"temperature"`
+	OutputFormat string            `json:"output_format"`
+	Permissions  ClaudePermissions `json:"permissions"`
+}
+
+type ClaudePermissions struct {
+	Allow []string `json:"allow"`
 }
 
 func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
@@ -183,7 +187,9 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		Model:        model,
 		Temperature:  cfg.Temperature,
 		OutputFormat: "json",
-		AllowedTools: allowedTools,
+		Permissions: ClaudePermissions{
+			Allow: normalizeAllowedTools(allowedTools),
+		},
 	}
 
 	settingsPath := filepath.Join(settingsDir, "settings.json")
@@ -227,7 +233,8 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args = append(args, "--model", model)
 
 	if len(cfg.AllowedTools) > 0 {
-		args = append(args, "--allowedTools", strings.Join(cfg.AllowedTools, ","))
+		normalized := normalizeAllowedTools(cfg.AllowedTools)
+		args = append(args, "--allowedTools", strings.Join(normalized, ","))
 	}
 
 	args = append(args, "--output-format", "json")
@@ -428,3 +435,20 @@ func (a *ClaudeAdapter) cleanJSONContent(content string) string {
 	return content
 }
 
+// normalizeAllowedTools converts scoped Write entries to bare Write
+// since Claude Code doesn't support Write(path) specifiers.
+// It also deduplicates entries.
+func normalizeAllowedTools(tools []string) []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, tool := range tools {
+		if strings.HasPrefix(tool, "Write(") {
+			tool = "Write"
+		}
+		if !seen[tool] {
+			seen[tool] = true
+			result = append(result, tool)
+		}
+	}
+	return result
+}

@@ -171,8 +171,7 @@ personas:
                 - Grep
                 - WebSearch
                 - WebFetch
-                - Write(artifact.json)
-                - Write(output/*)
+                - Write
             deny:
                 - Edit(*)
                 - Bash(*)
