@@ -409,6 +409,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Auto-grant Write permissions for declared output artifact paths
+	allowedTools := persona.Permissions.AllowedTools
+	for _, art := range step.OutputArtifacts {
+		dir := filepath.Dir(art.Path)
+		if dir == "." {
+			allowedTools = append(allowedTools, "Write("+art.Path+")")
+		} else {
+			allowedTools = append(allowedTools, "Write("+dir+"/*)")
+		}
+	}
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:       adapterDef.Binary,
 		Persona:       step.Persona,
@@ -418,7 +429,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timeout:       timeout,
 		Temperature:   persona.Temperature,
 		Model:         persona.Model,
-		AllowedTools:  persona.Permissions.AllowedTools,
+		AllowedTools:  allowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
 		Debug:         e.debug,
