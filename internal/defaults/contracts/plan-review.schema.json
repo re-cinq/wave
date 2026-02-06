@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Review",
+  "description": "Structured review of a task breakdown plan",
+  "type": "object",
+  "required": ["verdict", "summary", "task_reviews", "cross_cutting_concerns", "recommendations", "risk_assessment", "timestamp", "markdown_content"],
+  "properties": {
+    "verdict": {
+      "type": "object",
+      "required": ["decision", "confidence", "rationale"],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["approve", "approve_with_notes", "revise"],
+          "description": "Overall verdict on the plan"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Confidence in the verdict"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Explanation for the verdict"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_tasks_reviewed", "issues_found", "issues_by_severity", "strengths"],
+      "properties": {
+        "total_tasks_reviewed": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of tasks reviewed"
+        },
+        "issues_found": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of issues found"
+        },
+        "issues_by_severity": {
+          "type": "object",
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Issues broken down by severity"
+        },
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Things the plan does well"
+        }
+      }
+    },
+    "task_reviews": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["task_id", "status"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^T[0-9]{2}$",
+            "description": "ID of the reviewed task"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "needs_refinement", "missing_details", "overcomplicated", "wrong_persona", "bad_dependencies"],
+            "description": "Review status for this task"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "severity", "description", "suggestion"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^REV-[0-9]{3}$",
+                  "description": "Issue identifier"
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": ["critical", "high", "medium", "low"],
+                  "description": "Issue severity"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "What the issue is"
+                },
+                "suggestion": {
+                  "type": "string",
+                  "description": "How to fix it"
+                }
+              }
+            },
+            "description": "Issues found in this task"
+          }
+        }
+      },
+      "description": "Per-task review results"
+    },
+    "cross_cutting_concerns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "description", "affected_tasks", "recommendation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CC-[0-9]{3}$",
+            "description": "Concern identifier"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category of concern (e.g., testing, security, performance)"
+          },
+          "description": {
+            "type": "string",
+            "description": "What the concern is"
+          },
+          "affected_tasks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^T[0-9]{2}$"
+            },
+            "description": "Tasks affected by this concern"
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Recommended action"
+          }
+        }
+      },
+      "description": "Concerns that span multiple tasks"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "priority", "description", "type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^REC-[0-9]{3}$",
+            "description": "Recommendation identifier"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Priority of the recommendation"
+          },
+          "description": {
+            "type": "string",
+            "description": "What should be done"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["add_task", "modify_task", "remove_task", "reorder", "split_task", "merge_tasks", "change_persona", "add_dependency"],
+            "description": "Type of change recommended"
+          }
+        }
+      },
+      "description": "Actionable recommendations for improving the plan"
+    },
+    "risk_assessment": {
+      "type": "object",
+      "required": ["overall_risk", "key_risks"],
+      "properties": {
+        "overall_risk": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Overall risk level of the plan"
+        },
+        "key_risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description", "severity", "likelihood"],
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Risk description"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["high", "medium", "low"]
+              },
+              "likelihood": {
+                "type": "string",
+                "enum": ["high", "medium", "low"]
+              },
+              "mitigation": {
+                "type": "string",
+                "description": "How to mitigate"
+              }
+            }
+          },
+          "description": "Key risks identified in the plan"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the review was completed"
+    },
+    "markdown_content": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Pre-rendered human-readable review in markdown format"
+    }
+  }
+}
