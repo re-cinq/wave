@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -620,5 +621,99 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 
 	if !found {
 		t.Errorf("Expected stale reason to mention upstream docs phase, got: %v", staleReasons)
+	}
+}
+
+func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "issue-research"},
+		Steps: []Step{
+			{ID: "fetch-issue", Persona: "github-analyst"},
+			{ID: "analyze-topics", Persona: "researcher", Dependencies: []string{"fetch-issue"}},
+			{ID: "research-topics", Persona: "researcher", Dependencies: []string{"analyze-topics"}},
+		},
+	}
+
+	sub := manager.createResumeSubpipeline(p, "analyze-topics")
+
+	if len(sub.Steps) != 2 {
+		t.Fatalf("expected 2 steps in subpipeline, got %d", len(sub.Steps))
+	}
+
+	// analyze-topics should have its dependency on fetch-issue stripped
+	if len(sub.Steps[0].Dependencies) != 0 {
+		t.Errorf("expected analyze-topics to have 0 dependencies, got %v", sub.Steps[0].Dependencies)
+	}
+
+	// research-topics should still depend on analyze-topics (it's in the subpipeline)
+	if len(sub.Steps[1].Dependencies) != 1 || sub.Steps[1].Dependencies[0] != "analyze-topics" {
+		t.Errorf("expected research-topics to depend on analyze-topics, got %v", sub.Steps[1].Dependencies)
+	}
+
+	// Verify DAG validates successfully
+	validator := &DAGValidator{}
+	if err := validator.ValidateDAG(sub); err != nil {
+		t.Errorf("subpipeline DAG should be valid, got: %v", err)
+	}
+}
+
+func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+	manager := NewResumeManager(executor)
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test-project"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"researcher": {
+				Adapter:     "claude",
+				Temperature: 0.1,
+			},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:     tmpDir,
+			DefaultTimeoutMin: 5,
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "prototype"},
+		Steps: []Step{
+			{ID: "spec", Persona: "researcher", Exec: ExecConfig{Source: "generate spec"}},
+			{ID: "docs", Persona: "researcher", Dependencies: []string{"spec"}, Exec: ExecConfig{Source: "generate docs"}},
+		},
+	}
+
+	ctx := context.Background()
+
+	// Without force, this should fail because spec workspace doesn't exist
+	err := manager.ResumeFromStep(ctx, p, m, "test", "docs", false)
+	if err == nil {
+		t.Error("expected error without force when prerequisites are missing")
+	}
+	if err != nil && !strings.Contains(err.Error(), "prerequisite phase") {
+		t.Errorf("expected prerequisite phase error, got: %v", err)
+	}
+
+	// With force, validation should be skipped. Execution may fail for other reasons
+	// (mock adapter, missing workspace, etc.) but NOT due to phase validation.
+	err = manager.ResumeFromStep(ctx, p, m, "test", "docs", true)
+	if err != nil && strings.Contains(err.Error(), "prerequisite phase") {
+		t.Errorf("force should skip phase validation, got: %v", err)
 	}
 }

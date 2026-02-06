@@ -249,7 +249,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 				if tt.fromStep == "" {
 					executionErr = executor.ExecuteWithValidation(ctx, pipeline, manifest, "test input")
 				} else {
-					executionErr = executor.ResumeWithValidation(ctx, pipeline, manifest, "test input", tt.fromStep)
+					executionErr = executor.ResumeWithValidation(ctx, pipeline, manifest, "test input", tt.fromStep, false)
 				}
 			}
 

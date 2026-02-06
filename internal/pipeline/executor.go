@@ -409,6 +409,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Auto-grant Write permissions for declared output artifact paths
+	allowedTools := persona.Permissions.AllowedTools
+	for _, art := range step.OutputArtifacts {
+		dir := filepath.Dir(art.Path)
+		if dir == "." {
+			allowedTools = append(allowedTools, "Write("+art.Path+")")
+		} else {
+			allowedTools = append(allowedTools, "Write("+dir+"/*)")
+		}
+	}
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:       adapterDef.Binary,
 		Persona:       step.Persona,
@@ -418,7 +429,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timeout:       timeout,
 		Temperature:   persona.Temperature,
 		Model:         persona.Model,
-		AllowedTools:  persona.Permissions.AllowedTools,
+		AllowedTools:  allowedTools,
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
 		Debug:         e.debug,
@@ -818,9 +829,20 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 		// Resolve artifact path using pipeline context
 		resolvedPath := execution.Context.ResolveArtifactPath(art)
 		artPath := filepath.Join(workspacePath, resolvedPath)
+		key := step.ID + ":" + art.Name
+
+		// If the persona already wrote the file, trust it and don't overwrite
+		if _, err := os.Stat(artPath); err == nil {
+			execution.ArtifactPaths[key] = artPath
+			if e.debug {
+				fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
+			}
+			continue
+		}
+
+		// Fall back to writing ResultContent
 		os.MkdirAll(filepath.Dir(artPath), 0755)
 		os.WriteFile(artPath, stdout, 0644)
-		key := step.ID + ":" + art.Name
 		execution.ArtifactPaths[key] = artPath
 	}
 }
