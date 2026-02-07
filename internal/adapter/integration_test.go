@@ -320,7 +320,7 @@ func TestAdapterIntegration_ClaudeAdapterArgs(t *testing.T) {
 				Prompt: "Format test",
 			},
 			verify: func(args []string) error {
-				if !contains(args, "--output-format") || !contains(args, "json") {
+				if !contains(args, "--output-format") || !contains(args, "stream-json") {
 					return fmt.Errorf("output format not set correctly: %v", args)
 				}
 				return nil
