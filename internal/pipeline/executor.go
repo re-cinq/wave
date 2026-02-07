@@ -96,22 +96,23 @@ type PipelineExecution struct {
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
-	// Initialize security configuration with secure defaults
-	securityConfig := security.DefaultSecurityConfig()
-	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled)
-
 	ex := &DefaultPipelineExecutor{
 		runner:             runner,
 		pipelines:          make(map[string]*PipelineExecution),
-		securityConfig:     securityConfig,
-		pathValidator:      security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer:     security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger:     securityLogger,
 		deliverableTracker: deliverable.NewTracker(""),
 	}
 	for _, opt := range opts {
 		opt(ex)
 	}
+
+	// Initialize security after options so logging respects --debug
+	securityConfig := security.DefaultSecurityConfig()
+	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled && ex.debug)
+	ex.securityConfig = securityConfig
+	ex.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
+	ex.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
+	ex.securityLogger = securityLogger
+
 	return ex
 }
 
