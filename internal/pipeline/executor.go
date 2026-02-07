@@ -433,6 +433,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
 		Debug:         e.debug,
+		OnStreamEvent: func(evt adapter.StreamEvent) {
+			if evt.Type == "tool_use" && evt.ToolName != "" {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStreamActivity,
+					Persona:    step.Persona,
+					ToolName:   evt.ToolName,
+					ToolTarget: evt.ToolInput,
+				})
+			}
+		},
 	}
 
 	// Emit step progress: executing

@@ -27,6 +27,10 @@ type Event struct {
 	EstimatedTimeMs int64   `json:"estimated_time_ms,omitempty"` // ETA in milliseconds
 	ValidationPhase string  `json:"validation_phase,omitempty"`  // Contract validation phase
 	CompactionStats *string `json:"compaction_stats,omitempty"`  // Compaction statistics (JSON)
+
+	// Stream event fields (real-time Claude Code activity)
+	ToolName   string `json:"tool_name,omitempty"`   // Tool being used (Read, Write, Bash, etc.)
+	ToolTarget string `json:"tool_target,omitempty"` // Target (file path, command, pattern)
 }
 
 // Event state constants for pipeline and step lifecycle
@@ -43,6 +47,7 @@ const (
 	StateETAUpdated         = "eta_updated"         // Estimated time remaining updated
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
+	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
 )
 
 type EventEmitter interface {
@@ -138,6 +143,22 @@ func (e *NDJSONEmitter) Emit(event Event) {
 			return
 		}
 
+		dim := "\033[90m"
+		reset := "\033[0m"
+
+		// Stream activity events get compact dim rendering
+		if event.State == StateStreamActivity && event.ToolName != "" {
+			ts := event.Timestamp.Format("15:04:05")
+			target := event.ToolTarget
+			if len(target) > 60 {
+				target = target[:60] + "..."
+			}
+			fmt.Printf("%s[%s]            %-20s %s → %s%s\n",
+				dim, ts, event.StepID,
+				event.ToolName, target, reset)
+			return
+		}
+
 		stateColors := map[string]string{
 			"started":             "\033[36m", // Primary (cyan)
 			"running":             "\033[33m", // Warning (yellow)
@@ -150,13 +171,12 @@ func (e *NDJSONEmitter) Emit(event Event) {
 		if color == "" {
 			color = "\033[0m"
 		}
-		reset := "\033[0m"
 
 		ts := event.Timestamp.Format("15:04:05")
 		if event.StepID != "" {
 			// Base format: timestamp, state, stepID
 			fmt.Printf("%s[%s]%s %s%-10s%s %-20s",
-				"\033[90m", ts, reset,
+				dim, ts, reset,
 				color, event.State, reset,
 				event.StepID)
 
@@ -189,7 +209,7 @@ func (e *NDJSONEmitter) Emit(event Event) {
 			}
 			fmt.Println()
 		} else {
-			fmt.Printf("%s[%s]%s %s%-10s%s %s %s\n", "\033[90m", ts, reset, color, event.State, reset, event.PipelineID, event.Message)
+			fmt.Printf("%s[%s]%s %s%-10s%s %s %s\n", dim, ts, reset, color, event.State, reset, event.PipelineID, event.Message)
 		}
 	} else {
 		e.encoder.Encode(event)
