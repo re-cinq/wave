@@ -474,6 +474,16 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 					"deny":          []string{"Write(*)", "Edit(*)"},
 				},
 			},
+			"github-commenter": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Posts comments on GitHub issues",
+				"system_prompt_file": ".wave/personas/github-commenter.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Bash(gh *)"},
+					"deny":          []string{},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
