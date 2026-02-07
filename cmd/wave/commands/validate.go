@@ -26,13 +26,13 @@ func NewValidateCmd() *cobra.Command {
 		Long: `Validate the wave.yaml manifest and project structure.
 Checks manifest syntax, references, and system dependencies.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Verbose, _ = cmd.Root().PersistentFlags().GetBool("verbose")
 			return runValidate(opts)
 		},
 	}
 
 	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Specific pipeline to validate")
-	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Verbose output")
 
 	return cmd
 }
