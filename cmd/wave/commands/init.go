@@ -454,6 +454,16 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 					"deny":          []string{"Bash(rm -rf /*)"},
 				},
 			},
+			"researcher": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Deep codebase research and analysis",
+				"system_prompt_file": ".wave/personas/researcher.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(gh *)", "Bash(git log*)"},
+					"deny":          []string{"Write(*)", "Edit(*)"},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
