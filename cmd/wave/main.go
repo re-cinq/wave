@@ -29,7 +29,8 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringP("manifest", "m", "wave.yaml", "Path to manifest file")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug mode")
-	rootCmd.PersistentFlags().String("log-format", "text", "Log format (text, json)")
+	rootCmd.PersistentFlags().StringP("output", "o", "auto", "Output format: auto, json, text, quiet")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Include real-time tool activity")
 
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewValidateCmd())
