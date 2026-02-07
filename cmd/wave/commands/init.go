@@ -464,6 +464,16 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 					"deny":          []string{"Write(*)", "Edit(*)"},
 				},
 			},
+			"reviewer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Code review and quality checks",
+				"system_prompt_file": ".wave/personas/reviewer.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(go test*)", "Bash(git diff*)"},
+					"deny":          []string{"Write(*)", "Edit(*)"},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
