@@ -28,14 +28,19 @@ type BubbleTeaProgressDisplay struct {
 	stepStartTimes     map[string]time.Time  // Track when each step started
 	startTime          time.Time
 	enabled            bool
+	verbose            bool
 	deliverableTracker *deliverable.Tracker
 	currentStepID      string // Track current running step
+	lastToolName       string // Most recent tool name (verbose mode)
+	lastToolTarget     string // Most recent tool target (verbose mode)
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
-func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int, tracker *deliverable.Tracker) *BubbleTeaProgressDisplay {
+func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int, tracker *deliverable.Tracker, verbose ...bool) *BubbleTeaProgressDisplay {
 	termInfo := NewTerminalInfo()
 	enabled := termInfo.IsTTY() && termInfo.SupportsANSI()
+
+	isVerbose := len(verbose) > 0 && verbose[0]
 
 	if !enabled {
 		return &BubbleTeaProgressDisplay{
@@ -81,6 +86,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		stepStartTimes:     make(map[string]time.Time),
 		startTime:          time.Now(),
 		enabled:            true,
+		verbose:            isVerbose,
 		model:              model,
 		deliverableTracker: tracker,
 		currentStepID:      "",
@@ -247,6 +253,12 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 	if evt.Progress > 0 {
 		step.Progress = evt.Progress
 	}
+
+	// Capture tool activity for verbose mode
+	if btpd.verbose && evt.State == "stream_activity" && evt.ToolName != "" {
+		btpd.lastToolName = evt.ToolName
+		btpd.lastToolTarget = evt.ToolTarget
+	}
 }
 
 // toPipelineContext converts internal state to PipelineContext.
@@ -350,5 +362,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		CurrentStepName:    currentStepID,
 		PipelineStartTime:  btpd.startTime.UnixNano(),
 		CurrentStepStart:   currentStepStart, // Now uses actual step start time
+		LastToolName:       btpd.lastToolName,
+		LastToolTarget:     btpd.lastToolTarget,
 	}
 }

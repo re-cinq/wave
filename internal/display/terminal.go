@@ -97,7 +97,11 @@ func detectCapabilities() *TerminalCapabilities {
 }
 
 // isTerminal checks if stdout is connected to a terminal.
+// Honors WAVE_FORCE_TTY=1/0 for testing auto-mode behavior in CI/scripts.
 func isTerminal() bool {
+	if v := os.Getenv("WAVE_FORCE_TTY"); v != "" {
+		return v == "1" || v == "true"
+	}
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
