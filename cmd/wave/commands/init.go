@@ -444,6 +444,16 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 					"deny":          []string{},
 				},
 			},
+			"implementer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Execution specialist for code changes and structured output",
+				"system_prompt_file": ".wave/personas/implementer.md",
+				"temperature":        0.3,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
+					"deny":          []string{"Bash(rm -rf /*)"},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
