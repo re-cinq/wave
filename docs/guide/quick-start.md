@@ -63,11 +63,17 @@ Expected output:
 wave run speckit-flow "add user authentication"
 ```
 
-You'll see structured progress events:
-```json
-{"timestamp":"2026-02-01T10:00:00Z","pipeline_id":"123","step_id":"navigate","state":"running","duration_ms":0}
-{"timestamp":"2026-02-01T10:01:30Z","pipeline_id":"123","step_id":"navigate","state":"completed","duration_ms":90000}
+You'll see progress output:
+```
+[10:00:01] → navigate (navigator)
+[10:01:30] ✓ navigate completed (90s, 2k tokens)
+[10:01:31] → implement (craftsman)
 ...
+```
+
+For machine-readable NDJSON output, use `-o json`:
+```bash
+wave run speckit-flow "add user authentication" -o json
 ```
 
 ## 5. Check Results

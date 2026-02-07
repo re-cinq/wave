@@ -79,11 +79,12 @@ Available Commands:
   validate    Validate Wave configuration
 
 Flags:
-  -d, --debug               Enable debug mode
-  -h, --help                help for wave
-      --log-format string   Log format (text, json) (default "text")
-  -m, --manifest string     Path to manifest file (default "wave.yaml")
-  -v, --version             version for wave
+  -d, --debug             Enable debug mode
+  -h, --help              help for wave
+  -m, --manifest string   Path to manifest file (default "wave.yaml")
+  -o, --output string     Output format: auto, json, text, quiet (default "auto")
+  -v, --verbose           Include real-time tool activity
+      --version           version for wave
 
 Use "wave [command] --help" for more information about a command.
 ```

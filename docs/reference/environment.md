@@ -8,9 +8,9 @@ Reference for all environment variables that control Wave behavior, and the cred
 |----------|------|---------|-------------|
 | `WAVE_DEBUG` | `bool` | `false` | Enable debug logging. Outputs verbose execution traces to stderr. |
 | `WAVE_WORKSPACE_ROOT` | `string` | `/tmp/wave` | Override the default workspace root. Takes precedence over `runtime.workspace_root` in the manifest. |
-| `WAVE_LOG_FORMAT` | `string` | `json` | Event output format: `json` (NDJSON, machine-parseable) or `text` (human-friendly with color). |
 | `WAVE_MANIFEST` | `string` | `wave.yaml` | Default manifest file path. Overridden by `--manifest` flag. |
-| `WAVE_NO_COLOR` | `bool` | `false` | Disable colored output in text log format. Also respects `NO_COLOR` standard. |
+| `WAVE_FORCE_TTY` | `bool` | _(auto)_ | Override TTY detection for `-o auto` mode. Set `1` to force TUI, `0` to force plain text. Useful in CI and testing. |
+| `NO_COLOR` | `bool` | `false` | Disable colored output. Follows the [NO_COLOR](https://no-color.org) standard. |
 
 ### Precedence Order
 
@@ -84,26 +84,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      WAVE_LOG_FORMAT: json
       WAVE_WORKSPACE_ROOT: /tmp/wave-ci
     steps:
       - uses: actions/checkout@v4
-      - run: wave run .wave/pipelines/ci-flow.yaml "CI run"
+      - run: wave run ci-flow "CI run" -o json
 ```
-
-> **Note:** You can also use the shorthand `wave run ci-flow "CI run"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
 
 ```yaml
 # GitLab CI example
 wave-pipeline:
   script:
-    - wave run .wave/pipelines/ci-flow.yaml "CI run"
+    - wave run ci-flow "CI run" -o json
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-    WAVE_LOG_FORMAT: json
 ```
-
-> **Note:** Shorthand `wave run ci-flow "CI run"` also works.
 
 ## Adapter Environment Variables
 

@@ -85,9 +85,10 @@ wave run hotfix --dry-run                      # Preview without executing
 wave run speckit-flow --from-step implement    # Start from step
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
-wave run build --no-progress                   # Disable enhanced progress display
-wave run deploy --plain                        # Use plain text progress (no colors/animations)
-wave run review --no-logs                      # Suppress JSON log output, show only progress display
+wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
+wave run deploy -o text                        # Plain text progress to stderr
+wave run review -o text -v                     # Plain text with real-time tool activity
+wave run check -o quiet                        # Only final result to stderr
 ```
 
 ---
@@ -568,7 +569,8 @@ All commands support:
 | `--version` | | Show version |
 | `--manifest` | `-m` | Path to manifest file (default: wave.yaml) |
 | `--debug` | `-d` | Enable debug mode |
-| `--log-format` | | Log format: text, json |
+| `--output` | `-o` | Output format: auto, json, text, quiet (default: auto) |
+| `--verbose` | `-v` | Include real-time tool activity |
 
 ---
 
