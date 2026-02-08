@@ -379,6 +379,8 @@ func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 		case "step_progress":
 			step.Progress = ev.Progress
 			step.CurrentAction = ev.CurrentAction
+		case "warning":
+			step.Message = ev.Message
 		case "validating", "contract_validating":
 			step.CurrentAction = "Validating contract"
 		case "compacting", "compaction_progress":
@@ -559,6 +561,8 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			if ev.CurrentAction != "" {
 				fmt.Fprintf(bpd.writer, "[%s]   %s: %s\n", timestamp, ev.StepID, ev.CurrentAction)
 			}
+		case "warning":
+			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s: %s\n", timestamp, ev.StepID, ev.Message)
 		case "validating", "contract_validating":
 			fmt.Fprintf(bpd.writer, "[%s]   %s: validating contract\n", timestamp, ev.StepID)
 		case "stream_activity":

@@ -466,6 +466,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 
+	// Warn on non-zero exit code — adapter process may have crashed, but
+	// work may still have been completed (e.g. Claude Code JS error after
+	// tool calls finished). Let contract validation decide the outcome.
+	if result.ExitCode != 0 {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "warning",
+			Message:    fmt.Sprintf("adapter exited with code %d (process may have crashed)", result.ExitCode),
+		})
+	}
+
 	stepDuration := time.Since(stepStart).Milliseconds()
 
 	// Emit step progress: processing results
