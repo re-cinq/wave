@@ -49,6 +49,25 @@
               echo ""
               echo "  Run 'wave --help' for full command reference"
               echo ""
+
+              # Export GH_TOKEN so Wave subprocesses can auth without keyring
+              if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+                export GH_TOKEN=$(gh auth token 2>/dev/null)
+              fi
+
+              # Pre-flight auth checks
+              if [ -z "$ANTHROPIC_API_KEY" ]; then
+                if [ -f "$HOME/.claude/.credentials.json" ]; then
+                  echo "  ⚠  ANTHROPIC_API_KEY not set — using Claude Code OAuth (may expire)"
+                else
+                  echo "  ✗  No Anthropic credentials found. Set ANTHROPIC_API_KEY or run: claude login"
+                fi
+              fi
+
+              if [ -z "$GH_TOKEN" ]; then
+                echo "  ⚠  GH_TOKEN not set — gh commands in pipelines may fail"
+              fi
+              echo ""
             '';
           };
         };
