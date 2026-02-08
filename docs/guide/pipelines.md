@@ -4,15 +4,17 @@ Pipelines are DAGs (Directed Acyclic Graphs) that orchestrate multi-step agent w
 
 ## Built-in Pipelines
 
-Wave ships with 9 pipelines organized by use case:
+Wave ships with 18 pipelines organized by use case:
 
 ### Development
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `speckit-flow` | navigate → specify → plan → implement → review | Feature development |
+| `speckit-flow` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
 | `hotfix` | investigate → fix → verify | Production bugs |
 | `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
+| `prototype` | spec → docs → dummy → implement → pr | Prototype-driven development |
+| `docs-to-impl` | docs → implement | Documentation to implementation |
 
 ### Quality
 
@@ -29,6 +31,23 @@ Wave ships with 9 pipelines organized by use case:
 | `plan` | explore → breakdown → review | Task planning |
 | `docs` | discover → generate → review | Documentation |
 | `migrate` | impact → plan → implement → review | Migrations |
+| `doc-loop` | analyze → report | Documentation impact analysis |
+
+### GitHub Automation
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `github-issue-enhancer` | analyze → enhance | Issue enhancement |
+| `gh-poor-issues` | scan → enhance | Bulk issue improvement |
+| `issue-research` | research → report | Issue research and analysis |
+
+### Utility
+
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `hello-world` | greet | Smoke test / example |
+| `smoke-test` | test | Configuration validation |
+| `umami` | analyze | Analytics integration |
 
 ## Running Pipelines
 
@@ -149,8 +168,9 @@ handover:
 
 Contract types:
 - `json_schema` — Validate against JSON Schema
-- `typescript` — Validate against TypeScript interface
+- `typescript_interface` — Validate against TypeScript interface
 - `test_suite` — Run test command, must pass
+- `markdown_spec` — Validate Markdown structure
 
 ## Template Variables
 
@@ -205,38 +225,56 @@ Spawn parallel instances from a task list:
 
 ### speckit-flow
 
-Full feature development workflow:
+Full feature development workflow (8 steps):
 
 ```yaml
 steps:
-  - id: navigate
-    persona: navigator
-    exec:
-      source: "Analyze the codebase for: {{ input }}"
-
   - id: specify
-    persona: philosopher
-    dependencies: [navigate]
+    persona: implementer
     exec:
       source: "Create specification for: {{ input }}"
 
-  - id: plan
-    persona: philosopher
+  - id: clarify
+    persona: implementer
     dependencies: [specify]
+    exec:
+      source: "Clarify specification details"
+
+  - id: plan
+    persona: implementer
+    dependencies: [clarify]
     exec:
       source: "Create implementation plan"
 
+  - id: tasks
+    persona: implementer
+    dependencies: [plan]
+    exec:
+      source: "Break down into tasks"
+
+  - id: checklist
+    persona: implementer
+    dependencies: [tasks]
+    exec:
+      source: "Create implementation checklist"
+
+  - id: analyze
+    persona: implementer
+    dependencies: [checklist]
+    exec:
+      source: "Analyze codebase for implementation"
+
   - id: implement
     persona: craftsman
-    dependencies: [plan]
+    dependencies: [analyze]
     exec:
       source: "Implement according to plan"
 
-  - id: review
-    persona: auditor
+  - id: create-pr
+    persona: craftsman
     dependencies: [implement]
     exec:
-      source: "Review for security and quality"
+      source: "Create pull request"
 ```
 
 ### hotfix

@@ -469,7 +469,7 @@ Validation failed with 2 errors.
 ### Options
 
 ```bash
-wave validate --verbose              # Show all checks
+wave validate -v                     # Show all checks (global --verbose flag)
 wave validate --pipeline hotfix.yaml # Validate specific pipeline
 ```
 
