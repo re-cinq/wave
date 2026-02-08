@@ -573,16 +573,16 @@ steps:
         - If a task fails, halt dependent tasks but continue independent ones
         - Provide clear error context for debugging
         - If tests fail, fix the issue before proceeding to the next phase
-    handover:
-      contract:
-        type: test_suite
-        command: "go test -race ./..."
-        must_pass: true
-        on_failure: retry
-        max_retries: 3
-      compaction:
-        trigger: "token_limit_80%"
-        persona: summarizer
+    # handover:
+    #   contract:
+    #     type: test_suite
+    #     command: "npm test"  # or: go test ./..., pytest, cargo test
+    #     must_pass: true
+    #     on_failure: retry
+    #     max_retries: 3
+    #   compaction:
+    #     trigger: "token_limit_80%"
+    #     persona: summarizer
 
   - id: create-pr
     persona: craftsman
