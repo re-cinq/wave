@@ -293,12 +293,13 @@ func TestTypeScriptValidator_StrictMode(t *testing.T) {
 
 func TestTestSuiteValidator_CommandExecution(t *testing.T) {
 	v := &testSuiteValidator{}
+	workspacePath := t.TempDir()
 	cfg := ContractConfig{
 		Type:        "test_suite",
 		Command:     "echo",
 		CommandArgs: []string{"hello"},
+		Dir:         workspacePath,
 	}
-	workspacePath := t.TempDir()
 
 	err := v.Validate(cfg, workspacePath)
 	if err != nil {
@@ -308,11 +309,12 @@ func TestTestSuiteValidator_CommandExecution(t *testing.T) {
 
 func TestTestSuiteValidator_CommandFailure(t *testing.T) {
 	v := &testSuiteValidator{}
+	workspacePath := t.TempDir()
 	cfg := ContractConfig{
 		Type:    "test_suite",
 		Command: "false", // always fails
+		Dir:     workspacePath,
 	}
-	workspacePath := t.TempDir()
 
 	err := v.Validate(cfg, workspacePath)
 	if err == nil {
@@ -567,7 +569,13 @@ func TestValidate_AllTypes(t *testing.T) {
 			workspacePath := t.TempDir()
 			tt.setupArtifact(workspacePath)
 
-			err := Validate(tt.config, workspacePath)
+			// Set Dir for test_suite configs so tests don't need a git repo
+			cfg := tt.config
+			if cfg.Type == "test_suite" && cfg.Dir == "" && cfg.Command != "" {
+				cfg.Dir = workspacePath
+			}
+
+			err := Validate(cfg, workspacePath)
 			if tt.expectError && err == nil {
 				t.Error("expected error but got none")
 			}

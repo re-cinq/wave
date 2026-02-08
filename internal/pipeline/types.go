@@ -88,6 +88,7 @@ type ContractConfig struct {
 	SchemaPath string `yaml:"schema_path,omitempty"`
 	Validate   bool   `yaml:"validate,omitempty"`
 	Command    string `yaml:"command,omitempty"`
+	Dir        string `yaml:"dir,omitempty"` // Working directory: "project_root", absolute path, or empty for workspace
 	MustPass   bool   `yaml:"must_pass,omitempty"`
 	OnFailure  string `yaml:"on_failure,omitempty"`
 	MaxRetries int    `yaml:"max_retries,omitempty"`

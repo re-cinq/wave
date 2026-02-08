@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -44,14 +45,30 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 		}
 	}
 
+	// Resolve working directory — default to project_root for test_suite
+	// since tests almost always need the actual project context (go.mod, package.json, etc.)
+	contractDir := cfg.Dir
+	if contractDir == "" {
+		contractDir = "project_root"
+	}
+	dir, err := resolveContractDir(contractDir, workspacePath)
+	if err != nil {
+		return &ValidationError{
+			ContractType: "test_suite",
+			Message:      fmt.Sprintf("failed to resolve working directory: %v", err),
+			Details:      []string{fmt.Sprintf("dir: %s", cfg.Dir), fmt.Sprintf("workspace: %s", workspacePath)},
+			Retryable:    false,
+		}
+	}
+
 	cmd := exec.Command(command, args...)
-	cmd.Dir = workspacePath
+	cmd.Dir = dir
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
@@ -69,7 +86,7 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 			Details: []string{
 				err.Error(),
 				fmt.Sprintf("command: %s %s", command, strings.Join(args, " ")),
-				fmt.Sprintf("working directory: %s", workspacePath),
+				fmt.Sprintf("working directory: %s", dir),
 			},
 			Retryable: false,
 		}
@@ -78,6 +95,33 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 	// Note: Some test frameworks write to stderr even on success (e.g., progress output)
 	// We only fail on non-zero exit code, not on stderr content
 	return nil
+}
+
+// resolveContractDir resolves the working directory for contract command execution.
+//   - Empty: use workspacePath (backward compatible)
+//   - "project_root": resolve via git rev-parse --show-toplevel
+//   - Absolute path: use as-is
+//   - Relative path: resolve relative to workspacePath
+func resolveContractDir(dir, workspacePath string) (string, error) {
+	if dir == "" {
+		return workspacePath, nil
+	}
+
+	if dir == "project_root" {
+		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		cmd.Dir = workspacePath
+		out, err := cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve project root (is this a git repo?): %w", err)
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	if filepath.IsAbs(dir) {
+		return dir, nil
+	}
+
+	return filepath.Join(workspacePath, dir), nil
 }
 
 // extractTestSuiteDetails formats test suite failure information.
