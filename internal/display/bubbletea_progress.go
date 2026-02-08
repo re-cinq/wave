@@ -247,6 +247,8 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		}
 	case "retrying":
 		step.State = StateRunning // Treat retrying as running
+	case "warning":
+		step.Message = evt.Message
 	}
 
 	// Update progress if provided
