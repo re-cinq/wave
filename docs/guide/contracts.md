@@ -28,7 +28,7 @@ steps:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, or `markdown_spec` |
+| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, `template`, or `format` |
 | `schema` | - | Schema file path (for json_schema) |
 | `source` | - | File to validate |
 | `command` | - | Test command (for test_suite) |
