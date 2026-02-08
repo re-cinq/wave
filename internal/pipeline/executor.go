@@ -528,6 +528,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    step.Handover.Contract.Command,
+			Dir:        step.Handover.Contract.Dir,
 			StrictMode: step.Handover.Contract.MustPass,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
