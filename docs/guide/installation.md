@@ -4,7 +4,7 @@
 
 - Claude Code CLI (`claude`) on PATH
 - Git (optional, for building from source)
-- Go 1.22+ (optional, for building from source)
+- Go 1.25+ (optional, for building from source)
 
 ## Install Wave
 

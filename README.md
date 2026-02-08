@@ -265,7 +265,7 @@ personas:
       deny: [Write(*), Edit(*)]
 ```
 
-**10 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
+**14 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
 
 > Explore all personas in [`.wave/personas/`](.wave/personas/)
 
@@ -283,7 +283,7 @@ steps:
     dependencies: [implement]
 ```
 
-**16 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**18 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -295,7 +295,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 16 built-in pipelines:
+A selection of the 18 built-in pipelines:
 
 ### Development
 
@@ -329,7 +329,7 @@ A selection of the 16 built-in pipelines:
 | `github-issue-enhancer` | Analyze and enhance poorly documented issues |
 | `doc-loop` | Documentation impact analysis before merge |
 
-> **More pipelines:** `hello-world`, `smoke-test`, `gh-poor-issues`, `umami`
+> **More pipelines:** `docs-to-impl`, `hello-world`, `issue-research`, `smoke-test`, `gh-poor-issues`, `umami`
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -337,7 +337,7 @@ A selection of the 16 built-in pipelines:
 
 ## Personas
 
-A selection of the 10 built-in personas:
+A selection of the 14 built-in personas:
 
 | Persona | Temp | Purpose | Key Permissions |
 |---------|------|---------|--------------------|
@@ -349,7 +349,7 @@ A selection of the 10 built-in personas:
 | `auditor` | 0.1 | Security review | Read + audit tools |
 | `summarizer` | 0.0 | Context compaction | Read-only |
 
-> **More personas:** `github-analyst`, `github-enhancer`, `github-pr-creator`
+> **More personas:** `implementer`, `researcher`, `reviewer`, `github-analyst`, `github-commenter`, `github-enhancer`, `github-pr-creator`
 >
 > Explore all in [`.wave/personas/`](.wave/personas/)
 

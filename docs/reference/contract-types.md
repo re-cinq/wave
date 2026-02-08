@@ -10,6 +10,8 @@ Contracts validate step output before dependent steps begin. This page documents
 | `json_schema` | JSON structure | Ensuring data format and required fields |
 | `typescript_interface` | TypeScript compiles | Validating generated type definitions |
 | `markdown_spec` | Markdown structure | Checking documentation format |
+| `template` | Structured templates | Validating JSON/Markdown/YAML templates (experimental) |
+| `format` | Domain-specific formats | Validating GitHub issues, PRs, analysis outputs (experimental) |
 
 ---
 
@@ -323,6 +325,40 @@ steps:
         type: markdown_spec
         source: output/spec.md
 ```
+
+---
+
+## template
+
+Validate structured templates with required fields and constraints. Supports JSON, Markdown, and YAML formats.
+
+```yaml
+handover:
+  contract:
+    type: template
+    source: output/template.json
+```
+
+**Use when:** Ensuring generated templates contain required fields and meet format constraints.
+
+**Status:** Experimental. Supports required field checking, min/max length constraints, pattern matching, and enum validation.
+
+---
+
+## format
+
+Production-ready format validation for domain-specific outputs like GitHub issues, pull requests, and code analysis.
+
+```yaml
+handover:
+  contract:
+    type: format
+    source: output/issue.md
+```
+
+**Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
+
+**Status:** Experimental. Infers format type from content and applies domain-specific validation rules including placeholder detection.
 
 ---
 
