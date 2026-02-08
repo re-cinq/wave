@@ -217,8 +217,6 @@ verify:
 |----------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude | Yes (for Claude adapter) |
 | `OPENAI_API_KEY` | OpenAI API key | Yes (for OpenAI adapter) |
-| `WAVE_DEBUG` | Enable debug logging | No |
-| `WAVE_WORKSPACE_ROOT` | Custom workspace directory | No |
 
 ### Protected and Masked Variables
 
