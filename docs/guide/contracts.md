@@ -32,6 +32,7 @@ steps:
 | `schema` | - | Schema file path (for json_schema) |
 | `source` | - | File to validate |
 | `command` | - | Test command (for test_suite) |
+| `dir` | workspace | Working directory for test_suite: `project_root`, absolute, or relative |
 | `must_pass` | `true` | Whether failure blocks progression |
 | `on_failure` | `retry` | Action: `retry` or `halt` |
 | `max_retries` | `2` | Maximum retry attempts |
@@ -96,9 +97,12 @@ handover:
   contract:
     type: test_suite
     command: "go test ./..."
+    dir: project_root
     must_pass: true
     max_retries: 3
 ```
+
+Use `dir: project_root` when the command needs project files (like `go.mod`). Without it, the command runs in the ephemeral workspace directory.
 
 ## Failure Handling
 
@@ -153,6 +157,7 @@ handover:
     contract:
       type: test_suite
       command: "go build ./... && go test ./..."
+      dir: project_root
       max_retries: 3
 ```
 
