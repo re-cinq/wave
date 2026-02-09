@@ -1361,6 +1361,107 @@ func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
 	assert.True(t, bWarned, "step-b should have a warning event")
 }
 
+// streamEventAdapter wraps MockAdapter and fires OnStreamEvent callbacks before delegating Run.
+// This lets us test the stream-activity event bridge in the executor.
+type streamEventAdapter struct {
+	*adapter.MockAdapter
+	streamEvents []adapter.StreamEvent
+}
+
+func (a *streamEventAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	// Fire each pre-configured stream event through the callback, if set
+	if cfg.OnStreamEvent != nil {
+		for _, evt := range a.streamEvents {
+			cfg.OnStreamEvent(evt)
+		}
+	}
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+// TestStreamActivityEventBridge verifies that the OnStreamEvent callback in the executor
+// correctly emits pipeline-enriched stream_activity events for valid tool_use events,
+// and silently ignores non-tool_use events and tool_use events with empty ToolName.
+func TestStreamActivityEventBridge(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Configure three stream events:
+	// 1. Valid tool_use with ToolName and ToolInput -> SHOULD emit stream_activity
+	// 2. Non-tool_use event (type "text") -> should NOT emit stream_activity
+	// 3. tool_use with empty ToolName -> should NOT emit stream_activity
+	streamAdapter := &streamEventAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(500),
+		),
+		streamEvents: []adapter.StreamEvent{
+			{
+				Type:      "tool_use",
+				ToolName:  "Write",
+				ToolInput: "/workspace/output.json",
+			},
+			{
+				Type:    "text",
+				Content: "Here is some reasoning text",
+			},
+			{
+				Type:      "tool_use",
+				ToolName:  "",
+				ToolInput: "should-be-ignored",
+			},
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(streamAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "stream-bridge-test"},
+		Steps: []Step{
+			{ID: "stream-step", Persona: "craftsman", Exec: ExecConfig{Source: "do work"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Collect all stream_activity events
+	allEvents := collector.GetEvents()
+	var streamActivityEvents []event.Event
+	for _, e := range allEvents {
+		if e.State == event.StateStreamActivity {
+			streamActivityEvents = append(streamActivityEvents, e)
+		}
+	}
+
+	// Exactly one stream_activity event should have been emitted (the valid tool_use)
+	require.Len(t, streamActivityEvents, 1,
+		"exactly one stream_activity event expected (valid tool_use); got %d", len(streamActivityEvents))
+
+	sa := streamActivityEvents[0]
+
+	// Verify pipeline-enriched fields
+	assert.Equal(t, "stream-bridge-test", sa.PipelineID, "PipelineID should match")
+	assert.Equal(t, "stream-step", sa.StepID, "StepID should match")
+	assert.Equal(t, "craftsman", sa.Persona, "Persona should match the step persona")
+	assert.Equal(t, "Write", sa.ToolName, "ToolName should be the tool from the stream event")
+	assert.Equal(t, "/workspace/output.json", sa.ToolTarget, "ToolTarget should be the tool input")
+	assert.False(t, sa.Timestamp.IsZero(), "Timestamp should be set")
+
+	// Double-check: no stream_activity events for the text or empty-ToolName cases
+	for _, e := range allEvents {
+		if e.State == event.StateStreamActivity {
+			assert.NotEmpty(t, e.ToolName, "stream_activity events must have non-empty ToolName")
+		}
+	}
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {
