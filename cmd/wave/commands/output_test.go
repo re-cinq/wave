@@ -53,8 +53,8 @@ func TestCreateEmitter_TextFormat(t *testing.T) {
 	assert.NotNil(t, result.Emitter)
 	assert.NotNil(t, result.Progress, "text format should have a progress display")
 
-	_, ok := result.Progress.(*display.BasicProgressDisplay)
-	assert.True(t, ok, "text format should use BasicProgressDisplay")
+	_, ok := result.Progress.(*display.ThrottledProgressEmitter)
+	assert.True(t, ok, "text format should use ThrottledProgressEmitter wrapping BasicProgressDisplay")
 }
 
 func TestCreateEmitter_TextFormatVerbose(t *testing.T) {
@@ -65,8 +65,8 @@ func TestCreateEmitter_TextFormatVerbose(t *testing.T) {
 	assert.NotNil(t, result.Emitter)
 	assert.NotNil(t, result.Progress)
 
-	_, ok := result.Progress.(*display.BasicProgressDisplay)
-	assert.True(t, ok, "text verbose format should use BasicProgressDisplay")
+	_, ok := result.Progress.(*display.ThrottledProgressEmitter)
+	assert.True(t, ok, "text verbose format should use ThrottledProgressEmitter")
 }
 
 func TestCreateEmitter_QuietFormat(t *testing.T) {
@@ -77,8 +77,8 @@ func TestCreateEmitter_QuietFormat(t *testing.T) {
 	assert.NotNil(t, result.Emitter)
 	assert.NotNil(t, result.Progress, "quiet format should have a progress display")
 
-	_, ok := result.Progress.(*display.QuietProgressDisplay)
-	assert.True(t, ok, "quiet format should use QuietProgressDisplay")
+	_, ok := result.Progress.(*display.ThrottledProgressEmitter)
+	assert.True(t, ok, "quiet format should use ThrottledProgressEmitter wrapping QuietProgressDisplay")
 }
 
 func TestCreateEmitter_AutoFormatWithSteps(t *testing.T) {
@@ -105,9 +105,9 @@ func TestCreateEmitter_AutoFormatForceTTY(t *testing.T) {
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
-	// When TTY is forced, auto mode should use BubbleTea
-	_, isBubbleTea := result.Progress.(*display.BubbleTeaProgressDisplay)
-	assert.True(t, isBubbleTea, "auto mode with WAVE_FORCE_TTY=1 should use BubbleTeaProgressDisplay")
+	// When TTY is forced, auto mode should use ThrottledProgressEmitter wrapping BubbleTea
+	_, isThrottled := result.Progress.(*display.ThrottledProgressEmitter)
+	assert.True(t, isThrottled, "auto mode with WAVE_FORCE_TTY=1 should use ThrottledProgressEmitter")
 }
 
 func TestCreateEmitter_AutoFormatForceNonTTY(t *testing.T) {
@@ -121,9 +121,9 @@ func TestCreateEmitter_AutoFormatForceNonTTY(t *testing.T) {
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
-	// When non-TTY is forced, auto mode should use BasicProgressDisplay
-	_, isBasic := result.Progress.(*display.BasicProgressDisplay)
-	assert.True(t, isBasic, "auto mode with WAVE_FORCE_TTY=0 should use BasicProgressDisplay")
+	// When non-TTY is forced, auto mode should use ThrottledProgressEmitter wrapping BasicProgressDisplay
+	_, isThrottled := result.Progress.(*display.ThrottledProgressEmitter)
+	assert.True(t, isThrottled, "auto mode with WAVE_FORCE_TTY=0 should use ThrottledProgressEmitter")
 }
 
 func TestCreateEmitter_NilSteps(t *testing.T) {
@@ -139,4 +139,34 @@ func TestOutputFormatConstants(t *testing.T) {
 	assert.Equal(t, "json", OutputFormatJSON)
 	assert.Equal(t, "text", OutputFormatText)
 	assert.Equal(t, "quiet", OutputFormatQuiet)
+}
+
+func TestCreateEmitter_TextFormatUsesThrottle(t *testing.T) {
+	cfg := OutputConfig{Format: OutputFormatText, Verbose: false}
+	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	defer result.Cleanup()
+
+	if _, ok := result.Progress.(*display.ThrottledProgressEmitter); !ok {
+		t.Errorf("text format should use ThrottledProgressEmitter, got %T", result.Progress)
+	}
+}
+
+func TestCreateEmitter_QuietFormatUsesThrottle(t *testing.T) {
+	cfg := OutputConfig{Format: OutputFormatQuiet, Verbose: false}
+	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	defer result.Cleanup()
+
+	if _, ok := result.Progress.(*display.ThrottledProgressEmitter); !ok {
+		t.Errorf("quiet format should use ThrottledProgressEmitter, got %T", result.Progress)
+	}
+}
+
+func TestCreateEmitter_JSONFormatNoThrottle(t *testing.T) {
+	cfg := OutputConfig{Format: OutputFormatJSON, Verbose: false}
+	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	defer result.Cleanup()
+
+	if result.Progress != nil {
+		t.Errorf("json format should have nil Progress, got %T", result.Progress)
+	}
 }

@@ -387,6 +387,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       step.Persona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
 		CurrentAction: "Initializing",
+		Model:         persona.Model,
+		Adapter:       adapterDef.Binary,
 	})
 
 	// Inject artifacts from dependencies

@@ -503,7 +503,19 @@ func extractToolTarget(toolName string, input json.RawMessage) string {
 		return cmd
 	case "Task":
 		return jsonString(fields["description"])
+	case "WebFetch":
+		return jsonString(fields["url"])
+	case "WebSearch":
+		return jsonString(fields["query"])
+	case "NotebookEdit":
+		return jsonString(fields["notebook_path"])
 	default:
+		// Generic heuristic: check common field names in priority order
+		for _, field := range []string{"file_path", "url", "pattern", "command", "query", "notebook_path"} {
+			if val := jsonString(fields[field]); val != "" {
+				return val
+			}
+		}
 		return ""
 	}
 }
