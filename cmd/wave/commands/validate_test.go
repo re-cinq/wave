@@ -7,9 +7,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// newValidateCmdWithRoot creates a validate command under a root that has the
+// persistent --verbose flag, mirroring the real CLI structure.
+func newValidateCmdWithRoot() *cobra.Command {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().BoolP("verbose", "v", false, "Include real-time tool activity")
+	validateCmd := NewValidateCmd()
+	root.AddCommand(validateCmd)
+	return root
+}
 
 // testHelper provides common utilities for validate command tests.
 type testHelper struct {
@@ -250,8 +261,8 @@ runtime:
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cmd := NewValidateCmd()
-	cmd.SetArgs([]string{"--verbose"})
+	cmd := newValidateCmdWithRoot()
+	cmd.SetArgs([]string{"validate", "--verbose"})
 
 	err := cmd.Execute()
 
@@ -295,8 +306,8 @@ runtime:
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cmd := NewValidateCmd()
-	cmd.SetArgs([]string{"-v"})
+	cmd := newValidateCmdWithRoot()
+	cmd.SetArgs([]string{"validate", "--verbose"})
 
 	err := cmd.Execute()
 
@@ -406,8 +417,8 @@ runtime:
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cmd := NewValidateCmd()
-	cmd.SetArgs([]string{"--verbose"})
+	cmd := newValidateCmdWithRoot()
+	cmd.SetArgs([]string{"validate", "--verbose"})
 
 	err := cmd.Execute()
 
@@ -497,8 +508,8 @@ runtime:
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cmd := NewValidateCmd()
-	cmd.SetArgs([]string{"--verbose"})
+	cmd := newValidateCmdWithRoot()
+	cmd.SetArgs([]string{"validate", "--verbose"})
 
 	// The validate should succeed (missing binary is a warning, not error)
 	err := cmd.Execute()

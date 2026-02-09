@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Exploration",
+  "description": "Structured codebase exploration output for feature planning",
+  "type": "object",
+  "required": ["feature_context", "related_files", "patterns", "affected_modules", "testing_landscape", "risks", "timestamp"],
+  "properties": {
+    "feature_context": {
+      "type": "object",
+      "required": ["input_summary", "scope_assessment"],
+      "properties": {
+        "input_summary": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Brief summary of the feature or task being planned"
+        },
+        "scope_assessment": {
+          "type": "string",
+          "enum": ["small", "medium", "large", "epic"],
+          "description": "Estimated scope of the work"
+        }
+      }
+    },
+    "related_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "relevance", "reason"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path relative to project root"
+          },
+          "relevance": {
+            "type": "string",
+            "enum": ["primary", "secondary", "reference"],
+            "description": "How relevant this file is to the feature"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this file is relevant"
+          },
+          "key_symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Important functions, types, or constants in this file"
+          }
+        }
+      },
+      "description": "Files related to the feature"
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "relevance"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^PAT-[0-9]{3}$",
+            "description": "Pattern identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Short name for the pattern"
+          },
+          "description": {
+            "type": "string",
+            "description": "What the pattern is and how it works"
+          },
+          "example_file": {
+            "type": "string",
+            "description": "File that best demonstrates this pattern"
+          },
+          "relevance": {
+            "type": "string",
+            "enum": ["must_follow", "should_follow", "informational"],
+            "description": "How important it is to follow this pattern"
+          }
+        }
+      },
+      "description": "Codebase patterns and conventions discovered"
+    },
+    "affected_modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "description", "impact_level"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Module or package path"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this module does"
+          },
+          "impact_level": {
+            "type": "string",
+            "enum": ["direct", "indirect", "none"],
+            "description": "Level of impact from the planned changes"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Modules this one depends on"
+          },
+          "dependents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Modules that depend on this one"
+          }
+        }
+      },
+      "description": "Modules affected by the planned changes"
+    },
+    "testing_landscape": {
+      "type": "object",
+      "required": ["existing_test_files", "testing_patterns"],
+      "properties": {
+        "existing_test_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Test files relevant to the feature"
+        },
+        "testing_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Testing patterns used in the codebase (e.g., table-driven, mocks)"
+        },
+        "coverage_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Areas lacking test coverage"
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "severity"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the risk is"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Risk severity"
+          },
+          "mitigation": {
+            "type": "string",
+            "description": "How to mitigate this risk"
+          }
+        }
+      },
+      "description": "Risks identified during exploration"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the exploration was completed"
+    }
+  }
+}

@@ -3,6 +3,7 @@ package state
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -226,7 +227,7 @@ func (m *MigrationManager) MigrateUp(allMigrations []Migration, targetVersion in
 			break
 		}
 
-		fmt.Printf("Applying migration %d: %s\n", migration.Version, migration.Description)
+		fmt.Fprintf(os.Stderr, "Applying migration %d: %s\n", migration.Version, migration.Description)
 		err := m.ApplyMigration(migration)
 		if err != nil {
 			return err
@@ -269,7 +270,7 @@ func (m *MigrationManager) MigrateDown(allMigrations []Migration, targetVersion 
 			return fmt.Errorf("migration %d has no rollback script", appliedMigration.Version)
 		}
 
-		fmt.Printf("Rolling back migration %d: %s\n", appliedMigration.Version, appliedMigration.Description)
+		fmt.Fprintf(os.Stderr, "Rolling back migration %d: %s\n", appliedMigration.Version, appliedMigration.Description)
 		err := m.RollbackMigration(fullMigration)
 		if err != nil {
 			return err

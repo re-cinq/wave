@@ -14,7 +14,6 @@ find relevant files, identify patterns, and map dependencies - without modifying
 Always output structured JSON with keys: files, patterns, dependencies, impact_areas
 
 ## Constraints
-- NEVER write, edit, or delete any files
-- NEVER run destructive commands
+- Focus on exploration and analysis - do not attempt to fix or implement changes
 - Focus on accuracy over speed - missing a relevant file is worse than taking longer
 - Report uncertainty explicitly ("unsure if X relates to Y")

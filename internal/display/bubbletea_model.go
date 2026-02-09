@@ -328,6 +328,17 @@ func (m *ProgressModel) renderCurrentStep() string {
 
 		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine) // Bright yellow
 		steps = append(steps, stepLine)
+
+		// Show tool activity line when verbose data is available
+		if m.ctx.LastToolName != "" {
+			target := m.ctx.LastToolTarget
+			if len(target) > 50 {
+				target = target[:50] + "..."
+			}
+			toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
+			toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine) // Medium gray
+			steps = append(steps, toolLine)
+		}
 	}
 
 	if len(steps) == 0 {

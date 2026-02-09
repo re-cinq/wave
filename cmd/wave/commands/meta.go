@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
@@ -23,6 +22,7 @@ type MetaOptions struct {
 	Manifest string
 	Mock     bool
 	DryRun   bool
+	Output   OutputConfig
 }
 
 func NewMetaCmd() *cobra.Command {
@@ -47,6 +47,10 @@ Examples:
   wave meta "add monitoring" --save monitoring-pipeline.yaml`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Output = GetOutputConfig(cmd)
+			if err := ValidateOutputFormat(opts.Output.Format); err != nil {
+				return err
+			}
 			input := strings.Join(args, " ")
 			return runMeta(input, opts)
 		},
@@ -98,7 +102,9 @@ func runMeta(input string, opts MetaOptions) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	emitter := event.NewNDJSONEmitterWithHumanReadable()
+	// Create emitter (no steps known yet for meta - generated dynamically)
+	emitterResult := CreateEmitter(opts.Output, "meta", nil, &m)
+	defer emitterResult.Cleanup()
 
 	// Set up workspace manager
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -109,7 +115,7 @@ func runMeta(input string, opts MetaOptions) error {
 
 	// Create child executor for running generated pipelines
 	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithEmitter(emitter),
+		pipeline.WithEmitter(emitterResult.Emitter),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
@@ -118,7 +124,7 @@ func runMeta(input string, opts MetaOptions) error {
 
 	// Create meta-pipeline executor
 	metaOpts := []pipeline.MetaExecutorOption{
-		pipeline.WithMetaEmitter(emitter),
+		pipeline.WithMetaEmitter(emitterResult.Emitter),
 		pipeline.WithChildExecutor(childExecutor),
 	}
 	metaExecutor := pipeline.NewMetaPipelineExecutor(runner, metaOpts...)
@@ -177,8 +183,10 @@ func runMeta(input string, opts MetaOptions) error {
 	}
 
 	elapsed := time.Since(pipelineStart)
-	fmt.Printf("\nMeta pipeline completed (%.1fs)\n", elapsed.Seconds())
-	fmt.Printf("  Total steps: %d, Total tokens: %d\n", result.TotalSteps, result.TotalTokens)
+	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
+		fmt.Fprintf(os.Stderr, "\nMeta pipeline completed (%.1fs)\n", elapsed.Seconds())
+		fmt.Fprintf(os.Stderr, "  Total steps: %d, Total tokens: %d\n", result.TotalSteps, result.TotalTokens)
+	}
 	return nil
 }
 
