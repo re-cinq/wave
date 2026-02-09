@@ -13,6 +13,10 @@ steps:
       strategy: fresh
     workspace:
       root: ./
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
     exec:
       type: prompt
       source: |
@@ -81,6 +85,10 @@ steps:
           as: scan
     workspace:
       root: ./
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
     exec:
       type: prompt
       source: |
@@ -208,9 +216,14 @@ steps:
 
         Create the issue:
         ```
+        # Write the markdown body to a file first to avoid shell escaping issues
+        cat > /tmp/issue-body.md << 'ISSUE_EOF'
+        <markdown body>
+        ISSUE_EOF
+
         gh issue create \
           --title "docs: documentation consistency report — N inconsistencies found" \
-          --body "<markdown body>" \
+          --body-file /tmp/issue-body.md \
           --label "documentation"
         ```
 
