@@ -1,6 +1,9 @@
 .idea/
 .idea
 
+# Terminal recordings
+*.cast
+
 # Wave runtime artifacts (ephemeral, not committed)
 .wave/workspaces/
 .wave/state.db*
