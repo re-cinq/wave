@@ -24,13 +24,17 @@ type Event struct {
 	CurrentAction   string  `json:"current_action,omitempty"`    // Current action being performed
 	TotalSteps      int     `json:"total_steps,omitempty"`       // Total steps in pipeline
 	CompletedSteps  int     `json:"completed_steps,omitempty"`   // Number of completed steps
-	EstimatedTimeMs int64   `json:"estimated_time_ms,omitempty"` // ETA in milliseconds
+	EstimatedTimeMs int64   `json:"estimated_time_ms"` // ETA in milliseconds (0 = no estimate)
 	ValidationPhase string  `json:"validation_phase,omitempty"`  // Contract validation phase
 	CompactionStats *string `json:"compaction_stats,omitempty"`  // Compaction statistics (JSON)
 
 	// Stream event fields (real-time Claude Code activity)
 	ToolName   string `json:"tool_name,omitempty"`   // Tool being used (Read, Write, Bash, etc.)
 	ToolTarget string `json:"tool_target,omitempty"` // Target (file path, command, pattern)
+
+	// Step metadata fields (FR-010: model and adapter type in step-start events)
+	Model   string `json:"model,omitempty"`   // Model name (e.g., "opus", "sonnet")
+	Adapter string `json:"adapter,omitempty"` // Adapter type (e.g., "claude")
 }
 
 // Event state constants for pipeline and step lifecycle
