@@ -6,19 +6,8 @@ metadata:
 input:
   source: cli
   schema:
-    type: object
-    required: [repo]
-    properties:
-      repo:
-        type: string
-        description: "GitHub repository in owner/name format"
-        pattern: "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
-      threshold:
-        type: integer
-        description: "Quality threshold (0-100), issues below this will be enhanced"
-        default: 70
-        minimum: 0
-        maximum: 100
+    type: string
+    description: "GitHub repository in owner/name format (e.g. re-cinq/wave)"
 
 steps:
   - id: scan-issues
@@ -37,7 +26,7 @@ steps:
         Execute these commands using the Bash tool:
 
         1. gh --version
-        2. gh issue list --repo re-cinq/wave --limit 50 --json number,title,body,labels,url
+        2. gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
         After getting REAL results from Bash, analyze issues and save to artifact.json.
     output_artifacts:
@@ -73,7 +62,7 @@ steps:
         Read artifacts/analysis.json which contains poor_quality_issues from the scan step.
 
         For EACH issue in poor_quality_issues, use gh CLI to fetch the current body:
-        gh issue view <NUMBER> --repo re-cinq/wave --json body
+        gh issue view <NUMBER> --repo {{ input }} --json body
 
         Then create an enhancement plan with:
         - issue_number: the issue number
@@ -127,9 +116,9 @@ steps:
         Step 2: Read artifacts/plan.json for issues to enhance.
 
         Step 3: For EACH issue in the plan, use Bash tool to apply changes:
-        - If suggested_title differs from current: gh issue edit <N> --repo re-cinq/wave --title "suggested_title"
-        - If body_template is provided: gh issue edit <N> --repo re-cinq/wave --body "body_template"
-        - If suggested_labels: gh issue edit <N> --repo re-cinq/wave --add-label "label1,label2"
+        - If suggested_title differs from current: gh issue edit <N> --repo {{ input }} --title "suggested_title"
+        - If body_template is provided: gh issue edit <N> --repo {{ input }} --body "body_template"
+        - If suggested_labels: gh issue edit <N> --repo {{ input }} --add-label "label1,label2"
 
         Step 4: Save actual results to artifact.json:
         {"enhanced_issues": [...], "total_attempted": N, "total_successful": N, "total_failed": 0}
