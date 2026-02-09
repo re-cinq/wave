@@ -379,6 +379,8 @@ func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 		case "step_progress":
 			step.Progress = ev.Progress
 			step.CurrentAction = ev.CurrentAction
+		case "warning":
+			step.Message = ev.Message
 		case "validating", "contract_validating":
 			step.CurrentAction = "Validating contract"
 		case "compacting", "compaction_progress":
@@ -516,14 +518,24 @@ func (pd *ProgressDisplay) Finish() {
 
 // BasicProgressDisplay provides simple text-based progress for non-TTY environments.
 type BasicProgressDisplay struct {
-	mu     sync.Mutex
-	writer io.Writer
+	mu      sync.Mutex
+	writer  io.Writer
+	verbose bool
 }
 
 // NewBasicProgressDisplay creates a fallback progress display.
 func NewBasicProgressDisplay() *BasicProgressDisplay {
 	return &BasicProgressDisplay{
-		writer: os.Stderr,
+		writer:  os.Stderr,
+		verbose: false,
+	}
+}
+
+// NewBasicProgressDisplayWithVerbose creates a progress display with verbose tool activity.
+func NewBasicProgressDisplayWithVerbose(verbose bool) *BasicProgressDisplay {
+	return &BasicProgressDisplay{
+		writer:  os.Stderr,
+		verbose: verbose,
 	}
 }
 
@@ -537,18 +549,61 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 	if ev.StepID != "" {
 		switch ev.State {
 		case "started", "running":
-			fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
+			if ev.Persona != "" {
+				fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
+			}
 		case "completed":
 			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %dk tokens)\n",
 				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, ev.TokensUsed/1000)
 		case "failed":
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
-			if ev.Progress > 0 {
-				fmt.Fprintf(bpd.writer, "[%s]   %s: %d%%\n", timestamp, ev.StepID, ev.Progress)
+			if ev.CurrentAction != "" {
+				fmt.Fprintf(bpd.writer, "[%s]   %s: %s\n", timestamp, ev.StepID, ev.CurrentAction)
 			}
+		case "warning":
+			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s: %s\n", timestamp, ev.StepID, ev.Message)
 		case "validating", "contract_validating":
 			fmt.Fprintf(bpd.writer, "[%s]   %s: validating contract\n", timestamp, ev.StepID)
+		case "stream_activity":
+			if bpd.verbose && ev.ToolName != "" {
+				target := ev.ToolTarget
+				if len(target) > 60 {
+					target = target[:60] + "..."
+				}
+				fmt.Fprintf(bpd.writer, "[%s]   %-20s %s → %s\n", timestamp, ev.StepID, ev.ToolName, target)
+			}
+		}
+	}
+
+	return nil
+}
+
+// QuietProgressDisplay only renders pipeline-level completed/failed events.
+type QuietProgressDisplay struct {
+	mu     sync.Mutex
+	writer io.Writer
+}
+
+// NewQuietProgressDisplay creates a minimal progress display.
+func NewQuietProgressDisplay() *QuietProgressDisplay {
+	return &QuietProgressDisplay{
+		writer: os.Stderr,
+	}
+}
+
+// EmitProgress outputs only pipeline-level completion or failure.
+func (qpd *QuietProgressDisplay) EmitProgress(ev event.Event) error {
+	qpd.mu.Lock()
+	defer qpd.mu.Unlock()
+
+	// Only render pipeline-level completed/failed events (no step ID means pipeline event)
+	if ev.StepID == "" {
+		switch ev.State {
+		case "completed":
+			fmt.Fprintf(qpd.writer, "%s completed\n", ev.PipelineID)
+		case "failed":
+			fmt.Fprintf(qpd.writer, "%s failed: %s\n", ev.PipelineID, ev.Message)
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
@@ -22,6 +21,7 @@ type DoOptions struct {
 	Manifest string
 	Mock     bool
 	DryRun   bool
+	Output   OutputConfig
 }
 
 func NewDoCmd() *cobra.Command {
@@ -41,6 +41,10 @@ Examples:
   wave do "refactor the database queries" --persona craftsman`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Output = GetOutputConfig(cmd)
+			if err := ValidateOutputFormat(opts.Output.Format); err != nil {
+				return err
+			}
 			input := strings.Join(args, " ")
 			return runDo(input, opts)
 		},
@@ -118,7 +122,8 @@ func runDo(input string, opts DoOptions) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	emitter := event.NewNDJSONEmitterWithHumanReadable()
+	result := CreateEmitter(opts.Output, "adhoc", p.Steps, &m)
+	defer result.Cleanup()
 
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
@@ -127,7 +132,7 @@ func runDo(input string, opts DoOptions) error {
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
 	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithEmitter(emitter),
+		pipeline.WithEmitter(result.Emitter),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
@@ -146,6 +151,8 @@ func runDo(input string, opts DoOptions) error {
 	}
 
 	elapsed := time.Since(pipelineStart)
-	fmt.Printf("\nAd-hoc task completed (%.1fs)\n", elapsed.Seconds())
+	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
+		fmt.Fprintf(os.Stderr, "\nAd-hoc task completed (%.1fs)\n", elapsed.Seconds())
+	}
 	return nil
 }

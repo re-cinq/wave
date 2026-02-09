@@ -2,6 +2,7 @@ package contract
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -113,7 +114,14 @@ func TestTestSuiteValidator_TableDriven(t *testing.T) {
 			v := &testSuiteValidator{}
 			workspacePath := t.TempDir()
 
-			err := v.Validate(tt.cfg, workspacePath)
+			// Set Dir to workspace so tests don't need a git repo
+			// (the default for test_suite is project_root)
+			cfg := tt.cfg
+			if cfg.Dir == "" && cfg.Command != "" {
+				cfg.Dir = workspacePath
+			}
+
+			err := v.Validate(cfg, workspacePath)
 
 			if tt.expectError {
 				if err == nil {
@@ -162,7 +170,13 @@ func TestTestSuiteValidator_ValidationErrorDetails(t *testing.T) {
 			v := &testSuiteValidator{}
 			workspacePath := t.TempDir()
 
-			err := v.Validate(tt.cfg, workspacePath)
+			// Set Dir to workspace so tests don't need a git repo
+			cfg := tt.cfg
+			if cfg.Dir == "" && cfg.Command != "" {
+				cfg.Dir = workspacePath
+			}
+
+			err := v.Validate(cfg, workspacePath)
 			if err == nil {
 				t.Fatal("expected error but got none")
 			}
@@ -199,11 +213,12 @@ func TestTestSuiteValidator_WorkingDirectory(t *testing.T) {
 		t.Fatalf("failed to create marker file: %v", err)
 	}
 
-	// Command that checks for the marker file
+	// Command that checks for the marker file — use Dir to run in workspace
 	cfg := ContractConfig{
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"-c", "test -f marker.txt"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -222,6 +237,7 @@ func TestTestSuiteValidator_CommandWithStdout(t *testing.T) {
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"-c", "echo 'stdout message'; exit 1"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -257,6 +273,7 @@ func TestTestSuiteValidator_CommandWithStderr(t *testing.T) {
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"-c", "echo 'error message' >&2; exit 1"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -304,6 +321,7 @@ exit 0
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"test.sh"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -333,6 +351,7 @@ exit 1
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"test.sh"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -360,6 +379,7 @@ func TestTestSuiteValidator_LongOutput(t *testing.T) {
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"-c", "for i in $(seq 1 50); do echo \"Line $i\"; done; exit 1"},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)
@@ -444,6 +464,190 @@ func TestExtractTestSuiteDetails(t *testing.T) {
 	}
 }
 
+// TestResolveContractDir tests the working directory resolution logic.
+func TestResolveContractDir(t *testing.T) {
+	t.Run("empty dir uses workspace", func(t *testing.T) {
+		ws := t.TempDir()
+		dir, err := resolveContractDir("", ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != ws {
+			t.Errorf("expected %q, got %q", ws, dir)
+		}
+	})
+
+	t.Run("project_root resolves git toplevel", func(t *testing.T) {
+		// Create a temp git repo for this test
+		ws := t.TempDir()
+		gitInit := filepath.Join(ws, "repo")
+		if err := os.MkdirAll(gitInit, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// git init the temp dir
+		cmd := exec.Command("git", "init", gitInit)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+
+		subDir := filepath.Join(gitInit, "sub", "dir")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		dir, err := resolveContractDir("project_root", subDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != gitInit {
+			t.Errorf("expected %q, got %q", gitInit, dir)
+		}
+	})
+
+	t.Run("project_root fails outside git repo", func(t *testing.T) {
+		ws := t.TempDir()
+		_, err := resolveContractDir("project_root", ws)
+		if err == nil {
+			t.Error("expected error outside git repo")
+		}
+		if !strings.Contains(err.Error(), "git repo") {
+			t.Errorf("error should mention git repo, got: %v", err)
+		}
+	})
+
+	t.Run("absolute path used as-is", func(t *testing.T) {
+		ws := t.TempDir()
+		absDir := t.TempDir()
+		dir, err := resolveContractDir(absDir, ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != absDir {
+			t.Errorf("expected %q, got %q", absDir, dir)
+		}
+	})
+
+	t.Run("relative path resolved against workspace", func(t *testing.T) {
+		ws := t.TempDir()
+		subDir := filepath.Join(ws, "subdir")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("failed to create subdir: %v", err)
+		}
+		dir, err := resolveContractDir("subdir", ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != subDir {
+			t.Errorf("expected %q, got %q", subDir, dir)
+		}
+	})
+}
+
+// TestTestSuiteValidator_DirField tests that the Dir config field controls where commands run.
+func TestTestSuiteValidator_DirField(t *testing.T) {
+	t.Run("dir empty defaults to project_root", func(t *testing.T) {
+		v := &testSuiteValidator{}
+
+		// Create a temp git repo with a marker file
+		ws := t.TempDir()
+		repoDir := filepath.Join(ws, "repo")
+		if err := os.MkdirAll(repoDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", repoDir)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+		if err := os.WriteFile(filepath.Join(repoDir, "marker.txt"), []byte("root"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Workspace is a subdirectory of the repo
+		subWs := filepath.Join(repoDir, ".wave", "workspaces", "test")
+		if err := os.MkdirAll(subWs, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := ContractConfig{
+			Type:        "test_suite",
+			Command:     "sh",
+			CommandArgs: []string{"-c", "test -f marker.txt"},
+		}
+		if err := v.Validate(cfg, subWs); err != nil {
+			t.Errorf("should find marker in project root: %v", err)
+		}
+	})
+
+	t.Run("dir empty fails outside git repo", func(t *testing.T) {
+		v := &testSuiteValidator{}
+		ws := t.TempDir()
+
+		cfg := ContractConfig{
+			Type:    "test_suite",
+			Command: "true",
+		}
+		err := v.Validate(cfg, ws)
+		if err == nil {
+			t.Error("expected error outside git repo with empty dir")
+		}
+	})
+
+	t.Run("dir absolute runs in specified dir", func(t *testing.T) {
+		v := &testSuiteValidator{}
+		ws := t.TempDir()
+		targetDir := t.TempDir()
+
+		// Create marker in target, NOT workspace
+		if err := os.WriteFile(filepath.Join(targetDir, "target-marker.txt"), []byte("target"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := ContractConfig{
+			Type:        "test_suite",
+			Command:     "sh",
+			CommandArgs: []string{"-c", "test -f target-marker.txt"},
+			Dir:         targetDir,
+		}
+		if err := v.Validate(cfg, ws); err != nil {
+			t.Errorf("should find marker in target dir: %v", err)
+		}
+	})
+
+	t.Run("dir project_root resolves git root", func(t *testing.T) {
+		v := &testSuiteValidator{}
+
+		// Create a temp git repo with a marker file
+		ws := t.TempDir()
+		repoDir := filepath.Join(ws, "repo")
+		if err := os.MkdirAll(repoDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", repoDir)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+		if err := os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module test"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Workspace is a subdirectory of the repo
+		subWs := filepath.Join(repoDir, ".wave", "workspaces", "test")
+		if err := os.MkdirAll(subWs, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := ContractConfig{
+			Type:        "test_suite",
+			Command:     "sh",
+			CommandArgs: []string{"-c", "test -f go.mod"},
+			Dir:         "project_root",
+		}
+		if err := v.Validate(cfg, subWs); err != nil {
+			t.Errorf("should find go.mod in project root: %v", err)
+		}
+	})
+}
+
 // TestTestSuiteValidator_EnvironmentVariables tests that environment variables are available.
 func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 	v := &testSuiteValidator{}
@@ -457,6 +661,7 @@ func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 		Type:        "test_suite",
 		Command:     "sh",
 		CommandArgs: []string{"-c", "test \"$TEST_SUITE_VAR\" = \"test_value\""},
+		Dir:         workspacePath,
 	}
 
 	err := v.Validate(cfg, workspacePath)

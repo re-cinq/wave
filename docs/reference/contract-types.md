@@ -10,6 +10,8 @@ Contracts validate step output before dependent steps begin. This page documents
 | `json_schema` | JSON structure | Ensuring data format and required fields |
 | `typescript_interface` | TypeScript compiles | Validating generated type definitions |
 | `markdown_spec` | Markdown structure | Checking documentation format |
+| `template` | Structured templates | Validating JSON/Markdown/YAML templates (experimental) |
+| `format` | Domain-specific formats | Validating GitHub issues, PRs, analysis outputs (experimental) |
 
 ---
 
@@ -33,6 +35,7 @@ handover:
   contract:
     type: test_suite
     command: "go test ./... && go vet ./..."
+    dir: project_root
     must_pass: true
     on_failure: retry
     max_retries: 3
@@ -43,18 +46,33 @@ handover:
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `command` | **yes** | - | Shell command to execute |
+| `dir` | no | workspace | Working directory: `project_root`, absolute path, or relative to workspace |
 | `must_pass` | no | `true` | Whether failure blocks progression |
 | `on_failure` | no | `retry` | `retry` or `halt` |
 | `max_retries` | no | `2` | Maximum retry attempts |
 
+### Working Directory
+
+By default, `test_suite` commands run in the step's workspace directory. Since workspaces are ephemeral and isolated, commands like `go test ./...` will fail if they expect project files (e.g., `go.mod`).
+
+Use `dir` to control where the command runs:
+
+| Value | Resolves to |
+|-------|-------------|
+| _(empty)_ | Step workspace (default) |
+| `project_root` | Git repository root (`git rev-parse --show-toplevel`) |
+| `/absolute/path` | Used as-is |
+| `relative/path` | Relative to workspace |
+
 ### Examples
 
-**Go project:**
+**Go project (run tests at project root):**
 ```yaml
 handover:
   contract:
     type: test_suite
     command: "go build ./... && go test ./..."
+    dir: project_root
 ```
 
 **Node.js project:**
@@ -307,6 +325,40 @@ steps:
         type: markdown_spec
         source: output/spec.md
 ```
+
+---
+
+## template
+
+Validate structured templates with required fields and constraints. Supports JSON, Markdown, and YAML formats.
+
+```yaml
+handover:
+  contract:
+    type: template
+    source: output/template.json
+```
+
+**Use when:** Ensuring generated templates contain required fields and meet format constraints.
+
+**Status:** Experimental. Supports required field checking, min/max length constraints, pattern matching, and enum validation.
+
+---
+
+## format
+
+Production-ready format validation for domain-specific outputs like GitHub issues, pull requests, and code analysis.
+
+```yaml
+handover:
+  contract:
+    type: format
+    source: output/issue.md
+```
+
+**Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
+
+**Status:** Experimental. Infers format type from content and applies domain-specific validation rules including placeholder detection.
 
 ---
 

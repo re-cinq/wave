@@ -1263,6 +1263,104 @@ func TestOutputArtifactPermissionGrants(t *testing.T) {
 		"Should auto-grant Write for root-level artifacts")
 }
 
+// TestExecuteStep_NonZeroExitCode_EmitsWarning verifies that a non-zero adapter exit code
+// emits a warning event but still allows the step to complete (work may have been done).
+func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithExitCode(1),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "exit-code-test"},
+		Steps: []Step{
+			{ID: "crash-step", Persona: "navigator", Exec: ExecConfig{Source: "do something"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "non-zero exit code should warn, not fail the step")
+
+	// Should have a warning event about the exit code
+	events := collector.GetEvents()
+	var hasWarning, hasCompleted bool
+	for _, e := range events {
+		if e.StepID == "crash-step" && e.State == "warning" {
+			assert.Contains(t, e.Message, "adapter exited with code 1")
+			hasWarning = true
+		}
+		if e.State == "completed" && e.StepID == "" {
+			hasCompleted = true
+		}
+	}
+	assert.True(t, hasWarning, "should emit a warning event for non-zero exit code")
+	assert.True(t, hasCompleted, "step should still complete despite non-zero exit code")
+}
+
+// TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps verifies that when a step
+// exits with a non-zero code, subsequent steps still execute (work may have been done).
+func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithExitCode(1),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "exit-code-chain-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "first"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "second"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "pipeline should complete despite non-zero exit codes")
+
+	// Both steps should have executed
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-b"}, order, "both steps should execute")
+
+	// Both steps should have warning events
+	stepAEvents := collector.GetEventsByStep("step-a")
+	stepBEvents := collector.GetEventsByStep("step-b")
+
+	var aWarned, bWarned bool
+	for _, e := range stepAEvents {
+		if e.State == "warning" {
+			aWarned = true
+		}
+	}
+	for _, e := range stepBEvents {
+		if e.State == "warning" {
+			bWarned = true
+		}
+	}
+	assert.True(t, aWarned, "step-a should have a warning event")
+	assert.True(t, bWarned, "step-b should have a warning event")
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {

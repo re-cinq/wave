@@ -444,6 +444,46 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 					"deny":          []string{},
 				},
 			},
+			"implementer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Execution specialist for code changes and structured output",
+				"system_prompt_file": ".wave/personas/implementer.md",
+				"temperature":        0.3,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
+					"deny":          []string{"Bash(rm -rf /*)"},
+				},
+			},
+			"researcher": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Deep codebase research and analysis",
+				"system_prompt_file": ".wave/personas/researcher.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(gh *)", "Bash(git log*)"},
+					"deny":          []string{"Write(*)", "Edit(*)"},
+				},
+			},
+			"reviewer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Code review and quality checks",
+				"system_prompt_file": ".wave/personas/reviewer.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(go test*)", "Bash(git diff*)"},
+					"deny":          []string{"Write(*)", "Edit(*)"},
+				},
+			},
+			"github-commenter": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Posts comments on GitHub issues",
+				"system_prompt_file": ".wave/personas/github-commenter.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Bash(gh *)"},
+					"deny":          []string{},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,

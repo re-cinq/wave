@@ -228,6 +228,10 @@ type PipelineContext struct {
 	// Deliverables by step
 	DeliverablesByStep map[string][]string // stepID -> deliverable strings
 
+	// Tool activity (verbose mode)
+	LastToolName   string // Most recent tool being used (Read, Write, Bash, etc.)
+	LastToolTarget string // Most recent tool target (file path, command, pattern)
+
 	// Additional context
 	Message string
 	Error   string

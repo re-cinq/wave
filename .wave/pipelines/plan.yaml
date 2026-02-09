@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
   name: plan
-  description: "Break down a feature into actionable tasks"
+  description: "Break down a feature into actionable tasks with structured exploration, planning, and review"
 
 input:
   source: cli
@@ -12,6 +12,7 @@ steps:
     memory:
       strategy: fresh
     workspace:
+      root: ./
       mount:
         - source: ./
           target: /src
@@ -19,26 +20,100 @@ steps:
     exec:
       type: prompt
       source: |
-        Explore the codebase to understand context for: {{ input }}
+        You are exploring a codebase to gather context for planning this feature or task:
 
-        1. Find related existing functionality
-        2. Identify patterns and conventions used
-        3. Map affected modules and dependencies
-        4. Note testing patterns in the codebase
+        {{ input }}
 
-        CRITICAL: Your final response must be ONLY a JSON object with this structure:
+        Your goal is to produce a rich, structured JSON exploration that a planner persona
+        will use (without any other context) to break the work into tasks.
+
+        ## Exploration Steps
+
+        1. **Understand the request**: Summarize what is being asked and assess scope
+           (small = 1-2 files, medium = 3-7 files, large = 8-15 files, epic = 16+ files).
+
+        2. **Find related files**: Use Glob and Grep to find files related to the feature.
+           For each file, note its path, relevance (primary/secondary/reference), why it
+           matters, and key symbols (functions, types, constants) within it.
+
+        3. **Identify patterns**: Use Read to examine key files. Document codebase patterns
+           and conventions. Assign each a PAT-### ID and relevance level:
+           - must_follow: Violating this would break consistency or cause bugs
+           - should_follow: Strong convention but exceptions exist
+           - informational: Good to know but not binding
+
+        4. **Map affected modules**: Identify which packages/modules will be directly or
+           indirectly affected. Note their dependencies and dependents.
+
+        5. **Survey testing landscape**: Find test files related to the affected code.
+           Note testing patterns (table-driven, mocks, fixtures, etc.) and coverage gaps.
+
+        6. **Assess risks**: Identify potential risks (breaking changes, performance concerns,
+           security implications). Rate severity (high/medium/low) and suggest mitigations.
+
+        ## Output Format
+
+        Write a single JSON object to output/exploration.json with this exact structure:
+
         {
-          "related_features": [],
-          "patterns": [],
-          "affected_modules": [],
-          "testing_approach": ""
+          "feature_context": {
+            "input_summary": "string (what is being requested)",
+            "scope_assessment": "small|medium|large|epic"
+          },
+          "related_files": [
+            {
+              "path": "relative/path/to/file",
+              "relevance": "primary|secondary|reference",
+              "reason": "why this file matters",
+              "key_symbols": ["FuncName", "TypeName"]
+            }
+          ],
+          "patterns": [
+            {
+              "id": "PAT-001",
+              "name": "pattern name",
+              "description": "what it is and how it works",
+              "example_file": "path/to/example",
+              "relevance": "must_follow|should_follow|informational"
+            }
+          ],
+          "affected_modules": [
+            {
+              "path": "module/path",
+              "description": "what it does",
+              "impact_level": "direct|indirect|none",
+              "dependencies": ["other/module"],
+              "dependents": ["dependent/module"]
+            }
+          ],
+          "testing_landscape": {
+            "existing_test_files": ["path/to/test_file"],
+            "testing_patterns": ["table-driven tests", "mock adapters"],
+            "coverage_gaps": ["area lacking tests"]
+          },
+          "risks": [
+            {
+              "description": "what could go wrong",
+              "severity": "high|medium|low",
+              "mitigation": "how to prevent it"
+            }
+          ],
+          "timestamp": "ISO 8601 datetime"
         }
 
-        No markdown, no explanation - just the raw JSON starting with { and ending with }
+        CRITICAL: Write ONLY the JSON object to output/exploration.json. No markdown wrapping,
+        no explanation outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: exploration
         path: output/exploration.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/exploration.json
+        schema_path: .wave/contracts/plan-exploration.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: breakdown
     persona: planner
@@ -49,25 +124,103 @@ steps:
         - step: explore
           artifact: exploration
           as: context
+    workspace:
+      root: ./
     exec:
       type: prompt
       source: |
-        Break down the feature into tasks: {{ input }}
+        You are breaking down a feature into actionable implementation tasks.
 
-        For each task:
-        - ID: T1, T2, T3...
-        - Title: short description
-        - Description: what needs to be done
-        - Dependencies: which tasks must complete first
-        - Persona: who should do this (navigator/philosopher/craftsman/auditor)
-        - Complexity: S (< 1hr), M (1-4hr), L (4-8hr), XL (> 1 day)
-        - Acceptance criteria: how to know it's done
+        ## Input
 
-        Order tasks by dependencies. Flag risks.
+        Feature request: {{ input }}
+
+        Codebase exploration has already been done. Read the exploration results FIRST:
+
+          cat artifacts/context
+
+        This file contains structured JSON with: related files, codebase patterns,
+        affected modules, testing landscape, and identified risks. Use ALL of this
+        information to inform your task breakdown.
+
+        ## Task Breakdown Rules
+
+        1. **Task IDs**: Use T01, T02, T03... format (zero-padded two digits).
+
+        2. **Personas**: Assign each task to the most appropriate persona:
+           - navigator: architecture decisions, exploration, planning
+           - craftsman: implementation, coding, file creation
+           - philosopher: review, analysis, quality assessment
+           - auditor: security review, compliance checking
+           - implementer: focused implementation tasks
+           - reviewer: code review tasks
+
+        3. **Dependencies**: Express as task IDs (e.g., ["T01", "T02"]).
+           A task with no dependencies gets an empty array [].
+
+        4. **Complexity**: S (< 1hr), M (1-4hr), L (4-8hr), XL (> 1 day).
+
+        5. **Acceptance criteria**: Each task MUST have at least one concrete,
+           verifiable acceptance criterion.
+
+        6. **Affected files**: List files each task will create or modify.
+
+        7. **Execution order**: Group tasks into phases. Tasks within a phase
+           can run in parallel. Phase 1 has no dependencies, Phase 2 depends
+           on Phase 1, etc.
+
+        8. **Risks**: Note task-specific risks from the exploration.
+
+        ## Output Format
+
+        Write a single JSON object to output/tasks.json with this exact structure:
+
+        {
+          "feature_summary": {
+            "title": "short feature title",
+            "description": "what the feature does (20+ chars)",
+            "total_tasks": 5,
+            "estimated_total_complexity": "S|M|L|XL"
+          },
+          "tasks": [
+            {
+              "id": "T01",
+              "title": "task title (5+ chars)",
+              "description": "detailed description (20+ chars)",
+              "persona": "craftsman",
+              "complexity": "M",
+              "dependencies": [],
+              "acceptance_criteria": ["criterion 1", "criterion 2"],
+              "affected_files": ["path/to/file.go"],
+              "risks": ["potential issue"]
+            }
+          ],
+          "execution_order": [
+            { "phase": 1, "task_ids": ["T01", "T02"] },
+            { "phase": 2, "task_ids": ["T03"] }
+          ],
+          "metadata": {
+            "generated_at": "ISO 8601 datetime"
+          },
+          "markdown_content": "# Feature Plan\n\n## Summary\n...\n\n## Tasks\n\n### T01: Title\n..."
+        }
+
+        The markdown_content field should be a complete, human-readable rendering of the
+        entire plan with headers, task details, dependency graph, and execution phases.
+
+        CRITICAL: Write ONLY the JSON object to output/tasks.json. No markdown wrapping,
+        no explanation outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: tasks
-        path: output/tasks.md
-        type: markdown
+        path: output/tasks.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/tasks.json
+        schema_path: .wave/contracts/plan-tasks.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: review
     persona: philosopher
@@ -81,24 +234,140 @@ steps:
         - step: breakdown
           artifact: tasks
           as: task_list
+    workspace:
+      root: ./
     exec:
       type: prompt
       source: |
-        Review the task breakdown. The artifacts have been injected into your workspace:
-        - artifacts/task_list - the task breakdown to review
-        - artifacts/context - the codebase exploration context
+        You are reviewing a task breakdown plan for quality, completeness, and correctness.
 
-        Read artifacts/task_list and evaluate:
+        ## Input
 
-        1. Are all tasks actionable and clear?
-        2. Are dependencies correctly identified?
-        3. Is complexity reasonable for each task?
-        4. Are there missing tasks?
-        5. Can any tasks be parallelized?
-        6. Are risks adequately addressed?
+        Feature request: {{ input }}
 
-        Suggest improvements if needed.
+        Two artifacts have been injected into your workspace. Read them BOTH first:
+
+          cat artifacts/context      # Codebase exploration (JSON)
+          cat artifacts/task_list    # Task breakdown plan (JSON)
+
+        The exploration contains: related files, patterns, affected modules, testing
+        landscape, and risks. The task list contains: feature summary, tasks with
+        dependencies and acceptance criteria, and execution order.
+
+        ## Review Checklist
+
+        For EACH task in the plan, evaluate and assign a status:
+        - ok: Task is well-defined and ready to execute
+        - needs_refinement: Good idea but needs clearer description or criteria
+        - missing_details: Lacks acceptance criteria, affected files, or dependencies
+        - overcomplicated: Should be split or simplified
+        - wrong_persona: Different persona would be more appropriate
+        - bad_dependencies: Dependencies are incorrect or missing
+
+        For each issue found, assign a REV-### ID, severity, description, and suggestion.
+
+        ## Cross-Cutting Concerns
+
+        Look for concerns that span multiple tasks (CC-### IDs):
+        - Testing strategy: Are tests planned? Do they follow codebase patterns?
+        - Security: Are security implications addressed?
+        - Performance: Will changes affect performance?
+        - Backwards compatibility: Are breaking changes handled?
+        - Documentation: Is documentation updated?
+
+        ## Recommendations
+
+        Provide actionable recommendations (REC-### IDs) with type:
+        add_task, modify_task, remove_task, reorder, split_task, merge_tasks,
+        change_persona, add_dependency
+
+        ## Verdict
+
+        Provide an overall verdict:
+        - approve: Plan is ready to execute as-is
+        - approve_with_notes: Plan is good but has minor issues to note
+        - revise: Plan needs significant changes before execution
+
+        ## Output Format
+
+        Write a single JSON object to output/plan-review.json:
+
+        {
+          "verdict": {
+            "decision": "approve|approve_with_notes|revise",
+            "confidence": "high|medium|low",
+            "rationale": "why this verdict (20+ chars)"
+          },
+          "summary": {
+            "total_tasks_reviewed": 5,
+            "issues_found": 2,
+            "issues_by_severity": { "critical": 0, "high": 1, "medium": 1, "low": 0 },
+            "strengths": ["good dependency ordering", "clear acceptance criteria"]
+          },
+          "task_reviews": [
+            {
+              "task_id": "T01",
+              "status": "ok",
+              "issues": []
+            },
+            {
+              "task_id": "T02",
+              "status": "needs_refinement",
+              "issues": [
+                {
+                  "id": "REV-001",
+                  "severity": "medium",
+                  "description": "what is wrong",
+                  "suggestion": "how to fix"
+                }
+              ]
+            }
+          ],
+          "cross_cutting_concerns": [
+            {
+              "id": "CC-001",
+              "category": "testing",
+              "description": "concern description",
+              "affected_tasks": ["T01", "T03"],
+              "recommendation": "what to do"
+            }
+          ],
+          "recommendations": [
+            {
+              "id": "REC-001",
+              "priority": "high",
+              "description": "what should change",
+              "type": "add_task"
+            }
+          ],
+          "risk_assessment": {
+            "overall_risk": "high|medium|low",
+            "key_risks": [
+              {
+                "description": "risk description",
+                "severity": "high|medium|low",
+                "likelihood": "high|medium|low",
+                "mitigation": "how to mitigate"
+              }
+            ]
+          },
+          "timestamp": "ISO 8601 datetime",
+          "markdown_content": "# Plan Review\n\n## Verdict: Approve\n..."
+        }
+
+        The markdown_content field should be a complete, human-readable rendering of the
+        review including verdict, per-task status, concerns, and recommendations.
+
+        CRITICAL: Write ONLY the JSON object to output/plan-review.json. No markdown wrapping,
+        no explanation outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: review
-        path: output/plan-review.md
-        type: markdown
+        path: output/plan-review.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/plan-review.json
+        schema_path: .wave/contracts/plan-review.schema.json
+        on_failure: retry
+        max_retries: 2

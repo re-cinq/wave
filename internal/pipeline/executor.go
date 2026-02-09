@@ -96,22 +96,23 @@ type PipelineExecution struct {
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
-	// Initialize security configuration with secure defaults
-	securityConfig := security.DefaultSecurityConfig()
-	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled)
-
 	ex := &DefaultPipelineExecutor{
 		runner:             runner,
 		pipelines:          make(map[string]*PipelineExecution),
-		securityConfig:     securityConfig,
-		pathValidator:      security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer:     security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger:     securityLogger,
 		deliverableTracker: deliverable.NewTracker(""),
 	}
 	for _, opt := range opts {
 		opt(ex)
 	}
+
+	// Initialize security after options so logging respects --debug
+	securityConfig := security.DefaultSecurityConfig()
+	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled && ex.debug)
+	ex.securityConfig = securityConfig
+	ex.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
+	ex.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
+	ex.securityLogger = securityLogger
+
 	return ex
 }
 
@@ -433,6 +434,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DenyTools:     persona.Permissions.Deny,
 		OutputFormat:  adapterDef.OutputFormat,
 		Debug:         e.debug,
+		OnStreamEvent: func(evt adapter.StreamEvent) {
+			if evt.Type == "tool_use" && evt.ToolName != "" {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStreamActivity,
+					Persona:    step.Persona,
+					ToolName:   evt.ToolName,
+					ToolTarget: evt.ToolInput,
+				})
+			}
+		},
 	}
 
 	// Emit step progress: executing
@@ -450,6 +464,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("adapter execution failed: %w", err)
+	}
+
+	// Warn on non-zero exit code — adapter process may have crashed, but
+	// work may still have been completed (e.g. Claude Code JS error after
+	// tool calls finished). Let contract validation decide the outcome.
+	if result.ExitCode != 0 {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "warning",
+			Message:    fmt.Sprintf("adapter exited with code %d (process may have crashed)", result.ExitCode),
+		})
 	}
 
 	stepDuration := time.Since(stepStart).Milliseconds()
@@ -514,6 +541,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    step.Handover.Contract.Command,
+			Dir:        step.Handover.Contract.Dir,
 			StrictMode: step.Handover.Contract.MustPass,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,

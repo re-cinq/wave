@@ -4,17 +4,24 @@ Personas define how agents behave in Wave. Each persona binds an adapter to a sp
 
 ## Built-in Personas
 
-Wave ships with 7 specialized personas:
+Wave ships with 14 built-in personas:
 
-| Persona | Temp | Purpose | Permissions |
-|---------|------|---------|-------------|
-| `navigator` | 0.1 | Codebase exploration | Read, Glob, Grep, git log/status |
-| `philosopher` | 0.3 | Architecture & specs | Read, Write(.wave/specs/*) |
-| `planner` | 0.3 | Task breakdown | Read, Glob, Grep |
-| `craftsman` | 0.7 | Implementation | Read, Write, Edit, Bash |
-| `debugger` | 0.2 | Issue diagnosis | Read, Grep, git bisect, go test |
-| `auditor` | 0.1 | Security review | Read, Grep, go vet, npm audit |
-| `summarizer` | 0.0 | Context compaction | Read only |
+| Persona | Purpose | Permissions |
+|---------|---------|-------------|
+| `navigator` | Codebase exploration | Read, Glob, Grep, git log/status |
+| `philosopher` | Architecture & specs | Read, Write(.wave/specs/*) |
+| `planner` | Task breakdown | Read, Glob, Grep |
+| `craftsman` | Implementation | Read, Write, Edit, Bash |
+| `implementer` | Code implementation | Read, Write, Edit, Bash |
+| `debugger` | Issue diagnosis | Read, Grep, git bisect, go test |
+| `auditor` | Security review | Read, Grep, go vet, npm audit |
+| `reviewer` | Code review | Read, Grep, Glob |
+| `researcher` | Research & analysis | Read, Grep, Glob, WebSearch |
+| `summarizer` | Context compaction | Read only |
+| `github-analyst` | GitHub issue analysis | Read, Grep, Bash(gh *) |
+| `github-enhancer` | GitHub issue enhancement | Read, Bash(gh *) |
+| `github-commenter` | GitHub issue commenting | Read, Bash(gh *) |
+| `github-pr-creator` | Pull request creation | Read, Bash(gh *), Bash(git *) |
 
 ## Persona Definitions
 
@@ -69,7 +76,6 @@ planner:
   adapter: claude
   description: "Task breakdown and project planning"
   system_prompt_file: .wave/personas/planner.md
-  temperature: 0.3
   permissions:
     allowed_tools:
       - Read
@@ -163,6 +169,34 @@ summarizer:
       - "Write(*)"
       - "Bash(*)"
 ```
+
+### Implementer
+
+Code implementation with full read/write access. Similar to craftsman but focused on spec-driven implementation.
+
+### Reviewer
+
+Code review specialist. Read-only analysis with detailed feedback on quality, patterns, and improvements.
+
+### Researcher
+
+Research and analysis agent. Explores codebases and external sources to gather information for decision-making.
+
+### GitHub Analyst
+
+Analyzes GitHub issues for completeness, categorization, and priority assessment.
+
+### GitHub Enhancer
+
+Enhances poorly documented GitHub issues with structured details, reproduction steps, and acceptance criteria.
+
+### GitHub Commenter
+
+Posts analysis results and recommendations as comments on GitHub issues.
+
+### GitHub PR Creator
+
+Creates pull requests with proper descriptions, linking related issues and summarizing changes.
 
 ## Defining Custom Personas
 

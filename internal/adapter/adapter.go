@@ -16,6 +16,16 @@ type AdapterRunner interface {
 	Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error)
 }
 
+// StreamEvent represents a real-time event from Claude Code's stream-json output.
+type StreamEvent struct {
+	Type      string // "tool_use", "tool_result", "text", "result", "system"
+	ToolName  string // e.g. "Read", "Write", "Bash", "Glob", "Grep"
+	ToolInput string // summary of input (file path, command, pattern)
+	Content   string // text content or result summary
+	TokensIn  int    // cumulative input tokens
+	TokensOut int    // cumulative output tokens
+}
+
 type AdapterRunConfig struct {
 	Adapter       string
 	Persona       string
@@ -30,6 +40,10 @@ type AdapterRunConfig struct {
 	OutputFormat  string
 	Debug         bool
 	Model         string // Model to use (e.g., "opus", "sonnet", "claude-opus-4-5-20251101")
+
+	// OnStreamEvent is called for each real-time event during Claude Code execution.
+	// If nil, streaming events are silently ignored.
+	OnStreamEvent func(StreamEvent)
 }
 
 type AdapterResult struct {

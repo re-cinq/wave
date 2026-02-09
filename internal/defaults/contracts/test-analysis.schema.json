@@ -1,65 +1,84 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+  "description": "Analysis results from navigating the project structure for testing",
   "required": [
-    "test_files",
-    "test_patterns",
-    "testing_framework",
-    "test_areas"
+    "project_name",
+    "entry_points",
+    "directories",
+    "existing_tests"
   ],
   "properties": {
-    "test_files": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of existing test files in the codebase"
+    "project_name": {
+      "type": "string",
+      "description": "Name of the project being analyzed"
     },
-    "test_patterns": {
-      "type": "object",
-      "description": "Common testing patterns and conventions used",
-      "properties": {
-        "naming_convention": {
-          "type": "string"
-        },
-        "directory_structure": {
-          "type": "string"
-        },
-        "common_imports": {
-          "type": "array",
-          "items": {
-            "type": "string"
+    "entry_points": {
+      "type": "array",
+      "description": "Main entry points of the application",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "description"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path relative to project root"
+          },
+          "description": {
+            "type": "string",
+            "description": "Purpose of this entry point"
           }
         }
       }
     },
-    "testing_framework": {
-      "type": "object",
-      "description": "Details about the testing framework in use",
-      "properties": {
-        "primary_framework": {
-          "type": "string"
-        },
-        "assertion_library": {
-          "type": "string"
-        },
-        "test_runner": {
-          "type": "string"
+    "directories": {
+      "type": "array",
+      "description": "Key directories in the project",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "purpose"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory path relative to project root"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Purpose of this directory"
+          }
         }
       }
     },
-    "test_areas": {
-      "type": "object",
-      "description": "Different areas where tests can be added",
-      "properties": {
-        "unit_tests": {
-          "type": "string"
-        },
-        "integration_tests": {
-          "type": "string"
-        },
-        "end_to_end_tests": {
-          "type": "string"
+    "existing_tests": {
+      "type": "array",
+      "description": "Test files that already exist in the project",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "type"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the test file"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration",
+              "e2e",
+              "unknown"
+            ],
+            "description": "Type of test"
+          }
         }
       }
     }

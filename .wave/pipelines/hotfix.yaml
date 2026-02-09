@@ -74,6 +74,7 @@ steps:
       contract:
         type: test_suite
         command: "go test ./... -count=1"
+
         must_pass: true
         on_failure: retry
         max_retries: 3

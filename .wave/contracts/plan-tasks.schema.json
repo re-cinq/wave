@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Tasks",
+  "description": "Structured task breakdown for feature implementation",
+  "type": "object",
+  "required": ["feature_summary", "tasks", "execution_order", "metadata", "markdown_content"],
+  "properties": {
+    "feature_summary": {
+      "type": "object",
+      "required": ["title", "description", "total_tasks", "estimated_total_complexity"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "description": "Short title for the feature"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Brief description of what the feature does"
+        },
+        "total_tasks": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of tasks in the breakdown"
+        },
+        "estimated_total_complexity": {
+          "type": "string",
+          "enum": ["S", "M", "L", "XL"],
+          "description": "Overall complexity estimate"
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "persona", "complexity", "acceptance_criteria"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[0-9]{2}$",
+            "description": "Task identifier (T01, T02, etc.)"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Short task title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "description": "What needs to be done"
+          },
+          "persona": {
+            "type": "string",
+            "enum": ["navigator", "philosopher", "craftsman", "auditor", "planner", "implementer", "reviewer"],
+            "description": "Which persona should execute this task"
+          },
+          "complexity": {
+            "type": "string",
+            "enum": ["S", "M", "L", "XL"],
+            "description": "Task complexity estimate"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^T[0-9]{2}$"
+            },
+            "description": "Task IDs that must complete before this one"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "How to verify the task is complete"
+          },
+          "affected_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Files that will be created or modified"
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Risks specific to this task"
+          }
+        }
+      },
+      "description": "Ordered list of tasks"
+    },
+    "execution_order": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["phase", "task_ids"],
+        "properties": {
+          "phase": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Execution phase number"
+          },
+          "task_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^T[0-9]{2}$"
+            },
+            "description": "Tasks that can run in parallel in this phase"
+          }
+        }
+      },
+      "description": "Parallelization groups for task execution"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["generated_at"],
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the plan was generated"
+        }
+      }
+    },
+    "markdown_content": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Pre-rendered human-readable plan in markdown format"
+    }
+  }
+}

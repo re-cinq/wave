@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Documentation Issue Result",
+  "description": "Output from the create-issue step: GitHub issue creation result",
+  "type": "object",
+  "required": ["success", "repository", "timestamp"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the issue was successfully created"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$",
+      "description": "Repository full name (owner/repo)"
+    },
+    "issue": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "GitHub issue number"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the created issue"
+        },
+        "title": {
+          "type": "string",
+          "description": "Issue title"
+        },
+        "inconsistency_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of inconsistencies reported in the issue"
+        }
+      },
+      "description": "Details of the created issue (only present if success=true)"
+    },
+    "skipped": {
+      "type": "boolean",
+      "description": "True if no issue was created because no inconsistencies were found"
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["authentication_failed", "rate_limit_exceeded", "permission_denied", "network_error", "api_error", "unknown_error"],
+          "description": "Error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the operation can be retried"
+        }
+      },
+      "description": "Error details (only present if success=false)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Operation timestamp"
+    }
+  }
+}

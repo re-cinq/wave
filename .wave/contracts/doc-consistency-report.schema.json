@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Documentation Consistency Report",
+  "description": "Output from the analyze-consistency step: list of inconsistencies between code and documentation",
+  "type": "object",
+  "required": ["summary", "inconsistencies", "timestamp"],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "required": ["total_count", "by_severity"],
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of inconsistencies found"
+        },
+        "by_severity": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          },
+          "description": "Count of inconsistencies by severity level"
+        },
+        "clean": {
+          "type": "boolean",
+          "description": "True if no inconsistencies were found"
+        }
+      }
+    },
+    "inconsistencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "category", "title", "description", "source_location", "doc_location"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^DOC-[0-9]{3}$",
+            "description": "Unique inconsistency ID (DOC-001, DOC-002, etc.)"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Severity of the inconsistency"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["cli_flags", "personas", "pipelines", "contracts", "env_vars", "api", "stale_reference", "missing_docs", "other"],
+            "description": "Category of the inconsistency"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Short title describing the inconsistency"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Detailed description of the inconsistency and what needs to change"
+          },
+          "source_location": {
+            "type": "string",
+            "description": "File and line where the source of truth is (code, pipeline, etc.)"
+          },
+          "doc_location": {
+            "type": "string",
+            "description": "File and section where the documentation is stale or missing"
+          },
+          "fix_description": {
+            "type": "string",
+            "description": "What specifically needs to be updated"
+          }
+        }
+      },
+      "description": "List of documentation inconsistencies"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the analysis was performed"
+    }
+  }
+}

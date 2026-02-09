@@ -66,13 +66,13 @@ steps:
         5. Include benchmarks for performance-critical code
 
         Follow existing test patterns in the codebase.
-    handover:
-      contract:
-        type: test_suite
-        command: "go test ./... -v"
-        must_pass: false
-        on_failure: retry
-        max_retries: 3
+    # handover:
+    #   contract:
+    #     type: test_suite
+    #     command: "npm test"  # or: go test ./..., pytest, cargo test
+    #     must_pass: false
+    #     on_failure: retry
+    #     max_retries: 3
     output_artifacts:
       - name: tests
         path: output/generated-tests.md
