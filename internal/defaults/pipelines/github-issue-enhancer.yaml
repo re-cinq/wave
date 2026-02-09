@@ -157,7 +157,7 @@ steps:
       source: |
         Read artifacts/results.json for enhancement results.
 
-        For each issue, verify with: gh issue view <N> --repo re-cinq/wave --json title,labels
+        For each issue, verify with: gh issue view <N> --repo {{ input }} --json title,labels
 
         Save verification to artifact.json:
         {

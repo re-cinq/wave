@@ -230,9 +230,14 @@ steps:
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
-        3. Use gh CLI to post the comment:
+        3. Write the markdown content to a file, then use gh CLI to post the comment:
 
-           gh issue comment <number> --repo <owner/repo> --body "<markdown_content>"
+           # Write to file to avoid shell escaping issues with large markdown
+           cat > /tmp/comment-body.md << 'COMMENT_EOF'
+           <markdown_content>
+           COMMENT_EOF
+
+           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
 
         4. Add a footer to the comment:
            ---
