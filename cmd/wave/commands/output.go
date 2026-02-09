@@ -57,17 +57,19 @@ func CreateEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.Step,
 
 	case OutputFormatText:
 		progress := display.NewBasicProgressDisplayWithVerbose(cfg.Verbose)
+		throttled := display.NewThrottledProgressEmitter(progress)
 		return EmitterResult{
-			Emitter:  event.NewProgressOnlyEmitter(progress),
-			Progress: progress,
+			Emitter:  event.NewProgressOnlyEmitter(throttled),
+			Progress: throttled,
 			Cleanup:  func() {},
 		}
 
 	case OutputFormatQuiet:
 		progress := display.NewQuietProgressDisplay()
+		throttled := display.NewThrottledProgressEmitter(progress)
 		return EmitterResult{
-			Emitter:  event.NewProgressOnlyEmitter(progress),
-			Progress: progress,
+			Emitter:  event.NewProgressOnlyEmitter(throttled),
+			Progress: throttled,
 			Cleanup:  func() {},
 		}
 
@@ -90,7 +92,8 @@ func createAutoEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.S
 			btpd.AddStep(step.ID, step.ID, step.Persona)
 		}
 
-		emitter := event.NewProgressOnlyEmitter(btpd)
+		throttled := display.NewThrottledProgressEmitter(btpd)
+		emitter := event.NewProgressOnlyEmitter(throttled)
 
 		cleanup := func() {
 			btpd.Finish()
@@ -98,16 +101,17 @@ func createAutoEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.S
 
 		return EmitterResult{
 			Emitter:  emitter,
-			Progress: btpd,
+			Progress: throttled,
 			Cleanup:  cleanup,
 		}
 	}
 
 	// Non-TTY: plain text to stderr
 	progress := display.NewBasicProgressDisplayWithVerbose(cfg.Verbose)
+	throttled := display.NewThrottledProgressEmitter(progress)
 	return EmitterResult{
-		Emitter:  event.NewProgressOnlyEmitter(progress),
-		Progress: progress,
+		Emitter:  event.NewProgressOnlyEmitter(throttled),
+		Progress: throttled,
 		Cleanup:  func() {},
 	}
 }
