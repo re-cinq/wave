@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+var (
+	reFeaturePrefix  = regexp.MustCompile(`^(\d{3})-`)
+	reFeatureNumber  = regexp.MustCompile(`(\d+)[-_]`)
+	reInvalidChars   = regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
+	reMultipleDashes = regexp.MustCompile(`-+`)
+)
+
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
 	BranchName      string            `json:"branch_name"`
@@ -150,15 +157,13 @@ func getCurrentGitBranch() (string, error) {
 // extractFeatureNumber extracts feature number from branch name (supports ###-name format)
 func extractFeatureNumber(branchName string) string {
 	// Match patterns like "018-enhanced-progress", "001-feature-name", etc.
-	re := regexp.MustCompile(`^(\d{3})-`)
-	matches := re.FindStringSubmatch(branchName)
+	matches := reFeaturePrefix.FindStringSubmatch(branchName)
 	if len(matches) > 1 {
 		return branchName // Return full branch name as feature identifier
 	}
 
 	// Try other common patterns like "feature/123-name"
-	re2 := regexp.MustCompile(`(\d+)[-_]`)
-	matches2 := re2.FindStringSubmatch(branchName)
+	matches2 := reFeatureNumber.FindStringSubmatch(branchName)
 	if len(matches2) > 1 {
 		// Pad to 3 digits
 		num, _ := strconv.Atoi(matches2[1])
@@ -171,10 +176,10 @@ func extractFeatureNumber(branchName string) string {
 // sanitizeBranchName removes invalid characters from branch names for use in paths
 func sanitizeBranchName(branchName string) string {
 	// Replace invalid path characters
-	sanitized := regexp.MustCompile(`[^a-zA-Z0-9\-_]`).ReplaceAllString(branchName, "-")
+	sanitized := reInvalidChars.ReplaceAllString(branchName, "-")
 
 	// Remove consecutive dashes
-	sanitized = regexp.MustCompile(`-+`).ReplaceAllString(sanitized, "-")
+	sanitized = reMultipleDashes.ReplaceAllString(sanitized, "-")
 
 	// Trim leading/trailing dashes
 	sanitized = strings.Trim(sanitized, "-")
