@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -98,20 +99,36 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		return nil, fmt.Errorf("failed to start claude: %w", err)
 	}
 
-	var stdoutBuf, stderrBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+	var stdoutBuf bytes.Buffer
 	stdoutDone := make(chan error, 1)
 	stderrDone := make(chan error, 1)
-
-	go func() {
-		_, err := io.Copy(&stdoutBuf, stdoutPipe)
-		stdoutDone <- err
-	}()
 
 	go func() {
 		_, err := io.Copy(&stderrBuf, stderrPipe)
 		stderrDone <- err
 	}()
 
+	// Stream stdout line-by-line, parsing NDJSON events in real-time
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024) // 10MB max line
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			stdoutBuf.Write(line)
+			stdoutBuf.WriteByte('\n')
+
+			// Parse and emit stream events to the callback
+			if cfg.OnStreamEvent != nil {
+				if evt, ok := parseStreamLine(line); ok {
+					cfg.OnStreamEvent(evt)
+				}
+			}
+		}
+		stdoutDone <- scanner.Err()
+	}()
+
+	// Wait for both streams to finish or context cancellation
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
@@ -123,11 +140,10 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		if err != nil {
 			return nil, fmt.Errorf("failed to read stdout: %w", err)
 		}
-	case err := <-stderrDone:
-		if err != nil {
-			return nil, fmt.Errorf("failed to read stderr: %w", err)
-		}
 	}
+
+	// Wait for stderr to finish too
+	<-stderrDone
 
 	cmdErr := cmd.Wait()
 	result := &AdapterResult{
@@ -186,7 +202,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	settings := ClaudeSettings{
 		Model:        model,
 		Temperature:  cfg.Temperature,
-		OutputFormat: "json",
+		OutputFormat: "stream-json",
 		Permissions: ClaudePermissions{
 			Allow: normalizeAllowedTools(allowedTools),
 		},
@@ -237,7 +253,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 		args = append(args, "--allowedTools", strings.Join(normalized, ","))
 	}
 
-	args = append(args, "--output-format", "json")
+	args = append(args, "--output-format", "stream-json")
+	args = append(args, "--verbose")
+	// Skip permission prompts — Wave enforces permissions via allowedTools
+	args = append(args, "--dangerously-skip-permissions")
 	// Note: Claude CLI doesn't support --temperature flag
 	// Temperature is set via .claude/settings.json in prepareWorkspace
 	// Use --no-session-persistence to avoid saving sessions
@@ -262,8 +281,8 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 			continue
 		}
 
-		// Parse the new Claude CLI JSON output format
-		var result struct {
+		// Parse stream-json NDJSON format
+		var obj struct {
 			Type   string `json:"type"`
 			Result string `json:"result"`
 			Usage  struct {
@@ -272,13 +291,14 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 			} `json:"usage"`
 		}
 
-		if err := json.Unmarshal(line, &result); err != nil {
+		if err := json.Unmarshal(line, &obj); err != nil {
 			continue
 		}
 
-		if result.Type == "result" {
-			tokens = result.Usage.InputTokens + result.Usage.OutputTokens
-			resultContent = result.Result
+		// "result" type carries the final output in stream-json format
+		if obj.Type == "result" {
+			tokens = obj.Usage.InputTokens + obj.Usage.OutputTokens
+			resultContent = obj.Result
 		}
 	}
 
@@ -294,6 +314,147 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 	}
 
 	return tokens, artifacts, resultContent
+}
+
+// parseStreamLine parses a single NDJSON line from Claude Code's stream-json output
+// and converts it to a StreamEvent. Returns (event, true) if the line produced a
+// meaningful event, or (zero, false) if it should be skipped.
+func parseStreamLine(line []byte) (StreamEvent, bool) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(line, &obj); err != nil {
+		return StreamEvent{}, false
+	}
+
+	var eventType string
+	if raw, ok := obj["type"]; ok {
+		json.Unmarshal(raw, &eventType)
+	}
+
+	switch eventType {
+	case "system":
+		return StreamEvent{Type: "system"}, true
+
+	case "assistant":
+		return parseAssistantEvent(obj)
+
+	case "tool_result":
+		return StreamEvent{Type: "tool_result"}, false // skip, tool_use already reported
+
+	case "result":
+		var usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		}
+		if raw, ok := obj["usage"]; ok {
+			json.Unmarshal(raw, &usage)
+		}
+		return StreamEvent{
+			Type:      "result",
+			TokensIn:  usage.InputTokens,
+			TokensOut: usage.OutputTokens,
+		}, true
+
+	default:
+		return StreamEvent{}, false
+	}
+}
+
+// parseAssistantEvent extracts tool_use and text events from assistant messages.
+func parseAssistantEvent(obj map[string]json.RawMessage) (StreamEvent, bool) {
+	var msg struct {
+		Message struct {
+			Content []struct {
+				Type  string          `json:"type"`
+				Name  string          `json:"name,omitempty"`
+				Text  string          `json:"text,omitempty"`
+				Input json.RawMessage `json:"input,omitempty"`
+			} `json:"content"`
+			Usage struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		} `json:"message"`
+	}
+
+	if err := json.Unmarshal(flattenToMessage(obj), &msg); err != nil {
+		return StreamEvent{}, false
+	}
+
+	for _, block := range msg.Message.Content {
+		switch block.Type {
+		case "tool_use":
+			target := extractToolTarget(block.Name, block.Input)
+			return StreamEvent{
+				Type:      "tool_use",
+				ToolName:  block.Name,
+				ToolInput: target,
+				TokensIn:  msg.Message.Usage.InputTokens,
+				TokensOut: msg.Message.Usage.OutputTokens,
+			}, true
+		case "text":
+			if block.Text == "" {
+				continue
+			}
+			// Only emit text events for substantial content
+			text := block.Text
+			if len(text) > 80 {
+				text = text[:80]
+			}
+			return StreamEvent{
+				Type:    "text",
+				Content: text,
+			}, true
+		}
+	}
+
+	return StreamEvent{}, false
+}
+
+// flattenToMessage wraps the raw JSON map back into bytes for structured parsing.
+func flattenToMessage(obj map[string]json.RawMessage) []byte {
+	data, _ := json.Marshal(obj)
+	return data
+}
+
+// extractToolTarget pulls the most relevant input field for display.
+func extractToolTarget(toolName string, input json.RawMessage) string {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(input, &fields); err != nil {
+		return ""
+	}
+
+	// Extract the most relevant field per tool
+	switch toolName {
+	case "Read":
+		return jsonString(fields["file_path"])
+	case "Write":
+		return jsonString(fields["file_path"])
+	case "Edit":
+		return jsonString(fields["file_path"])
+	case "Glob":
+		return jsonString(fields["pattern"])
+	case "Grep":
+		return jsonString(fields["pattern"])
+	case "Bash":
+		cmd := jsonString(fields["command"])
+		if len(cmd) > 60 {
+			cmd = cmd[:60] + "..."
+		}
+		return cmd
+	case "Task":
+		return jsonString(fields["description"])
+	default:
+		return ""
+	}
+}
+
+// jsonString extracts a string from a json.RawMessage, stripping quotes.
+func jsonString(raw json.RawMessage) string {
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return strings.Trim(string(raw), "\"")
+	}
+	return s
 }
 
 // ExtractJSONFromMarkdown extracts JSON content from markdown code blocks.

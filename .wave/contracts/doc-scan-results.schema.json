@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Documentation Scan Results",
+  "description": "Output from the scan-changes step: changed files and current documentation state snapshot",
+  "type": "object",
+  "required": ["scan_scope", "changed_files", "documentation_snapshot", "timestamp"],
+  "properties": {
+    "scan_scope": {
+      "type": "object",
+      "required": ["mode", "range"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["diff", "full"],
+          "description": "Whether this was a diff-based or full scan"
+        },
+        "range": {
+          "type": "string",
+          "description": "Git range used for diff (e.g. 'main...HEAD') or 'full' for full scan"
+        },
+        "base_ref": {
+          "type": "string",
+          "description": "Base reference for comparison"
+        }
+      }
+    },
+    "changed_files": {
+      "type": "object",
+      "required": ["total_count", "categories"],
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of changed files"
+        },
+        "categories": {
+          "type": "object",
+          "properties": {
+            "go_code": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed Go source files"
+            },
+            "cli_commands": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed CLI command files (cmd/wave/commands/)"
+            },
+            "pipelines": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed pipeline definitions"
+            },
+            "personas": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed persona definitions"
+            },
+            "contracts": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed contract schemas"
+            },
+            "documentation": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Changed documentation files (docs/, README.md, CLAUDE.md, etc.)"
+            },
+            "other": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Other changed files"
+            }
+          }
+        }
+      }
+    },
+    "documentation_snapshot": {
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "exists"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the documentation file"
+              },
+              "exists": {
+                "type": "boolean",
+                "description": "Whether the file exists"
+              },
+              "summary": {
+                "type": "string",
+                "description": "Brief summary of the file's content and key sections"
+              }
+            }
+          },
+          "description": "Key documentation files and their current state"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the scan was performed"
+    }
+  }
+}

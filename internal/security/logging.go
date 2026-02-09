@@ -2,6 +2,7 @@ package security
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func (sl *SecurityLogger) LogViolation(violationType, source, sanitizedDetails s
 	}
 
 	// Log to structured output (would integrate with Wave's existing logging)
-	fmt.Printf("[SECURITY] %s: %s from %s - %s (blocked: %v)\n",
+	fmt.Fprintf(os.Stderr, "[SECURITY] %s: %s from %s - %s (blocked: %v)\n",
 		event.Severity,
 		event.Type,
 		event.Source,
@@ -47,7 +48,7 @@ func (sl *SecurityLogger) LogSanitization(inputType string, changesDetected bool
 		return
 	}
 
-	fmt.Printf("[SECURITY] Input sanitized: type=%s changes=%v risk_score=%d\n",
+	fmt.Fprintf(os.Stderr, "[SECURITY] Input sanitized: type=%s changes=%v risk_score=%d\n",
 		inputType,
 		changesDetected,
 		riskScore,
@@ -60,7 +61,7 @@ func (sl *SecurityLogger) LogPathValidation(requestedPath, validatedPath string,
 		return
 	}
 
-	fmt.Printf("[SECURITY] Path validated: requested=%s validated=%s flags=%v\n",
+	fmt.Fprintf(os.Stderr, "[SECURITY] Path validated: requested=%s validated=%s flags=%v\n",
 		SanitizePathForLogging(requestedPath),
 		SanitizePathForLogging(validatedPath),
 		securityFlags,

@@ -70,9 +70,6 @@ Navigator and auditor personas typically use `readonly` mounts. Craftsman person
 runtime:
   workspace_root: /tmp/wave          # Default
 
-# Override with environment variable
-# WAVE_WORKSPACE_ROOT=/data/wave
-
 # Override with CLI flag
 # wave run --workspace /data/wave
 ```

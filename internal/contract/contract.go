@@ -14,8 +14,9 @@ type ContractConfig struct {
 	SchemaPath  string   `json:"schemaPath,omitempty"`
 	Command     string   `json:"command,omitempty"`
 	CommandArgs []string `json:"commandArgs,omitempty"`
-	StrictMode  bool     `json:"strictMode,omitempty"` // Deprecated: use MustPass instead
-	MustPass    bool     `json:"must_pass,omitempty"`   // New: determines if validation failure blocks pipeline
+	Dir         string   `json:"dir,omitempty"`         // Working directory: "project_root", absolute path, or empty for workspace
+	StrictMode  bool     `json:"strictMode,omitempty"`  // Deprecated: use MustPass instead
+	MustPass    bool     `json:"must_pass,omitempty"`    // New: determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"`
 	QualityGates []QualityGateConfig `json:"quality_gates,omitempty"` // Quality gates to enforce
 

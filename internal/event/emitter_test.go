@@ -158,9 +158,11 @@ func TestNDJSONFormat(t *testing.T) {
 	}
 }
 
-func TestHumanReadableFormat(t *testing.T) {
+// TestProgressOnlyEmitter verifies that suppressJSON mode prevents stdout output
+// while still forwarding to the progress emitter.
+func TestProgressOnlyEmitter(t *testing.T) {
 	output := captureOutput(func() {
-		emitter := NewNDJSONEmitterWithHumanReadable()
+		emitter := NewProgressOnlyEmitter(nil) // nil progress emitter, just test suppression
 		emitter.Emit(Event{
 			Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 			PipelineID: "test-pipeline",
@@ -171,20 +173,8 @@ func TestHumanReadableFormat(t *testing.T) {
 		})
 	})
 
-	if !strings.Contains(output, "12:00:00") {
-		t.Errorf("missing formatted timestamp in output: %s", output)
-	}
-	if !strings.Contains(output, "test-step") {
-		t.Errorf("missing step ID in output: %s", output)
-	}
-	if !strings.Contains(output, "running") {
-		t.Errorf("missing state in output: %s", output)
-	}
-	if !strings.Contains(output, "0.1s") {
-		t.Errorf("missing duration in output: %s", output)
-	}
-	if !strings.Contains(output, "Test message") {
-		t.Errorf("missing message in output: %s", output)
+	if output != "" {
+		t.Errorf("expected no stdout output from progress-only emitter, got: %s", output)
 	}
 }
 
@@ -198,8 +188,7 @@ func TestConcurrentEventEmission_ThreadSafety(t *testing.T) {
 	// Create a buffer to capture output instead of using stdout
 	var buf bytes.Buffer
 	emitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&buf),
-		humanReadable: false,
+		encoder: json.NewEncoder(&buf),
 	}
 
 	const numGoroutines = 100
@@ -261,8 +250,7 @@ func TestConcurrentEventEmission_ThreadSafety(t *testing.T) {
 func TestConcurrentEventEmission_NoDataRace(t *testing.T) {
 	var buf bytes.Buffer
 	emitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&buf),
-		humanReadable: false,
+		encoder: json.NewEncoder(&buf),
 	}
 
 	const numGoroutines = 50
@@ -296,21 +284,18 @@ func TestConcurrentEventEmission_NoDataRace(t *testing.T) {
 	t.Log("Concurrent emission completed without data races")
 }
 
-// TestConcurrentEventEmission_MixedFormats tests concurrent emission
-// with both NDJSON and human-readable emitters.
-func TestConcurrentEventEmission_MixedFormats(t *testing.T) {
-	var jsonBuf, humanBuf bytes.Buffer
+// TestConcurrentEventEmission_MixedEmitters tests concurrent emission
+// with both plain and progress-only emitters.
+func TestConcurrentEventEmission_MixedEmitters(t *testing.T) {
+	var jsonBuf, progressBuf bytes.Buffer
 
 	jsonEmitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&jsonBuf),
-		humanReadable: false,
+		encoder: json.NewEncoder(&jsonBuf),
 	}
 
-	// For human readable, we'll just verify it doesn't panic
-	// (stdout capture in concurrent tests is tricky)
-	humanEmitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&humanBuf),
-		humanReadable: true,
+	progressEmitter := &NDJSONEmitter{
+		encoder:      json.NewEncoder(&progressBuf),
+		suppressJSON: true,
 	}
 
 	const numEvents = 100
@@ -331,13 +316,13 @@ func TestConcurrentEventEmission_MixedFormats(t *testing.T) {
 		}
 	}()
 
-	// Goroutine 2: Human readable emitter
+	// Goroutine 2: Progress-only emitter (suppressed JSON)
 	go func() {
 		defer wg.Done()
 		for i := 0; i < numEvents; i++ {
-			humanEmitter.Emit(Event{
+			progressEmitter.Emit(Event{
 				Timestamp:  time.Now(),
-				PipelineID: "human-pipeline",
+				PipelineID: "progress-pipeline",
 				StepID:     fmt.Sprintf("step-%d", i),
 				State:      "completed",
 				DurationMs: int64(i * 10),
@@ -347,10 +332,16 @@ func TestConcurrentEventEmission_MixedFormats(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify JSON output
+	// Verify JSON output from first emitter
 	jsonOutput := jsonBuf.String()
 	if len(jsonOutput) == 0 {
 		t.Error("no JSON output captured")
+	}
+
+	// Verify progress emitter suppressed JSON
+	progressOutput := progressBuf.String()
+	if len(progressOutput) != 0 {
+		t.Error("progress-only emitter should not produce JSON output")
 	}
 
 	// Count valid JSON events
@@ -375,8 +366,7 @@ func TestConcurrentEventEmission_MixedFormats(t *testing.T) {
 func TestConcurrentEventEmission_HighContention(t *testing.T) {
 	var buf bytes.Buffer
 	emitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&buf),
-		humanReadable: false,
+		encoder: json.NewEncoder(&buf),
 	}
 
 	const numGoroutines = 200
@@ -442,8 +432,7 @@ func TestConcurrentEventEmission_HighContention(t *testing.T) {
 func TestConcurrentEventEmission_AllStates(t *testing.T) {
 	var buf bytes.Buffer
 	emitter := &NDJSONEmitter{
-		encoder:       json.NewEncoder(&buf),
-		humanReadable: false,
+		encoder: json.NewEncoder(&buf),
 	}
 
 	states := []string{"started", "running", "completed", "failed", "retrying"}
