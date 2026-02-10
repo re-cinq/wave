@@ -21,6 +21,7 @@
           curl
           sqlite
           bubblewrap
+          nodejs_22  # Claude Code requires Node.js
         ];
 
         # Bubblewrap sandbox wrapper — isolates the entire dev session
@@ -29,13 +30,15 @@
 
           # Ensure bind targets exist before bwrap
           mkdir -p "$HOME/.claude"
+          mkdir -p "$HOME/.local/bin"
+          mkdir -p "$HOME/go"
+          touch -a "$HOME/.local/bin/wave"
           touch -a "$HOME/.claude.json"
 
           BWRAP_ARGS=(
             --unshare-all
             --share-net          # Full net for now; proxy filtering is future work
             --die-with-parent
-            --new-session        # Prevent terminal escape sequence attacks
 
             # Root filesystem — READ-ONLY
             --ro-bind / /
@@ -45,28 +48,39 @@
             # Hide entire home directory
             --tmpfs "$HOME"
 
-            # Writable: project directory only
+            # Writable: project directory
             --bind "$PROJECT_DIR" "$PROJECT_DIR"
 
             # Writable: Claude Code config (session state, credentials)
             --bind "$HOME/.claude" "$HOME/.claude"
             --bind "$HOME/.claude.json" "$HOME/.claude.json"
 
-            # Writable: isolated temp (NOT shared with host)
-            --tmpfs /tmp
+            # Writable: Go module cache (avoids re-downloading on every step)
+            --bind "$HOME/go" "$HOME/go"
+
+            # Shared /tmp — Nix store and tooling needs it; still process-isolated via namespaces
+            --bind /tmp /tmp
 
             # Read-only: git config for commits
             --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
+            --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
 
-            # Environment — curated, not inherited
-            --clearenv
-            --setenv HOME "$HOME"
-            --setenv PATH "$PATH"
-            --setenv TERM "''${TERM:-xterm-256color}"
-            --setenv TMPDIR "/tmp"
-            --setenv SANDBOX_ACTIVE "1"
-            --setenv ANTHROPIC_API_KEY "''${ANTHROPIC_API_KEY:-}"
-            --setenv GH_TOKEN "''${GH_TOKEN:-}"
+            # Read-only: SSH keys for git push/pull
+            --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
+
+            # Read-only: gh CLI auth config
+            --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+
+            # Read-only: NPM/Node config (Claude Code may need it)
+            --ro-bind-try "$HOME/.npmrc" "$HOME/.npmrc"
+            --ro-bind-try "$HOME/.config/nvm" "$HOME/.config/nvm"
+
+            # Read-only: local tools
+            --ro-bind-try "$HOME/.local/bin/notesium" "$HOME/.local/bin/notesium"
+            --ro-bind-try "$HOME/.local/bin/claudit" "$HOME/.local/bin/claudit"
+
+            # Writable: wave binary (go build target)
+            --bind-try "$HOME/.local/bin/wave" "$HOME/.local/bin/wave"
 
             --chdir "$PROJECT_DIR"
           )
@@ -75,7 +89,10 @@
             exec ${pkgs.bubblewrap}/bin/bwrap "''${BWRAP_ARGS[@]}" "$@"
           else
             exec ${pkgs.bubblewrap}/bin/bwrap "''${BWRAP_ARGS[@]}" \
-              ${pkgs.bash}/bin/bash
+              ${pkgs.bash}/bin/bash --rcfile <(echo '
+                export PS1="[wave] \w \$ "
+                export SANDBOX_ACTIVE=1
+              ')
           fi
         '';
       in
@@ -116,10 +133,21 @@
               if [ -t 0 ] && [ -z "$SANDBOX_ACTIVE" ] && [ "$(uname -s)" = "Linux" ]; then
                 echo ""
                 echo "  Entering bubblewrap sandbox..."
-                echo "  WRITE: $PWD, ~/.claude, /tmp"
-                echo "  READ:  / (read-only)"
                 echo ""
-                exec wave-sandbox bash
+                echo "  Writable:   $PWD"
+                echo "              ~/.claude, ~/.claude.json"
+                echo "              ~/.local/bin/wave, ~/go"
+                echo "              /tmp"
+                echo ""
+                echo "  Read-only:  / (entire root)"
+                echo "              ~/.ssh, ~/.gitconfig, ~/.config/git"
+                echo "              ~/.config/gh, ~/.npmrc, ~/.config/nvm"
+                echo "              ~/.local/notesium, ~/.local/claudit"
+                echo ""
+                exec wave-sandbox bash --rcfile <(echo '
+                  export PS1="[wave] \w \$ "
+                  export SANDBOX_ACTIVE=1
+                ')
               fi
 
               echo ""

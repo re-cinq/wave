@@ -35,11 +35,12 @@ nix develop  →  bubblewrap sandbox  →  wave run  →  adapter subprocess
 | Protection | Mechanism |
 |------------|-----------|
 | Filesystem read-only | `--ro-bind / /` — entire root is read-only |
-| Home directory hidden | `--tmpfs $HOME` — `~/.ssh`, `~/.aws`, `~/.gnupg` invisible |
-| Project dir writable | `--bind $PROJECT_DIR` — only the project is writable |
-| Isolated temp | `--tmpfs /tmp` — not shared with host |
-| Curated environment | `--clearenv` + explicit `--setenv` for allowed vars only |
-| Terminal protection | `--new-session` blocks escape sequence injection |
+| Home directory hidden | `--tmpfs $HOME` — `~/.aws`, `~/.gnupg` invisible |
+| Selective home access | `~/.ssh`, `~/.gitconfig` mounted read-only for git operations |
+| Project dir writable | `--bind $PROJECT_DIR` — the project directory is writable |
+| Go cache writable | `--bind ~/go` — module cache persists across steps |
+| Shared temp | `--bind /tmp` — shared with host (Nix tooling needs it) |
+| Inherited environment | Nix-provided environment inherited (not `--clearenv`) |
 
 **Platform**: Linux only (kernel namespaces). macOS users rely on Claude Code's built-in Seatbelt sandbox.
 
