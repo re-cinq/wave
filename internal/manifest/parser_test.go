@@ -275,6 +275,156 @@ func TestManifestGetAdapter(t *testing.T) {
 	}
 }
 
+func TestManifestSandboxConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-sandbox
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+    permissions:
+      allowed_tools: ["Read", "Glob", "Grep"]
+      deny: ["Write(*)", "Edit(*)"]
+    sandbox:
+      allowed_domains:
+        - api.anthropic.com
+  implementer:
+    adapter: claude
+    system_prompt_file: prompts/impl.md
+    permissions:
+      allowed_tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+    sandbox:
+      allowed_domains:
+        - api.anthropic.com
+        - github.com
+        - "*.github.com"
+        - proxy.golang.org
+runtime:
+  workspace_root: ./workspace
+  sandbox:
+    enabled: true
+    default_allowed_domains:
+      - api.anthropic.com
+      - github.com
+    env_passthrough:
+      - ANTHROPIC_API_KEY
+      - GH_TOKEN
+`
+	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
+		t.Fatalf("Failed to write manifest: %v", err)
+	}
+
+	// Create prompt files
+	for _, f := range []string{"prompts/nav.md", "prompts/impl.md"} {
+		p := filepath.Join(tmpDir, f)
+		os.MkdirAll(filepath.Dir(p), 0755)
+		os.WriteFile(p, []byte("# Persona"), 0644)
+	}
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest: %v", err)
+	}
+
+	// Runtime sandbox
+	if !m.Runtime.Sandbox.Enabled {
+		t.Error("expected runtime.sandbox.enabled = true")
+	}
+	if len(m.Runtime.Sandbox.DefaultAllowedDomains) != 2 {
+		t.Errorf("expected 2 default domains, got %d", len(m.Runtime.Sandbox.DefaultAllowedDomains))
+	}
+	if len(m.Runtime.Sandbox.EnvPassthrough) != 2 {
+		t.Errorf("expected 2 env passthrough vars, got %d", len(m.Runtime.Sandbox.EnvPassthrough))
+	}
+	if m.Runtime.Sandbox.EnvPassthrough[0] != "ANTHROPIC_API_KEY" {
+		t.Errorf("expected ANTHROPIC_API_KEY, got %s", m.Runtime.Sandbox.EnvPassthrough[0])
+	}
+
+	// Navigator persona sandbox
+	nav := m.GetPersona("navigator")
+	if nav == nil {
+		t.Fatal("navigator persona not found")
+	}
+	if nav.Sandbox == nil {
+		t.Fatal("navigator sandbox config not found")
+	}
+	if len(nav.Sandbox.AllowedDomains) != 1 {
+		t.Errorf("expected 1 navigator domain, got %d", len(nav.Sandbox.AllowedDomains))
+	}
+	if nav.Sandbox.AllowedDomains[0] != "api.anthropic.com" {
+		t.Errorf("expected api.anthropic.com, got %s", nav.Sandbox.AllowedDomains[0])
+	}
+
+	// Navigator permissions
+	if len(nav.Permissions.Deny) != 2 {
+		t.Errorf("expected 2 navigator deny rules, got %d", len(nav.Permissions.Deny))
+	}
+
+	// Implementer persona sandbox
+	impl := m.GetPersona("implementer")
+	if impl == nil {
+		t.Fatal("implementer persona not found")
+	}
+	if impl.Sandbox == nil {
+		t.Fatal("implementer sandbox config not found")
+	}
+	if len(impl.Sandbox.AllowedDomains) != 4 {
+		t.Errorf("expected 4 implementer domains, got %d", len(impl.Sandbox.AllowedDomains))
+	}
+}
+
+func TestManifestNoSandbox(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-no-sandbox
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest: %v", err)
+	}
+
+	// Runtime sandbox should have zero values
+	if m.Runtime.Sandbox.Enabled {
+		t.Error("expected sandbox.enabled = false by default")
+	}
+	if len(m.Runtime.Sandbox.DefaultAllowedDomains) != 0 {
+		t.Error("expected no default domains")
+	}
+
+	// Persona sandbox should be nil
+	nav := m.GetPersona("navigator")
+	if nav.Sandbox != nil {
+		t.Error("expected nil persona sandbox when not configured")
+	}
+}
+
 func TestManifestGetPersona(t *testing.T) {
 	m := &Manifest{
 		Personas: map[string]Persona{

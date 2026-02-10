@@ -32,10 +32,23 @@ type ClaudeSettings struct {
 	Temperature  float64           `json:"temperature"`
 	OutputFormat string            `json:"output_format"`
 	Permissions  ClaudePermissions `json:"permissions"`
+	Sandbox      *SandboxSettings  `json:"sandbox,omitempty"`
+}
+
+type SandboxSettings struct {
+	Enabled                  bool             `json:"enabled"`
+	AllowUnsandboxedCommands bool             `json:"allowUnsandboxedCommands"`
+	AutoAllowBashIfSandboxed bool             `json:"autoAllowBashIfSandboxed"`
+	Network                  *NetworkSettings `json:"network,omitempty"`
+}
+
+type NetworkSettings struct {
+	AllowedDomains []string `json:"allowedDomains,omitempty"`
 }
 
 type ClaudePermissions struct {
 	Allow []string `json:"allow"`
+	Deny  []string `json:"deny,omitempty"`
 }
 
 func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
@@ -69,15 +82,7 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		fmt.Printf("[DEBUG] Working directory: %s\n", workspacePath)
 	}
 
-	mergedEnv := append(os.Environ(), cfg.Env...)
-	// Disable telemetry, error reporting, and interactive prompts for subprocess
-	mergedEnv = append(mergedEnv,
-		"DISABLE_TELEMETRY=1",
-		"DISABLE_ERROR_REPORTING=1",
-		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
-		"DISABLE_BUG_COMMAND=1",
-	)
-	cmd.Env = mergedEnv
+	cmd.Env = a.buildEnvironment(cfg)
 
 	// Set up process group for clean timeout kill
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -205,7 +210,20 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		OutputFormat: "stream-json",
 		Permissions: ClaudePermissions{
 			Allow: normalizeAllowedTools(allowedTools),
+			Deny:  cfg.DenyTools,
 		},
+	}
+
+	// Add sandbox settings if domains are configured
+	if len(cfg.AllowedDomains) > 0 {
+		settings.Sandbox = &SandboxSettings{
+			Enabled:                  true,
+			AllowUnsandboxedCommands: false,
+			AutoAllowBashIfSandboxed: true,
+			Network: &NetworkSettings{
+				AllowedDomains: cfg.AllowedDomains,
+			},
+		}
 	}
 
 	settingsPath := filepath.Join(settingsDir, "settings.json")
@@ -214,28 +232,68 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write settings.json: %w", err)
 	}
 
-	// Project system prompt from the persona's .md file into CLAUDE.md
+	// Build CLAUDE.md: persona prompt + manifest-derived restrictions
 	claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
+	var claudeMd strings.Builder
+
+	// 1. Persona system prompt
 	if cfg.SystemPrompt != "" {
-		if err := os.WriteFile(claudeMdPath, []byte(cfg.SystemPrompt), 0644); err != nil {
-			return fmt.Errorf("failed to write CLAUDE.md: %w", err)
-		}
+		claudeMd.WriteString(cfg.SystemPrompt)
 	} else {
-		// Try loading from .wave/personas/<persona>.md
 		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
-			if err := os.WriteFile(claudeMdPath, data, 0644); err != nil {
-				return fmt.Errorf("failed to write CLAUDE.md: %w", err)
-			}
-		} else if _, err := os.Stat(claudeMdPath); os.IsNotExist(err) {
-			defaultPrompt := fmt.Sprintf("# %s\n\nYou are operating as the %s persona.\n", cfg.Persona, cfg.Persona)
-			if err := os.WriteFile(claudeMdPath, []byte(defaultPrompt), 0644); err != nil {
-				return fmt.Errorf("failed to write CLAUDE.md: %w", err)
-			}
+			claudeMd.Write(data)
+		} else {
+			fmt.Fprintf(&claudeMd, "# %s\n\nYou are operating as the %s persona.\n", cfg.Persona, cfg.Persona)
 		}
 	}
 
+	// 2. Restriction section from manifest
+	restrictions := buildRestrictionSection(cfg)
+	if restrictions != "" {
+		claudeMd.WriteString(restrictions)
+	}
+
+	if err := os.WriteFile(claudeMdPath, []byte(claudeMd.String()), 0644); err != nil {
+		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
+	}
+
 	return nil
+}
+
+// buildEnvironment constructs a curated environment for the Claude Code subprocess.
+// Instead of passing the full host environment, it provides only the base variables
+// needed for operation plus explicitly allowed passthrough variables from the manifest.
+func (a *ClaudeAdapter) buildEnvironment(cfg AdapterRunConfig) []string {
+	// Base environment (always needed)
+	env := []string{
+		"HOME=" + os.Getenv("HOME"),
+		"PATH=" + os.Getenv("PATH"),
+		"TERM=" + getenvDefault("TERM", "xterm-256color"),
+		"TMPDIR=/tmp",
+		"DISABLE_TELEMETRY=1",
+		"DISABLE_ERROR_REPORTING=1",
+		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
+		"DISABLE_BUG_COMMAND=1",
+	}
+
+	// Add explicitly allowed env vars from manifest
+	for _, key := range cfg.EnvPassthrough {
+		if val := os.Getenv(key); val != "" {
+			env = append(env, key+"="+val)
+		}
+	}
+
+	// Step-specific env vars (from pipeline config)
+	env = append(env, cfg.Env...)
+	return env
+}
+
+func getenvDefault(key, fallback string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return fallback
 }
 
 func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
@@ -594,6 +652,50 @@ func (a *ClaudeAdapter) cleanJSONContent(content string) string {
 	}
 
 	return content
+}
+
+// buildRestrictionSection generates the restriction directives for CLAUDE.md
+// derived from the manifest permissions in AdapterRunConfig.
+func buildRestrictionSection(cfg AdapterRunConfig) string {
+	hasDeny := len(cfg.DenyTools) > 0
+	hasAllow := len(cfg.AllowedTools) > 0
+	hasDomains := len(cfg.AllowedDomains) > 0
+
+	if !hasDeny && !hasAllow && !hasDomains {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n\n---\n\n## Restrictions\n\n")
+	b.WriteString("The following restrictions are enforced by the pipeline orchestrator.\n\n")
+
+	if hasDeny {
+		b.WriteString("### Denied Tools\n\n")
+		for _, deny := range cfg.DenyTools {
+			fmt.Fprintf(&b, "- `%s`\n", deny)
+		}
+		b.WriteString("\n")
+	}
+
+	if hasAllow {
+		b.WriteString("### Allowed Tools\n\n")
+		b.WriteString("You may ONLY use the following tools:\n\n")
+		for _, tool := range cfg.AllowedTools {
+			fmt.Fprintf(&b, "- `%s`\n", tool)
+		}
+		b.WriteString("\n")
+	}
+
+	if hasDomains {
+		b.WriteString("### Network Access\n\n")
+		b.WriteString("Network requests are restricted to:\n\n")
+		for _, domain := range cfg.AllowedDomains {
+			fmt.Fprintf(&b, "- `%s`\n", domain)
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
 
 // normalizeAllowedTools converts scoped Write entries to bare Write
