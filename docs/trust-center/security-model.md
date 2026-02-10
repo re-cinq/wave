@@ -4,13 +4,14 @@ This document provides a comprehensive overview of Wave's security architecture 
 
 ## Executive Summary
 
-Wave's security model is built on five foundational principles:
+Wave's security model is built on six foundational principles:
 
-1. **Zero Credential Storage** - Credentials exist only in memory via environment variables
-2. **Ephemeral Isolation** - Each step executes in an isolated workspace with fresh memory
-3. **Deny-First Permissions** - Explicit deny patterns always override allow patterns
-4. **Contract Validation** - All inter-step data is validated against defined schemas
-5. **Comprehensive Audit** - Full audit trail with automatic credential scrubbing
+1. **Process Sandbox** - Nix dev shell with bubblewrap isolates the entire session (read-only FS, hidden home directory, process isolation)
+2. **Zero Credential Storage** - Credentials exist only in memory; adapter subprocesses receive a curated environment via `env_passthrough` filtering
+3. **Ephemeral Isolation** - Each step executes in an isolated workspace with fresh memory
+4. **Deny-First Permissions** - Explicit deny patterns always override allow patterns, projected into both `settings.json` and `CLAUDE.md`
+5. **Contract Validation** - All inter-step data is validated against defined schemas
+6. **Comprehensive Audit** - Full audit trail with automatic credential scrubbing
 
 ## Credential Handling
 
@@ -23,29 +24,62 @@ Wave enforces a strict policy: **credentials never touch disk**. This eliminates
 - Persistence in checkpoint/resumption data
 - Accidental inclusion in debug outputs
 
+### Outer Process Sandbox (Nix + Bubblewrap)
+
+The outermost layer isolates the entire development session via bubblewrap namespace sandboxing:
+
+```
+nix develop  →  bubblewrap sandbox  →  wave run  →  adapter subprocess
+```
+
+| Protection | Mechanism |
+|------------|-----------|
+| Filesystem read-only | `--ro-bind / /` — entire root is read-only |
+| Home directory hidden | `--tmpfs $HOME` — `~/.aws`, `~/.gnupg` invisible |
+| Selective home access | `~/.ssh`, `~/.gitconfig` mounted read-only for git operations |
+| Project dir writable | `--bind $PROJECT_DIR` — the project directory is writable |
+| Go cache writable | `--bind ~/go` — module cache persists across steps |
+| Shared temp | `--bind /tmp` — shared with host (Nix tooling needs it) |
+| Inherited environment | Nix-provided environment inherited (not `--clearenv`) |
+
+**Platform**: Linux only (kernel namespaces). macOS users rely on Claude Code's built-in Seatbelt sandbox.
+
+See [Sandbox Setup Guide](/guides/sandbox-setup) for configuration.
+
 ### Credential Flow Architecture
 
 ```mermaid
 flowchart TD
     ENV["Environment Variables (Shell)"]
-    WAVE["Wave Process<br/><small>• Inherits all env vars<br/>• No credential storage<br/>• No credential logging<br/>• No credential checkpoints</small>"]
-    ADAPTER["Adapter Subprocess<br/><small>• Inherits all env vars<br/>• Isolated process<br/>• Fresh environment</small>"]
+    WAVE["Wave Process<br/><small>• Reads env_passthrough from manifest<br/>• No credential storage<br/>• No credential logging</small>"]
+    FILTER["Environment Filter<br/><small>• Only HOME, PATH, TERM, TMPDIR<br/>• Only env_passthrough vars<br/>• Full host env NOT inherited</small>"]
+    ADAPTER["Adapter Subprocess<br/><small>• Curated environment<br/>• Isolated process<br/>• Fresh workspace</small>"]
     LLM["LLM CLI<br/><small>uses ANTHROPIC_API_KEY</small>"]
 
-    ENV --> WAVE --> ADAPTER --> LLM
+    ENV --> WAVE --> FILTER --> ADAPTER --> LLM
 ```
 
 ### Environment Variable Security
 
-Wave passes credentials exclusively through environment variables:
+Wave passes credentials through a **curated environment filter**. Only variables listed in `runtime.sandbox.env_passthrough` reach adapter subprocesses:
+
+```yaml
+runtime:
+  sandbox:
+    env_passthrough:
+      - ANTHROPIC_API_KEY
+      - GH_TOKEN
+```
 
 ```bash
-# Correct: Environment variable
+# Correct: Environment variable + manifest passthrough
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # NEVER: Configuration file (Wave does not support this)
 # apiKey: sk-ant-...  # NOT ALLOWED
 ```
+
+Variables not in `env_passthrough` (e.g., `AWS_SECRET_ACCESS_KEY`, `DATABASE_PASSWORD`) are never visible to adapter subprocesses.
 
 ### Credential Scrubbing
 

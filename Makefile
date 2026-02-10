@@ -9,7 +9,8 @@ build:
 
 install: build
 	install -d $(PREFIX)/bin
-	install -m 755 $(BINARY) $(PREFIX)/bin/$(BINARY)
+	cp -f $(BINARY) $(PREFIX)/bin/$(BINARY)
+	chmod 755 $(PREFIX)/bin/$(BINARY)
 
 test:
 	go test -race ./...

@@ -54,17 +54,19 @@ The primary built-in adapter wraps Claude Code's headless mode:
 ```bash
 # What Wave executes internally:
 claude -p "prompt text" \
-  --output-format json \
-  --max-turns 100 \
+  --model opus \
   --allowedTools "Read,Write,Bash" \
-  --denyTools "Bash(rm -rf *)"
+  --output-format stream-json \
+  --verbose \
+  --dangerously-skip-permissions \
+  --no-session-persistence
 ```
 
 ### Subprocess Lifecycle
 
 1. Wave builds the CLI command from persona configuration.
-2. Spawns the process in the step's ephemeral workspace.
-3. Inherits environment variables (including API keys) from the parent process.
+2. Generates `settings.json` (permissions, deny rules, sandbox, network domains) and `CLAUDE.md` (system prompt + restriction directives) from the manifest.
+3. Spawns the process in the step's ephemeral workspace with a curated environment (only base vars + explicit `env_passthrough`). Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment.
 4. Monitors stdout for JSON output events.
 5. Enforces per-step timeout — kills the entire process group if exceeded.
 6. Collects exit code, output artifacts, and duration.
@@ -128,12 +130,26 @@ adapters:
 
 See the [Custom Adapter Example](/examples/custom-adapter) for a complete walkthrough.
 
-## Credential Handling
+## Manifest-to-Adapter Projection
 
-Adapters receive credentials exclusively via environment variables inherited from the Wave parent process. Credentials are **never** written to disk, manifest files, or audit logs.
+Wave projects manifest configuration into adapter-specific config files:
 
 ```
-Shell → ANTHROPIC_API_KEY → Wave process → Adapter subprocess → LLM CLI
+wave.yaml persona.permissions.deny     → settings.json permissions.deny
+wave.yaml persona.permissions.allowed  → settings.json permissions.allow
+wave.yaml persona.sandbox.allowed_domains → settings.json sandbox.network.allowedDomains
+wave.yaml persona system prompt        → CLAUDE.md (persona section)
+wave.yaml permissions + sandbox        → CLAUDE.md (restriction section)
+```
+
+This ensures Claude Code is informed of restrictions at both the configuration level (settings.json enforces it) and the prompt level (CLAUDE.md makes the model aware of it).
+
+## Credential Handling
+
+Adapters receive credentials via a **curated environment** — only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment via `os.Environ()`.
+
+```
+Shell → env_passthrough filter → Wave process → Adapter subprocess → LLM CLI
 ```
 
 See [Environment & Credentials](/reference/environment) for details.

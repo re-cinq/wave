@@ -126,13 +126,20 @@ All development must comply with the Wave Constitution:
 
 ### Permission Enforcement
 - Persona permissions strictly enforced at runtime
+- Deny rules projected into `settings.json` AND `CLAUDE.md` restriction section
 - No escalation or bypass mechanisms
 - Audit trail for all permission decisions
 - Fail-secure on permission violations
 
+### Sandbox Isolation
+- **Outer sandbox**: Nix dev shell with bubblewrap (read-only FS, hidden `$HOME`, curated env)
+- **Adapter sandbox**: `settings.json` sandbox settings with network domain allowlisting
+- **Prompt restrictions**: `CLAUDE.md` restriction section generated from manifest
+- **Environment hygiene**: Only `runtime.sandbox.env_passthrough` vars reach subprocesses
+
 ### Data Protection
 - No credentials stored on disk
-- Environment-only secret passing
+- Curated environment passthrough (not full `os.Environ()`)
 - Sanitized logging (no sensitive data)
 - Workspace isolation prevents data leakage
 
