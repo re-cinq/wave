@@ -2,212 +2,66 @@
 
 ## Problem Statement
 
-Wave executes Claude Code as a subprocess but currently provides no OS-level isolation. The `ClaudeAdapter` runs `claude` with `--dangerously-skip-permissions` and relies solely on `--allowedTools` flags for access control. A compromised or misbehaving agent can read/write anywhere on the host filesystem, access any network endpoint, and modify system configuration. Wave's existing workspace isolation (copy-based with `chmod 0555` for read-only mounts) is enforced at the application layer, not the OS layer.
+Wave executes Claude Code as a subprocess with `--dangerously-skip-permissions` and relies on `--allowedTools` CLI flags for access control. The developer opens a terminal, runs `wave run`, and Claude Code gets full access to the host filesystem and network.
 
-### Current State
+Two problems exist:
 
-From `internal/adapter/claude.go`, the adapter:
-1. Creates `.claude/settings.json` in the workspace with `ClaudePermissions` (allow list only)
-2. Passes `--dangerously-skip-permissions` on every invocation
-3. Sets `cmd.Dir` to the workspace path but does not restrict filesystem access beyond that
-4. Merges host environment variables into the subprocess (full `os.Environ()`)
-5. Has no sandbox, network filtering, or resource limits
+1. **No outer isolation**: The development environment itself is unsandboxed. Everything Wave spawns inherits the developer's full filesystem and network access.
 
-### Gap Analysis
+2. **Manifest permissions not fully projected**: Wave's manifest defines per-persona `allowed_tools` and `deny` patterns, but the adapter only writes `Allow` to `settings.json` — the `Deny` list is silently dropped (`ClaudePermissions` has no `Deny` field). The generated `CLAUDE.md` contains only the persona's system prompt, with no mention of the restrictions the manifest defines.
 
-| Capability | Current | With Sandboxing |
-|---|---|---|
-| Filesystem isolation | Application-level (copy + chmod) | OS-enforced (bubblewrap bind mounts) |
-| Network isolation | None | Proxy-based domain filtering |
-| Process isolation | None (shared host) | PID/mount/user namespaces |
-| Syscall filtering | None | seccomp-BPF (pre-built filters) |
-| Resource limits | None | cgroups via container or bwrap |
-| Escape hatch | `--dangerously-skip-permissions` always set | `allowUnsandboxedCommands: false` blocks retries outside sandbox |
+### Current Flow (what happens today)
+
+```
+Developer terminal (full access)
+  └─ wave run <pipeline>
+       └─ executor.go reads manifest personas
+            └─ passes AllowedTools + DenyTools to AdapterRunConfig
+                 └─ claude.go prepareWorkspace:
+                      ├─ settings.json: writes Allow only, Deny DROPPED
+                      ├─ CLAUDE.md: persona system prompt only, no restrictions
+                      └─ buildArgs: --dangerously-skip-permissions --allowedTools
+                           └─ claude subprocess (full host access)
+```
+
+### Target Flow
+
+```
+nix develop  (enters bubblewrap sandbox)
+  └─ wave run <pipeline>
+       └─ executor.go reads manifest personas + sandbox config
+            └─ passes AllowedTools + DenyTools + sandbox settings to AdapterRunConfig
+                 └─ claude.go prepareWorkspace:
+                      ├─ settings.json: Allow + Deny + sandbox + network domains
+                      ├─ CLAUDE.md: persona prompt + restriction section from manifest
+                      └─ buildArgs: --allowedTools (sandbox handles permissions)
+                           └─ claude subprocess (sandboxed by outer bwrap + inner Claude sandbox)
+```
 
 ## Goals
 
-1. Enable Claude Code's built-in sandbox for all adapter subprocess invocations with zero escape hatches
-2. Generate per-persona `settings.json` files that map Wave's permission model to Claude Code's sandbox configuration
-3. Restrict network access to a known domain allowlist per persona/step
-4. Provide a bubblewrap-based Nix dev shell sandbox for Wave's own development environment
-5. Define the adapter interface for future Docker-based per-step isolation
+1. Provide a Nix flake dev shell that sandboxes the entire Wave development session via bubblewrap
+2. Fix the adapter to write `Deny` rules from the manifest into `settings.json`
+3. Generate `CLAUDE.md` that includes restriction directives derived from the manifest
+4. Enable Claude Code's built-in sandbox with settings driven by the manifest
+5. Curate environment variables instead of passing full `os.Environ()`
 
 ## Non-Goals
 
-1. **Full Docker/microVM isolation** -- deferred to Phase 3 as future work
-2. **macOS Seatbelt integration** -- Linux-only for now; Claude Code handles macOS natively
-3. **io_uring hardening** -- acknowledged as a blind spot; mitigation deferred to kernel-level config
-4. **OverlayFS workspace replacement** -- interesting optimization but orthogonal to sandboxing
-5. **MCP server sandboxing** -- no MCP servers in current Wave architecture
-6. **Custom seccomp profiles** -- Claude Code's sandbox-runtime ships pre-built BPF filters
-7. **Multi-tenant/untrusted pipeline isolation** -- enterprise concern, not prototype scope
+1. Docker/microVM per-step isolation (future work)
+2. macOS Seatbelt integration (Claude Code handles this natively)
+3. Custom seccomp profiles
+4. OverlayFS workspace replacement (orthogonal optimization)
 
 ---
 
 ## Design
 
-### Phase 1: Native Sandbox Integration (Immediate)
+### Phase 1: Nix Flake Dev Shell Sandbox
 
-**Effort**: Low. Changes confined to `internal/adapter/claude.go` and `internal/adapter/adapter.go`.
+**The outer container.** You `nix develop` into a bubblewrap sandbox, then everything — Wave, Claude Code, git — runs inside it.
 
-#### 1.1 Generate Sandbox-Aware settings.json
-
-Extend `ClaudeAdapter.prepareWorkspace` to write a `settings.json` that enables Claude Code's built-in sandbox. The current `ClaudeSettings` struct only covers `model`, `temperature`, `output_format`, and `permissions.allow`. Add sandbox configuration:
-
-```go
-type ClaudeSettings struct {
-    Model        string            `json:"model"`
-    Temperature  float64           `json:"temperature"`
-    OutputFormat string            `json:"output_format"`
-    Permissions  ClaudePermissions `json:"permissions"`
-    Sandbox      SandboxSettings   `json:"sandbox"`
-}
-
-type SandboxSettings struct {
-    Enabled                   bool            `json:"enabled"`
-    AllowUnsandboxedCommands  bool            `json:"allowUnsandboxedCommands"`
-    AutoAllowBashIfSandboxed  bool            `json:"autoAllowBashIfSandboxed"`
-    Network                   NetworkSettings `json:"network"`
-}
-
-type NetworkSettings struct {
-    AllowedDomains   []string `json:"allowedDomains"`
-    AllowLocalBinding bool    `json:"allowLocalBinding"`
-}
-```
-
-The generated `settings.json` for each step workspace:
-
-```json
-{
-  "model": "opus",
-  "permissions": {
-    "allow": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-    "deny": []
-  },
-  "sandbox": {
-    "enabled": true,
-    "allowUnsandboxedCommands": false,
-    "autoAllowBashIfSandboxed": true,
-    "network": {
-      "allowedDomains": [
-        "api.anthropic.com",
-        "github.com",
-        "*.github.com",
-        "*.githubusercontent.com",
-        "proxy.golang.org",
-        "sum.golang.org"
-      ],
-      "allowLocalBinding": false
-    }
-  }
-}
-```
-
-Key decisions:
-- `allowUnsandboxedCommands: false` -- eliminates the escape hatch where Claude retries commands outside the sandbox on failure
-- `autoAllowBashIfSandboxed: true` -- reduces permission prompts by 84% (Anthropic's internal data) since the sandbox enforces boundaries
-- `allowLocalBinding: false` -- prevents the agent from starting local servers that could be used as exfiltration channels
-
-#### 1.2 Per-Persona Permission Mapping
-
-Map Wave's `Permissions` struct (`AllowedTools` + `Deny`) to Claude Code's `permissions` field in `settings.json`. This is already partially implemented but the `Deny` list is not currently written:
-
-```go
-type ClaudePermissions struct {
-    Allow []string `json:"allow"`
-    Deny  []string `json:"deny"`
-}
-```
-
-Persona-specific sandbox network rules. In `prepareWorkspace`, derive the domain allowlist from the persona's role:
-
-| Persona | Network Domains | Rationale |
-|---|---|---|
-| navigator | `api.anthropic.com` | Read-only analysis, no git push needed |
-| implementer | `api.anthropic.com`, `github.com`, `*.github.com`, `*.githubusercontent.com`, `proxy.golang.org`, `sum.golang.org` | Needs git operations and Go module fetching |
-| reviewer | `api.anthropic.com`, `github.com`, `*.github.com` | Needs to read PRs/issues but not fetch modules |
-| craftsman | Same as implementer | Full build/push capability |
-| philosopher | `api.anthropic.com` | Pure reasoning, no external access needed |
-| auditor | `api.anthropic.com` | Read-only security analysis |
-
-#### 1.3 Filesystem Deny Rules
-
-Add filesystem deny rules to the sandbox settings to protect sensitive host paths, even though the sandbox already restricts writes to the working directory:
-
-```json
-{
-  "sandbox": {
-    "filesystem": {
-      "denyRead": ["~/.ssh", "~/.aws", "~/.gnupg", "~/.config/gh"],
-      "allowWrite": [".", "/tmp"],
-      "denyWrite": [".env", "*.key", "*.pem"]
-    }
-  }
-}
-```
-
-#### 1.4 Remove Reliance on --dangerously-skip-permissions
-
-Currently `buildArgs` unconditionally adds `--dangerously-skip-permissions`. With the sandbox enabled and `autoAllowBashIfSandboxed: true`, this flag becomes unnecessary for sandboxed tools. However, during the transition:
-
-1. Keep `--dangerously-skip-permissions` but pair it with explicit sandbox enforcement
-2. The sandbox settings written to `.claude/settings.json` take effect regardless of this flag
-3. Future: remove `--dangerously-skip-permissions` once sandbox coverage is validated
-
-#### 1.5 Environment Variable Hygiene
-
-Stop passing the full host environment. In `ClaudeAdapter.Run`, replace `os.Environ()` with a curated allowlist:
-
-```go
-// Instead of: mergedEnv := append(os.Environ(), cfg.Env...)
-// Use a curated base environment:
-baseEnv := []string{
-    "HOME=" + os.Getenv("HOME"),
-    "PATH=" + os.Getenv("PATH"),
-    "TERM=" + os.Getenv("TERM"),
-    "ANTHROPIC_API_KEY=" + os.Getenv("ANTHROPIC_API_KEY"),
-    "TMPDIR=/tmp",
-    "DISABLE_TELEMETRY=1",
-    "DISABLE_ERROR_REPORTING=1",
-    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
-    "DISABLE_BUG_COMMAND=1",
-}
-// Conditionally add GH_TOKEN only for personas that need git
-if personaNeedsGit(cfg.Persona) {
-    if token := os.Getenv("GH_TOKEN"); token != "" {
-        baseEnv = append(baseEnv, "GH_TOKEN="+token)
-    }
-}
-mergedEnv := append(baseEnv, cfg.Env...)
-```
-
-This prevents leaking credentials from the host environment (AWS keys, database URLs, etc.) into the agent subprocess.
-
-#### 1.6 AdapterRunConfig Extension
-
-Add sandbox configuration to the run config so the pipeline executor can override defaults per step:
-
-```go
-type AdapterRunConfig struct {
-    // ... existing fields ...
-    SandboxEnabled    bool     // Enable Claude Code's built-in sandbox (default: true)
-    AllowedDomains    []string // Network domain allowlist for this step
-    DenyReadPaths     []string // Filesystem paths to deny reading
-}
-```
-
----
-
-### Phase 2: Nix Flake Dev Shell Sandbox
-
-**Effort**: Moderate. New `flake.nix` file (or extension of existing Nix config). No Go code changes.
-
-This phase sandboxes the Wave development environment itself -- the human developer's shell where they run Wave, Claude Code, and other tools. It does not affect Wave's subprocess execution.
-
-#### 2.1 Bubblewrap Sandbox Script
-
-Based on the CFOAgent pattern with improvements from the Anthropic sandbox-runtime:
+#### 1.1 Bubblewrap Sandbox Script
 
 ```nix
 sandboxScript = pkgs.writeShellScriptBin "wave-sandbox" ''
@@ -219,11 +73,11 @@ sandboxScript = pkgs.writeShellScriptBin "wave-sandbox" ''
 
   BWRAP_ARGS=(
     --unshare-all
-    --share-net          # Phase 2a: replace with proxy-based filtering
+    --share-net          # Full net for now; Phase 1a adds proxy filtering
     --die-with-parent
     --new-session        # Prevent terminal escape sequence attacks
 
-    # Root filesystem -- READ-ONLY
+    # Root filesystem — READ-ONLY
     --ro-bind / /
     --dev /dev
     --proc /proc
@@ -231,20 +85,20 @@ sandboxScript = pkgs.writeShellScriptBin "wave-sandbox" ''
     # Hide entire home directory
     --tmpfs "$HOME"
 
-    # Writable: project directory
+    # Writable: project directory only
     --bind "$PROJECT_DIR" "$PROJECT_DIR"
 
-    # Writable: Claude Code config
+    # Writable: Claude Code config (session state, credentials)
     --bind "$HOME/.claude" "$HOME/.claude"
     --bind "$HOME/.claude.json" "$HOME/.claude.json"
 
     # Writable: isolated temp (NOT shared with host)
     --tmpfs /tmp
 
-    # Read-only: git config
+    # Read-only: git config for commits
     --ro-bind "$HOME/.gitconfig" "$HOME/.gitconfig"
 
-    # Environment -- curated, not inherited
+    # Environment — curated, not inherited
     --clearenv
     --setenv HOME "$HOME"
     --setenv PATH "$PATH"
@@ -266,14 +120,7 @@ sandboxScript = pkgs.writeShellScriptBin "wave-sandbox" ''
 '';
 ```
 
-Key differences from CFOAgent:
-- `--new-session` prevents ANSI terminal escape injection
-- `--clearenv` + explicit `--setenv` instead of inheriting all env vars
-- `--tmpfs /tmp` instead of `--bind /tmp /tmp` (isolated, not shared with host)
-- No `--ro-bind ~/.ssh` by default -- use `GH_TOKEN` + HTTPS for git operations
-- No `--bind ~/.bun` -- Wave is a Go project, not a Bun project
-
-#### 2.2 Flake.nix Additions
+#### 1.2 Flake.nix
 
 ```nix
 {
@@ -291,38 +138,36 @@ Key differences from CFOAgent:
 
         commonPackages = with pkgs; [
           go_1_25 gh git jq curl sqlite
-          bubblewrap
+          bubblewrap socat
+          claude-code
         ];
 
-        sandboxScript = /* as defined above */;
+        sandboxScript = /* as above */;
       in {
         devShells = {
-          # Default: sandboxed development shell
+          # Default: sandboxed
           default = pkgs.mkShell {
             buildInputs = commonPackages ++ [ sandboxScript ];
             shellHook = ''
               export WAVE_PROJECT_DIR="$PWD"
 
-              # Auto-detect GH_TOKEN from gh CLI
               if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
                 export GH_TOKEN=$(gh auth token 2>/dev/null)
               fi
 
-              # Auto-enter sandbox for interactive sessions
               if [ -t 0 ] && [ -z "$SANDBOX_ACTIVE" ]; then
                 echo ""
                 echo "  WAVE Sandboxed Development Shell"
                 echo "  WRITE: $PWD, ~/.claude, /tmp"
                 echo "  READ:  / (read-only)"
-                echo "  NET:   full (use 'nix develop .#restricted' for filtered)"
                 echo ""
                 exec wave-sandbox bash
               fi
             '';
           };
 
-          # Escape hatch: full access when you need it
-          unsandboxed = pkgs.mkShell {
+          # Escape hatch
+          yolo = pkgs.mkShell {
             buildInputs = commonPackages;
             shellHook = ''
               echo "WAVE Development Shell (NO SANDBOX)"
@@ -334,144 +179,256 @@ Key differences from CFOAgent:
 }
 ```
 
-#### 2.3 Network Filtering (Phase 2a -- future enhancement within Phase 2)
+#### 1.3 What This Protects
 
-Replace `--share-net` with proxy-based network filtering. Two approaches:
+- Agent cannot read `~/.ssh`, `~/.aws`, `~/.gnupg` or any other home directory contents
+- Agent cannot write outside the project directory
+- Agent cannot modify system config (`/etc`, `/usr`, `/bin`)
+- Host `/tmp` is isolated — no cross-process snooping
+- Environment is curated — no credential leakage from host env vars
+- `--new-session` blocks terminal escape injection
 
-**Option A: Use Anthropic's sandbox-runtime directly**
+#### 1.4 Platform Notes
 
-```bash
-npx @anthropic-ai/sandbox-runtime --config ~/.srt-settings.json -- claude ...
-```
-
-Where `~/.srt-settings.json` contains the domain allowlist. This handles the socat/proxy plumbing automatically.
-
-**Option B: Manual socat + proxy setup in the bwrap script**
-
-1. `--unshare-net` to remove all network interfaces inside the sandbox
-2. Start an HTTP/SOCKS5 proxy on the host that filters by domain
-3. Bridge via `socat` over a Unix domain socket into the sandbox
-4. Set `HTTP_PROXY`/`HTTPS_PROXY` environment variables inside the sandbox
-
-Option A is recommended for simplicity. Option B gives more control but requires maintaining proxy infrastructure.
-
-#### 2.4 Gotchas and Platform Notes
-
-- **NixOS TMPDIR**: When bubblewrap is setuid root, glibc strips `TMPDIR`. Always pass `--setenv TMPDIR /tmp`.
-- **Ubuntu 24.04+**: Unprivileged user namespaces restricted by default. May need `sysctl kernel.unprivileged_userns_clone=1` or setuid bwrap.
-- **macOS**: Bubblewrap does not work on macOS. Developers on macOS should use `nix develop .#unsandboxed` or rely on Claude Code's built-in Seatbelt sandbox.
-- **Docker inside sandbox**: Docker cannot run inside bubblewrap. If a step needs Docker, it must be excluded or use an alternative isolation approach.
+- **Linux only**: Bubblewrap requires kernel namespaces. macOS users use `nix develop .#yolo` and rely on Claude Code's built-in Seatbelt sandbox.
+- **NixOS TMPDIR**: Setuid bwrap strips `TMPDIR` via glibc. The `--setenv TMPDIR /tmp` handles this.
+- **Docker**: Cannot run inside bwrap. Steps needing Docker must use the yolo shell.
 
 ---
 
-### Phase 3: Docker Container Per Step (Future)
+### Phase 2: Manifest-Driven Claude Code Configuration
 
-**Effort**: High. New `DockerAdapter` in `internal/adapter/`, Dockerfile, container lifecycle management.
+**Fix the adapter to fully project manifest settings into Claude Code's configuration files.**
 
-This phase is documented for architectural planning but not targeted for implementation in the prototype.
+#### 2.1 Fix: Write Deny Rules to settings.json
 
-#### 3.1 DockerAdapter Interface
+Bug: `ClaudePermissions` only has `Allow`. The executor passes `DenyTools` (from `persona.Permissions.Deny`) but `prepareWorkspace` drops it.
 
 ```go
-type DockerAdapter struct {
-    Image         string
-    NetworkMode   string         // "none", "bridge", custom network
-    Mounts        []Mount
-    Resources     ResourceLimits
-    SecurityOpts  []string
+// Current (broken):
+type ClaudePermissions struct {
+    Allow []string `json:"allow"`
 }
 
-type Mount struct {
-    Source   string
-    Target   string
-    ReadOnly bool
-}
-
-type ResourceLimits struct {
-    MemoryMB  int
-    CPUs      float64
-    PidsLimit int
+// Fixed:
+type ClaudePermissions struct {
+    Allow []string `json:"allow"`
+    Deny  []string `json:"deny,omitempty"`
 }
 ```
 
-#### 3.2 Hardened Container Profile
+In `prepareWorkspace`:
 
-```bash
-docker run -it --rm \
-  --user 1000:1000 \
-  --read-only \
-  --cap-drop ALL \
-  --security-opt no-new-privileges:true \
-  --memory=4g \
-  --cpus=2 \
-  --pids-limit=256 \
-  --tmpfs /tmp:size=200M,noexec,nosuid \
-  --tmpfs /home/wave/.cache:size=500M \
-  -v "${WAVE_WORKSPACE}:/workspace:rw" \
-  -v "${WAVE_ARTIFACTS}:/artifacts:ro" \
-  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-  --network=wave-net \
-  wave-step:latest
+```go
+settings := ClaudeSettings{
+    Model:        model,
+    Temperature:  cfg.Temperature,
+    OutputFormat: "stream-json",
+    Permissions: ClaudePermissions{
+        Allow: normalizeAllowedTools(allowedTools),
+        Deny:  cfg.DenyTools,  // Currently missing
+    },
+}
 ```
 
-#### 3.3 Artifact Injection/Extraction
+#### 2.2 Add Sandbox Settings to settings.json
 
-- Previous step artifacts mounted read-only at `/artifacts/`
-- Step output written to `/workspace/output/`
-- After step completion, Wave copies output artifacts from the stopped container before removal
-- Container filesystem is ephemeral -- no persistent state between steps
+Extend `ClaudeSettings` with sandbox configuration derived from the manifest:
 
-#### 3.4 Network Policy
+```go
+type ClaudeSettings struct {
+    Model        string            `json:"model"`
+    Temperature  float64           `json:"temperature"`
+    OutputFormat string            `json:"output_format"`
+    Permissions  ClaudePermissions `json:"permissions"`
+    Sandbox      *SandboxSettings  `json:"sandbox,omitempty"`
+}
 
-Use Docker's internal network + iptables allowlisting (same pattern as Anthropic's devcontainer `init-firewall.sh`) or a CoreDNS sidecar that only resolves allowed domains.
+type SandboxSettings struct {
+    Enabled                  bool            `json:"enabled"`
+    AllowUnsandboxedCommands bool            `json:"allowUnsandboxedCommands"`
+    AutoAllowBashIfSandboxed bool            `json:"autoAllowBashIfSandboxed"`
+    Network                  *NetworkSettings `json:"network,omitempty"`
+}
 
----
+type NetworkSettings struct {
+    AllowedDomains []string `json:"allowedDomains,omitempty"`
+}
+```
 
-## Configuration
+The manifest drives these values. Example generated `settings.json` for an `implementer` step:
 
-### wave.yaml Sandbox Section
+```json
+{
+  "model": "opus",
+  "permissions": {
+    "allow": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+    "deny": ["Bash(rm -rf /*)"]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "api.anthropic.com",
+        "github.com",
+        "*.github.com",
+        "proxy.golang.org",
+        "sum.golang.org"
+      ]
+    }
+  }
+}
+```
 
-Add an optional `sandbox` section to the runtime configuration:
+For a `navigator` step (read-only):
+
+```json
+{
+  "model": "opus",
+  "permissions": {
+    "allow": ["Read", "Glob", "Grep", "Bash(git log*)"],
+    "deny": ["Write(*)", "Edit(*)"]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": ["api.anthropic.com"]
+    }
+  }
+}
+```
+
+#### 2.3 Generate CLAUDE.md with Restriction Directives
+
+Currently `prepareWorkspace` writes only the persona's system prompt to `CLAUDE.md`. It should append a restriction section derived from the manifest:
+
+```go
+func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
+    // ... existing settings.json generation ...
+
+    // Build CLAUDE.md: persona prompt + manifest-derived restrictions
+    var claudeMd strings.Builder
+
+    // 1. Persona system prompt (existing behavior)
+    if cfg.SystemPrompt != "" {
+        claudeMd.WriteString(cfg.SystemPrompt)
+    } else if data, err := os.ReadFile(personaPath); err == nil {
+        claudeMd.Write(data)
+    } else {
+        fmt.Fprintf(&claudeMd, "# %s\n\nYou are operating as the %s persona.\n", cfg.Persona, cfg.Persona)
+    }
+
+    // 2. Restriction section from manifest
+    claudeMd.WriteString("\n\n---\n\n## Restrictions\n\n")
+    claudeMd.WriteString("The following restrictions are enforced by the pipeline orchestrator.\n\n")
+
+    if len(cfg.DenyTools) > 0 {
+        claudeMd.WriteString("### Denied Tools\n\n")
+        for _, deny := range cfg.DenyTools {
+            fmt.Fprintf(&claudeMd, "- `%s`\n", deny)
+        }
+        claudeMd.WriteString("\n")
+    }
+
+    if len(cfg.AllowedTools) > 0 {
+        claudeMd.WriteString("### Allowed Tools\n\n")
+        claudeMd.WriteString("You may ONLY use the following tools:\n\n")
+        for _, tool := range cfg.AllowedTools {
+            fmt.Fprintf(&claudeMd, "- `%s`\n", tool)
+        }
+        claudeMd.WriteString("\n")
+    }
+
+    if len(cfg.AllowedDomains) > 0 {
+        claudeMd.WriteString("### Network Access\n\n")
+        claudeMd.WriteString("Network requests are restricted to:\n\n")
+        for _, domain := range cfg.AllowedDomains {
+            fmt.Fprintf(&claudeMd, "- `%s`\n", domain)
+        }
+        claudeMd.WriteString("\n")
+    }
+
+    // Write CLAUDE.md
+    return os.WriteFile(claudeMdPath, []byte(claudeMd.String()), 0644)
+}
+```
+
+This tells Claude Code at both the configuration level (settings.json enforces it) and the prompt level (CLAUDE.md makes the model aware of it) what it can and cannot do.
+
+#### 2.4 Manifest Schema Extension
+
+Add optional `sandbox` config to personas and runtime:
+
+```go
+type Persona struct {
+    Adapter          string           `yaml:"adapter"`
+    Description      string           `yaml:"description,omitempty"`
+    SystemPromptFile string           `yaml:"system_prompt_file"`
+    Temperature      float64          `yaml:"temperature,omitempty"`
+    Model            string           `yaml:"model,omitempty"`
+    Permissions      Permissions      `yaml:"permissions,omitempty"`
+    Hooks            HookConfig       `yaml:"hooks,omitempty"`
+    Sandbox          *PersonaSandbox  `yaml:"sandbox,omitempty"`
+}
+
+type PersonaSandbox struct {
+    AllowedDomains []string `yaml:"allowed_domains,omitempty"`
+    DenyReadPaths  []string `yaml:"deny_read_paths,omitempty"`
+}
+
+type Runtime struct {
+    WorkspaceRoot        string          `yaml:"workspace_root"`
+    // ... existing fields ...
+    Sandbox              RuntimeSandbox  `yaml:"sandbox,omitempty"`
+}
+
+type RuntimeSandbox struct {
+    Enabled              bool     `yaml:"enabled"`
+    DefaultAllowedDomains []string `yaml:"default_allowed_domains,omitempty"`
+    DenyReadPaths        []string `yaml:"deny_read_paths,omitempty"`
+    EnvPassthrough       []string `yaml:"env_passthrough,omitempty"`
+}
+```
+
+Example `wave.yaml`:
 
 ```yaml
 runtime:
   workspace_root: .wave/workspaces
   sandbox:
-    enabled: true                    # Enable sandbox for all steps (default: true)
-    allow_unsandboxed_commands: false # Block escape hatch (default: false)
+    enabled: true
     default_allowed_domains:
       - api.anthropic.com
       - github.com
       - "*.github.com"
-      - "*.githubusercontent.com"
       - proxy.golang.org
       - sum.golang.org
     deny_read_paths:
       - "~/.ssh"
       - "~/.aws"
-      - "~/.gnupg"
-    env_passthrough:                 # Host env vars to pass through (curated)
+    env_passthrough:
       - ANTHROPIC_API_KEY
       - GH_TOKEN
-      - TERM
-```
 
-### Per-Persona Overrides
-
-```yaml
 personas:
   navigator:
     adapter: claude
+    system_prompt_file: .wave/personas/navigator.md
     permissions:
-      allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)"]
-      deny: ["Write(*)", "Edit(*)"]
+      allowed_tools: ["Read", "Glob", "Grep", "Bash(git *)"]
+      deny: ["Write(*)", "Edit(*)", "Bash(rm *)"]
     sandbox:
       allowed_domains:
         - api.anthropic.com
-      # No github.com -- navigator is read-only analysis
+      # No github.com — navigator doesn't push
 
   implementer:
     adapter: claude
+    system_prompt_file: .wave/personas/implementer.md
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
     sandbox:
@@ -483,95 +440,124 @@ personas:
         - sum.golang.org
 ```
 
+#### 2.5 Environment Variable Hygiene
+
+Replace `os.Environ()` passthrough with a curated list driven by `runtime.sandbox.env_passthrough`:
+
+```go
+func (a *ClaudeAdapter) buildEnvironment(cfg AdapterRunConfig) []string {
+    // Base environment (always needed)
+    env := []string{
+        "HOME=" + os.Getenv("HOME"),
+        "PATH=" + os.Getenv("PATH"),
+        "TERM=" + os.Getenv("TERM"),
+        "TMPDIR=/tmp",
+        "DISABLE_TELEMETRY=1",
+        "DISABLE_ERROR_REPORTING=1",
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
+        "DISABLE_BUG_COMMAND=1",
+    }
+
+    // Add only explicitly allowed env vars from manifest
+    for _, key := range cfg.EnvPassthrough {
+        if val := os.Getenv(key); val != "" {
+            env = append(env, key+"="+val)
+        }
+    }
+
+    // Step-specific env vars
+    env = append(env, cfg.Env...)
+    return env
+}
+```
+
+#### 2.6 AdapterRunConfig Extension
+
+```go
+type AdapterRunConfig struct {
+    // ... existing fields ...
+    AllowedDomains []string // Network domain allowlist from manifest
+    DenyReadPaths  []string // Paths to deny reading
+    EnvPassthrough []string // Env var names to pass through from host
+}
+```
+
+The executor populates these from the manifest:
+
+```go
+// In executor.go, where cfg is built:
+sandboxDomains := execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains
+if persona.Sandbox != nil && len(persona.Sandbox.AllowedDomains) > 0 {
+    sandboxDomains = persona.Sandbox.AllowedDomains // persona overrides runtime default
+}
+
+cfg := adapter.AdapterRunConfig{
+    // ... existing fields ...
+    AllowedDomains: sandboxDomains,
+    DenyReadPaths:  execution.Manifest.Runtime.Sandbox.DenyReadPaths,
+    EnvPassthrough: execution.Manifest.Runtime.Sandbox.EnvPassthrough,
+}
+```
+
+---
+
+### Phase 3: Docker Container Per Step (Future)
+
+Deferred. See research reports for architecture details.
+
 ---
 
 ## Security Model
 
-### Attack Vectors Mitigated by Phase
+### Defense in Depth (inside-out)
 
-| Attack Vector | Phase 1 | Phase 2 | Phase 3 |
+1. **CLAUDE.md restrictions** (prompt-level): Model is told what it can/cannot do
+2. **settings.json permissions** (Claude Code enforcement): Allow/Deny rules enforced by Claude Code
+3. **Claude Code sandbox** (OS-level for Bash): bubblewrap/seatbelt restricts what Bash commands can access
+4. **Nix dev shell sandbox** (OS-level for everything): bubblewrap restricts the entire session
+5. **Manifest as single source of truth**: All of the above are generated from `wave.yaml`
+
+### Attack Vectors
+
+| Attack Vector | Nix Sandbox | settings.json | CLAUDE.md |
 |---|---|---|---|
-| Host filesystem read (SSH keys, credentials) | Yes -- `denyRead` paths | Yes -- `--tmpfs $HOME` hides all | Yes -- container isolation |
-| Host filesystem write (system config, dotfiles) | Yes -- sandbox restricts writes to CWD | Yes -- `--ro-bind / /` | Yes -- `--read-only` + tmpfs |
-| Cross-project contamination | Partial -- per-step workspace | Yes -- only project dir mounted | Yes -- only workspace volume |
-| Data exfiltration via network | Yes -- domain allowlist | Partial -- `--share-net` still allows all (until Phase 2a) | Yes -- iptables/CoreDNS filtering |
-| Environment variable leakage | Yes -- curated env passthrough | Yes -- `--clearenv` | Yes -- explicit `-e` flags only |
-| Privilege escalation | Partial -- no-new-privileges via sandbox | Yes -- user namespace isolation | Yes -- `--cap-drop ALL` |
-| Terminal escape injection | No | Yes -- `--new-session` | N/A (no terminal) |
-| Process inspection/signaling | No | Yes -- PID namespace (`--unshare-pid`) | Yes -- PID namespace |
-| Fork bomb / resource exhaustion | No | No (bwrap has no cgroups) | Yes -- `--pids-limit`, `--memory` |
-
-### Defense in Depth Layers
-
-1. **Wave permissions** (`PermissionChecker`): Application-level tool allow/deny patterns
-2. **Claude Code permissions** (`settings.json`): Tool-level allow/deny rules enforced by Claude Code itself
-3. **Claude Code sandbox** (bubblewrap/seatbelt): OS-level filesystem and network isolation for the Bash tool
-4. **Nix dev shell sandbox** (bubblewrap): OS-level isolation for the entire development session
-5. **Docker container** (future): Kernel namespace isolation with resource limits
-
-### What Is NOT Protected
-
-- **DNS tunneling**: All phases allow DNS resolution. Exfiltration via DNS encoding is possible. Mitigation: CoreDNS proxy (Phase 3) or DNS query monitoring.
-- **Domain fronting**: An allowed domain like `github.com` could be used to relay data to unauthorized endpoints via CDN fronting. Mitigation: HTTPS inspection (complex, deferred).
-- **io_uring bypass**: Processes can perform I/O operations via io_uring without triggering seccomp-BPF filters. Mitigation: Disable io_uring via sysctl on kernel 6.6+ (`io_uring_disabled=2`).
-- **Side channels**: Timing attacks, CPU cache side channels, etc. Out of scope for process-level sandboxing.
+| Read ~/.ssh | Blocked (tmpfs $HOME) | Can add denyRead | Persona told no access |
+| Write outside project | Blocked (ro-bind) | Sandbox restricts to CWD | Persona told allowed tools |
+| Network exfiltration | --share-net (gap) | allowedDomains filter | Persona told allowed domains |
+| Env var leakage | --clearenv | N/A | N/A |
+| Terminal escape | --new-session | N/A | N/A |
+| Deny rule bypass | N/A | Enforced by Claude Code | Model aware of restrictions |
 
 ---
 
-## Testing Strategy
+## Implementation Checklist
 
-### Phase 1 Tests
+### Phase 1: Nix Flake
 
-1. **settings.json generation**: Verify that `prepareWorkspace` writes correct sandbox config for each persona type. Table-driven tests covering navigator, implementer, reviewer, craftsman, philosopher, auditor.
+- [ ] Add `flake.nix` with sandboxed default shell and yolo escape hatch
+- [ ] Test: filesystem isolation (can't read ~/.ssh, can't write /etc)
+- [ ] Test: env isolation (AWS_SECRET_ACCESS_KEY not visible)
+- [ ] Test: interactive detection (no sandbox for `nix develop --command`)
 
-2. **Permission mapping**: Verify that Wave's `Permissions.Deny` list is correctly written to Claude Code's `permissions.deny` in settings.json (currently missing).
+### Phase 2: Manifest-Driven Config
 
-3. **Environment hygiene**: Verify that the subprocess environment does not contain unexpected variables. Set a canary env var (e.g., `AWS_SECRET_ACCESS_KEY=test`), run the adapter, and verify it is not in the child process environment.
-
-4. **Domain allowlist per persona**: Verify that persona-specific domain lists are correctly generated. Navigator should not have `github.com`; implementer should.
-
-5. **Integration test**: Run a Claude Code subprocess with sandbox enabled in a temp workspace. Verify that:
-   - Writes outside the workspace directory fail
-   - Network requests to non-allowed domains fail
-   - The step completes successfully for allowed operations
-
-### Phase 2 Tests
-
-1. **Sandbox script smoke test**: Run `wave-sandbox echo "hello"` and verify output.
-
-2. **Filesystem isolation**: Inside sandbox, verify:
-   - `ls ~/.ssh` fails or shows empty directory
-   - `ls ~/.aws` fails or shows empty directory
-   - Writing to `/etc/test` fails (read-only root)
-   - Writing to workspace directory succeeds
-   - Writing to `/tmp` succeeds
-
-3. **Environment isolation**: Inside sandbox, verify:
-   - `env | grep AWS` returns nothing (curated env)
-   - `ANTHROPIC_API_KEY` is set (explicitly passed)
-   - `SANDBOX_ACTIVE=1` is set
-
-4. **Interactive detection**: Verify sandbox auto-entry only triggers for interactive (`-t 0`) sessions, not for `nix develop --command ...`.
-
-### Phase 3 Tests (Future)
-
-1. Docker container lifecycle (create, run, extract artifacts, destroy)
-2. Resource limit enforcement (OOM kill at memory limit, PID limit)
-3. Network policy enforcement (iptables rules block unauthorized traffic)
-4. Artifact injection from previous steps (read-only mount)
-
----
+- [ ] Add `Deny` field to `ClaudePermissions` struct
+- [ ] Write `cfg.DenyTools` to `settings.json` in `prepareWorkspace`
+- [ ] Add `SandboxSettings` to `ClaudeSettings` struct
+- [ ] Add `PersonaSandbox` and `RuntimeSandbox` to manifest types
+- [ ] Executor reads sandbox config from manifest and passes to adapter
+- [ ] Generate restriction section in `CLAUDE.md` from manifest permissions
+- [ ] Replace `os.Environ()` with curated env from `runtime.sandbox.env_passthrough`
+- [ ] Add `AllowedDomains`, `DenyReadPaths`, `EnvPassthrough` to `AdapterRunConfig`
+- [ ] Table-driven tests for settings.json generation per persona
+- [ ] Test: deny rules present in generated settings.json
+- [ ] Test: CLAUDE.md contains restriction section
+- [ ] Test: canary env var not leaked to subprocess
 
 ## Open Questions
 
-1. **Should Wave generate `.claude/settings.json` or `.claude/settings.local.json`?** The `settings.local.json` file is not synced and takes precedence over `settings.json`. Using it would avoid conflicting with any user-level settings, but Claude Code's sandbox documentation primarily references `settings.json`.
+1. **Should we remove `--dangerously-skip-permissions`?** With sandbox enabled and `autoAllowBashIfSandboxed: true`, sandboxed Bash auto-executes. But non-Bash tools (Read, Edit, Write) may still prompt without this flag. Needs testing in headless mode.
 
-2. **How to handle adapters other than Claude Code?** The `opencode` adapter and future adapters may have their own sandboxing mechanisms. Should the sandbox config in `wave.yaml` be adapter-agnostic, or should each adapter define its own sandbox integration?
+2. **Persona sandbox overrides vs runtime defaults**: Current design has persona-level `allowed_domains` override the runtime default entirely. Should it merge instead? (e.g., runtime provides `api.anthropic.com`, persona adds `github.com`)
 
-3. **Should `--dangerously-skip-permissions` be removed?** With `autoAllowBashIfSandboxed: true`, sandboxed Bash commands auto-execute without prompting. Non-sandboxed tools (Read, Edit, Write) still go through Claude Code's permission flow. Removing the flag would add safety but might cause prompts that block headless execution. Needs testing.
-
-4. **Network proxy for Phase 2a**: Should Wave ship its own proxy, use Anthropic's `@anthropic-ai/sandbox-runtime` npm package, or defer network filtering to the Docker phase? The npm dependency would be the first non-Go dependency in Wave.
-
-5. **Per-step vs per-pipeline sandbox config**: Should sandbox settings be configurable at the pipeline step level (more granular) or only at the persona level (simpler)? The current design uses persona-level defaults with runtime override via `AdapterRunConfig`.
-
-6. **bubblewrap availability**: Should Wave detect bubblewrap at startup and warn/fail if not available? Or should it gracefully degrade to unsandboxed execution with a warning?
+3. **Network filtering in Phase 1**: The bwrap script uses `--share-net` (full network). True domain filtering requires a proxy (socat + `--unshare-net`). Should this be a Phase 1a sub-step, or deferred to Claude Code's built-in network sandbox handling it via settings.json?
