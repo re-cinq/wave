@@ -169,6 +169,8 @@ The adapter constructs a curated environment instead of passing the full host en
 **Never included:**
 - Any other host environment variable (e.g., `AWS_SECRET_ACCESS_KEY`, `DATABASE_PASSWORD`)
 
+**Note:** The curated environment model applies to the Claude adapter. Other adapters using the `ProcessGroupRunner` currently inherit the full host environment.
+
 ## Defense-in-Depth Summary
 
 From innermost to outermost:

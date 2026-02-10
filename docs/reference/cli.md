@@ -83,6 +83,7 @@ wave run code-review --input "Review auth module"
 ```bash
 wave run hotfix --dry-run                      # Preview without executing
 wave run speckit-flow --from-step implement    # Start from step
+wave run speckit-flow --from-step implement --force  # Skip validation for --from-step
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
 wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
