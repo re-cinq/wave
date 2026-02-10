@@ -33,11 +33,14 @@ On Linux, this automatically enters a bubblewrap sandbox with:
 | Protection | Detail |
 |------------|--------|
 | Read-only filesystem | `--ro-bind / /` — entire root is mounted read-only |
-| Hidden home directory | `--tmpfs $HOME` — `~/.ssh`, `~/.aws`, `~/.gnupg` are invisible |
-| Writable project dir | `--bind $PROJECT_DIR` — only the project directory is writable |
-| Isolated temp | `--tmpfs /tmp` — not shared with host |
-| Curated environment | `--clearenv` + explicit `--setenv` for essential vars only |
-| Terminal protection | `--new-session` blocks terminal escape sequence injection |
+| Hidden home directory | `--tmpfs $HOME` — `~/.aws`, `~/.gnupg`, etc. are invisible |
+| Selective home read-only | `~/.ssh`, `~/.gitconfig`, `~/.config/gh`, `~/.npmrc` mounted read-only |
+| Writable project dir | `--bind $PROJECT_DIR` — the project directory is writable |
+| Writable Go cache | `--bind ~/go` — Go module cache persists across steps |
+| Writable Wave binary | `--bind ~/.local/bin/wave` — build target for `go build` |
+| Writable Claude config | `--bind ~/.claude` — Claude Code session state persists |
+| Shared temp | `--bind /tmp` — shared with host (Nix tooling needs it) |
+| Inherited environment | Nix-provided environment inherited (no `--clearenv`) |
 | Process isolation | `--die-with-parent` ensures sandbox dies with the shell |
 
 On macOS, bwrap requires kernel namespaces not available on Darwin. The default shell runs unsandboxed — Claude Code's built-in Seatbelt sandbox provides OS-level isolation for Bash commands.
@@ -54,20 +57,37 @@ Use this when you need Docker (can't run inside bwrap), or for debugging sandbox
 
 | Attack Vector | Protected? | Mechanism |
 |---------------|-----------|-----------|
-| Read `~/.ssh` keys | Yes | `--tmpfs $HOME` hides entire home directory |
 | Write outside project | Yes | `--ro-bind /` makes filesystem read-only |
 | Access `~/.aws` credentials | Yes | `--tmpfs $HOME` hides home directory |
-| Environment variable leakage | Yes | `--clearenv` removes all host vars |
-| Terminal escape injection | Yes | `--new-session` blocks escape sequences |
-| Cross-process snooping via `/tmp` | Yes | `--tmpfs /tmp` gives isolated temp |
+| Access `~/.gnupg` keys | Yes | `--tmpfs $HOME` hides home directory |
+| Modify `~/.ssh` keys | Partial | `--ro-bind-try` mounts read-only (readable for git) |
+| Modify git config | Partial | `--ro-bind-try` mounts read-only |
+| Process escape | Yes | `--unshare-all` + `--die-with-parent` |
+
+### What the Sandbox Allows
+
+The sandbox is intentionally permissive for things AI agents need:
+
+| Access | Why |
+|--------|-----|
+| `~/.ssh` (read-only) | Git push/pull over SSH |
+| `~/.gitconfig` (read-only) | Git commit identity |
+| `~/.config/gh` (read-only) | GitHub CLI authentication |
+| `~/.local/bin/wave` (read-write) | Build target for `go build` / `make install` |
+| `~/.local/bin/notesium` (read-only) | Local tooling |
+| `~/.local/bin/claudit` (read-only) | Local tooling |
+| `~/go` (read-write) | Go module cache avoids re-downloads |
+| `~/.claude` (read-write) | Claude Code session state and OAuth |
+| `/tmp` (shared) | Nix store paths and tooling |
+| Full network | API calls, package downloads, git remotes |
 
 ### Passed Environment Variables
 
-The sandbox only passes these variables:
+The sandbox inherits the Nix-provided environment (no `--clearenv`), which includes:
 
-- `HOME`, `PATH`, `TERM`, `TMPDIR`
-- `SANDBOX_ACTIVE=1`
-- `ANTHROPIC_API_KEY` (if set)
+- All Nix dev shell variables (`PATH`, `GOPATH`, etc.)
+- `SANDBOX_ACTIVE=1` (set inside sandbox)
+- `ANTHROPIC_API_KEY` (if set before `nix develop`)
 - `GH_TOKEN` (if set, or derived from `gh auth token`)
 
 ## Manifest-Driven Adapter Config
@@ -182,7 +202,7 @@ Or use the yolo shell: `nix develop .#yolo`
 
 ### "command not found" inside sandbox
 
-The sandbox uses `--clearenv`. If a tool isn't found, it may not be in the Nix-provided `PATH`. Add the package to `commonPackages` in `flake.nix`.
+The sandbox inherits the Nix-provided `PATH`. If a tool isn't found, add the package to `commonPackages` in `flake.nix`.
 
 ### Docker doesn't work inside sandbox
 
