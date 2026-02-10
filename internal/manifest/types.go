@@ -31,13 +31,18 @@ type Adapter struct {
 }
 
 type Persona struct {
-	Adapter          string      `yaml:"adapter"`
-	Description      string      `yaml:"description,omitempty"`
-	SystemPromptFile string      `yaml:"system_prompt_file"`
-	Temperature      float64     `yaml:"temperature,omitempty"`
-	Model            string      `yaml:"model,omitempty"` // Model to use (e.g., "opus", "sonnet")
-	Permissions      Permissions `yaml:"permissions,omitempty"`
-	Hooks            HookConfig  `yaml:"hooks,omitempty"`
+	Adapter          string          `yaml:"adapter"`
+	Description      string          `yaml:"description,omitempty"`
+	SystemPromptFile string          `yaml:"system_prompt_file"`
+	Temperature      float64         `yaml:"temperature,omitempty"`
+	Model            string          `yaml:"model,omitempty"` // Model to use (e.g., "opus", "sonnet")
+	Permissions      Permissions     `yaml:"permissions,omitempty"`
+	Hooks            HookConfig      `yaml:"hooks,omitempty"`
+	Sandbox          *PersonaSandbox `yaml:"sandbox,omitempty"`
+}
+
+type PersonaSandbox struct {
+	AllowedDomains []string `yaml:"allowed_domains,omitempty"`
 }
 
 type Permissions struct {
@@ -56,13 +61,20 @@ type HookRule struct {
 }
 
 type Runtime struct {
-	WorkspaceRoot        string        `yaml:"workspace_root"`
-	MaxConcurrentWorkers int           `yaml:"max_concurrent_workers,omitempty"`
-	DefaultTimeoutMin    int           `yaml:"default_timeout_minutes,omitempty"`
-	Relay                RelayConfig   `yaml:"relay,omitempty"`
-	Audit                AuditConfig   `yaml:"audit,omitempty"`
-	MetaPipeline         MetaConfig    `yaml:"meta_pipeline,omitempty"`
-	Routing              RoutingConfig `yaml:"routing,omitempty"`
+	WorkspaceRoot        string         `yaml:"workspace_root"`
+	MaxConcurrentWorkers int            `yaml:"max_concurrent_workers,omitempty"`
+	DefaultTimeoutMin    int            `yaml:"default_timeout_minutes,omitempty"`
+	Relay                RelayConfig    `yaml:"relay,omitempty"`
+	Audit                AuditConfig    `yaml:"audit,omitempty"`
+	MetaPipeline         MetaConfig     `yaml:"meta_pipeline,omitempty"`
+	Routing              RoutingConfig  `yaml:"routing,omitempty"`
+	Sandbox              RuntimeSandbox `yaml:"sandbox,omitempty"`
+}
+
+type RuntimeSandbox struct {
+	Enabled               bool     `yaml:"enabled"`
+	DefaultAllowedDomains []string `yaml:"default_allowed_domains,omitempty"`
+	EnvPassthrough        []string `yaml:"env_passthrough,omitempty"`
 }
 
 // RoutingConfig holds pipeline routing configuration.

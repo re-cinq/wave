@@ -421,19 +421,35 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Resolve sandbox config — all gated on runtime.sandbox.enabled
+	sandboxEnabled := execution.Manifest.Runtime.Sandbox.Enabled
+	var sandboxDomains []string
+	var envPassthrough []string
+	if sandboxEnabled {
+		if persona.Sandbox != nil && len(persona.Sandbox.AllowedDomains) > 0 {
+			sandboxDomains = persona.Sandbox.AllowedDomains
+		} else if len(execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains) > 0 {
+			sandboxDomains = execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains
+		}
+		envPassthrough = execution.Manifest.Runtime.Sandbox.EnvPassthrough
+	}
+
 	cfg := adapter.AdapterRunConfig{
-		Adapter:       adapterDef.Binary,
-		Persona:       step.Persona,
-		WorkspacePath: workspacePath,
-		Prompt:        prompt,
-		SystemPrompt:  systemPrompt,
-		Timeout:       timeout,
-		Temperature:   persona.Temperature,
-		Model:         persona.Model,
-		AllowedTools:  allowedTools,
-		DenyTools:     persona.Permissions.Deny,
-		OutputFormat:  adapterDef.OutputFormat,
-		Debug:         e.debug,
+		Adapter:        adapterDef.Binary,
+		Persona:        step.Persona,
+		WorkspacePath:  workspacePath,
+		Prompt:         prompt,
+		SystemPrompt:   systemPrompt,
+		Timeout:        timeout,
+		Temperature:    persona.Temperature,
+		Model:          persona.Model,
+		AllowedTools:   allowedTools,
+		DenyTools:      persona.Permissions.Deny,
+		OutputFormat:   adapterDef.OutputFormat,
+		Debug:          e.debug,
+		SandboxEnabled: sandboxEnabled,
+		AllowedDomains: sandboxDomains,
+		EnvPassthrough: envPassthrough,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{
