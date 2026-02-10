@@ -30,15 +30,93 @@ adapters:
 
 ### Workspace Setup
 
-When Claude adapter runs:
-1. Creates `.claude/settings.json` with persona temperature and tools
-2. Projects persona system prompt to `CLAUDE.md`
-3. Copies `project_files` to workspace root
+When the Claude adapter runs, it generates two configuration files in the workspace:
+
+1. **`.claude/settings.json`** — Claude Code reads this for permissions, model, and sandbox config
+2. **`CLAUDE.md`** — Claude Code reads this as a system prompt with restriction directives
+
+Both are derived from the manifest's persona and runtime configuration.
+
+### Generated `settings.json` Structure
+
+```json
+{
+  "model": "opus",
+  "temperature": 0.7,
+  "output_format": "stream-json",
+  "permissions": {
+    "allow": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+    "deny": ["Bash(rm -rf /*)"]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": ["api.anthropic.com", "github.com"]
+    }
+  }
+}
+```
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `permissions.allow` | `persona.permissions.allowed_tools` | Tools the persona can use |
+| `permissions.deny` | `persona.permissions.deny` | Tools explicitly denied |
+| `sandbox.enabled` | Present when `allowed_domains` configured | Enables Claude Code's built-in sandbox |
+| `sandbox.network.allowedDomains` | `persona.sandbox.allowed_domains` or `runtime.sandbox.default_allowed_domains` | Network domain allowlist |
+
+### Generated `CLAUDE.md` Structure
+
+The adapter writes the persona's system prompt followed by a restriction section:
+
+```markdown
+# Navigator
+
+You are the navigator persona...
+
+---
+
+## Restrictions
+
+The following restrictions are enforced by the pipeline orchestrator.
+
+### Denied Tools
+
+- `Write(*)`
+- `Edit(*)`
+
+### Allowed Tools
+
+You may ONLY use the following tools:
+
+- `Read`
+- `Glob`
+- `Grep`
+
+### Network Access
+
+Network requests are restricted to:
+
+- `api.anthropic.com`
+```
+
+### Environment Hygiene
+
+The adapter passes a **curated environment** to subprocesses instead of the full host environment. Only these variables are included:
+
+- `HOME`, `PATH`, `TERM`, `TMPDIR` (base)
+- `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` (telemetry suppression)
+- Variables listed in `runtime.sandbox.env_passthrough` (explicit passthrough)
+- Step-specific env vars from pipeline config
+
+This prevents credential leakage from unrelated host environment variables (e.g., `AWS_SECRET_ACCESS_KEY`).
 
 ### CLI Invocation
 
 ```bash
-claude -p --allowedTools "Read,Write" --output-format json --temperature 0.7 --no-continue "prompt"
+claude -p --model opus --allowedTools "Read,Write" --output-format stream-json \
+  --verbose --dangerously-skip-permissions --no-session-persistence "prompt"
 ```
 
 ---
@@ -96,14 +174,26 @@ personas:
 
 ## Environment and Credentials
 
-Adapters inherit environment variables from the parent process:
+Adapters receive a **curated environment** — not the full host environment. Only explicitly allowed variables are passed through.
 
-| Variable | Purpose |
-|----------|---------|
-| `ANTHROPIC_API_KEY` | Claude API authentication |
+| Variable | Source | Purpose |
+|----------|--------|---------|
+| `HOME`, `PATH`, `TERM`, `TMPDIR` | Always included | Base operation |
+| `ANTHROPIC_API_KEY` | Via `runtime.sandbox.env_passthrough` | Claude API authentication |
+| `GH_TOKEN` | Via `runtime.sandbox.env_passthrough` | GitHub CLI authentication |
+
+Configure which variables are passed to adapter subprocesses:
+
+```yaml
+runtime:
+  sandbox:
+    env_passthrough:
+      - ANTHROPIC_API_KEY
+      - GH_TOKEN
+```
 
 ::: warning
-Credentials are **never** written to disk. They flow via process environment only.
+Credentials are **never** written to disk. They flow via curated process environment only. Variables not in `env_passthrough` are not visible to adapter subprocesses.
 :::
 
 ---

@@ -22,6 +22,37 @@ Configuration values are resolved in this order (highest priority first):
 3. Manifest values (`wave.yaml`)
 4. Built-in defaults
 
+## Display & Terminal Variables
+
+These variables influence Wave's terminal display behavior:
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `COLUMNS` | `int` | _(auto)_ | Override terminal width detection. |
+| `LINES` | `int` | _(auto)_ | Override terminal height detection. |
+| `COLORTERM` | `string` | _(auto)_ | Color support hint. `truecolor` or `24bit` enables 24-bit color. |
+| `NO_UNICODE` | `bool` | `false` | Disable Unicode characters in output. Falls back to ASCII. |
+| `NERD_FONT` | `bool` | `false` | Enable Nerd Font icons in deliverable output. |
+
+## CI/CD Detection Variables
+
+Wave automatically detects CI/CD environments by checking for these variables (read-only, no configuration needed):
+
+| Variable | CI System |
+|----------|-----------|
+| `CI` | Generic CI |
+| `CONTINUOUS_INTEGRATION` | Generic CI |
+| `BUILD_ID` | Jenkins / Generic |
+| `BUILD_NUMBER` | Jenkins |
+| `RUN_ID` | Generic |
+| `GITHUB_ACTIONS` | GitHub Actions |
+| `GITLAB_CI` | GitLab CI |
+| `CIRCLECI` | CircleCI |
+| `TRAVIS` | Travis CI |
+| `DRONE` | Drone CI |
+
+When a CI environment is detected, Wave adjusts display behavior (disables interactive TUI, uses plain text output).
+
 ## Credential Handling
 
 Wave enforces a strict credential model: **credentials never touch disk**.
@@ -32,26 +63,28 @@ Wave enforces a strict credential model: **credentials never touch disk**.
 Shell Environment
     │
     ├── ANTHROPIC_API_KEY
-    ├── GITHUB_TOKEN
-    ├── DATABASE_URL
+    ├── GH_TOKEN
+    ├── DATABASE_URL (blocked)
     └── ...
          │
          ▼
-    Wave Process (inherits all env vars)
+    Wave Process
+         │  env_passthrough filter
+         ▼
+    Adapter Subprocess (curated env only)
          │
          ▼
-    Adapter Subprocess (inherits all env vars)
-         │
-         ▼
-    LLM CLI (e.g., claude) uses ANTHROPIC_API_KEY
+    LLM CLI (e.g., claude)
 ```
 
-Adapter subprocesses inherit the full environment from the Wave parent process. This means:
+The Claude adapter constructs a curated environment for each subprocess. Only base variables (HOME, PATH, TERM, TMPDIR) and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. Other host environment variables (e.g., `AWS_SECRET_ACCESS_KEY`, `DATABASE_PASSWORD`) are never inherited.
 
-- **API keys** (e.g., `ANTHROPIC_API_KEY`) are available to adapter subprocesses without configuration.
+- **API keys** must be listed in `runtime.sandbox.env_passthrough` to reach adapter subprocesses.
 - **No manifest entries** for credentials — they are never written to YAML files.
 - **No checkpoint entries** — credentials are never serialized in relay checkpoints.
 - **No audit log entries** — credential values are scrubbed from all logs.
+
+**Note:** The `ProcessGroupRunner` (used for non-Claude adapters) currently inherits the full host environment. The curated model only applies to the Claude adapter.
 
 ### Credential Scrubbing
 
@@ -75,6 +108,8 @@ Wave itself requires no environment variables. However, adapters typically need 
 |---------|-------------------|-------------|
 | Claude Code | `ANTHROPIC_API_KEY` | Anthropic API key for Claude. |
 | OpenCode | varies | Depends on configured LLM provider. |
+
+**Note:** For the Claude adapter, `ANTHROPIC_API_KEY` must be included in `runtime.sandbox.env_passthrough` in your `wave.yaml` manifest. Without this entry, the key will not reach the adapter subprocess even if it is set in your shell environment.
 
 ### CI/CD Configuration
 

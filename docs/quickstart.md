@@ -240,8 +240,20 @@ wave validate
 wave clean
 ```
 
+## Optional: Enable Sandbox Mode
+
+For isolated development with filesystem and environment protection:
+
+```bash
+# Requires Nix (https://nixos.org/download.html)
+nix develop
+```
+
+This enters a bubblewrap sandbox where the filesystem is read-only except for the project directory, and the home directory (`~/.ssh`, `~/.aws`, etc.) is hidden. See [Sandbox Setup Guide](/guides/sandbox-setup) for details.
+
 ## Next Steps
 
+- [Sandbox Setup](/guides/sandbox-setup) - Isolate AI agent sessions
 - [Use Cases](/use-cases/) - Find pipelines for code review, security audits, docs, and tests
 - [Concepts: Pipelines](/concepts/pipelines) - Understand pipeline structure
 - [Concepts: Personas](/concepts/personas) - Learn about AI agent roles
