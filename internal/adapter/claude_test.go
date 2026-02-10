@@ -744,12 +744,12 @@ func TestExtractToolTarget(t *testing.T) {
 			input:    json.RawMessage(`{"notebook_path": "/notebooks/analysis.ipynb", "cell_type": "code", "new_source": "print(1)"}`),
 			want:     "/notebooks/analysis.ipynb",
 		},
-		// Bash truncation
+		// Bash truncation (at 200 chars, display layer truncates further based on terminal width)
 		{
-			name:     "Bash truncates command longer than 60 chars",
+			name:     "Bash command under 200 chars is not truncated",
 			toolName: "Bash",
 			input:    json.RawMessage(`{"command": "find /very/long/path -name '*.go' -exec grep -l 'something' {} \\; | sort | uniq"}`),
-			want:     "find /very/long/path -name '*.go' -exec grep -l 'something' ...",
+			want:     `find /very/long/path -name '*.go' -exec grep -l 'something' {} \; | sort | uniq`,
 		},
 		// Generic heuristic: unknown tool with common fields
 		{
@@ -884,7 +884,7 @@ func TestParseStreamLine(t *testing.T) {
 			wantOK: true,
 			wantEvent: StreamEvent{
 				Type:    "text",
-				Content: strings.Repeat("A", 80), // truncated to 80 chars
+				Content: strings.Repeat("A", 200), // truncated to 200 chars at parse time
 			},
 		},
 	}
