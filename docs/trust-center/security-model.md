@@ -6,8 +6,8 @@ This document provides a comprehensive overview of Wave's security architecture 
 
 Wave's security model is built on six foundational principles:
 
-1. **Process Sandbox** - Nix dev shell with bubblewrap isolates the entire session (read-only FS, hidden home directory, curated environment)
-2. **Zero Credential Storage** - Credentials exist only in memory via curated environment passthrough
+1. **Process Sandbox** - Nix dev shell with bubblewrap isolates the entire session (read-only FS, hidden home directory, process isolation)
+2. **Zero Credential Storage** - Credentials exist only in memory; adapter subprocesses receive a curated environment via `env_passthrough` filtering
 3. **Ephemeral Isolation** - Each step executes in an isolated workspace with fresh memory
 4. **Deny-First Permissions** - Explicit deny patterns always override allow patterns, projected into both `settings.json` and `CLAUDE.md`
 5. **Contract Validation** - All inter-step data is validated against defined schemas
