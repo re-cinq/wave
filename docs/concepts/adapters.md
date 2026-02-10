@@ -54,17 +54,19 @@ The primary built-in adapter wraps Claude Code's headless mode:
 ```bash
 # What Wave executes internally:
 claude -p "prompt text" \
-  --output-format json \
-  --max-turns 100 \
+  --model opus \
   --allowedTools "Read,Write,Bash" \
-  --denyTools "Bash(rm -rf *)"
+  --output-format stream-json \
+  --verbose \
+  --dangerously-skip-permissions \
+  --no-session-persistence
 ```
 
 ### Subprocess Lifecycle
 
 1. Wave builds the CLI command from persona configuration.
 2. Generates `settings.json` (permissions, deny rules, sandbox, network domains) and `CLAUDE.md` (system prompt + restriction directives) from the manifest.
-3. Spawns the process in the step's ephemeral workspace with a curated environment (only base vars + explicit `env_passthrough`).
+3. Spawns the process in the step's ephemeral workspace with a curated environment (only base vars + explicit `env_passthrough`). Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment.
 4. Monitors stdout for JSON output events.
 5. Enforces per-step timeout — kills the entire process group if exceeded.
 6. Collects exit code, output artifacts, and duration.
@@ -144,7 +146,7 @@ This ensures Claude Code is informed of restrictions at both the configuration l
 
 ## Credential Handling
 
-Adapters receive credentials via a **curated environment** — only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. The full host environment is never inherited.
+Adapters receive credentials via a **curated environment** — only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment via `os.Environ()`.
 
 ```
 Shell → env_passthrough filter → Wave process → Adapter subprocess → LLM CLI

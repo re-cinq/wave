@@ -73,6 +73,8 @@ Available Commands:
   init        Initialize a new Wave project
   list        List pipelines and personas
   logs        Show pipeline logs
+  meta        Generate a custom pipeline
+  migrate     Database migration commands
   resume      Resume a paused pipeline
   run         Run a pipeline
   status      Show pipeline status
@@ -407,10 +409,10 @@ nix develop .#yolo
 ```
 
 The sandbox isolates the entire session:
-- **Filesystem**: `/` is read-only, only project dir + `~/.claude` + `/tmp` are writable
-- **Home directory**: hidden via `tmpfs` (no access to `~/.ssh`, `~/.aws`, etc.)
-- **Environment**: curated — only essential vars passed through
-- **Terminal**: `--new-session` blocks escape sequence injection
+- **Filesystem**: `/` is read-only, only project dir + `~/.claude` + `~/go` + `/tmp` are writable
+- **Home directory**: hidden via `tmpfs` — selective read-only mounts for `~/.ssh`, `~/.gitconfig`, `~/.config/gh`
+- **Environment**: Nix-provided environment inherited (no `--clearenv`)
+- **Process isolation**: `--unshare-all` + `--die-with-parent`
 
 ### Manifest-Driven Permissions
 
