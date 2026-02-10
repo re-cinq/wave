@@ -42,6 +42,7 @@ type AdapterRunConfig struct {
 	Model         string // Model to use (e.g., "opus", "sonnet", "claude-opus-4-5-20251101")
 
 	// Sandbox configuration derived from manifest
+	SandboxEnabled bool     // Master switch from runtime.sandbox.enabled
 	AllowedDomains []string // Network domain allowlist
 	EnvPassthrough []string // Env var names to pass through from host
 
