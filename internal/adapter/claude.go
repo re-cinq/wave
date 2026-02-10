@@ -214,15 +214,17 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		},
 	}
 
-	// Add sandbox settings if domains are configured
-	if len(cfg.AllowedDomains) > 0 {
+	// Add sandbox settings when sandbox is enabled (master switch)
+	if cfg.SandboxEnabled {
 		settings.Sandbox = &SandboxSettings{
 			Enabled:                  true,
 			AllowUnsandboxedCommands: false,
 			AutoAllowBashIfSandboxed: true,
-			Network: &NetworkSettings{
+		}
+		if len(cfg.AllowedDomains) > 0 {
+			settings.Sandbox.Network = &NetworkSettings{
 				AllowedDomains: cfg.AllowedDomains,
-			},
+			}
 		}
 	}
 

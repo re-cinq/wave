@@ -226,23 +226,33 @@ func TestSettingsJSONDenyRules(t *testing.T) {
 func TestSettingsJSONSandboxSettings(t *testing.T) {
 	tests := []struct {
 		name           string
+		sandboxEnabled bool
 		allowedDomains []string
 		wantSandbox    bool
 		wantDomains    []string
 	}{
 		{
 			name:           "sandbox enabled with domains",
+			sandboxEnabled: true,
 			allowedDomains: []string{"api.anthropic.com", "github.com", "*.github.com"},
 			wantSandbox:    true,
 			wantDomains:    []string{"api.anthropic.com", "github.com", "*.github.com"},
 		},
 		{
-			name:           "no sandbox when no domains",
+			name:           "no sandbox when not enabled",
+			sandboxEnabled: false,
 			allowedDomains: nil,
 			wantSandbox:    false,
 		},
 		{
+			name:           "sandbox enabled without domains",
+			sandboxEnabled: true,
+			allowedDomains: nil,
+			wantSandbox:    true,
+		},
+		{
 			name:           "single domain",
+			sandboxEnabled: true,
 			allowedDomains: []string{"api.anthropic.com"},
 			wantSandbox:    true,
 			wantDomains:    []string{"api.anthropic.com"},
@@ -258,6 +268,7 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 				Persona:        "implementer",
 				Model:          "opus",
 				AllowedTools:   []string{"Read", "Write", "Edit", "Bash"},
+				SandboxEnabled: tt.sandboxEnabled,
 				AllowedDomains: tt.allowedDomains,
 			}
 
@@ -288,15 +299,21 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 				if settings.Sandbox.AllowUnsandboxedCommands {
 					t.Error("expected sandbox.allowUnsandboxedCommands = false")
 				}
-				if settings.Sandbox.Network == nil {
-					t.Fatal("expected sandbox.network, got nil")
-				}
-				if len(settings.Sandbox.Network.AllowedDomains) != len(tt.wantDomains) {
-					t.Fatalf("allowedDomains = %v, want %v", settings.Sandbox.Network.AllowedDomains, tt.wantDomains)
-				}
-				for i, want := range tt.wantDomains {
-					if settings.Sandbox.Network.AllowedDomains[i] != want {
-						t.Errorf("allowedDomains[%d] = %q, want %q", i, settings.Sandbox.Network.AllowedDomains[i], want)
+				if len(tt.wantDomains) > 0 {
+					if settings.Sandbox.Network == nil {
+						t.Fatal("expected sandbox.network, got nil")
+					}
+					if len(settings.Sandbox.Network.AllowedDomains) != len(tt.wantDomains) {
+						t.Fatalf("allowedDomains = %v, want %v", settings.Sandbox.Network.AllowedDomains, tt.wantDomains)
+					}
+					for i, want := range tt.wantDomains {
+						if settings.Sandbox.Network.AllowedDomains[i] != want {
+							t.Errorf("allowedDomains[%d] = %q, want %q", i, settings.Sandbox.Network.AllowedDomains[i], want)
+						}
+					}
+				} else {
+					if settings.Sandbox.Network != nil {
+						t.Errorf("expected no network settings, got %+v", settings.Sandbox.Network)
 					}
 				}
 			} else {
@@ -562,6 +579,7 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 		allowedTools   []string
 		denyTools      []string
 		allowedDomains []string
+		sandboxEnabled bool
 		wantAllow      []string
 		wantDeny       []string
 		wantSandbox    bool
@@ -582,6 +600,7 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			allowedDomains: []string{"api.anthropic.com", "github.com", "proxy.golang.org"},
 			wantAllow:      []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			wantSandbox:    true,
+			sandboxEnabled: true,
 		},
 		{
 			name:           "reviewer: read-only with network",
@@ -592,6 +611,7 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			wantAllow:      []string{"Read", "Glob", "Grep"},
 			wantDeny:       []string{"Write(*)", "Edit(*)", "Bash(*)"},
 			wantSandbox:    true,
+			sandboxEnabled: true,
 		},
 	}
 
@@ -605,6 +625,7 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 				Model:          "opus",
 				AllowedTools:   tt.allowedTools,
 				DenyTools:      tt.denyTools,
+				SandboxEnabled: tt.sandboxEnabled,
 				AllowedDomains: tt.allowedDomains,
 			}
 
