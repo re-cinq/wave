@@ -331,9 +331,16 @@ func (m *ProgressModel) renderCurrentStep() string {
 
 		// Show tool activity line when verbose data is available
 		if m.ctx.LastToolName != "" {
+			// Compute available space: "   %s → " = 3 + toolName + 3
+			overhead := 6 + len(m.ctx.LastToolName)
+			termWidth := getTerminalWidth()
+			maxTarget := termWidth - overhead
+			if maxTarget < 20 {
+				maxTarget = 20
+			}
 			target := m.ctx.LastToolTarget
-			if len(target) > 50 {
-				target = target[:50] + "..."
+			if len(target) > maxTarget {
+				target = target[:maxTarget] + "..."
 			}
 			toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
 			toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine) // Medium gray
