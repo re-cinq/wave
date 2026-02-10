@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
@@ -95,8 +96,9 @@ func createAutoEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.S
 		throttled := display.NewThrottledProgressEmitter(btpd)
 		emitter := event.NewProgressOnlyEmitter(throttled)
 
+		var once sync.Once
 		cleanup := func() {
-			btpd.Finish()
+			once.Do(func() { btpd.Finish() })
 		}
 
 		return EmitterResult{
