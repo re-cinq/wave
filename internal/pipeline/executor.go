@@ -421,19 +421,29 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Resolve sandbox domains: persona overrides runtime defaults
+	var sandboxDomains []string
+	if persona.Sandbox != nil && len(persona.Sandbox.AllowedDomains) > 0 {
+		sandboxDomains = persona.Sandbox.AllowedDomains
+	} else if len(execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains) > 0 {
+		sandboxDomains = execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains
+	}
+
 	cfg := adapter.AdapterRunConfig{
-		Adapter:       adapterDef.Binary,
-		Persona:       step.Persona,
-		WorkspacePath: workspacePath,
-		Prompt:        prompt,
-		SystemPrompt:  systemPrompt,
-		Timeout:       timeout,
-		Temperature:   persona.Temperature,
-		Model:         persona.Model,
-		AllowedTools:  allowedTools,
-		DenyTools:     persona.Permissions.Deny,
-		OutputFormat:  adapterDef.OutputFormat,
-		Debug:         e.debug,
+		Adapter:        adapterDef.Binary,
+		Persona:        step.Persona,
+		WorkspacePath:  workspacePath,
+		Prompt:         prompt,
+		SystemPrompt:   systemPrompt,
+		Timeout:        timeout,
+		Temperature:    persona.Temperature,
+		Model:          persona.Model,
+		AllowedTools:   allowedTools,
+		DenyTools:      persona.Permissions.Deny,
+		OutputFormat:   adapterDef.OutputFormat,
+		Debug:          e.debug,
+		AllowedDomains: sandboxDomains,
+		EnvPassthrough: execution.Manifest.Runtime.Sandbox.EnvPassthrough,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{

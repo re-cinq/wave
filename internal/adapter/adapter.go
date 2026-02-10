@@ -41,6 +41,10 @@ type AdapterRunConfig struct {
 	Debug         bool
 	Model         string // Model to use (e.g., "opus", "sonnet", "claude-opus-4-5-20251101")
 
+	// Sandbox configuration derived from manifest
+	AllowedDomains []string // Network domain allowlist
+	EnvPassthrough []string // Env var names to pass through from host
+
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)
