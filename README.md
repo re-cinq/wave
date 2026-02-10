@@ -381,12 +381,58 @@ wave.yaml                    # Project manifest
 
 - [Quick Start Guide](docs/guide/quick-start.md)
 - [Installation](docs/guide/installation.md)
+- [Sandbox Setup](docs/guides/sandbox-setup.md)
 - [Personas Guide](docs/guide/personas.md)
 - [Pipelines Guide](docs/guide/pipelines.md)
 - [CLI Reference](docs/reference/cli.md)
 - [Manifest Schema](docs/reference/manifest-schema.md)
 - [Pipeline Schema](docs/reference/pipeline-schema.md)
 - [Event Reference](docs/reference/events.md)
+- [Adapters Reference](docs/reference/adapters.md)
+
+---
+
+## Sandboxed Development
+
+Wave provides defense-in-depth isolation for AI agent sessions.
+
+### Nix Dev Shell (Recommended)
+
+```bash
+# Enter sandboxed shell (bubblewrap on Linux, unsandboxed on macOS)
+nix develop
+
+# Escape hatch: no sandbox
+nix develop .#yolo
+```
+
+The sandbox isolates the entire session:
+- **Filesystem**: `/` is read-only, only project dir + `~/.claude` + `/tmp` are writable
+- **Home directory**: hidden via `tmpfs` (no access to `~/.ssh`, `~/.aws`, etc.)
+- **Environment**: curated — only essential vars passed through
+- **Terminal**: `--new-session` blocks escape sequence injection
+
+### Manifest-Driven Permissions
+
+Persona permissions from `wave.yaml` are projected into Claude Code's `settings.json` and `CLAUDE.md`:
+
+```yaml
+personas:
+  navigator:
+    permissions:
+      allowed_tools: [Read, Glob, Grep]
+      deny: [Write(*), Edit(*)]
+    sandbox:
+      allowed_domains: [api.anthropic.com]
+
+runtime:
+  sandbox:
+    enabled: true
+    default_allowed_domains: [api.anthropic.com, github.com]
+    env_passthrough: [ANTHROPIC_API_KEY, GH_TOKEN]
+```
+
+See [Sandbox Setup Guide](docs/guides/sandbox-setup.md) for details.
 
 ---
 
@@ -394,6 +440,7 @@ wave.yaml                    # Project manifest
 
 - Go 1.25+
 - An LLM CLI adapter (`claude`, `opencode`, or custom)
+- [Nix](https://nixos.org/download.html) (optional, for sandboxed development)
 
 ---
 
