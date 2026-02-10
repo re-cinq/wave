@@ -518,24 +518,27 @@ func (pd *ProgressDisplay) Finish() {
 
 // BasicProgressDisplay provides simple text-based progress for non-TTY environments.
 type BasicProgressDisplay struct {
-	mu      sync.Mutex
-	writer  io.Writer
-	verbose bool
+	mu       sync.Mutex
+	writer   io.Writer
+	verbose  bool
+	termInfo *TerminalInfo
 }
 
 // NewBasicProgressDisplay creates a fallback progress display.
 func NewBasicProgressDisplay() *BasicProgressDisplay {
 	return &BasicProgressDisplay{
-		writer:  os.Stderr,
-		verbose: false,
+		writer:   os.Stderr,
+		verbose:  false,
+		termInfo: NewTerminalInfo(),
 	}
 }
 
 // NewBasicProgressDisplayWithVerbose creates a progress display with verbose tool activity.
 func NewBasicProgressDisplayWithVerbose(verbose bool) *BasicProgressDisplay {
 	return &BasicProgressDisplay{
-		writer:  os.Stderr,
-		verbose: verbose,
+		writer:   os.Stderr,
+		verbose:  verbose,
+		termInfo: NewTerminalInfo(),
 	}
 }
 
@@ -567,9 +570,16 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			fmt.Fprintf(bpd.writer, "[%s]   %s: validating contract\n", timestamp, ev.StepID)
 		case "stream_activity":
 			if bpd.verbose && ev.ToolName != "" {
+				// Compute available space: total width minus fixed prefix overhead
+				// Format: "[HH:MM:SS]   %-20s %s → " = 10 + 3 + 20 + 1 + toolName + 3
+				overhead := 37 + len(ev.ToolName)
+				maxTarget := bpd.termInfo.GetWidth() - overhead
+				if maxTarget < 20 {
+					maxTarget = 20
+				}
 				target := ev.ToolTarget
-				if len(target) > 60 {
-					target = target[:60] + "..."
+				if len(target) > maxTarget {
+					target = target[:maxTarget] + "..."
 				}
 				fmt.Fprintf(bpd.writer, "[%s]   %-20s %s → %s\n", timestamp, ev.StepID, ev.ToolName, target)
 			}

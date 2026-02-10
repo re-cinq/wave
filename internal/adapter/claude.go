@@ -455,10 +455,10 @@ func parseAssistantEvent(obj map[string]json.RawMessage) (StreamEvent, bool) {
 			if block.Text == "" {
 				continue
 			}
-			// Only emit text events for substantial content
+			// Preserve enough text for display layer to truncate to terminal width
 			text := block.Text
-			if len(text) > 80 {
-				text = text[:80]
+			if len(text) > 200 {
+				text = text[:200]
 			}
 			return StreamEvent{
 				Type:    "text",
@@ -497,8 +497,8 @@ func extractToolTarget(toolName string, input json.RawMessage) string {
 		return jsonString(fields["pattern"])
 	case "Bash":
 		cmd := jsonString(fields["command"])
-		if len(cmd) > 60 {
-			cmd = cmd[:60] + "..."
+		if len(cmd) > 200 {
+			cmd = cmd[:200] + "..."
 		}
 		return cmd
 	case "Task":
