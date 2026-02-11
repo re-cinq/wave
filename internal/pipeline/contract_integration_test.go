@@ -214,7 +214,9 @@ func TestContractIntegration_JSONSchemaProducesValidJSON(t *testing.T) {
 	assert.True(t, hasContractPassed, "Should emit contract_passed event for valid JSON")
 
 	// Verify the artifact file was created
-	artifactPath := filepath.Join(tmpDir, "json-schema-test", "step1", "artifact.json")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	artifactPath := filepath.Join(tmpDir, runtimeID, "step1", "artifact.json")
 	_, err = os.Stat(artifactPath)
 	assert.NoError(t, err, "Artifact file should exist")
 }
@@ -735,7 +737,9 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 	assert.True(t, completedSteps["implement"], "Step 'implement' should complete")
 
 	// Verify artifacts directory was created in step2's workspace
-	step2ArtifactsDir := filepath.Join(tmpDir, "handover-test", "implement", "artifacts")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	step2ArtifactsDir := filepath.Join(tmpDir, runtimeID, "implement", "artifacts")
 	_, err = os.Stat(step2ArtifactsDir)
 	assert.NoError(t, err, "Artifacts directory should exist in step2's workspace")
 
@@ -854,7 +858,9 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 	require.Len(t, order, 3, "All 3 steps should have executed")
 
 	// Verify step C has artifacts from both A and B
-	stepCArtifactsDir := filepath.Join(tmpDir, "chain-test", "step-c", "artifacts")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	stepCArtifactsDir := filepath.Join(tmpDir, runtimeID, "step-c", "artifacts")
 	_, err = os.Stat(filepath.Join(stepCArtifactsDir, "from-a.json"))
 	assert.NoError(t, err, "Step C should have artifact from step A")
 	_, err = os.Stat(filepath.Join(stepCArtifactsDir, "from-b.json"))

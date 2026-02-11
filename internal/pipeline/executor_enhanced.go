@@ -43,7 +43,9 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 	}
 
 	// Initialize pipeline execution
-	pipelineID := p.Metadata.Name
+	pipelineName := p.Metadata.Name
+	hashLength := m.Runtime.PipelineIDHashLength
+	pipelineID := GenerateRunID(pipelineName, hashLength)
 	execution := &PipelineExecution{
 		Pipeline:       p,
 		Manifest:       m,
@@ -52,9 +54,10 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 		ArtifactPaths:  make(map[string]string),
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
-		Context:        NewPipelineContext(pipelineID, ""),
+		Context:        NewPipelineContext(pipelineID, pipelineName, ""),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
+			PipelineName:   pipelineName,
 			State:          StateRunning,
 			StartedAt:      time.Now(),
 		},
