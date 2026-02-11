@@ -82,8 +82,10 @@
             # Writable: wave binary (go build target)
             --bind-try "$HOME/.local/bin/wave" "$HOME/.local/bin/wave"
 
+            --setenv HOME "$HOME"
+            --setenv PATH "$PATH"
+            --setenv TERM "''${TERM:-xterm}"
             --setenv SANDBOX_ACTIVE 1
-            --setenv PS1 "[wave] \w \$ "
             --chdir "$PROJECT_DIR"
           )
 
@@ -143,9 +145,10 @@
                 echo "              ~/.config/gh, ~/.npmrc, ~/.config/nvm"
                 echo "              ~/.local/notesium, ~/.local/claudit"
                 echo ""
-                export PS1="[wave] \w \$ "
-                export SANDBOX_ACTIVE=1
-                exec wave-sandbox bash
+                exec wave-sandbox ${pkgs.bash}/bin/bash --rcfile <(cat << 'WAVE_BASHRC'
+                  PS1="[wave] \w \$ "
+WAVE_BASHRC
+                )
               fi
 
               echo ""
