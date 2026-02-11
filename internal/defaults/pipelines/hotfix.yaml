@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: hotfix
   description: "Quick investigation and fix for production issues"
+  disabled: true
 
 input:
   source: cli

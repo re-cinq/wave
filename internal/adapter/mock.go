@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math/rand"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -108,15 +108,31 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 	}, nil
 }
 
-// generateRealisticOutput produces persona-appropriate mock output
+// generateRealisticOutput produces phase-aware, schema-compliant mock output.
+// It first checks the workspace path for a known prototype phase name, then
+// falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
+	// Extract step name from workspace path (e.g., ".wave/workspaces/prototype/docs" → "docs")
+	phase := filepath.Base(cfg.WorkspacePath)
+	switch phase {
+	case "spec":
+		return generateSpecPhaseOutput(cfg)
+	case "docs":
+		return generateDocsPhaseOutput(cfg)
+	case "dummy":
+		return generateDummyPhaseOutput(cfg)
+	case "implement":
+		return generateImplementPhaseOutput(cfg)
+	}
+
+	// Fall back to persona-based generation
 	switch cfg.Persona {
 	case "navigator":
 		return generateNavigatorOutput(cfg)
 	case "philosopher":
-		return generatePhilosopherOutput(cfg)
+		return generateDocsPhaseOutput(cfg)
 	case "craftsman":
-		return generateCraftsmanOutput(cfg)
+		return generateSpecPhaseOutput(cfg)
 	case "auditor":
 		return generateAuditorOutput(cfg)
 	case "summarizer":
@@ -159,94 +175,131 @@ func generateNavigatorOutput(cfg AdapterRunConfig) string {
 	return string(out)
 }
 
-func generatePhilosopherOutput(cfg AdapterRunConfig) string {
-	return `# Feature Specification
-
-## Overview
-This specification covers the requested feature based on codebase analysis.
-
-## User Stories
-
-### US-1: Primary User Flow
-**As a** developer
-**I want to** define multi-step pipelines in YAML
-**So that** I can orchestrate AI agents through structured workflows
-
-**Acceptance Criteria:**
-- Pipeline YAML is validated at load time
-- Steps execute in dependency order (topological sort)
-- Each step runs in an isolated workspace under .wave/workspaces/
-- Artifacts flow between steps via injection
-
-### US-2: Workspace Isolation
-**As a** developer
-**I want** each pipeline step to run in its own workspace
-**So that** side effects are contained and reproducible
-
-**Acceptance Criteria:**
-- Workspaces created at .wave/workspaces/<pipeline>/<step>/
-- Source mounts copy project files into workspace
-- Artifacts from prior steps injected into artifacts/ subdirectory
-- Workspace cleaned up via 'wave clean' command
-
-## Data Model
-- Pipeline: kind, metadata, input, steps[]
-- Step: id, persona, dependencies, memory, workspace, exec, output_artifacts, handover
-- Handover: contract (type, schema, on_failure, max_retries), compaction
-
-## Edge Cases
-- Circular dependencies detected at validation time
-- Missing persona references caught before execution
-- Adapter binary not found fails immediately with clear error
-- Interrupted pipelines can resume from last checkpoint
-
-## Testing Strategy
-- Unit tests for DAG validation and topological sort
-- Integration tests for full pipeline execution with mock adapter
-- Contract validation tests with schema fixtures
-`
+// generateSpecPhaseOutput returns spec-phase.schema.json compliant output
+func generateSpecPhaseOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"phase": "spec",
+		"artifacts": map[string]interface{}{
+			"spec": map[string]interface{}{
+				"path":         "specs/mock/spec.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+			"requirements": map[string]interface{}{
+				"path":         "specs/mock/requirements.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+		},
+		"validation": map[string]interface{}{
+			"specification_quality": "good",
+			"completeness_score":    85,
+			"clarity_score":         80,
+			"testability_score":     75,
+		},
+		"metadata": map[string]interface{}{
+			"timestamp":         time.Now().Format(time.RFC3339),
+			"input_description": cfg.Prompt,
+			"duration_seconds":  2.5,
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
 }
 
-func generateCraftsmanOutput(cfg AdapterRunConfig) string {
-	return fmt.Sprintf(`## Implementation Report
+// generateDocsPhaseOutput returns docs-phase.schema.json compliant output
+func generateDocsPhaseOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"phase": "docs",
+		"artifacts": map[string]interface{}{
+			"feature_docs": map[string]interface{}{
+				"path":         "feature-docs.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+			"stakeholder_summary": map[string]interface{}{
+				"path":         "stakeholder-summary.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+		},
+		"validation": map[string]interface{}{
+			"documentation_quality": "good",
+			"coverage_percentage":   85,
+		},
+		"metadata": map[string]interface{}{
+			"timestamp":        time.Now().Format(time.RFC3339),
+			"source_spec_path": "artifacts/input-spec.md",
+			"duration_seconds": 3.0,
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
 
-### Changes Made
+// generateDummyPhaseOutput returns dummy-phase.schema.json compliant output
+func generateDummyPhaseOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"phase": "dummy",
+		"artifacts": map[string]interface{}{
+			"prototype": map[string]interface{}{
+				"path":         "prototype/",
+				"exists":       true,
+				"content_type": "code",
+			},
+			"interface_definitions": map[string]interface{}{
+				"path":         "interfaces.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+		},
+		"validation": map[string]interface{}{
+			"runnable":          true,
+			"prototype_quality": "good",
+		},
+		"metadata": map[string]interface{}{
+			"timestamp":        time.Now().Format(time.RFC3339),
+			"source_docs_path": "artifacts/feature-docs.md",
+			"duration_seconds": 4.0,
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
 
-**internal/pipeline/executor.go**
-- Integrated WorkspaceManager for step workspace creation under .wave/workspaces/
-- Added artifact injection between steps via ArtifactPaths tracking
-- Wired StateStore for pipeline/step state persistence
-- Connected EventEmitter for real-time execution events
-- Added AuditLogger for tool call tracing
-
-**internal/adapter/adapter.go**
-- Extended AdapterRunConfig with SystemPrompt, Temperature, AllowedTools, DenyTools
-- Added OutputFormat field for adapter-specific output modes
-
-**cmd/wave/commands/run.go**
-- Initialized all components (WorkspaceManager, StateStore, AuditLogger, EventEmitter)
-- Passed components to executor via functional options
-- Events emitted during execution, not pre-computed
-
-### Tests Run
-` + "```" + `
-=== RUN   TestDAGValidation
---- PASS: TestDAGValidation (0.00s)
-=== RUN   TestTopologicalSort
---- PASS: TestTopologicalSort (0.00s)
-=== RUN   TestPipelineExecution
---- PASS: TestPipelineExecution (0.12s)
-=== RUN   TestArtifactInjection
---- PASS: TestArtifactInjection (0.03s)
-=== RUN   TestWorkspaceCreation
---- PASS: TestWorkspaceCreation (0.01s)
-PASS
-ok      github.com/recinq/wave/internal/pipeline   0.16s
-` + "```" + `
-
-### Workspace: %s
-All changes committed to workspace. Tests passing.
-`, cfg.WorkspacePath)
+// generateImplementPhaseOutput returns implement-phase.schema.json compliant output
+func generateImplementPhaseOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"phase": "implement",
+		"artifacts": map[string]interface{}{
+			"implementation_plan": map[string]interface{}{
+				"path":         "implementation-plan.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+			"progress_checklist": map[string]interface{}{
+				"path":         "implementation-checklist.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+		},
+		"validation": map[string]interface{}{
+			"tests_executed":           true,
+			"implementation_readiness": "ready",
+			"test_results": map[string]interface{}{
+				"total":  10,
+				"passed": 10,
+				"failed": 0,
+			},
+		},
+		"metadata": map[string]interface{}{
+			"timestamp":        time.Now().Format(time.RFC3339),
+			"previous_phases":  []string{"spec", "docs", "dummy"},
+			"duration_seconds": 5.0,
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
 }
 
 func generateAuditorOutput(cfg AdapterRunConfig) string {

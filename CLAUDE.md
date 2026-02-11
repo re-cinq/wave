@@ -250,9 +250,9 @@ Follow standard Go conventions:
 - Structured events for programmatic monitoring
 
 ## Recent Changes
+- 029-release-gated-embedding: Added Go 1.25+ + `gopkg.in/yaml.v3`, `github.com/spf13/cobra`
 - 021-add-missing-personas: Added implementer and reviewer personas, updated persona prompts to decouple schema details per issue #24
 - 001-yaml-first-docs: Documentation refresh with YAML-first paradigm, positional CLI args
-- 017-prototype-driven-development: Added Go 1.25+ + gopkg.in/yaml.v3, github.com/spf13/cobra
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

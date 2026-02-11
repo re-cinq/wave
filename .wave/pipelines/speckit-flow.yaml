@@ -15,70 +15,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are creating a feature specification for the following request:
-
-        {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        ## Instructions
-
-        Follow the `/speckit.specify` workflow to generate a complete feature specification:
-
-        1. Navigate to the project root (see above)
-        2. Generate a concise short name (2-4 words) for the feature branch
-        3. Check existing branches to determine the next available number:
-           ```bash
-           git fetch --all --prune
-           git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-'
-           git branch | grep -E '^[* ]*[0-9]+-'
-           ```
-        4. Run the feature creation script:
-           ```bash
-           .specify/scripts/bash/create-new-feature.sh --json --number <N> --short-name "<name>" "{{ input }}"
-           ```
-        5. Load `.specify/templates/spec-template.md` for the required structure
-        6. Write the specification to the SPEC_FILE returned by the script
-        7. Create the quality checklist at `FEATURE_DIR/checklists/requirements.md`
-        8. Run self-validation against the checklist (up to 3 iterations)
-
-        ## Agent Usage
-
-        Use 1-3 Task agents to parallelize independent work:
-        - Agent 1: Analyze the codebase to understand existing patterns and architecture
-        - Agent 2: Research domain-specific best practices for the feature
-        - Agent 3: Draft specification sections in parallel
-
-        ## Quality Standards
-
-        - Focus on WHAT and WHY, not HOW (no implementation details)
-        - Every requirement must be testable and unambiguous
-        - Maximum 3 `[NEEDS CLARIFICATION]` markers — make informed guesses for the rest
-        - Include user stories with acceptance criteria, data model, edge cases
-        - Success criteria must be measurable and technology-agnostic
-
-        ## Output
-
-        Write a JSON status report to output/specify-status.json with:
-        ```json
-        {
-          "branch_name": "the created branch name",
-          "spec_file": "path to spec.md",
-          "feature_dir": "path to feature directory",
-          "checklist_status": "pass or fail",
-          "summary": "brief description of what was created"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/specify.md
     output_artifacts:
       - name: spec-status
         path: output/specify-status.json
@@ -97,69 +34,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are refining a feature specification by identifying and resolving ambiguities.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the previous step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.clarify` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` to find the feature directory and spec file path
-        3. Check out the feature branch identified in the status report
-        4. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
-        5. Load the current spec and perform a structured ambiguity scan across:
-           - Functional scope, domain model, interaction flows
-           - Non-functional attributes (performance, security, scalability)
-           - Integration points, edge cases, constraints
-           - Terminology consistency
-        6. Generate a prioritized queue of up to 5 clarification questions
-        7. For each question, analyze all options and select the best recommendation
-           (since this is non-interactive, resolve autonomously)
-        8. After resolving each clarification, immediately integrate it into the spec file
-        9. Save the updated spec after each integration
-
-        ## Agent Usage
-
-        Use 1-2 Task agents to parallelize the analysis:
-        - Agent 1: Scan the spec for ambiguities across all taxonomy categories
-        - Agent 2: Research best practices for each ambiguous area to inform recommendations
-
-        ## Non-Interactive Mode
-
-        Since this runs in a pipeline, resolve all clarifications autonomously:
-        - Select the recommended option for each question based on best practices
-        - Document the rationale for each choice in the Clarifications section
-        - Err on the side of commonly-accepted industry standards
-
-        ## Output
-
-        Write a JSON status report to output/clarify-status.json with:
-        ```json
-        {
-          "clarifications_resolved": 3,
-          "sections_updated": ["section1", "section2"],
-          "spec_file": "path to updated spec.md",
-          "feature_dir": "path to feature directory",
-          "summary": "brief description of clarifications made"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/clarify.md
     output_artifacts:
       - name: clarify-status
         path: output/clarify-status.json
@@ -178,69 +53,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are creating an implementation plan for a feature specification.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.plan` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-        3. Run `.specify/scripts/bash/setup-plan.sh --json` to get FEATURE_SPEC, IMPL_PLAN,
-           SPECS_DIR, and BRANCH paths
-        4. Load the feature spec and `.specify/memory/constitution.md`
-        5. Follow the plan template phases:
-
-           **Phase 0 — Outline & Research**:
-           - Extract unknowns from the spec (NEEDS CLARIFICATION markers, tech decisions)
-           - Research best practices for each technology choice
-           - Consolidate findings into `research.md` with Decision/Rationale/Alternatives
-
-           **Phase 1 — Design & Contracts**:
-           - Extract entities from spec → write `data-model.md`
-           - Generate API contracts from functional requirements → `/contracts/`
-           - Run `.specify/scripts/bash/update-agent-context.sh claude`
-
-        6. Evaluate constitution compliance at each phase gate
-        7. Stop after Phase 1 — report branch, plan path, and generated artifacts
-
-        ## Agent Usage
-
-        Use 1-3 Task agents to parallelize research and design:
-        - Agent 1: Research unknowns and technology best practices
-        - Agent 2: Design data model and entity relationships
-        - Agent 3: Generate API contracts from functional requirements
-
-        ## Output
-
-        Write a JSON status report to output/plan-status.json with:
-        ```json
-        {
-          "plan_file": "path to plan.md",
-          "research_file": "path to research.md",
-          "data_model_file": "path to data-model.md",
-          "feature_dir": "path to feature directory",
-          "constitution_issues": [],
-          "summary": "brief description of what was planned"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/plan.md
     output_artifacts:
       - name: plan-status
         path: output/plan-status.json
@@ -259,78 +72,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are generating an actionable, dependency-ordered task breakdown for implementation.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.tasks` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-        3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
-           and AVAILABLE_DOCS
-        4. Load from FEATURE_DIR:
-           - **Required**: plan.md (tech stack, structure), spec.md (user stories, priorities)
-           - **Optional**: data-model.md, contracts/, research.md, quickstart.md
-        5. Execute task generation:
-           - Extract user stories with priorities (P1, P2, P3) from spec.md
-           - Map entities and endpoints to user stories
-           - Generate tasks organized by user story
-
-        6. Write `tasks.md` following the strict checklist format:
-           ```
-           - [ ] [TaskID] [P?] [Story?] Description with file path
-           ```
-
-        7. Organize into phases:
-           - Phase 1: Setup (project initialization)
-           - Phase 2: Foundational (blocking prerequisites)
-           - Phase 3+: One phase per user story (priority order)
-           - Final: Polish & cross-cutting concerns
-
-        ## Agent Usage
-
-        Use 1-3 Task agents to parallelize task generation:
-        - Agent 1: Analyze spec.md user stories and map to implementation tasks
-        - Agent 2: Analyze plan.md tech stack and identify setup/infrastructure tasks
-        - Agent 3: Cross-reference data model and contracts for completeness
-
-        ## Quality Requirements
-
-        - Every task must have a unique ID (T001, T002...), description, and file path
-        - Mark parallelizable tasks with [P]
-        - Each user story phase must be independently testable
-        - Tasks must be specific enough for an LLM to complete without additional context
-
-        ## Output
-
-        Write a JSON status report to output/tasks-status.json with:
-        ```json
-        {
-          "total_tasks": 15,
-          "tasks_per_story": {"US1": 5, "US2": 4, "US3": 3},
-          "parallel_opportunities": 6,
-          "feature_dir": "path to feature directory",
-          "summary": "brief description of task breakdown"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/tasks.md
     output_artifacts:
       - name: tasks-status
         path: output/tasks-status.json
@@ -349,66 +91,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are generating quality checklists to validate requirement completeness before
-        implementation.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.checklist` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-        3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
-        4. Load feature context: spec.md, plan.md, tasks.md
-        5. Generate focused checklists as "unit tests for requirements":
-           - Each item tests the QUALITY of requirements, not the implementation
-           - Use format: `- [ ] CHK### - Question about requirement quality [Dimension]`
-           - Group by quality dimensions: Completeness, Clarity, Consistency, Coverage
-
-        6. Create the following checklist files in `FEATURE_DIR/checklists/`:
-           - `review.md` — overall requirements quality validation
-           - Additional domain-specific checklists as warranted by the feature
-
-        ## Agent Usage
-
-        Use 1-2 Task agents:
-        - Agent 1: Scan spec.md and plan.md for quality issues across all dimensions
-        - Agent 2: Validate tasks.md coverage against requirements
-
-        ## Checklist Anti-Patterns (AVOID)
-
-        - WRONG: "Verify the button clicks correctly" (tests implementation)
-        - RIGHT: "Are interaction requirements defined for all clickable elements?" (tests requirements)
-
-        ## Output
-
-        Write a JSON status report to output/checklist-status.json with:
-        ```json
-        {
-          "checklist_files": ["checklists/review.md"],
-          "total_items": 25,
-          "critical_gaps": 0,
-          "feature_dir": "path to feature directory",
-          "summary": "brief description of checklists created"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/checklist.md
     output_artifacts:
       - name: checklist-status
         path: output/checklist-status.json
@@ -427,75 +110,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are performing a cross-artifact consistency and quality analysis across the
-        specification, plan, and tasks before implementation begins.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.analyze` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-        3. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
-           to find FEATURE_DIR and locate spec.md, plan.md, tasks.md
-        4. Load all three artifacts and build semantic models:
-           - Requirements inventory from spec.md
-           - User story/action inventory with acceptance criteria
-           - Task coverage mapping from tasks.md
-           - Constitution rule set from `.specify/memory/constitution.md`
-
-        5. Run detection passes (limit to 50 findings total):
-           - **Duplication**: Near-duplicate requirements across artifacts
-           - **Ambiguity**: Vague adjectives, unresolved placeholders
-           - **Underspecification**: Requirements missing outcomes, tasks missing file paths
-           - **Constitution alignment**: Conflicts with MUST principles
-           - **Coverage gaps**: Requirements with no tasks, tasks with no requirements
-           - **Inconsistency**: Terminology drift, data entity mismatches, ordering contradictions
-
-        6. Assign severity: CRITICAL / HIGH / MEDIUM / LOW
-        7. Produce a compact analysis report (do NOT modify files — read-only analysis)
-
-        ## Agent Usage
-
-        Use 1-3 Task agents to parallelize the analysis:
-        - Agent 1: Build requirement-to-task coverage mapping and find gaps
-        - Agent 2: Run ambiguity and consistency detection across all artifacts
-        - Agent 3: Validate constitution alignment and check cross-references
-
-        ## Output
-
-        Write a JSON status report to output/analysis-report.json with:
-        ```json
-        {
-          "total_requirements": 8,
-          "total_tasks": 15,
-          "coverage_percent": 95,
-          "issues": {"critical": 0, "high": 1, "medium": 2, "low": 1},
-          "can_proceed": true,
-          "feature_dir": "path to feature directory",
-          "summary": "brief analysis summary"
-        }
-        ```
-
-        IMPORTANT: If CRITICAL issues are found, document them clearly but do NOT block
-        the pipeline. The implement step will handle resolution.
+      source_path: .wave/prompts/speckit-flow/analyze.md
     output_artifacts:
       - name: analysis-report
         path: output/analysis-report.json
@@ -514,70 +129,11 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are implementing a feature according to the specification, plan, and task breakdown.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        Follow the `/speckit.implement` workflow:
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-        3. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
-           to find FEATURE_DIR, load tasks.md, plan.md, and all available artifacts
-        4. Check checklists status — if any are incomplete, note them but proceed
-        5. Parse tasks.md and extract phase structure, dependencies, and execution order
-        6. Execute implementation phase-by-phase:
-
-           **Setup first**: Initialize project structure, dependencies, configuration
-           **Tests before code**: Write tests for contracts and entities (TDD approach)
-           **Core development**: Implement models, services, CLI commands, endpoints
-           **Integration**: Database connections, middleware, logging, external services
-           **Polish**: Unit tests, performance optimization, documentation
-
-        7. For each completed task, mark it as `[X]` in tasks.md
-        8. Run `go test -race ./...` after each phase to catch regressions early
-        9. Final validation: verify all tasks complete, tests pass, spec requirements met
-
-        ## Agent Usage — USE UP TO 6 AGENTS
-
-        Maximize parallelism with up to 6 Task agents for independent work:
-        - Agents 1-2: Setup and foundational tasks (Phase 1-2)
-        - Agents 3-4: Core implementation tasks (parallelizable [P] tasks)
-        - Agent 5: Test writing and validation
-        - Agent 6: Integration and polish tasks
-
-        Coordinate agents to respect task dependencies:
-        - Sequential tasks (no [P] marker) must complete before dependents start
-        - Parallel tasks [P] affecting different files can run simultaneously
-        - Run test validation between phases
-
-        ## Error Handling
-
-        - If a task fails, halt dependent tasks but continue independent ones
-        - Provide clear error context for debugging
-        - If tests fail, fix the issue before proceeding to the next phase
+      source_path: .wave/prompts/speckit-flow/implement.md
     handover:
       contract:
         type: test_suite
         command: "go test -race ./..."
-
         must_pass: true
         on_failure: retry
         max_retries: 3
@@ -598,79 +154,7 @@ steps:
       root: ./
     exec:
       type: prompt
-      source: |
-        You are creating a pull request for the implemented feature and requesting a review.
-
-        Feature context: {{ input }}
-
-        ## IMPORTANT: Working Directory
-
-        Your current working directory is a Wave workspace, NOT the project root.
-        Before running any scripts or accessing project files, navigate to the project root:
-
-        ```bash
-        cd "$(git rev-parse --show-toplevel)"
-        ```
-
-        Run this FIRST before any other bash commands.
-
-        A status report from the specify step is available at `artifacts/spec_info`.
-        Read it to find the branch name, spec file, and feature directory.
-
-        ## Instructions
-
-        1. Navigate to the project root (see above)
-        2. Read `artifacts/spec_info` and check out the feature branch
-
-        3. **Verify implementation**: Run `go test -race ./...` one final time to confirm
-           all tests pass. If tests fail, fix them before proceeding.
-
-        4. **Stage changes**: Review all modified and new files with `git status` and `git diff`.
-           Stage relevant files — exclude any sensitive files (.env, credentials).
-
-        5. **Commit**: Create a well-structured commit (or multiple commits if logical):
-           - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
-           - Write concise commit messages focused on the "why"
-           - Do NOT include Co-Authored-By or AI attribution lines
-
-        6. **Push**: Push the branch to the remote repository:
-           ```bash
-           git push -u origin HEAD
-           ```
-
-        7. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
-           ```bash
-           gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
-           ```
-
-           The PR body should include:
-           - Summary of changes (3-5 bullet points)
-           - Link to the spec file in the specs/ directory
-           - Test plan describing how changes were validated
-           - Any known limitations or follow-up work needed
-
-        8. **Request Copilot Review**: After the PR is created, request a review from Copilot:
-           ```bash
-           gh pr edit --add-reviewer "copilot"
-           ```
-
-        ## Agent Usage
-
-        Use 1-2 Task agents:
-        - Agent 1: Stage, commit, and push changes
-        - Agent 2: Create PR and request review
-
-        ## Output
-
-        Write a JSON status report to output/pr-result.json with:
-        ```json
-        {
-          "pr_url": "https://github.com/...",
-          "pr_number": 42,
-          "copilot_review_requested": true,
-          "summary": "brief description of PR"
-        }
-        ```
+      source_path: .wave/prompts/speckit-flow/create-pr.md
     output_artifacts:
       - name: pr-result
         path: output/pr-result.json

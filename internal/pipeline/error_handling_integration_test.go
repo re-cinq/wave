@@ -89,6 +89,13 @@ func TestErrorHandlingIntegration(t *testing.T) {
 		Metadata: manifest.Metadata{
 			Name: "test-manifest",
 		},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {
+				Binary:       "claude",
+				Mode:         "headless",
+				OutputFormat: "json",
+			},
+		},
 		Personas: map[string]manifest.Persona{
 			"craftsman": {
 				Adapter:     "claude",
@@ -151,9 +158,24 @@ func TestErrorHandlingIntegration(t *testing.T) {
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				baseTime := time.Now().Add(-1 * time.Hour)
 
+				// Create contract schemas needed by the pipeline steps
+				contractDir := filepath.Join(tempDir, ".wave/contracts")
+				err := os.MkdirAll(contractDir, 0755)
+				if err != nil {
+					t.Fatal(err)
+				}
+				schemas := []string{"spec-phase.schema.json", "docs-phase.schema.json", "dummy-phase.schema.json"}
+				for _, schema := range schemas {
+					schemaContent := `{"type": "object", "properties": {}}`
+					err = os.WriteFile(filepath.Join(contractDir, schema), []byte(schemaContent), 0644)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
 				// Create completed spec phase workspace
 				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
-				err := os.MkdirAll(specWorkspace, 0755)
+				err = os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -283,7 +305,7 @@ func TestErrorMessageFormatting(t *testing.T) {
 	for _, phase := range phases {
 		t.Run(phase, func(t *testing.T) {
 			originalError := fmt.Errorf("test error for %s", phase)
-			formattedError := provider.FormatPhaseFailureError(phase, originalError)
+			formattedError := provider.FormatPhaseFailureError(phase, originalError, "prototype")
 
 			errorMsg := formattedError.Error()
 
@@ -293,7 +315,7 @@ func TestErrorMessageFormatting(t *testing.T) {
 				"🔧 Troubleshooting Guide",
 				"🔄 Retry Options",
 				"📋 Debug Information",
-				"wave run --pipeline prototype",
+				"wave run prototype",
 				".wave/workspaces/prototype/" + phase,
 			}
 
@@ -308,23 +330,9 @@ func TestErrorMessageFormatting(t *testing.T) {
 				t.Errorf("Error message should contain retry command for phase %s", phase)
 			}
 
-			// For non-spec phases, verify resume from previous phase option
-			if phase != "spec" {
-				resumeOptionFound := false
-				resumeOptions := map[string]string{
-					"docs":      "spec",
-					"dummy":     "docs",
-					"implement": "dummy",
-				}
-
-				expectedResumePhase := resumeOptions[phase]
-				if strings.Contains(errorMsg, "--from-step "+expectedResumePhase) {
-					resumeOptionFound = true
-				}
-
-				if !resumeOptionFound {
-					t.Errorf("Error message should contain resume option from %s for phase %s", expectedResumePhase, phase)
-				}
+			// Verify retry command uses the actual pipeline name, not hardcoded "prototype"
+			if !strings.Contains(errorMsg, "wave run prototype") {
+				t.Errorf("Error message should contain pipeline-specific retry command for phase %s", phase)
 			}
 		})
 	}

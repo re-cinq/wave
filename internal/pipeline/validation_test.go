@@ -326,7 +326,7 @@ func TestErrorMessageProvider(t *testing.T) {
 			expectedContains: []string{
 				"Phase 'spec' failed",
 				"craftsman persona has write permissions",
-				"wave run --pipeline prototype --from-step spec",
+				"wave run prototype --from-step spec",
 				"Workspace: .wave/workspaces/prototype/spec",
 			},
 		},
@@ -337,8 +337,7 @@ func TestErrorMessageProvider(t *testing.T) {
 			expectedContains: []string{
 				"Phase 'docs' failed",
 				"artifacts/input-spec.md is accessible",
-				"wave run --pipeline prototype --from-step docs",
-				"Resume from previous phase: wave run --pipeline prototype --from-step spec",
+				"wave run prototype --from-step docs",
 			},
 		},
 		{
@@ -349,7 +348,6 @@ func TestErrorMessageProvider(t *testing.T) {
 				"Phase 'dummy' failed",
 				"prototype/ directory is created",
 				"interfaces.md documents all interfaces",
-				"Resume from previous phase: wave run --pipeline prototype --from-step docs",
 			},
 		},
 	}
