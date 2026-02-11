@@ -18,6 +18,8 @@ type Pipeline struct {
 type PipelineMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
+	Release     bool   `yaml:"release,omitempty"`
+	Disabled    bool   `yaml:"disabled,omitempty"`
 }
 
 type InputConfig struct {
@@ -62,8 +64,9 @@ type Mount struct {
 }
 
 type ExecConfig struct {
-	Type   string `yaml:"type"`
-	Source string `yaml:"source"`
+	Type       string `yaml:"type"`
+	Source     string `yaml:"source,omitempty"`
+	SourcePath string `yaml:"source_path,omitempty"`
 }
 
 type ArtifactDef struct {

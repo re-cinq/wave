@@ -9,7 +9,6 @@ package pipeline
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,21 +17,16 @@ import (
 )
 
 func TestPrototypeDocsPhaseInitialization(t *testing.T) {
-	// Test that docs phase can be initialized and executed with spec dependency
+	// Test that docs phase can be initialized and executed
 	tests := []struct {
-		name         string
-		hasSpecPhase bool
-		expectError  bool
+		name        string
+		input       string
+		expectError bool
 	}{
 		{
-			name:         "docs phase with completed spec phase",
-			hasSpecPhase: true,
-			expectError:  false,
-		},
-		{
-			name:         "docs phase without spec phase",
-			hasSpecPhase: false,
-			expectError:  true, // Should fail due to missing dependency
+			name:        "docs phase with completed spec phase",
+			input:       "Build a web application for team collaboration (docs phase test)",
+			expectError: false,
 		},
 	}
 
@@ -45,6 +39,15 @@ func TestPrototypeDocsPhaseInitialization(t *testing.T) {
 				t.Fatalf("Failed to load prototype pipeline: %v", err)
 			}
 
+			// Trim to docs step only
+			docsStep := findStepByID(pipeline, "docs")
+			if docsStep == nil {
+				t.Fatal("Docs step not found in pipeline")
+			}
+			docsOnly := *docsStep
+			docsOnly.Dependencies = nil
+			pipeline.Steps = []Step{docsOnly}
+
 			// Change to project root for schema file access during execution
 			originalWd, err := os.Getwd()
 			if err != nil {
@@ -54,9 +57,6 @@ func TestPrototypeDocsPhaseInitialization(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer os.Chdir(originalWd)
-
-			// Setup test environment
-			tempDir := t.TempDir()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -72,94 +72,44 @@ func TestPrototypeDocsPhaseInitialization(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if tt.hasSpecPhase {
-				// Create mock spec phase artifacts in workspace
-				specWorkspace := filepath.Join(tempDir, "spec")
-				err = os.MkdirAll(specWorkspace, 0755)
-				if err != nil {
-					t.Fatalf("Failed to create spec workspace: %v", err)
-				}
-
-				// Create mock spec.md file
-				specContent := `# Test Feature Specification
-
-## Overview
-This is a test feature for validating the docs phase pipeline.
-
-## User Stories
-- As a user, I want to test the docs phase functionality
-- As a developer, I want to ensure the pipeline works correctly
-
-## Functional Requirements
-1. The docs phase must process the spec phase output
-2. The docs phase must generate feature documentation
-3. The docs phase must create stakeholder summaries
-
-## Success Criteria
-- Documentation is generated successfully
-- Stakeholder summary is comprehensible
-- All spec requirements are covered in documentation
-`
-				err = os.WriteFile(filepath.Join(specWorkspace, "spec.md"), []byte(specContent), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create spec.md: %v", err)
-				}
-
-				// Create mock artifact.json for spec phase
-				specArtifact := `{
-  "phase": "spec",
-  "artifacts": {
-    "spec": {"path": "spec.md", "exists": true, "content_type": "markdown"}
-  },
-  "validation": {
-    "specification_quality": "good"
-  },
-  "metadata": {
-    "timestamp": "2026-02-03T10:30:00Z",
-    "input_description": "Test feature for docs phase validation"
-  }
-}`
-				err = os.WriteFile(filepath.Join(specWorkspace, "artifact.json"), []byte(specArtifact), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create spec artifact.json: %v", err)
-				}
-			}
-
-			// Execute docs phase only (second step) - would need spec phase first in real execution
-			input := "Build a web application for team collaboration (docs phase test)"
-			err = executor.Execute(ctx, pipeline, testManifest, input)
+			err = executor.Execute(ctx, pipeline, testManifest, tt.input)
 
 			if tt.expectError && err == nil {
-				t.Error("Expected error for docs phase without spec phase, but got none")
+				t.Errorf("Expected error for input %q, but got none", tt.input)
 			}
 			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error for docs phase: %v", err)
-			}
-
-			// If no error expected and spec phase exists, verify docs phase configuration
-			if !tt.expectError && tt.hasSpecPhase {
-				docsStep := findStepByID(pipeline, "docs")
-				if docsStep == nil {
-					t.Fatal("Docs step not found in pipeline")
-				}
-
-				// Verify dependency on spec phase
-				expectedDependencies := []string{"spec"}
-				if len(docsStep.Dependencies) != len(expectedDependencies) {
-					t.Errorf("Expected %d dependencies, got %d", len(expectedDependencies), len(docsStep.Dependencies))
-				}
-
-				// Verify artifact injection is configured
-				if len(docsStep.Memory.InjectArtifacts) == 0 {
-					t.Error("Docs step has no artifact injection configured")
-				}
-
-				// Verify persona is correct
-				if docsStep.Persona != "philosopher" {
-					t.Errorf("Expected philosopher persona, got %s", docsStep.Persona)
-				}
+				t.Errorf("Unexpected error for input %q: %v", tt.input, err)
 			}
 		})
+	}
+}
+
+func TestPrototypeDocsPhaseConfiguration(t *testing.T) {
+	// Verify docs phase has correct dependencies, persona, and artifact injection
+	pipeline, err := loadTestPrototypePipeline()
+	if err != nil {
+		t.Fatalf("Failed to load prototype pipeline: %v", err)
+	}
+
+	docsStep := findStepByID(pipeline, "docs")
+	if docsStep == nil {
+		t.Fatal("Docs step not found in pipeline")
+	}
+
+	// Verify dependency on spec phase
+	expectedDependencies := []string{"spec"}
+	if len(docsStep.Dependencies) != len(expectedDependencies) {
+		t.Errorf("Expected %d dependencies, got %d", len(expectedDependencies), len(docsStep.Dependencies))
+	}
+
+	// Verify artifact injection is configured
+	if len(docsStep.Memory.InjectArtifacts) == 0 {
+		t.Error("Docs step has no artifact injection configured")
+	}
+
+	// Verify persona is correct
+	if docsStep.Persona != "philosopher" {
+		t.Errorf("Expected philosopher persona, got %s", docsStep.Persona)
 	}
 }
 

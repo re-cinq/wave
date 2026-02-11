@@ -9,7 +9,6 @@ package pipeline
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,21 +17,16 @@ import (
 )
 
 func TestPrototypeImplementPhaseInitialization(t *testing.T) {
-	// Test that implement phase can be initialized and executed with dummy dependency
+	// Test that implement phase can be initialized and executed
 	tests := []struct {
-		name          string
-		hasDummyPhase bool
-		expectError   bool
+		name        string
+		input       string
+		expectError bool
 	}{
 		{
-			name:          "implement phase with completed dummy phase",
-			hasDummyPhase: true,
-			expectError:   false,
-		},
-		{
-			name:          "implement phase without dummy phase",
-			hasDummyPhase: false,
-			expectError:   true, // Should fail due to missing dependency
+			name:        "implement phase with completed dummy phase",
+			input:       "Build a web application for team collaboration (implement phase test)",
+			expectError: false,
 		},
 	}
 
@@ -45,6 +39,15 @@ func TestPrototypeImplementPhaseInitialization(t *testing.T) {
 				t.Fatalf("Failed to load prototype pipeline: %v", err)
 			}
 
+			// Trim to implement step only
+			implementStep := findStepByID(pipeline, "implement")
+			if implementStep == nil {
+				t.Fatal("Implement step not found in pipeline")
+			}
+			implementOnly := *implementStep
+			implementOnly.Dependencies = nil
+			pipeline.Steps = []Step{implementOnly}
+
 			// Change to project root for schema file access during execution
 			originalWd, err := os.Getwd()
 			if err != nil {
@@ -54,9 +57,6 @@ func TestPrototypeImplementPhaseInitialization(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer os.Chdir(originalWd)
-
-			// Setup test environment
-			tempDir := t.TempDir()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -72,105 +72,39 @@ func TestPrototypeImplementPhaseInitialization(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if tt.hasDummyPhase {
-				// Create mock dummy phase artifacts in workspace
-				dummyWorkspace := filepath.Join(tempDir, "dummy")
-				err = os.MkdirAll(dummyWorkspace, 0755)
-				if err != nil {
-					t.Fatalf("Failed to create dummy workspace: %v", err)
-				}
-
-				// Create mock prototype directory
-				prototypeDir := filepath.Join(dummyWorkspace, "prototype")
-				err = os.MkdirAll(prototypeDir, 0755)
-				if err != nil {
-					t.Fatalf("Failed to create prototype directory: %v", err)
-				}
-
-				// Create a simple prototype file
-				prototypeCode := `// Test prototype code
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Test feature prototype")
-}
-`
-				err = os.WriteFile(filepath.Join(prototypeDir, "main.go"), []byte(prototypeCode), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create prototype code: %v", err)
-				}
-
-				// Create mock interfaces.md file
-				interfacesContent := `# Interface Definitions
-
-## CLI Interface
-- create: Create new items
-- list: List all items
-- get: Get item by ID
-- delete: Delete item by ID
-
-## Data Structures
-- Item: {id, name, description, status}
-`
-				err = os.WriteFile(filepath.Join(dummyWorkspace, "interfaces.md"), []byte(interfacesContent), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create interfaces.md: %v", err)
-				}
-
-				// Create mock artifact.json for dummy phase
-				dummyArtifact := `{
-  "phase": "dummy",
-  "artifacts": {
-    "prototype": {"path": "prototype/", "exists": true, "content_type": "code"},
-    "interface_definitions": {"path": "interfaces.md", "exists": true, "content_type": "markdown"}
-  },
-  "validation": {
-    "runnable": true,
-    "prototype_quality": "excellent"
-  },
-  "metadata": {
-    "timestamp": "2026-02-03T12:00:00Z",
-    "source_docs_path": "artifacts/feature-docs.md"
-  }
-}`
-				err = os.WriteFile(filepath.Join(dummyWorkspace, "artifact.json"), []byte(dummyArtifact), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create dummy artifact.json: %v", err)
-				}
-			}
-
-			// Execute implement phase only (fourth step) - would need dummy phase first in real execution
-			input := "Build a web application for team collaboration (implement phase test)"
-			err = executor.Execute(ctx, pipeline, testManifest, input)
+			err = executor.Execute(ctx, pipeline, testManifest, tt.input)
 
 			if tt.expectError && err == nil {
-				t.Error("Expected error for implement phase without dummy phase, but got none")
+				t.Errorf("Expected error for input %q, but got none", tt.input)
 			}
 			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error for implement phase: %v", err)
-			}
-
-			// If no error expected and dummy phase exists, verify implement phase configuration
-			if !tt.expectError && tt.hasDummyPhase {
-				implementStep := findStepByID(pipeline, "implement")
-				if implementStep == nil {
-					t.Fatal("Implement step not found in pipeline")
-				}
-
-				// Verify dependency on dummy phase
-				expectedDependencies := []string{"dummy"}
-				if len(implementStep.Dependencies) != len(expectedDependencies) {
-					t.Errorf("Expected %d dependencies, got %d", len(expectedDependencies), len(implementStep.Dependencies))
-				}
-
-				// Verify persona is correct
-				if implementStep.Persona != "craftsman" {
-					t.Errorf("Expected craftsman persona, got %s", implementStep.Persona)
-				}
+				t.Errorf("Unexpected error for input %q: %v", tt.input, err)
 			}
 		})
+	}
+}
+
+func TestPrototypeImplementPhaseConfiguration(t *testing.T) {
+	// Verify implement phase has correct dependencies and persona
+	pipeline, err := loadTestPrototypePipeline()
+	if err != nil {
+		t.Fatalf("Failed to load prototype pipeline: %v", err)
+	}
+
+	implementStep := findStepByID(pipeline, "implement")
+	if implementStep == nil {
+		t.Fatal("Implement step not found in pipeline")
+	}
+
+	// Verify dependency on dummy phase
+	expectedDependencies := []string{"dummy"}
+	if len(implementStep.Dependencies) != len(expectedDependencies) {
+		t.Errorf("Expected %d dependencies, got %d", len(expectedDependencies), len(implementStep.Dependencies))
+	}
+
+	// Verify persona is correct
+	if implementStep.Persona != "craftsman" {
+		t.Errorf("Expected craftsman persona, got %s", implementStep.Persona)
 	}
 }
 

@@ -55,7 +55,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	if !force {
 		// Phase skip validation - ensure prerequisites are completed
 		if err := r.validator.ValidatePhaseSequence(p, fromStep); err != nil {
-			return r.errors.FormatPhaseFailureError(fromStep, err)
+			return r.errors.FormatPhaseFailureError(fromStep, err, p.Metadata.Name)
 		}
 
 		// Stale artifact detection - warn about outdated artifacts
@@ -216,13 +216,13 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 
 	// Validate the subpipeline DAG
 	if err := validator.ValidateDAG(execution.Pipeline); err != nil {
-		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("invalid resume pipeline DAG: %w", err))
+		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("invalid resume pipeline DAG: %w", err), execution.Pipeline.Metadata.Name)
 	}
 
 	// Get topologically sorted steps starting from target
 	sortedSteps, err := validator.TopologicalSort(execution.Pipeline)
 	if err != nil {
-		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err))
+		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), execution.Pipeline.Metadata.Name)
 	}
 
 	// Execute each step in order
@@ -247,7 +247,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			// Execute the step (reuse existing step execution logic)
 			if err := r.executeStep(ctx, execution, step); err != nil {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				return r.errors.FormatPhaseFailureError(step.ID, err)
+				return r.errors.FormatPhaseFailureError(step.ID, err, execution.Pipeline.Metadata.Name)
 			}
 
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)

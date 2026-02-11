@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: code-review
   description: "Comprehensive code review for pull requests"
+  disabled: true
 
 input:
   source: cli
