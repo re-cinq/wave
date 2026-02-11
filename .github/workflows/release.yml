@@ -38,6 +38,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.bump.outputs.next }}
+      tag_created: ${{ steps.push_tag.outputs.created }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,21 +90,31 @@ jobs:
           echo "Bump: $BUMP ($LATEST_TAG → $NEXT)"
 
       - name: Create and push tag
+        id: push_tag
         if: steps.bump.outputs.next != steps.bump.outputs.latest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.bump.outputs.next }}" -m "Release ${{ steps.bump.outputs.next }}"
           git push origin "${{ steps.bump.outputs.next }}"
+          echo "created=true" >> "$GITHUB_OUTPUT"
 
+  # Runs after auto-tag in the same workflow (GITHUB_TOKEN tag pushes don't trigger new runs).
+  # Also runs independently when a tag is pushed manually.
   release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: >-
+      always() && (
+        startsWith(github.ref, 'refs/tags/')
+        || (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.tag_created == 'true')
+      )
+    needs: [auto-tag]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout at tag
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ needs.auto-tag.outputs.new_tag || github.ref }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -115,3 +128,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ needs.auto-tag.outputs.new_tag || github.ref_name }}
