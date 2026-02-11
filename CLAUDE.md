@@ -243,6 +243,29 @@ Follow standard Go conventions:
 - Keep commit messages concise and focused on the change
 - Use conventional commit prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 
+## Versioning
+
+Wave uses **automated semantic versioning** derived from conventional commit messages.
+
+### How It Works
+
+On every push to `main`, the CI analyzes commit messages since the last tag and determines the version bump:
+
+| Commit prefix | Bump | Example |
+|---------------|------|---------|
+| `fix:`, `docs:`, `refactor:`, `test:`, `chore:` | **patch** (0.0.X) | v0.1.0 → v0.1.1 |
+| `feat:` | **minor** (0.X.0) | v0.1.1 → v0.2.0 |
+| `BREAKING CHANGE:` or `!:` (e.g. `feat!:`) | **major** (X.0.0) | v0.2.0 → v1.0.0 |
+
+The highest bump type wins when multiple commits are present. The CI then creates and pushes the tag, which triggers GoReleaser to build binaries and create a GitHub Release.
+
+### Rules
+
+- Every merge to `main` produces a new release automatically
+- Commit prefixes determine bump level — choose them intentionally
+- Use `feat!:` or include `BREAKING CHANGE:` in the commit body for major bumps
+- Version starts at `v0.1.0` (first tag created by CI)
+
 ## Debugging
 - Use `--debug` flag for detailed execution logging
 - Check `.wave/traces/` for audit logs
