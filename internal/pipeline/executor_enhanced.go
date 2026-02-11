@@ -32,14 +32,14 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return errorProvider.FormatPhaseFailureError("pipeline_validation",
-			fmt.Errorf("invalid pipeline DAG: %w", err))
+			fmt.Errorf("invalid pipeline DAG: %w", err), p.Metadata.Name)
 	}
 
 	// Get sorted steps for execution
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return errorProvider.FormatPhaseFailureError("pipeline_validation",
-			fmt.Errorf("failed to topologically sort steps: %w", err))
+			fmt.Errorf("failed to topologically sort steps: %w", err), p.Metadata.Name)
 	}
 
 	// Initialize pipeline execution
@@ -89,7 +89,7 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 			// Phase skip validation for prototype pipeline
 			if err := phaseValidator.ValidatePhaseSequence(p, step.ID); err != nil {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				return errorProvider.FormatPhaseFailureError(step.ID, err)
+				return errorProvider.FormatPhaseFailureError(step.ID, err, p.Metadata.Name)
 			}
 
 			// Stale artifact detection
@@ -187,7 +187,7 @@ func (e *DefaultPipelineExecutor) executeStepWithValidation(ctx context.Context,
 		}
 
 		// General step failure
-		return errorProvider.FormatPhaseFailureError(step.ID, stepErr)
+		return errorProvider.FormatPhaseFailureError(step.ID, stepErr, execution.Pipeline.Metadata.Name)
 	}
 
 	return nil
@@ -269,7 +269,7 @@ func (e *DefaultPipelineExecutor) GetPipelineErrors(pipelineID string) ([]string
 		// In a real implementation, we would store the actual errors
 		// For now, provide generic failure information
 		err := errorProvider.FormatPhaseFailureError(failedStep,
-			fmt.Errorf("step failed during execution"))
+			fmt.Errorf("step failed during execution"), pipelineID)
 		errors = append(errors, err.Error())
 	}
 

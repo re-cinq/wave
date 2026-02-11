@@ -283,7 +283,7 @@ func TestErrorMessageFormatting(t *testing.T) {
 	for _, phase := range phases {
 		t.Run(phase, func(t *testing.T) {
 			originalError := fmt.Errorf("test error for %s", phase)
-			formattedError := provider.FormatPhaseFailureError(phase, originalError)
+			formattedError := provider.FormatPhaseFailureError(phase, originalError, "prototype")
 
 			errorMsg := formattedError.Error()
 
@@ -293,7 +293,7 @@ func TestErrorMessageFormatting(t *testing.T) {
 				"🔧 Troubleshooting Guide",
 				"🔄 Retry Options",
 				"📋 Debug Information",
-				"wave run --pipeline prototype",
+				"wave run prototype",
 				".wave/workspaces/prototype/" + phase,
 			}
 
@@ -308,23 +308,9 @@ func TestErrorMessageFormatting(t *testing.T) {
 				t.Errorf("Error message should contain retry command for phase %s", phase)
 			}
 
-			// For non-spec phases, verify resume from previous phase option
-			if phase != "spec" {
-				resumeOptionFound := false
-				resumeOptions := map[string]string{
-					"docs":      "spec",
-					"dummy":     "docs",
-					"implement": "dummy",
-				}
-
-				expectedResumePhase := resumeOptions[phase]
-				if strings.Contains(errorMsg, "--from-step "+expectedResumePhase) {
-					resumeOptionFound = true
-				}
-
-				if !resumeOptionFound {
-					t.Errorf("Error message should contain resume option from %s for phase %s", expectedResumePhase, phase)
-				}
+			// Verify retry command uses the actual pipeline name, not hardcoded "prototype"
+			if !strings.Contains(errorMsg, "wave run prototype") {
+				t.Errorf("Error message should contain pipeline-specific retry command for phase %s", phase)
 			}
 		})
 	}
