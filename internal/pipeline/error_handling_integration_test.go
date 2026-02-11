@@ -89,6 +89,13 @@ func TestErrorHandlingIntegration(t *testing.T) {
 		Metadata: manifest.Metadata{
 			Name: "test-manifest",
 		},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {
+				Binary:       "claude",
+				Mode:         "headless",
+				OutputFormat: "json",
+			},
+		},
 		Personas: map[string]manifest.Persona{
 			"craftsman": {
 				Adapter:     "claude",
@@ -151,9 +158,24 @@ func TestErrorHandlingIntegration(t *testing.T) {
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				baseTime := time.Now().Add(-1 * time.Hour)
 
+				// Create contract schemas needed by the pipeline steps
+				contractDir := filepath.Join(tempDir, ".wave/contracts")
+				err := os.MkdirAll(contractDir, 0755)
+				if err != nil {
+					t.Fatal(err)
+				}
+				schemas := []string{"spec-phase.schema.json", "docs-phase.schema.json", "dummy-phase.schema.json"}
+				for _, schema := range schemas {
+					schemaContent := `{"type": "object", "properties": {}}`
+					err = os.WriteFile(filepath.Join(contractDir, schema), []byte(schemaContent), 0644)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
 				// Create completed spec phase workspace
 				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
-				err := os.MkdirAll(specWorkspace, 0755)
+				err = os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
 				}

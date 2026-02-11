@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -74,7 +75,8 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, cfg.Adapter)
+	args := strings.Fields(cfg.Prompt)
+	cmd := exec.CommandContext(ctx, cfg.Adapter, args...)
 	cmd.Dir = cfg.WorkspacePath
 
 	mergedEnv := append(os.Environ(), cfg.Env...)

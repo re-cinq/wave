@@ -114,13 +114,33 @@ func (a *GitHubAdapter) parseOperation(prompt string) (*GitHubOperation, error) 
 
 // extractRepoInfo extracts owner and repo from various formats
 func extractRepoInfo(text string) (owner, repo string) {
-	// Look for owner/repo pattern
+	// Look for GitHub URL pattern first: github.com/owner/repo
+	if strings.Contains(text, "github.com/") {
+		idx := strings.Index(text, "github.com/")
+		remainder := text[idx+len("github.com/"):]
+		parts := strings.SplitN(remainder, "/", 3)
+		if len(parts) >= 2 {
+			o := strings.TrimSpace(strings.Fields(parts[0])[0])
+			r := strings.TrimSpace(strings.Fields(parts[1])[0])
+			if isValidRepoName(o) && isValidRepoName(r) {
+				return o, r
+			}
+		}
+	}
+
+	// Look for owner/repo pattern embedded in text
 	if strings.Contains(text, "/") {
 		parts := strings.Split(text, "/")
 		for i := 0; i < len(parts)-1; i++ {
-			// Check if this looks like owner/repo
-			if isValidRepoName(parts[i]) && isValidRepoName(parts[i+1]) {
-				return strings.TrimSpace(parts[i]), strings.TrimSpace(parts[i+1])
+			// Extract the last word from the left part and first word from the right part
+			leftWords := strings.Fields(parts[i])
+			rightWords := strings.Fields(parts[i+1])
+			if len(leftWords) > 0 && len(rightWords) > 0 {
+				candidate0 := leftWords[len(leftWords)-1]
+				candidateR := rightWords[0]
+				if isValidRepoName(candidate0) && isValidRepoName(candidateR) {
+					return candidate0, candidateR
+				}
 			}
 		}
 	}

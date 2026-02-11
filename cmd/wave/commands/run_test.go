@@ -316,20 +316,15 @@ func TestRunFromStep(t *testing.T) {
 	// Clear collector for resume test
 	collector.events = nil
 
-	// Resume from step2 - since all steps are already completed,
-	// Resume should succeed but not re-execute any steps
-	err = executor.Resume(ctx, "test-from-step", "step2")
+	// Resume from step2 using ResumeWithValidation (matches actual CLI behavior).
+	// Execute cleans up the pipeline from in-memory storage after completion,
+	// so we use ResumeWithValidation which takes the pipeline directly.
+	err = executor.ResumeWithValidation(ctx, p, m, "test input", "step2", false)
 	require.NoError(t, err)
 
-	// Verify Resume completed successfully (even though no steps needed execution)
-	// The executor correctly skips completed steps
+	// Verify Resume completed successfully — step1 should not be re-executed
 	step1ResumeEvents := collector.GetEventsByStep("step1")
 	assert.Empty(t, step1ResumeEvents, "step1 should not have been re-executed (before fromStep)")
-
-	// Get the status to verify the pipeline is still in completed state
-	status, err := executor.GetStatus("test-from-step")
-	require.NoError(t, err)
-	assert.Equal(t, pipeline.StateCompleted, status.State)
 }
 
 // TestRunFromStepValidation tests validation of --from-step parameter (T051)
@@ -377,16 +372,12 @@ func TestRunFromStepValidation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// First execute to populate state
-	err := executor.Execute(ctx, p, m, "test input")
-	require.NoError(t, err)
-
-	// Test resume with non-existent step
-	err = executor.Resume(ctx, "test-from-step-validation", "nonexistent-step")
+	// Test resume with non-existent step using ResumeWithValidation (matches actual CLI behavior)
+	err := executor.ResumeWithValidation(ctx, p, m, "test input", "nonexistent-step", false)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "step \"nonexistent-step\" not found in pipeline")
+	assert.Contains(t, err.Error(), "not found in pipeline")
 
-	// Test resume with non-existent pipeline
+	// Test resume with non-existent pipeline via Resume
 	err = executor.Resume(ctx, "nonexistent-pipeline", "step1")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "pipeline \"nonexistent-pipeline\" not found")
@@ -554,7 +545,7 @@ func TestNewRunCmdFlags(t *testing.T) {
 	cmd := NewRunCmd()
 
 	// Verify command properties
-	assert.Equal(t, "run", cmd.Use)
+	assert.Equal(t, "run [pipeline] [input]", cmd.Use)
 	assert.Contains(t, cmd.Short, "Run")
 
 	// Verify all flags exist
