@@ -7,7 +7,7 @@ input:
   source: cli
   schema:
     type: string
-    description: "GitHub repository in owner/name format (e.g. re-cinq/wave)"
+    description: "GitHub repository, optionally with issue number (e.g. 're-cinq/wave' or 're-cinq/wave 42')"
 
 steps:
   - id: scan-issues
@@ -23,12 +23,20 @@ steps:
 
         Input: {{ input }}
 
+        Parse the input to determine the mode:
+        - If the input contains a number after the repo (e.g. "re-cinq/wave 42"), this is SINGLE ISSUE mode.
+          Extract the repo (first token) and issue number (second token).
+        - If the input is just a repo (e.g. "re-cinq/wave"), this is BATCH mode.
+
         Execute these commands using the Bash tool:
 
         1. gh --version
-        2. gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
+
+        2a. SINGLE ISSUE mode: gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
+        2b. BATCH mode: gh issue list --repo <REPO> --limit 10 --json number,title,body,labels,url
 
         After getting REAL results from Bash, analyze issues and save to artifact.json.
+        In single issue mode, analyze the one issue. In batch mode, analyze all returned issues.
     output_artifacts:
       - name: issue_analysis
         path: artifact.json
