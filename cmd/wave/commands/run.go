@@ -217,6 +217,10 @@ func runRun(opts RunOptions, debug bool) error {
 
 	elapsed := time.Since(pipelineStart)
 
+	// Stop the TUI before printing post-run output to avoid terminal corruption.
+	// Cleanup is idempotent so the deferred call above becomes a no-op.
+	result.Cleanup()
+
 	// Show human summary only in auto/text modes — json and quiet stay clean
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
 		fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
