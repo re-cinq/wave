@@ -35,9 +35,10 @@ func GetOutputConfig(cmd *cobra.Command) OutputConfig {
 // EmitterResult holds the emitter, progress display, and cleanup function
 // returned by CreateEmitter.
 type EmitterResult struct {
-	Emitter  *event.NDJSONEmitter
-	Progress event.ProgressEmitter
-	Cleanup  func()
+	Emitter    *event.NDJSONEmitter
+	Progress   event.ProgressEmitter
+	Cleanup    func()
+	BubbleTea  *display.BubbleTeaProgressDisplay // non-nil when using BubbleTea TUI
 }
 
 // CreateEmitter builds the appropriate emitter and progress display based on
@@ -102,9 +103,10 @@ func createAutoEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.S
 		}
 
 		return EmitterResult{
-			Emitter:  emitter,
-			Progress: throttled,
-			Cleanup:  cleanup,
+			Emitter:   emitter,
+			Progress:  throttled,
+			Cleanup:   cleanup,
+			BubbleTea: btpd,
 		}
 	}
 

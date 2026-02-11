@@ -10,7 +10,6 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
-	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
@@ -134,7 +133,6 @@ func runRun(opts RunOptions, debug bool) error {
 	// Initialize event emitter based on output format
 	result := CreateEmitter(opts.Output, p.Metadata.Name, p.Steps, &m)
 	emitter := result.Emitter
-	progressDisplay := result.Progress
 	defer result.Cleanup()
 
 	// Initialize workspace manager under .wave/workspaces
@@ -189,9 +187,9 @@ func runRun(opts RunOptions, debug bool) error {
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
-	// Connect deliverable tracker to progress display
-	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
-		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+	// Connect deliverable tracker and exec cancel to progress display
+	if result.BubbleTea != nil {
+		result.BubbleTea.SetDeliverableTracker(executor.GetDeliverableTracker())
 	}
 
 	timeout := time.Duration(opts.Timeout) * time.Minute
@@ -201,6 +199,11 @@ func runRun(opts RunOptions, debug bool) error {
 
 	execCtx, execCancel := context.WithTimeout(ctx, timeout)
 	defer execCancel()
+
+	// Wire the execution cancel function to the TUI so pressing q cancels the pipeline
+	if result.BubbleTea != nil {
+		result.BubbleTea.SetCancelFunc(execCancel)
+	}
 
 	pipelineStart := time.Now()
 

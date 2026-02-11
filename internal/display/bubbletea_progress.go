@@ -190,6 +190,18 @@ func (btpd *BubbleTeaProgressDisplay) Finish() {
 	btpd.Clear()
 }
 
+// SetCancelFunc sets a cancel function that will be called when the user
+// presses q or ctrl+c in the TUI, allowing the quit action to cancel the
+// pipeline execution context.
+func (btpd *BubbleTeaProgressDisplay) SetCancelFunc(cancel context.CancelFunc) {
+	if !btpd.enabled {
+		return
+	}
+	btpd.mu.Lock()
+	defer btpd.mu.Unlock()
+	btpd.model.cancelFunc = cancel
+}
+
 // SetDeliverableTracker sets the deliverable tracker after construction
 func (btpd *BubbleTeaProgressDisplay) SetDeliverableTracker(tracker *deliverable.Tracker) {
 	if !btpd.enabled {

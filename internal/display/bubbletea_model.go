@@ -1,6 +1,7 @@
 package display
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 // ProgressModel implements the bubbletea model for Wave progress display
 type ProgressModel struct {
 	ctx        *PipelineContext
-	paused     bool
 	quit       bool
 	lastUpdate time.Time
+	cancelFunc context.CancelFunc
 }
 
 // TickMsg represents a regular update tick
@@ -26,7 +27,6 @@ type UpdateContextMsg *PipelineContext
 func NewProgressModel(ctx *PipelineContext) *ProgressModel {
 	return &ProgressModel{
 		ctx:        ctx,
-		paused:     false,
 		quit:       false,
 		lastUpdate: time.Now(),
 	}
@@ -43,19 +43,15 @@ func (m *ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
+			if m.cancelFunc != nil {
+				m.cancelFunc()
+			}
 			m.quit = true
 			return m, tea.Quit
-		case "p":
-			m.paused = !m.paused
-			return m, nil
 		}
 
 	case TickMsg:
 		m.lastUpdate = time.Time(msg)
-		// Don't continue ticking when paused
-		if m.paused {
-			return m, nil
-		}
 		return m, tickCmd()
 
 	case UpdateContextMsg:
@@ -93,16 +89,9 @@ func (m *ProgressModel) View() string {
 	)
 
 	// Bottom status line with readable colors
-	var statusLine string
-	if m.paused {
-		statusLine = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("11")). // Bright yellow for paused
-			Render("PAUSED - Press 'p' to resume, 'q' to quit")
-	} else {
-		statusLine = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244")). // Medium gray for buttons
-			Render("Press: p=pause q=quit")
-	}
+	statusLine := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("244")). // Medium gray for buttons
+		Render("Press: q=quit")
 
 	// Combine content with bottom status and add margins
 	fullContent := content + "\n" + statusLine
