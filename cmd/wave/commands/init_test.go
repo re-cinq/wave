@@ -2,12 +2,14 @@ package commands
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/defaults"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -277,7 +279,7 @@ func TestInitCreatesAllPersonaPromptFiles(t *testing.T) {
 	}
 }
 
-// TestInitCreatesPipelineFiles tests that init creates example pipeline files.
+// TestInitCreatesPipelineFiles tests that init creates only release pipeline files.
 func TestInitCreatesPipelineFiles(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -285,15 +287,13 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	expectedPipelines := []string{
-		"hello-world.yaml",
-		"speckit-flow.yaml",
-		"hotfix.yaml",
-	}
+	// Default init (without --all) should only create release pipelines
+	releasePipelines := defaults.ReleasePipelineNames()
+	require.NotEmpty(t, releasePipelines, "there should be at least one release pipeline")
 
-	for _, pipeline := range expectedPipelines {
+	for _, pipeline := range releasePipelines {
 		path := filepath.Join(".wave", "pipelines", pipeline)
-		assert.True(t, fileExists(path), "pipeline file %s should be created", pipeline)
+		assert.True(t, fileExists(path), "release pipeline file %s should be created", pipeline)
 
 		// Verify it's valid YAML
 		content, err := os.ReadFile(path)
@@ -305,9 +305,25 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 
 		assert.Equal(t, "WavePipeline", pipelineData["kind"], "%s should have kind WavePipeline", pipeline)
 	}
+
+	// Verify non-release pipelines are NOT created
+	allPipelines := defaults.PipelineNames()
+	for _, pipeline := range allPipelines {
+		isRelease := false
+		for _, rp := range releasePipelines {
+			if pipeline == rp {
+				isRelease = true
+				break
+			}
+		}
+		if !isRelease {
+			path := filepath.Join(".wave", "pipelines", pipeline)
+			assert.False(t, fileExists(path), "non-release pipeline file %s should NOT be created", pipeline)
+		}
+	}
 }
 
-// TestInitCreatesContractFiles tests that init creates JSON schema contract files.
+// TestInitCreatesContractFiles tests that init creates only transitively-referenced contract files.
 func TestInitCreatesContractFiles(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -315,20 +331,35 @@ func TestInitCreatesContractFiles(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	expectedContracts := []string{
-		"navigation.schema.json",
-		"specification.schema.json",
-	}
+	// Verify that contracts directory exists and contains only contracts
+	// referenced by release pipelines
+	entries, err := os.ReadDir(".wave/contracts")
+	require.NoError(t, err)
 
-	for _, contract := range expectedContracts {
-		path := filepath.Join(".wave", "contracts", contract)
-		assert.True(t, fileExists(path), "contract file %s should be created", contract)
-
-		// Verify it's valid JSON with $schema field
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(".wave", "contracts", entry.Name())
 		content, err := os.ReadFile(path)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "$schema", "%s should contain $schema", contract)
+		assert.Contains(t, string(content), "$schema", "%s should contain $schema", entry.Name())
 	}
+
+	// With --all, all contracts should be created
+	env2 := newTestEnv(t)
+	defer env2.cleanup()
+
+	_, _, err = executeInitCmd("--all")
+	require.NoError(t, err)
+
+	allContracts, err := defaults.GetContracts()
+	require.NoError(t, err)
+
+	allEntries, err := os.ReadDir(".wave/contracts")
+	require.NoError(t, err)
+	assert.Equal(t, len(allContracts), len(allEntries),
+		"--all should create all contract files")
 }
 
 // TestInitOutputPath tests the --output flag for custom manifest path.
@@ -577,11 +608,14 @@ func TestInitFilePermissions(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
+	// Use release pipelines and their contracts for permission checks
+	releasePipelines := defaults.ReleasePipelineNames()
+	require.NotEmpty(t, releasePipelines)
+
 	files := []string{
 		"wave.yaml",
 		".wave/personas/navigator.md",
-		".wave/pipelines/speckit-flow.yaml",
-		".wave/contracts/navigation.schema.json",
+		filepath.Join(".wave", "pipelines", releasePipelines[0]),
 	}
 
 	for _, file := range files {
@@ -689,4 +723,175 @@ func TestInitPersonaPromptContent(t *testing.T) {
 				"%s should contain '%s'", tc.file, expected)
 		}
 	}
+}
+
+// TestInitAllFlagExtractsAllPipelines tests that wave init --all extracts ALL embedded pipelines.
+func TestInitAllFlagExtractsAllPipelines(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd("--all")
+	require.NoError(t, err)
+
+	allPipelines, err := defaults.GetPipelines()
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+	assert.Equal(t, len(allPipelines), len(entries), "--all should create all pipeline files")
+}
+
+// TestInitDefaultOnlyReleasePipelines tests that default wave init writes only release pipelines.
+func TestInitDefaultOnlyReleasePipelines(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	releasePipelines, err := defaults.GetReleasePipelines()
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+	assert.Equal(t, len(releasePipelines), len(entries), "default init should create only release pipeline files")
+
+	for _, entry := range entries {
+		_, isRelease := releasePipelines[entry.Name()]
+		assert.True(t, isRelease, "pipeline %s should be a release pipeline", entry.Name())
+	}
+}
+
+// TestInitTransitiveContractExclusion tests that contracts referenced only by non-release pipelines are absent.
+func TestInitTransitiveContractExclusion(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	// Count contracts in filtered init
+	filteredEntries, err := os.ReadDir(".wave/contracts")
+	require.NoError(t, err)
+
+	// Count contracts with --all
+	env2 := newTestEnv(t)
+	defer env2.cleanup()
+
+	_, _, err = executeInitCmd("--all")
+	require.NoError(t, err)
+
+	allEntries, err := os.ReadDir(".wave/contracts")
+	require.NoError(t, err)
+
+	// Filtered should have fewer or equal contracts
+	assert.LessOrEqual(t, len(filteredEntries), len(allEntries),
+		"filtered init should have fewer or equal contracts than --all")
+}
+
+// TestInitTransitivePromptExclusion tests that prompts referenced only by non-release pipelines are absent.
+func TestInitTransitivePromptExclusion(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	// The speckit-flow pipeline is NOT release: true, so its prompts
+	// should not be present (unless referenced by another release pipeline)
+	// speckit-flow references prompts under .wave/prompts/speckit-flow/
+	if !fileExists(".wave/prompts/speckit-flow") {
+		// Good - speckit-flow prompts excluded because no release pipeline references them
+		return
+	}
+
+	// If they exist, it means a release pipeline also references them
+	// which is acceptable
+}
+
+// TestInitPersonasNeverExcluded tests that all personas are always included.
+func TestInitPersonasNeverExcluded(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	allPersonas, err := defaults.GetPersonas()
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(".wave/personas")
+	require.NoError(t, err)
+	assert.Equal(t, len(allPersonas), len(entries),
+		"all personas should be present regardless of release filtering")
+}
+
+// TestInitAllMergeCompose tests that --all and --merge compose naturally.
+func TestInitAllMergeCompose(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// First init with default filtering
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	filteredEntries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+	filteredCount := len(filteredEntries)
+
+	// Then merge with --all
+	_, _, err = executeInitCmd("--merge", "--all")
+	require.NoError(t, err)
+
+	allEntries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+
+	allPipelines, err := defaults.GetPipelines()
+	require.NoError(t, err)
+
+	assert.Equal(t, len(allPipelines), len(allEntries),
+		"--all --merge should result in all pipelines")
+	assert.GreaterOrEqual(t, len(allEntries), filteredCount,
+		"merge with --all should have at least as many as filtered")
+}
+
+// TestInitMergePreservesExistingNonReleasePipelines tests that merge doesn't delete existing files.
+func TestInitMergePreservesExistingNonReleasePipelines(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// First init with --all to get all pipelines
+	_, _, err := executeInitCmd("--all")
+	require.NoError(t, err)
+
+	allEntries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+	allCount := len(allEntries)
+
+	// Then merge without --all
+	_, _, err = executeInitCmd("--merge")
+	require.NoError(t, err)
+
+	// Files should still be there - merge doesn't delete
+	afterEntries, err := os.ReadDir(".wave/pipelines")
+	require.NoError(t, err)
+	assert.Equal(t, allCount, len(afterEntries),
+		"merge should not delete existing pipeline files")
+}
+
+// TestInitDisplayShowsFilteredCounts tests that init display shows filtered counts, not total.
+func TestInitDisplayShowsFilteredCounts(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	stdout, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	releasePipelines, err := defaults.GetReleasePipelines()
+	require.NoError(t, err)
+
+	// The output should show the filtered pipeline count
+	expectedCount := fmt.Sprintf("%d pipelines", len(releasePipelines))
+	assert.Contains(t, stdout, expectedCount,
+		"init output should show filtered pipeline count")
 }

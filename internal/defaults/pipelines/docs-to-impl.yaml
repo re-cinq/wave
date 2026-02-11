@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
     name: docs-impl-alignment
     description: Multi-step pipeline to identify doc/implementation mismatches, judge top issues, create specs, and propose PR
+    release: false
 input:
     source: meta
 steps:

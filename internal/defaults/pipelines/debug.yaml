@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: debug
   description: "Systematic debugging with hypothesis testing"
+  disabled: true
 
 input:
   source: cli
