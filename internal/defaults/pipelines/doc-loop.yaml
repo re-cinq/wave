@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: doc-loop
   description: Pre-PR documentation consistency gate — scans changes, cross-references docs, and creates a GitHub issue with inconsistencies
+  release: true
 
 input:
   source: cli

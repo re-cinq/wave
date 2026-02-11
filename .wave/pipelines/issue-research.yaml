@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: issue-research
   description: Research a GitHub issue and post findings as a comment
+  release: true
 
 input:
   source: cli
