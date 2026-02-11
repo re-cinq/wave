@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
     name: github-issues-enhancement-pipeline
     description: Pipeline to scan, list, and enhance poorly described GitHub issues
+    disabled: true
 input:
     source: meta
 steps:

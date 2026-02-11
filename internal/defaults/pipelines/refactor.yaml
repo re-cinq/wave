@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: refactor
   description: "Safe refactoring with comprehensive test coverage"
+  disabled: true
 
 input:
   source: cli
