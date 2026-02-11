@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Implementation Assessment",
+  "type": "object",
+  "required": ["implementable", "issue", "assessment"],
+  "properties": {
+    "implementable": {
+      "type": "boolean",
+      "const": true,
+      "description": "Must be true for the pipeline to proceed. Set to false if the issue lacks sufficient detail."
+    },
+    "issue": {
+      "type": "object",
+      "required": ["number", "title", "body", "repository", "url"],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "state": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "comments": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "required": ["quality_score", "complexity", "skip_steps", "branch_name"],
+      "properties": {
+        "quality_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "How well-specified the issue is (0-100)"
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["trivial", "simple", "medium", "complex"],
+          "description": "Estimated implementation complexity"
+        },
+        "skip_steps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["specify", "clarify", "checklist", "analyze"]
+          },
+          "description": "Speckit steps that can be skipped because the issue provides sufficient detail"
+        },
+        "branch_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Suggested branch name for the implementation"
+        },
+        "missing_info": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Information that would improve the issue but isn't blocking"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Brief summary of the assessment"
+        }
+      }
+    }
+  }
+}
