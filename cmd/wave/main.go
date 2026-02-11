@@ -10,6 +10,8 @@ import (
 
 var (
 	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 var rootCmd = &cobra.Command{
@@ -23,10 +25,12 @@ var rootCmd = &cobra.Command{
 
   Wave coordinates multiple AI personas through structured pipelines,
   enforcing permissions, contracts, and workspace isolation at every step.`,
-	Version: version,
+	Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
 }
 
 func init() {
+	rootCmd.SetVersionTemplate("wave version {{.Version}}\n")
+
 	rootCmd.PersistentFlags().StringP("manifest", "m", "wave.yaml", "Path to manifest file")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug mode")
 	rootCmd.PersistentFlags().StringP("output", "o", "auto", "Output format: auto, json, text, quiet")
