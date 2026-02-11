@@ -474,12 +474,13 @@ wave.yaml                    # Main manifest
 
 ## Built-in Pipelines
 
+These pipelines are included by default with `wave init` (release-gated with `release: true`). Use `wave init --all` to include all available pipelines.
+
 | Pipeline | Steps | Description |
 |----------|-------|-------------|
-| `hello-world` | greet, verify | Simple test pipeline |
-| `smoke-test` | analyze, summarize | Minimal contract/artifact test |
-| `code-review` | diff-analysis, security-review, quality-review, summary | PR review with parallel security + quality |
-| `prototype` | spec, docs, dummy, implement, pr-create/review/respond/fix/merge | Full prototype-driven development (9 steps) |
+| `github-issue-enhancer` | scan-issues, plan-enhancements, apply-enhancements, verify-enhancements | Analyze and enhance poorly documented GitHub issues |
+| `issue-research` | fetch-issue, analyze-topics, research-topics, synthesize-report, post-comment | Research a GitHub issue and post findings as a comment |
+| `doc-loop` | scan-changes, analyze-consistency, create-issue | Pre-PR documentation consistency gate — creates GitHub issue with inconsistencies |
 
 ## Key Patterns
 
