@@ -22,12 +22,12 @@ builds:
 
 archives:
   - id: wave
-    builds:
+    ids:
       - wave
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: darwin
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: "checksums.txt"
@@ -36,7 +36,7 @@ checksum:
 nfpms:
   - id: wave-deb
     package_name: wave
-    builds:
+    ids:
       - wave
     maintainer: "re-cinq <engineering@re-cinq.com>"
     description: "Multi-agent pipeline orchestrator"
@@ -46,17 +46,13 @@ nfpms:
     formats:
       - deb
 
-brews:
+homebrew_casks:
   - name: wave
     repository:
       owner: re-cinq
       name: homebrew-tap
     description: "Multi-agent pipeline orchestrator"
     homepage: "https://github.com/re-cinq/wave"
-    install: |
-      bin.install "wave"
-    test: |
-      system "#{bin}/wave", "--version"
 
 changelog:
   sort: asc
