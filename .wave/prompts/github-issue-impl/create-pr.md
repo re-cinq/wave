@@ -77,10 +77,13 @@ EOF
 
 ### Step 6: Request Copilot Review
 
-After the PR is created:
+After the PR is created, optionally request a Copilot review. This is a best-effort call that fails silently if Copilot isn't available, but the PR will still be created successfully:
+
 ```bash
 gh pr edit --add-reviewer "copilot"
 ```
+
+> **Note**: This command may fail if GitHub Copilot reviews are not configured in the repository. The failure is expected and does not affect PR creation.
 
 ## CONSTRAINTS
 
