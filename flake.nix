@@ -104,7 +104,7 @@
             version = "dev";
             src = ./.;
             # To update: run `nix build .#wave 2>&1` and replace with the hash from the error
-            vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            vendorHash = pkgs.lib.fakeHash;
             subPackages = [ "cmd/wave" ];
             ldflags = [
               "-s" "-w"
