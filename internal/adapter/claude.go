@@ -509,6 +509,8 @@ func extractToolTarget(toolName string, input json.RawMessage) string {
 		return jsonString(fields["query"])
 	case "NotebookEdit":
 		return jsonString(fields["notebook_path"])
+	case "TodoWrite":
+		return extractTodoSummary(fields["todos"])
 	default:
 		// Generic heuristic: check common field names in priority order
 		for _, field := range []string{"file_path", "url", "pattern", "command", "query", "notebook_path"} {
@@ -527,6 +529,35 @@ func jsonString(raw json.RawMessage) string {
 		return strings.Trim(string(raw), "\"")
 	}
 	return s
+}
+
+// extractTodoSummary returns a display string for TodoWrite showing the in-progress task
+// or a count summary. Input is the raw "todos" JSON array field.
+func extractTodoSummary(raw json.RawMessage) string {
+	var todos []struct {
+		Content string `json:"content"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal(raw, &todos); err != nil || len(todos) == 0 {
+		return ""
+	}
+
+	// Show the in-progress task content if there is one
+	for _, t := range todos {
+		if t.Status == "in_progress" {
+			return t.Content
+		}
+	}
+
+	// Otherwise show counts
+	var done, total int
+	for _, t := range todos {
+		total++
+		if t.Status == "completed" {
+			done++
+		}
+	}
+	return fmt.Sprintf("%d/%d tasks", done, total)
 }
 
 // ExtractJSONFromMarkdown extracts JSON content from markdown code blocks.

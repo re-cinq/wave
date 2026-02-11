@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -112,6 +113,20 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 // It first checks the workspace path for a known prototype phase name, then
 // falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
+	// Check for pipeline-specific step generators first
+	// (workspace path contains pipeline name, e.g., ".wave/workspaces/github-issue-impl/fetch-assess/")
+	if strings.Contains(cfg.WorkspacePath, "github-issue-impl") {
+		phase := filepath.Base(cfg.WorkspacePath)
+		switch phase {
+		case "fetch-assess":
+			return generateIssueAssessmentOutput(cfg)
+		case "plan":
+			return generateIssuePlanOutput(cfg)
+		case "create-pr":
+			return generateIssuePROutput(cfg)
+		}
+	}
+
 	// Extract step name from workspace path (e.g., ".wave/workspaces/prototype/docs" → "docs")
 	phase := filepath.Base(cfg.WorkspacePath)
 	switch phase {
@@ -372,6 +387,81 @@ func generateGenericOutput(cfg AdapterRunConfig) string {
 		"prompt_len":   len(cfg.Prompt),
 		"status":       "completed",
 		"tokens_used":  2000 + rand.Intn(4000),
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
+
+// generateIssueAssessmentOutput returns issue-assessment.schema.json compliant output
+func generateIssueAssessmentOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"implementable": true,
+		"issue": map[string]interface{}{
+			"number":     50,
+			"title":      "Mock issue for testing",
+			"body":       "This is a mock issue body with sufficient detail for implementation.",
+			"repository": "re-cinq/wave",
+			"url":        "https://github.com/re-cinq/wave/issues/50",
+			"labels":     []string{"enhancement"},
+			"state":      "open",
+			"author":     "mock-user",
+			"comments":   []interface{}{},
+		},
+		"assessment": map[string]interface{}{
+			"quality_score": 80,
+			"complexity":    "medium",
+			"skip_steps":    []string{"specify", "clarify"},
+			"branch_name":   "050-mock-issue",
+			"missing_info":  []string{},
+			"summary":       "Mock issue has clear requirements and is ready for implementation.",
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
+
+// generateIssuePlanOutput returns issue-impl-plan.schema.json compliant output
+func generateIssuePlanOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"issue_number": 50,
+		"branch_name":  "050-mock-issue",
+		"feature_dir":  "specs/050-mock-issue",
+		"spec_file":    "specs/050-mock-issue/spec.md",
+		"plan_file":    "specs/050-mock-issue/plan.md",
+		"tasks_file":   "specs/050-mock-issue/tasks.md",
+		"tasks": []map[string]interface{}{
+			{
+				"id":          "1.1",
+				"title":       "Setup project structure",
+				"description": "Create necessary directories and configuration files",
+				"file_changes": []map[string]string{
+					{"path": "internal/mock/setup.go", "action": "create"},
+				},
+			},
+			{
+				"id":          "2.1",
+				"title":       "Implement core logic",
+				"description": "Implement the main feature logic",
+				"file_changes": []map[string]string{
+					{"path": "internal/mock/core.go", "action": "create"},
+				},
+			},
+		},
+		"summary": "Mock implementation plan with setup and core tasks.",
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
+
+// generateIssuePROutput returns PR result output for github-issue-impl create-pr step
+func generateIssuePROutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"pr_url":                   "https://github.com/re-cinq/wave/pull/51",
+		"pr_number":                51,
+		"issue_number":             50,
+		"issue_url":                "https://github.com/re-cinq/wave/issues/50",
+		"copilot_review_requested": true,
+		"summary":                  "Mock PR created for issue #50",
 	}
 	out, _ := json.MarshalIndent(data, "", "  ")
 	return string(out)
