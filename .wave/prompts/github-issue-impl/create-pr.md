@@ -2,16 +2,14 @@ You are creating a pull request for the implemented GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to find the issue number, repository, branch name, and issue URL.
@@ -26,10 +24,13 @@ Read `artifacts/issue_assessment` to extract:
 - Branch name
 - Issue URL
 
-### Step 2: Check Out Branch and Verify
+### Step 2: Create Worktree and Verify
+
+Create an isolated worktree for the feature branch:
 
 ```bash
-git checkout <BRANCH_NAME>
+git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+cd repo
 ```
 
 Run final test validation:
@@ -80,6 +81,15 @@ EOF
 After the PR is created:
 ```bash
 gh pr edit --add-reviewer "copilot"
+```
+
+### Step 7: Clean Up Worktree
+
+Remove the worktree reference:
+
+```bash
+cd "$OLDPWD"
+git -C "$REPO_ROOT" worktree remove "$PWD/repo"
 ```
 
 ## CONSTRAINTS
