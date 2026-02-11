@@ -75,12 +75,14 @@ EOF
 )"
 ```
 
-### Step 6: Request Copilot Review
+### Step 6: Request Copilot Review (Best-Effort)
 
-After the PR is created:
+After the PR is created, attempt to add Copilot as a reviewer:
 ```bash
 gh pr edit --add-reviewer "copilot"
 ```
+
+This is a best-effort command. If Copilot isn't available in the repository, the command will fail silently and the PR will still be created successfully.
 
 ## CONSTRAINTS
 
