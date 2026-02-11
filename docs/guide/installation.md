@@ -99,6 +99,16 @@ make build
 sudo mv wave /usr/local/bin/
 ```
 
+## Versioning
+
+Wave follows [Semantic Versioning](https://semver.org/). Releases are created automatically on every merge to `main`, with the version bump determined by [conventional commit](https://www.conventionalcommits.org/) prefixes:
+
+- `fix:`, `docs:`, `chore:` → **patch** (0.0.X)
+- `feat:` → **minor** (0.X.0)
+- `feat!:` or `BREAKING CHANGE:` → **major** (X.0.0)
+
+See the [CI/CD guide](/guides/ci-cd#automated-versioning) for details on the release pipeline.
+
 ## Verify Installation
 
 ```bash
