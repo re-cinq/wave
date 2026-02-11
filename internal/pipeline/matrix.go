@@ -43,7 +43,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 	}
 
 	strategy := step.Strategy
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	// Emit matrix start event
 	m.emit(event.Event{
@@ -323,7 +323,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 		Item:      item,
 	}
 
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	// Create isolated workspace for this worker
 	workspacePath, err := m.createWorkerWorkspace(execution, step, itemIndex)
@@ -403,7 +403,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 
 // createWorkerWorkspace creates an isolated workspace for a matrix worker.
 func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, step *Step, itemIndex int) (string, error) {
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
 		wsRoot = ".wave/workspaces"
