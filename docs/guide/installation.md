@@ -43,8 +43,8 @@ brew install re-cinq/tap/wave
 Download the `.deb` package from [GitHub Releases](https://github.com/re-cinq/wave/releases):
 
 ```bash
-# Download the latest .deb package
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_<VERSION>_linux_amd64.deb
+# Download the latest .deb package (replace 0.1.0 with desired version)
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_0.1.0_linux_amd64.deb
 
 # Install
 sudo dpkg -i wave_*.deb
@@ -78,14 +78,14 @@ Download pre-built archives from [GitHub Releases](https://github.com/re-cinq/wa
 
 | Platform | Architecture | Archive |
 |----------|-------------|---------|
-| Linux | x86_64 | `wave_VERSION_linux_amd64.tar.gz` |
-| Linux | ARM64 | `wave_VERSION_linux_arm64.tar.gz` |
-| macOS | Intel | `wave_VERSION_darwin_amd64.zip` |
-| macOS | Apple Silicon | `wave_VERSION_darwin_arm64.zip` |
+| Linux | x86_64 | `wave_0.1.0_linux_amd64.tar.gz` |
+| Linux | ARM64 | `wave_0.1.0_linux_arm64.tar.gz` |
+| macOS | Intel | `wave_0.1.0_darwin_amd64.zip` |
+| macOS | Apple Silicon | `wave_0.1.0_darwin_arm64.zip` |
 
 ```bash
-# Example: Linux x86_64
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_VERSION_linux_amd64.tar.gz
+# Example: Linux x86_64 (replace 0.1.0 with desired version)
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_0.1.0_linux_amd64.tar.gz
 tar -xzf wave_*.tar.gz
 sudo mv wave /usr/local/bin/
 ```

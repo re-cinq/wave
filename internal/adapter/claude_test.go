@@ -807,6 +807,84 @@ func TestExtractToolTarget(t *testing.T) {
 	}
 }
 
+func TestExtractTodoSummary(t *testing.T) {
+	tests := []struct {
+		name  string
+		input json.RawMessage
+		want  string
+	}{
+		{
+			name:  "returns first in_progress task content",
+			input: json.RawMessage(`[{"content":"Writing tests","status":"in_progress"},{"content":"Review code","status":"pending"}]`),
+			want:  "Writing tests",
+		},
+		{
+			name:  "returns first in_progress when multiple in_progress exist",
+			input: json.RawMessage(`[{"content":"Task A","status":"completed"},{"content":"Task B","status":"in_progress"},{"content":"Task C","status":"in_progress"}]`),
+			want:  "Task B",
+		},
+		{
+			name:  "returns done/total when no in_progress task",
+			input: json.RawMessage(`[{"content":"Task A","status":"completed"},{"content":"Task B","status":"pending"},{"content":"Task C","status":"completed"}]`),
+			want:  "2/3 tasks",
+		},
+		{
+			name:  "returns 0/N when all pending",
+			input: json.RawMessage(`[{"content":"Task A","status":"pending"},{"content":"Task B","status":"pending"}]`),
+			want:  "0/2 tasks",
+		},
+		{
+			name:  "returns N/N when all completed",
+			input: json.RawMessage(`[{"content":"Task A","status":"completed"},{"content":"Task B","status":"completed"}]`),
+			want:  "2/2 tasks",
+		},
+		{
+			name:  "single completed task",
+			input: json.RawMessage(`[{"content":"Only task","status":"completed"}]`),
+			want:  "1/1 tasks",
+		},
+		{
+			name:  "single in_progress task",
+			input: json.RawMessage(`[{"content":"Doing stuff","status":"in_progress"}]`),
+			want:  "Doing stuff",
+		},
+		{
+			name:  "empty array returns empty string",
+			input: json.RawMessage(`[]`),
+			want:  "",
+		},
+		{
+			name:  "nil input returns empty string",
+			input: nil,
+			want:  "",
+		},
+		{
+			name:  "malformed JSON returns empty string",
+			input: json.RawMessage(`not json`),
+			want:  "",
+		},
+		{
+			name:  "JSON object instead of array returns empty string",
+			input: json.RawMessage(`{"content":"task","status":"in_progress"}`),
+			want:  "",
+		},
+		{
+			name:  "empty JSON object returns empty string",
+			input: json.RawMessage(`{}`),
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractTodoSummary(tt.input)
+			if got != tt.want {
+				t.Errorf("extractTodoSummary(%s) = %q, want %q", string(tt.input), got, tt.want)
+			}
+		})
+	}
+}
+
 // T002: TestParseStreamLine — table-driven tests for all event types
 func TestParseStreamLine(t *testing.T) {
 	// Build a 1MB+ string for the extremely long line test
