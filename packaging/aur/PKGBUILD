@@ -1,0 +1,26 @@
+# NOTE: Before submitting to the AUR, regenerate .SRCINFO with:
+#   makepkg --printsrcinfo > .SRCINFO
+# This must be done every time pkgver or any metadata changes.
+
+# Maintainer: re-cinq <https://github.com/re-cinq>
+pkgname=wave
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="Multi-agent pipeline orchestrator"
+arch=('x86_64' 'aarch64')
+url="https://github.com/re-cinq/wave"
+license=('Apache-2.0')
+makedepends=('go')
+source=("https://github.com/re-cinq/wave/archive/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "wave-${pkgver}"
+    export CGO_ENABLED=0
+    go build -ldflags "-s -w -X main.version=${pkgver} -X main.commit=release -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o wave ./cmd/wave
+}
+
+package() {
+    cd "wave-${pkgver}"
+    install -Dm755 wave "${pkgdir}/usr/bin/wave"
+}
