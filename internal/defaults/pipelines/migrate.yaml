@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: migrate
   description: "Database or API migration with rollback plan"
-  disabled: true
 
 input:
   source: cli
+  example: "migrate state store from SQLite to PostgreSQL"
 
 steps:
   - id: impact-analysis
@@ -94,13 +94,14 @@ steps:
         5. Update documentation
 
         Ensure rollback scripts are tested.
-    # handover:
-    #   contract:
-    #     type: test_suite
-    #     command: "npm test"  # or: go test ./..., pytest, cargo test
-    #     must_pass: false
-    #     on_failure: retry
-    #     max_retries: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+
+        must_pass: false
+        on_failure: retry
+        max_retries: 2
 
   - id: review
     persona: auditor

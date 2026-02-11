@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: refactor
   description: "Safe refactoring with comprehensive test coverage"
-  disabled: true
 
 input:
   source: cli
+  example: "extract workspace manager from executor into its own package"
 
 steps:
   - id: analyze
@@ -65,13 +65,14 @@ steps:
         4. Document current behavior for comparison
 
         All tests must pass before proceeding.
-    # handover:
-    #   contract:
-    #     type: test_suite
-    #     command: "npm test"  # or: go test ./..., pytest, cargo test
-    #     must_pass: false
-    #     on_failure: retry
-    #     max_retries: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+
+        must_pass: false
+        on_failure: retry
+        max_retries: 2
     output_artifacts:
       - name: baseline
         path: output/test-baseline.md
@@ -107,13 +108,14 @@ steps:
         5. Keep commits small and focused
 
         Do NOT change behavior — this is refactoring only.
-    # handover:
-    #   contract:
-    #     type: test_suite
-    #     command: "npm test"  # or: go test ./..., pytest, cargo test
-    #     must_pass: false
-    #     on_failure: retry
-    #     max_retries: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+
+        must_pass: false
+        on_failure: retry
+        max_retries: 3
 
   - id: verify
     persona: auditor

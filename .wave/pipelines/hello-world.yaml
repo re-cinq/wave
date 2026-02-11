@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "testing Wave"
 
 steps:
   - id: greet

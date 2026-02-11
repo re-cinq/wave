@@ -5,6 +5,10 @@ metadata:
 
 input:
   source: cli
+  schema:
+    type: string
+    description: "GitHub repository and issue number"
+  example: "re-cinq/wave 42"
 
 steps:
   - id: fetch-assess

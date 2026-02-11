@@ -2,10 +2,13 @@ kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Specification-driven feature development using the full speckit workflow"
-  disabled: true
 
 input:
   source: cli
+  example: "add user authentication with JWT tokens"
+  schema:
+    type: string
+    description: "Natural language feature description to specify and implement"
 
 steps:
   - id: specify

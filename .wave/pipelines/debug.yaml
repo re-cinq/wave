@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "TestPipelineExecutor fails with nil pointer on resume"
 
 steps:
   - id: reproduce

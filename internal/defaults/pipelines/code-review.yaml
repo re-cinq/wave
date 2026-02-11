@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: code-review
   description: "Comprehensive code review for pull requests"
-  disabled: true
 
 input:
   source: cli
+  example: "review the authentication module"
 
 steps:
   - id: diff-analysis

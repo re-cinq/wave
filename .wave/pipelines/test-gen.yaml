@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "internal/pipeline"
 
 steps:
   - id: analyze-coverage

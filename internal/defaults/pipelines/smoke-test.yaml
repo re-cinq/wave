@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: smoke-test
   description: "Minimal pipeline for testing contracts and artifacts"
-  disabled: true
 
 input:
   source: cli
+  example: "verify contract validation works"
 
 steps:
   - id: analyze
