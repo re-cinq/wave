@@ -196,7 +196,11 @@ func NewErrorMessageProvider() *ErrorMessageProvider {
 }
 
 // FormatPhaseFailureError formats a clear error message for phase failures
-func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalError error) error {
+func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalError error, pipelineName ...string) error {
+	pName := "prototype"
+	if len(pipelineName) > 0 && pipelineName[0] != "" {
+		pName = pipelineName[0]
+	}
 	var guidance strings.Builder
 
 	guidance.WriteString(fmt.Sprintf("❌ Phase '%s' failed: %v\n\n", phase, originalError))
@@ -230,27 +234,13 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 	}
 
 	guidance.WriteString("\n🔄 Retry Options:\n")
-	guidance.WriteString("  • Re-run the same phase: wave run --pipeline prototype --from-step ")
-	guidance.WriteString(phase)
-	guidance.WriteString("\n  • Start from the beginning: wave run --pipeline prototype\n")
-
-	if phase != "spec" {
-		guidance.WriteString("  • Resume from previous phase: wave run --pipeline prototype --from-step ")
-		switch phase {
-		case "docs":
-			guidance.WriteString("spec")
-		case "dummy":
-			guidance.WriteString("docs")
-		case "implement":
-			guidance.WriteString("dummy")
-		}
-		guidance.WriteString("\n")
-	}
+	guidance.WriteString(fmt.Sprintf("  • Re-run the same phase: wave run %s --from-step %s\n", pName, phase))
+	guidance.WriteString(fmt.Sprintf("  • Start from the beginning: wave run %s\n", pName))
 
 	guidance.WriteString("\n📋 Debug Information:\n")
 	guidance.WriteString(fmt.Sprintf("  • Phase: %s\n", phase))
-	guidance.WriteString("  • Pipeline: prototype\n")
-	guidance.WriteString(fmt.Sprintf("  • Workspace: .wave/workspaces/prototype/%s/\n", phase))
+	guidance.WriteString(fmt.Sprintf("  • Pipeline: %s\n", pName))
+	guidance.WriteString(fmt.Sprintf("  • Workspace: .wave/workspaces/%s/%s/\n", pName, phase))
 	guidance.WriteString("  • Logs: .wave/traces/\n")
 
 	return fmt.Errorf("%s", guidance.String())
