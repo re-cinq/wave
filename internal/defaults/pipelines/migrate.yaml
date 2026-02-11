@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: migrate
   description: "Database or API migration with rollback plan"
+  disabled: true
 
 input:
   source: cli

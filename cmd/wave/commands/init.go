@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -16,6 +17,7 @@ import (
 type InitOptions struct {
 	Force      bool
 	Merge      bool
+	All        bool
 	Adapter    string
 	Workspace  string
 	OutputPath string
@@ -31,6 +33,9 @@ func NewInitCmd() *cobra.Command {
 		Long: `Create a new Wave project structure with default configuration.
 Creates a wave.yaml manifest and .wave/personas/ directory with example prompts.
 
+By default, only release-ready pipelines are included. Use --all to include
+all embedded pipelines (useful for Wave contributors and developers).
+
 Use --merge to add default configuration to an existing wave.yaml while
 preserving your custom settings.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,12 +45,135 @@ preserving your custom settings.`,
 
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files without prompting")
 	cmd.Flags().BoolVar(&opts.Merge, "merge", false, "Merge defaults into existing configuration")
+	cmd.Flags().BoolVar(&opts.All, "all", false, "Include all pipelines regardless of release status")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "claude", "Default adapter to use")
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".wave/workspaces", "Workspace directory path")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", "wave.yaml", "Output path for wave.yaml")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
 
 	return cmd
+}
+
+// initAssets holds the resolved asset maps for init/merge operations.
+type initAssets struct {
+	personas  map[string]string
+	pipelines map[string]string
+	contracts map[string]string
+	prompts   map[string]string
+}
+
+// getFilteredAssets returns the asset maps for init, applying release filtering
+// unless opts.All is true.
+func getFilteredAssets(cmd *cobra.Command, opts InitOptions) (*initAssets, error) {
+	personas, err := defaults.GetPersonas()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default personas: %w", err)
+	}
+
+	if opts.All {
+		pipelines, err := defaults.GetPipelines()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default pipelines: %w", err)
+		}
+		contracts, err := defaults.GetContracts()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default contracts: %w", err)
+		}
+		prompts, err := defaults.GetPrompts()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default prompts: %w", err)
+		}
+		return &initAssets{
+			personas:  personas,
+			pipelines: pipelines,
+			contracts: contracts,
+			prompts:   prompts,
+		}, nil
+	}
+
+	// Release-filtered mode
+	pipelines, err := defaults.GetReleasePipelines()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release pipelines: %w", err)
+	}
+
+	if len(pipelines) == 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: no pipelines are marked with release: true\n")
+	}
+
+	allContracts, err := defaults.GetContracts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default contracts: %w", err)
+	}
+	allPrompts, err := defaults.GetPrompts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default prompts: %w", err)
+	}
+
+	contracts, prompts := filterTransitiveDeps(cmd, pipelines, allContracts, allPrompts)
+
+	return &initAssets{
+		personas:  personas,
+		pipelines: pipelines,
+		contracts: contracts,
+		prompts:   prompts,
+	}, nil
+}
+
+// filterTransitiveDeps filters contracts and prompts to only those referenced
+// by the given pipeline set. Personas are never filtered.
+func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompts map[string]string) (contracts, prompts map[string]string) {
+	contractRefs := make(map[string]bool)
+	promptRefs := make(map[string]bool)
+
+	for name, content := range pipelines {
+		var p pipeline.Pipeline
+		if err := yaml.Unmarshal([]byte(content), &p); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: failed to parse pipeline %s for dependency resolution: %v\n", name, err)
+			continue
+		}
+
+		for _, step := range p.Steps {
+			// Extract contract references from schema_path
+			if sp := step.Handover.Contract.SchemaPath; sp != "" {
+				normalized := strings.TrimPrefix(sp, ".wave/contracts/")
+				contractRefs[normalized] = true
+			}
+
+			// Extract prompt references from source_path
+			if sp := step.Exec.SourcePath; sp != "" {
+				if strings.HasPrefix(sp, ".wave/prompts/") {
+					normalized := strings.TrimPrefix(sp, ".wave/prompts/")
+					promptRefs[normalized] = true
+				}
+			}
+		}
+	}
+
+	// Filter contracts to only referenced ones
+	contracts = make(map[string]string)
+	for key, content := range allContracts {
+		if contractRefs[key] {
+			contracts[key] = content
+		}
+	}
+
+	// Warn about referenced but missing contracts
+	for ref := range contractRefs {
+		if _, ok := allContracts[ref]; !ok {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: pipeline references contract %s which is not in embedded defaults\n", ref)
+		}
+	}
+
+	// Filter prompts to only referenced ones
+	prompts = make(map[string]string)
+	for key, content := range allPrompts {
+		if promptRefs[key] {
+			prompts[key] = content
+		}
+	}
+
+	return contracts, prompts
 }
 
 func runInit(cmd *cobra.Command, opts InitOptions) error {
@@ -87,6 +215,7 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		".wave/personas",
 		".wave/pipelines",
 		".wave/contracts",
+		".wave/prompts",
 		".wave/traces",
 		".wave/workspaces",
 	}
@@ -116,19 +245,29 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		return fmt.Errorf("failed to write manifest to %s: %w", absOutputPath, err)
 	}
 
-	if err := createExamplePersonas(); err != nil {
+	// Get filtered assets based on --all flag
+	assets, err := getFilteredAssets(cmd, opts)
+	if err != nil {
+		return err
+	}
+
+	if err := createExamplePersonas(assets.personas); err != nil {
 		return fmt.Errorf("failed to create example personas in .wave/personas/: %w", err)
 	}
 
-	if err := createExamplePipelines(); err != nil {
+	if err := createExamplePipelines(assets.pipelines); err != nil {
 		return fmt.Errorf("failed to create example pipelines in .wave/pipelines/: %w", err)
 	}
 
-	if err := createExampleContracts(); err != nil {
+	if err := createExampleContracts(assets.contracts); err != nil {
 		return fmt.Errorf("failed to create example contracts in .wave/contracts/: %w", err)
 	}
 
-	printInitSuccess(cmd, opts.OutputPath)
+	if err := createExamplePrompts(assets.prompts); err != nil {
+		return fmt.Errorf("failed to create example prompts in .wave/prompts/: %w", err)
+	}
+
+	printInitSuccess(cmd, opts.OutputPath, assets)
 	return nil
 }
 
@@ -165,6 +304,7 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 		".wave/personas",
 		".wave/pipelines",
 		".wave/contracts",
+		".wave/prompts",
 		".wave/traces",
 		".wave/workspaces",
 	}
@@ -175,19 +315,29 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 		}
 	}
 
+	// Get filtered assets based on --all flag
+	assets, err := getFilteredAssets(cmd, opts)
+	if err != nil {
+		return err
+	}
+
 	// Create persona files only if they don't exist
-	if err := createExamplePersonasIfMissing(); err != nil {
+	if err := createExamplePersonasIfMissing(assets.personas); err != nil {
 		return fmt.Errorf("failed to create example personas: %w", err)
 	}
 
 	// Create pipeline files only if they don't exist
-	if err := createExamplePipelinesIfMissing(); err != nil {
+	if err := createExamplePipelinesIfMissing(assets.pipelines); err != nil {
 		return fmt.Errorf("failed to create example pipelines: %w", err)
 	}
 
 	// Create contract files only if they don't exist
-	if err := createExampleContractsIfMissing(); err != nil {
+	if err := createExampleContractsIfMissing(assets.contracts); err != nil {
 		return fmt.Errorf("failed to create example contracts: %w", err)
+	}
+
+	if err := createExamplePromptsIfMissing(assets.prompts); err != nil {
+		return fmt.Errorf("failed to create example prompts: %w", err)
 	}
 
 	printMergeSuccess(cmd, opts.OutputPath)
@@ -261,17 +411,12 @@ func mergeMaps(defaults, existing map[string]interface{}) map[string]interface{}
 	return result
 }
 
-func printInitSuccess(cmd *cobra.Command, outputPath string) {
+func printInitSuccess(cmd *cobra.Command, outputPath string, assets *initAssets) {
 	out := cmd.OutOrStdout()
 
-	// Get counts from embedded defaults
-	personas, _ := defaults.GetPersonas()
-	pipelines, _ := defaults.GetPipelines()
-	contracts, _ := defaults.GetContracts()
-
 	// Get sorted pipeline names for display
-	pipelineNames := make([]string, 0, len(pipelines))
-	for name := range pipelines {
+	pipelineNames := make([]string, 0, len(assets.pipelines))
+	for name := range assets.pipelines {
 		pipelineNames = append(pipelineNames, strings.TrimSuffix(name, ".yaml"))
 	}
 	sort.Strings(pipelineNames)
@@ -286,9 +431,10 @@ func printInitSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Created:\n")
 	fmt.Fprintf(out, "    %-24s Main manifest\n", outputPath)
-	fmt.Fprintf(out, "    .wave/personas/          %d persona archetypes\n", len(personas))
-	fmt.Fprintf(out, "    .wave/pipelines/         %d pipelines\n", len(pipelines))
-	fmt.Fprintf(out, "    .wave/contracts/         %d JSON schema validators\n", len(contracts))
+	fmt.Fprintf(out, "    .wave/personas/          %d persona archetypes\n", len(assets.personas))
+	fmt.Fprintf(out, "    .wave/pipelines/         %d pipelines\n", len(assets.pipelines))
+	fmt.Fprintf(out, "    .wave/contracts/         %d JSON schema validators\n", len(assets.contracts))
+	fmt.Fprintf(out, "    .wave/prompts/           %d prompt templates\n", len(assets.prompts))
 	fmt.Fprintf(out, "    .wave/workspaces/        Ephemeral workspace root\n")
 	fmt.Fprintf(out, "    .wave/traces/            Audit log directory\n")
 	fmt.Fprintf(out, "\n")
@@ -511,12 +657,7 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 	}
 }
 
-func createExamplePersonas() error {
-	personas, err := defaults.GetPersonas()
-	if err != nil {
-		return fmt.Errorf("failed to get default personas: %w", err)
-	}
-
+func createExamplePersonas(personas map[string]string) error {
 	for filename, content := range personas {
 		path := filepath.Join(".wave", "personas", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -528,12 +669,7 @@ func createExamplePersonas() error {
 	return nil
 }
 
-func createExamplePersonasIfMissing() error {
-	personas, err := defaults.GetPersonas()
-	if err != nil {
-		return fmt.Errorf("failed to get default personas: %w", err)
-	}
-
+func createExamplePersonasIfMissing(personas map[string]string) error {
 	for filename, content := range personas {
 		path := filepath.Join(".wave", "personas", filename)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -547,13 +683,7 @@ func createExamplePersonasIfMissing() error {
 	return nil
 }
 
-
-func createExamplePipelines() error {
-	pipelines, err := defaults.GetPipelines()
-	if err != nil {
-		return fmt.Errorf("failed to get default pipelines: %w", err)
-	}
-
+func createExamplePipelines(pipelines map[string]string) error {
 	for filename, content := range pipelines {
 		path := filepath.Join(".wave", "pipelines", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -565,12 +695,7 @@ func createExamplePipelines() error {
 	return nil
 }
 
-func createExamplePipelinesIfMissing() error {
-	pipelines, err := defaults.GetPipelines()
-	if err != nil {
-		return fmt.Errorf("failed to get default pipelines: %w", err)
-	}
-
+func createExamplePipelinesIfMissing(pipelines map[string]string) error {
 	for filename, content := range pipelines {
 		path := filepath.Join(".wave", "pipelines", filename)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -584,12 +709,7 @@ func createExamplePipelinesIfMissing() error {
 	return nil
 }
 
-func createExampleContracts() error {
-	contracts, err := defaults.GetContracts()
-	if err != nil {
-		return fmt.Errorf("failed to get default contracts: %w", err)
-	}
-
+func createExampleContracts(contracts map[string]string) error {
 	for filename, content := range contracts {
 		path := filepath.Join(".wave", "contracts", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -601,15 +721,42 @@ func createExampleContracts() error {
 	return nil
 }
 
-func createExampleContractsIfMissing() error {
-	contracts, err := defaults.GetContracts()
-	if err != nil {
-		return fmt.Errorf("failed to get default contracts: %w", err)
-	}
-
+func createExampleContractsIfMissing(contracts map[string]string) error {
 	for filename, content := range contracts {
 		path := filepath.Join(".wave", "contracts", filename)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				absPath, _ := filepath.Abs(path)
+				return fmt.Errorf("failed to write %s: %w", absPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func createExamplePrompts(prompts map[string]string) error {
+	for relPath, content := range prompts {
+		path := filepath.Join(".wave", "prompts", relPath)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", path, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			absPath, _ := filepath.Abs(path)
+			return fmt.Errorf("failed to write %s: %w", absPath, err)
+		}
+	}
+
+	return nil
+}
+
+func createExamplePromptsIfMissing(prompts map[string]string) error {
+	for relPath, content := range prompts {
+		path := filepath.Join(".wave", "prompts", relPath)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				return fmt.Errorf("failed to create directory for %s: %w", path, err)
+			}
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 				absPath, _ := filepath.Abs(path)
 				return fmt.Errorf("failed to write %s: %w", absPath, err)
