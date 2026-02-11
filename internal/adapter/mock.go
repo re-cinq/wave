@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math/rand"
 	"sync"
@@ -208,45 +207,35 @@ This specification covers the requested feature based on codebase analysis.
 }
 
 func generateCraftsmanOutput(cfg AdapterRunConfig) string {
-	return fmt.Sprintf(`## Implementation Report
-
-### Changes Made
-
-**internal/pipeline/executor.go**
-- Integrated WorkspaceManager for step workspace creation under .wave/workspaces/
-- Added artifact injection between steps via ArtifactPaths tracking
-- Wired StateStore for pipeline/step state persistence
-- Connected EventEmitter for real-time execution events
-- Added AuditLogger for tool call tracing
-
-**internal/adapter/adapter.go**
-- Extended AdapterRunConfig with SystemPrompt, Temperature, AllowedTools, DenyTools
-- Added OutputFormat field for adapter-specific output modes
-
-**cmd/wave/commands/run.go**
-- Initialized all components (WorkspaceManager, StateStore, AuditLogger, EventEmitter)
-- Passed components to executor via functional options
-- Events emitted during execution, not pre-computed
-
-### Tests Run
-` + "```" + `
-=== RUN   TestDAGValidation
---- PASS: TestDAGValidation (0.00s)
-=== RUN   TestTopologicalSort
---- PASS: TestTopologicalSort (0.00s)
-=== RUN   TestPipelineExecution
---- PASS: TestPipelineExecution (0.12s)
-=== RUN   TestArtifactInjection
---- PASS: TestArtifactInjection (0.03s)
-=== RUN   TestWorkspaceCreation
---- PASS: TestWorkspaceCreation (0.01s)
-PASS
-ok      github.com/recinq/wave/internal/pipeline   0.16s
-` + "```" + `
-
-### Workspace: %s
-All changes committed to workspace. Tests passing.
-`, cfg.WorkspacePath)
+	// Return schema-compliant JSON for contract validation (spec-phase, docs-phase, etc.)
+	data := map[string]interface{}{
+		"phase": "spec",
+		"artifacts": map[string]interface{}{
+			"spec": map[string]interface{}{
+				"path":         "specs/mock/spec.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+			"requirements": map[string]interface{}{
+				"path":         "specs/mock/requirements.md",
+				"exists":       true,
+				"content_type": "markdown",
+			},
+		},
+		"validation": map[string]interface{}{
+			"specification_quality": "good",
+			"completeness_score":    85,
+			"clarity_score":         80,
+			"testability_score":     75,
+		},
+		"metadata": map[string]interface{}{
+			"timestamp":         time.Now().Format(time.RFC3339),
+			"input_description": cfg.Prompt,
+			"duration_seconds":  2.5,
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
 }
 
 func generateAuditorOutput(cfg AdapterRunConfig) string {
