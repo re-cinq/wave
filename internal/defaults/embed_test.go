@@ -26,9 +26,9 @@ func TestGitHubIssueEnhancerPipeline_NoHardcodedRepo(t *testing.T) {
 		if !strings.Contains(trimmed, "gh ") {
 			continue
 		}
-		// Lines with --repo must use {{ input }}, not a hardcoded owner/repo
+		// Lines with --repo must use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo
 		if strings.Contains(trimmed, "--repo") {
-			if !strings.Contains(trimmed, "--repo {{ input }}") {
+			if !strings.Contains(trimmed, "--repo {{ input }}") && !strings.Contains(trimmed, "--repo <REPO>") {
 				t.Errorf("line %d has hardcoded --repo value: %s", i+1, trimmed)
 			}
 		}
