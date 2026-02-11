@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "fix panic in pipeline executor when step has nil context"
 
 steps:
   - id: investigate

@@ -5,10 +5,10 @@ metadata:
   version: "1.0.0"
   created: "2026-02-03"
   author: "Wave prototype-driven development feature"
-  disabled: true
 
 input:
   source: cli
+  example: "build a REST API for user management with CRUD operations"
 
 steps:
   # Phase 1: Spec - Requirements capture with speckit integration
