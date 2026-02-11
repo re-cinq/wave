@@ -579,7 +579,7 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 				}
 				target := ev.ToolTarget
 				if len(target) > maxTarget {
-					target = target[:maxTarget] + "..."
+					target = target[:maxTarget-3] + "..."
 				}
 				fmt.Fprintf(bpd.writer, "[%s]   %-20s %s → %s\n", timestamp, ev.StepID, ev.ToolName, target)
 			}

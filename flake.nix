@@ -98,6 +98,30 @@
         '';
       in
       {
+        packages = {
+          wave = pkgs.buildGoModule {
+            pname = "wave";
+            version = "dev";
+            src = ./.;
+            # To update: run `nix build .#wave 2>&1` and replace with the hash from the error
+            vendorHash = pkgs.lib.fakeHash;
+            subPackages = [ "cmd/wave" ];
+            ldflags = [
+              "-s" "-w"
+              "-X main.version=${self.shortRev or "dev"}"
+              "-X main.commit=${self.shortRev or "none"}"
+              "-X main.date=1970-01-01T00:00:00Z"
+            ];
+            meta = with pkgs.lib; {
+              description = "Multi-agent pipeline orchestrator";
+              homepage = "https://github.com/re-cinq/wave";
+              license = licenses.asl20;
+              mainProgram = "wave";
+            };
+          };
+          default = self.packages.${system}.wave;
+        };
+
         devShells = {
           # Default: sandboxed on Linux, unsandboxed on macOS (bwrap needs namespaces)
           default = pkgs.mkShell {

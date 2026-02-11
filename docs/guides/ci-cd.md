@@ -298,6 +298,42 @@ runtime:
   default_timeout_minutes: 20
 ```
 
+## Automated Versioning
+
+Wave uses conventional commit messages to automate semantic versioning. On every push to `main`, the release workflow:
+
+1. Analyzes commit messages since the last `v*` tag
+2. Determines the version bump type
+3. Creates and pushes a new tag
+4. GoReleaser builds binaries and publishes a GitHub Release
+
+### Bump Rules
+
+| Commit prefix | Bump | Example |
+|---------------|------|---------|
+| `fix:`, `docs:`, `refactor:`, `test:`, `chore:` | **patch** (0.0.X) | v0.1.0 → v0.1.1 |
+| `feat:` | **minor** (0.X.0) | v0.1.1 → v0.2.0 |
+| `BREAKING CHANGE:` or `!:` (e.g. `feat!:`) | **major** (X.0.0) | v0.2.0 → v1.0.0 |
+
+When multiple commits are present, the highest bump wins. For example, if a merge contains both `fix:` and `feat:` commits, the version gets a minor bump.
+
+### Release Pipeline
+
+The release workflow (`.github/workflows/release.yml`) has three jobs:
+
+- **validate** — runs on all branches and PRs: `go test -race ./...`, goreleaser config check, snapshot build
+- **auto-tag** — runs only on `main` after validate passes: determines bump, creates and pushes tag
+- **release** — triggered by the new `v*` tag: GoReleaser builds binaries, creates GitHub Release with archives, `.deb` package, and Homebrew cask
+
+### Manual Override
+
+To skip the auto-tag and create a specific version:
+
+```bash
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
 ## Next Steps
 
 - [Enterprise Patterns](/guides/enterprise) - Scale Wave to your organization

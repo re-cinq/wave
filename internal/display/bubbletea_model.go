@@ -340,7 +340,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			}
 			target := m.ctx.LastToolTarget
 			if len(target) > maxTarget {
-				target = target[:maxTarget] + "..."
+				target = target[:maxTarget-3] + "..."
 			}
 			toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
 			toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine) // Medium gray
