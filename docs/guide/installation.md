@@ -8,64 +8,85 @@
 
 ## Install Wave
 
-### Quick Install (Recommended)
+### Install Script (Recommended)
 
-Clone and run the install script:
+The install script detects your OS and architecture, downloads the appropriate binary from GitHub Releases, verifies the SHA256 checksum, and installs it.
 
 ```bash
-git clone https://github.com/re-cinq/wave.git
-cd wave
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 ```
 
-The script automatically detects your OS and architecture, downloads the appropriate binary, and installs it to your PATH.
-
-#### Install Options
+Install a specific version:
 
 ```bash
-# Install specific version
-WAVE_VERSION=v1.0.0 ./install.sh
-
-# Custom install directory
-WAVE_INSTALL_DIR=~/bin ./install.sh
-
-# Skip PATH modification
-WAVE_NO_MODIFY_PATH=1 ./install.sh
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh -s -- 0.1.0
 ```
 
-#### One-liner Install
+Override the install directory:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/install.sh | sh
+WAVE_INSTALL_DIR=~/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 ```
 
 ::: warning Private Repository
-The curl one-liner only works when the repository is **public**. While the repository is private or internal, use the git clone method above.
+The curl one-liner only works when the repository is **public**. While the repository is private, clone the repo and run `scripts/install.sh` directly.
 :::
+
+### Homebrew (macOS)
+
+```bash
+brew install re-cinq/tap/wave
+```
+
+### Debian / Ubuntu
+
+Download the `.deb` package from [GitHub Releases](https://github.com/re-cinq/wave/releases):
+
+```bash
+# Download the latest .deb package
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_<VERSION>_linux_amd64.deb
+
+# Install
+sudo dpkg -i wave_*.deb
+```
+
+### Arch Linux (AUR)
+
+```bash
+# Using an AUR helper (e.g., yay)
+yay -S wave
+
+# Or manually
+git clone https://aur.archlinux.org/wave.git
+cd wave
+makepkg -si
+```
+
+### Nix / NixOS
+
+```bash
+# Install directly from the flake
+nix profile install github:re-cinq/wave
+
+# Or run without installing
+nix run github:re-cinq/wave -- --help
+```
 
 ### Manual Download
 
-Download pre-built binaries directly:
+Download pre-built archives from [GitHub Releases](https://github.com/re-cinq/wave/releases):
+
+| Platform | Architecture | Archive |
+|----------|-------------|---------|
+| Linux | x86_64 | `wave_VERSION_linux_amd64.tar.gz` |
+| Linux | ARM64 | `wave_VERSION_linux_arm64.tar.gz` |
+| macOS | Intel | `wave_VERSION_darwin_amd64.zip` |
+| macOS | Apple Silicon | `wave_VERSION_darwin_arm64.zip` |
 
 ```bash
-# Linux (x64)
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o wave
-chmod +x wave
-sudo mv wave /usr/local/bin/
-
-# Linux (ARM64)
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-arm64 -o wave
-chmod +x wave
-sudo mv wave /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-darwin-amd64 -o wave
-chmod +x wave
-sudo mv wave /usr/local/bin/
-
-# macOS (Apple Silicon)
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-darwin-arm64 -o wave
-chmod +x wave
+# Example: Linux x86_64
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_VERSION_linux_amd64.tar.gz
+tar -xzf wave_*.tar.gz
 sudo mv wave /usr/local/bin/
 ```
 
@@ -74,13 +95,16 @@ sudo mv wave /usr/local/bin/
 ```bash
 git clone https://github.com/re-cinq/wave.git
 cd wave
-go build -o wave ./cmd/wave/
+make build
 sudo mv wave /usr/local/bin/
 ```
 
 ## Verify Installation
 
 ```bash
+# Check version and build info
+wave --version
+
 # Check Wave is installed
 wave --help
 
@@ -95,6 +119,15 @@ claude --version
 sudo rm /usr/local/bin/wave
 # or
 rm ~/.local/bin/wave
+
+# Homebrew
+brew uninstall wave
+
+# Debian/Ubuntu
+sudo apt remove wave
+
+# Nix
+nix profile remove wave
 
 # Remove project files (optional)
 rm -rf ~/.wave

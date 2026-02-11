@@ -1,0 +1,73 @@
+# GoReleaser v2 configuration for Wave
+# See https://goreleaser.com/customization/ for full reference.
+version: 2
+
+builds:
+  - id: wave
+    main: ./cmd/wave
+    binary: wave
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: wave
+    builds:
+      - wave
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: darwin
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+nfpms:
+  - id: wave-deb
+    package_name: wave
+    builds:
+      - wave
+    maintainer: "re-cinq <engineering@re-cinq.com>"
+    description: "Multi-agent pipeline orchestrator"
+    homepage: "https://github.com/re-cinq/wave"
+    license: "Apache-2.0"
+    bindir: /usr/local/bin
+    formats:
+      - deb
+
+brews:
+  - name: wave
+    repository:
+      owner: re-cinq
+      name: homebrew-tap
+    description: "Multi-agent pipeline orchestrator"
+    homepage: "https://github.com/re-cinq/wave"
+    install: |
+      bin.install "wave"
+    test: |
+      system "#{bin}/wave", "--version"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: re-cinq
+    name: wave
+  draft: false
