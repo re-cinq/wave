@@ -33,8 +33,9 @@ steps:
 
         1. gh --version
 
-        2a. SINGLE ISSUE mode: gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
-        2b. BATCH mode: gh issue list --repo <REPO> --limit 10 --json number,title,body,labels,url
+        2a. SINGLE ISSUE mode: Parse the repo and number from {{ input }}, then run:
+            gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
+        2b. BATCH mode: gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
         After getting REAL results from Bash, analyze issues and save to artifact.json.
         In single issue mode, analyze the one issue. In batch mode, analyze all returned issues.
