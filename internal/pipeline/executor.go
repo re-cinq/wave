@@ -665,6 +665,26 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
 	prompt := step.Exec.Source
 
+	// Load prompt from external file if source_path is set
+	if step.Exec.SourcePath != "" {
+		if e.debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", step.Exec.SourcePath)
+		}
+		data, err := os.ReadFile(step.Exec.SourcePath)
+		if err != nil {
+			if e.debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", step.Exec.SourcePath, err)
+			}
+		} else {
+			prompt = string(data)
+			if e.debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Loaded prompt: %d bytes\n", len(prompt))
+			}
+		}
+	} else if e.debug && step.Exec.Source == "" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Warning: step %s has neither source nor source_path set\n", step.ID)
+	}
+
 	// Determine the input value to use (sanitized if provided, empty string if not)
 	var sanitizedInput string
 	if execution.Input != "" {
