@@ -3,16 +3,15 @@ implementation.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
+to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -21,8 +20,12 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.checklist` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
+1. Set up the repo root reference (see above)
+2. Read `artifacts/spec_info` and create a worktree for the feature branch:
+   ```bash
+   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+   cd repo
+   ```
 3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
 4. Load feature context: spec.md, plan.md, tasks.md
 5. Generate focused checklists as "unit tests for requirements":
@@ -33,6 +36,18 @@ Follow the `/speckit.checklist` workflow:
 6. Create the following checklist files in `FEATURE_DIR/checklists/`:
    - `review.md` — overall requirements quality validation
    - Additional domain-specific checklists as warranted by the feature
+
+7. Commit checklists:
+   ```bash
+   git add specs/
+   git commit -m "docs: add quality checklists"
+   ```
+
+8. Clean up worktree:
+   ```bash
+   cd "$OLDPWD"
+   git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+   ```
 
 ## CONSTRAINTS
 
