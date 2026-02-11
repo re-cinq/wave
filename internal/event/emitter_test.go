@@ -467,3 +467,176 @@ func TestConcurrentEventEmission_AllStates(t *testing.T) {
 		}
 	}
 }
+
+// =============================================================================
+// T017: Step-Start Event Metadata Tests
+// =============================================================================
+
+// TestStepStartEventMetadata verifies that step-start events include Model and
+// Adapter fields in NDJSON output, and that these fields are omitted when empty.
+func TestStepStartEventMetadata(t *testing.T) {
+	tests := []struct {
+		name          string
+		event         Event
+		expectModel   bool
+		expectAdapter bool
+		modelValue    string
+		adapterValue  string
+	}{
+		{
+			name: "step-start includes model and adapter",
+			event: Event{
+				Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID: "test-pipeline",
+				StepID:     "step-001",
+				State:      "running",
+				Persona:    "researcher",
+				Model:      "opus",
+				Adapter:    "claude",
+			},
+			expectModel:   true,
+			expectAdapter: true,
+			modelValue:    "opus",
+			adapterValue:  "claude",
+		},
+		{
+			name: "model and adapter omitted when empty",
+			event: Event{
+				Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID: "test-pipeline",
+				StepID:     "step-002",
+				State:      "running",
+				Persona:    "researcher",
+			},
+			expectModel:   false,
+			expectAdapter: false,
+		},
+		{
+			name: "non-step-start event has no metadata",
+			event: Event{
+				Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID: "test-pipeline",
+				StepID:     "step-003",
+				State:      StateStreamActivity,
+				ToolName:   "Read",
+				ToolTarget: "/tmp/file.go",
+			},
+			expectModel:   false,
+			expectAdapter: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureOutput(func() {
+				emitter := NewNDJSONEmitter()
+				emitter.Emit(tt.event)
+			})
+
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &parsed); err != nil {
+				t.Fatalf("failed to parse NDJSON: %v", err)
+			}
+
+			_, hasModel := parsed["model"]
+			_, hasAdapter := parsed["adapter"]
+
+			if hasModel != tt.expectModel {
+				t.Errorf("model presence: got %v, want %v", hasModel, tt.expectModel)
+			}
+			if hasAdapter != tt.expectAdapter {
+				t.Errorf("adapter presence: got %v, want %v", hasAdapter, tt.expectAdapter)
+			}
+
+			if tt.expectModel {
+				if got := parsed["model"].(string); got != tt.modelValue {
+					t.Errorf("model = %q, want %q", got, tt.modelValue)
+				}
+			}
+			if tt.expectAdapter {
+				if got := parsed["adapter"].(string); got != tt.adapterValue {
+					t.Errorf("adapter = %q, want %q", got, tt.adapterValue)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// T019: ETA Field Presence Tests
+// =============================================================================
+
+// TestETAFieldPresence verifies that EstimatedTimeMs is ALWAYS present in JSON
+// output, even when zero, because its struct tag has no omitempty.
+func TestETAFieldPresence(t *testing.T) {
+	tests := []struct {
+		name      string
+		event     Event
+		expectETA bool
+		etaValue  float64 // JSON numbers decode as float64
+	}{
+		{
+			name: "progress event includes zero ETA",
+			event: Event{
+				Timestamp:       time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID:      "test-pipeline",
+				StepID:          "step-001",
+				State:           StateStepProgress,
+				EstimatedTimeMs: 0,
+			},
+			expectETA: true,
+			etaValue:  0,
+		},
+		{
+			name: "progress event includes non-zero ETA",
+			event: Event{
+				Timestamp:       time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID:      "test-pipeline",
+				StepID:          "step-001",
+				State:           StateStepProgress,
+				EstimatedTimeMs: 30000,
+			},
+			expectETA: true,
+			etaValue:  30000,
+		},
+		{
+			name: "basic event still includes zero ETA field",
+			event: Event{
+				Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				PipelineID: "test-pipeline",
+				State:      "started",
+			},
+			expectETA: true,
+			etaValue:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureOutput(func() {
+				emitter := NewNDJSONEmitter()
+				emitter.Emit(tt.event)
+			})
+
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &parsed); err != nil {
+				t.Fatalf("failed to parse NDJSON: %v", err)
+			}
+
+			etaVal, hasETA := parsed["estimated_time_ms"]
+			if hasETA != tt.expectETA {
+				t.Errorf("estimated_time_ms presence: got %v, want %v (parsed: %v)", hasETA, tt.expectETA, parsed)
+			}
+
+			if tt.expectETA {
+				etaFloat, ok := etaVal.(float64)
+				if !ok {
+					t.Fatalf("estimated_time_ms is not a number: %T", etaVal)
+				}
+				if etaFloat != tt.etaValue {
+					t.Errorf("estimated_time_ms = %v, want %v", etaFloat, tt.etaValue)
+				}
+			}
+		})
+	}
+}
