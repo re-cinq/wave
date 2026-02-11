@@ -675,3 +675,417 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractToolTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		input    json.RawMessage
+		want     string
+	}{
+		// Explicit tools
+		{
+			name:     "Read extracts file_path",
+			toolName: "Read",
+			input:    json.RawMessage(`{"file_path": "/home/user/main.go"}`),
+			want:     "/home/user/main.go",
+		},
+		{
+			name:     "Write extracts file_path",
+			toolName: "Write",
+			input:    json.RawMessage(`{"file_path": "/tmp/output.txt", "content": "hello"}`),
+			want:     "/tmp/output.txt",
+		},
+		{
+			name:     "Edit extracts file_path",
+			toolName: "Edit",
+			input:    json.RawMessage(`{"file_path": "/src/lib.go", "old_string": "a", "new_string": "b"}`),
+			want:     "/src/lib.go",
+		},
+		{
+			name:     "Glob extracts pattern",
+			toolName: "Glob",
+			input:    json.RawMessage(`{"pattern": "**/*.go"}`),
+			want:     "**/*.go",
+		},
+		{
+			name:     "Grep extracts pattern",
+			toolName: "Grep",
+			input:    json.RawMessage(`{"pattern": "func main", "path": "/src"}`),
+			want:     "func main",
+		},
+		{
+			name:     "Bash extracts command",
+			toolName: "Bash",
+			input:    json.RawMessage(`{"command": "go test ./..."}`),
+			want:     "go test ./...",
+		},
+		{
+			name:     "Task extracts description",
+			toolName: "Task",
+			input:    json.RawMessage(`{"description": "Find all TODO comments"}`),
+			want:     "Find all TODO comments",
+		},
+		{
+			name:     "WebFetch extracts url",
+			toolName: "WebFetch",
+			input:    json.RawMessage(`{"url": "https://example.com/api", "prompt": "summarize"}`),
+			want:     "https://example.com/api",
+		},
+		{
+			name:     "WebSearch extracts query",
+			toolName: "WebSearch",
+			input:    json.RawMessage(`{"query": "Go error handling best practices"}`),
+			want:     "Go error handling best practices",
+		},
+		{
+			name:     "NotebookEdit extracts notebook_path",
+			toolName: "NotebookEdit",
+			input:    json.RawMessage(`{"notebook_path": "/notebooks/analysis.ipynb", "cell_type": "code", "new_source": "print(1)"}`),
+			want:     "/notebooks/analysis.ipynb",
+		},
+		// Bash truncation (at 200 chars, display layer truncates further based on terminal width)
+		{
+			name:     "Bash command under 200 chars is not truncated",
+			toolName: "Bash",
+			input:    json.RawMessage(`{"command": "find /very/long/path -name '*.go' -exec grep -l 'something' {} \\; | sort | uniq"}`),
+			want:     `find /very/long/path -name '*.go' -exec grep -l 'something' {} \; | sort | uniq`,
+		},
+		// Generic heuristic: unknown tool with common fields
+		{
+			name:     "heuristic: unknown tool with file_path",
+			toolName: "CustomTool",
+			input:    json.RawMessage(`{"file_path": "/custom/file.txt"}`),
+			want:     "/custom/file.txt",
+		},
+		{
+			name:     "heuristic: unknown tool with url",
+			toolName: "SomeWebTool",
+			input:    json.RawMessage(`{"url": "https://api.example.com"}`),
+			want:     "https://api.example.com",
+		},
+		{
+			name:     "heuristic: unknown tool with query",
+			toolName: "SearchTool",
+			input:    json.RawMessage(`{"query": "latest news"}`),
+			want:     "latest news",
+		},
+		{
+			name:     "heuristic: file_path takes priority over url",
+			toolName: "UnknownTool",
+			input:    json.RawMessage(`{"url": "https://example.com", "file_path": "/priority/file.go"}`),
+			want:     "/priority/file.go",
+		},
+		// Edge cases
+		{
+			name:     "unknown tool with no matching fields returns empty",
+			toolName: "UnknownTool",
+			input:    json.RawMessage(`{"foo": "bar", "baz": 42}`),
+			want:     "",
+		},
+		{
+			name:     "nil input returns empty without panic",
+			toolName: "Read",
+			input:    json.RawMessage(nil),
+			want:     "",
+		},
+		{
+			name:     "empty JSON object returns empty",
+			toolName: "Read",
+			input:    json.RawMessage(`{}`),
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractToolTarget(tt.toolName, tt.input)
+			if got != tt.want {
+				t.Errorf("extractToolTarget(%q, %s) = %q, want %q", tt.toolName, string(tt.input), got, tt.want)
+			}
+		})
+	}
+}
+
+// T002: TestParseStreamLine — table-driven tests for all event types
+func TestParseStreamLine(t *testing.T) {
+	// Build a 1MB+ string for the extremely long line test
+	longText := strings.Repeat("A", 1024*1024+1)
+	longLineJSON := `{"type":"assistant","message":{"content":[{"type":"text","text":"` + longText + `"}],"usage":{}}}`
+
+	tests := []struct {
+		name      string
+		line      []byte
+		wantOK    bool
+		wantEvent StreamEvent
+	}{
+		{
+			name:   "system type",
+			line:   []byte(`{"type":"system","subtype":"init"}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type: "system",
+			},
+		},
+		{
+			name:   "assistant with tool_use",
+			line:   []byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/foo.go"}}],"usage":{"input_tokens":100,"output_tokens":50}}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:      "tool_use",
+				ToolName:  "Read",
+				ToolInput: "/tmp/foo.go",
+				TokensIn:  100,
+				TokensOut: 50,
+			},
+		},
+		{
+			name:   "assistant with text",
+			line:   []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world this is a test"}],"usage":{}}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:    "text",
+				Content: "Hello world this is a test",
+			},
+		},
+		{
+			name:   "tool_result type is skipped",
+			line:   []byte(`{"type":"tool_result"}`),
+			wantOK: false,
+		},
+		{
+			name:   "result type with usage",
+			line:   []byte(`{"type":"result","usage":{"input_tokens":1000,"output_tokens":500}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:      "result",
+				TokensIn:  1000,
+				TokensOut: 500,
+			},
+		},
+		{
+			name:   "malformed JSON",
+			line:   []byte(`not json at all`),
+			wantOK: false,
+		},
+		{
+			name:   "empty line",
+			line:   []byte(``),
+			wantOK: false,
+		},
+		{
+			name:   "unknown type",
+			line:   []byte(`{"type":"unknown_type"}`),
+			wantOK: false,
+		},
+		{
+			name:   "extremely long line (1MB+)",
+			line:   []byte(longLineJSON),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:    "text",
+				Content: strings.Repeat("A", 200), // truncated to 200 chars at parse time
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := parseStreamLine(tt.line)
+			if ok != tt.wantOK {
+				t.Fatalf("parseStreamLine() ok = %v, want %v", ok, tt.wantOK)
+			}
+			if !tt.wantOK {
+				return
+			}
+			if got.Type != tt.wantEvent.Type {
+				t.Errorf("Type = %q, want %q", got.Type, tt.wantEvent.Type)
+			}
+			if got.ToolName != tt.wantEvent.ToolName {
+				t.Errorf("ToolName = %q, want %q", got.ToolName, tt.wantEvent.ToolName)
+			}
+			if got.ToolInput != tt.wantEvent.ToolInput {
+				t.Errorf("ToolInput = %q, want %q", got.ToolInput, tt.wantEvent.ToolInput)
+			}
+			if got.Content != tt.wantEvent.Content {
+				t.Errorf("Content = %q, want %q", got.Content, tt.wantEvent.Content)
+			}
+			if got.TokensIn != tt.wantEvent.TokensIn {
+				t.Errorf("TokensIn = %d, want %d", got.TokensIn, tt.wantEvent.TokensIn)
+			}
+			if got.TokensOut != tt.wantEvent.TokensOut {
+				t.Errorf("TokensOut = %d, want %d", got.TokensOut, tt.wantEvent.TokensOut)
+			}
+		})
+	}
+}
+
+// T003: TestStreamEventCallback — verify OnStreamEvent invocation via parseStreamLine
+func TestStreamEventCallback(t *testing.T) {
+	lines := []struct {
+		label    string
+		data     []byte
+		wantOK   bool
+		wantType string
+		toolName string
+		toolIn   string
+	}{
+		{
+			label:    "tool_use event returns true with correct fields",
+			data:     []byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"go test ./..."}}],"usage":{"input_tokens":200,"output_tokens":80}}}`),
+			wantOK:   true,
+			wantType: "tool_use",
+			toolName: "Bash",
+			toolIn:   "go test ./...",
+		},
+		{
+			label:    "second tool_use event with Write",
+			data:     []byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"/tmp/out.txt"}}],"usage":{"input_tokens":50,"output_tokens":20}}}`),
+			wantOK:   true,
+			wantType: "tool_use",
+			toolName: "Write",
+			toolIn:   "/tmp/out.txt",
+		},
+		{
+			label:    "text event returns true with different Type",
+			data:     []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"Analyzing the code..."}],"usage":{}}}`),
+			wantOK:   true,
+			wantType: "text",
+		},
+		{
+			label:  "tool_result event returns false",
+			data:   []byte(`{"type":"tool_result"}`),
+			wantOK: false,
+		},
+		{
+			label:    "system event returns true with Type system",
+			data:     []byte(`{"type":"system","subtype":"init"}`),
+			wantOK:   true,
+			wantType: "system",
+		},
+	}
+
+	for _, tc := range lines {
+		t.Run(tc.label, func(t *testing.T) {
+			evt, ok := parseStreamLine(tc.data)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
+			}
+			if !tc.wantOK {
+				return
+			}
+			if evt.Type != tc.wantType {
+				t.Errorf("Type = %q, want %q", evt.Type, tc.wantType)
+			}
+			if tc.toolName != "" && evt.ToolName != tc.toolName {
+				t.Errorf("ToolName = %q, want %q", evt.ToolName, tc.toolName)
+			}
+			if tc.toolIn != "" && evt.ToolInput != tc.toolIn {
+				t.Errorf("ToolInput = %q, want %q", evt.ToolInput, tc.toolIn)
+			}
+		})
+	}
+}
+
+// T004: TestResultAccumulation — verify result extraction from stream
+func TestResultAccumulation(t *testing.T) {
+	t.Run("result with standard token counts", func(t *testing.T) {
+		line := []byte(`{"type":"result","usage":{"input_tokens":5000,"output_tokens":2000}}`)
+		evt, ok := parseStreamLine(line)
+		if !ok {
+			t.Fatal("expected ok=true for result event")
+		}
+		if evt.TokensIn != 5000 {
+			t.Errorf("TokensIn = %d, want 5000", evt.TokensIn)
+		}
+		if evt.TokensOut != 2000 {
+			t.Errorf("TokensOut = %d, want 2000", evt.TokensOut)
+		}
+	})
+
+	t.Run("result parses correctly after tool_use events", func(t *testing.T) {
+		// Parse several tool_use events first — shouldn't affect result parsing
+		toolLines := [][]byte{
+			[]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.go"}}],"usage":{"input_tokens":10,"output_tokens":5}}}`),
+			[]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Glob","input":{"pattern":"*.go"}}],"usage":{"input_tokens":20,"output_tokens":10}}}`),
+		}
+		for _, tl := range toolLines {
+			_, ok := parseStreamLine(tl)
+			if !ok {
+				t.Fatal("expected ok=true for tool_use event")
+			}
+		}
+
+		// Now parse the result event
+		resultLine := []byte(`{"type":"result","usage":{"input_tokens":5000,"output_tokens":2000}}`)
+		evt, ok := parseStreamLine(resultLine)
+		if !ok {
+			t.Fatal("expected ok=true for result event")
+		}
+		if evt.TokensIn != 5000 {
+			t.Errorf("TokensIn = %d, want 5000", evt.TokensIn)
+		}
+		if evt.TokensOut != 2000 {
+			t.Errorf("TokensOut = %d, want 2000", evt.TokensOut)
+		}
+	})
+
+	t.Run("result with zero tokens", func(t *testing.T) {
+		line := []byte(`{"type":"result","usage":{"input_tokens":0,"output_tokens":0}}`)
+		evt, ok := parseStreamLine(line)
+		if !ok {
+			t.Fatal("expected ok=true for result event")
+		}
+		if evt.TokensIn != 0 {
+			t.Errorf("TokensIn = %d, want 0", evt.TokensIn)
+		}
+		if evt.TokensOut != 0 {
+			t.Errorf("TokensOut = %d, want 0", evt.TokensOut)
+		}
+	})
+}
+
+// T005: TestMidStreamTermination — verify no panic on incomplete stream
+func TestMidStreamTermination(t *testing.T) {
+	t.Run("only system event without result does not panic", func(t *testing.T) {
+		line := []byte(`{"type":"system","subtype":"init"}`)
+		evt, ok := parseStreamLine(line)
+		if !ok {
+			t.Fatal("expected ok=true for system event")
+		}
+		if evt.Type != "system" {
+			t.Errorf("Type = %q, want %q", evt.Type, "system")
+		}
+		// No result follows — this should be fine
+	})
+
+	t.Run("only tool_use events without result does not panic", func(t *testing.T) {
+		lines := [][]byte{
+			[]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/a.go"}}],"usage":{"input_tokens":10,"output_tokens":5}}}`),
+			[]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"/b.go"}}],"usage":{"input_tokens":20,"output_tokens":10}}}`),
+		}
+		for _, line := range lines {
+			evt, ok := parseStreamLine(line)
+			if !ok {
+				t.Fatal("expected ok=true for tool_use event")
+			}
+			if evt.Type != "tool_use" {
+				t.Errorf("Type = %q, want %q", evt.Type, "tool_use")
+			}
+		}
+	})
+
+	t.Run("empty byte slice does not panic", func(t *testing.T) {
+		_, ok := parseStreamLine([]byte{})
+		if ok {
+			t.Error("expected ok=false for empty byte slice")
+		}
+	})
+
+	t.Run("nil does not panic", func(t *testing.T) {
+		_, ok := parseStreamLine(nil)
+		if ok {
+			t.Error("expected ok=false for nil input")
+		}
+	})
+}
