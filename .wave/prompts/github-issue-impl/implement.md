@@ -2,30 +2,31 @@ You are implementing a GitHub issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 The implementation plan is available at `artifacts/plan`.
 
 ## Instructions
 
-### Step 1: Load Context
+### Step 1: Load Context and Create Worktree
 
 1. Read `artifacts/issue_assessment` for the issue details and branch name
 2. Read `artifacts/plan` for the task breakdown, file changes, and feature directory
-3. Check out the feature branch:
+3. Create an isolated worktree for the feature branch:
    ```bash
-   git checkout <BRANCH_NAME>
+   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+   cd repo
    ```
+
+All subsequent commands run inside this worktree.
 
 ### Step 2: Read Plan Files
 
@@ -64,12 +65,25 @@ If tests fail, fix the issue before proceeding to the next phase.
 
 As you complete each task, mark it as `[X]` in `tasks.md`.
 
-### Step 6: Final Validation
+### Step 6: Final Validation and Commit
 
 After all tasks are complete:
 1. Run `go test -race ./...` one final time
 2. Verify all tasks in `tasks.md` are marked complete
-3. Review changes with `git diff` to ensure nothing was missed
+3. Stage and commit all changes:
+   ```bash
+   git add -A
+   git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
+   ```
+
+### Step 7: Clean Up Worktree
+
+Remove the worktree reference (the branch and commits persist):
+
+```bash
+cd "$OLDPWD"
+git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+```
 
 ## Agent Usage — USE UP TO 6 AGENTS
 
