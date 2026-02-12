@@ -51,7 +51,7 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 		if len(pipelines) == 0 {
 			return nil, fmt.Errorf("no pipelines match %q", preFilter)
 		}
-		// Auto-select if exactly one match.
+		// Auto-select if exactly one match — skip the select field.
 		if len(pipelines) == 1 {
 			fmt.Println(WaveLogo())
 			return runInputAndFlags(pipelines[0])
@@ -61,46 +61,58 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 	// Print the Wave logo before the form.
 	fmt.Println(WaveLogo())
 
-	// Step 1: Pipeline selection
-	options := buildPipelineOptions(pipelines)
+	// Build all fields for a single unified form.
 	var selectedPipeline string
+	var input string
+	var selectedFlags []string
+
+	options := buildPipelineOptions(pipelines)
+	flags := DefaultFlags()
+	flagOptions := buildFlagOptions(flags)
+
 	selectField := huh.NewSelect[string]().
 		Title("Select pipeline").
 		Options(options...).
+		Height(8).
 		Value(&selectedPipeline)
 
-	form := huh.NewForm(huh.NewGroup(selectField)).
-		WithTheme(WaveTheme())
+	inputField := huh.NewInput().
+		Title("Input (optional)").
+		Value(&input)
+
+	multiSelect := huh.NewMultiSelect[string]().
+		Title("Options").
+		Options(flagOptions...).
+		Value(&selectedFlags)
+
+	// All fields in one group: shift+tab navigates back to pipeline selection.
+	form := huh.NewForm(
+		huh.NewGroup(selectField, inputField, multiSelect),
+	).WithTheme(WaveTheme())
 
 	if err := form.Run(); err != nil {
 		return nil, err
 	}
 
-	// Find the selected pipeline info for input example.
-	var selected PipelineInfo
-	for _, p := range pipelines {
-		if p.Name == selectedPipeline {
-			selected = p
-			break
-		}
-	}
+	// Set placeholder dynamically (couldn't do it before knowing the selection).
+	// The input field doesn't support dynamic placeholder, so this is a no-op note.
 
-	return runInputAndFlags(selected)
+	return confirmAndReturn(selectedPipeline, input, selectedFlags)
 }
 
-// runInputAndFlags runs the input prompt, flag selection, and confirmation as a single form.
+// runInputAndFlags runs the input prompt, flag selection, and confirmation
+// when the pipeline is already known (auto-selected via preFilter).
 func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 	var input string
 	var selectedFlags []string
-	var confirmed bool
 
 	flags := DefaultFlags()
 	flagOptions := buildFlagOptions(flags)
 
-	// Print selected pipeline above the form as static text.
+	// Show selected pipeline as a blurred-style static line.
 	pipelineLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("Pipeline:")
-	pipelineName := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true).Render(selected.Name)
-	fmt.Printf(" %s %s\n\n", pipelineLabel, pipelineName)
+	pipelineName := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true).Render(selected.Name)
+	fmt.Printf("  %s %s\n\n", pipelineLabel, pipelineName)
 
 	inputField := huh.NewInput().
 		Title("Input (optional)").
@@ -120,8 +132,14 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 		return nil, err
 	}
 
-	// Confirmation step with the composed command.
-	cmdStr := ComposeCommand(selected.Name, input, selectedFlags)
+	return confirmAndReturn(selected.Name, input, selectedFlags)
+}
+
+// confirmAndReturn shows the composed command, asks for confirmation, and returns the selection.
+func confirmAndReturn(pipeline, input string, selectedFlags []string) (*Selection, error) {
+	var confirmed bool
+	cmdStr := ComposeCommand(pipeline, input, selectedFlags)
+
 	confirm := huh.NewConfirm().
 		Title(cmdStr).
 		Description("Run this command?").
@@ -143,10 +161,10 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 	// Print the composed command so it stays in scrollback for debugging.
 	cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("$")
 	cmdText := lipgloss.NewStyle().Foreground(lipgloss.Color("7")).Render(cmdStr)
-	fmt.Printf(" %s %s\n\n", cmdStyle, cmdText)
+	fmt.Printf("  %s %s\n\n", cmdStyle, cmdText)
 
 	return &Selection{
-		Pipeline: selected.Name,
+		Pipeline: pipeline,
 		Input:    input,
 		Flags:    selectedFlags,
 	}, nil
@@ -154,11 +172,12 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 
 // buildPipelineOptions creates huh options from pipeline info.
 func buildPipelineOptions(pipelines []PipelineInfo) []huh.Option[string] {
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	options := make([]huh.Option[string], len(pipelines))
 	for i, p := range pipelines {
 		label := p.Name
 		if p.Description != "" {
-			label = fmt.Sprintf("%-20s %s", p.Name, p.Description)
+			label = fmt.Sprintf("%-20s %s", p.Name, dimStyle.Render(p.Description))
 		}
 		options[i] = huh.NewOption(label, p.Name)
 	}
@@ -167,9 +186,10 @@ func buildPipelineOptions(pipelines []PipelineInfo) []huh.Option[string] {
 
 // buildFlagOptions creates huh options from flags.
 func buildFlagOptions(flags []Flag) []huh.Option[string] {
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	options := make([]huh.Option[string], len(flags))
 	for i, f := range flags {
-		label := fmt.Sprintf("%-16s %s", f.Name, f.Description)
+		label := fmt.Sprintf("%-16s %s", f.Name, dimStyle.Render(f.Description))
 		options[i] = huh.NewOption(label, f.Name)
 	}
 	return options
