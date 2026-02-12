@@ -330,7 +330,8 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 }
 
 func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
-	var tokens int
+	var resultTokens int
+	var assistantTokens int
 	var artifacts []string
 	var resultContent string
 
@@ -342,26 +343,53 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 		}
 
 		// Parse stream-json NDJSON format
+		// Note: Claude API usage includes cache_read_input_tokens and
+		// cache_creation_input_tokens which represent cached prompt tokens.
+		// Without counting these, token counts appear artificially low.
 		var obj struct {
-			Type   string `json:"type"`
-			Result string `json:"result"`
-			Usage  struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+			Type    string `json:"type"`
+			Result  string `json:"result"`
+			Usage   struct {
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 			} `json:"usage"`
+			Message struct {
+				Usage struct {
+					InputTokens              int `json:"input_tokens"`
+					OutputTokens             int `json:"output_tokens"`
+					CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+					CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+				} `json:"usage"`
+			} `json:"message"`
 		}
 
 		if err := json.Unmarshal(line, &obj); err != nil {
 			continue
 		}
 
-		// "result" type carries the final output in stream-json format
-		if obj.Type == "result" {
-			tokens = obj.Usage.InputTokens + obj.Usage.OutputTokens
+		switch obj.Type {
+		case "result":
+			// "result" type carries the final output and cumulative usage
+			resultTokens = obj.Usage.InputTokens + obj.Usage.OutputTokens +
+				obj.Usage.CacheReadInputTokens + obj.Usage.CacheCreationInputTokens
 			resultContent = obj.Result
+		case "assistant":
+			// Take the last assistant event's usage (not sum), since each turn's
+			// input_tokens already includes the full conversation history.
+			u := obj.Message.Usage
+			assistantTokens = u.InputTokens + u.OutputTokens +
+				u.CacheReadInputTokens + u.CacheCreationInputTokens
 		}
 	}
 
+	// Prefer result-level usage (cumulative total from Claude Code),
+	// fall back to accumulated assistant-event tokens, then byte estimate
+	tokens := resultTokens
+	if tokens == 0 {
+		tokens = assistantTokens
+	}
 	if tokens == 0 {
 		tokens = len(data) / 4
 	}
@@ -402,15 +430,17 @@ func parseStreamLine(line []byte) (StreamEvent, bool) {
 
 	case "result":
 		var usage struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
+			InputTokens              int `json:"input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 		}
 		if raw, ok := obj["usage"]; ok {
 			json.Unmarshal(raw, &usage)
 		}
 		return StreamEvent{
 			Type:      "result",
-			TokensIn:  usage.InputTokens,
+			TokensIn:  usage.InputTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens,
 			TokensOut: usage.OutputTokens,
 		}, true
 
@@ -430,8 +460,10 @@ func parseAssistantEvent(obj map[string]json.RawMessage) (StreamEvent, bool) {
 				Input json.RawMessage `json:"input,omitempty"`
 			} `json:"content"`
 			Usage struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 			} `json:"usage"`
 		} `json:"message"`
 	}
@@ -440,6 +472,8 @@ func parseAssistantEvent(obj map[string]json.RawMessage) (StreamEvent, bool) {
 		return StreamEvent{}, false
 	}
 
+	u := msg.Message.Usage
+	totalIn := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	for _, block := range msg.Message.Content {
 		switch block.Type {
 		case "tool_use":
@@ -448,8 +482,8 @@ func parseAssistantEvent(obj map[string]json.RawMessage) (StreamEvent, bool) {
 				Type:      "tool_use",
 				ToolName:  block.Name,
 				ToolInput: target,
-				TokensIn:  msg.Message.Usage.InputTokens,
-				TokensOut: msg.Message.Usage.OutputTokens,
+				TokensIn:  totalIn,
+				TokensOut: u.OutputTokens,
 			}, true
 		case "text":
 			if block.Text == "" {
