@@ -95,7 +95,7 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 	projectInfo := []string{
 		fmt.Sprintf("%s", ctx.PipelineName),
 		fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath),
-		" Press: p=pause q=quit",
+		" Press: q=quit",
 	}
 
 	// Render logo with project info aligned to the right
