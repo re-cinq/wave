@@ -429,25 +429,38 @@ wave-pipeline:
     when: always
 ```
 
-## Schema Download
+## Performance Considerations
 
-Download the complete JSON schema for audit log validation:
+### Overhead
 
-[Download Audit Log Schema (JSON)](/trust-center/downloads/audit-log-schema.json)
+| Logging Level | Typical Overhead |
+|---------------|------------------|
+| Security events only | < 1% |
+| All tool calls | 2-5% |
+| Full audit trail | 5-10% |
 
-The schema can be used for:
+### Disk Usage
 
-- Log format validation
-- SIEM field mapping
-- Integration testing
-- Documentation generation
+Estimate log size:
+
+- **Security events only**: ~1 KB per pipeline
+- **All tool calls**: ~10-50 KB per pipeline
+- **Full audit trail**: ~50-200 KB per pipeline
+
+Monitor disk usage:
+
+```bash
+du -sh .wave/traces/
+```
+
+### Best Practices
+
+1. **Production**: Use security-events-only logging
+2. **Development**: Enable full audit trail for debugging
+3. **Monitoring**: Set up alerts for security events
 
 ## Further Reading
 
 - [Security Model](/trust-center/security-model) - Complete security architecture
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
 - [Audit Logging Guide](/guides/audit-logging) - Practical configuration guide
-
----
-
-*Last updated: February 2026*
