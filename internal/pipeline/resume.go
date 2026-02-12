@@ -91,6 +91,11 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		return fmt.Errorf("failed to load resume state: %w", err)
 	}
 
+	// Generate a new runtime ID for this resumed execution
+	pipelineName := p.Metadata.Name
+	hashLength := m.Runtime.PipelineIDHashLength
+	pipelineID := GenerateRunID(pipelineName, hashLength)
+
 	// Create new execution with preserved artifacts and state
 	execution := &PipelineExecution{
 		Pipeline:       resumePipeline,
@@ -100,9 +105,10 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		ArtifactPaths:  resumeState.ArtifactPaths,
 		WorkspacePaths: resumeState.WorkspacePaths,
 		Input:          input,
-		Context:        NewPipelineContext(p.Metadata.Name, fromStep),
+		Context:        NewPipelineContext(pipelineID, pipelineName, fromStep),
 		Status: &PipelineStatus{
-			ID:             p.Metadata.Name,
+			ID:             pipelineID,
+			PipelineName:   pipelineName,
 			State:          StateRunning,
 			CurrentStep:    fromStep,
 			CompletedSteps: resumeState.CompletedSteps,
@@ -112,7 +118,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 	// Store execution state
 	r.executor.mu.Lock()
-	r.executor.pipelines[p.Metadata.Name] = execution
+	r.executor.pipelines[pipelineID] = execution
 	r.executor.mu.Unlock()
 
 	// Execute starting from the target step
@@ -213,16 +219,17 @@ func (r *ResumeManager) createResumeSubpipeline(p *Pipeline, fromStep string) *P
 // executeResumedPipeline executes the resumed pipeline starting from the target step
 func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *PipelineExecution, fromStep string) error {
 	validator := &DAGValidator{}
+	pipelineID := execution.Status.ID
 
 	// Validate the subpipeline DAG
 	if err := validator.ValidateDAG(execution.Pipeline); err != nil {
-		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("invalid resume pipeline DAG: %w", err), execution.Pipeline.Metadata.Name)
+		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("invalid resume pipeline DAG: %w", err), pipelineID)
 	}
 
 	// Get topologically sorted steps starting from target
 	sortedSteps, err := validator.TopologicalSort(execution.Pipeline)
 	if err != nil {
-		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), execution.Pipeline.Metadata.Name)
+		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), pipelineID)
 	}
 
 	// Execute each step in order
@@ -237,7 +244,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			if r.executor.emitter != nil {
 				r.executor.emitter.Emit(event.Event{
 					Timestamp:  time.Now(),
-					PipelineID: execution.Pipeline.Metadata.Name,
+					PipelineID: pipelineID,
 					StepID:     step.ID,
 					State:      "started",
 					Message:    fmt.Sprintf("Starting step %s (resumed from %s)", step.ID, fromStep),
@@ -247,7 +254,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			// Execute the step (reuse existing step execution logic)
 			if err := r.executeStep(ctx, execution, step); err != nil {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				return r.errors.FormatPhaseFailureError(step.ID, err, execution.Pipeline.Metadata.Name)
+				return r.errors.FormatPhaseFailureError(step.ID, err, pipelineID)
 			}
 
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -262,7 +269,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 	if r.executor.emitter != nil {
 		r.executor.emitter.Emit(event.Event{
 			Timestamp:      now,
-			PipelineID:     execution.Pipeline.Metadata.Name,
+			PipelineID:     pipelineID,
 			State:          "completed",
 			Message:        fmt.Sprintf("Pipeline completed successfully (resumed from %s)", fromStep),
 			CompletedSteps: len(execution.Status.CompletedSteps),

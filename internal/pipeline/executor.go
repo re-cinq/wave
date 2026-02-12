@@ -29,7 +29,8 @@ type PipelineExecutor interface {
 }
 
 type PipelineStatus struct {
-	ID             string
+	ID             string // Runtime ID with hash suffix (e.g., "my-pipeline-a3b2c1d4")
+	PipelineName   string // Logical pipeline name from Metadata.Name
 	State          string
 	CurrentStep    string
 	CompletedSteps []string
@@ -127,8 +128,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
 
-	pipelineID := p.Metadata.Name
-	pipelineContext := NewPipelineContext(pipelineID, "")
+	pipelineName := p.Metadata.Name
+	hashLength := m.Runtime.PipelineIDHashLength
+	pipelineID := GenerateRunID(pipelineName, hashLength)
+	pipelineContext := NewPipelineContext(pipelineID, pipelineName, "")
 
 	// Initialize deliverable tracker for this pipeline (only if not already set)
 	if e.deliverableTracker == nil {
@@ -148,6 +151,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Context:        pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
+			PipelineName:   pipelineName,
 			State:          StatePending,
 			CompletedSteps: []string{},
 			FailedSteps:    []string{},
@@ -261,7 +265,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 }
 
 func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 	execution.States[step.ID] = StateRunning
 	execution.Status.CurrentStep = step.ID
 
@@ -335,7 +339,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.
 func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	matrixExecutor := NewMatrixExecutor(e)
 	err := matrixExecutor.Execute(ctx, execution, step)
@@ -360,7 +364,7 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 }
 
 func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	persona := execution.Manifest.GetPersona(step.Persona)
 	if persona == nil {
@@ -623,7 +627,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
 		wsRoot = ".wave/workspaces"
@@ -847,7 +851,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
 	}
 
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	for _, ref := range step.Memory.InjectArtifacts {
 		artName := ref.As
@@ -978,7 +982,7 @@ func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, exec
 		return nil
 	}
 
-	pipelineID := execution.Pipeline.Metadata.Name
+	pipelineID := execution.Status.ID
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -1174,7 +1178,7 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 				execution.Status.State = StateFailed
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 				// Clean up failed pipeline from in-memory storage to prevent memory leak
-				e.cleanupCompletedPipeline(execution.Pipeline.Metadata.Name)
+				e.cleanupCompletedPipeline(execution.Status.ID)
 				return fmt.Errorf("step %q failed: %w", step.ID, err)
 			}
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -1186,7 +1190,7 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 	execution.Status.State = StateCompleted
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
-	e.cleanupCompletedPipeline(execution.Pipeline.Metadata.Name)
+	e.cleanupCompletedPipeline(execution.Status.ID)
 
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -43,6 +44,19 @@ func (c *testEventCollector) GetEvents() []event.Event {
 	result := make([]event.Event, len(c.events))
 	copy(result, c.events)
 	return result
+}
+
+// GetPipelineID returns the pipeline ID from the first event that has a non-empty PipelineID.
+// Useful for tests where the ID is generated with a hash suffix.
+func (c *testEventCollector) GetPipelineID() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, e := range c.events {
+		if e.PipelineID != "" {
+			return e.PipelineID
+		}
+	}
+	return ""
 }
 
 func (c *testEventCollector) HasEventWithState(state string) bool {
@@ -595,7 +609,7 @@ func TestProgressEventFields(t *testing.T) {
 	}
 
 	require.NotNil(t, completedEvent, "should find step completed event")
-	assert.Equal(t, "event-fields-test", completedEvent.PipelineID)
+	assert.True(t, strings.HasPrefix(completedEvent.PipelineID, "event-fields-test-"), "PipelineID should have name prefix with hash suffix")
 	assert.Equal(t, "my-step", completedEvent.StepID)
 	assert.Equal(t, "craftsman", completedEvent.Persona)
 	assert.Equal(t, 3000, completedEvent.TokensUsed)
@@ -659,9 +673,11 @@ func TestGetStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get status after execution
-	status, err := executor.GetStatus("status-test")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
-	assert.Equal(t, "status-test", status.ID)
+	assert.Equal(t, runtimeID, status.ID)
 	assert.Equal(t, StateCompleted, status.State)
 	assert.Contains(t, status.CompletedSteps, "step1")
 	assert.Empty(t, status.FailedSteps)
@@ -758,7 +774,9 @@ func TestWorkspaceCreation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify workspace directory was created
-	workspacePath := tmpDir + "/workspace-test/step1"
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	workspacePath := tmpDir + "/" + runtimeID + "/step1"
 	_, err = os.Stat(workspacePath)
 	assert.NoError(t, err, "workspace directory should exist")
 }
@@ -896,14 +914,16 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 
 	// Verify pipeline is cleaned up from in-memory storage
 	// (accessing the internal map to verify cleanup)
-	exec, ok := getExecutorPipeline(executor, "memory-cleanup-test")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	exec, ok := getExecutorPipeline(executor, runtimeID)
 	assert.False(t, ok, "Pipeline should be cleaned up from in-memory storage after completion")
 	assert.Nil(t, exec, "Pipeline execution should be nil after cleanup")
 
 	// Verify GetStatus still works by querying persistent storage
-	status, err := executor.GetStatus("memory-cleanup-test")
+	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
-	assert.Equal(t, "memory-cleanup-test", status.ID)
+	assert.Equal(t, runtimeID, status.ID)
 	assert.Equal(t, StateCompleted, status.State)
 	assert.NotEmpty(t, status.CompletedSteps)
 	assert.NotNil(t, status.CompletedAt)
@@ -941,14 +961,16 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 	require.Error(t, err)
 
 	// Verify pipeline is cleaned up from in-memory storage even after failure
-	exec, ok := getExecutorPipeline(executor, "memory-cleanup-fail-test")
+	runtimeID := collector.GetPipelineID()
+	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+	exec, ok := getExecutorPipeline(executor, runtimeID)
 	assert.False(t, ok, "Failed pipeline should be cleaned up from in-memory storage")
 	assert.Nil(t, exec, "Failed pipeline execution should be nil after cleanup")
 
 	// Verify GetStatus still works for failed pipeline
-	status, err := executor.GetStatus("memory-cleanup-fail-test")
+	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
-	assert.Equal(t, "memory-cleanup-fail-test", status.ID)
+	assert.Equal(t, runtimeID, status.ID)
 	assert.Equal(t, StateFailed, status.State)
 	assert.NotEmpty(t, status.FailedSteps)
 }
@@ -992,12 +1014,14 @@ func TestRegressionProductionIssues(t *testing.T) {
 		assert.NoError(t, err, "Empty input should be handled gracefully")
 
 		// Verify pipeline was cleaned up from memory
-		exec, exists := getExecutorPipeline(executor, "empty-input-test")
+		runtimeID := collector.GetPipelineID()
+		require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
+		exec, exists := getExecutorPipeline(executor, runtimeID)
 		assert.False(t, exists, "Pipeline should be cleaned up from memory")
 		assert.Nil(t, exec)
 
 		// Verify status can still be retrieved from persistent storage
-		status, err := executor.GetStatus("empty-input-test")
+		status, err := executor.GetStatus(runtimeID)
 		require.NoError(t, err)
 		assert.Equal(t, StateCompleted, status.State)
 	})
@@ -1020,6 +1044,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 			States:   make(map[string]string),
 			Results:  make(map[string]map[string]interface{}),
 			Input:    "test input",
+			Status:   &PipelineStatus{ID: "nil-context-test", PipelineName: "nil-context-test"},
 			// Context: nil  // Deliberately omitted to test nil handling
 		}
 
@@ -1067,7 +1092,8 @@ func TestRegressionProductionIssues(t *testing.T) {
 			ArtifactPaths:  make(map[string]string),
 			WorkspacePaths: make(map[string]string),
 			Input:          "test input",
-			Context:        NewPipelineContext("matrix-context-test", "matrix-step"), // Proper context
+			Context:        NewPipelineContext("matrix-context-test", "matrix-context-test", "matrix-step"), // Proper context
+			Status:         &PipelineStatus{ID: "matrix-context-test", PipelineName: "matrix-context-test"},
 		}
 
 		step := &Step{
@@ -1447,7 +1473,7 @@ func TestStreamActivityEventBridge(t *testing.T) {
 	sa := streamActivityEvents[0]
 
 	// Verify pipeline-enriched fields
-	assert.Equal(t, "stream-bridge-test", sa.PipelineID, "PipelineID should match")
+	assert.True(t, strings.HasPrefix(sa.PipelineID, "stream-bridge-test-"), "PipelineID should have name prefix with hash suffix")
 	assert.Equal(t, "stream-step", sa.StepID, "StepID should match")
 	assert.Equal(t, "craftsman", sa.Persona, "Persona should match the step persona")
 	assert.Equal(t, "Write", sa.ToolName, "ToolName should be the tool from the stream event")
