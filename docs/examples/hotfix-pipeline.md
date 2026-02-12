@@ -7,13 +7,15 @@ A streamlined pipeline for investigating and fixing production issues quickly, w
 The hotfix pipeline is designed for speed. It skips the full specification phase and goes straight from investigation to fix, with a verification step to prevent regressions.
 
 ```mermaid
-graph LR
+graph TD
     I[Investigate] --> R[Reproduce]
     R --> F[Fix]
     F --> V[Verify]
 ```
 
 ## Pipeline Definition
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -144,6 +146,8 @@ steps:
         path: output/verdict.md
         type: markdown
 ```
+
+</div>
 
 ## Running the Hotfix Pipeline
 

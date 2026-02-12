@@ -171,7 +171,7 @@ export interface TerminalOutputLine {
  * Shows a simulated CLI interaction to demonstrate Wave usage
  */
 export interface TerminalPreviewConfig {
-  /** The command being typed/executed (e.g., "wave run pipeline.yaml") */
+  /** The command being typed/executed (e.g., "wave run code-review") */
   command: string
   /** Lines of output displayed after command execution */
   outputLines: TerminalOutputLine[]

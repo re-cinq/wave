@@ -100,15 +100,29 @@ wave run hello-world "testing Wave"
 
 ### Expected Output
 
-You should see progress output similar to this:
+With the default TUI mode you'll see a progress bar and spinners. To see text output, use `-o text`:
+
+```bash
+wave run hello-world "testing Wave" -o text
+```
 
 ```
-[10:00:01] started   greet   (craftsman)                 Starting step
-[10:00:15] completed greet   (craftsman)   14s    1.2k   Step completed
-[10:00:16] started   verify  (navigator)                 Starting step
-[10:00:28] completed verify  (navigator)   12s    0.8k   Step completed
+[10:00:01] → greet (craftsman)
+[10:00:01]   greet: Executing agent
+[10:00:05]   greet: Processing results
+[10:00:05] ✓ greet completed (4.0s, 0k tokens)
+[10:00:05] → verify (navigator)
+[10:00:05]   verify: Executing agent
+[10:00:12]   verify: Processing results
+[10:00:12] ✓ verify completed (6.9s, 0k tokens)
 
-Pipeline hello-world completed in 26s
+  ✓ Pipeline 'hello-world' completed successfully (10.9s)
+
+  Deliverables (4):
+     • .wave/workspaces/hello-world-aca3e016/greet/CLAUDE.md
+     • .wave/workspaces/hello-world-aca3e016/greet/greeting.txt
+     • .wave/workspaces/hello-world-aca3e016/verify/CLAUDE.md
+     • .wave/workspaces/hello-world-aca3e016/verify/output/result.json
 ```
 
 ### What Just Happened?
@@ -155,14 +169,11 @@ which claude  # Should show the installation path
 
 **Solution:** Use `sudo` for system-wide installation or install to a user directory:
 ```bash
-# Option 1: Use sudo
-sudo curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o /usr/local/bin/wave
-sudo chmod +x /usr/local/bin/wave
+# Option 1: Run install script as root (installs to /usr/local/bin)
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sudo sh
 
 # Option 2: Install to user directory
-mkdir -p ~/.local/bin
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o ~/.local/bin/wave
-chmod +x ~/.local/bin/wave
+WAVE_INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 :::
@@ -254,7 +265,7 @@ This enters a bubblewrap sandbox where the filesystem is read-only except for th
 ## Next Steps
 
 - [Sandbox Setup](/guides/sandbox-setup) - Isolate AI agent sessions
-- [Use Cases](/use-cases/) - Find pipelines for code review, security audits, docs, and tests
+- [Use Cases](/use-cases/) - Find pipelines for code review, documentation, and tests
 - [Concepts: Pipelines](/concepts/pipelines) - Understand pipeline structure
 - [Concepts: Personas](/concepts/personas) - Learn about AI agent roles
 - [CLI Reference](/reference/cli) - Complete command documentation

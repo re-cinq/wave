@@ -34,13 +34,6 @@ Projects include shared configuration via git submodule:
 git submodule add git@github.com:org/org-wave-config.git .wave/shared
 ```
 
-Mount in `wave.yaml`:
-
-```yaml
-skill_mounts:
-  - path: .wave/shared/
-```
-
 ### 3. Override Per-Project
 
 Each project extends shared configuration:
@@ -144,13 +137,6 @@ steps:
     # Waits for both
 ```
 
-Configure concurrency:
-
-```yaml
-runtime:
-  max_concurrent_workers: 5
-```
-
 ### Large Codebases
 
 Limit scope with workspace mounts:
@@ -170,8 +156,6 @@ Set appropriate limits:
 ```yaml
 runtime:
   default_timeout_minutes: 30
-  meta_pipeline:
-    timeout_minutes: 60
 ```
 
 ## Complete Example
@@ -188,7 +172,6 @@ adapters:
   claude:
     binary: claude
     mode: headless
-    output_format: json
 
 personas:
   navigator:
@@ -214,20 +197,13 @@ personas:
         - Bash(rm -rf *)
         - Write(/etc/*)
 
-skill_mounts:
-  - path: .wave/shared/
-
 runtime:
   workspace_root: .wave/workspaces
   default_timeout_minutes: 30
-  max_concurrent_workers: 5
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true
     log_dir: .wave/traces/
-  meta_pipeline:
-    max_total_tokens: 500000
-    timeout_minutes: 60
 ```
 
 ## Monitoring
@@ -259,16 +235,6 @@ All executions logged to `runtime.audit.log_dir`:
 ```
 
 ## Cost Management
-
-### Token Limits
-
-Control token usage:
-
-```yaml
-runtime:
-  meta_pipeline:
-    max_total_tokens: 500000
-```
 
 ### Workspace Cleanup
 

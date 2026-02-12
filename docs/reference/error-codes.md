@@ -590,5 +590,4 @@ If you encounter an error not listed here:
 
 - [Troubleshooting Reference](/reference/troubleshooting)
 - [Manifest Schema](/reference/manifest-schema)
-- [GitHub Actions Integration](/integrations/github-actions)
-- [GitLab CI Integration](/integrations/gitlab-ci)
+- [CI/CD Integration](/guides/ci-cd)

@@ -41,11 +41,11 @@ export default withMermaid(
           text: 'Guides',
           items: [
             { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+            { text: 'Sandbox Setup', link: '/guides/sandbox-setup' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
             { text: 'GitHub Integration', link: '/guides/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
             { text: 'Audit Logging', link: '/guides/audit-logging' },
-            { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
             { text: 'State & Resumption', link: '/guides/state-resumption' },
             { text: 'Context Relay', link: '/guides/relay-compaction' },
             { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
@@ -64,23 +64,7 @@ export default withMermaid(
             { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
         },
-        {
-          text: 'Integrations',
-          items: [
-            { text: 'Overview', link: '/integrations/' },
-            { text: 'GitHub Actions', link: '/integrations/github-actions' },
-            { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
-          ]
-        },
-        {
-          text: 'Trust Center',
-          items: [
-            { text: 'Overview', link: '/trust-center/' },
-            { text: 'Security Model', link: '/trust-center/security-model' },
-            { text: 'Compliance', link: '/trust-center/compliance' },
-            { text: 'Audit Logging', link: '/trust-center/audit-logging' }
-          ]
-        },
+        { text: 'Trust Center', link: '/trust-center/' },
         { text: 'Changelog', link: '/changelog' }
       ],
       sidebar: {
@@ -90,15 +74,11 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/use-cases/' },
               { text: 'Code Review', link: '/use-cases/code-review' },
-              { text: 'Security Audit', link: '/use-cases/security-audit' },
-              { text: 'Documentation Generation', link: '/use-cases/documentation-generation' },
+              { text: 'Doc Consistency', link: '/use-cases/doc-loop' },
+              { text: 'Issue Enhancement', link: '/use-cases/github-issue-enhancer' },
+              { text: 'Issue Research', link: '/use-cases/issue-research' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },
-              { text: 'Refactoring', link: '/use-cases/refactoring' },
-              { text: 'Multi-Agent Review', link: '/use-cases/multi-agent-review' },
-              { text: 'Incident Response', link: '/use-cases/incident-response' },
-              { text: 'Developer Onboarding', link: '/use-cases/onboarding' },
-              { text: 'API Design', link: '/use-cases/api-design' },
-              { text: 'Migration', link: '/use-cases/migration' }
+              { text: 'Refactoring', link: '/use-cases/refactoring' }
             ]
           }
         ],
@@ -112,8 +92,7 @@ export default withMermaid(
               { text: 'Personas', link: '/concepts/personas' },
               { text: 'Contracts', link: '/concepts/contracts' },
               { text: 'Artifacts', link: '/concepts/artifacts' },
-              { text: 'Execution', link: '/concepts/execution' },
-              { text: 'Pipeline Execution', link: '/concepts/pipeline-execution' },
+
               { text: 'Workspaces', link: '/concepts/workspaces' },
               { text: 'Adapters', link: '/concepts/adapters' },
               { text: 'Manifests', link: '/concepts/manifests' },
@@ -126,6 +105,7 @@ export default withMermaid(
             text: 'Getting Started',
             items: [
               { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+              { text: 'Sandbox Setup', link: '/guides/sandbox-setup' },
               { text: 'Custom Personas', link: '/guides/custom-personas' }
             ]
           },
@@ -141,8 +121,7 @@ export default withMermaid(
             text: 'Advanced',
             items: [
               { text: 'Audit Logging', link: '/guides/audit-logging' },
-              { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
-              { text: 'State & Resumption', link: '/guides/state-resumption' },
+                { text: 'State & Resumption', link: '/guides/state-resumption' },
               { text: 'Context Relay', link: '/guides/relay-compaction' },
               { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
             ]
@@ -164,27 +143,6 @@ export default withMermaid(
             ]
           }
         ],
-        '/integrations/': [
-          {
-            text: 'Integrations',
-            items: [
-              { text: 'Overview', link: '/integrations/' },
-              { text: 'GitHub Actions', link: '/integrations/github-actions' },
-              { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
-            ]
-          }
-        ],
-        '/trust-center/': [
-          {
-            text: 'Trust Center',
-            items: [
-              { text: 'Overview', link: '/trust-center/' },
-              { text: 'Security Model', link: '/trust-center/security-model' },
-              { text: 'Compliance', link: '/trust-center/compliance' },
-              { text: 'Audit Logging', link: '/trust-center/audit-logging' }
-            ]
-          }
-        ]
       },
       socialLinks: [
         { icon: 'github', link: 'https://github.com/re-cinq/wave' }

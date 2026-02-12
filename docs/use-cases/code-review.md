@@ -24,27 +24,25 @@ Automate pull request reviews with security checks, quality analysis, and action
 wave run code-review "review the authentication module"
 ```
 
-Expected output:
+With `-o text`:
 
 ```
-[10:00:01] started   diff-analysis     (navigator)              Starting step
-[10:00:25] completed diff-analysis     (navigator)   24s   2.5k Analysis complete
-[10:00:26] started   security-review   (auditor)                Starting step
-[10:00:26] started   quality-review    (auditor)                Starting step
-[10:00:45] completed security-review   (auditor)     19s   1.8k Review complete
-[10:00:48] completed quality-review    (auditor)     22s   2.1k Review complete
-[10:00:49] started   summary           (summarizer)             Starting step
-[10:01:05] completed summary           (summarizer)  16s   1.2k Summary complete
+[10:00:01] → diff-analysis (navigator)
+[10:00:01]   diff-analysis: Executing agent
+[10:00:25] ✓ diff-analysis completed (24.0s, 2.5k tokens)
+[10:00:26] → security-review (auditor)
+[10:00:26] → quality-review (auditor)
+[10:00:45] ✓ security-review completed (19.0s, 1.8k tokens)
+[10:00:48] ✓ quality-review completed (22.0s, 2.1k tokens)
+[10:00:49] → summary (summarizer)
+[10:01:05] ✓ summary completed (16.0s, 1.2k tokens)
 
-Pipeline code-review completed in 64s
-Artifacts: output/review-summary.md
+  ✓ Pipeline 'code-review' completed successfully (64s)
 ```
 
 ## Complete Pipeline
 
 This is the full `code-review` pipeline from `.wave/pipelines/code-review.yaml`:
-
-<div v-pre>
 
 <div v-pre>
 
@@ -275,9 +273,7 @@ Modify the security review step to focus on specific severity levels:
 
 ## Related Use Cases
 
-- [Security Audit](/use-cases/security-audit) - Deep security analysis beyond code review
 - [Test Generation](/use-cases/test-generation) - Generate tests for uncovered code
-- [Multi-Agent Review](/use-cases/multi-agent-review) - Comprehensive parallel reviews
 
 ## Next Steps
 
