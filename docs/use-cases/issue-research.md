@@ -26,20 +26,22 @@ wave run issue-research "re-cinq/wave 42"
 
 ## Expected Output
 
-```
-[10:00:01] started   fetch-issue       (github-analyst)         Starting step
-[10:00:18] completed fetch-issue       (github-analyst)  17s   1.1k Fetched
-[10:00:19] started   analyze-topics    (researcher)             Starting step
-[10:01:34] completed analyze-topics    (researcher)     75s   3.2k Topics identified
-[10:01:35] started   research-topics   (researcher)             Starting step
-[10:04:12] completed research-topics   (researcher)    157s   7.4k Research complete
-[10:04:13] started   synthesize-report (summarizer)             Starting step
-[10:05:28] completed synthesize-report (summarizer)     75s   4.1k Report synthesized
-[10:05:29] started   post-comment      (github-commenter)      Starting step
-[10:05:52] completed post-comment      (github-commenter) 23s  0.8k Comment posted
+With `-o text`:
 
-Pipeline issue-research completed in 5m 51s
-Artifacts: output/comment-result.json
+```
+[10:00:01] → fetch-issue (github-analyst)
+[10:00:01]   fetch-issue: Executing agent
+[10:00:18] ✓ fetch-issue completed (17.0s, 1.1k tokens)
+[10:00:19] → analyze-topics (researcher)
+[10:01:34] ✓ analyze-topics completed (75.0s, 3.2k tokens)
+[10:01:35] → research-topics (researcher)
+[10:04:12] ✓ research-topics completed (157.0s, 7.4k tokens)
+[10:04:13] → synthesize-report (summarizer)
+[10:05:28] ✓ synthesize-report completed (75.0s, 4.1k tokens)
+[10:05:29] → post-comment (github-commenter)
+[10:05:52] ✓ post-comment completed (23.0s, 0.8k tokens)
+
+  ✓ Pipeline 'issue-research' completed successfully (5m 51s)
 ```
 
 ## Steps

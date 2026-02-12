@@ -63,17 +63,18 @@ Expected output:
 wave run speckit-flow "add user authentication"
 ```
 
-You'll see progress output:
-```
-[10:00:01] → navigate (navigator)
-[10:01:30] ✓ navigate completed (90s, 2k tokens)
-[10:01:31] → implement (craftsman)
-...
+The default TUI shows a progress bar and spinners. For text output, use `-o text`:
+
+```bash
+wave run speckit-flow "add user authentication" -o text
 ```
 
-For machine-readable NDJSON output, use `-o json`:
-```bash
-wave run speckit-flow "add user authentication" -o json
+```
+[10:00:01] → navigate (navigator)
+[10:00:01]   navigate: Executing agent
+[10:01:30] ✓ navigate completed (90.0s, 2.0k tokens)
+[10:01:31] → implement (craftsman)
+...
 ```
 
 ## 5. Check Results
@@ -86,8 +87,8 @@ Artifacts are saved in `/tmp/wave/<pipeline-id>/<step-id>/`. Each step produces 
 # Ad-hoc task (no full pipeline)
 wave do "fix typo in README"
 
-# Resume interrupted pipeline
-wave resume --pipeline-id <uuid>
+# Resume from a specific step
+wave run speckit-flow --from-step implement
 
 # Clean up workspaces
 wave clean
