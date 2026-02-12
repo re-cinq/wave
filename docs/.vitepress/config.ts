@@ -63,13 +63,7 @@ export default withMermaid(
             { text: 'Troubleshooting', link: '/reference/troubleshooting' }
           ]
         },
-        {
-          text: 'Trust Center',
-          items: [
-            { text: 'Overview', link: '/trust-center/' },
-            { text: 'Security Model', link: '/trust-center/security-model' }
-          ]
-        },
+        { text: 'Trust Center', link: '/trust-center/' },
         { text: 'Changelog', link: '/changelog' }
       ],
       sidebar: {
@@ -148,15 +142,6 @@ export default withMermaid(
             ]
           }
         ],
-        '/trust-center/': [
-          {
-            text: 'Trust Center',
-            items: [
-              { text: 'Overview', link: '/trust-center/' },
-              { text: 'Security Model', link: '/trust-center/security-model' }
-            ]
-          }
-        ]
       },
       socialLinks: [
         { icon: 'github', link: 'https://github.com/re-cinq/wave' }
