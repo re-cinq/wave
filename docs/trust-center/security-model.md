@@ -411,6 +411,6 @@ On timeout:
 
 ## Further Reading
 
-- [Audit Logging Specification](/trust-center/audit-logging) - Complete audit log documentation
+- [Audit Logging Guide](/guides/audit-logging) - Practical audit logging guide
 - [Environment & Credentials](/reference/environment) - Environment variable reference
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide

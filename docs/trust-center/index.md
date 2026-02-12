@@ -19,7 +19,7 @@ Wave enforces strict isolation boundaries, credential protection, and comprehens
 ## Security Resources
 
 - [Security Model](/trust-center/security-model) - Credential handling, workspace isolation, and permission enforcement
-- [Audit Logging Specification](/trust-center/audit-logging) - Log formats, retention, and integration guidance
+- [Audit Logging Guide](/guides/audit-logging) - Configuring audit logging
 
 ## Vulnerability Disclosure
 
