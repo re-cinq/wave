@@ -2,6 +2,10 @@ kind: WavePipeline
 metadata:
   name: refactor
   description: "Safe refactoring with comprehensive test coverage"
+  version: "1.0.0"
+  created: "2026-02-03"
+  author: "Michael W. Czechowski"
+  release: true
 
 input:
   source: cli
@@ -15,7 +19,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -27,18 +31,20 @@ steps:
         3. Find existing test coverage
         4. Identify integration points
 
-        Output as JSON:
-        {
-          "target_files": [],
-          "affected_callers": [],
-          "existing_tests": [],
-          "integration_points": [],
-          "risk_assessment": "low|medium|high"
-        }
+        Write the result as JSON to output/refactor-analysis.json with fields:
+        target_files, affected_callers, existing_tests, integration_points,
+        and risk_assessment (low/medium/high).
     output_artifacts:
       - name: analysis
         path: output/refactor-analysis.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/refactor-analysis.json
+        schema_path: .wave/contracts/refactor-analysis.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: test-baseline
     persona: craftsman
@@ -52,7 +58,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readwrite
     exec:
       type: prompt
@@ -68,9 +74,9 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test ./... -v"
+        command: "{{ project.test_command }}"
 
-        must_pass: false
+        must_pass: true
         on_failure: retry
         max_retries: 2
     output_artifacts:
@@ -93,7 +99,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readwrite
     exec:
       type: prompt
@@ -111,7 +117,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test ./... -v"
+        command: "{{ project.test_command }}"
 
         must_pass: false
         on_failure: retry
