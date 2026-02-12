@@ -175,8 +175,6 @@ steps:
 
 </div>
 
-</div>
-
 ## Expected Outputs
 
 The pipeline produces three artifacts:
