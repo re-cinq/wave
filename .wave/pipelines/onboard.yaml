@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: onboard
   description: "Generate a project onboarding guide for new contributors"
+  release: true
 
 input:
   source: cli

@@ -425,6 +425,125 @@ runtime:
 	}
 }
 
+func TestManifestSkillsConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-skills
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+skills:
+  speckit:
+    install: "uv tool install specify-cli"
+    init: "specify init"
+    check: "specify --version"
+  bmad:
+    install: "npx bmad-method install --yes"
+    check: "ls .claude/commands/bmad.*.md"
+    commands_glob: ".claude/commands/bmad.*.md"
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest with skills: %v", err)
+	}
+
+	if len(m.Skills) != 2 {
+		t.Fatalf("expected 2 skills, got %d", len(m.Skills))
+	}
+
+	speckit, ok := m.Skills["speckit"]
+	if !ok {
+		t.Fatal("speckit skill not found")
+	}
+	if speckit.Install != "uv tool install specify-cli" {
+		t.Errorf("unexpected speckit install: %s", speckit.Install)
+	}
+	if speckit.Init != "specify init" {
+		t.Errorf("unexpected speckit init: %s", speckit.Init)
+	}
+	if speckit.Check != "specify --version" {
+		t.Errorf("unexpected speckit check: %s", speckit.Check)
+	}
+
+	bmad, ok := m.Skills["bmad"]
+	if !ok {
+		t.Fatal("bmad skill not found")
+	}
+	if bmad.CommandsGlob != ".claude/commands/bmad.*.md" {
+		t.Errorf("unexpected bmad commands_glob: %s", bmad.CommandsGlob)
+	}
+}
+
+func TestManifestSkillsMissingCheck(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-skills-invalid
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+skills:
+  speckit:
+    install: "uv tool install specify-cli"
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+
+	_, err := Load(manifestPath)
+	if err == nil {
+		t.Error("expected validation error for skill missing check command")
+	}
+}
+
+func TestManifestSkillsEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-no-skills
+runtime:
+  workspace_root: ./workspace
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest without skills: %v", err)
+	}
+
+	if m.Skills != nil && len(m.Skills) != 0 {
+		t.Errorf("expected nil or empty skills, got %d", len(m.Skills))
+	}
+}
+
 func TestManifestGetPersona(t *testing.T) {
 	m := &Manifest{
 		Personas: map[string]Persona{
