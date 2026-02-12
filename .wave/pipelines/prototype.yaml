@@ -4,7 +4,7 @@ metadata:
   description: "Prototype-driven development pipeline with 5 phases (9 steps): spec, docs, dummy, implement, pr-cycle"
   version: "1.0.0"
   created: "2026-02-03"
-  author: "Wave prototype-driven development feature"
+  author: "Michael W. Czechowski"
 
 input:
   source: cli

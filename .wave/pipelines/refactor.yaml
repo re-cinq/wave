@@ -75,7 +75,7 @@ steps:
         type: test_suite
         command: "{{ project.test_command }}"
 
-        must_pass: false
+        must_pass: true
         on_failure: retry
         max_retries: 2
     output_artifacts:
