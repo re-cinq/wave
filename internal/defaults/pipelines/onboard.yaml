@@ -1,0 +1,131 @@
+kind: WavePipeline
+metadata:
+  name: onboard
+  description: "Generate a project onboarding guide for new contributors"
+  release: true
+
+input:
+  source: cli
+  example: "create an onboarding guide for this project"
+
+steps:
+  - id: survey
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Survey this project to build an onboarding guide: {{ input }}
+
+        ## Survey Checklist
+
+        1. **Project identity**: Find README, package manifests (go.mod, package.json),
+           license, and config files. Determine language, framework, purpose.
+
+        2. **Build system**: How to build, test, and run the project.
+           Find Makefiles, scripts, CI configs, Dockerfiles.
+
+        3. **Directory structure**: Map the top-level layout and key directories.
+           What does each directory contain?
+
+        4. **Architecture**: Identify the main components and how they interact.
+           Find entry points (main.go, index.ts, etc.).
+
+        5. **Dependencies**: List key dependencies and their purposes.
+           Check go.mod, package.json, requirements.txt, etc.
+
+        6. **Configuration**: Find environment variables, config files, feature flags.
+
+        7. **Testing**: Where are tests? How to run them? What patterns are used?
+
+        8. **Development workflow**: Find contributing guides, PR templates,
+           commit conventions, branch strategies.
+
+        9. **Documentation**: Where is documentation? Is it up to date?
+
+        Write the result as JSON to output/project-survey.json matching the contract schema.
+        Include: project (name, language, framework, purpose, license), build (commands,
+        prerequisites, ci_system), structure (path, purpose, key_files), architecture
+        (entry_points, components, patterns), dependencies (key_deps, total_count),
+        configuration (env_vars, config_files, feature_flags), testing (framework, patterns,
+        run_command, coverage_command), workflow, documentation, and timestamp.
+    output_artifacts:
+      - name: survey
+        path: output/project-survey.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/project-survey.json
+        schema_path: .wave/contracts/project-survey.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: guide
+    persona: philosopher
+    dependencies: [survey]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: survey
+          artifact: survey
+          as: project_info
+    exec:
+      type: prompt
+      source: |
+        Write a comprehensive onboarding guide for new contributors.
+
+        Read the project survey: cat artifacts/project_info
+
+        Write to output/onboarding-guide.md with these sections:
+
+        # Onboarding Guide: [Project Name]
+
+        ## Quick Start
+        - Prerequisites (what to install)
+        - Clone and build (exact commands)
+        - Run tests (exact commands)
+        - Run the project (exact commands)
+
+        ## Project Overview
+        - What this project does (2-3 sentences)
+        - Key technologies and why they were chosen
+        - High-level architecture (ASCII diagram)
+
+        ## Directory Map
+        - What each top-level directory contains
+        - Where to find things (tests, configs, docs)
+
+        ## Core Concepts
+        - Key abstractions and terminology
+        - How the main components interact
+        - Data flow through the system
+
+        ## Development Workflow
+        - How to create a feature branch
+        - Commit message conventions
+        - How to run tests before pushing
+        - PR process
+
+        ## Common Tasks
+        - "I want to add a new [feature/command/endpoint]" → where to start
+        - "I want to fix a bug" → debugging approach
+        - "I want to understand [component]" → where to look
+
+        ## Helpful Resources
+        - Documentation locations
+        - Key files to read first
+        - Related external docs
+
+        Write for someone on their first day with this codebase.
+        Be specific — use real paths, real commands, real examples.
+    output_artifacts:
+      - name: guide
+        path: output/onboarding-guide.md
+        type: markdown
