@@ -41,6 +41,7 @@ export default withMermaid(
           text: 'Guides',
           items: [
             { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+            { text: 'Sandbox Setup', link: '/guides/sandbox-setup' },
             { text: 'CI/CD Integration', link: '/guides/ci-cd' },
             { text: 'GitHub Integration', link: '/guides/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
@@ -105,6 +106,7 @@ export default withMermaid(
             text: 'Getting Started',
             items: [
               { text: 'Pipeline Configuration', link: '/guides/pipeline-configuration' },
+              { text: 'Sandbox Setup', link: '/guides/sandbox-setup' },
               { text: 'Custom Personas', link: '/guides/custom-personas' }
             ]
           },
