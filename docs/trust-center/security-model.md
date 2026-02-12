@@ -363,19 +363,6 @@ Failed contract validation results in:
 }
 ```
 
-### Integration with SIEM
-
-Security events can be forwarded to SIEM systems:
-
-```yaml
-runtime:
-  audit:
-    log_dir: .wave/traces/
-    log_all_tool_calls: true
-```
-
-Events are written as NDJSON for easy parsing and ingestion.
-
 ## Process Isolation
 
 ### Subprocess Architecture
@@ -424,7 +411,6 @@ On timeout:
 
 ## Further Reading
 
-- [Compliance Roadmap](/trust-center/compliance) - Certification status and timeline
 - [Audit Logging Specification](/trust-center/audit-logging) - Complete audit log documentation
 - [Environment & Credentials](/reference/environment) - Environment variable reference
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
