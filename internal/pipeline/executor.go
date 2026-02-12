@@ -56,6 +56,8 @@ type DefaultPipelineExecutor struct {
 	securityLogger *security.SecurityLogger
 	// Deliverable tracking
 	deliverableTracker *deliverable.Tracker
+	// Pre-generated run ID (optional — if empty, Execute generates one)
+	runID string
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -82,6 +84,10 @@ func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
 
 func WithRelayMonitor(r *relay.RelayMonitor) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.relayMonitor = r }
+}
+
+func WithRunID(id string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.runID = id }
 }
 
 type PipelineExecution struct {
@@ -129,8 +135,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	pipelineName := p.Metadata.Name
-	hashLength := m.Runtime.PipelineIDHashLength
-	pipelineID := GenerateRunID(pipelineName, hashLength)
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Initialize deliverable tracker for this pipeline (only if not already set)
