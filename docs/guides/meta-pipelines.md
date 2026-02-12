@@ -89,6 +89,8 @@ runtime:
 
 ### Meta-Pipeline Template
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -139,6 +141,8 @@ steps:
         Execute the generated pipeline from the analyze step.
         Validate it, then run it with full depth tracking.
 ```
+
+</div>
 
 ## Semantic Validation Rules
 
