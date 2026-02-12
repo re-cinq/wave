@@ -1,0 +1,129 @@
+kind: WavePipeline
+metadata:
+  name: improve
+  description: "Analyze code and apply targeted improvements"
+
+input:
+  source: cli
+  example: "improve error handling in internal/pipeline"
+
+steps:
+  - id: assess
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Assess the code for improvement opportunities: {{ input }}
+
+        ## Assessment Areas
+
+        1. **Code quality**: Readability, naming, structure, duplication
+        2. **Error handling**: Missing checks, swallowed errors, unclear messages
+        3. **Performance**: Unnecessary allocations, N+1 patterns, missing caching
+        4. **Testability**: Hard-to-test code, missing interfaces, tight coupling
+        5. **Robustness**: Missing nil checks, race conditions, resource leaks
+        6. **Maintainability**: Complex functions, deep nesting, magic numbers
+
+        For each finding, assess:
+        - Impact: how much does fixing it improve the code?
+        - Effort: how hard is the fix?
+        - Risk: could the fix introduce regressions?
+
+        Write the result as JSON to output/assessment.json matching the contract schema.
+        Include: target, findings (id, category, title, location, description, current_code,
+        suggested_fix, impact, effort, risk), summary (total_findings, by_category, quick_wins,
+        high_impact, overall_quality), and timestamp.
+    output_artifacts:
+      - name: assessment
+        path: output/assessment.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/assessment.json
+        schema_path: .wave/contracts/improvement-assessment.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: implement
+    persona: craftsman
+    dependencies: [assess]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: assess
+          artifact: assessment
+          as: findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Apply the recommended improvements to the codebase.
+
+        Read the assessment: cat artifacts/findings
+
+        ## Rules
+
+        1. **Start with quick wins**: Apply trivial/small effort fixes first
+        2. **One improvement at a time**: Make each change, verify it compiles,
+           then move to the next
+        3. **Preserve behavior**: Improvements must not change external behavior
+        4. **Run tests**: After each significant change, run relevant tests
+        5. **Skip high-risk items**: Do not apply changes rated risk=high
+           without explicit test coverage
+        6. **Document changes**: Track what was changed and why
+
+        Focus on the findings with the best impact-to-effort ratio.
+        Do NOT refactor beyond what was identified in the assessment.
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [implement]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: assess
+          artifact: assessment
+          as: original_findings
+    exec:
+      type: prompt
+      source: |
+        Verify the improvements were applied correctly.
+
+        Read the original assessment: cat artifacts/original_findings
+
+        For each improvement that was applied:
+        1. Is the fix correct and complete?
+        2. Does it actually address the identified issue?
+        3. Were any new issues introduced?
+        4. Are tests still passing?
+
+        For improvements NOT applied, confirm they were appropriately skipped.
+
+        Output a verification report to output/verification.md:
+        - Applied improvements (with before/after)
+        - Skipped items (with justification)
+        - New issues found (if any)
+        - Overall quality delta assessment
+    output_artifacts:
+      - name: verification
+        path: output/verification.md
+        type: markdown
