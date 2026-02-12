@@ -2,7 +2,6 @@ kind: WavePipeline
 metadata:
   name: changelog
   description: "Generate structured changelog from git history"
-  release: true
 
 input:
   source: cli
