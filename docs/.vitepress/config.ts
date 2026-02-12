@@ -64,12 +64,6 @@ export default withMermaid(
           ]
         },
         {
-          text: 'Integrations',
-          items: [
-            { text: 'Overview', link: '/integrations/' }
-          ]
-        },
-        {
           text: 'Trust Center',
           items: [
             { text: 'Overview', link: '/trust-center/' },
@@ -152,14 +146,6 @@ export default withMermaid(
               { text: 'Contract Types', link: '/reference/contract-types' },
               { text: 'Error Codes', link: '/reference/error-codes' },
               { text: 'Troubleshooting', link: '/reference/troubleshooting' }
-            ]
-          }
-        ],
-        '/integrations/': [
-          {
-            text: 'Integrations',
-            items: [
-              { text: 'Overview', link: '/integrations/' }
             ]
           }
         ],
