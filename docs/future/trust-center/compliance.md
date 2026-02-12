@@ -235,8 +235,8 @@ For enterprise sales with compliance requirements:
 
 ## Further Reading
 
-- [Security Model](/trust-center/security-model) - Detailed security architecture
-- [Audit Logging](/trust-center/audit-logging) - Audit log specification
+- [Security Model](./security-model) - Detailed security architecture
+- [Audit Logging](./audit-logging) - Audit log specification
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
 
 ---

@@ -431,9 +431,9 @@ steps:
 
 ## Related Use Cases
 
-- [Documentation Generation](/use-cases/documentation-generation) - Generate API docs
+- [Documentation Generation](./documentation-generation) - Generate API docs
 - [Code Review](/use-cases/code-review) - Learn review standards
-- [API Design](/use-cases/api-design) - Understand API patterns
+- [API Design](./api-design) - Understand API patterns
 
 ## Next Steps
 
