@@ -16,7 +16,7 @@ Every pipeline step executes in an **ephemeral workspace** — an isolated direc
 ## Lifecycle
 
 ```mermaid
-graph LR
+graph TD
     C[Create] --> M[Mount Sources]
     M --> I[Inject Artifacts]
     I --> E[Execute Step]
