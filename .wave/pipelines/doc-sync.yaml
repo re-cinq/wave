@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: doc-sync
   description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
+  release: true
 
 input:
   source: cli
@@ -107,14 +108,12 @@ steps:
           artifact: fix_plan
           as: plan
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "fix/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        Fix the documentation inconsistencies and commit to a feature branch.
+        Fix the documentation inconsistencies on this isolated worktree branch.
 
         Read the scan results and fix plan:
           cat artifacts/scan
@@ -122,22 +121,15 @@ steps:
 
         ## Process
 
-        1. **Create a feature branch**:
-           ```bash
-           cd "$(git rev-parse --show-toplevel)"
-           BRANCH="fix/doc-sync-$(date +%Y%m%d-%H%M%S)"
-           git checkout -b "$BRANCH"
-           ```
-
-        2. **Apply fixes** following the priority order from the plan:
+        1. **Apply fixes** following the priority order from the plan:
            - Edit documentation files to fix each inconsistency
            - Keep changes minimal and focused
            - Preserve existing formatting and style
            - Do NOT modify source code — docs-only changes
 
-        3. **Verify**: Ensure no broken links or formatting issues
+        2. **Verify**: Ensure no broken links or formatting issues
 
-        4. **Commit**:
+        3. **Commit**:
            ```bash
            git add <changed-doc-files>
            git commit -m "docs: sync documentation with implementation
@@ -148,13 +140,10 @@ steps:
            ..."
            ```
 
-        5. **Push** (if remote available):
-           ```bash
-           git push -u origin "$BRANCH" 2>/dev/null || true
-           ```
+        Do NOT push or create a PR — just commit to this worktree branch.
 
         Write a summary to output/result.md:
-        - Branch name created
+        - Branch name
         - List of files modified
         - Findings fixed vs skipped
         - Commit hash

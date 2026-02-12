@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: improve
   description: "Analyze code and apply targeted improvements"
+  release: true
 
 input:
   source: cli

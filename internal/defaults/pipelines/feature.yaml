@@ -114,40 +114,33 @@ steps:
           artifact: plan
           as: plan
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "feat/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        Implement the feature and commit to a new branch.
+        Implement the feature on this isolated worktree branch.
 
         Read the exploration and plan:
           cat artifacts/context
           cat artifacts/plan
 
+        Feature: {{ input }}
+
         ## Process
 
-        1. **Create a feature branch**:
-           ```bash
-           cd "$(git rev-parse --show-toplevel)"
-           BRANCH="<branch_name_suggestion from plan>"
-           git checkout -b "$BRANCH"
-           ```
-
-        2. **Implement step by step** following the plan:
+        1. **Implement step by step** following the plan:
            - Follow existing codebase patterns identified in exploration
            - Write tests alongside implementation
            - After each significant change, verify it compiles: `go build ./...`
 
-        3. **Run full test suite**:
+        2. **Run full test suite**:
            ```bash
            go test ./... -count=1
            ```
            Fix any failures before proceeding.
 
-        4. **Commit**:
+        3. **Commit**:
            ```bash
            git add <specific-files>
            git commit -m "<commit_message_suggestion from plan>
@@ -158,12 +151,7 @@ steps:
            ..."
            ```
 
-        5. **Push** (if remote available):
-           ```bash
-           git push -u origin "$BRANCH" 2>/dev/null || true
-           ```
-
-        Do NOT create a PR — just the branch with commits.
+        Do NOT push or create a PR — just commit to this worktree branch.
     handover:
       contract:
         type: test_suite
