@@ -476,6 +476,7 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 
 	return &PipelineContext{
 		PipelineName:      pd.pipelineName,
+		PipelineID:        pd.pipelineID,
 		OverallProgress:   overallProgress,
 		CurrentStepNum:    pd.currentStepIdx + 1, // 1-indexed for display
 		TotalSteps:        pd.totalSteps,
