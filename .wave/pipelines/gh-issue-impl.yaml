@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: github-issue-impl
+  name: gh-issue-impl
   description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
 
 input:
