@@ -590,4 +590,4 @@ If you encounter an error not listed here:
 
 - [Troubleshooting Reference](/reference/troubleshooting)
 - [Manifest Schema](/reference/manifest-schema)
-- [Integrations Overview](/integrations/)
+- [CI/CD Integration](/guides/ci-cd)
