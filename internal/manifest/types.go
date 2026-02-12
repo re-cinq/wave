@@ -20,8 +20,9 @@ type Manifest struct {
 	Project     *Project            `yaml:"project,omitempty"`
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
-	Runtime     Runtime             `yaml:"runtime"`
-	SkillMounts []SkillMount        `yaml:"skill_mounts,omitempty"`
+	Runtime     Runtime                    `yaml:"runtime"`
+	SkillMounts []SkillMount               `yaml:"skill_mounts,omitempty"`
+	Skills      map[string]SkillConfig     `yaml:"skills,omitempty"`
 }
 
 type Metadata struct {
@@ -136,6 +137,14 @@ type MetaConfig struct {
 
 type SkillMount struct {
 	Path string `yaml:"path"`
+}
+
+// SkillConfig declares an external skill with install, init, and check commands.
+type SkillConfig struct {
+	Install      string `yaml:"install,omitempty"`      // Command to install the skill
+	Init         string `yaml:"init,omitempty"`          // Command to initialize the skill after install
+	Check        string `yaml:"check,omitempty"`         // Command to verify the skill is installed
+	CommandsGlob string `yaml:"commands_glob,omitempty"` // Glob pattern for skill command files (default: .claude/commands/<name>.*.md)
 }
 
 // ProjectVars returns project config as a key-value map for template resolution.

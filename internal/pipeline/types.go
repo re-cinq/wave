@@ -11,8 +11,15 @@ const (
 type Pipeline struct {
 	Kind     string           `yaml:"kind"`
 	Metadata PipelineMetadata `yaml:"metadata"`
+	Requires *Requires        `yaml:"requires,omitempty"`
 	Input    InputConfig      `yaml:"input"`
 	Steps    []Step           `yaml:"steps"`
+}
+
+// Requires declares pipeline dependencies that must be satisfied before execution.
+type Requires struct {
+	Skills []string `yaml:"skills,omitempty"` // Skill names that must be installed
+	Tools  []string `yaml:"tools,omitempty"`  // CLI tools that must be on PATH
 }
 
 // PipelineName returns the logical pipeline name from metadata.
@@ -65,8 +72,10 @@ type ArtifactRef struct {
 }
 
 type WorkspaceConfig struct {
-	Root  string  `yaml:"root,omitempty"`
-	Mount []Mount `yaml:"mount,omitempty"`
+	Root   string  `yaml:"root,omitempty"`
+	Mount  []Mount `yaml:"mount,omitempty"`
+	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for legacy directory
+	Branch string  `yaml:"branch,omitempty"` // Branch name for worktree workspaces
 }
 
 type Mount struct {
@@ -76,9 +85,11 @@ type Mount struct {
 }
 
 type ExecConfig struct {
-	Type       string `yaml:"type"`
-	Source     string `yaml:"source,omitempty"`
-	SourcePath string `yaml:"source_path,omitempty"`
+	Type       string `yaml:"type"`                  // "prompt", "command", or "slash_command"
+	Source     string `yaml:"source,omitempty"`       // Inline prompt content
+	SourcePath string `yaml:"source_path,omitempty"`  // Path to prompt file
+	Command    string `yaml:"command,omitempty"`      // Slash command name (for type: slash_command)
+	Args       string `yaml:"args,omitempty"`         // Arguments for slash command
 }
 
 type ArtifactDef struct {
