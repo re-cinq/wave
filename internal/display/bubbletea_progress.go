@@ -53,6 +53,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 	// Initial pipeline context
 	initialCtx := &PipelineContext{
 		PipelineName:      pipelineName,
+		PipelineID:        pipelineID,
 		OverallProgress:   0,
 		CurrentStepNum:    1,
 		TotalSteps:        totalSteps,
@@ -344,6 +345,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 
 	return &PipelineContext{
 		PipelineName:       btpd.pipelineName,
+		PipelineID:         btpd.pipelineID,
 		OverallProgress:    overallProgress,
 		CurrentStepNum:     currentStepIdx + 1, // 1-indexed for display
 		TotalSteps:         btpd.totalSteps,
