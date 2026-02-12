@@ -22,7 +22,7 @@ steps:
       source: |
         Analyze test coverage for: {{ input }}
 
-        1. Run coverage analysis (go test -cover)
+        1. Run coverage analysis using the project test command with coverage flags
         2. Identify uncovered functions and branches
         3. Find edge cases not tested
         4. Map dependencies that need mocking
@@ -70,7 +70,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test ./... -v"
+        command: "{{ project.test_command }}"
 
         must_pass: false
         on_failure: retry
