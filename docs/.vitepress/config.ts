@@ -86,10 +86,11 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/use-cases/' },
               { text: 'Code Review', link: '/use-cases/code-review' },
-              { text: 'Documentation Generation', link: '/use-cases/documentation-generation' },
+              { text: 'Doc Consistency', link: '/use-cases/doc-loop' },
+              { text: 'Issue Enhancement', link: '/use-cases/github-issue-enhancer' },
+              { text: 'Issue Research', link: '/use-cases/issue-research' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },
-              { text: 'Refactoring', link: '/use-cases/refactoring' },
-              { text: 'Developer Onboarding', link: '/use-cases/onboarding' }
+              { text: 'Refactoring', link: '/use-cases/refactoring' }
             ]
           }
         ],
