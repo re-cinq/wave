@@ -1140,6 +1140,22 @@ func (e *DefaultPipelineExecutor) GetDeliverableTracker() *deliverable.Tracker {
 	return e.deliverableTracker
 }
 
+// GetTotalTokens returns the sum of tokens used across all completed steps.
+func (e *DefaultPipelineExecutor) GetTotalTokens() int {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	var total int
+	for _, execution := range e.pipelines {
+		for _, result := range execution.Results {
+			if tokens, ok := result["tokens_used"].(int); ok {
+				total += tokens
+			}
+		}
+	}
+	return total
+}
+
 func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {
 	e.mu.RLock()
 	execution, exists := e.pipelines[pipelineID]
