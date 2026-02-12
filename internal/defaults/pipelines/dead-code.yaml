@@ -1,0 +1,201 @@
+kind: WavePipeline
+metadata:
+  name: dead-code
+  description: "Find dead or redundant code, remove it, and commit to a feature branch"
+  release: true
+
+input:
+  source: cli
+  example: "find and remove dead code in internal/pipeline"
+
+steps:
+  - id: scan
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan for dead or redundant code: {{ input }}
+
+        ## What to Look For
+
+        1. **Unused exports**: Exported functions, types, constants, or variables
+           that are never referenced outside their package.
+
+        2. **Unreachable code**: Code after return/panic, impossible branches,
+           dead switch cases.
+
+        3. **Orphaned files**: Files not imported by any other file in the project.
+
+        4. **Redundant code**: Duplicate functions, copy-paste blocks,
+           wrappers that add no value.
+
+        5. **Stale tests**: Tests for functions that no longer exist,
+           or tests that test nothing meaningful.
+
+        6. **Unused dependencies**: Imports that are no longer needed.
+
+        7. **Commented-out code**: Large blocks of commented code that
+           should be deleted (git has history).
+
+        ## Verification
+
+        For each finding, verify it's truly dead:
+        - Grep for all references across the entire codebase
+        - Check for reflect-based or string-based usage
+        - Check if it's part of an interface implementation
+        - Check for build tag conditional compilation
+
+        Write JSON to output/dead-code-scan.json:
+
+        {
+          "target": "what was scanned",
+          "findings": [
+            {
+              "id": "DC-001",
+              "type": "unused_export|unreachable|orphaned_file|redundant|stale_test|unused_import|commented_code",
+              "location": "file:line",
+              "symbol": "FunctionName or file path",
+              "description": "why this is dead",
+              "evidence": "grep results or analysis showing no usage",
+              "confidence": "high|medium|low",
+              "safe_to_remove": true,
+              "removal_note": "any caveats"
+            }
+          ],
+          "summary": {
+            "total_findings": 0,
+            "by_type": {},
+            "high_confidence_count": 0,
+            "estimated_lines_removable": 0
+          },
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/dead-code-scan.json.
+        Only include findings with high or medium confidence. Skip low confidence.
+    output_artifacts:
+      - name: scan_results
+        path: output/dead-code-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/dead-code-scan.json
+        schema_path: .wave/contracts/dead-code-scan.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: clean
+    persona: craftsman
+    dependencies: [scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: findings
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Remove the dead code and commit to a feature branch.
+
+        Read the scan findings: cat artifacts/findings
+
+        ## Process
+
+        1. **Create a cleanup branch**:
+           ```bash
+           cd "$(git rev-parse --show-toplevel)"
+           BRANCH="chore/dead-code-cleanup-$(date +%Y%m%d-%H%M%S)"
+           git checkout -b "$BRANCH"
+           ```
+
+        2. **Remove dead code** — ONLY high-confidence findings:
+           - Start with unused imports (safest)
+           - Then commented-out code blocks
+           - Then unused exports
+           - Then orphaned files
+           - Skip anything with confidence=medium unless trivially safe
+           - After each removal, verify: `go build ./...`
+
+        3. **Run goimports** if available to clean up imports:
+           ```bash
+           goimports -w <modified-files> 2>/dev/null || true
+           ```
+
+        4. **Run full test suite**:
+           ```bash
+           go test ./... -count=1
+           ```
+
+        5. **Commit**:
+           ```bash
+           git add <specific-files>
+           git commit -m "chore: remove dead code
+
+           Removed N items of dead code:
+           - DC-001: <symbol> (unused export)
+           - DC-002: <file> (orphaned file)
+           ..."
+           ```
+
+        6. **Push**:
+           ```bash
+           git push -u origin "$BRANCH" 2>/dev/null || true
+           ```
+
+        If ANY test fails after a removal, revert that specific removal
+        and continue with the next item.
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -count=1"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [clean]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_findings
+    exec:
+      type: prompt
+      source: |
+        Verify the dead code removal was safe.
+
+        Read the original findings: cat artifacts/original_findings
+
+        Check:
+        1. Were only high-confidence items removed?
+        2. Are all tests still passing?
+        3. Does the project still build cleanly?
+        4. Were any false positives accidentally removed?
+        5. Is the commit focused (no unrelated changes)?
+
+        Output a verification report to output/verification.md:
+        - Items removed (with justification)
+        - Items skipped (with reason)
+        - Lines of code removed
+        - Test status
+        - Overall assessment: CLEAN / NEEDS_REVIEW
+    output_artifacts:
+      - name: verification
+        path: output/verification.md
+        type: markdown

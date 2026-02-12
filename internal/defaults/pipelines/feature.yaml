@@ -1,0 +1,207 @@
+kind: WavePipeline
+metadata:
+  name: feature
+  description: "Plan, implement, test, and commit a feature to a new branch"
+  release: true
+
+input:
+  source: cli
+  example: "add a --dry-run flag to the run command"
+
+steps:
+  - id: explore
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Explore the codebase to plan this feature: {{ input }}
+
+        ## Exploration
+
+        1. **Understand the request**: What is being asked? Assess scope
+           (small = 1-2 files, medium = 3-7, large = 8+).
+
+        2. **Find related code**: Use Glob and Grep to find files related
+           to the feature. Note paths, relevance, and key symbols.
+
+        3. **Identify patterns**: Read key files. Document conventions that
+           must be followed (naming, error handling, testing patterns).
+
+        4. **Map affected modules**: Which packages are directly/indirectly affected?
+
+        5. **Survey tests**: Find related test files, testing patterns, gaps.
+
+        6. **Assess risks**: Breaking changes, performance, security implications.
+
+        Write JSON to output/exploration.json:
+
+        {
+          "feature": "what is being built",
+          "scope": "small|medium|large",
+          "related_files": [
+            {"path": "file.go", "relevance": "primary|secondary", "reason": "why", "key_symbols": []}
+          ],
+          "patterns_to_follow": [
+            {"name": "pattern", "example_file": "path", "relevance": "must_follow|should_follow"}
+          ],
+          "affected_modules": ["pkg1", "pkg2"],
+          "test_files": ["path/to/test.go"],
+          "risks": [
+            {"description": "risk", "severity": "high|medium|low", "mitigation": "how"}
+          ],
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/exploration.json.
+    output_artifacts:
+      - name: exploration
+        path: output/exploration.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/exploration.json
+        schema_path: .wave/contracts/feature-exploration.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: plan
+    persona: planner
+    dependencies: [explore]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Create an implementation plan for this feature.
+
+        Feature: {{ input }}
+
+        Read the exploration: cat artifacts/context
+
+        Break the feature into ordered implementation steps:
+
+        1. For each step: what to do, which files to modify, acceptance criteria
+        2. Dependencies between steps
+        3. What tests to write
+        4. Complexity estimate per step (S/M/L)
+
+        Write JSON to output/plan.json:
+
+        {
+          "feature": "what is being built",
+          "steps": [
+            {
+              "id": "S01",
+              "title": "step title",
+              "description": "what to do",
+              "files_to_modify": ["path.go"],
+              "files_to_create": [],
+              "tests_to_write": ["description of test"],
+              "acceptance_criteria": ["criterion"],
+              "complexity": "S|M|L",
+              "dependencies": []
+            }
+          ],
+          "total_complexity": "S|M|L|XL",
+          "branch_name_suggestion": "feat/descriptive-name",
+          "commit_message_suggestion": "feat: description of feature",
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/plan.json.
+    output_artifacts:
+      - name: plan
+        path: output/plan.json
+        type: json
+
+  - id: implement
+    persona: craftsman
+    dependencies: [plan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+        - step: plan
+          artifact: plan
+          as: plan
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Implement the feature and commit to a new branch.
+
+        Read the exploration and plan:
+          cat artifacts/context
+          cat artifacts/plan
+
+        ## Process
+
+        1. **Create a feature branch**:
+           ```bash
+           cd "$(git rev-parse --show-toplevel)"
+           BRANCH="<branch_name_suggestion from plan>"
+           git checkout -b "$BRANCH"
+           ```
+
+        2. **Implement step by step** following the plan:
+           - Follow existing codebase patterns identified in exploration
+           - Write tests alongside implementation
+           - After each significant change, verify it compiles: `go build ./...`
+
+        3. **Run full test suite**:
+           ```bash
+           go test ./... -count=1
+           ```
+           Fix any failures before proceeding.
+
+        4. **Commit**:
+           ```bash
+           git add <specific-files>
+           git commit -m "<commit_message_suggestion from plan>
+
+           Implementation following plan:
+           - S01: <title>
+           - S02: <title>
+           ..."
+           ```
+
+        5. **Push** (if remote available):
+           ```bash
+           git push -u origin "$BRANCH" 2>/dev/null || true
+           ```
+
+        Do NOT create a PR — just the branch with commits.
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -count=1"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+    output_artifacts:
+      - name: result
+        path: output/result.md
+        type: markdown
