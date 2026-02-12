@@ -67,8 +67,7 @@ export default withMermaid(
           text: 'Trust Center',
           items: [
             { text: 'Overview', link: '/trust-center/' },
-            { text: 'Security Model', link: '/trust-center/security-model' },
-            { text: 'Audit Logging', link: '/trust-center/audit-logging' }
+            { text: 'Security Model', link: '/trust-center/security-model' }
           ]
         },
         { text: 'Changelog', link: '/changelog' }
@@ -154,8 +153,7 @@ export default withMermaid(
             text: 'Trust Center',
             items: [
               { text: 'Overview', link: '/trust-center/' },
-              { text: 'Security Model', link: '/trust-center/security-model' },
-              { text: 'Audit Logging', link: '/trust-center/audit-logging' }
+              { text: 'Security Model', link: '/trust-center/security-model' }
             ]
           }
         ]
