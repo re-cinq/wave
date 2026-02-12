@@ -7,45 +7,47 @@
 
 ## Install Wave
 
-### GitHub Release (Recommended)
+### Install Script (Recommended)
 
-Download pre-built binaries from [GitHub Releases](https://github.com/re-cinq/wave/releases):
-
-| Platform | Architecture | Archive |
-|----------|-------------|---------|
-| Linux | x86_64 | `wave_<version>_linux_amd64.tar.gz` |
-| Linux | ARM64 | `wave_<version>_linux_arm64.tar.gz` |
-| Linux (deb) | x86_64 | `wave_<version>_linux_amd64.deb` |
-| Linux (deb) | ARM64 | `wave_<version>_linux_arm64.deb` |
-| macOS | Intel | `wave_<version>_darwin_amd64.zip` |
-| macOS | Apple Silicon | `wave_<version>_darwin_arm64.zip` |
-
-#### Linux (tar.gz)
+The install script detects your OS and architecture, downloads the correct binary from [GitHub Releases](https://github.com/re-cinq/wave/releases), and verifies the SHA256 checksum:
 
 ```bash
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
-tar -xzf wave_linux_amd64.tar.gz
-sudo mv wave /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 ```
 
-#### Linux (deb)
+Install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh -s -- 0.3.0
+```
+
+Override the install directory:
+
+```bash
+WAVE_INSTALL_DIR=~/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+```
+
+**Supported platforms:** Linux (x86_64, ARM64), macOS (Intel, Apple Silicon)
+
+The script installs to `/usr/local/bin` when run as root, or `~/.local/bin` otherwise. It warns you if the install directory is not on your `PATH`.
+
+### Debian / Ubuntu (.deb)
 
 ```bash
 curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
 sudo dpkg -i wave_linux_amd64.deb
 ```
 
-#### macOS
+### Manual Download
 
-```bash
-# Apple Silicon
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_arm64.zip
-unzip wave_darwin_arm64.zip && sudo mv wave /usr/local/bin/
+Download pre-built archives from [GitHub Releases](https://github.com/re-cinq/wave/releases):
 
-# Intel
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_amd64.zip
-unzip wave_darwin_amd64.zip && sudo mv wave /usr/local/bin/
-```
+| Platform | Architecture | Archive |
+|----------|-------------|---------|
+| Linux | x86_64 | `wave_<version>_linux_amd64.tar.gz` |
+| Linux | ARM64 | `wave_<version>_linux_arm64.tar.gz` |
+| macOS | Intel | `wave_<version>_darwin_amd64.zip` |
+| macOS | Apple Silicon | `wave_<version>_darwin_arm64.zip` |
 
 ### Build from Source
 
@@ -77,6 +79,8 @@ claude --version
 ```bash
 # Remove binary
 sudo rm /usr/local/bin/wave
+# or
+rm ~/.local/bin/wave
 
 # Debian/Ubuntu
 sudo apt remove wave
