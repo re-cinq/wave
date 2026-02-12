@@ -223,7 +223,14 @@ func runRun(opts RunOptions, debug bool) error {
 
 	// Show human summary only in auto/text modes — json and quiet stay clean
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-		fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n", p.Metadata.Name, elapsed.Seconds())
+		totalTokens := executor.GetTotalTokens()
+		if totalTokens > 0 {
+			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs, %s tokens)\n",
+				p.Metadata.Name, elapsed.Seconds(), display.FormatTokenCount(totalTokens))
+		} else {
+			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n",
+				p.Metadata.Name, elapsed.Seconds())
+		}
 
 		if deliverables := executor.GetDeliverables(); deliverables != "" {
 			fmt.Fprint(os.Stderr, "\n")
