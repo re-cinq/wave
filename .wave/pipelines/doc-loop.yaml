@@ -41,11 +41,10 @@ steps:
 
         Sort each changed file into one of these categories:
         - **source_code**: source files matching the project language (excluding test files)
-        - **pipelines**: files in `.wave/pipelines/` or `internal/defaults/pipelines/`
-        - **personas**: files in `.wave/personas/` or `internal/defaults/personas/`
-        - **contracts**: files in `.wave/contracts/` or `internal/defaults/contracts/`
-        - **documentation**: `*.md` files, `docs/` directory
-        - **configuration**: config files (wave.yaml, *.json schemas, etc.)
+        - **tests**: test files (files with test/spec in name or in test directories)
+        - **documentation**: markdown files, doc directories, README, CONTRIBUTING, CHANGELOG
+        - **configuration**: config files, schema files, environment configs
+        - **build**: build scripts, CI/CD configs, Makefiles, Dockerfiles
         - **other**: everything else
 
         ## Read Documentation Surface Area
@@ -104,28 +103,24 @@ steps:
 
         For each category of changed files, perform these checks:
 
-        **CLI/API commands** (changed command or endpoint files):
-        - Compare command/endpoint definitions against documentation
+        **CLI/API surface** (changed command or endpoint files):
+        - Compare command definitions, endpoints, or public interfaces against documentation
         - Check for new, removed, or changed options/parameters
-        - Verify examples still work
+        - Verify documented examples still work
 
         **Configuration** (changed config schemas or parsers):
         - Compare documented options against actual config structure
         - Check for undocumented settings or environment variables
 
-        **Core modules** (changed source code):
-        - Check persona descriptions match across manifest, docs, and README
-        - Verify pipeline descriptions and step counts match docs
-        - Check for orphaned or missing contract references
+        **Source code** (changed source files):
+        - Check for new exported functions/types that might need API docs
+        - Look for stale code comments referencing removed features
+        - Verify public API descriptions in docs match actual behavior
 
         **Environment variables**:
         - Scan source code for environment variable access patterns
         - Compare against documentation
         - Flag undocumented environment variables
-
-        **Source code changes**:
-        - Check for new exported functions/types that might need API docs
-        - Look for stale code comments referencing removed features
 
         ## Severity Rating
 
