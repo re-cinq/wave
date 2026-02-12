@@ -217,7 +217,7 @@ func (ss *StepStatus) Render() string {
 
 	// Tokens used (for completed steps)
 	if ss.TokensUsed > 0 && (ss.State == StateCompleted || ss.State == StateFailed) {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" • %dk tokens", ss.TokensUsed/1000)))
+		sb.WriteString(codec.Muted(fmt.Sprintf(" • %s tokens", FormatTokenCount(ss.TokensUsed))))
 	}
 
 	// Message
@@ -556,8 +556,8 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 				fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
 			}
 		case "completed":
-			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %dk tokens)\n",
-				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, ev.TokensUsed/1000)
+			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
+				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
 		case "failed":
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
