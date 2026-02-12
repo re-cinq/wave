@@ -5,6 +5,7 @@ metadata:
   version: "1.0.0"
   created: "2026-02-03"
   author: "Michael W. Czechowski"
+  release: true
 
 input:
   source: cli
@@ -75,7 +76,7 @@ steps:
         type: test_suite
         command: "{{ project.test_command }}"
 
-        must_pass: false
+        must_pass: true
         on_failure: retry
         max_retries: 2
     output_artifacts:
