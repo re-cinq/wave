@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: github-issue-enhancer
-  description: "Production pipeline to analyze and enhance poorly documented GitHub issues"
+  name: gh-issue-rewrite
+  description: "Analyze and rewrite poorly documented GitHub issues"
   release: true
 
 input:

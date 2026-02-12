@@ -19,7 +19,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -58,7 +58,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readwrite
     exec:
       type: prompt
@@ -99,7 +99,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readwrite
     exec:
       type: prompt

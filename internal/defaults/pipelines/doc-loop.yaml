@@ -20,7 +20,7 @@ steps:
       root: ./
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -91,7 +91,7 @@ steps:
       root: ./
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
