@@ -1,0 +1,181 @@
+kind: WavePipeline
+metadata:
+  name: onboard
+  description: "Generate a project onboarding guide for new contributors"
+  release: true
+
+input:
+  source: cli
+  example: "create an onboarding guide for this project"
+
+steps:
+  - id: survey
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Survey this project to build an onboarding guide: {{ input }}
+
+        ## Survey Checklist
+
+        1. **Project identity**: Find README, package manifests (go.mod, package.json),
+           license, and config files. Determine language, framework, purpose.
+
+        2. **Build system**: How to build, test, and run the project.
+           Find Makefiles, scripts, CI configs, Dockerfiles.
+
+        3. **Directory structure**: Map the top-level layout and key directories.
+           What does each directory contain?
+
+        4. **Architecture**: Identify the main components and how they interact.
+           Find entry points (main.go, index.ts, etc.).
+
+        5. **Dependencies**: List key dependencies and their purposes.
+           Check go.mod, package.json, requirements.txt, etc.
+
+        6. **Configuration**: Find environment variables, config files, feature flags.
+
+        7. **Testing**: Where are tests? How to run them? What patterns are used?
+
+        8. **Development workflow**: Find contributing guides, PR templates,
+           commit conventions, branch strategies.
+
+        9. **Documentation**: Where is documentation? Is it up to date?
+
+        Write JSON to output/project-survey.json:
+
+        {
+          "project": {
+            "name": "project name",
+            "language": "Go|TypeScript|Python|etc",
+            "framework": "framework if any",
+            "purpose": "one-line description",
+            "license": "MIT|Apache-2.0|etc"
+          },
+          "build": {
+            "commands": {"build": "go build ./...", "test": "go test ./...", "run": "go run ."},
+            "prerequisites": ["Go 1.25+"],
+            "ci_system": "GitHub Actions|GitLab CI|etc"
+          },
+          "structure": [
+            {"path": "cmd/", "purpose": "CLI entry points", "key_files": ["main.go"]},
+            {"path": "internal/", "purpose": "core packages", "key_files": []}
+          ],
+          "architecture": {
+            "entry_points": ["cmd/wave/main.go"],
+            "components": [
+              {"name": "Pipeline Executor", "package": "internal/pipeline", "role": "orchestrates step execution"}
+            ],
+            "patterns": ["dependency injection", "interface-based design"]
+          },
+          "dependencies": {
+            "key_deps": [
+              {"name": "cobra", "purpose": "CLI framework", "import": "github.com/spf13/cobra"}
+            ],
+            "total_count": 5
+          },
+          "configuration": {
+            "env_vars": ["WAVE_DEBUG"],
+            "config_files": ["wave.yaml"],
+            "feature_flags": []
+          },
+          "testing": {
+            "framework": "go test",
+            "patterns": ["table-driven tests"],
+            "run_command": "go test ./...",
+            "coverage_command": "go test -cover ./..."
+          },
+          "workflow": {
+            "branch_strategy": "feature branches off main",
+            "commit_convention": "conventional commits",
+            "pr_process": "description if found"
+          },
+          "documentation": {
+            "locations": ["README.md", "docs/"],
+            "quality": "good|adequate|sparse|missing"
+          },
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/project-survey.json.
+    output_artifacts:
+      - name: survey
+        path: output/project-survey.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/project-survey.json
+        schema_path: .wave/contracts/project-survey.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: guide
+    persona: philosopher
+    dependencies: [survey]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: survey
+          artifact: survey
+          as: project_info
+    exec:
+      type: prompt
+      source: |
+        Write a comprehensive onboarding guide for new contributors.
+
+        Read the project survey: cat artifacts/project_info
+
+        Write to output/onboarding-guide.md with these sections:
+
+        # Onboarding Guide: [Project Name]
+
+        ## Quick Start
+        - Prerequisites (what to install)
+        - Clone and build (exact commands)
+        - Run tests (exact commands)
+        - Run the project (exact commands)
+
+        ## Project Overview
+        - What this project does (2-3 sentences)
+        - Key technologies and why they were chosen
+        - High-level architecture (ASCII diagram)
+
+        ## Directory Map
+        - What each top-level directory contains
+        - Where to find things (tests, configs, docs)
+
+        ## Core Concepts
+        - Key abstractions and terminology
+        - How the main components interact
+        - Data flow through the system
+
+        ## Development Workflow
+        - How to create a feature branch
+        - Commit message conventions
+        - How to run tests before pushing
+        - PR process
+
+        ## Common Tasks
+        - "I want to add a new [feature/command/endpoint]" → where to start
+        - "I want to fix a bug" → debugging approach
+        - "I want to understand [component]" → where to look
+
+        ## Helpful Resources
+        - Documentation locations
+        - Key files to read first
+        - Related external docs
+
+        Write for someone on their first day with this codebase.
+        Be specific — use real paths, real commands, real examples.
+    output_artifacts:
+      - name: guide
+        path: output/onboarding-guide.md
+        type: markdown
