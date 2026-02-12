@@ -706,16 +706,6 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 					"deny":          []string{},
 				},
 			},
-			"github-pr-creator": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "GitHub pull request creation",
-				"system_prompt_file": ".wave/personas/github-pr-creator.md",
-				"temperature":        0.3,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Bash(gh *)"},
-					"deny":          []string{},
-				},
-			},
 			"implementer": map[string]interface{}{
 				"adapter":            adapter,
 				"description":        "Execution specialist for code changes and structured output",
