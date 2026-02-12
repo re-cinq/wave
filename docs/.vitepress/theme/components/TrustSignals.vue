@@ -9,28 +9,28 @@ const props = withDefaults(defineProps<TrustSignalsProps>(), {
 // Default badges for Trust Center when no props provided
 const defaultBadges: TrustBadge[] = [
   {
-    name: 'SOC 2 Type II',
-    status: 'in-progress',
-    description: 'Security audit in progress',
-    link: '/trust-center/compliance#soc-2'
-  },
-  {
-    name: 'GDPR',
+    name: 'Ephemeral Isolation',
     status: 'certified',
-    description: 'EU data protection compliant',
-    link: '/trust-center/compliance#gdpr'
+    description: 'Fresh memory each step',
+    link: '/concepts/workspaces'
   },
   {
-    name: 'HIPAA',
-    status: 'planned',
-    description: 'Healthcare compliance planned',
-    link: '/trust-center/compliance#hipaa'
+    name: 'Deny-First Permissions',
+    status: 'certified',
+    description: 'Persona-scoped tool access',
+    link: '/trust-center/security-model'
   },
   {
-    name: 'ISO 27001',
-    status: 'planned',
-    description: 'ISMS certification planned',
-    link: '/trust-center/compliance#iso-27001'
+    name: 'Schema Validation',
+    status: 'certified',
+    description: 'Output contracts enforced',
+    link: '/concepts/contracts'
+  },
+  {
+    name: 'Audit Logging',
+    status: 'certified',
+    description: 'Full execution traces',
+    link: '/trust-center/audit-logging'
   }
 ]
 
@@ -59,8 +59,8 @@ function getStatusLabel(status: ComplianceStatus): string {
 <template>
   <div class="trust-signals-container">
     <div class="trust-signals-header">
-      <h3>Compliance Status</h3>
-      <p class="trust-signals-subtitle">Current certification and compliance posture</p>
+      <h3>Security Guarantees</h3>
+      <p class="trust-signals-subtitle">Built-in protections at every layer</p>
     </div>
     <div class="trust-signals">
       <a
