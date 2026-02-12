@@ -2,16 +2,14 @@ You are creating an implementation plan for a GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to get the issue details, branch name, complexity, and assessment.
@@ -26,18 +24,31 @@ Read `artifacts/issue_assessment` to extract:
 - Complexity estimate
 - Which speckit steps were skipped
 
-### Step 2: Create Feature Branch
+### Step 2: Create Feature Branch via Worktree
 
-Use the `create-new-feature.sh` script to create a properly numbered branch:
+Create the branch without switching the main repo checkout:
+
+```bash
+BRANCH_NAME="<NNN>-<short-name>"  # from assessment
+git -C "$REPO_ROOT" branch "$BRANCH_NAME" 2>/dev/null || true
+```
+
+If the branch already exists (e.g. from a resume), the `|| true` handles it.
+
+Now create an isolated worktree for this branch:
+
+```bash
+git -C "$REPO_ROOT" worktree add "$PWD/repo" "$BRANCH_NAME"
+cd repo
+```
+
+Run the feature setup script inside the worktree (not the main repo):
 
 ```bash
 .specify/scripts/bash/create-new-feature.sh --json --number <ISSUE_NUMBER> --short-name "<SHORT_NAME>" "<ISSUE_TITLE>"
 ```
 
-If the branch already exists (e.g. from a resume), check it out instead:
-```bash
-git checkout <BRANCH_NAME>
-```
+All subsequent commands run inside this worktree.
 
 ### Step 3: Write Spec from Issue
 
@@ -84,6 +95,24 @@ Write `tasks.md` in the feature directory with a phased breakdown:
 ```
 
 Mark parallelizable tasks with `[P]`.
+
+### Step 6: Commit Planning Artifacts
+
+Commit the spec, plan, and tasks so subsequent steps can access them via the branch:
+
+```bash
+git add specs/
+git commit -m "docs: add spec, plan, and tasks for #<ISSUE_NUMBER>"
+```
+
+### Step 7: Clean Up Worktree
+
+Remove the worktree reference (the branch and commits persist):
+
+```bash
+cd "$OLDPWD"
+git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+```
 
 ## CONSTRAINTS
 

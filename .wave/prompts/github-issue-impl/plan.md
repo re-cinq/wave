@@ -26,20 +26,26 @@ Read `artifacts/issue_assessment` to extract:
 
 ### Step 2: Create Feature Branch via Worktree
 
-Use the `create-new-feature.sh` script to create a properly numbered branch:
+Create the branch without switching the main repo checkout:
 
 ```bash
-cd "$REPO_ROOT"
-.specify/scripts/bash/create-new-feature.sh --json --number <ISSUE_NUMBER> --short-name "<SHORT_NAME>" "<ISSUE_TITLE>"
+BRANCH_NAME="<NNN>-<short-name>"  # from assessment
+git -C "$REPO_ROOT" branch "$BRANCH_NAME" 2>/dev/null || true
 ```
 
-If the branch already exists (e.g. from a resume), skip creation.
+If the branch already exists (e.g. from a resume), the `|| true` handles it.
 
 Now create an isolated worktree for this branch:
 
 ```bash
-git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+git -C "$REPO_ROOT" worktree add "$PWD/repo" "$BRANCH_NAME"
 cd repo
+```
+
+Run the feature setup script inside the worktree (not the main repo):
+
+```bash
+.specify/scripts/bash/create-new-feature.sh --json --number <ISSUE_NUMBER> --short-name "<SHORT_NAME>" "<ISSUE_TITLE>"
 ```
 
 All subsequent commands run inside this worktree.

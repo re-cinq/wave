@@ -26,11 +26,10 @@ Follow the `/speckit.specify` workflow to generate a complete feature specificat
    ```
 4. Create the feature branch and worktree:
    ```bash
-   cd "$REPO_ROOT"
-   .specify/scripts/bash/create-new-feature.sh --json --number <N> --short-name "<name>" "{{ input }}"
-   cd "$OLDPWD"
+   git -C "$REPO_ROOT" branch "<NNN>-<short-name>" 2>/dev/null || true
    git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
    cd repo
+   .specify/scripts/bash/create-new-feature.sh --json --number <N> --short-name "<name>" "{{ input }}"
    ```
 5. Load `.specify/templates/spec-template.md` for the required structure
 6. Write the specification to the SPEC_FILE returned by the script

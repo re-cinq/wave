@@ -93,7 +93,8 @@ else
 fi
 
 if [ "$HAS_GIT" = true ]; then
-    git checkout -b "$BRANCH_NAME"
+    # Create branch without switching — worktrees handle checkout isolation
+    git branch "$BRANCH_NAME" 2>/dev/null || true
 else
     >&2 echo "[specify] Warning: Git repository not detected; skipped branch creation for $BRANCH_NAME"
 fi

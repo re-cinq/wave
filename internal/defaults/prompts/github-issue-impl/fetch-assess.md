@@ -4,16 +4,16 @@ Input: {{ input }}
 
 The input format is `owner/repo number` (e.g. `re-cinq/wave 42`).
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
+Use `REPO_ROOT` for any commands that need project root access:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
 
-Run this FIRST before any other bash commands.
+Do NOT `cd` to the project root — this step is read-only and should not mutate the main checkout.
 
 ## Instructions
 
