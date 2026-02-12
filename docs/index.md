@@ -16,16 +16,18 @@ const heroProps = {
   },
   terminal: {
     title: 'wave',
-    command: 'wave run speckit-flow "add OAuth"',
+    command: 'wave run code-review "review the auth module"',
     outputLines: [
-      { text: '[wave] Loading pipeline: speckit-flow', variant: 'info' },
-      { text: '[wave] Persona: navigator (read-only)', variant: 'muted' },
-      { text: '[wave] Step 1/4: navigate ............. done  1m 12s', variant: 'success' },
-      { text: '[wave] Step 2/4: specify .............. done  2m 34s', variant: 'success' },
-      { text: '[wave] Step 3/4: implement ............ done  4m 18s', variant: 'success' },
-      { text: '[wave] Step 4/4: review ............... done  1m 45s', variant: 'success' },
+      { text: '[10:00:01] → diff-analysis (navigator)', variant: 'muted' },
+      { text: '[10:00:25] ✓ diff-analysis completed (24.0s, 2.5k tokens)', variant: 'success' },
+      { text: '[10:00:26] → security-review (auditor)', variant: 'muted' },
+      { text: '[10:00:26] → quality-review (auditor)', variant: 'muted' },
+      { text: '[10:00:45] ✓ security-review completed (19.0s, 1.8k tokens)', variant: 'success' },
+      { text: '[10:00:48] ✓ quality-review completed (22.0s, 2.1k tokens)', variant: 'success' },
+      { text: '[10:00:49] → summary (summarizer)', variant: 'muted' },
+      { text: '[10:01:05] ✓ summary completed (16.0s, 1.2k tokens)', variant: 'success' },
       { text: '' },
-      { text: '[wave] Pipeline completed in 9m 49s', variant: 'success' }
+      { text: "  ✓ Pipeline 'code-review' completed successfully (64s)", variant: 'success' }
     ]
   },
   valuePills: [
@@ -71,176 +73,13 @@ const features = [
   {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
-    description: 'Built-in pipelines for code review, security audits, documentation, and test generation.',
+    description: 'Built-in pipelines for code review, documentation, and test generation.',
     link: '/use-cases/'
   }
 ]
 
-const trustBadges = [
-  {
-    name: 'Ephemeral Isolation',
-    status: 'certified',
-    description: 'Fresh memory each step',
-    link: '/concepts/workspaces'
-  },
-  {
-    name: 'Schema Validation',
-    status: 'certified',
-    description: 'Output contracts enforced',
-    link: '/concepts/contracts'
-  },
-  {
-    name: 'Audit Logging',
-    status: 'certified',
-    description: 'Full execution traces',
-    link: '/trust-center/'
-  }
-]
 </script>
 
 <HeroSection v-bind="heroProps" />
 
 <FeatureCards :features="features" />
-
-<div class="comparison-section">
-
-## How Wave Compares
-
-<div class="comparison-table">
-
-| | Wave | Gastown | Claude Flow |
-|--|:----:|:-------:|:-----------:|
-| **Declarative pipelines** | YAML | JSON/TOML | Programmatic |
-| **Git integration** | ✅ | ✅ | ❌ |
-| **Contract validation** | ✅ | ❌ | ❌ |
-| **Step isolation** | Fresh memory | Shared | Shared |
-| **Permission scoping** | Per-persona | ❌ | ❌ |
-
-</div>
-</div>
-
-<div class="trust-section">
-  <h2 class="trust-heading">Built for Security</h2>
-  <TrustSignals :badges="trustBadges" />
-  <p class="trust-cta">
-    <a href="/trust-center/">Learn more about Wave's security model</a>
-  </p>
-</div>
-
-<div class="quick-example">
-
-## See Wave in Action
-
-<div v-pre>
-
-```yaml
-kind: WavePipeline
-metadata:
-  name: code-review
-  description: "Automated code review pipeline"
-
-steps:
-  - id: analyze
-    persona: navigator
-    exec:
-      source: "Analyze the code changes: {{ input }}"
-    output_artifacts:
-      - name: analysis
-        path: output/analysis.json
-        type: json
-
-  - id: review
-    persona: auditor
-    dependencies: [analyze]
-    exec:
-      source: "Review for security and quality issues"
-    output_artifacts:
-      - name: review
-        path: output/review.md
-        type: markdown
-```
-
-</div>
-
-```bash
-wave run code-review "authentication module"
-```
-
-Each step runs in complete isolation with fresh memory. Artifacts flow between steps automatically. Contracts validate outputs before the next step begins.
-
-</div>
-
-<style>
-.comparison-section {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.comparison-section h2 {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.comparison-table {
-  overflow-x: auto;
-}
-
-.comparison-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.comparison-table th,
-.comparison-table td {
-  padding: 12px 16px;
-  text-align: center;
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.comparison-table th:first-child,
-.comparison-table td:first-child {
-  text-align: left;
-}
-
-.trust-section {
-  text-align: center;
-  padding: 48px 24px;
-  margin: 0 -24px;
-}
-
-.trust-heading {
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin-bottom: 24px;
-  color: var(--vp-c-text-1);
-  border-top: none !important;
-  padding-top: 0 !important;
-  margin-top: 0 !important;
-}
-
-.trust-cta {
-  margin-top: 24px;
-}
-
-.trust-cta a {
-  color: var(--wave-primary);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.trust-cta a:hover {
-  text-decoration: underline;
-}
-
-.quick-example {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.quick-example h2 {
-  text-align: center;
-  margin-bottom: 32px;
-}
-</style>

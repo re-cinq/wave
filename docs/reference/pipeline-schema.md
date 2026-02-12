@@ -4,6 +4,8 @@ Pipeline YAML files define multi-step AI workflows. Store pipelines in `.wave/pi
 
 ## Minimal Pipeline
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -16,11 +18,15 @@ steps:
       source: "Execute: {{ input }}"
 ```
 
+</div>
+
 Copy this to `.wave/pipelines/simple-task.yaml` and run with `wave run simple-task "your task"`.
 
 ---
 
 ## Complete Example
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -73,6 +79,8 @@ steps:
         command: "go vet ./..."
 ```
 
+</div>
+
 ---
 
 ## Top-Level Fields
@@ -113,6 +121,8 @@ steps:
 
 ### Basic Step
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: analyze
@@ -121,6 +131,8 @@ steps:
       type: prompt
       source: "Analyze: {{ input }}"
 ```
+
+</div>
 
 ### Step with Dependencies
 
@@ -158,6 +170,8 @@ steps:
 
 ### Prompt Execution
 
+<div v-pre>
+
 ```yaml
 exec:
   type: prompt
@@ -165,6 +179,8 @@ exec:
     Analyze the codebase for {{ input }}.
     Report file paths and architectural patterns.
 ```
+
+</div>
 
 ### Command Execution
 

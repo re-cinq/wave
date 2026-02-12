@@ -44,7 +44,7 @@ export PATH="$PATH:/path/to/bin"
 **Solutions:**
 ```bash
 # Increase timeout via CLI
-wave run flow.yaml --timeout 60
+wave run flow --timeout 60
 
 # Or update manifest
 runtime:
@@ -128,13 +128,13 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ```bash
 # Enable debug logging
-wave run flow.yaml --debug 2>debug.log
+wave run flow --debug 2>debug.log
 
 # Dry run first
-wave run flow.yaml --dry-run
+wave run flow --dry-run
 
 # Filter events
-wave run flow.yaml | jq 'select(.state == "failed")'
+wave run flow | jq 'select(.state == "failed")'
 
 # Check audit logs
 cat .wave/traces/<pipeline-id>.jsonl | jq '.tool_calls'

@@ -80,7 +80,7 @@ steps:
 This produces:
 
 ```mermaid
-flowchart LR
+flowchart TD
     analyze --> security
     analyze --> quality
     security --> summary

@@ -12,6 +12,8 @@ This guide walks through creating and configuring Wave pipelines from basic sing
 
 Every Wave pipeline starts with a YAML file defining the workflow structure:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -26,8 +28,10 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Your task: {% raw %}{{ input }}{% endraw %}"
+      source: "Your task: {{ input }}"
 ```
+
+</div>
 
 ### Required Fields
 
@@ -46,14 +50,18 @@ steps:
 
 The simplest step runs a prompt with a persona:
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: analyze
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze the following: {% raw %}{{ input }}{% endraw %}"
+      source: "Analyze the following: {{ input }}"
 ```
+
+</div>
 
 ### Step with Workspace
 
@@ -102,13 +110,15 @@ Memory strategies:
 
 Steps execute in order when dependencies are specified:
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: plan
     persona: navigator
     exec:
       type: prompt
-      source: "Create a plan for: {% raw %}{{ input }}{% endraw %}"
+      source: "Create a plan for: {{ input }}"
 
   - id: implement
     persona: craftsman
@@ -118,9 +128,13 @@ steps:
       source: "Execute the plan"
 ```
 
+</div>
+
 ### Parallel Execution
 
 Steps without mutual dependencies run in parallel:
+
+<div v-pre>
 
 ```yaml
 steps:
@@ -128,7 +142,7 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze: {% raw %}{{ input }}{% endraw %}"
+      source: "Analyze: {{ input }}"
 
   - id: security-check
     persona: auditor
@@ -151,6 +165,8 @@ steps:
       type: prompt
       source: "Summarize all findings"
 ```
+
+</div>
 
 In this pipeline:
 1. `analyze` runs first
@@ -419,16 +435,20 @@ steps:
 
 Reference other pipelines as steps:
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: review
     pipeline: code-review
-    input: "{% raw %}{{ input }}{% endraw %}"
+    input: "{{ input }}"
 
   - id: deploy
     persona: craftsman
     dependencies: [review]
 ```
+
+</div>
 
 ## Best Practices
 

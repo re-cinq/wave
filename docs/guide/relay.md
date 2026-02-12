@@ -1,5 +1,9 @@
 # Relay Guide
 
+::: warning Not Yet Active
+The relay infrastructure is implemented but not yet wired into the CLI. See [Context Relay & Compaction](/guides/relay-compaction) for the full design document.
+:::
+
 Relay is Wave's context compaction mechanism. When an agent approaches its token limit, relay summarizes the conversation and resumes with fresh context.
 
 ## Why Relay?
@@ -153,12 +157,7 @@ If the summarizer hits its token limit, the pipeline halts.
 
 ## Monitoring
 
-Relay events in stdout:
-```json
-{"step_id":"implement","event":"relay_triggered","context_usage":0.82}
-{"step_id":"implement","event":"checkpoint_created"}
-{"step_id":"implement","event":"relay_resumed","instance":2}
-```
+When activated, relay events will appear in the NDJSON event stream indicating compaction triggers, checkpoint creation, and resumption.
 
 ## Best Practices
 

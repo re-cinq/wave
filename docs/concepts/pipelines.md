@@ -2,6 +2,8 @@
 
 A pipeline is a multi-step AI workflow where each step runs one persona in an isolated workspace. Pipelines enable complex AI workflows by breaking tasks into focused steps with clear boundaries.
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -11,8 +13,10 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze: {% raw %}{{ input }}{% endraw %}"
+      source: "Analyze: {{ input }}"
 ```
+
+</div>
 
 Use pipelines when you need coordinated AI tasks that build on each other's outputs.
 
@@ -32,13 +36,15 @@ Every pipeline has three main sections:
 
 Steps execute in sequence when dependencies are specified:
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: analyze
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze the codebase for: {% raw %}{{ input }}{% endraw %}"
+      source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
         path: output/analysis.json
@@ -57,9 +63,13 @@ steps:
       source: "Implement based on the analysis."
 ```
 
+</div>
+
 ### Parallel Execution (Fan-Out)
 
 Steps without mutual dependencies run in parallel. This pattern is useful when you need multiple perspectives on the same input:
+
+<div v-pre>
 
 ```yaml
 steps:
@@ -67,7 +77,7 @@ steps:
     persona: navigator
     exec:
       type: prompt
-      source: "Analyze: {% raw %}{{ input }}{% endraw %}"
+      source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
         path: output/analysis.json
@@ -107,6 +117,8 @@ steps:
         path: output/quality.md
         type: markdown
 ```
+
+</div>
 
 In this example, `security` and `quality` run in parallel after `navigate` completes.
 
@@ -260,6 +272,8 @@ wave artifacts <run-id>
 
 A production-ready code review pipeline:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -280,7 +294,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the changes: {% raw %}{{ input }}{% endraw %}
+        Analyze the changes: {{ input }}
         Output as JSON with files, modules, and breaking changes.
     output_artifacts:
       - name: diff
@@ -342,6 +356,8 @@ steps:
         path: output/verdict.md
         type: markdown
 ```
+
+</div>
 
 ## Next Steps
 

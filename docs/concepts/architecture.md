@@ -68,7 +68,7 @@ Each step runs in isolation:
 Personas enforce boundaries:
 
 ```mermaid
-graph LR
+graph TD
     A[Persona Definition] --> B[Permissions]
     A --> C[System Prompt]
     A --> D[Temperature]

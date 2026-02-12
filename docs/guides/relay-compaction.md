@@ -1,5 +1,9 @@
 # Context Relay & Compaction
 
+::: warning Not Yet Active
+The relay infrastructure is implemented but not yet wired into the CLI. The configuration fields exist in the manifest schema and the relay logic is in `internal/relay/`, but `wave run` does not currently instantiate the relay monitor. This page documents the intended design for when relay is activated.
+:::
+
 Long-running agent tasks degrade silently as context fills up. The relay mechanism solves this by compacting context at a configurable threshold, handing off to a fresh instance with a structured checkpoint.
 
 ## The Problem
@@ -107,15 +111,9 @@ skeleton exists in src/handlers/users.go — complete the
 validation logic and error handling.
 ```
 
-## Relay Events
+## Relay Events (Planned)
 
-Relay triggers emit events in the NDJSON stream:
-
-```json
-{"timestamp":"...","step_id":"implement","state":"running","message":"Context relay triggered at 82% utilization","meta":{"token_usage_percent":82,"strategy":"summarize_to_checkpoint"}}
-{"timestamp":"...","step_id":"implement","state":"running","message":"Summarizer checkpoint complete","meta":{"checkpoint_tokens":1200}}
-{"timestamp":"...","step_id":"implement","state":"running","message":"Resumed from relay checkpoint","meta":{"relay_count":1}}
-```
+When activated, relay will emit events in the NDJSON stream indicating compaction triggers, checkpoint creation, and resumption.
 
 ## Edge Cases
 

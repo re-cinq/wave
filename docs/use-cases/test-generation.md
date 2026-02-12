@@ -25,18 +25,18 @@ Analyze coverage gaps and generate comprehensive tests. Wave's test-gen pipeline
 wave run test-gen "generate tests for the pipeline package"
 ```
 
-Expected output:
+With `-o text`:
 
 ```
-[10:00:01] started   analyze-coverage   (navigator)              Starting step
-[10:00:32] completed analyze-coverage   (navigator)   31s   2.9k Analysis complete
-[10:00:33] started   generate-tests     (craftsman)              Starting step
-[10:01:45] completed generate-tests     (craftsman)   72s   8.5k Generation complete
-[10:01:46] started   verify-coverage    (auditor)                Starting step
-[10:02:10] completed verify-coverage    (auditor)     24s   1.8k Verification complete
+[10:00:01] → analyze-coverage (navigator)
+[10:00:01]   analyze-coverage: Executing agent
+[10:00:32] ✓ analyze-coverage completed (31.0s, 2.9k tokens)
+[10:00:33] → generate-tests (craftsman)
+[10:01:45] ✓ generate-tests completed (72.0s, 8.5k tokens)
+[10:01:46] → verify-coverage (auditor)
+[10:02:10] ✓ verify-coverage completed (24.0s, 1.8k tokens)
 
-Pipeline test-gen completed in 129s
-Artifacts: output/generated-tests.md
+  ✓ Pipeline 'test-gen' completed successfully (2m 9s)
 ```
 
 ## Complete Pipeline

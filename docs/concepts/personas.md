@@ -43,9 +43,9 @@ const builtInPersonas = [
     permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
   },
   {
-    persona: 'tester',
-    description: 'Test generation and execution with test file write access',
-    permissions: { read: 'allow', write: 'conditional', execute: 'allow', network: 'deny' }
+    persona: 'craftsman',
+    description: 'Full implementation and testing with scoped write and execute access',
+    permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
   }
 ]
 </script>
@@ -124,35 +124,36 @@ personas:
 - Code refactoring
 - Applying reviewer suggestions
 
-### Tester
+### Craftsman
 
-The Tester generates and executes tests with access to test file directories.
+The Craftsman handles implementation, testing, and code changes with full scoped access. It combines write and execute permissions for end-to-end feature delivery.
 
 ```yaml
 personas:
-  tester:
+  craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/tester.md
-    temperature: 0.2
+    system_prompt_file: .wave/personas/craftsman.md
+    temperature: 0.3
     permissions:
       allowed_tools:
         - "Read"
         - "Glob"
         - "Grep"
-        - "Write(*_test.go)"
-        - "Write(tests/*)"
-        - "Bash(go test*)"
-        - "Bash(npm test*)"
-      deny:
         - "Write(src/*)"
-        - "Bash(rm *)"
+        - "Write(*_test.go)"
+        - "Edit(src/*)"
+        - "Bash(go test*)"
+        - "Bash(go build*)"
+      deny:
+        - "Write(*.env)"
+        - "Bash(rm -rf *)"
 ```
 
 **Use cases:**
-- Unit test generation
-- Integration test creation
-- Test execution and analysis
-- Coverage improvement
+- Feature implementation with tests
+- Bug fixes with regression tests
+- Code refactoring
+- End-to-end delivery tasks
 
 ## Permission Model
 
@@ -211,18 +212,18 @@ permissions:
 A critical security feature of Wave is **fresh memory at every step boundary**. Each pipeline step starts with a clean context:
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Step1["Step 1: Navigator"]
         A1[Fresh Context] --> B1[Execution]
         B1 --> C1[Artifacts Only]
     end
 
+    C1 -->|"Artifacts (no chat history)"| A2
+
     subgraph Step2["Step 2: Implementer"]
         A2[Fresh Context] --> B2[Execution]
         B2 --> C2[Artifacts Only]
     end
-
-    C1 -->|"Artifacts (no chat history)"| A2
 
     style A1 fill:#dbeafe,stroke:#3b82f6
     style A2 fill:#dbeafe,stroke:#3b82f6
@@ -265,7 +266,7 @@ flowchart TB
         end
 
         subgraph WS3["Ephemeral Workspace 3"]
-            T[Tester Persona]
+            T[Craftsman Persona]
             F3[Cloned Codebase]
             A2[Injected Artifacts]
         end

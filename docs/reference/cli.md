@@ -211,10 +211,10 @@ wave logs run-abc123
 
 **Output:**
 ```
-[14:30:22] started   analyze   (navigator)              Starting analysis
-[14:31:07] completed analyze   (navigator)  45s  2.1k   Found 5 relevant files
-[14:31:08] started   review    (auditor)                Beginning review
-[14:32:20] info      review    (auditor)        1.5k   Checking security patterns
+[14:30:22] started    analyze (navigator) Starting analysis
+[14:31:07] completed  analyze (navigator) 45.0s 2.1k tokens Found 5 relevant files
+[14:31:08] started    review (auditor) Beginning review
+[14:32:20] completed  review (auditor) 72.0s 1.5k tokens Checking security patterns
 ```
 
 ### Options
@@ -233,27 +233,47 @@ wave logs --format json          # Output as JSON for scripting
 
 ## wave resume
 
-Resume an interrupted pipeline.
+Show state of a previous pipeline execution and identify resumption points.
 
 ```bash
-wave resume run-abc123
+wave resume --pipeline run-abc123
 ```
 
 **Output:**
 ```
-[run-abc123] Resuming from step: review
-[run-abc123] Skipping completed: analyze
-[run-abc123] Step: review (auditor) - started
-[run-abc123] Step: review (auditor) - completed (52s)
-[run-abc123] Pipeline completed in 52s
+Resuming pipeline: run-abc123
+
+  Loading state from .wave/state.db...
+  [OK] Pipeline state loaded
+       Status: paused
+       Last updated: 5 minutes ago
+
+  Step states:
+       analyze              [OK]
+       review               [FAILED] (retries: 2)
+              Error: contract validation failed
+
+  Starting from step: review
+
+  [OK] Pipeline state loaded
+  [OK] Resuming execution
 ```
 
 ### Options
 
 ```bash
-wave resume                      # List resumable runs
-wave resume run-abc123 --from-step implement  # Override resume point
+wave resume                                         # List resumable runs
+wave resume --pipeline run-abc123                    # Show state and resume
+wave resume --pipeline run-abc123 --from-step review # Override resume point
 ```
+
+::: tip Prefer `wave run --from-step`
+For actually re-executing a pipeline from a specific step, use:
+```bash
+wave run code-review --from-step review
+```
+The `wave resume` command currently shows pipeline state but does not re-execute.
+:::
 
 ---
 

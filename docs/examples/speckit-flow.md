@@ -7,7 +7,7 @@ A complete specification-driven development pipeline that takes a feature reques
 The speckit flow is Wave's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
 
 ```mermaid
-graph LR
+graph TD
     N[Navigate] --> S[Specify]
     S --> P[Plan]
     P --> I[Implement]
@@ -15,6 +15,8 @@ graph LR
 ```
 
 ## Full Pipeline Definition
+
+<div v-pre>
 
 ```yaml
 kind: WavePipeline
@@ -185,6 +187,8 @@ steps:
         type: markdown
 ```
 
+</div>
+
 ## Contract Schemas
 
 ### Navigation Contract
@@ -236,27 +240,34 @@ wave run speckit-flow \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-wave run .wave/pipelines/speckit-flow.yaml --dry-run
+wave run speckit-flow --dry-run
 
 # Resume after interruption
-wave resume --pipeline-id <uuid-from-output>
+wave run speckit-flow --from-step implement
 ```
 
 ## Expected Output
 
+With `-o text`:
+
 ```
-$ wave run speckit-flow.yaml "add JWT auth"
-{"step_id":"navigate","state":"running","message":"Starting navigator persona"}
-{"step_id":"navigate","state":"completed","duration_ms":87000,"artifacts":["output/analysis.json"]}
-{"step_id":"specify","state":"running","message":"Starting philosopher persona"}
-{"step_id":"specify","state":"completed","duration_ms":120000,"artifacts":["output/spec.md"]}
-{"step_id":"plan","state":"running","message":"Starting philosopher persona"}
-{"step_id":"plan","state":"completed","duration_ms":95000,"artifacts":["output/plan.md"]}
-{"step_id":"implement","state":"running","message":"Starting craftsman persona"}
-{"step_id":"implement","state":"running","message":"Context relay triggered at 82%"}
-{"step_id":"implement","state":"completed","duration_ms":340000}
-{"step_id":"review","state":"running","message":"Starting auditor persona"}
-{"step_id":"review","state":"completed","duration_ms":65000,"artifacts":["output/review.md"]}
+[10:00:01] → navigate (navigator)
+[10:00:01]   navigate: Executing agent
+[10:01:27] ✓ navigate completed (86.0s, 3.2k tokens)
+[10:01:28] → specify (philosopher)
+[10:01:28]   specify: Executing agent
+[10:03:28] ✓ specify completed (120.0s, 4.1k tokens)
+[10:03:29] → plan (philosopher)
+[10:03:29]   plan: Executing agent
+[10:05:04] ✓ plan completed (95.0s, 2.8k tokens)
+[10:05:05] → implement (craftsman)
+[10:05:05]   implement: Executing agent
+[10:10:45] ✓ implement completed (340.0s, 8.5k tokens)
+[10:10:46] → review (auditor)
+[10:10:46]   review: Executing agent
+[10:11:51] ✓ review completed (65.0s, 2.1k tokens)
+
+  ✓ Pipeline 'speckit-flow' completed successfully (11m 50s)
 ```
 
 ## Artifacts Produced
