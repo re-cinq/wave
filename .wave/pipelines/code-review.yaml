@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "review the authentication module"
 
 steps:
   - id: diff-analysis

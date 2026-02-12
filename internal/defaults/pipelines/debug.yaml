@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: debug
   description: "Systematic debugging with hypothesis testing"
-  disabled: true
 
 input:
   source: cli
+  example: "TestPipelineExecutor fails with nil pointer on resume"
 
 steps:
   - id: reproduce
@@ -146,13 +146,14 @@ steps:
         3. Remove any diagnostic code added during debugging
         4. Verify the original reproduction no longer fails
         5. Check for similar issues elsewhere
-    # handover:
-    #   contract:
-    #     type: test_suite
-    #     command: "npm test"  # or: go test ./..., pytest, cargo test
-    #     must_pass: false
-    #     on_failure: retry
-    #     max_retries: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -v"
+
+        must_pass: false
+        on_failure: retry
+        max_retries: 3
     output_artifacts:
       - name: fix
         path: output/fix-summary.md

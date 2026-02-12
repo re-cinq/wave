@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "migrate state store from SQLite to PostgreSQL"
 
 steps:
   - id: impact-analysis

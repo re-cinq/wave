@@ -15,6 +15,11 @@ type Pipeline struct {
 	Steps    []Step           `yaml:"steps"`
 }
 
+// PipelineName returns the logical pipeline name from metadata.
+func (p *Pipeline) PipelineName() string {
+	return p.Metadata.Name
+}
+
 type PipelineMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
@@ -23,9 +28,16 @@ type PipelineMetadata struct {
 }
 
 type InputConfig struct {
-	Source      string `yaml:"source"`
-	LabelFilter string `yaml:"label_filter,omitempty"`
-	BatchSize   int    `yaml:"batch_size,omitempty"`
+	Source      string       `yaml:"source"`
+	Schema      *InputSchema `yaml:"schema,omitempty"`
+	Example     string       `yaml:"example,omitempty"`
+	LabelFilter string       `yaml:"label_filter,omitempty"`
+	BatchSize   int          `yaml:"batch_size,omitempty"`
+}
+
+type InputSchema struct {
+	Type        string `yaml:"type,omitempty"`
+	Description string `yaml:"description,omitempty"`
 }
 
 type Step struct {

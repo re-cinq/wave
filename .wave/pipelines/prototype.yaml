@@ -8,6 +8,7 @@ metadata:
 
 input:
   source: cli
+  example: "build a REST API for user management with CRUD operations"
 
 steps:
   # Phase 1: Spec - Requirements capture with speckit integration
