@@ -110,8 +110,12 @@ func (m *ProgressModel) renderHeader() string {
 	pipelineStart := time.Unix(0, m.ctx.PipelineStartTime)
 	elapsed := time.Since(pipelineStart)
 
+	pipelineLabel := m.ctx.PipelineName
+	if m.ctx.PipelineID != "" && m.ctx.PipelineID != m.ctx.PipelineName {
+		pipelineLabel = m.ctx.PipelineID
+	}
 	projectLines := []string{
-		fmt.Sprintf("Pipeline: %s", m.ctx.PipelineName),
+		fmt.Sprintf("Pipeline: %s", pipelineLabel),
 		fmt.Sprintf("Config:   %s", m.ctx.ManifestPath),
 		fmt.Sprintf("Elapsed:  %s", formatElapsed(elapsed)),
 	}
