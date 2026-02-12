@@ -236,28 +236,34 @@ wave run speckit-flow \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-wave run .wave/pipelines/speckit-flow.yaml --dry-run
+wave run speckit-flow --dry-run
 
 # Resume after interruption
-wave resume --pipeline-id <uuid-from-output>
+wave run speckit-flow --from-step implement
 ```
 
 ## Expected Output
 
-```
-[10:00:01] started   navigate    (navigator)              Starting step
-[10:01:27] completed navigate    (navigator)   86s   3.2k Analysis complete
-[10:01:28] started   specify     (philosopher)            Starting step
-[10:03:28] completed specify     (philosopher) 120s   4.1k Specification complete
-[10:03:29] started   plan        (philosopher)            Starting step
-[10:05:04] completed plan        (philosopher)  95s   2.8k Plan complete
-[10:05:05] started   implement   (craftsman)              Starting step
-[10:10:45] completed implement   (craftsman)  340s   8.5k Implementation complete
-[10:10:46] started   review      (auditor)                Starting step
-[10:11:51] completed review      (auditor)     65s   2.1k Review complete
+With `-o text`:
 
-Pipeline speckit-flow completed in 11m 50s
-Artifacts: output/review.md
+```
+[10:00:01] → navigate (navigator)
+[10:00:01]   navigate: Executing agent
+[10:01:27] ✓ navigate completed (86.0s, 3.2k tokens)
+[10:01:28] → specify (philosopher)
+[10:01:28]   specify: Executing agent
+[10:03:28] ✓ specify completed (120.0s, 4.1k tokens)
+[10:03:29] → plan (philosopher)
+[10:03:29]   plan: Executing agent
+[10:05:04] ✓ plan completed (95.0s, 2.8k tokens)
+[10:05:05] → implement (craftsman)
+[10:05:05]   implement: Executing agent
+[10:10:45] ✓ implement completed (340.0s, 8.5k tokens)
+[10:10:46] → review (auditor)
+[10:10:46]   review: Executing agent
+[10:11:51] ✓ review completed (65.0s, 2.1k tokens)
+
+  ✓ Pipeline 'speckit-flow' completed successfully (11m 50s)
 ```
 
 ## Artifacts Produced
