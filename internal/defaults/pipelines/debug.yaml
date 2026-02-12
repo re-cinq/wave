@@ -27,18 +27,20 @@ steps:
         3. Identify relevant code paths
         4. Note environmental factors (OS, versions, config)
 
-        Output as JSON:
-        {
-          "expected_behavior": "",
-          "actual_behavior": "",
-          "reproduction_steps": [],
-          "relevant_files": [],
-          "environmental_factors": []
-        }
+        Write the result as JSON to output/reproduction.json with fields:
+        expected_behavior, actual_behavior, reproduction_steps, relevant_files,
+        and environmental_factors.
     output_artifacts:
       - name: reproduction
         path: output/reproduction.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/reproduction.json
+        schema_path: .wave/contracts/debug-reproduction.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: hypothesize
     persona: debugger
@@ -63,22 +65,20 @@ steps:
 
         Rank by likelihood and ease of testing.
 
-        Output as JSON:
-        {
-          "hypotheses": [
-            {
-              "id": 1,
-              "description": "",
-              "likelihood": "high|medium|low",
-              "test_approach": "",
-              "expected_result_if_true": ""
-            }
-          ]
-        }
+        Write the result as JSON to output/hypotheses.json with a hypotheses array,
+        each containing id, description, likelihood (high/medium/low), test_approach,
+        and expected_result_if_true.
     output_artifacts:
       - name: hypotheses
         path: output/hypotheses.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/hypotheses.json
+        schema_path: .wave/contracts/debug-hypotheses.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: investigate
     persona: debugger
