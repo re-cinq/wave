@@ -1,0 +1,178 @@
+kind: WavePipeline
+metadata:
+  name: auto-fix
+  description: "Investigate a bug, fix it, test, and commit to a feature branch"
+  release: true
+
+input:
+  source: cli
+  example: "fix panic in pipeline executor when step has nil context"
+
+steps:
+  - id: investigate
+    persona: debugger
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Investigate this bug: {{ input }}
+
+        ## Investigation Process
+
+        1. **Understand the symptom**: What is the reported behavior?
+           Search for related error messages, panic traces, or log output.
+
+        2. **Find the code path**: Locate the code responsible for the
+           reported behavior. Trace the execution flow.
+
+        3. **Identify root cause**: What exactly causes the bug?
+           Is it a nil check, race condition, logic error, edge case?
+
+        4. **Check for related bugs**: Are there similar patterns elsewhere
+           in the codebase that might have the same issue?
+
+        5. **Assess blast radius**: What else could be affected?
+           What are the safe boundaries for a fix?
+
+        6. **Propose fix approach**: What's the minimal fix?
+           What regression test would catch this?
+
+        Write JSON to output/investigation.json:
+
+        {
+          "bug_description": "what the bug is",
+          "root_cause": {
+            "description": "what causes the bug",
+            "location": "file:line",
+            "category": "nil_check|race_condition|logic_error|edge_case|type_error|resource_leak|other"
+          },
+          "affected_code": [
+            {"file": "path.go", "function": "FuncName", "line": 42, "role": "where the bug manifests"}
+          ],
+          "related_patterns": [
+            {"file": "path.go", "line": 100, "description": "similar code that may have same issue"}
+          ],
+          "fix_approach": {
+            "description": "what to change",
+            "files_to_modify": ["path.go"],
+            "regression_test": "description of test to write",
+            "risk": "low|medium|high"
+          },
+          "branch_name": "fix/descriptive-bug-name",
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/investigation.json.
+    output_artifacts:
+      - name: investigation
+        path: output/investigation.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/investigation.json
+        schema_path: .wave/contracts/bug-investigation.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: fix
+    persona: craftsman
+    dependencies: [investigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: investigate
+          artifact: investigation
+          as: findings
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Fix the bug and commit to a feature branch.
+
+        Read the investigation: cat artifacts/findings
+
+        ## Process
+
+        1. **Create a fix branch**:
+           ```bash
+           cd "$(git rev-parse --show-toplevel)"
+           BRANCH="<branch_name from investigation>"
+           git checkout -b "$BRANCH"
+           ```
+
+        2. **Apply the minimal fix**:
+           - Fix ONLY the identified root cause
+           - Do NOT refactor surrounding code
+           - Do NOT fix "related patterns" unless they're clearly broken
+
+        3. **Write a regression test**:
+           - The test MUST fail without the fix and pass with it
+           - Follow existing test patterns in the codebase
+           - Use descriptive test name: TestFunction_Condition_Expected
+
+        4. **Run tests**:
+           ```bash
+           go test ./... -count=1
+           ```
+           Fix any failures.
+
+        5. **Commit**:
+           ```bash
+           git add <specific-files>
+           git commit -m "fix: <concise description of fix>
+
+           Root cause: <brief root cause>
+           Added regression test: TestXxx"
+           ```
+
+        6. **Push**:
+           ```bash
+           git push -u origin "$BRANCH" 2>/dev/null || true
+           ```
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -count=1"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [fix]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: investigate
+          artifact: investigation
+          as: findings
+    exec:
+      type: prompt
+      source: |
+        Verify the bug fix.
+
+        Read the investigation: cat artifacts/findings
+
+        Check:
+        1. Is the fix minimal and focused? No unrelated changes?
+        2. Does the regression test actually test the reported bug?
+        3. Are there other code paths with the same vulnerability?
+        4. Are all tests passing?
+        5. Is the commit message accurate?
+
+        Output a go/no-go verdict to output/verdict.md with reasoning.
+    output_artifacts:
+      - name: verdict
+        path: output/verdict.md
+        type: markdown
