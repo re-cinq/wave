@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: smoke-test
   description: "Minimal pipeline for testing contracts and artifacts"
+  release: false
 
 input:
   source: cli
