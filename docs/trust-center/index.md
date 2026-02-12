@@ -1,32 +1,30 @@
 # Trust Center
 
-This resource documents Wave's security architecture and audit capabilities.
+Wave's security posture relies on layered isolation and explicit configuration. None of these protections are magic — they require the operator to set them up.
 
-## Security Overview
+## Core Principles
 
-Wave enforces strict isolation boundaries, credential protection, and comprehensive audit logging at every layer.
+| Principle | What It Means | Where It Lives |
+|-----------|---------------|----------------|
+| **Deny-First Permissions** | Persona allow/deny patterns projected into `settings.json` and `CLAUDE.md` | [Personas](/concepts/personas) |
+| **Fresh Memory** | No chat history inheritance between steps; inter-step data flows through explicit artifacts | [Workspaces](/concepts/workspaces) |
+| **Contract Validation** | Step outputs validated against JSON schemas before downstream injection | [Contracts](/concepts/contracts) |
+| **Curated Environment** | Only `env_passthrough` vars reach adapter subprocesses; credentials never touch disk | [Environment](/reference/environment) |
+| **Process Sandbox** | Optional Nix + bubblewrap sandbox isolates the entire session (Linux only) | [Sandbox Setup](/guides/sandbox-setup) |
 
-### Core Security Principles
+## What Requires Operator Action
 
-| Principle | Implementation |
-|-----------|----------------|
-| **Zero Credential Storage** | Credentials never touch disk. All secrets pass through environment variables only. |
-| **Ephemeral Isolation** | Each pipeline step executes in an isolated workspace with fresh memory. |
-| **Deny-First Permissions** | Persona permissions use deny patterns that take precedence over allow patterns. |
-| **Contract Validation** | All inter-step communication is validated against defined contracts. |
-| **Comprehensive Audit** | Every tool call and file operation can be logged with credential scrubbing. |
-
-## Security Resources
-
-- [Security Model](/trust-center/security-model) - Credential handling, workspace isolation, and permission enforcement
-- [Audit Logging Guide](/guides/audit-logging) - Configuring audit logging
+- **Sandbox**: You must run `nix develop` to get bubblewrap isolation. Without it, Wave runs unsandboxed (Claude Code's built-in Seatbelt applies on macOS).
+- **Permissions**: Persona deny/allow rules only work if you define them in your manifest. The defaults ship with reasonable restrictions but you should review them.
+- **Contracts**: Contract validation only runs for steps that declare a `handover.contract`. Unchecked steps pass output without validation.
+- **Credential scrubbing**: The trace logger redacts patterns like `*_KEY`, `*_TOKEN`, `*_SECRET` in log output. It does not prevent the LLM from seeing credentials passed via `env_passthrough`.
 
 ## Vulnerability Disclosure
 
 If you discover a security issue in Wave, please report it via [GitHub Issues](https://github.com/re-cinq/wave/issues) with the `security` label, or open a private security advisory on the repository.
 
-## Additional Resources
+## Further Reading
 
-- [Enterprise Patterns](/guides/enterprise) - Guide to deploying Wave in enterprise environments
-- [Environment & Credentials](/reference/environment) - Complete environment variable reference
-- [Audit Logging Guide](/guides/audit-logging) - Practical guide to configuring audit logging
+- [Sandbox Setup](/guides/sandbox-setup) - Nix + bubblewrap configuration
+- [Personas](/concepts/personas) - Permission model and deny-first evaluation
+- [Environment & Credentials](/reference/environment) - Environment variable reference

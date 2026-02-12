@@ -18,7 +18,7 @@ const defaultBadges: TrustBadge[] = [
     name: 'Deny-First Permissions',
     status: 'certified',
     description: 'Persona-scoped tool access',
-    link: '/trust-center/security-model'
+    link: '/concepts/personas'
   },
   {
     name: 'Schema Validation',
