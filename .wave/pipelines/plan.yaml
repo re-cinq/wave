@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "add webhook support for pipeline completion events"
 
 steps:
   - id: explore

@@ -3,16 +3,15 @@ specification, plan, and tasks before implementation begins.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
+to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -21,8 +20,12 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.analyze` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
+1. Set up the repo root reference (see above)
+2. Read `artifacts/spec_info` and create a worktree for the feature branch:
+   ```bash
+   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+   cd repo
+   ```
 3. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR and locate spec.md, plan.md, tasks.md
 4. Load all three artifacts and build semantic models:
@@ -40,13 +43,19 @@ Follow the `/speckit.analyze` workflow:
    - **Inconsistency**: Terminology drift, data entity mismatches, ordering contradictions
 
 6. Assign severity: CRITICAL / HIGH / MEDIUM / LOW
-7. Produce a compact analysis report (do NOT modify files — read-only analysis)
+7. Produce a compact analysis report (do NOT modify any spec files — read-only analysis)
+
+8. Clean up worktree:
+   ```bash
+   cd "$OLDPWD"
+   git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+   ```
 
 ## CONSTRAINTS
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT use WebSearch — all information is in the spec artifacts
-- This is a READ-ONLY analysis — do NOT modify any files
+- This is a READ-ONLY analysis — do NOT modify any files in the worktree
 
 ## Output
 

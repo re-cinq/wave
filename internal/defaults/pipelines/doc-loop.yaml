@@ -3,8 +3,13 @@ metadata:
   name: doc-loop
   description: Pre-PR documentation consistency gate — scans changes, cross-references docs, and creates a GitHub issue with inconsistencies
   release: true
+
 input:
   source: cli
+  example: "full"
+  schema:
+    type: string
+    description: "Scan scope: empty for branch diff, 'full' for all files, or a git ref"
 
 steps:
   - id: scan-changes

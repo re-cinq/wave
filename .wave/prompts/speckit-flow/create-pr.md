@@ -2,24 +2,27 @@ You are creating a pull request for the implemented feature and requesting a rev
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
+to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
 ## Instructions
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
+1. Set up the repo root reference (see above)
+2. Read `artifacts/spec_info` and create a worktree for the feature branch:
+   ```bash
+   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+   cd repo
+   ```
 
 3. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
@@ -51,6 +54,12 @@ Read it to find the branch name, spec file, and feature directory.
 8. **Request Copilot Review**: After the PR is created, request a review from Copilot:
    ```bash
    gh pr edit --add-reviewer "copilot"
+   ```
+
+9. **Clean up worktree**:
+   ```bash
+   cd "$OLDPWD"
+   git -C "$REPO_ROOT" worktree remove "$PWD/repo"
    ```
 
 ## CONSTRAINTS

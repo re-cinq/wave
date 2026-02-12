@@ -5,6 +5,10 @@ metadata:
 
 input:
   source: cli
+  example: "add user authentication with JWT tokens"
+  schema:
+    type: string
+    description: "Natural language feature description to specify and implement"
 
 steps:
   - id: specify

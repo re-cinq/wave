@@ -2,16 +2,15 @@ You are creating an implementation plan for a feature specification.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## IMPORTANT: Workspace Isolation via Git Worktree
 
 Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
+Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
+to work concurrently without conflicts.
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 ```
-
-Run this FIRST before any other bash commands.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -20,8 +19,12 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.plan` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
+1. Set up the repo root reference (see above)
+2. Read `artifacts/spec_info` and create a worktree for the feature branch:
+   ```bash
+   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+   cd repo
+   ```
 3. Run `.specify/scripts/bash/setup-plan.sh --json` to get FEATURE_SPEC, IMPL_PLAN,
    SPECS_DIR, and BRANCH paths
 4. Load the feature spec and `.specify/memory/constitution.md`
@@ -38,7 +41,16 @@ Follow the `/speckit.plan` workflow:
    - Run `.specify/scripts/bash/update-agent-context.sh claude`
 
 6. Evaluate constitution compliance at each phase gate
-7. Stop after Phase 1 — report branch, plan path, and generated artifacts
+7. Stop after Phase 1 — commit and report:
+   ```bash
+   git add specs/
+   git commit -m "docs: add implementation plan and research"
+   ```
+8. Clean up worktree:
+   ```bash
+   cd "$OLDPWD"
+   git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+   ```
 
 ## CONSTRAINTS
 

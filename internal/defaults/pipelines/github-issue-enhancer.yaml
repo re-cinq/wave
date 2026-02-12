@@ -6,9 +6,10 @@ metadata:
 
 input:
   source: cli
+  example: "re-cinq/wave 42"
   schema:
     type: string
-    description: "GitHub repository, optionally with issue number (e.g. 're-cinq/wave' or 're-cinq/wave 42')"
+    description: "GitHub repository, optionally with issue number (e.g. 'owner/repo' or 'owner/repo 42')"
 
 steps:
   - id: scan-issues
