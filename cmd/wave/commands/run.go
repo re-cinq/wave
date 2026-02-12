@@ -2,20 +2,24 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,17 +62,29 @@ Arguments can be provided as positional args or flags:
 				opts.Input = args[1]
 			}
 
-			// Validate pipeline is provided
+			opts.Output = GetOutputConfig(cmd)
+			debug, _ := cmd.Flags().GetBool("debug")
+
+			// If no pipeline specified and stdin is a TTY, launch interactive selector
 			if opts.Pipeline == "" {
-				return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
+				if isInteractive() {
+					sel, err := tui.RunPipelineSelector(pipelinesDir(), "")
+					if err != nil {
+						if errors.Is(err, huh.ErrUserAborted) {
+							return nil
+						}
+						return err
+					}
+					applySelection(&opts, sel, &debug)
+				} else {
+					return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
+				}
 			}
 
-			opts.Output = GetOutputConfig(cmd)
 			if err := ValidateOutputFormat(opts.Output.Format); err != nil {
 				return err
 			}
 
-			debug, _ := cmd.Flags().GetBool("debug")
 			return runRun(opts, debug)
 		},
 	}
@@ -108,7 +124,23 @@ func runRun(opts RunOptions, debug bool) error {
 
 	p, err := loadPipeline(opts.Pipeline, &m)
 	if err != nil {
-		return fmt.Errorf("failed to load pipeline: %w", err)
+		// Pipeline not found — if interactive, try TUI with partial name as filter
+		if isInteractive() {
+			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
+			if tuiErr != nil {
+				if errors.Is(tuiErr, huh.ErrUserAborted) {
+					return nil
+				}
+				return tuiErr
+			}
+			applySelection(&opts, sel, &debug)
+			p, err = loadPipeline(opts.Pipeline, &m)
+			if err != nil {
+				return fmt.Errorf("failed to load pipeline: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to load pipeline: %w", err)
+		}
 	}
 
 	if opts.DryRun {
@@ -120,7 +152,7 @@ func runRun(opts RunOptions, debug bool) error {
 	if opts.Mock {
 		// Add simulated delay to see progress animations in action
 		runner = adapter.NewMockAdapter(
-			adapter.WithSimulatedDelay(5*time.Second),
+			adapter.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
 		var adapterName string
@@ -277,6 +309,41 @@ func loadPipeline(name string, m *manifest.Manifest) (*pipeline.Pipeline, error)
 	}
 
 	return &p, nil
+}
+
+// isInteractive returns true when stdin is a TTY and interactive selection is possible.
+func isInteractive() bool {
+	if v := os.Getenv("WAVE_FORCE_TTY"); v != "" {
+		return v == "1" || v == "true"
+	}
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// pipelinesDir returns the default pipeline directory.
+func pipelinesDir() string {
+	return ".wave/pipelines"
+}
+
+// applySelection maps a TUI selection back to RunOptions.
+func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
+	opts.Pipeline = sel.Pipeline
+	if sel.Input != "" {
+		opts.Input = sel.Input
+	}
+	for _, flag := range sel.Flags {
+		switch flag {
+		case "--verbose":
+			opts.Output.Verbose = true
+		case "--output json":
+			opts.Output.Format = OutputFormatJSON
+		case "--dry-run":
+			opts.DryRun = true
+		case "--mock":
+			opts.Mock = true
+		case "--debug":
+			*debug = true
+		}
+	}
 }
 
 func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
