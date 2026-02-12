@@ -260,6 +260,47 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
 	}
 
+	// 3. Copy skill command files into workspace .claude/commands/
+	if cfg.SkillCommandsDir != "" {
+		if err := a.copySkillCommands(settingsDir, cfg.SkillCommandsDir); err != nil {
+			return fmt.Errorf("failed to copy skill commands: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// copySkillCommands copies skill command files from the source directory
+// into the workspace's .claude/commands/ directory.
+func (a *ClaudeAdapter) copySkillCommands(settingsDir, sourceDir string) error {
+	commandsDir := filepath.Join(settingsDir, "commands")
+	if err := os.MkdirAll(commandsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create commands directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // Source doesn't exist, nothing to copy
+		}
+		return fmt.Errorf("failed to read skill commands directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		src := filepath.Join(sourceDir, entry.Name())
+		dst := filepath.Join(commandsDir, entry.Name())
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("failed to read skill command %q: %w", entry.Name(), err)
+		}
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			return fmt.Errorf("failed to write skill command %q: %w", entry.Name(), err)
+		}
+	}
+
 	return nil
 }
 
