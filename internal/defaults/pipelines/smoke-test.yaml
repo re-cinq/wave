@@ -15,24 +15,14 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
       source: |
         Analyze the codebase for: {{ input }}
 
-        Provide a brief analysis as JSON with this exact structure:
-        {
-          "summary": "one sentence summary of what you found",
-          "files_examined": ["list", "of", "files"],
-          "recommendation": "one sentence recommendation"
-        }
-
-        CRITICAL: Your final response must be ONLY the JSON object above.
-        - No markdown code blocks (no ```)
-        - No explanatory text before or after
-        - Just the raw JSON object starting with { and ending with }
+        Provide your analysis. Create artifact.json with your results matching the contract schema.
     output_artifacts:
       - name: analysis
         path: output/analysis.json

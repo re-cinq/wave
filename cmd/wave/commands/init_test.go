@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -894,4 +895,224 @@ func TestInitDisplayShowsFilteredCounts(t *testing.T) {
 	expectedCount := fmt.Sprintf("%d pipelines", len(releasePipelines))
 	assert.Contains(t, stdout, expectedCount,
 		"init output should show filtered pipeline count")
+}
+
+// TestDetectProject tests project type auto-detection from filesystem markers.
+func TestDetectProject(t *testing.T) {
+	pkgJSON := func(scripts map[string]string) string {
+		s, _ := json.Marshal(map[string]interface{}{"scripts": scripts})
+		return string(s)
+	}
+
+	tests := []struct {
+		name         string
+		files        map[string]string // filename -> content
+		wantLanguage string
+		wantNil      bool
+		wantTestCmd  string
+		wantLintCmd  string
+		wantBuildCmd string
+	}{
+		{
+			name:         "go project",
+			files:        map[string]string{"go.mod": "module test"},
+			wantLanguage: "go",
+			wantTestCmd:  "go test ./...",
+			wantLintCmd:  "go vet ./...",
+			wantBuildCmd: "go build ./...",
+		},
+		{
+			name: "bun project reads scripts",
+			files: map[string]string{
+				"bun.lockb":    "",
+				"package.json": pkgJSON(map[string]string{"test": "vitest", "lint": "eslint .", "build": "tsc"}),
+				"tsconfig.json": "{}",
+			},
+			wantLanguage: "typescript",
+			wantTestCmd:  "bun test",
+			wantLintCmd:  "bun run lint",
+			wantBuildCmd: "bun run build",
+		},
+		{
+			name:         "deno project",
+			files:        map[string]string{"deno.json": "{}"},
+			wantLanguage: "typescript",
+			wantTestCmd:  "deno test",
+		},
+		{
+			name:         "deno jsonc project",
+			files:        map[string]string{"deno.jsonc": "{}"},
+			wantLanguage: "typescript",
+			wantTestCmd:  "deno test",
+		},
+		{
+			name: "typescript node project reads scripts",
+			files: map[string]string{
+				"package.json":  pkgJSON(map[string]string{"test": "jest", "lint": "eslint", "build": "tsc"}),
+				"tsconfig.json": "{}",
+			},
+			wantLanguage: "typescript",
+			wantTestCmd:  "npm test",
+			wantLintCmd:  "npm run lint",
+			wantBuildCmd: "npm run build",
+		},
+		{
+			name: "javascript node project reads scripts",
+			files: map[string]string{
+				"package.json": pkgJSON(map[string]string{"test": "mocha", "build": "webpack"}),
+			},
+			wantLanguage: "javascript",
+			wantTestCmd:  "npm test",
+			wantBuildCmd: "npm run build",
+		},
+		{
+			name: "pnpm project uses pnpm runner",
+			files: map[string]string{
+				"package.json":   pkgJSON(map[string]string{"test": "vitest", "lint": "eslint"}),
+				"pnpm-lock.yaml": "",
+				"tsconfig.json":  "{}",
+			},
+			wantLanguage: "typescript",
+			wantTestCmd:  "pnpm test",
+			wantLintCmd:  "pnpm run lint",
+		},
+		{
+			name: "yarn project uses yarn runner",
+			files: map[string]string{
+				"package.json": pkgJSON(map[string]string{"test": "jest"}),
+				"yarn.lock":    "",
+			},
+			wantLanguage: "javascript",
+			wantTestCmd:  "yarn test",
+		},
+		{
+			name: "package.json without scripts still detects language",
+			files: map[string]string{
+				"package.json": `{"name": "my-app"}`,
+			},
+			wantLanguage: "javascript",
+		},
+		{
+			name:         "rust project",
+			files:        map[string]string{"Cargo.toml": ""},
+			wantLanguage: "rust",
+			wantTestCmd:  "cargo test",
+		},
+		{
+			name:         "python project with pyproject",
+			files:        map[string]string{"pyproject.toml": ""},
+			wantLanguage: "python",
+			wantTestCmd:  "pytest",
+		},
+		{
+			name:         "python project with setup.py",
+			files:        map[string]string{"setup.py": ""},
+			wantLanguage: "python",
+			wantTestCmd:  "pytest",
+		},
+		{
+			name:    "unknown project",
+			files:   map[string]string{},
+			wantNil: true,
+		},
+		{
+			name:         "go takes priority over package.json",
+			files:        map[string]string{"go.mod": "module test", "package.json": "{}"},
+			wantLanguage: "go",
+			wantTestCmd:  "go test ./...",
+		},
+		{
+			name: "deno takes priority over package.json",
+			files: map[string]string{
+				"deno.json":    "{}",
+				"package.json": pkgJSON(map[string]string{"test": "jest"}),
+			},
+			wantLanguage: "typescript",
+			wantTestCmd:  "deno test",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			defer env.cleanup()
+
+			for name, content := range tc.files {
+				require.NoError(t, os.WriteFile(name, []byte(content), 0644))
+			}
+
+			result := detectProject()
+
+			if tc.wantNil {
+				assert.Nil(t, result, "expected nil for unknown project")
+				return
+			}
+
+			require.NotNil(t, result, "expected non-nil project detection")
+			assert.Equal(t, tc.wantLanguage, result["language"])
+
+			if tc.wantTestCmd != "" {
+				assert.Equal(t, tc.wantTestCmd, result["test_command"])
+			}
+			if tc.wantLintCmd != "" {
+				assert.Equal(t, tc.wantLintCmd, result["lint_command"])
+			}
+			if tc.wantBuildCmd != "" {
+				assert.Equal(t, tc.wantBuildCmd, result["build_command"])
+			}
+		})
+	}
+}
+
+// TestInitIncludesDetectedProject tests that wave init includes the detected project in the manifest.
+func TestInitIncludesDetectedProject(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// Create a go.mod so detection picks up Go
+	require.NoError(t, os.WriteFile("go.mod", []byte("module test"), 0644))
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	project, ok := manifest["project"].(map[string]interface{})
+	require.True(t, ok, "manifest should contain project key")
+	assert.Equal(t, "go", project["language"])
+	assert.Equal(t, "go test ./...", project["test_command"])
+	assert.Equal(t, "go vet ./...", project["lint_command"])
+}
+
+// TestInitNoProjectWhenUndetected tests that wave init omits project when no markers found.
+func TestInitNoProjectWhenUndetected(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	_, hasProject := manifest["project"]
+	assert.False(t, hasProject, "manifest should not contain project key when undetected")
+}
+
+// TestInitPersonaPermissionsAreGeneric tests that persona permissions don't contain language-specific commands.
+func TestInitPersonaPermissionsAreGeneric(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	content, err := os.ReadFile("wave.yaml")
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.NotContains(t, contentStr, "go vet", "manifest should not contain go vet in permissions")
+	assert.NotContains(t, contentStr, "go test", "manifest should not contain go test in permissions")
+	assert.NotContains(t, contentStr, "npm audit", "manifest should not contain npm audit in permissions")
 }
