@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADR Options Analysis",
+  "description": "Analysis of options for an architectural decision",
+  "type": "object",
+  "required": ["decision_topic", "options", "recommendation", "timestamp"],
+  "properties": {
+    "decision_topic": { "type": "string", "minLength": 5 },
+    "options": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "pros", "cons"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 10 },
+          "pros": { "type": "array", "items": { "type": "string" } },
+          "cons": { "type": "array", "items": { "type": "string" } },
+          "effort": { "type": "string", "enum": ["trivial", "small", "medium", "large", "epic"] },
+          "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+          "reversibility": { "type": "string", "enum": ["easy", "moderate", "difficult", "irreversible"] },
+          "compatibility": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["option", "rationale", "confidence"],
+      "properties": {
+        "option": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 20 },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

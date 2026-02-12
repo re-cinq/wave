@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Survey",
+  "description": "Structured survey of a project for onboarding guide generation",
+  "type": "object",
+  "required": ["project", "build", "structure", "timestamp"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["name", "language", "purpose"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 1 },
+        "framework": { "type": "string" },
+        "purpose": { "type": "string", "minLength": 5 },
+        "license": { "type": "string" }
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": ["commands"],
+      "properties": {
+        "commands": {
+          "type": "object",
+          "properties": {
+            "build": { "type": "string" },
+            "test": { "type": "string" },
+            "run": { "type": "string" }
+          }
+        },
+        "prerequisites": { "type": "array", "items": { "type": "string" } },
+        "ci_system": { "type": "string" }
+      }
+    },
+    "structure": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 1 },
+          "key_files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "properties": {
+        "entry_points": { "type": "array", "items": { "type": "string" } },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "role"],
+            "properties": {
+              "name": { "type": "string" },
+              "package": { "type": "string" },
+              "role": { "type": "string" }
+            }
+          }
+        },
+        "patterns": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "key_deps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "purpose"],
+            "properties": {
+              "name": { "type": "string" },
+              "purpose": { "type": "string" },
+              "import": { "type": "string" }
+            }
+          }
+        },
+        "total_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "env_vars": { "type": "array", "items": { "type": "string" } },
+        "config_files": { "type": "array", "items": { "type": "string" } },
+        "feature_flags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "properties": {
+        "framework": { "type": "string" },
+        "patterns": { "type": "array", "items": { "type": "string" } },
+        "run_command": { "type": "string" },
+        "coverage_command": { "type": "string" }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "branch_strategy": { "type": "string" },
+        "commit_convention": { "type": "string" },
+        "pr_process": { "type": "string" }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "properties": {
+        "locations": { "type": "array", "items": { "type": "string" } },
+        "quality": { "type": "string", "enum": ["good", "adequate", "sparse", "missing"] }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
