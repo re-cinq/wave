@@ -64,6 +64,7 @@ type Runtime struct {
 	WorkspaceRoot        string         `yaml:"workspace_root"`
 	MaxConcurrentWorkers int            `yaml:"max_concurrent_workers,omitempty"`
 	DefaultTimeoutMin    int            `yaml:"default_timeout_minutes,omitempty"`
+	PipelineIDHashLength int            `yaml:"pipeline_id_hash_length,omitempty"`
 	Relay                RelayConfig    `yaml:"relay,omitempty"`
 	Audit                AuditConfig    `yaml:"audit,omitempty"`
 	MetaPipeline         MetaConfig     `yaml:"meta_pipeline,omitempty"`

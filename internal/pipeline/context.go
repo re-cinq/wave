@@ -13,15 +13,18 @@ type PipelineContext struct {
 	BranchName      string            `json:"branch_name"`
 	FeatureNum      string            `json:"feature_num"`
 	SpeckitMode     bool              `json:"speckit_mode"`
-	PipelineID      string            `json:"pipeline_id"`
+	PipelineID      string            `json:"pipeline_id"`      // Runtime ID with hash suffix
+	PipelineName    string            `json:"pipeline_name"`    // Logical pipeline name
 	StepID          string            `json:"step_id"`
 	CustomVariables map[string]string `json:"custom_variables,omitempty"`
 }
 
-// NewPipelineContext creates a new pipeline context with auto-detected values
-func NewPipelineContext(pipelineID, stepID string) *PipelineContext {
+// NewPipelineContext creates a new pipeline context with auto-detected values.
+// pipelineID is the runtime ID (with hash suffix), pipelineName is the logical name.
+func NewPipelineContext(pipelineID, pipelineName, stepID string) *PipelineContext {
 	ctx := &PipelineContext{
 		PipelineID:      pipelineID,
+		PipelineName:    pipelineName,
 		StepID:          stepID,
 		CustomVariables: make(map[string]string),
 	}
@@ -52,6 +55,7 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = strings.ReplaceAll(result, "{{pipeline_context.branch_name}}", ctx.BranchName)
 	result = strings.ReplaceAll(result, "{{pipeline_context.feature_num}}", ctx.FeatureNum)
 	result = strings.ReplaceAll(result, "{{pipeline_context.pipeline_id}}", ctx.PipelineID)
+	result = strings.ReplaceAll(result, "{{pipeline_context.pipeline_name}}", ctx.PipelineName)
 	result = strings.ReplaceAll(result, "{{pipeline_context.step_id}}", ctx.StepID)
 
 	// Replace custom variables
@@ -62,6 +66,7 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 
 	// Handle legacy template variables
 	result = strings.ReplaceAll(result, "{{pipeline_id}}", ctx.PipelineID)
+	result = strings.ReplaceAll(result, "{{pipeline_name}}", ctx.PipelineName)
 	result = strings.ReplaceAll(result, "{{step_id}}", ctx.StepID)
 
 	return result
@@ -118,13 +123,15 @@ func (ctx *PipelineContext) GetSpeckitPath(filename string) string {
 func (ctx *PipelineContext) ToTemplateVars() map[string]string {
 	vars := map[string]string{
 		"pipeline_id":           ctx.PipelineID,
+		"pipeline_name":        ctx.PipelineName,
 		"step_id":               ctx.StepID,
 		"branch_name":           ctx.BranchName,
 		"feature_num":           ctx.FeatureNum,
-		"pipeline_context.branch_name": ctx.BranchName,
-		"pipeline_context.feature_num": ctx.FeatureNum,
-		"pipeline_context.pipeline_id": ctx.PipelineID,
-		"pipeline_context.step_id":     ctx.StepID,
+		"pipeline_context.branch_name":    ctx.BranchName,
+		"pipeline_context.feature_num":    ctx.FeatureNum,
+		"pipeline_context.pipeline_id":    ctx.PipelineID,
+		"pipeline_context.pipeline_name":  ctx.PipelineName,
+		"pipeline_context.step_id":        ctx.StepID,
 	}
 
 	// Add custom variables
