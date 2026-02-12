@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["current_coverage", "uncovered_functions", "uncovered_branches", "edge_cases", "mock_requirements"],
+  "properties": {
+    "current_coverage": { "type": "string" },
+    "uncovered_functions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "uncovered_branches": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "edge_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "mock_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

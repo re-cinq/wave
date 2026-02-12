@@ -20,7 +20,7 @@ steps:
       root: ./
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -41,23 +41,22 @@ steps:
         ## Categorize Changed Files
 
         Sort each changed file into one of these categories:
-        - **go_code**: `*.go` files (excluding test files and cmd/wave/commands/)
-        - **cli_commands**: files in `cmd/wave/commands/`
-        - **pipelines**: files in `.wave/pipelines/` or `internal/defaults/pipelines/`
-        - **personas**: files in `.wave/personas/` or `internal/defaults/personas/`
-        - **contracts**: files in `.wave/contracts/` or `internal/defaults/contracts/`
-        - **documentation**: `*.md` files, `docs/` directory
+        - **source_code**: source files matching the project language (excluding test files)
+        - **tests**: test files (files with test/spec in name or in test directories)
+        - **documentation**: markdown files, doc directories, README, CONTRIBUTING, CHANGELOG
+        - **configuration**: config files, schema files, environment configs
+        - **build**: build scripts, CI/CD configs, Makefiles, Dockerfiles
         - **other**: everything else
 
         ## Read Documentation Surface Area
 
-        Read these key documentation files (if they exist) and write a brief summary of each:
-        - README.md
-        - CLAUDE.md
-        - docs/reference/cli.md
-        - docs/reference/environment.md
-        - docs/guides/ (list all files)
-        - cmd/wave/commands/*.go (scan for cobra command definitions, flags, and help text)
+        Discover and read key documentation files. Common locations include:
+        - Project root: README.md, CONTRIBUTING.md, CHANGELOG.md
+        - Documentation directories: docs/, doc/, wiki/
+        - Configuration docs: any files documenting config options or environment variables
+        - CLI/API docs: any files documenting commands, endpoints, or public interfaces
+
+        Adapt your scan to the actual project structure — do not assume a fixed layout.
 
         ## Output
 
@@ -92,7 +91,7 @@ steps:
       root: ./
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -105,33 +104,24 @@ steps:
 
         For each category of changed files, perform these checks:
 
-        **CLI commands** (changed files in cmd/wave/commands/):
-        - Compare cobra flag definitions and help text against docs/reference/cli.md and README.md
-        - Check for new flags, removed flags, or changed descriptions
-        - Verify command examples still work
+        **CLI/API surface** (changed command or endpoint files):
+        - Compare command definitions, endpoints, or public interfaces against documentation
+        - Check for new, removed, or changed options/parameters
+        - Verify documented examples still work
 
-        **Personas** (changed persona definitions):
-        - Compare persona list against README.md persona documentation
-        - Check persona descriptions match across wave.yaml, docs, and README
-        - Verify persona permissions documented correctly
+        **Configuration** (changed config schemas or parsers):
+        - Compare documented options against actual config structure
+        - Check for undocumented settings or environment variables
 
-        **Pipelines** (changed pipeline definitions):
-        - Compare pipeline list against README.md pipeline documentation
-        - Check pipeline descriptions and step counts match docs
-        - Verify referenced personas and contracts exist
-
-        **Contracts** (changed contract schemas):
-        - Check for orphaned contracts (referenced by no pipeline)
-        - Check for missing contracts (referenced by pipeline but don't exist)
-
-        **Environment variables**:
-        - Scan Go code for os.Getenv/os.LookupEnv calls
-        - Compare against docs/reference/environment.md
-        - Flag undocumented environment variables
-
-        **Go code changes**:
+        **Source code** (changed source files):
         - Check for new exported functions/types that might need API docs
         - Look for stale code comments referencing removed features
+        - Verify public API descriptions in docs match actual behavior
+
+        **Environment variables**:
+        - Scan source code for environment variable access patterns
+        - Compare against documentation
+        - Flag undocumented environment variables
 
         ## Severity Rating
 

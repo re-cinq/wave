@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["files_changed", "modules_affected", "related_tests", "breaking_changes"],
+  "properties": {
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "change_type", "purpose"],
+        "properties": {
+          "path": { "type": "string" },
+          "change_type": { "type": "string", "enum": ["added", "modified", "deleted"] },
+          "purpose": { "type": "string" }
+        }
+      }
+    },
+    "modules_affected": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "related_tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "breaking_changes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

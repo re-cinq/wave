@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: code-review
   description: "Comprehensive code review for pull requests"
+  release: true
 
 input:
   source: cli
@@ -15,7 +16,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
@@ -27,17 +28,20 @@ steps:
         3. Find related tests that should be updated
         4. Check for breaking API changes
 
-        Output as JSON:
-        {
-          "files_changed": [{"path": "", "change_type": "added|modified|deleted", "purpose": ""}],
-          "modules_affected": [],
-          "related_tests": [],
-          "breaking_changes": []
-        }
+        Write the result as JSON to output/diff-analysis.json with fields:
+        files_changed (array of path, change_type, purpose), modules_affected,
+        related_tests, and breaking_changes.
     output_artifacts:
       - name: diff
         path: output/diff-analysis.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/diff-analysis.json
+        schema_path: .wave/contracts/diff-analysis.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: security-review
     persona: auditor
