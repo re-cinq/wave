@@ -3,91 +3,48 @@
 ## Prerequisites
 
 - Claude Code CLI (`claude`) on PATH
-- Git (optional, for building from source)
 - Go 1.25+ (optional, for building from source)
 
 ## Install Wave
 
-### Install Script (Recommended)
+### GitHub Release (Recommended)
 
-The install script detects your OS and architecture, downloads the appropriate binary from GitHub Releases, verifies the SHA256 checksum, and installs it.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-```
-
-Install a specific version:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh -s -- 0.1.0
-```
-
-Override the install directory:
-
-```bash
-WAVE_INSTALL_DIR=~/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-```
-
-::: warning Private Repository
-The curl one-liner only works when the repository is **public**. While the repository is private, clone the repo and run `scripts/install.sh` directly.
-:::
-
-### Homebrew (macOS)
-
-```bash
-brew install re-cinq/tap/wave
-```
-
-### Debian / Ubuntu
-
-Download the `.deb` package from [GitHub Releases](https://github.com/re-cinq/wave/releases):
-
-```bash
-# Download the latest .deb package (replace 0.1.0 with desired version)
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_0.1.0_linux_amd64.deb
-
-# Install
-sudo dpkg -i wave_*.deb
-```
-
-### Arch Linux (AUR)
-
-```bash
-# Using an AUR helper (e.g., yay)
-yay -S wave
-
-# Or manually
-git clone https://aur.archlinux.org/wave.git
-cd wave
-makepkg -si
-```
-
-### Nix / NixOS
-
-```bash
-# Install directly from the flake
-nix profile install github:re-cinq/wave
-
-# Or run without installing
-nix run github:re-cinq/wave -- --help
-```
-
-### Manual Download
-
-Download pre-built archives from [GitHub Releases](https://github.com/re-cinq/wave/releases):
+Download pre-built binaries from [GitHub Releases](https://github.com/re-cinq/wave/releases):
 
 | Platform | Architecture | Archive |
 |----------|-------------|---------|
-| Linux | x86_64 | `wave_0.1.0_linux_amd64.tar.gz` |
-| Linux | ARM64 | `wave_0.1.0_linux_arm64.tar.gz` |
-| macOS | Intel | `wave_0.1.0_darwin_amd64.zip` |
-| macOS | Apple Silicon | `wave_0.1.0_darwin_arm64.zip` |
+| Linux | x86_64 | `wave_<version>_linux_amd64.tar.gz` |
+| Linux | ARM64 | `wave_<version>_linux_arm64.tar.gz` |
+| Linux (deb) | x86_64 | `wave_<version>_linux_amd64.deb` |
+| Linux (deb) | ARM64 | `wave_<version>_linux_arm64.deb` |
+| macOS | Intel | `wave_<version>_darwin_amd64.zip` |
+| macOS | Apple Silicon | `wave_<version>_darwin_arm64.zip` |
+
+#### Linux (tar.gz)
 
 ```bash
-# Example: Linux x86_64 (replace 0.1.0 with desired version)
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_0.1.0_linux_amd64.tar.gz
-tar -xzf wave_*.tar.gz
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
+tar -xzf wave_linux_amd64.tar.gz
 sudo mv wave /usr/local/bin/
+```
+
+#### Linux (deb)
+
+```bash
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
+sudo dpkg -i wave_linux_amd64.deb
+```
+
+#### macOS
+
+```bash
+# Apple Silicon
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_arm64.zip
+unzip wave_darwin_arm64.zip && sudo mv wave /usr/local/bin/
+
+# Intel
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_amd64.zip
+unzip wave_darwin_amd64.zip && sudo mv wave /usr/local/bin/
 ```
 
 ### Build from Source
@@ -103,22 +60,15 @@ sudo mv wave /usr/local/bin/
 
 Wave follows [Semantic Versioning](https://semver.org/). Releases are created automatically on every merge to `main`, with the version bump determined by [conventional commit](https://www.conventionalcommits.org/) prefixes:
 
-- `fix:`, `docs:`, `chore:` → **patch** (0.0.X)
-- `feat:` → **minor** (0.X.0)
-- `feat!:` or `BREAKING CHANGE:` → **major** (X.0.0)
-
-See the [CI/CD guide](/guides/ci-cd#automated-versioning) for details on the release pipeline.
+- `fix:`, `docs:`, `chore:` -> **patch** (0.0.X)
+- `feat:` -> **minor** (0.X.0)
+- `feat!:` or `BREAKING CHANGE:` -> **major** (X.0.0)
 
 ## Verify Installation
 
 ```bash
-# Check version and build info
 wave --version
-
-# Check Wave is installed
 wave --help
-
-# Check Claude Code is available
 claude --version
 ```
 
@@ -127,17 +77,9 @@ claude --version
 ```bash
 # Remove binary
 sudo rm /usr/local/bin/wave
-# or
-rm ~/.local/bin/wave
-
-# Homebrew
-brew uninstall wave
 
 # Debian/Ubuntu
 sudo apt remove wave
-
-# Nix
-nix profile remove wave
 
 # Remove project files (optional)
 rm -rf ~/.wave
@@ -145,6 +87,5 @@ rm -rf ~/.wave
 
 ## Next Steps
 
-- [Initialize your first project](/guide/quick-start)
-- [Read the configuration guide](/guide/configuration)
-- [Browse examples](/examples/)
+- [Quickstart](/quickstart) - Get running in 60 seconds
+- [Pipeline Configuration](/guides/pipeline-configuration) - Configure your first pipeline
