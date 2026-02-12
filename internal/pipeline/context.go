@@ -53,23 +53,29 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 
 	result := template
 
-	// Replace pipeline context variables
-	result = strings.ReplaceAll(result, "{{pipeline_context.branch_name}}", ctx.BranchName)
-	result = strings.ReplaceAll(result, "{{pipeline_context.feature_num}}", ctx.FeatureNum)
-	result = strings.ReplaceAll(result, "{{pipeline_context.pipeline_id}}", ctx.PipelineID)
-	result = strings.ReplaceAll(result, "{{pipeline_context.pipeline_name}}", ctx.PipelineName)
-	result = strings.ReplaceAll(result, "{{pipeline_context.step_id}}", ctx.StepID)
+	// replaceBoth replaces both {{key}} and {{ key }} variants
+	replaceBoth := func(s, key, value string) string {
+		s = strings.ReplaceAll(s, "{{"+key+"}}", value)
+		s = strings.ReplaceAll(s, "{{ "+key+" }}", value)
+		return s
+	}
+
+	// Replace pipeline context variables (both spaced and unspaced)
+	result = replaceBoth(result, "pipeline_context.branch_name", ctx.BranchName)
+	result = replaceBoth(result, "pipeline_context.feature_num", ctx.FeatureNum)
+	result = replaceBoth(result, "pipeline_context.pipeline_id", ctx.PipelineID)
+	result = replaceBoth(result, "pipeline_context.pipeline_name", ctx.PipelineName)
+	result = replaceBoth(result, "pipeline_context.step_id", ctx.StepID)
 
 	// Replace custom variables (support both {{key}} and {{ key }} formats)
 	for key, value := range ctx.CustomVariables {
-		result = strings.ReplaceAll(result, "{{"+key+"}}", value)
-		result = strings.ReplaceAll(result, "{{ "+key+" }}", value)
+		result = replaceBoth(result, key, value)
 	}
 
-	// Handle legacy template variables
-	result = strings.ReplaceAll(result, "{{pipeline_id}}", ctx.PipelineID)
-	result = strings.ReplaceAll(result, "{{pipeline_name}}", ctx.PipelineName)
-	result = strings.ReplaceAll(result, "{{step_id}}", ctx.StepID)
+	// Handle legacy template variables (both spaced and unspaced)
+	result = replaceBoth(result, "pipeline_id", ctx.PipelineID)
+	result = replaceBoth(result, "pipeline_name", ctx.PipelineName)
+	result = replaceBoth(result, "step_id", ctx.StepID)
 
 	return result
 }
