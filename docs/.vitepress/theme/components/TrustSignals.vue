@@ -30,7 +30,7 @@ const defaultBadges: TrustBadge[] = [
     name: 'Audit Logging',
     status: 'certified',
     description: 'Full execution traces',
-    link: '/trust-center/audit-logging'
+    link: '/guides/audit-logging'
   }
 ]
 
