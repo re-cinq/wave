@@ -16,6 +16,8 @@ graph TD
 
 ## Full Pipeline Definition
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -184,6 +186,8 @@ steps:
         path: output/review.md
         type: markdown
 ```
+
+</div>
 
 ## Contract Schemas
 
