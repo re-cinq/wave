@@ -7,7 +7,7 @@ A complete specification-driven development pipeline that takes a feature reques
 The speckit flow is Wave's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
 
 ```mermaid
-graph LR
+graph TD
     N[Navigate] --> S[Specify]
     S --> P[Plan]
     P --> I[Implement]

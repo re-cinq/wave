@@ -414,7 +414,3 @@ On timeout:
 - [Audit Logging Specification](/trust-center/audit-logging) - Complete audit log documentation
 - [Environment & Credentials](/reference/environment) - Environment variable reference
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
-
----
-
-*Last updated: February 2026*
