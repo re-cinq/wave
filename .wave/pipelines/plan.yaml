@@ -52,58 +52,15 @@ steps:
         6. **Assess risks**: Identify potential risks (breaking changes, performance concerns,
            security implications). Rate severity (high/medium/low) and suggest mitigations.
 
-        ## Output Format
+        ## Output
 
-        Write a single JSON object to output/exploration.json with this exact structure:
+        Write the result as a single JSON object to output/exploration.json matching
+        the contract schema. The output must include: feature_context (input_summary,
+        scope_assessment), related_files, patterns (with PAT-### IDs), affected_modules,
+        testing_landscape, risks, and timestamp.
 
-        {
-          "feature_context": {
-            "input_summary": "string (what is being requested)",
-            "scope_assessment": "small|medium|large|epic"
-          },
-          "related_files": [
-            {
-              "path": "relative/path/to/file",
-              "relevance": "primary|secondary|reference",
-              "reason": "why this file matters",
-              "key_symbols": ["FuncName", "TypeName"]
-            }
-          ],
-          "patterns": [
-            {
-              "id": "PAT-001",
-              "name": "pattern name",
-              "description": "what it is and how it works",
-              "example_file": "path/to/example",
-              "relevance": "must_follow|should_follow|informational"
-            }
-          ],
-          "affected_modules": [
-            {
-              "path": "module/path",
-              "description": "what it does",
-              "impact_level": "direct|indirect|none",
-              "dependencies": ["other/module"],
-              "dependents": ["dependent/module"]
-            }
-          ],
-          "testing_landscape": {
-            "existing_test_files": ["path/to/test_file"],
-            "testing_patterns": ["table-driven tests", "mock adapters"],
-            "coverage_gaps": ["area lacking tests"]
-          },
-          "risks": [
-            {
-              "description": "what could go wrong",
-              "severity": "high|medium|low",
-              "mitigation": "how to prevent it"
-            }
-          ],
-          "timestamp": "ISO 8601 datetime"
-        }
-
-        CRITICAL: Write ONLY the JSON object to output/exploration.json. No markdown wrapping,
-        no explanation outside the file. The file must parse as valid JSON.
+        CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
+        outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: exploration
         path: output/exploration.json
@@ -172,45 +129,16 @@ steps:
 
         8. **Risks**: Note task-specific risks from the exploration.
 
-        ## Output Format
+        ## Output
 
-        Write a single JSON object to output/tasks.json with this exact structure:
+        Write a single JSON object to output/tasks.json matching the contract schema.
+        The output must include: feature_summary, tasks (with T## IDs, personas,
+        dependencies, acceptance_criteria, affected_files, complexity, risks),
+        execution_order (grouped by phases), metadata, and a markdown_content field
+        with a complete human-readable rendering of the plan.
 
-        {
-          "feature_summary": {
-            "title": "short feature title",
-            "description": "what the feature does (20+ chars)",
-            "total_tasks": 5,
-            "estimated_total_complexity": "S|M|L|XL"
-          },
-          "tasks": [
-            {
-              "id": "T01",
-              "title": "task title (5+ chars)",
-              "description": "detailed description (20+ chars)",
-              "persona": "craftsman",
-              "complexity": "M",
-              "dependencies": [],
-              "acceptance_criteria": ["criterion 1", "criterion 2"],
-              "affected_files": ["path/to/file"],
-              "risks": ["potential issue"]
-            }
-          ],
-          "execution_order": [
-            { "phase": 1, "task_ids": ["T01", "T02"] },
-            { "phase": 2, "task_ids": ["T03"] }
-          ],
-          "metadata": {
-            "generated_at": "ISO 8601 datetime"
-          },
-          "markdown_content": "# Feature Plan\n\n## Summary\n...\n\n## Tasks\n\n### T01: Title\n..."
-        }
-
-        The markdown_content field should be a complete, human-readable rendering of the
-        entire plan with headers, task details, dependency graph, and execution phases.
-
-        CRITICAL: Write ONLY the JSON object to output/tasks.json. No markdown wrapping,
-        no explanation outside the file. The file must parse as valid JSON.
+        CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
+        outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: tasks
         path: output/tasks.json
@@ -289,78 +217,17 @@ steps:
         - approve_with_notes: Plan is good but has minor issues to note
         - revise: Plan needs significant changes before execution
 
-        ## Output Format
+        ## Output
 
-        Write a single JSON object to output/plan-review.json:
+        Write a single JSON object to output/plan-review.json matching the contract schema.
+        The output must include: verdict (decision, confidence, rationale), summary
+        (counts and strengths), task_reviews (per-task status with REV-### issues),
+        cross_cutting_concerns (CC-### IDs), recommendations (REC-### IDs with types),
+        risk_assessment, timestamp, and a markdown_content field with a complete
+        human-readable rendering of the review.
 
-        {
-          "verdict": {
-            "decision": "approve|approve_with_notes|revise",
-            "confidence": "high|medium|low",
-            "rationale": "why this verdict (20+ chars)"
-          },
-          "summary": {
-            "total_tasks_reviewed": 5,
-            "issues_found": 2,
-            "issues_by_severity": { "critical": 0, "high": 1, "medium": 1, "low": 0 },
-            "strengths": ["good dependency ordering", "clear acceptance criteria"]
-          },
-          "task_reviews": [
-            {
-              "task_id": "T01",
-              "status": "ok",
-              "issues": []
-            },
-            {
-              "task_id": "T02",
-              "status": "needs_refinement",
-              "issues": [
-                {
-                  "id": "REV-001",
-                  "severity": "medium",
-                  "description": "what is wrong",
-                  "suggestion": "how to fix"
-                }
-              ]
-            }
-          ],
-          "cross_cutting_concerns": [
-            {
-              "id": "CC-001",
-              "category": "testing",
-              "description": "concern description",
-              "affected_tasks": ["T01", "T03"],
-              "recommendation": "what to do"
-            }
-          ],
-          "recommendations": [
-            {
-              "id": "REC-001",
-              "priority": "high",
-              "description": "what should change",
-              "type": "add_task"
-            }
-          ],
-          "risk_assessment": {
-            "overall_risk": "high|medium|low",
-            "key_risks": [
-              {
-                "description": "risk description",
-                "severity": "high|medium|low",
-                "likelihood": "high|medium|low",
-                "mitigation": "how to mitigate"
-              }
-            ]
-          },
-          "timestamp": "ISO 8601 datetime",
-          "markdown_content": "# Plan Review\n\n## Verdict: Approve\n..."
-        }
-
-        The markdown_content field should be a complete, human-readable rendering of the
-        review including verdict, per-task status, concerns, and recommendations.
-
-        CRITICAL: Write ONLY the JSON object to output/plan-review.json. No markdown wrapping,
-        no explanation outside the file. The file must parse as valid JSON.
+        CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
+        outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: review
         path: output/plan-review.json

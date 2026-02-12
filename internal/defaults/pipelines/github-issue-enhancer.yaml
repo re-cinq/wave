@@ -82,13 +82,9 @@ steps:
         - suggested_labels: appropriate labels
         - enhancements: list of changes being made
 
-        Save to artifact.json:
-        {
-          "issues_to_enhance": [
-            {"issue_number": 22, "suggested_title": "...", "body_template": "...", "suggested_labels": ["..."], "enhancements": ["..."]}
-          ],
-          "total_to_enhance": 3
-        }
+        Save the result to artifact.json matching the contract schema, with fields:
+        issues_to_enhance (array of issue_number, suggested_title, body_template,
+        suggested_labels, enhancements) and total_to_enhance.
     output_artifacts:
       - name: enhancement_plan
         path: artifact.json
@@ -131,8 +127,8 @@ steps:
         - If body_template is provided: gh issue edit <N> --repo {{ input }} --body "body_template"
         - If suggested_labels: gh issue edit <N> --repo {{ input }} --add-label "label1,label2"
 
-        Step 4: Save actual results to artifact.json:
-        {"enhanced_issues": [...], "total_attempted": N, "total_successful": N, "total_failed": 0}
+        Step 4: Save actual results to artifact.json matching the contract schema,
+        with fields: enhanced_issues, total_attempted, total_successful, total_failed.
     output_artifacts:
       - name: enhancement_results
         path: artifact.json
@@ -170,13 +166,8 @@ steps:
 
         For each issue, verify with: gh issue view <N> --repo {{ input }} --json title,labels
 
-        Save verification to artifact.json:
-        {
-          "total_enhanced": N,
-          "successful_enhancements": [{"issue_number": N, "verified_changes": ["..."]}],
-          "failed_enhancements": [],
-          "summary": "..."
-        }
+        Save verification to artifact.json matching the contract schema, with fields:
+        total_enhanced, successful_enhancements, failed_enhancements, and summary.
     output_artifacts:
       - name: verification_report
         path: artifact.json
