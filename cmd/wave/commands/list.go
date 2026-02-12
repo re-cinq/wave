@@ -420,7 +420,7 @@ func listPipelinesTable() error {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Pipelines"))
+	fmt.Printf("%s\n", f.Colorize("Pipelines", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(entries) == 0 {
@@ -535,7 +535,7 @@ func listPersonasTable(personas map[string]struct {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Personas"))
+	fmt.Printf("%s\n", f.Colorize("Personas", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(personas) == 0 {
@@ -611,7 +611,7 @@ func listAdaptersTable(adapters map[string]struct {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Adapters"))
+	fmt.Printf("%s\n", f.Colorize("Adapters", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(adapters) == 0 {
@@ -1093,7 +1093,7 @@ func listRunsTable(runs []RunInfo) {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Recent Pipeline Runs"))
+	fmt.Printf("%s\n", f.Colorize("Recent Pipeline Runs", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 100)))
 
 	if len(runs) == 0 {
@@ -1263,7 +1263,7 @@ func listContractsTable(contracts []ContractInfo) {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Contracts"))
+	fmt.Printf("%s\n", f.Colorize("Contracts", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(contracts) == 0 {

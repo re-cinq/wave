@@ -20,8 +20,8 @@ func WaveTheme() *huh.Theme {
 	// Focused field styles.
 	t.Focused.Base = t.Focused.Base.BorderForeground(cyan)
 	t.Focused.Card = t.Focused.Base
-	t.Focused.Title = t.Focused.Title.Foreground(cyan).Bold(true)
-	t.Focused.NoteTitle = t.Focused.NoteTitle.Foreground(cyan).Bold(true).MarginBottom(1)
+	t.Focused.Title = t.Focused.Title.Foreground(white).Bold(true)
+	t.Focused.NoteTitle = t.Focused.NoteTitle.Foreground(white).Bold(true).MarginBottom(1)
 	t.Focused.Description = t.Focused.Description.Foreground(muted)
 	t.Focused.ErrorIndicator = t.Focused.ErrorIndicator.Foreground(red)
 	t.Focused.ErrorMessage = t.Focused.ErrorMessage.Foreground(red)
@@ -43,6 +43,7 @@ func WaveTheme() *huh.Theme {
 	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(cyan)
 	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(muted)
 	t.Focused.TextInput.Prompt = t.Focused.TextInput.Prompt.Foreground(cyan)
+	t.Focused.TextInput.Text = t.Focused.TextInput.Text.Foreground(white)
 
 	// Button styles.
 	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(lipgloss.Color("0")).Background(cyan)
@@ -50,11 +51,13 @@ func WaveTheme() *huh.Theme {
 	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(white).Background(lipgloss.Color("237"))
 
 	// Blurred field styles (inherit focused, dim the border).
+	// Keep text input text cyan so entered values stay visible as confirmation.
 	t.Blurred = t.Focused
 	t.Blurred.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
 	t.Blurred.Card = t.Blurred.Base
 	t.Blurred.NextIndicator = lipgloss.NewStyle()
 	t.Blurred.PrevIndicator = lipgloss.NewStyle()
+	t.Blurred.TextInput.Text = t.Blurred.TextInput.Text.Foreground(cyan)
 
 	// Group styles.
 	t.Group.Title = t.Focused.Title
