@@ -85,9 +85,6 @@ Need something specific? Start with an ad-hoc task:
 ```bash
 # Quick task without a pipeline file
 wave do "refactor the database connection handling"
-
-# Save the generated pipeline for reuse
-wave do "refactor the database connection handling" --save .wave/pipelines/db-refactor.yaml
 ```
 
 ## Next Steps
@@ -113,16 +110,6 @@ const useCases = [
     personas: ['navigator', 'auditor', 'summarizer'],
     tags: ['PR review', 'quality'],
     link: '/use-cases/code-review'
-  },
-  {
-    id: 'security-audit',
-    title: 'Security Audit',
-    description: 'Comprehensive vulnerability scanning, dependency checks, and compliance verification.',
-    category: 'security',
-    complexity: 'intermediate',
-    personas: ['navigator', 'auditor', 'summarizer'],
-    tags: ['vulnerabilities', 'compliance'],
-    link: '/use-cases/security-audit'
   },
   {
     id: 'documentation-generation',
@@ -155,26 +142,6 @@ const useCases = [
     link: '/use-cases/refactoring'
   },
   {
-    id: 'multi-agent-review',
-    title: 'Multi-Agent Review',
-    description: 'Parallel specialized reviews combining security, performance, and architecture analysis.',
-    category: 'code-quality',
-    complexity: 'advanced',
-    personas: ['navigator', 'auditor', 'philosopher', 'summarizer'],
-    tags: ['parallel', 'comprehensive'],
-    link: '/use-cases/multi-agent-review'
-  },
-  {
-    id: 'incident-response',
-    title: 'Incident Response',
-    description: 'Rapid investigation and remediation workflows for production incidents.',
-    category: 'devops',
-    complexity: 'advanced',
-    personas: ['navigator', 'auditor', 'craftsman', 'summarizer'],
-    tags: ['debugging', 'root cause'],
-    link: '/use-cases/incident-response'
-  },
-  {
     id: 'onboarding',
     title: 'Developer Onboarding',
     description: 'Generate onboarding materials and codebase exploration guides for new team members.',
@@ -184,26 +151,6 @@ const useCases = [
     tags: ['documentation', 'knowledge transfer'],
     link: '/use-cases/onboarding'
   },
-  {
-    id: 'api-design',
-    title: 'API Design',
-    description: 'Design and validate APIs with schema generation, documentation, and contract testing.',
-    category: 'documentation',
-    complexity: 'intermediate',
-    personas: ['philosopher', 'craftsman', 'auditor'],
-    tags: ['OpenAPI', 'contracts'],
-    link: '/use-cases/api-design'
-  },
-  {
-    id: 'migration',
-    title: 'Migration',
-    description: 'Plan and execute codebase migrations with dependency analysis and verification.',
-    category: 'devops',
-    complexity: 'advanced',
-    personas: ['navigator', 'craftsman', 'auditor', 'summarizer'],
-    tags: ['upgrades', 'dependencies'],
-    link: '/use-cases/migration'
-  }
 ]
 </script>
 
