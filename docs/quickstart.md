@@ -100,15 +100,29 @@ wave run hello-world "testing Wave"
 
 ### Expected Output
 
-You should see progress output similar to this:
+With the default TUI mode you'll see a progress bar and spinners. To see text output, use `-o text`:
+
+```bash
+wave run hello-world "testing Wave" -o text
+```
 
 ```
-[10:00:01] started   greet   (craftsman)                 Starting step
-[10:00:15] completed greet   (craftsman)   14s    1.2k   Step completed
-[10:00:16] started   verify  (navigator)                 Starting step
-[10:00:28] completed verify  (navigator)   12s    0.8k   Step completed
+[10:00:01] → greet (craftsman)
+[10:00:01]   greet: Executing agent
+[10:00:05]   greet: Processing results
+[10:00:05] ✓ greet completed (4.0s, 0k tokens)
+[10:00:05] → verify (navigator)
+[10:00:05]   verify: Executing agent
+[10:00:12]   verify: Processing results
+[10:00:12] ✓ verify completed (6.9s, 0k tokens)
 
-Pipeline hello-world completed in 26s
+  ✓ Pipeline 'hello-world' completed successfully (10.9s)
+
+  Deliverables (4):
+     • .wave/workspaces/hello-world-aca3e016/greet/CLAUDE.md
+     • .wave/workspaces/hello-world-aca3e016/greet/greeting.txt
+     • .wave/workspaces/hello-world-aca3e016/verify/CLAUDE.md
+     • .wave/workspaces/hello-world-aca3e016/verify/output/result.json
 ```
 
 ### What Just Happened?

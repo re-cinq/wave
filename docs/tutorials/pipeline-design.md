@@ -129,9 +129,9 @@ For parallel sub-tasks:
 ## Validate and Run
 
 ```bash
-wave validate --pipeline feature-flow.yaml
-wave run feature-flow.yaml --dry-run
-wave run feature-flow.yaml "Add user profile"
+wave validate --pipeline feature-flow
+wave run feature-flow --dry-run
+wave run feature-flow "Add user profile"
 ```
 
 ## Best Practices
