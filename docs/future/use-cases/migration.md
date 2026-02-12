@@ -521,7 +521,7 @@ steps:
 
 - [Refactoring](/use-cases/refactoring) - Incremental code improvements
 - [Test Generation](/use-cases/test-generation) - Ensure coverage before migration
-- [Multi-Agent Review](/use-cases/multi-agent-review) - Review migration changes
+- [Multi-Agent Review](./multi-agent-review) - Review migration changes
 
 ## Next Steps
 

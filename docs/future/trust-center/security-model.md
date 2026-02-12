@@ -424,8 +424,8 @@ On timeout:
 
 ## Further Reading
 
-- [Compliance Roadmap](/trust-center/compliance) - Certification status and timeline
-- [Audit Logging Specification](/trust-center/audit-logging) - Complete audit log documentation
+- [Compliance Roadmap](./compliance) - Certification status and timeline
+- [Audit Logging Specification](./audit-logging) - Complete audit log documentation
 - [Environment & Credentials](/reference/environment) - Environment variable reference
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
 

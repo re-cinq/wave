@@ -112,4 +112,4 @@ analyze   report        json    .wave/workspaces/.../output/report.json
 
 - [Pipelines](/concepts/pipelines) - Build multi-step workflows
 - [Contracts](/concepts/contracts) - Validate artifact content
-- [Execution](/concepts/execution) - How artifacts flow between steps
+- [Pipelines](/concepts/pipelines) - How artifacts flow between steps

@@ -442,7 +442,7 @@ Add scoring to the synthesis step:
 ## Related Use Cases
 
 - [Code Review](/use-cases/code-review) - Simpler single-pass review
-- [Security Audit](/use-cases/security-audit) - Deep security-only analysis
+- [Security Audit](./security-audit) - Deep security-only analysis
 - [Refactoring](/use-cases/refactoring) - Follow up on architecture findings
 
 ## Next Steps

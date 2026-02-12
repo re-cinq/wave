@@ -16,7 +16,7 @@ Rapid investigation and remediation workflows for production incidents. This pip
 
 - Wave installed and initialized (`wave init`)
 - Access to logs, metrics, or error traces
-- Experience with [code-review](/use-cases/code-review) and [security-audit](/use-cases/security-audit) pipelines
+- Experience with [code-review](/use-cases/code-review) and [security-audit](./security-audit) pipelines
 - Understanding of your system's architecture and monitoring stack
 
 ## Quick Start
@@ -416,9 +416,9 @@ steps:
 
 ## Related Use Cases
 
-- [Security Audit](/use-cases/security-audit) - Investigate security incidents
+- [Security Audit](./security-audit) - Investigate security incidents
 - [Code Review](/use-cases/code-review) - Review incident fixes
-- [Multi-Agent Review](/use-cases/multi-agent-review) - Comprehensive fix review
+- [Multi-Agent Review](./multi-agent-review) - Comprehensive fix review
 
 ## Next Steps
 

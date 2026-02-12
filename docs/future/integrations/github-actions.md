@@ -425,7 +425,7 @@ jobs:
 
 ## See Also
 
-- [Integrations Overview](./index.md)
+- [CI/CD Integration](/guides/ci-cd)
 - [GitLab CI Guide](./gitlab-ci.md)
 - [Error Codes Reference](/reference/error-codes)
 - [Troubleshooting Reference](/reference/troubleshooting)

@@ -373,7 +373,7 @@ This ensures generated tests at least compile. Set `must_pass: true` to require 
 ## Related Use Cases
 
 - [Code Review](/use-cases/code-review) - Review generated tests in PRs
-- [Documentation Generation](/use-cases/documentation-generation) - Document test patterns
+- [Documentation Generation](/future/use-cases/documentation-generation) - Document test patterns
 - [Refactoring](/use-cases/refactoring) - Generate tests before refactoring
 
 ## Next Steps

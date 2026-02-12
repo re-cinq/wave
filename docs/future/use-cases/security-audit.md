@@ -310,7 +310,7 @@ Ensure compliance report follows expected format:
 
 - [Code Review](/use-cases/code-review) - Regular PR reviews with security checks
 - [Test Generation](/use-cases/test-generation) - Generate security-focused tests
-- [Incident Response](/use-cases/incident-response) - Respond to security incidents
+- [Incident Response](./incident-response) - Respond to security incidents
 
 ## Next Steps
 

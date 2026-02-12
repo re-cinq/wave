@@ -501,8 +501,8 @@ du -sh .wave/traces/
 
 ## Further Reading
 
-- [Security Model](/trust-center/security-model) - Complete security architecture
-- [Compliance Roadmap](/trust-center/compliance) - Certification status
+- [Security Model](./security-model) - Complete security architecture
+- [Compliance Roadmap](./compliance) - Certification status
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
 - [Audit Logging Guide](/guides/audit-logging) - Practical configuration guide
 

@@ -16,7 +16,7 @@ Design and validate APIs with schema generation, documentation, and contract tes
 
 - Wave installed and initialized (`wave init`)
 - Understanding of REST/HTTP API design principles
-- Experience with [documentation-generation](/use-cases/documentation-generation) pipeline (recommended)
+- Experience with [documentation-generation](./documentation-generation) pipeline (recommended)
 - Familiarity with OpenAPI/Swagger specifications
 
 ## Quick Start
@@ -561,7 +561,7 @@ Add a code generation step:
 
 ## Related Use Cases
 
-- [Documentation Generation](/use-cases/documentation-generation) - Generate API docs
+- [Documentation Generation](./documentation-generation) - Generate API docs
 - [Test Generation](/use-cases/test-generation) - Generate API tests
 - [Code Review](/use-cases/code-review) - Review API implementations
 
