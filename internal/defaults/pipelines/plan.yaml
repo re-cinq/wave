@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: plan
   description: "Break down a feature into actionable tasks with structured exploration, planning, and review"
-  disabled: true
 
 input:
   source: cli
+  example: "add webhook support for pipeline completion events"
 
 steps:
   - id: explore

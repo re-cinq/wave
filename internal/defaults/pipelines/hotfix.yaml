@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: hotfix
   description: "Quick investigation and fix for production issues"
-  disabled: true
 
 input:
   source: cli
+  example: "fix panic in pipeline executor when step has nil context"
 
 steps:
   - id: investigate
@@ -71,13 +71,14 @@ steps:
         2. Add a regression test that would have caught this bug
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
-    # handover:
-    #   contract:
-    #     type: test_suite
-    #     command: "npm test"  # or: go test ./..., pytest, cargo test
-    #     must_pass: true
-    #     on_failure: retry
-    #     max_retries: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./... -count=1"
+
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
 
   - id: verify
     persona: auditor

@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "extract workspace manager from executor into its own package"
 
 steps:
   - id: analyze

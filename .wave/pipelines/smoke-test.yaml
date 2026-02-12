@@ -5,6 +5,7 @@ metadata:
 
 input:
   source: cli
+  example: "verify contract validation works"
 
 steps:
   - id: analyze
