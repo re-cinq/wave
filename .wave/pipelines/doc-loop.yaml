@@ -5,6 +5,10 @@ metadata:
 
 input:
   source: cli
+  example: "full"
+  schema:
+    type: string
+    description: "Scan scope: empty for branch diff, 'full' for all files, or a git ref"
 
 steps:
   - id: scan-changes

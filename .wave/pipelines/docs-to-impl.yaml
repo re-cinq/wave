@@ -16,9 +16,20 @@ steps:
         source: |
             Create a new feature branch for the docs-implementation alignment work.
 
-            1. First check the current branch with `git branch --show-current`
-            2. Create a new branch named `feat/docs-impl-alignment-$(date +%Y%m%d-%H%M%S)` from main
-            3. Push the branch to origin to establish tracking
+            Your current working directory is a Wave workspace, NOT the project root.
+            Use `git -C` to operate on the repo without checking out branches in the shared tree.
+
+            ```bash
+            REPO_ROOT="$(git rev-parse --show-toplevel)"
+            ```
+
+            1. Generate a branch name: `feat/docs-impl-alignment-$(date +%Y%m%d-%H%M%S)`
+            2. Create the branch without switching to it:
+               ```bash
+               git -C "$REPO_ROOT" branch "$BRANCH_NAME" main
+               git -C "$REPO_ROOT" push -u origin "$BRANCH_NAME"
+               ```
+            3. Do NOT run `git checkout` — the branch will be used via worktrees in later steps
 
             Output a JSON file at artifact.json with the following structure:
             - branch_name: the name of the created branch
@@ -514,14 +525,27 @@ steps:
         source: |
             Create a PR with the documentation/implementation alignment proposal.
 
+            Your current working directory is a Wave workspace, NOT the project root.
+            Use `git worktree` to create an isolated checkout for the feature branch.
+
+            ```bash
+            REPO_ROOT="$(git rev-parse --show-toplevel)"
+            ```
+
             Read all artifacts:
-            - Branch info from artifacts/branch-info
+            - Branch info from artifacts/branch-info (get the branch name)
             - Judged issues from artifacts/judged-issues
             - Specs from artifacts/spec-issue-1, artifacts/spec-issue-2, artifacts/spec-issue-3
             - Plans from artifacts/plan-issue-1, artifacts/plan-issue-2, artifacts/plan-issue-3
 
             Tasks:
-            1. Create a comprehensive markdown file at docs/proposals/docs-impl-alignment.md containing:
+            1. Create a worktree for the feature branch:
+               ```bash
+               git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
+               cd repo
+               ```
+
+            2. Create a comprehensive markdown file at docs/proposals/docs-impl-alignment.md containing:
                - Executive Summary
                - Methodology (how mismatches were identified)
                - Top 3 Issues with full specs and plans
@@ -529,13 +553,26 @@ steps:
                - Risk assessment
                - Success criteria
 
-            2. Commit the proposal file to the feature branch
+            3. Commit the proposal file:
+               ```bash
+               git add docs/proposals/
+               git commit -m "docs: add docs/implementation alignment proposal"
+               ```
 
-            3. Create a PR using `gh pr create` with:
+            4. Push and create a PR using `gh pr create` with:
+               ```bash
+               git push -u origin HEAD
+               gh pr create --title "<title>" --body "<body>" --draft
+               ```
                - Clear title mentioning docs/implementation alignment
                - Body summarizing the 3 issues
                - Label: documentation, enhancement
-               - Draft mode (--draft flag)
+
+            5. Clean up worktree:
+               ```bash
+               cd "$OLDPWD"
+               git -C "$REPO_ROOT" worktree remove "$PWD/repo"
+               ```
 
             Create artifact.json with:
             - pr_url: the created PR URL
