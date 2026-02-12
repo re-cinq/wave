@@ -97,7 +97,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test ./... -v"
+        command: "{{ project.test_command }}"
 
         must_pass: false
         on_failure: retry
