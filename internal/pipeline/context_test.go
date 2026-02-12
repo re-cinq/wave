@@ -6,11 +6,12 @@ import (
 
 func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 	ctx := &PipelineContext{
-		BranchName:  "018-enhanced-progress",
-		FeatureNum:  "018-enhanced-progress",
-		PipelineID:  "test-pipeline",
-		StepID:      "test-step",
-		SpeckitMode: true,
+		BranchName:   "018-enhanced-progress",
+		FeatureNum:   "018-enhanced-progress",
+		PipelineID:   "test-pipeline",
+		PipelineName: "feature-worktree",
+		StepID:       "test-step",
+		SpeckitMode:  true,
 		CustomVariables: map[string]string{
 			"custom_var": "custom_value",
 		},
@@ -50,6 +51,26 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			name:     "empty_template",
 			template: "",
 			expected: "",
+		},
+		{
+			name:     "spaced_pipeline_name",
+			template: "feat/{{ pipeline_name }}",
+			expected: "feat/feature-worktree",
+		},
+		{
+			name:     "unspaced_pipeline_name",
+			template: "feat/{{pipeline_name}}",
+			expected: "feat/feature-worktree",
+		},
+		{
+			name:     "spaced_pipeline_context_variable",
+			template: "{{ pipeline_context.pipeline_name }}/{{ pipeline_context.step_id }}",
+			expected: "feature-worktree/test-step",
+		},
+		{
+			name:     "spaced_custom_variable",
+			template: "path/{{ custom_var }}/file.txt",
+			expected: "path/custom_value/file.txt",
 		},
 	}
 

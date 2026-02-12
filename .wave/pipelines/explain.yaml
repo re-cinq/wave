@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: explain
   description: "Deep-dive explanation of code, modules, or architectural patterns"
+  release: true
 
 input:
   source: cli
