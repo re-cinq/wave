@@ -105,7 +105,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		ArtifactPaths:  resumeState.ArtifactPaths,
 		WorkspacePaths: resumeState.WorkspacePaths,
 		Input:          input,
-		Context:        NewPipelineContext(pipelineID, pipelineName, fromStep),
+		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,

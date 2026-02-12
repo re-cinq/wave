@@ -131,7 +131,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	pipelineName := p.Metadata.Name
 	hashLength := m.Runtime.PipelineIDHashLength
 	pipelineID := GenerateRunID(pipelineName, hashLength)
-	pipelineContext := NewPipelineContext(pipelineID, pipelineName, "")
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Initialize deliverable tracker for this pipeline (only if not already set)
 	if e.deliverableTracker == nil {
@@ -557,12 +557,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		// Resolve contract source path using pipeline context
 		resolvedSource := execution.Context.ResolveContractSource(step.Handover.Contract)
 
+		// Resolve {{ project.* }} placeholders in contract command
+		resolvedCommand := step.Handover.Contract.Command
+		if execution.Context != nil && resolvedCommand != "" {
+			resolvedCommand = execution.Context.ResolvePlaceholders(resolvedCommand)
+		}
+
 		contractCfg := contract.ContractConfig{
 			Type:       step.Handover.Contract.Type,
 			Source:     resolvedSource,
 			Schema:     step.Handover.Contract.Schema,
 			SchemaPath: step.Handover.Contract.SchemaPath,
-			Command:    step.Handover.Contract.Command,
+			Command:    resolvedCommand,
 			Dir:        step.Handover.Contract.Dir,
 			StrictMode: step.Handover.Contract.MustPass,
 			MustPass:   step.Handover.Contract.MustPass,

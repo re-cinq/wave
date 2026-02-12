@@ -1,0 +1,98 @@
+kind: WavePipeline
+metadata:
+  name: docs
+  description: "Generate or update documentation"
+  disabled: true
+
+input:
+  source: cli
+
+steps:
+  - id: discover
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the codebase for documentation needs: {{ input }}
+
+        1. Find public APIs, exported functions, types
+        2. Identify existing documentation (README, docs/, comments)
+        3. Map package structure and dependencies
+        4. Find usage examples in tests
+
+        Output as JSON:
+        {
+          "public_apis": [{"package": "", "name": "", "type": "func|type|const", "documented": true|false}],
+          "existing_docs": [],
+          "package_structure": {},
+          "examples_in_tests": []
+        }
+    output_artifacts:
+      - name: discovery
+        path: output/discovery.json
+        type: json
+
+  - id: generate
+    persona: philosopher
+    dependencies: [discover]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: discover
+          artifact: discovery
+          as: codebase
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Generate documentation for: {{ input }}
+
+        Include:
+        1. Package overview with purpose and usage
+        2. API reference for public functions/types
+        3. Code examples (extract from tests where possible)
+        4. Configuration options
+        5. Error handling and edge cases
+
+        Write clear, concise documentation. Use code blocks for examples.
+    output_artifacts:
+      - name: docs
+        path: output/generated-docs.md
+        type: markdown
+
+  - id: review
+    persona: auditor
+    dependencies: [generate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: generate
+          artifact: docs
+          as: documentation
+    exec:
+      type: prompt
+      source: |
+        Review the generated documentation:
+
+        1. Accuracy — does it match the actual code?
+        2. Completeness — are all public APIs documented?
+        3. Clarity — is it understandable for new users?
+        4. Examples — do they work and demonstrate usage?
+        5. Formatting — consistent style, proper markdown?
+
+        Output: list of issues or "APPROVED"
+    output_artifacts:
+      - name: review
+        path: output/doc-review.md
+        type: markdown

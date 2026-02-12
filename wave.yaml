@@ -3,6 +3,12 @@ kind: WaveManifest
 metadata:
     description: A Wave multi-agent project
     name: wave-project
+project:
+    language: go
+    test_command: "go test -race ./..."
+    lint_command: "go vet ./..."
+    build_command: "go build ./..."
+    source_glob: "*.go"
 adapters:
     claude:
         binary: claude

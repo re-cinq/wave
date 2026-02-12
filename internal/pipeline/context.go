@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/recinq/wave/internal/manifest"
 )
 
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
@@ -58,10 +60,10 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = strings.ReplaceAll(result, "{{pipeline_context.pipeline_name}}", ctx.PipelineName)
 	result = strings.ReplaceAll(result, "{{pipeline_context.step_id}}", ctx.StepID)
 
-	// Replace custom variables
+	// Replace custom variables (support both {{key}} and {{ key }} formats)
 	for key, value := range ctx.CustomVariables {
-		placeholder := "{{" + key + "}}"
-		result = strings.ReplaceAll(result, placeholder, value)
+		result = strings.ReplaceAll(result, "{{"+key+"}}", value)
+		result = strings.ReplaceAll(result, "{{ "+key+" }}", value)
 	}
 
 	// Handle legacy template variables
@@ -70,6 +72,17 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = strings.ReplaceAll(result, "{{step_id}}", ctx.StepID)
 
 	return result
+}
+
+// newContextWithProject creates a PipelineContext and injects project variables from the manifest.
+func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.Manifest) *PipelineContext {
+	ctx := NewPipelineContext(pipelineID, pipelineName, stepID)
+	if m != nil && m.Project != nil {
+		for k, v := range m.Project.ProjectVars() {
+			ctx.SetCustomVariable(k, v)
+		}
+	}
+	return ctx
 }
 
 // SetCustomVariable adds a custom template variable

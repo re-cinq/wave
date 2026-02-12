@@ -192,7 +192,7 @@ steps:
               "complexity": "M",
               "dependencies": [],
               "acceptance_criteria": ["criterion 1", "criterion 2"],
-              "affected_files": ["path/to/file.go"],
+              "affected_files": ["path/to/file"],
               "risks": ["potential issue"]
             }
           ],
