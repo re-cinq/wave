@@ -57,9 +57,12 @@ internal/
 ├── github/       # GitHub API integration for issue enhancement
 ├── manifest/     # Configuration loading and validation
 ├── pipeline/     # Pipeline execution and step management
+├── preflight/    # Pipeline dependency validation and auto-install
 ├── relay/        # Context compaction and summarization
 ├── security/     # Security validation and sanitization
+├── skill/        # Skill discovery, provisioning, and command management
 ├── state/        # SQLite persistence and state management
+├── worktree/     # Git worktree lifecycle for isolated workspaces
 └── workspace/    # Ephemeral workspace management
 
 cmd/wave/         # CLI command structure
