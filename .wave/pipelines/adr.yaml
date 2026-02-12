@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: adr
   description: "Create an Architecture Decision Record for a design choice"
+  release: true
 
 input:
   source: cli
