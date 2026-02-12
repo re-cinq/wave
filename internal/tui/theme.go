@@ -11,16 +11,14 @@ func WaveTheme() *huh.Theme {
 	t := huh.ThemeBase()
 
 	var (
-		cyan    = lipgloss.Color("14")  // Wave primary — matches logo and progress bar
+		cyan    = lipgloss.Color("6")   // Wave primary — matches logo (standard cyan)
 		white   = lipgloss.Color("7")   // Primary text
 		muted   = lipgloss.Color("244") // Secondary/description text
-		green   = lipgloss.Color("2")   // Selected items
 		red     = lipgloss.Color("1")   // Errors
-		dimCyan = lipgloss.Color("6")   // Border accent (dimmer cyan)
 	)
 
 	// Focused field styles.
-	t.Focused.Base = t.Focused.Base.BorderForeground(dimCyan)
+	t.Focused.Base = t.Focused.Base.BorderForeground(cyan)
 	t.Focused.Card = t.Focused.Base
 	t.Focused.Title = t.Focused.Title.Foreground(cyan).Bold(true)
 	t.Focused.NoteTitle = t.Focused.NoteTitle.Foreground(cyan).Bold(true).MarginBottom(1)
@@ -34,10 +32,10 @@ func WaveTheme() *huh.Theme {
 	t.Focused.PrevIndicator = t.Focused.PrevIndicator.Foreground(cyan)
 	t.Focused.Option = t.Focused.Option.Foreground(white)
 
-	// Multi-select styles.
+	// Multi-select styles — selected items use cyan to match the border bar.
 	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(cyan)
-	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(green)
-	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(green).SetString("[✓] ")
+	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(cyan)
+	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(cyan).SetString("[✓] ")
 	t.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(muted).SetString("[ ] ")
 	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(white)
 
@@ -65,12 +63,12 @@ func WaveTheme() *huh.Theme {
 	return t
 }
 
-// WaveLogo returns the styled Wave ASCII logo matching the progress display header.
+// WaveLogo returns the styled Wave ASCII logo matching the list/run display header.
 func WaveLogo() string {
 	logo := "╦ ╦╔═╗╦  ╦╔═╗\n║║║╠═╣╚╗╔╝║╣\n╚╩╝╩ ╩ ╚╝ ╚═╝"
 	return lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("12")). // Bright cyan — same as progress display
-		Margin(1, 0, 1, 1).               // top, right, bottom, left
+		Foreground(lipgloss.Color("6")). // Standard cyan — matches Formatter.Primary()
+		Margin(1, 0, 1, 2).              // top, right, bottom, left (2-char indent)
 		Render(logo)
 }
