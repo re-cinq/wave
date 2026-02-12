@@ -1,0 +1,172 @@
+kind: WavePipeline
+metadata:
+  name: doc-sync
+  description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
+  release: true
+
+input:
+  source: cli
+  example: "sync docs with current implementation"
+
+steps:
+  - id: scan-changes
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan the repository for documentation inconsistencies: {{ input }}
+
+        ## Process
+
+        1. **Identify documentation files**: Find all markdown files, README,
+           CONTRIBUTING, docs/ directory, inline code comments with doc references.
+
+        2. **Identify code surface area**: Scan for exported functions, CLI commands,
+           config options, environment variables, API endpoints.
+
+        3. **Cross-reference**: For each documented feature, verify it exists in code.
+           For each code feature, verify it's documented.
+
+        4. **Check accuracy**: Compare documented behavior, flags, options, and
+           examples against actual implementation.
+
+        5. **Categorize findings**:
+           - MISSING_DOCS: Feature in code, not in docs
+           - STALE_DOCS: Docs reference removed/changed feature
+           - INACCURATE: Docs describe wrong behavior
+           - INCOMPLETE: Docs exist but missing details
+
+        Write the result as JSON to output/doc-scan.json matching the contract schema.
+        Include: scan_scope, findings (id, type, severity, title, doc_location, code_location,
+        description, suggested_fix), summary (total_findings, by_type, by_severity, fixable_count),
+        and timestamp.
+    output_artifacts:
+      - name: scan_results
+        path: output/doc-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/doc-scan.json
+        schema_path: .wave/contracts/doc-sync-scan.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: analyze
+    persona: reviewer
+    dependencies: [scan-changes]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan-changes
+          artifact: scan_results
+          as: scan
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Review the doc scan findings and prioritize fixes.
+
+        Read the scan results: cat artifacts/scan
+
+        For each finding:
+        1. Verify it's a real inconsistency (not a false positive)
+        2. Assess if it can be fixed by editing docs alone
+        3. Prioritize: CRITICAL/HIGH first, then by effort
+
+        Produce a fix plan as markdown to output/fix-plan.md:
+        - Ordered list of fixes to apply
+        - For each: which file to edit, what to change, why
+        - Skip items that require code changes (docs-only fixes)
+        - Estimated scope of changes
+    output_artifacts:
+      - name: fix_plan
+        path: output/fix-plan.md
+        type: markdown
+
+  - id: fix-docs
+    persona: craftsman
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan-changes
+          artifact: scan_results
+          as: scan
+        - step: analyze
+          artifact: fix_plan
+          as: plan
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Fix the documentation inconsistencies and commit to a feature branch.
+
+        Read the scan results and fix plan:
+          cat artifacts/scan
+          cat artifacts/plan
+
+        ## Process
+
+        1. **Create a feature branch**:
+           ```bash
+           cd "$(git rev-parse --show-toplevel)"
+           BRANCH="fix/doc-sync-$(date +%Y%m%d-%H%M%S)"
+           git checkout -b "$BRANCH"
+           ```
+
+        2. **Apply fixes** following the priority order from the plan:
+           - Edit documentation files to fix each inconsistency
+           - Keep changes minimal and focused
+           - Preserve existing formatting and style
+           - Do NOT modify source code — docs-only changes
+
+        3. **Verify**: Ensure no broken links or formatting issues
+
+        4. **Commit**:
+           ```bash
+           git add <changed-doc-files>
+           git commit -m "docs: sync documentation with implementation
+
+           Fix N documentation inconsistencies found by doc-sync pipeline:
+           - DOC-001: <title>
+           - DOC-002: <title>
+           ..."
+           ```
+
+        5. **Push** (if remote available):
+           ```bash
+           git push -u origin "$BRANCH" 2>/dev/null || true
+           ```
+
+        Write a summary to output/result.md:
+        - Branch name created
+        - List of files modified
+        - Findings fixed vs skipped
+        - Commit hash
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+    output_artifacts:
+      - name: result
+        path: output/result.md
+        type: markdown
