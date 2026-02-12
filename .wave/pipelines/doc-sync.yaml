@@ -2,7 +2,6 @@ kind: WavePipeline
 metadata:
   name: doc-sync
   description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
-  release: true
 
 input:
   source: cli

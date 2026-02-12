@@ -2,7 +2,6 @@ kind: WavePipeline
 metadata:
   name: dead-code
   description: "Find dead or redundant code, remove it, and commit to a feature branch"
-  release: true
 
 input:
   source: cli
