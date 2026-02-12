@@ -1167,3 +1167,93 @@ func TestMidStreamTermination(t *testing.T) {
 		}
 	})
 }
+
+func TestSkillCommandsCopied(t *testing.T) {
+	adapter := NewClaudeAdapter()
+	workspace := t.TempDir()
+
+	// Create source skill commands directory
+	srcDir := t.TempDir()
+	os.WriteFile(filepath.Join(srcDir, "speckit.specify.md"), []byte("# Specify"), 0644)
+	os.WriteFile(filepath.Join(srcDir, "speckit.plan.md"), []byte("# Plan"), 0644)
+	os.WriteFile(filepath.Join(srcDir, "not-markdown.txt"), []byte("ignored"), 0644)
+
+	cfg := AdapterRunConfig{
+		Persona:          "implementer",
+		AllowedTools:     []string{"Read", "Write"},
+		SkillCommandsDir: srcDir,
+	}
+
+	if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	// Verify skill commands were copied
+	commandsDir := filepath.Join(workspace, ".claude", "commands")
+	entries, err := os.ReadDir(commandsDir)
+	if err != nil {
+		t.Fatalf("failed to read commands dir: %v", err)
+	}
+
+	var mdFiles []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".md") {
+			mdFiles = append(mdFiles, e.Name())
+		}
+	}
+
+	if len(mdFiles) != 2 {
+		t.Fatalf("expected 2 md files, got %d: %v", len(mdFiles), mdFiles)
+	}
+
+	// Verify content
+	data, err := os.ReadFile(filepath.Join(commandsDir, "speckit.specify.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "# Specify" {
+		t.Errorf("unexpected content: %s", string(data))
+	}
+
+	// Verify non-md files were NOT copied
+	if _, err := os.Stat(filepath.Join(commandsDir, "not-markdown.txt")); !os.IsNotExist(err) {
+		t.Error("non-markdown file should not be copied")
+	}
+}
+
+func TestSkillCommandsDir_Empty(t *testing.T) {
+	adapter := NewClaudeAdapter()
+	workspace := t.TempDir()
+
+	// No SkillCommandsDir set - should work fine
+	cfg := AdapterRunConfig{
+		Persona:      "implementer",
+		AllowedTools: []string{"Read", "Write"},
+	}
+
+	if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	// .claude/commands/ should NOT exist (no skill commands to copy)
+	commandsDir := filepath.Join(workspace, ".claude", "commands")
+	if _, err := os.Stat(commandsDir); !os.IsNotExist(err) {
+		t.Error("commands dir should not exist when SkillCommandsDir is empty")
+	}
+}
+
+func TestSkillCommandsDir_NonExistent(t *testing.T) {
+	adapter := NewClaudeAdapter()
+	workspace := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:          "implementer",
+		AllowedTools:     []string{"Read", "Write"},
+		SkillCommandsDir: "/nonexistent/path",
+	}
+
+	// Should not error - silently skip non-existent source
+	if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+		t.Fatalf("prepareWorkspace should not fail for non-existent source: %v", err)
+	}
+}

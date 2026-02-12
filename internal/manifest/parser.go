@@ -174,6 +174,10 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, mountErrs...)
 	}
 
+	if skillErrs := validateSkillsWithFile(m.Skills, filePath); len(skillErrs) > 0 {
+		errs = append(errs, skillErrs...)
+	}
+
 	return errs
 }
 
@@ -300,6 +304,23 @@ func validateSkillMountsWithFile(mounts []SkillMount, basePath, filePath string)
 				Field:      fmt.Sprintf("skill_mounts[%d].path", i),
 				Reason:     "is required",
 				Suggestion: "Set 'path' to a directory containing skill definitions",
+			})
+		}
+	}
+	return errs
+}
+
+// validateSkillsWithFile validates the skills configuration map.
+func validateSkillsWithFile(skills map[string]SkillConfig, filePath string) []error {
+	var errs []error
+	for name, skill := range skills {
+		// A skill must have at least a check command to verify installation
+		if strings.TrimSpace(skill.Check) == "" {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      fmt.Sprintf("skills.%s.check", name),
+				Reason:     "is required",
+				Suggestion: "Set 'check' to a command that verifies the skill is installed (e.g., 'specify --version')",
 			})
 		}
 	}
