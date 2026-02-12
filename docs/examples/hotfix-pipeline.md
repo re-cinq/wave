@@ -15,6 +15,8 @@ graph TD
 
 ## Pipeline Definition
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -144,6 +146,8 @@ steps:
         path: output/verdict.md
         type: markdown
 ```
+
+</div>
 
 ## Running the Hotfix Pipeline
 

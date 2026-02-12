@@ -22,6 +22,8 @@ When you run a pipeline, Wave performs:
 
 Wave builds a directed acyclic graph (DAG) from step dependencies:
 
+<div v-pre>
+
 ```yaml
 steps:
   - id: analyze
@@ -44,6 +46,8 @@ steps:
       type: prompt
       source: "Quality review"
 ```
+
+</div>
 
 Steps without mutual dependencies (`security` and `quality`) run in parallel.
 

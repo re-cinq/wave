@@ -46,8 +46,6 @@ This is the full `code-review` pipeline from `.wave/pipelines/code-review.yaml`:
 
 <div v-pre>
 
-<div v-pre>
-
 ```yaml
 kind: WavePipeline
 metadata:
