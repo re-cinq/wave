@@ -45,7 +45,6 @@ export default withMermaid(
             { text: 'GitHub Integration', link: '/guides/github-integration' },
             { text: 'Enterprise Patterns', link: '/guides/enterprise' },
             { text: 'Audit Logging', link: '/guides/audit-logging' },
-            { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
             { text: 'State & Resumption', link: '/guides/state-resumption' },
             { text: 'Context Relay', link: '/guides/relay-compaction' },
             { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
@@ -67,9 +66,7 @@ export default withMermaid(
         {
           text: 'Integrations',
           items: [
-            { text: 'Overview', link: '/integrations/' },
-            { text: 'GitHub Actions', link: '/integrations/github-actions' },
-            { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+            { text: 'Overview', link: '/integrations/' }
           ]
         },
         {
@@ -77,7 +74,6 @@ export default withMermaid(
           items: [
             { text: 'Overview', link: '/trust-center/' },
             { text: 'Security Model', link: '/trust-center/security-model' },
-            { text: 'Compliance', link: '/trust-center/compliance' },
             { text: 'Audit Logging', link: '/trust-center/audit-logging' }
           ]
         },
@@ -90,15 +86,10 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/use-cases/' },
               { text: 'Code Review', link: '/use-cases/code-review' },
-              { text: 'Security Audit', link: '/use-cases/security-audit' },
               { text: 'Documentation Generation', link: '/use-cases/documentation-generation' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },
               { text: 'Refactoring', link: '/use-cases/refactoring' },
-              { text: 'Multi-Agent Review', link: '/use-cases/multi-agent-review' },
-              { text: 'Incident Response', link: '/use-cases/incident-response' },
-              { text: 'Developer Onboarding', link: '/use-cases/onboarding' },
-              { text: 'API Design', link: '/use-cases/api-design' },
-              { text: 'Migration', link: '/use-cases/migration' }
+              { text: 'Developer Onboarding', link: '/use-cases/onboarding' }
             ]
           }
         ],
@@ -141,8 +132,7 @@ export default withMermaid(
             text: 'Advanced',
             items: [
               { text: 'Audit Logging', link: '/guides/audit-logging' },
-              { text: 'Matrix Strategies', link: '/guides/matrix-strategies' },
-              { text: 'State & Resumption', link: '/guides/state-resumption' },
+                { text: 'State & Resumption', link: '/guides/state-resumption' },
               { text: 'Context Relay', link: '/guides/relay-compaction' },
               { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
             ]
@@ -168,9 +158,7 @@ export default withMermaid(
           {
             text: 'Integrations',
             items: [
-              { text: 'Overview', link: '/integrations/' },
-              { text: 'GitHub Actions', link: '/integrations/github-actions' },
-              { text: 'GitLab CI', link: '/integrations/gitlab-ci' }
+              { text: 'Overview', link: '/integrations/' }
             ]
           }
         ],
@@ -180,7 +168,6 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/trust-center/' },
               { text: 'Security Model', link: '/trust-center/security-model' },
-              { text: 'Compliance', link: '/trust-center/compliance' },
               { text: 'Audit Logging', link: '/trust-center/audit-logging' }
             ]
           }

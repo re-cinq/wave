@@ -2,41 +2,6 @@
 
 Wave integrates seamlessly with CI/CD platforms, enabling automated AI pipelines as part of your development workflow.
 
-<script setup>
-const integrationCards = [
-  {
-    title: 'GitHub Actions',
-    description: 'Run Wave pipelines in GitHub workflows with automatic PR reviews',
-    link: '/integrations/github-actions',
-    icon: '🐙'
-  },
-  {
-    title: 'GitLab CI/CD',
-    description: 'Integrate Wave into GitLab pipelines for merge request automation',
-    link: '/integrations/gitlab-ci',
-    icon: '🦊'
-  }
-]
-</script>
-
-<CardGrid :cards="integrationCards" />
-
-## Quick Start
-
-All CI/CD integrations follow the same pattern:
-
-1. **Install Wave** - Download and install the Wave binary
-2. **Configure Secrets** - Set up API keys as CI secrets
-3. **Run Pipelines** - Execute Wave pipelines in your CI jobs
-
-### Minimal Example
-
-```yaml
-# Any CI platform
-- curl -fsSL https://wave.dev/install.sh | sh
-- wave run code-review
-```
-
 ## Architecture
 
 Wave runs as a single static binary with no runtime dependencies. This makes CI/CD integration straightforward:
@@ -150,17 +115,11 @@ runtime:
 
 ## Troubleshooting
 
-See the platform-specific guides for detailed troubleshooting:
-
-- [GitHub Actions Troubleshooting](./github-actions.md#troubleshooting)
-- [GitLab CI Troubleshooting](./gitlab-ci.md#troubleshooting)
-
 For general troubleshooting, see [Troubleshooting Reference](/reference/troubleshooting).
 
 For error code details, see [Error Code Reference](/reference/error-codes).
 
 ## Next Steps
 
-- [GitHub Actions Guide](./github-actions.md) - Full setup for GitHub workflows
-- [GitLab CI Guide](./gitlab-ci.md) - Full setup for GitLab pipelines
 - [Error Codes Reference](/reference/error-codes) - Complete error code catalog
+- [CLI Reference](/reference/cli) - Complete command documentation

@@ -324,7 +324,6 @@ steps:
 
 - [Code Review](/use-cases/code-review) - Review refactoring changes
 - [Test Generation](/use-cases/test-generation) - Add tests before refactoring
-- [Multi-Agent Review](/use-cases/multi-agent-review) - Comprehensive review of changes
 
 ## Next Steps
 

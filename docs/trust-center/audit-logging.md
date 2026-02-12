@@ -370,32 +370,6 @@ curl -H "Authorization: Bearer sk-ant-api03-xxxx" https://api.example.com
 
 ## Integration Guide
 
-### SIEM Integration
-
-#### Splunk
-
-```bash
-# Forward audit logs to Splunk HTTP Event Collector
-tail -f .wave/traces/*.ndjson | \
-  curl -X POST \
-    -H "Authorization: Splunk $SPLUNK_TOKEN" \
-    -d @- \
-    https://splunk.example.com:8088/services/collector/raw
-```
-
-#### Elasticsearch
-
-```bash
-# Index audit logs to Elasticsearch
-cat .wave/traces/*.ndjson | \
-  while read line; do
-    echo '{"index":{"_index":"wave-audit"}}'
-    echo "$line"
-  done | curl -X POST \
-    -H "Content-Type: application/x-ndjson" \
-    https://elasticsearch.example.com/_bulk
-```
-
 ### Querying with jq
 
 **Find all permission denials:**
@@ -468,41 +442,9 @@ The schema can be used for:
 - Integration testing
 - Documentation generation
 
-## Performance Considerations
-
-### Overhead
-
-| Logging Level | Typical Overhead |
-|---------------|------------------|
-| Security events only | < 1% |
-| All tool calls | 2-5% |
-| Full audit trail | 5-10% |
-
-### Disk Usage
-
-Estimate log size:
-
-- **Security events only**: ~1 KB per pipeline
-- **All tool calls**: ~10-50 KB per pipeline
-- **Full audit trail**: ~50-200 KB per pipeline
-
-Monitor disk usage:
-
-```bash
-du -sh .wave/traces/
-```
-
-### Best Practices
-
-1. **Production**: Use security-events-only logging
-2. **Development**: Enable full audit trail for debugging
-3. **Compliance**: Archive logs to long-term storage
-4. **Monitoring**: Set up alerts for security events
-
 ## Further Reading
 
 - [Security Model](/trust-center/security-model) - Complete security architecture
-- [Compliance Roadmap](/trust-center/compliance) - Certification status
 - [Enterprise Patterns](/guides/enterprise) - Enterprise deployment guide
 - [Audit Logging Guide](/guides/audit-logging) - Practical configuration guide
 

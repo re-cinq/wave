@@ -24,10 +24,6 @@ Wave is designed with security as a foundational principle. Our multi-agent orch
 
 - [Security Model](/trust-center/security-model) - Detailed documentation of Wave's security architecture, including credential handling, workspace isolation, and permission enforcement.
 
-### Compliance
-
-- [Compliance Roadmap](/trust-center/compliance) - Current compliance status and certification roadmap for SOC 2, HIPAA, GDPR, and other frameworks.
-
 ### Audit Capabilities
 
 - [Audit Logging Specification](/trust-center/audit-logging) - Complete specification of Wave's audit logging system, including log formats, retention, and integration guidance.

@@ -71,7 +71,7 @@ const features = [
   {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
-    description: 'Built-in pipelines for code review, security audits, documentation, and test generation.',
+    description: 'Built-in pipelines for code review, documentation, and test generation.',
     link: '/use-cases/'
   }
 ]
@@ -101,23 +101,6 @@ const trustBadges = [
 <HeroSection v-bind="heroProps" />
 
 <FeatureCards :features="features" />
-
-<div class="comparison-section">
-
-## How Wave Compares
-
-<div class="comparison-table">
-
-| | Wave | Gastown | Claude Flow |
-|--|:----:|:-------:|:-----------:|
-| **Declarative pipelines** | YAML | JSON/TOML | Programmatic |
-| **Git integration** | ✅ | ✅ | ❌ |
-| **Contract validation** | ✅ | ❌ | ❌ |
-| **Step isolation** | Fresh memory | Shared | Shared |
-| **Permission scoping** | Per-persona | ❌ | ❌ |
-
-</div>
-</div>
 
 <div class="trust-section">
   <h2 class="trust-heading">Built for Security</h2>
@@ -171,38 +154,6 @@ Each step runs in complete isolation with fresh memory. Artifacts flow between s
 </div>
 
 <style>
-.comparison-section {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.comparison-section h2 {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.comparison-table {
-  overflow-x: auto;
-}
-
-.comparison-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.comparison-table th,
-.comparison-table td {
-  padding: 12px 16px;
-  text-align: center;
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.comparison-table th:first-child,
-.comparison-table td:first-child {
-  text-align: left;
-}
-
 .trust-section {
   text-align: center;
   padding: 48px 24px;

@@ -321,7 +321,6 @@ steps:
 
 - [Code Review](/use-cases/code-review) - Review documentation changes in PRs
 - [Test Generation](/use-cases/test-generation) - Generate tests from documented behavior
-- [API Design](/use-cases/api-design) - Design APIs with documentation-first approach
 
 ## Next Steps
 
