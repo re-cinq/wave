@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -93,18 +94,9 @@ var listRunsLimit int
 var listRunsPipeline string
 var listRunsStatus string
 
-// printLogo prints the Wave ASCII logo header
+// printLogo prints the Wave ASCII logo header using the shared TUI styling.
 func printLogo() {
-	f := display.NewFormatter()
-	logo := []string{
-		"╦ ╦╔═╗╦  ╦╔═╗",
-		"║║║╠═╣╚╗╔╝║╣",
-		"╚╩╝╩ ╩ ╚╝ ╚═╝",
-	}
-	fmt.Println()
-	for _, line := range logo {
-		fmt.Printf("  %s\n", f.Primary(line))
-	}
+	fmt.Println(tui.WaveLogo())
 }
 
 func NewListCmd() *cobra.Command {
@@ -428,7 +420,7 @@ func listPipelinesTable() error {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Pipelines"))
+	fmt.Printf("%s\n", f.Colorize("Pipelines", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(entries) == 0 {
@@ -543,7 +535,7 @@ func listPersonasTable(personas map[string]struct {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Personas"))
+	fmt.Printf("%s\n", f.Colorize("Personas", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(personas) == 0 {
@@ -619,7 +611,7 @@ func listAdaptersTable(adapters map[string]struct {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Adapters"))
+	fmt.Printf("%s\n", f.Colorize("Adapters", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(adapters) == 0 {
@@ -933,7 +925,7 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 
 		runs = append(runs, RunInfo{
 			RunID:      ws.name,
-			Pipeline:   ws.name,
+			Pipeline:   extractPipelineName(ws.name),
 			Status:     status,
 			StartedAt:  ws.startTime.Format("2006-01-02 15:04:05"),
 			Duration:   duration,
@@ -944,10 +936,28 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 	return runs, nil
 }
 
+// extractPipelineName strips the run ID suffix from a workspace directory name.
+// e.g. "adr-0718471d" → "adr", "gh-issue-impl-27186beb" → "gh-issue-impl"
+func extractPipelineName(wsName string) string {
+	// Run IDs are 8-char hex suffixes appended with a dash.
+	// Try progressively shorter prefixes until we find a matching pipeline file.
+	parts := strings.Split(wsName, "-")
+	for i := len(parts) - 1; i >= 1; i-- {
+		candidate := strings.Join(parts[:i], "-")
+		if _, err := os.Stat(".wave/pipelines/" + candidate + ".yaml"); err == nil {
+			return candidate
+		}
+	}
+	// No match found — return as-is (legacy workspace without run ID suffix).
+	return wsName
+}
+
 // inferWorkspaceStatus determines the status of a run by examining its workspace
 func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, endTime time.Time) {
-	// Try to find and load the pipeline definition to know expected steps
-	pipelinePath := ".wave/pipelines/" + pipelineName + ".yaml"
+	// Try to find and load the pipeline definition to know expected steps.
+	// Strip run ID suffix from workspace name to find the actual pipeline file.
+	baseName := extractPipelineName(pipelineName)
+	pipelinePath := ".wave/pipelines/" + baseName + ".yaml"
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
 		// Can't determine expected steps, check if any step dirs exist
@@ -1083,8 +1093,8 @@ func listRunsTable(runs []RunInfo) {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Recent Pipeline Runs"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 80)))
+	fmt.Printf("%s\n", f.Colorize("Recent Pipeline Runs", "\033[1;37m"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 100)))
 
 	if len(runs) == 0 {
 		fmt.Printf("  %s\n\n", f.Muted("(no runs found)"))
@@ -1093,24 +1103,24 @@ func listRunsTable(runs []RunInfo) {
 
 	// Table header
 	fmt.Printf("  %s  %s  %s  %s  %s\n",
-		f.Muted(fmt.Sprintf("%-24s", "RUN_ID")),
-		f.Muted(fmt.Sprintf("%-16s", "PIPELINE")),
+		f.Muted(fmt.Sprintf("%-30s", "RUN_ID")),
+		f.Muted(fmt.Sprintf("%-22s", "PIPELINE")),
 		f.Muted(fmt.Sprintf("%-12s", "STATUS")),
-		f.Muted(fmt.Sprintf("%-18s", "STARTED")),
+		f.Muted(fmt.Sprintf("%-20s", "STARTED")),
 		f.Muted("DURATION"),
 	)
 
 	for _, run := range runs {
 		// Truncate long run IDs
 		runID := run.RunID
-		if len(runID) > 24 {
-			runID = runID[:21] + "..."
+		if len(runID) > 30 {
+			runID = runID[:27] + "..."
 		}
 
 		// Truncate long pipeline names
 		pipeline := run.Pipeline
-		if len(pipeline) > 16 {
-			pipeline = pipeline[:13] + "..."
+		if len(pipeline) > 22 {
+			pipeline = pipeline[:19] + "..."
 		}
 
 		// Format status with color
@@ -1129,7 +1139,7 @@ func listRunsTable(runs []RunInfo) {
 			statusStr = f.Muted(fmt.Sprintf("%-12s", status))
 		}
 
-		fmt.Printf("  %-24s  %-16s  %s  %-18s  %s\n",
+		fmt.Printf("  %-30s  %-22s  %s  %-20s  %s\n",
 			runID, pipeline, statusStr, run.StartedAt, f.Muted(run.Duration))
 	}
 
@@ -1253,7 +1263,7 @@ func listContractsTable(contracts []ContractInfo) {
 
 	// Header
 	fmt.Println()
-	fmt.Printf("%s\n", f.Bold("Contracts"))
+	fmt.Printf("%s\n", f.Colorize("Contracts", "\033[1;37m"))
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
 
 	if len(contracts) == 0 {
