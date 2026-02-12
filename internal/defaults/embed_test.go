@@ -8,15 +8,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestGitHubIssueEnhancerPipeline_NoHardcodedRepo(t *testing.T) {
+func TestGhIssueRewritePipeline_NoHardcodedRepo(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["github-issue-enhancer.yaml"]
+	content, ok := pipelines["gh-issue-rewrite.yaml"]
 	if !ok {
-		t.Fatal("github-issue-enhancer.yaml not found in embedded pipelines")
+		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Every gh command should use {{ input }} for the repo, not a hardcoded value
@@ -35,15 +35,15 @@ func TestGitHubIssueEnhancerPipeline_NoHardcodedRepo(t *testing.T) {
 	}
 }
 
-func TestGitHubIssueEnhancerPipeline_UsesInputTemplate(t *testing.T) {
+func TestGhIssueRewritePipeline_UsesInputTemplate(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["github-issue-enhancer.yaml"]
+	content, ok := pipelines["gh-issue-rewrite.yaml"]
 	if !ok {
-		t.Fatal("github-issue-enhancer.yaml not found in embedded pipelines")
+		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// The pipeline must contain {{ input }} template variables for interpolation
@@ -60,15 +60,15 @@ func TestGitHubIssueEnhancerPipeline_UsesInputTemplate(t *testing.T) {
 	}
 }
 
-func TestGitHubIssueEnhancerPipeline_InputSchemaIsString(t *testing.T) {
+func TestGhIssueRewritePipeline_InputSchemaIsString(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["github-issue-enhancer.yaml"]
+	content, ok := pipelines["gh-issue-rewrite.yaml"]
 	if !ok {
-		t.Fatal("github-issue-enhancer.yaml not found in embedded pipelines")
+		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Input schema should be a simple string type, not a structured object
@@ -176,8 +176,8 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 
 	expected := []string{
 		"doc-loop.yaml",
-		"github-issue-enhancer.yaml",
-		"issue-research.yaml",
+		"gh-issue-rewrite.yaml",
+		"gh-issue-research.yaml",
 	}
 
 	for _, name := range expected {
