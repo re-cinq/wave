@@ -25,6 +25,7 @@ func DefaultFlags() []Flag {
 	return []Flag{
 		{Name: "--verbose", Description: "Real-time tool activity"},
 		{Name: "--output json", Description: "JSON output format"},
+		{Name: "--output text", Description: "Plain text output"},
 		{Name: "--dry-run", Description: "Preview without executing"},
 		{Name: "--mock", Description: "Use mock adapter"},
 		{Name: "--debug", Description: "Debug logging"},
@@ -55,6 +56,9 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 		}
 	}
 
+	// Print the Wave logo before the form.
+	fmt.Println(WaveLogo())
+
 	// Step 1: Pipeline selection
 	options := buildPipelineOptions(pipelines)
 	var selectedPipeline string
@@ -63,7 +67,10 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 		Options(options...).
 		Value(&selectedPipeline)
 
-	if err := huh.Run(selectField); err != nil {
+	form := huh.NewForm(huh.NewGroup(selectField)).
+		WithTheme(WaveTheme())
+
+	if err := form.Run(); err != nil {
 		return nil, err
 	}
 
@@ -79,44 +86,48 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 	return runInputAndFlags(selected)
 }
 
-// runInputAndFlags runs the input prompt, flag selection, and confirmation steps.
+// runInputAndFlags runs the input prompt, flag selection, and confirmation as a single form.
 func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
-	// Step 2: Input prompt
 	var input string
+	var selectedFlags []string
+	var confirmed bool
+
+	flags := DefaultFlags()
+	flagOptions := buildFlagOptions(flags)
+
 	inputField := huh.NewInput().
 		Title("Input (optional)").
-		Description("Press Enter to confirm, or leave empty for no input").
 		Placeholder(selected.InputExample).
 		Value(&input)
 
-	if err := huh.Run(inputField); err != nil {
-		return nil, err
-	}
-
-	// Step 3: Flag selection
-	flags := DefaultFlags()
-	flagOptions := buildFlagOptions(flags)
-	var selectedFlags []string
 	multiSelect := huh.NewMultiSelect[string]().
 		Title("Options").
 		Options(flagOptions...).
 		Value(&selectedFlags)
 
-	if err := huh.Run(multiSelect); err != nil {
+	// Build command string dynamically for confirmation.
+	// We use a Note to preview the composed command, then confirm.
+	form := huh.NewForm(
+		huh.NewGroup(inputField, multiSelect),
+	).WithTheme(WaveTheme())
+
+	if err := form.Run(); err != nil {
 		return nil, err
 	}
 
-	// Step 4: Confirmation
+	// Confirmation step with the composed command.
 	cmdStr := ComposeCommand(selected.Name, input, selectedFlags)
-	var confirmed bool
 	confirm := huh.NewConfirm().
 		Title(cmdStr).
-		Description("Press Enter to run, Esc to cancel").
+		Description("Run this command?").
 		Affirmative("Run").
 		Negative("Cancel").
 		Value(&confirmed)
 
-	if err := huh.Run(confirm); err != nil {
+	confirmForm := huh.NewForm(huh.NewGroup(confirm)).
+		WithTheme(WaveTheme())
+
+	if err := confirmForm.Run(); err != nil {
 		return nil, err
 	}
 
