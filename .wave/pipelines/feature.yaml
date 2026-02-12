@@ -2,7 +2,6 @@ kind: WavePipeline
 metadata:
   name: feature
   description: "Plan, implement, test, and commit a feature to a new branch"
-  release: true
 
 input:
   source: cli
