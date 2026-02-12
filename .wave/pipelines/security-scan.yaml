@@ -2,7 +2,6 @@ kind: WavePipeline
 metadata:
   name: security-scan
   description: "Comprehensive security vulnerability audit"
-  release: true
 
 input:
   source: cli

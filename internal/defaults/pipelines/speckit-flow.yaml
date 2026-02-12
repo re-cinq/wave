@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Specification-driven feature development using the full speckit workflow"
+  release: false
 
 input:
   source: cli
