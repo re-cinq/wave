@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Wave
         run: |
-          curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
         run: wave run code-review "${{ github.event.pull_request.title }}"
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Wave
-        run: curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
         run: wave run code-review "${{ github.event.pull_request.title }}"
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+      - run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
       - run: wave run code-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+      - run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
       - run: wave run security-audit
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -104,7 +104,7 @@ stages:
 wave-review:
   stage: review
   script:
-    - curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+    - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
     - wave run code-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
@@ -123,7 +123,7 @@ variables:
 wave-review:
   stage: review
   script:
-    - curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+    - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
     - wave run code-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
@@ -140,13 +140,13 @@ stages:
 code-review:
   stage: analyze
   script:
-    - curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+    - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
     - wave run code-review "$CI_MERGE_REQUEST_TITLE"
 
 security-audit:
   stage: analyze
   script:
-    - curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+    - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
     - wave run security-audit
 ```
 
@@ -170,7 +170,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Wave
-        run: curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Validate Configuration
         run: wave validate
@@ -184,7 +184,7 @@ jobs:
           fetch-depth: 0  # Full history for diff
 
       - name: Install Wave
-        run: curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz && tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Code Review
         run: |
