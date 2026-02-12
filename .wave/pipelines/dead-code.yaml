@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: dead-code
   description: "Find dead or redundant code, remove it, and commit to a feature branch"
+  release: true
 
 input:
   source: cli
@@ -78,27 +79,18 @@ steps:
           artifact: scan_results
           as: findings
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "chore/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        Remove the dead code and commit to a feature branch.
+        Remove the dead code on this isolated worktree branch.
 
         Read the scan findings: cat artifacts/findings
 
         ## Process
 
-        1. **Create a cleanup branch**:
-           ```bash
-           cd "$(git rev-parse --show-toplevel)"
-           BRANCH="chore/dead-code-cleanup-$(date +%Y%m%d-%H%M%S)"
-           git checkout -b "$BRANCH"
-           ```
-
-        2. **Remove dead code** — ONLY high-confidence findings:
+        1. **Remove dead code** — ONLY high-confidence findings:
            - Start with unused imports (safest)
            - Then commented-out code blocks
            - Then unused exports
@@ -106,17 +98,17 @@ steps:
            - Skip anything with confidence=medium unless trivially safe
            - After each removal, verify: `go build ./...`
 
-        3. **Run goimports** if available to clean up imports:
+        2. **Run goimports** if available to clean up imports:
            ```bash
            goimports -w <modified-files> 2>/dev/null || true
            ```
 
-        4. **Run full test suite**:
+        3. **Run full test suite**:
            ```bash
            go test ./... -count=1
            ```
 
-        5. **Commit**:
+        4. **Commit**:
            ```bash
            git add <specific-files>
            git commit -m "chore: remove dead code
@@ -127,10 +119,7 @@ steps:
            ..."
            ```
 
-        6. **Push**:
-           ```bash
-           git push -u origin "$BRANCH" 2>/dev/null || true
-           ```
+        Do NOT push or create a PR — just commit to this worktree branch.
 
         If ANY test fails after a removal, revert that specific removal
         and continue with the next item.

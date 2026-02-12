@@ -47,6 +47,9 @@ type AdapterRunConfig struct {
 	AllowedDomains []string // Network domain allowlist
 	EnvPassthrough []string // Env var names to pass through from host
 
+	// Skill provisioning
+	SkillCommandsDir string // Source directory containing skill command files to copy into workspace
+
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)
