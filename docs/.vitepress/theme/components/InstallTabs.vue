@@ -10,15 +10,11 @@ const tabs: PlatformContent[] = [
     label: 'macOS',
     content: `
 <div class="install-option">
-<h4>GitHub Release <span class="recommended-badge">Recommended</span></h4>
-<p>Download the latest release from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
-<pre><code># Apple Silicon (M1/M2/M3/M4)
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_arm64.zip
-unzip wave_darwin_arm64.zip && sudo mv wave /usr/local/bin/
-
-# Intel Mac
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_amd64.zip
-unzip wave_darwin_amd64.zip && sudo mv wave /usr/local/bin/</code></pre>
+<h4>Install Script <span class="recommended-badge">Recommended</span></h4>
+<p>Detects your OS and architecture, downloads from GitHub Releases, and verifies the SHA256 checksum:</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</code></pre>
+<p>Install a specific version:</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh -s -- 0.3.0</code></pre>
 </div>
 `
   },
@@ -27,27 +23,16 @@ unzip wave_darwin_amd64.zip && sudo mv wave /usr/local/bin/</code></pre>
     label: 'Linux',
     content: `
 <div class="install-option">
-<h4>Debian/Ubuntu (.deb) <span class="recommended-badge">Recommended</span></h4>
-<p>Download the <code>.deb</code> package from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
-<pre><code># x86_64
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
-sudo dpkg -i wave_linux_amd64.deb
-
-# ARM64
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_arm64.deb
-sudo dpkg -i wave_linux_arm64.deb</code></pre>
+<h4>Install Script <span class="recommended-badge">Recommended</span></h4>
+<p>Detects your OS and architecture, downloads from GitHub Releases, and verifies the SHA256 checksum:</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</code></pre>
 </div>
 
 <div class="install-option">
-<h4>Binary Download (.tar.gz)</h4>
-<p>Download the latest release for Linux:</p>
-<pre><code># x86_64
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
-tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
-
-# ARM64
-curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_arm64.tar.gz
-tar -xzf wave_linux_arm64.tar.gz && sudo mv wave /usr/local/bin/</code></pre>
+<h4>Debian/Ubuntu (.deb)</h4>
+<p>Download the <code>.deb</code> package from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
+<pre><code>curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
+sudo dpkg -i wave_linux_amd64.deb</code></pre>
 </div>
 `
   },
