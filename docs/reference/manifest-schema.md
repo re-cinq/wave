@@ -13,6 +13,7 @@ Complete field reference for `wave.yaml` — the single source of truth for all 
 | `personas` | `map[string]`[`Persona`](#persona) | **yes** | Named persona configurations. |
 | `runtime` | [`Runtime`](#runtime) | **yes** | Global runtime settings. |
 | `skill_mounts` | [`[]SkillMount`](#skillmount) | no | Skill discovery paths. |
+| `skills` | `map[string]`[`SkillConfig`](#skillconfig) | no | Named skill configurations with install, check, and provisioning settings. |
 
 ### Minimal Example
 
@@ -335,6 +336,125 @@ skill_mounts:
 ```
 
 Skills are discovered in order — project-local skills take precedence over global ones with the same name.
+
+---
+
+## SkillConfig
+
+Declares an external skill with install, check, and provisioning commands. Skills are referenced by pipelines via the [`requires`](#pipeline-requires) block and validated at preflight time before execution begins.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `install` | `string` | no | `""` | Shell command to install the skill. Executed via `sh -c` when preflight detects the skill is missing. |
+| `init` | `string` | no | `""` | Shell command to initialize the skill after installation (e.g., create config files). |
+| `check` | `string` | **yes** | — | Shell command to verify the skill is installed. Exit code 0 = installed. |
+| `commands_glob` | `string` | no | `.claude/commands/<name>.*.md` | Glob pattern for skill command files provisioned into workspaces. |
+
+### SkillConfig Example
+
+```yaml
+skills:
+  speckit:
+    install: "npm install -g @anthropic/speckit"
+    init: "speckit init --non-interactive"
+    check: "speckit --version"
+    commands_glob: ".claude/commands/speckit.*.md"
+
+  golangci-lint:
+    install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    check: "golangci-lint --version"
+```
+
+### Preflight Flow
+
+When a pipeline declares `requires.skills`, the executor runs preflight validation before any step executes:
+
+1. For each required skill, run its `check` command.
+2. If the check fails and `install` is configured, run the install command.
+3. If `init` is configured, run it after successful install.
+4. Re-run the `check` command to verify installation succeeded.
+5. If any skill remains unavailable, the pipeline fails with a preflight error.
+
+---
+
+## Pipeline Requires
+
+Pipelines can declare tool and skill dependencies via a `requires` block. These are validated at preflight time before any step executes.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `requires.skills` | `[]string` | no | Skill names that must be installed. Each name must match a key in the manifest `skills` map. |
+| `requires.tools` | `[]string` | no | CLI tool names that must be available on `$PATH` (checked via `exec.LookPath`). |
+
+### Requires Example
+
+```yaml
+kind: WavePipeline
+metadata:
+  name: speckit-flow
+requires:
+  skills: [speckit]
+  tools: [git, go]
+steps:
+  - id: specify
+    # ...
+```
+
+---
+
+## Workspace Types
+
+Steps can use different workspace isolation strategies via the `workspace.type` field.
+
+| Type | Description |
+|------|-------------|
+| *(empty)* | Default directory-based workspace under `runtime.workspace_root`. Supports `mount` for bind-mounting source directories. |
+| `worktree` | Creates a git worktree for full repository isolation. Each step gets its own branch and working copy. |
+
+### Worktree Workspace Fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `workspace.type` | `string` | no | `""` | Set to `"worktree"` for git worktree isolation. |
+| `workspace.branch` | `string` | no | `wave/<pipelineID>/<stepID>` | Branch name for the worktree. Supports `{{ }}` placeholder resolution. |
+
+### Worktree Example
+
+```yaml
+steps:
+  - id: implement
+    persona: craftsman
+    workspace:
+      type: worktree
+      branch: "feat/{{ pipeline_name }}"
+    exec:
+      type: prompt
+      source: "Implement the feature on this isolated branch."
+```
+
+---
+
+## Slash Command Exec Type
+
+Steps can invoke skill slash commands instead of inline prompts via `exec.type: slash_command`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `exec.type` | `string` | **yes** | Set to `"slash_command"` to invoke a skill command. |
+| `exec.command` | `string` | **yes** | Slash command name (e.g., `speckit.specify`). Automatically prefixed with `/` if missing. |
+| `exec.args` | `string` | no | Arguments passed to the slash command. Supports `{{ input }}` placeholder. |
+
+### Slash Command Example
+
+```yaml
+steps:
+  - id: specify
+    persona: implementer
+    exec:
+      type: slash_command
+      command: speckit.specify
+      args: "{{ input }}"
+```
 
 ---
 

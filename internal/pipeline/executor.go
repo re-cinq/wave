@@ -258,6 +258,8 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				State:      "failed",
 				Message:    err.Error(),
 			})
+			// Clean up worktree workspaces created during this pipeline run
+			e.cleanupWorktrees(execution, pipelineID)
 			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
 			return fmt.Errorf("step %q failed: %w", step.ID, err)
@@ -293,6 +295,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
 	})
+
+	// Clean up worktree workspaces created during this pipeline run
+	e.cleanupWorktrees(execution, pipelineID)
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
@@ -1379,6 +1384,40 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 	}
 
 	return nil, fmt.Errorf("pipeline %q not found", pipelineID)
+}
+
+// cleanupWorktrees removes any git worktrees created during pipeline execution.
+func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
+	for key, repoRoot := range execution.WorkspacePaths {
+		if !strings.HasSuffix(key, "__worktree_repo_root") {
+			continue
+		}
+		stepID := strings.TrimSuffix(key, "__worktree_repo_root")
+		wsPath := execution.WorkspacePaths[stepID]
+		if wsPath == "" {
+			continue
+		}
+		mgr, err := worktree.NewManager(repoRoot)
+		if err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     stepID,
+				State:      "warning",
+				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
+			})
+			continue
+		}
+		if err := mgr.Remove(wsPath); err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     stepID,
+				State:      "warning",
+				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
+			})
+		}
+	}
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
