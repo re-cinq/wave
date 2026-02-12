@@ -122,7 +122,7 @@ func runDo(input string, opts DoOptions) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	result := CreateEmitter(opts.Output, "adhoc", p.Steps, &m)
+	result := CreateEmitter(opts.Output, "adhoc", "adhoc", p.Steps, &m)
 	defer result.Cleanup()
 
 	wsRoot := m.Runtime.WorkspaceRoot
