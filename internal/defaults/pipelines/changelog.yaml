@@ -1,0 +1,191 @@
+kind: WavePipeline
+metadata:
+  name: changelog
+  description: "Generate structured changelog from git history"
+  release: true
+
+input:
+  source: cli
+  example: "generate changelog from v0.1.0 to HEAD"
+
+steps:
+  - id: analyze-commits
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /src
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze git history for changelog generation: {{ input }}
+
+        ## Process
+
+        1. **Determine range**: Parse input to identify the commit range.
+           If tags mentioned, use them. If time period, calculate dates.
+           If unclear, use last tag to HEAD (or last 50 commits).
+
+        2. **Extract commits**: Use `git log --format` to get hash, author,
+           date, subject, and body for each commit.
+
+        3. **Parse conventional commits**: Categorize by prefix:
+           feat → Features, fix → Fixes, docs → Documentation,
+           refactor → Refactoring, test → Testing, chore → Maintenance,
+           perf → Performance, ci → CI/CD, no prefix → Other
+
+        4. **Identify breaking changes**: Look for `BREAKING CHANGE:` in body,
+           `!` after prefix, API removals in body.
+
+        5. **Extract scope**: Parse from prefix (e.g., `fix(pipeline):` → "pipeline")
+
+        Write JSON to output/commit-analysis.json:
+
+        {
+          "range": {
+            "from": "ref or date",
+            "to": "ref or date",
+            "total_commits": 42,
+            "date_range": {"start": "ISO date", "end": "ISO date"}
+          },
+          "commits": [
+            {
+              "hash": "abc1234",
+              "author": "name",
+              "date": "ISO date",
+              "type": "feat|fix|docs|refactor|test|chore|perf|ci|other",
+              "scope": "component or null",
+              "subject": "subject without prefix",
+              "breaking": false,
+              "breaking_note": ""
+            }
+          ],
+          "summary": {
+            "by_type": {"feat": 5, "fix": 3},
+            "breaking_changes": 0,
+            "contributors": ["name1"],
+            "most_changed_scopes": ["pipeline"]
+          },
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/commit-analysis.json.
+    output_artifacts:
+      - name: commits
+        path: output/commit-analysis.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/commit-analysis.json
+        schema_path: .wave/contracts/commit-analysis.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: categorize
+    persona: planner
+    dependencies: [analyze-commits]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-commits
+          artifact: commits
+          as: raw_commits
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: |
+        Categorize and describe changes for a changelog.
+
+        Read the commit analysis: cat artifacts/raw_commits
+
+        ## Rules
+
+        1. **Group by type** into sections
+        2. **Write user-facing descriptions**: Rewrite technical messages into
+           clear descriptions focused on what changed and why it matters.
+        3. **Highlight breaking changes** first with migration notes
+        4. **Deduplicate**: Combine commits for the same logical change
+        5. **Add context** for significant features
+
+        Write JSON to output/categorized-changes.json:
+
+        {
+          "version_label": "version or date range",
+          "breaking_changes": [
+            {"description": "what broke", "migration": "what to do", "related_commits": ["hash"]}
+          ],
+          "sections": [
+            {
+              "title": "New Features",
+              "type": "feat",
+              "entries": [
+                {"description": "user-facing text", "scope": "component", "commits": ["hash"], "notable": true}
+              ]
+            }
+          ],
+          "contributors": ["name1"],
+          "stats": {"total_entries": 15, "notable_entries": 3},
+          "timestamp": "ISO 8601 datetime"
+        }
+
+        CRITICAL: Write ONLY valid JSON to output/categorized-changes.json.
+    output_artifacts:
+      - name: categorized
+        path: output/categorized-changes.json
+        type: json
+
+  - id: format
+    persona: philosopher
+    dependencies: [categorize]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: analyze-commits
+          artifact: commits
+          as: raw_commits
+        - step: categorize
+          artifact: categorized
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        Format categorized changes into a polished changelog.
+
+        Read: cat artifacts/raw_commits && cat artifacts/changes
+
+        Write to output/CHANGELOG.md in Keep a Changelog format:
+
+        # Changelog
+
+        ## [Version or Date Range] - YYYY-MM-DD
+
+        ### Breaking Changes
+        - **scope**: Description. Migration: what to do
+
+        ### Added
+        - **scope**: Feature description
+
+        ### Fixed
+        - **scope**: Bug fix description
+
+        ### Changed
+        - **scope**: Change description
+
+        ### Security
+        - **scope**: Security fix description
+
+        Rules:
+        - Only include sections with entries
+        - Bold scope if present
+        - Most notable entries first per section
+        - One line per entry, concise
+        - Contributors list at bottom
+    output_artifacts:
+      - name: changelog
+        path: output/CHANGELOG.md
+        type: markdown

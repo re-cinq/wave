@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Explain Exploration Results",
+  "description": "Structured exploration of a codebase topic for explanation",
+  "type": "object",
+  "required": ["topic", "entry_points", "key_types", "timestamp"],
+  "properties": {
+    "topic": { "type": "string", "minLength": 1 },
+    "entry_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["file", "symbol", "role"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "symbol": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "key_types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "file", "purpose"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "file": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 1 },
+          "methods": { "type": "array", "items": { "type": "string" } },
+          "relationships": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "call_flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "steps"],
+        "properties": {
+          "name": { "type": "string" },
+          "steps": { "type": "array", "items": { "type": "string" } },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "depended_by": { "type": "array", "items": { "type": "string" } },
+        "external": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "test_files": { "type": "array", "items": { "type": "string" } },
+    "config_points": { "type": "array", "items": { "type": "string" } },
+    "file_count": { "type": "integer", "minimum": 0 },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
