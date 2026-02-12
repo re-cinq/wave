@@ -5,10 +5,19 @@ import (
 	"time"
 )
 
+type Project struct {
+	Language     string `yaml:"language,omitempty"`
+	TestCommand  string `yaml:"test_command,omitempty"`
+	LintCommand  string `yaml:"lint_command,omitempty"`
+	BuildCommand string `yaml:"build_command,omitempty"`
+	SourceGlob   string `yaml:"source_glob,omitempty"`
+}
+
 type Manifest struct {
 	APIVersion  string              `yaml:"apiVersion"`
 	Kind        string              `yaml:"kind"`
 	Metadata    Metadata            `yaml:"metadata"`
+	Project     *Project            `yaml:"project,omitempty"`
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Runtime     Runtime             `yaml:"runtime"`
@@ -127,6 +136,30 @@ type MetaConfig struct {
 
 type SkillMount struct {
 	Path string `yaml:"path"`
+}
+
+// ProjectVars returns project config as a key-value map for template resolution.
+func (p *Project) ProjectVars() map[string]string {
+	vars := make(map[string]string)
+	if p == nil {
+		return vars
+	}
+	if p.Language != "" {
+		vars["project.language"] = p.Language
+	}
+	if p.TestCommand != "" {
+		vars["project.test_command"] = p.TestCommand
+	}
+	if p.LintCommand != "" {
+		vars["project.lint_command"] = p.LintCommand
+	}
+	if p.BuildCommand != "" {
+		vars["project.build_command"] = p.BuildCommand
+	}
+	if p.SourceGlob != "" {
+		vars["project.source_glob"] = p.SourceGlob
+	}
+	return vars
 }
 
 func (m *Manifest) GetAdapter(name string) *Adapter {

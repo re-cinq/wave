@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -226,7 +227,8 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		}
 	}
 
-	manifest := createDefaultManifest(opts.Adapter, opts.Workspace)
+	project := detectProject()
+	manifest := createDefaultManifest(opts.Adapter, opts.Workspace, project)
 	manifestData, err := yaml.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
@@ -284,7 +286,8 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 	}
 
 	// Create default manifest
-	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace)
+	project := detectProject()
+	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace, project)
 
 	// Merge manifests (existing values take precedence)
 	merged := mergeManifests(defaultManifest, existingManifest)
@@ -467,7 +470,130 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "\n")
 }
 
-func createDefaultManifest(adapter string, workspace string) map[string]interface{} {
+// detectProject probes the current directory for project type markers and returns
+// a map suitable for inclusion as the "project" key in the manifest YAML.
+// Returns nil if no known project type is detected.
+func detectProject() map[string]interface{} {
+	fileExists := func(name string) bool {
+		_, err := os.Stat(name)
+		return err == nil
+	}
+
+	// Check markers in priority order — first match wins
+	switch {
+	case fileExists("go.mod"):
+		return map[string]interface{}{
+			"language":      "go",
+			"test_command":  "go test ./...",
+			"lint_command":  "go vet ./...",
+			"build_command": "go build ./...",
+			"source_glob":   "*.go",
+		}
+
+	case fileExists("deno.json") || fileExists("deno.jsonc"):
+		return map[string]interface{}{
+			"language":      "typescript",
+			"test_command":  "deno test",
+			"lint_command":  "deno lint",
+			"build_command": "deno compile",
+			"source_glob":   "*.{ts,tsx}",
+		}
+
+	case fileExists("package.json"):
+		return detectNodeProject()
+
+	case fileExists("Cargo.toml"):
+		return map[string]interface{}{
+			"language":      "rust",
+			"test_command":  "cargo test",
+			"lint_command":  "cargo clippy",
+			"build_command": "cargo build",
+			"source_glob":   "*.rs",
+		}
+
+	case fileExists("pyproject.toml") || fileExists("setup.py"):
+		return map[string]interface{}{
+			"language":     "python",
+			"test_command": "pytest",
+			"lint_command": "ruff check .",
+			"source_glob":  "*.py",
+		}
+	}
+
+	return nil
+}
+
+// detectNodeProject reads package.json to determine the package manager and
+// extract actual script commands for test, lint, and build.
+func detectNodeProject() map[string]interface{} {
+	fileExists := func(name string) bool {
+		_, err := os.Stat(name)
+		return err == nil
+	}
+
+	// Determine package manager from lockfiles
+	runner := "npm"
+	switch {
+	case fileExists("bun.lockb") || fileExists("bun.lock"):
+		runner = "bun"
+	case fileExists("pnpm-lock.yaml"):
+		runner = "pnpm"
+	case fileExists("yarn.lock"):
+		runner = "yarn"
+	}
+
+	// Determine language from tsconfig presence
+	language := "javascript"
+	sourceGlob := "*.{js,jsx}"
+	if fileExists("tsconfig.json") {
+		language = "typescript"
+		sourceGlob = "*.{ts,tsx}"
+	}
+
+	result := map[string]interface{}{
+		"language":    language,
+		"source_glob": sourceGlob,
+	}
+
+	// Read package.json scripts to derive actual commands
+	data, err := os.ReadFile("package.json")
+	if err != nil {
+		return result
+	}
+
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return result
+	}
+
+	runCmd := func(script string) string {
+		if runner == "npm" {
+			return "npm run " + script
+		}
+		return runner + " run " + script
+	}
+
+	// Map well-known script names to project commands
+	if _, ok := pkg.Scripts["test"]; ok {
+		if runner == "npm" {
+			result["test_command"] = "npm test"
+		} else {
+			result["test_command"] = runner + " test"
+		}
+	}
+	if _, ok := pkg.Scripts["lint"]; ok {
+		result["lint_command"] = runCmd("lint")
+	}
+	if _, ok := pkg.Scripts["build"]; ok {
+		result["build_command"] = runCmd("build")
+	}
+
+	return result
+}
+
+func createDefaultManifest(adapter string, workspace string, project map[string]interface{}) map[string]interface{} {
 	adapters := map[string]interface{}{
 		adapter: map[string]interface{}{
 			"binary":        adapter,
@@ -481,7 +607,7 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 		},
 	}
 
-	return map[string]interface{}{
+	manifest := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "WaveManifest",
 		"metadata": map[string]interface{}{
@@ -526,7 +652,7 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 				"system_prompt_file": ".wave/personas/auditor.md",
 				"temperature":        0.1,
 				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Grep", "Bash(go vet*)", "Bash(npm audit*)"},
+					"allowed_tools": []string{"Read", "Grep", "Bash(git log*)", "Bash(git status*)"},
 					"deny":          []string{"Write(*)", "Edit(*)"},
 				},
 			},
@@ -616,7 +742,7 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 				"system_prompt_file": ".wave/personas/reviewer.md",
 				"temperature":        0.1,
 				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(go test*)", "Bash(git diff*)"},
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(git diff*)", "Bash(git log*)"},
 					"deny":          []string{"Write(*)", "Edit(*)"},
 				},
 			},
@@ -655,6 +781,12 @@ func createDefaultManifest(adapter string, workspace string) map[string]interfac
 			{"path": ".wave/skills/"},
 		},
 	}
+
+	if project != nil {
+		manifest["project"] = project
+	}
+
+	return manifest
 }
 
 func createExamplePersonas(personas map[string]string) error {
