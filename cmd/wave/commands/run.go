@@ -131,8 +131,11 @@ func runRun(opts RunOptions, debug bool) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
+	// Generate run ID once — shared by display and executor
+	runID := pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
+
 	// Initialize event emitter based on output format
-	result := CreateEmitter(opts.Output, p.Metadata.Name, p.Steps, &m)
+	result := CreateEmitter(opts.Output, runID, p.Metadata.Name, p.Steps, &m)
 	emitter := result.Emitter
 	progressDisplay := result.Progress
 	defer result.Cleanup()
@@ -176,6 +179,7 @@ func runRun(opts RunOptions, debug bool) error {
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
+		pipeline.WithRunID(runID),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
