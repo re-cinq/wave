@@ -38,7 +38,7 @@ func TestValidateOutputFormat(t *testing.T) {
 
 func TestCreateEmitter_JSONFormat(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatJSON, Verbose: false}
-	result := CreateEmitter(cfg, "test", nil, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", nil, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter, "json format should return an emitter")
@@ -47,7 +47,7 @@ func TestCreateEmitter_JSONFormat(t *testing.T) {
 
 func TestCreateEmitter_TextFormat(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatText, Verbose: false}
-	result := CreateEmitter(cfg, "test", nil, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", nil, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -59,7 +59,7 @@ func TestCreateEmitter_TextFormat(t *testing.T) {
 
 func TestCreateEmitter_TextFormatVerbose(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatText, Verbose: true}
-	result := CreateEmitter(cfg, "test", nil, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", nil, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -71,7 +71,7 @@ func TestCreateEmitter_TextFormatVerbose(t *testing.T) {
 
 func TestCreateEmitter_QuietFormat(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatQuiet, Verbose: false}
-	result := CreateEmitter(cfg, "test", nil, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", nil, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -87,7 +87,7 @@ func TestCreateEmitter_AutoFormatWithSteps(t *testing.T) {
 		{ID: "step1", Persona: "navigator"},
 		{ID: "step2", Persona: "craftsman"},
 	}
-	result := CreateEmitter(cfg, "test-pipeline", steps, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test-pipeline", "test-pipeline", steps, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -101,7 +101,7 @@ func TestCreateEmitter_AutoFormatForceTTY(t *testing.T) {
 	steps := []pipeline.Step{
 		{ID: "step1", Persona: "navigator"},
 	}
-	result := CreateEmitter(cfg, "test", steps, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", steps, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -117,7 +117,7 @@ func TestCreateEmitter_AutoFormatForceNonTTY(t *testing.T) {
 	steps := []pipeline.Step{
 		{ID: "step1", Persona: "navigator"},
 	}
-	result := CreateEmitter(cfg, "test", steps, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", steps, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -128,7 +128,7 @@ func TestCreateEmitter_AutoFormatForceNonTTY(t *testing.T) {
 
 func TestCreateEmitter_NilSteps(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatText, Verbose: false}
-	result := CreateEmitter(cfg, "test", nil, &manifest.Manifest{})
+	result := CreateEmitter(cfg, "test", "test", nil, &manifest.Manifest{})
 	defer result.Cleanup()
 
 	assert.NotNil(t, result.Emitter)
@@ -143,7 +143,7 @@ func TestOutputFormatConstants(t *testing.T) {
 
 func TestCreateEmitter_TextFormatUsesThrottle(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatText, Verbose: false}
-	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	result := CreateEmitter(cfg, "test-pipeline", "test-pipeline", []pipeline.Step{}, nil)
 	defer result.Cleanup()
 
 	if _, ok := result.Progress.(*display.ThrottledProgressEmitter); !ok {
@@ -153,7 +153,7 @@ func TestCreateEmitter_TextFormatUsesThrottle(t *testing.T) {
 
 func TestCreateEmitter_QuietFormatUsesThrottle(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatQuiet, Verbose: false}
-	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	result := CreateEmitter(cfg, "test-pipeline", "test-pipeline", []pipeline.Step{}, nil)
 	defer result.Cleanup()
 
 	if _, ok := result.Progress.(*display.ThrottledProgressEmitter); !ok {
@@ -163,7 +163,7 @@ func TestCreateEmitter_QuietFormatUsesThrottle(t *testing.T) {
 
 func TestCreateEmitter_JSONFormatNoThrottle(t *testing.T) {
 	cfg := OutputConfig{Format: OutputFormatJSON, Verbose: false}
-	result := CreateEmitter(cfg, "test-pipeline", []pipeline.Step{}, nil)
+	result := CreateEmitter(cfg, "test-pipeline", "test-pipeline", []pipeline.Step{}, nil)
 	defer result.Cleanup()
 
 	if result.Progress != nil {

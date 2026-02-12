@@ -103,7 +103,7 @@ func runMeta(input string, opts MetaOptions) error {
 	}
 
 	// Create emitter (no steps known yet for meta - generated dynamically)
-	emitterResult := CreateEmitter(opts.Output, "meta", nil, &m)
+	emitterResult := CreateEmitter(opts.Output, "meta", "meta", nil, &m)
 	defer emitterResult.Cleanup()
 
 	// Set up workspace manager

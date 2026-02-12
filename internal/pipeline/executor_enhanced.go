@@ -44,8 +44,10 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 
 	// Initialize pipeline execution
 	pipelineName := p.Metadata.Name
-	hashLength := m.Runtime.PipelineIDHashLength
-	pipelineID := GenerateRunID(pipelineName, hashLength)
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
 	execution := &PipelineExecution{
 		Pipeline:       p,
 		Manifest:       m,

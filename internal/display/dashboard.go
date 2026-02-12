@@ -92,8 +92,12 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 
 	// Project info for right side
 	elapsed := float64(ctx.ElapsedTimeMs) / 1000.0
+	pipelineLabel := ctx.PipelineName
+	if ctx.PipelineID != "" && ctx.PipelineID != ctx.PipelineName {
+		pipelineLabel = ctx.PipelineID
+	}
 	projectInfo := []string{
-		fmt.Sprintf("%s", ctx.PipelineName),
+		pipelineLabel,
 		fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath),
 		" Press: q=quit",
 	}

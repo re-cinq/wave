@@ -48,7 +48,7 @@ type EmitterResult struct {
 //   - text:  Plain text progress to stderr, no stdout
 //   - quiet: Only final result to stderr, no stdout
 //   - auto:  BubbleTea TUI if TTY, plain text if pipe
-func CreateEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
+func CreateEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
 	switch cfg.Format {
 	case OutputFormatJSON:
 		return EmitterResult{
@@ -75,18 +75,18 @@ func CreateEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.Step,
 		}
 
 	default: // "auto"
-		return createAutoEmitter(cfg, pipelineName, steps, m)
+		return createAutoEmitter(cfg, pipelineID, pipelineName, steps, m)
 	}
 }
 
 // createAutoEmitter selects BubbleTea TUI when connected to a TTY,
 // plain text otherwise.
-func createAutoEmitter(cfg OutputConfig, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
+func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
 	termInfo := display.NewTerminalInfo()
 	isTTY := termInfo.IsTTY() && termInfo.SupportsANSI()
 
 	if isTTY {
-		btpd := display.NewBubbleTeaProgressDisplay(pipelineName, pipelineName, len(steps), nil, cfg.Verbose)
+		btpd := display.NewBubbleTeaProgressDisplay(pipelineID, pipelineName, len(steps), nil, cfg.Verbose)
 
 		// Register steps for tracking
 		for _, step := range steps {

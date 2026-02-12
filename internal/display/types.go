@@ -193,6 +193,7 @@ type PipelineContext struct {
 	// Project metadata
 	ManifestPath  string
 	PipelineName  string
+	PipelineID    string
 	WorkspacePath string
 
 	// Step tracking
