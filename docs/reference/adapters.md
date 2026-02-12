@@ -150,6 +150,63 @@ opencode --prompt "prompt" --output-format json --non-interactive
 
 ---
 
+## GitHub Adapter
+
+The GitHub adapter wraps the GitHub API for direct repository operations. Unlike the Claude and OpenCode adapters, it does not invoke a subprocess CLI — it makes GitHub API calls directly using the `GITHUB_TOKEN` or `GH_TOKEN` environment variable.
+
+### Purpose
+
+The GitHub adapter enables pipelines to perform GitHub API operations:
+
+- **Issue management** — list, analyze, retrieve, and update issues
+- **Pull request creation** — create PRs from pipeline-generated branches
+- **Repository queries** — retrieve repository metadata
+- **Branch creation** — create feature branches for pipeline workflows
+
+### Configuration
+
+The GitHub adapter is configured internally and does not require an entry in the `adapters:` section of `wave.yaml`. It is used automatically by GitHub-related pipelines.
+
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | GitHub personal access token. The adapter reads this via `os.Getenv("GITHUB_TOKEN")`. |
+| `GH_TOKEN` | Alternative token variable. Pass through via `runtime.sandbox.env_passthrough`. |
+
+At least one of these must be set for the adapter to authenticate with the GitHub API.
+
+### Supported Operations
+
+| Operation | Description |
+|-----------|-------------|
+| `list_issues` | List open issues for a repository |
+| `analyze_issues` | Analyze issues for quality (below a configurable threshold) |
+| `get_issue` | Retrieve a single issue by number |
+| `update_issue` | Update an issue's title, body, state, or labels |
+| `create_pr` | Create a pull request |
+| `get_repo` | Retrieve repository metadata |
+| `create_branch` | Create a new branch from a reference |
+
+### How It Differs from LLM Adapters
+
+| Aspect | LLM Adapters (Claude, OpenCode) | GitHub Adapter |
+|--------|--------------------------------|----------------|
+| Execution | Subprocess CLI invocation | Direct API calls |
+| Output | LLM-generated text | Structured JSON data |
+| Workspace | Generates config files (`.claude/settings.json`, `CLAUDE.md`) | No workspace setup |
+| Permissions | Tool allow/deny lists | GitHub API token scope |
+
+### Usage Context
+
+The GitHub adapter is used by pipelines that interact with GitHub repositories:
+
+- `gh-poor-issues` — scan and analyze issue quality
+- `github-issue-enhancer` — enhance poorly written issues
+- `github-issue-impl` — implement features from GitHub issues
+
+---
+
 ## Multiple Adapters
 
 Define multiple adapters for different use cases:
