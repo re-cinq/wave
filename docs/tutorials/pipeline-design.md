@@ -14,6 +14,8 @@ A pipeline is a DAG where:
 
 Create `.wave/pipelines/feature-flow.yaml`:
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -88,6 +90,8 @@ steps:
       type: prompt
       source: Review for security and quality issues.
 ```
+
+</div>
 
 ## Key Patterns
 
