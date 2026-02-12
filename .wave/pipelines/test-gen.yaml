@@ -15,30 +15,32 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readonly
     exec:
       type: prompt
       source: |
         Analyze test coverage for: {{ input }}
 
-        1. Run coverage analysis (go test -cover)
+        1. Run coverage analysis using the project test command with coverage flags
         2. Identify uncovered functions and branches
         3. Find edge cases not tested
         4. Map dependencies that need mocking
 
-        Output as JSON:
-        {
-          "current_coverage": "X%",
-          "uncovered_functions": [],
-          "uncovered_branches": [],
-          "edge_cases": [],
-          "mock_requirements": []
-        }
+        Write the result as JSON to output/coverage-analysis.json with fields:
+        current_coverage, uncovered_functions, uncovered_branches, edge_cases,
+        and mock_requirements.
     output_artifacts:
       - name: coverage
         path: output/coverage-analysis.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/coverage-analysis.json
+        schema_path: .wave/contracts/coverage-analysis.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: generate-tests
     persona: craftsman
@@ -52,7 +54,7 @@ steps:
     workspace:
       mount:
         - source: ./
-          target: /src
+          target: /project
           mode: readwrite
     exec:
       type: prompt
@@ -70,7 +72,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test ./... -v"
+        command: "{{ project.test_command }}"
 
         must_pass: false
         on_failure: retry

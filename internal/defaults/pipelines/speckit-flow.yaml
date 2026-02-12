@@ -137,7 +137,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "go test -race ./..."
+        command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
         max_retries: 3
