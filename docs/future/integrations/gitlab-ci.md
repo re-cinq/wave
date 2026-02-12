@@ -514,7 +514,7 @@ wave-job:
 
 ## See Also
 
-- [Integrations Overview](./index.md)
+- [CI/CD Integration](/guides/ci-cd)
 - [GitHub Actions Guide](./github-actions.md)
 - [Error Codes Reference](/reference/error-codes)
 - [Troubleshooting Reference](/reference/troubleshooting)

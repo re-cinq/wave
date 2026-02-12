@@ -37,7 +37,7 @@ const conceptCards = [
   {
     title: 'Execution',
     description: 'How pipelines run, with fresh memory at step boundaries',
-    link: '/concepts/execution',
+    link: '/concepts/pipelines',
     icon: '⚡'
   }
 ]
