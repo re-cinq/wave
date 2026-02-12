@@ -1,0 +1,148 @@
+kind: WavePipeline
+metadata:
+  name: explain
+  description: "Deep-dive explanation of code, modules, or architectural patterns"
+  release: true
+
+input:
+  source: cli
+  example: "explain the pipeline execution system and how steps are scheduled"
+
+steps:
+  - id: explore
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Explore the codebase to understand: {{ input }}
+
+        ## Exploration Steps
+
+        1. **Find relevant files**: Use Glob and Grep to locate all files related
+           to the topic. Cast a wide net — include implementations, tests, configs,
+           and documentation.
+
+        2. **Trace the call graph**: For key entry points, follow the execution flow.
+           Note which functions call which, and how data flows through the system.
+
+        3. **Identify key abstractions**: Find the core types, interfaces, and structs.
+           Note their responsibilities and relationships.
+
+        4. **Map dependencies**: Which packages/modules does this depend on?
+           Which depend on it?
+
+        5. **Find tests**: Locate test files that exercise this code.
+           Tests often reveal intended behavior and edge cases.
+
+        6. **Check configuration**: Find config files, constants, or environment
+           variables that affect behavior.
+
+        ## Output
+
+        Write the result as JSON to output/exploration.json matching the contract schema.
+        Include: topic, entry_points (file, symbol, role, line), key_types (name, file, purpose,
+        methods, relationships), call_flows (name, steps, description), dependencies (depends_on,
+        depended_by, external), test_files, config_points, file_count, and timestamp.
+    output_artifacts:
+      - name: exploration
+        path: output/exploration.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/exploration.json
+        schema_path: .wave/contracts/explain-exploration.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: analyze
+    persona: planner
+    dependencies: [explore]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: codebase_map
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the architecture and design of the explored code.
+
+        Read the exploration first: cat artifacts/codebase_map
+
+        Then read the key source files identified. Focus on:
+
+        1. **Design patterns**: What patterns are used and why?
+        2. **Data flow**: How does data enter, transform, and exit?
+        3. **Error handling**: What's the error strategy?
+        4. **Concurrency model**: Goroutines, channels, mutexes?
+        5. **Extension points**: Where can new functionality be added?
+        6. **Design decisions**: What trade-offs were made?
+
+        Write the result as JSON to output/analysis.json matching the contract schema.
+        Include: topic, patterns (name, where, why, quality), data_flow (name, stages,
+        key_transformations), error_handling, concurrency, extension_points, design_decisions,
+        and timestamp.
+    output_artifacts:
+      - name: analysis
+        path: output/analysis.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/analysis.json
+        schema_path: .wave/contracts/explain-analysis.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: document
+    persona: philosopher
+    dependencies: [analyze]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: codebase_map
+        - step: analyze
+          artifact: analysis
+          as: architecture
+    exec:
+      type: prompt
+      source: |
+        Write a comprehensive explanation document.
+
+        Read both artifacts:
+          cat artifacts/codebase_map
+          cat artifacts/architecture
+
+        Write a markdown document to output/explanation.md with:
+
+        1. **Overview** — One paragraph summary
+        2. **Key Concepts** — Core abstractions and terminology (glossary)
+        3. **Architecture** — How pieces fit together (include ASCII diagram)
+        4. **How It Works** — Step-by-step main execution flow with file:line refs
+        5. **Design Decisions** — Decision → Rationale → Trade-off entries
+        6. **Extension Guide** — How to add new functionality
+        7. **Testing Strategy** — How the code is tested
+        8. **Common Pitfalls** — Things that trip people up
+
+        Write for an experienced developer new to this codebase.
+        Use real file paths, function names, and type names.
+    output_artifacts:
+      - name: explanation
+        path: output/explanation.md
+        type: markdown

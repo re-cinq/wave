@@ -4,7 +4,8 @@ metadata:
   description: "Prototype-driven development pipeline with 5 phases (9 steps): spec, docs, dummy, implement, pr-cycle"
   version: "1.0.0"
   created: "2026-02-03"
-  author: "Michael W. Czechowski"
+  author: Michael W. Czechowski
+  release: false
 
 input:
   source: cli
@@ -41,38 +42,38 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
     output_artifacts:
-      - name: "spec"
-        path: "spec.md"
-        type: "specification"
-      - name: "requirements"
-        path: "requirements.md"
-        type: "specification"
-      - name: "contract_data"
-        path: "artifact.json"
-        type: "json"
+      - name: spec
+        path: spec.md
+        type: specification
+      - name: requirements
+        path: requirements.md
+        type: specification
+      - name: contract_data
+        path: artifact.json
+        type: json
 
     handover:
       contract:
-        type: "json_schema"
-        schema_path: ".wave/contracts/spec-phase.schema.json"
+        type: json_schema
+        schema_path: .wave/contracts/spec-phase.schema.json
         must_pass: true
         max_retries: 2
 
   # Phase 2: Docs - Generate runnable documentation from specification
   - id: docs
     persona: philosopher
-    dependencies: ["spec"]
+    dependencies: [spec]
 
     memory:
       inject_artifacts:
-        - step: "spec"
-          artifact: "spec"
-          as: "input-spec.md"
+        - step: spec
+          artifact: spec
+          as: input-spec.md
 
     exec:
       source: |
@@ -96,41 +97,41 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
     output_artifacts:
-      - name: "feature-docs"
-        path: "feature-docs.md"
-        type: "documentation"
-      - name: "stakeholder-summary"
-        path: "stakeholder-summary.md"
-        type: "documentation"
-      - name: "contract_data"
-        path: "artifact.json"
-        type: "json"
+      - name: feature-docs
+        path: feature-docs.md
+        type: documentation
+      - name: stakeholder-summary
+        path: stakeholder-summary.md
+        type: documentation
+      - name: contract_data
+        path: artifact.json
+        type: json
 
     handover:
       contract:
-        type: "json_schema"
-        schema_path: ".wave/contracts/docs-phase.schema.json"
+        type: json_schema
+        schema_path: .wave/contracts/docs-phase.schema.json
         must_pass: true
         max_retries: 2
 
   # Phase 3: Dummy - Build authentic functional prototype
   - id: dummy
     persona: craftsman
-    dependencies: ["docs"]
+    dependencies: [docs]
 
     memory:
       inject_artifacts:
-        - step: "docs"
-          artifact: "feature-docs"
-          as: "feature-docs.md"
-        - step: "spec"
-          artifact: "spec"
-          as: "spec.md"
+        - step: docs
+          artifact: feature-docs
+          as: feature-docs.md
+        - step: spec
+          artifact: spec
+          as: spec.md
 
     exec:
       source: |
@@ -157,44 +158,44 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
     output_artifacts:
-      - name: "prototype"
-        path: "prototype/"
-        type: "code"
-      - name: "interface-definitions"
-        path: "interfaces.md"
-        type: "documentation"
-      - name: "contract_data"
-        path: "artifact.json"
-        type: "json"
+      - name: prototype
+        path: prototype/
+        type: code
+      - name: interface-definitions
+        path: interfaces.md
+        type: documentation
+      - name: contract_data
+        path: artifact.json
+        type: json
 
     handover:
       contract:
-        type: "json_schema"
-        schema_path: ".wave/contracts/dummy-phase.schema.json"
+        type: json_schema
+        schema_path: .wave/contracts/dummy-phase.schema.json
         must_pass: true
         max_retries: 2
 
   # Phase 4: Implement - Transition to full implementation
   - id: implement
     persona: craftsman
-    dependencies: ["dummy"]
+    dependencies: [dummy]
 
     memory:
       inject_artifacts:
-        - step: "spec"
-          artifact: "spec"
-          as: "spec.md"
-        - step: "docs"
-          artifact: "feature-docs"
-          as: "feature-docs.md"
-        - step: "dummy"
-          artifact: "prototype"
-          as: "prototype/"
+        - step: spec
+          artifact: spec
+          as: spec.md
+        - step: docs
+          artifact: feature-docs
+          as: feature-docs.md
+        - step: dummy
+          artifact: prototype
+          as: prototype/
 
     exec:
       source: |
@@ -220,38 +221,38 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
     output_artifacts:
-      - name: "implementation-plan"
-        path: "implementation-plan.md"
-        type: "documentation"
-      - name: "progress-checklist"
-        path: "implementation-checklist.md"
-        type: "checklist"
-      - name: "contract_data"
-        path: "artifact.json"
-        type: "json"
+      - name: implementation-plan
+        path: implementation-plan.md
+        type: documentation
+      - name: progress-checklist
+        path: implementation-checklist.md
+        type: checklist
+      - name: contract_data
+        path: artifact.json
+        type: json
 
     handover:
       contract:
-        type: "json_schema"
-        schema_path: ".wave/contracts/implement-phase.schema.json"
+        type: json_schema
+        schema_path: .wave/contracts/implement-phase.schema.json
         must_pass: true
         max_retries: 2
 
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create
     persona: navigator
-    dependencies: ["implement"]
+    dependencies: [implement]
 
     memory:
       inject_artifacts:
-        - step: "implement"
-          artifact: "implementation-plan"
-          as: "implementation-plan.md"
+        - step: implement
+          artifact: implementation-plan
+          as: implementation-plan.md
 
     exec:
       source: |
@@ -271,18 +272,18 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
     output_artifacts:
-      - name: "pr-info"
-        path: "pr-info.json"
-        type: "metadata"
+      - name: pr-info
+        path: pr-info.json
+        type: metadata
 
   - id: pr-review
     persona: auditor
-    dependencies: ["pr-create"]
+    dependencies: [pr-create]
 
     exec:
       source: |
@@ -293,13 +294,13 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
   - id: pr-respond
     persona: philosopher
-    dependencies: ["pr-review"]
+    dependencies: [pr-review]
 
     exec:
       source: |
@@ -312,13 +313,13 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
   - id: pr-fix
     persona: craftsman
-    dependencies: ["pr-respond"]
+    dependencies: [pr-respond]
 
     exec:
       source: |
@@ -329,13 +330,13 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite
 
   - id: pr-merge
     persona: navigator
-    dependencies: ["pr-fix"]
+    dependencies: [pr-fix]
 
     exec:
       source: |
@@ -346,6 +347,6 @@ steps:
 
     workspace:
       mount:
-        - source: "."
-          target: "/workspace"
-          mode: "readwrite"
+        - source: .
+          target: /project
+          mode: readwrite

@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Categorized Changelog Changes",
+  "description": "Categorized and described changes for changelog generation",
+  "type": "object",
+  "required": ["version_label", "sections", "timestamp"],
+  "properties": {
+    "version_label": { "type": "string", "minLength": 1 },
+    "breaking_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string" },
+          "migration": { "type": "string" },
+          "related_commits": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "type", "entries"],
+        "properties": {
+          "title": { "type": "string" },
+          "type": { "type": "string" },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["description"],
+              "properties": {
+                "description": { "type": "string" },
+                "scope": { "type": "string" },
+                "commits": { "type": "array", "items": { "type": "string" } },
+                "notable": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "contributors": { "type": "array", "items": { "type": "string" } },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "total_entries": { "type": "integer" },
+        "notable_entries": { "type": "integer" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

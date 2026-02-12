@@ -1,0 +1,179 @@
+kind: WavePipeline
+metadata:
+  name: adr
+  description: "Create an Architecture Decision Record for a design choice"
+  release: true
+
+input:
+  source: cli
+  example: "ADR: should we use SQLite or PostgreSQL for pipeline state?"
+
+steps:
+  - id: explore-context
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Explore the codebase to gather context for this architectural decision: {{ input }}
+
+        ## Exploration
+
+        1. **Understand the decision space**: What part of the system is this about?
+           Find all related code, configs, and documentation.
+
+        2. **Map current state**: How does the system work today?
+           What would be affected by this decision?
+
+        3. **Find constraints**: What technical constraints exist?
+           (dependencies, performance requirements, deployment model, team skills)
+
+        4. **Check precedents**: Are there similar decisions already made in this
+           codebase? Look for ADRs, design docs, or relevant comments.
+
+        5. **Identify stakeholders**: Which components/teams/users are affected?
+
+        Write the result as JSON to output/adr-context.json matching the contract schema.
+        Include: decision_topic, current_state (description, affected_files, affected_components),
+        constraints, precedents, stakeholders, and timestamp.
+    output_artifacts:
+      - name: context
+        path: output/adr-context.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/adr-context.json
+        schema_path: .wave/contracts/adr-context.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: analyze-options
+    persona: planner
+    dependencies: [explore-context]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore-context
+          artifact: context
+          as: decision_context
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze the options for this architectural decision.
+
+        Read the context: cat artifacts/decision_context
+
+        Original decision: {{ input }}
+
+        ## Analysis
+
+        For each viable option:
+
+        1. **Describe it**: What would this option look like in practice?
+        2. **Pros**: What are the benefits? Be specific to THIS project.
+        3. **Cons**: What are the drawbacks? Be honest.
+        4. **Effort**: How much work to implement?
+        5. **Risk**: What could go wrong?
+        6. **Reversibility**: How hard to undo if it's the wrong choice?
+        7. **Compatibility**: How well does it fit with existing constraints?
+
+        Write the result as JSON to output/adr-options.json matching the contract schema.
+        Include: decision_topic, options (name, description, pros, cons, effort, risk,
+        reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
+    output_artifacts:
+      - name: options
+        path: output/adr-options.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/adr-options.json
+        schema_path: .wave/contracts/adr-options.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: draft-record
+    persona: philosopher
+    dependencies: [analyze-options]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: explore-context
+          artifact: context
+          as: decision_context
+        - step: analyze-options
+          artifact: options
+          as: analysis
+    exec:
+      type: prompt
+      source: |
+        Draft the Architecture Decision Record.
+
+        Read both artifacts:
+          cat artifacts/decision_context
+          cat artifacts/analysis
+
+        Write the ADR to output/adr.md using this standard format:
+
+        # ADR-NNN: [Title]
+
+        ## Status
+        Proposed
+
+        ## Date
+        YYYY-MM-DD
+
+        ## Context
+        What is the issue that we're seeing that is motivating this decision?
+        Include technical context from the codebase exploration.
+
+        ## Decision
+        What is the change that we're proposing and/or doing?
+        State the recommended option clearly.
+
+        ## Options Considered
+
+        ### Option 1: [Name]
+        Description, pros, cons.
+
+        ### Option 2: [Name]
+        Description, pros, cons.
+
+        (etc.)
+
+        ## Consequences
+
+        ### Positive
+        - What becomes easier or better?
+
+        ### Negative
+        - What becomes harder or worse?
+
+        ### Neutral
+        - What other changes are required?
+
+        ## Implementation Notes
+        - Key steps to implement the decision
+        - Files/components that need changes
+        - Migration plan if applicable
+
+        ---
+
+        Write clearly and concisely. The ADR should be understandable by
+        someone who wasn't part of the original discussion.
+    output_artifacts:
+      - name: adr
+        path: output/adr.md
+        type: markdown

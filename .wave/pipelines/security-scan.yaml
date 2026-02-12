@@ -1,0 +1,166 @@
+kind: WavePipeline
+metadata:
+  name: security-scan
+  description: "Comprehensive security vulnerability audit"
+
+input:
+  source: cli
+  example: "audit the authentication module for vulnerabilities"
+
+steps:
+  - id: scan
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a security scan of: {{ input }}
+
+        ## Scan Process
+
+        1. **Map attack surface**: Identify all entry points (HTTP handlers, CLI args,
+           file parsers, IPC endpoints, database queries, external API calls)
+
+        2. **Check OWASP Top 10**:
+           - Injection (SQL, command, LDAP, XPath)
+           - Broken authentication/authorization
+           - Sensitive data exposure
+           - XML external entities (XXE)
+           - Broken access control
+           - Security misconfiguration
+           - Cross-site scripting (XSS)
+           - Insecure deserialization
+           - Using components with known vulnerabilities
+           - Insufficient logging and monitoring
+
+        3. **Scan for common Go vulnerabilities** (if Go project):
+           - Unchecked errors on security-critical operations
+           - Race conditions on shared state
+           - Path traversal via unsanitized file paths
+           - Template injection
+           - Unsafe use of reflect or unsafe packages
+
+        4. **Check secrets and configuration**:
+           - Hardcoded credentials, API keys, tokens
+           - Insecure default configurations
+           - Missing TLS/encryption
+           - Overly permissive file permissions
+
+        5. **Review dependency usage**:
+           - Known vulnerable patterns in dependency usage
+           - Outdated security practices
+
+        ## Output Format
+
+        Write the result as JSON to output/security-scan.json matching the contract schema.
+        Include: target, attack_surface (entry_point, type, description, risk_level),
+        findings (id, title, severity, category, location, description, evidence, exploitability),
+        secrets_check (hardcoded_secrets, insecure_configs), summary (total_findings,
+        by_severity, risk_assessment), and timestamp.
+    output_artifacts:
+      - name: scan_results
+        path: output/security-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/security-scan.json
+        schema_path: .wave/contracts/security-scan.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: deep-dive
+    persona: auditor
+    dependencies: [scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a deep security analysis based on the initial scan results.
+
+        Read the scan findings first:
+
+          cat artifacts/scan_findings
+
+        For each finding with severity HIGH or CRITICAL:
+
+        1. **Verify the finding**: Read the actual source code at the reported location.
+           Confirm the vulnerability exists (eliminate false positives).
+
+        2. **Trace the data flow**: Follow untrusted input from entry point to sink.
+           Identify all transformations and validation (or lack thereof).
+
+        3. **Assess exploitability**: Could an attacker realistically exploit this?
+           What preconditions are needed? What's the impact?
+
+        4. **Check for related patterns**: Search for similar vulnerable patterns
+           elsewhere in the codebase using Grep.
+
+        5. **Propose remediation**: Specific, actionable fix with code examples.
+           Prioritize by effort vs. impact.
+
+        For MEDIUM and LOW findings, do a lighter review confirming they're real.
+
+        Output as markdown to output/security-deep-dive.md with sections:
+        - Executive Summary
+        - Confirmed Vulnerabilities (with severity badges)
+        - False Positives Eliminated
+        - Data Flow Analysis
+        - Remediation Plan (ordered by priority)
+        - Related Patterns Found
+    output_artifacts:
+      - name: deep_dive
+        path: output/security-deep-dive.md
+        type: markdown
+
+  - id: report
+    persona: summarizer
+    dependencies: [deep-dive]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+        - step: deep-dive
+          artifact: deep_dive
+          as: analysis
+    exec:
+      type: prompt
+      source: |
+        Synthesize the security audit into a final report.
+
+        Read both artifacts:
+
+          cat artifacts/scan_findings
+          cat artifacts/analysis
+
+        Create a concise, actionable security report:
+
+        1. **Risk Score**: Overall risk rating (CRITICAL/HIGH/MEDIUM/LOW) with justification
+        2. **Top 3 Issues**: The most important findings to fix immediately
+        3. **Quick Wins**: Low-effort fixes that improve security posture
+        4. **Remediation Roadmap**: Ordered list of fixes by priority
+        5. **What's Good**: Security practices already in place
+
+        Format as a clean markdown report suitable for sharing with the team.
+    output_artifacts:
+      - name: report
+        path: output/security-report.md
+        type: markdown

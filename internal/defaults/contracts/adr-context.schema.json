@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADR Context",
+  "description": "Contextual information gathered for an Architecture Decision Record",
+  "type": "object",
+  "required": ["decision_topic", "current_state", "constraints", "timestamp"],
+  "properties": {
+    "decision_topic": { "type": "string", "minLength": 5 },
+    "current_state": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": { "type": "string", "minLength": 10 },
+        "affected_files": { "type": "array", "items": { "type": "string" } },
+        "affected_components": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": { "type": "string", "enum": ["technical", "organizational", "timeline"] },
+          "description": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
+    "precedents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "outcome": { "type": "string" }
+        }
+      }
+    },
+    "stakeholders": { "type": "array", "items": { "type": "string" } },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

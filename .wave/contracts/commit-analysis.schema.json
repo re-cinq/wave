@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Commit Analysis",
+  "description": "Structured analysis of git commits for changelog generation",
+  "type": "object",
+  "required": ["range", "commits", "summary", "timestamp"],
+  "properties": {
+    "range": {
+      "type": "object",
+      "required": ["from", "to", "total_commits"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "total_commits": { "type": "integer", "minimum": 0 },
+        "date_range": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "string" },
+            "end": { "type": "string" }
+          }
+        }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hash", "date", "type", "subject"],
+        "properties": {
+          "hash": { "type": "string", "minLength": 4 },
+          "author": { "type": "string" },
+          "date": { "type": "string" },
+          "type": { "type": "string", "enum": ["feat", "fix", "docs", "refactor", "test", "chore", "perf", "ci", "other"] },
+          "scope": { "type": ["string", "null"] },
+          "subject": { "type": "string", "minLength": 1 },
+          "breaking": { "type": "boolean" },
+          "breaking_note": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["by_type"],
+      "properties": {
+        "by_type": { "type": "object" },
+        "breaking_changes": { "type": "integer", "minimum": 0 },
+        "contributors": { "type": "array", "items": { "type": "string" } },
+        "most_changed_scopes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
