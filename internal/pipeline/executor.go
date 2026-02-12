@@ -16,9 +16,12 @@ import (
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/worktree"
 	"github.com/recinq/wave/internal/workspace"
 )
 
@@ -132,6 +135,31 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
+	}
+
+	// Preflight validation: check required tools and skills before execution
+	if p.Requires != nil {
+		checker := preflight.NewChecker(m.Skills)
+		var tools, skills []string
+		if len(p.Requires.Tools) > 0 {
+			tools = p.Requires.Tools
+		}
+		if len(p.Requires.Skills) > 0 {
+			skills = p.Requires.Skills
+		}
+		if len(tools) > 0 || len(skills) > 0 {
+			results, err := checker.Run(tools, skills)
+			for _, r := range results {
+				e.emit(event.Event{
+					Timestamp: time.Now(),
+					State:     "preflight",
+					Message:   r.Message,
+				})
+			}
+			if err != nil {
+				return fmt.Errorf("preflight check failed: %w", err)
+			}
+		}
 	}
 
 	pipelineName := p.Metadata.Name
@@ -448,22 +476,45 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		envPassthrough = execution.Manifest.Runtime.Sandbox.EnvPassthrough
 	}
 
+	// Resolve skill commands directory for provisioning
+	var skillCommandsDir string
+	if execution.Pipeline.Requires != nil && len(execution.Pipeline.Requires.Skills) > 0 && len(execution.Manifest.Skills) > 0 {
+		provisioner := skill.NewProvisioner(execution.Manifest.Skills, "")
+		commands, _ := provisioner.DiscoverCommands(execution.Pipeline.Requires.Skills)
+		// If we found any commands, provision them into a temp dir that the adapter can use
+		if len(commands) > 0 {
+			tmpDir := filepath.Join(workspacePath, ".wave-skill-commands")
+			if err := provisioner.Provision(tmpDir, execution.Pipeline.Requires.Skills); err != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "warning",
+					Message:    fmt.Sprintf("skill provisioning failed: %v", err),
+				})
+			} else {
+				skillCommandsDir = filepath.Join(tmpDir, ".claude", "commands")
+			}
+		}
+	}
+
 	cfg := adapter.AdapterRunConfig{
-		Adapter:        adapterDef.Binary,
-		Persona:        step.Persona,
-		WorkspacePath:  workspacePath,
-		Prompt:         prompt,
-		SystemPrompt:   systemPrompt,
-		Timeout:        timeout,
-		Temperature:    persona.Temperature,
-		Model:          persona.Model,
-		AllowedTools:   allowedTools,
-		DenyTools:      persona.Permissions.Deny,
-		OutputFormat:   adapterDef.OutputFormat,
-		Debug:          e.debug,
-		SandboxEnabled: sandboxEnabled,
-		AllowedDomains: sandboxDomains,
-		EnvPassthrough: envPassthrough,
+		Adapter:          adapterDef.Binary,
+		Persona:          step.Persona,
+		WorkspacePath:    workspacePath,
+		Prompt:           prompt,
+		SystemPrompt:     systemPrompt,
+		Timeout:          timeout,
+		Temperature:      persona.Temperature,
+		Model:            persona.Model,
+		AllowedTools:     allowedTools,
+		DenyTools:        persona.Permissions.Deny,
+		OutputFormat:     adapterDef.OutputFormat,
+		Debug:            e.debug,
+		SandboxEnabled:   sandboxEnabled,
+		AllowedDomains:   sandboxDomains,
+		EnvPassthrough:   envPassthrough,
+		SkillCommandsDir: skillCommandsDir,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{
@@ -647,6 +698,43 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		wsRoot = ".wave/workspaces"
 	}
 
+	// Handle worktree workspace type
+	if step.Workspace.Type == "worktree" {
+		wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
+
+		// Resolve branch name from template variables
+		branch := step.Workspace.Branch
+		if execution.Context != nil && branch != "" {
+			branch = execution.Context.ResolvePlaceholders(branch)
+		}
+		if branch == "" {
+			// Fall back to pipeline context branch or generate one
+			branch = execution.Context.BranchName
+			if branch == "" {
+				branch = fmt.Sprintf("wave/%s/%s", pipelineID, step.ID)
+			}
+		}
+
+		mgr, err := worktree.NewManager("")
+		if err != nil {
+			return "", fmt.Errorf("failed to create worktree manager: %w", err)
+		}
+
+		absPath, err := filepath.Abs(wsPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
+		}
+
+		if err := mgr.Create(absPath, branch); err != nil {
+			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
+		}
+
+		// Store worktree manager reference for cleanup
+		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
+
+		return absPath, nil
+	}
+
 	if e.wsManager != nil && len(step.Workspace.Mount) > 0 {
 		// Update pipeline context with current step
 		execution.Context.StepID = step.ID
@@ -681,6 +769,21 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 }
 
 func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
+	// Handle slash_command exec type
+	if step.Exec.Type == "slash_command" && step.Exec.Command != "" {
+		args := step.Exec.Args
+		if execution.Context != nil {
+			args = execution.Context.ResolvePlaceholders(args)
+		}
+		// Replace {{ input }} in args
+		if execution.Input != "" {
+			for _, pattern := range []string{"{{ input }}", "{{input}}", "{{ input}}", "{{input }}"} {
+				args = strings.ReplaceAll(args, pattern, execution.Input)
+			}
+		}
+		return skill.FormatSkillCommandPrompt(step.Exec.Command, args)
+	}
+
 	prompt := step.Exec.Source
 
 	// Load prompt from external file if source_path is set
