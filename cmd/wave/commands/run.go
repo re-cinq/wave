@@ -336,6 +336,8 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 			opts.Output.Verbose = true
 		case "--output json":
 			opts.Output.Format = OutputFormatJSON
+		case "--output text":
+			opts.Output.Format = OutputFormatText
 		case "--dry-run":
 			opts.DryRun = true
 		case "--mock":

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Selection holds the result of the interactive pipeline selection.
@@ -52,6 +53,7 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 		}
 		// Auto-select if exactly one match.
 		if len(pipelines) == 1 {
+			fmt.Println(WaveLogo())
 			return runInputAndFlags(pipelines[0])
 		}
 	}
@@ -95,6 +97,11 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 	flags := DefaultFlags()
 	flagOptions := buildFlagOptions(flags)
 
+	// Print selected pipeline above the form as static text.
+	pipelineLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("Pipeline:")
+	pipelineName := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true).Render(selected.Name)
+	fmt.Printf(" %s %s\n\n", pipelineLabel, pipelineName)
+
 	inputField := huh.NewInput().
 		Title("Input (optional)").
 		Placeholder(selected.InputExample).
@@ -105,8 +112,6 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 		Options(flagOptions...).
 		Value(&selectedFlags)
 
-	// Build command string dynamically for confirmation.
-	// We use a Note to preview the composed command, then confirm.
 	form := huh.NewForm(
 		huh.NewGroup(inputField, multiSelect),
 	).WithTheme(WaveTheme())
@@ -134,6 +139,11 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 	if !confirmed {
 		return nil, huh.ErrUserAborted
 	}
+
+	// Print the composed command so it stays in scrollback for debugging.
+	cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("$")
+	cmdText := lipgloss.NewStyle().Foreground(lipgloss.Color("7")).Render(cmdStr)
+	fmt.Printf(" %s %s\n\n", cmdStyle, cmdText)
 
 	return &Selection{
 		Pipeline: selected.Name,
