@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: test-gen
   description: "Generate comprehensive test coverage"
+  release: true
 
 input:
   source: cli
