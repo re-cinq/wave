@@ -381,6 +381,7 @@ func TestMatrixExecutor_Execute_NoStrategy(t *testing.T) {
 
 	execution := &PipelineExecution{
 		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
+		Status:   &PipelineStatus{ID: "test", PipelineName: "test"},
 	}
 
 	step := &Step{ID: "test_step"}
@@ -414,6 +415,7 @@ func TestMatrixExecutor_Execute_EmptyItems(t *testing.T) {
 		WorkspacePaths: make(map[string]string),
 		ArtifactPaths:  make(map[string]string),
 		Results:        make(map[string]map[string]interface{}),
+		Status:         &PipelineStatus{ID: "test", PipelineName: "test"},
 	}
 
 	step := &Step{
@@ -447,6 +449,7 @@ func TestMatrixExecutor_CreateWorkerWorkspace(t *testing.T) {
 				WorkspaceRoot: tmpDir,
 			},
 		},
+		Status: &PipelineStatus{ID: "test-pipeline", PipelineName: "test-pipeline"},
 	}
 
 	step := &Step{ID: "matrix_step"}
@@ -547,7 +550,8 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
-				Context:        NewPipelineContext("worker-count-test", "matrix_step"), // Fix: Add missing context
+				Context:        NewPipelineContext("worker-count-test", "worker-count-test", "matrix_step"), // Fix: Add missing context
+				Status:         &PipelineStatus{ID: "worker-count-test", PipelineName: "worker-count-test"},
 			}
 
 			step := &Step{
@@ -690,7 +694,8 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
-				Context:        NewPipelineContext("concurrency-test", "matrix_step"), // Fix: Add missing context
+				Context:        NewPipelineContext("concurrency-test", "concurrency-test", "matrix_step"), // Fix: Add missing context
+				Status:         &PipelineStatus{ID: "concurrency-test", PipelineName: "concurrency-test"},
 			}
 
 			step := &Step{
@@ -845,6 +850,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				Status:         &PipelineStatus{ID: "partial-failure-test", PipelineName: "partial-failure-test"},
 			}
 
 			step := &Step{
@@ -977,6 +983,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				Status:         &PipelineStatus{ID: "zero-tasks-test", PipelineName: "zero-tasks-test"},
 			}
 
 			strategy := &MatrixStrategy{
@@ -1059,6 +1066,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 			},
 			WorkspacePaths: make(map[string]string),
 			ArtifactPaths:  make(map[string]string),
+			Status:         &PipelineStatus{ID: "missing-file-test", PipelineName: "missing-file-test"},
 		}
 
 		step := &Step{
@@ -1089,6 +1097,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 			},
 			WorkspacePaths: make(map[string]string),
 			ArtifactPaths:  make(map[string]string),
+			Status:         &PipelineStatus{ID: "invalid-json-test", PipelineName: "invalid-json-test"},
 		}
 
 		step := &Step{
@@ -1119,6 +1128,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 			},
 			WorkspacePaths: make(map[string]string),
 			ArtifactPaths:  make(map[string]string),
+			Status:         &PipelineStatus{ID: "object-json-test", PipelineName: "object-json-test"},
 		}
 
 		step := &Step{
