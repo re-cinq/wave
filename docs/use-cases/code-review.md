@@ -275,9 +275,7 @@ Modify the security review step to focus on specific severity levels:
 
 ## Related Use Cases
 
-- [Security Audit](/use-cases/security-audit) - Deep security analysis beyond code review
 - [Test Generation](/use-cases/test-generation) - Generate tests for uncovered code
-- [Multi-Agent Review](/use-cases/multi-agent-review) - Comprehensive parallel reviews
 
 ## Next Steps
 
