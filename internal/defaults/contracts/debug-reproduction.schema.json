@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["expected_behavior", "actual_behavior", "reproduction_steps", "relevant_files"],
+  "properties": {
+    "expected_behavior": { "type": "string", "minLength": 1 },
+    "actual_behavior": { "type": "string", "minLength": 1 },
+    "reproduction_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "relevant_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "environmental_factors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

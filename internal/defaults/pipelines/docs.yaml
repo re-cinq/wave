@@ -27,17 +27,20 @@ steps:
         3. Map package structure and dependencies
         4. Find usage examples in tests
 
-        Output as JSON:
-        {
-          "public_apis": [{"package": "", "name": "", "type": "func|type|const", "documented": true|false}],
-          "existing_docs": [],
-          "package_structure": {},
-          "examples_in_tests": []
-        }
+        Write the result as JSON to output/discovery.json with fields:
+        public_apis (array of package, name, type, documented), existing_docs,
+        package_structure, and examples_in_tests.
     output_artifacts:
       - name: discovery
         path: output/discovery.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/discovery.json
+        schema_path: .wave/contracts/doc-discovery.schema.json
+        on_failure: retry
+        max_retries: 2
 
   - id: generate
     persona: philosopher
