@@ -245,18 +245,19 @@ wave resume --pipeline-id <uuid-from-output>
 ## Expected Output
 
 ```
-$ wave run speckit-flow.yaml "add JWT auth"
-{"step_id":"navigate","state":"running","message":"Starting navigator persona"}
-{"step_id":"navigate","state":"completed","duration_ms":87000,"artifacts":["output/analysis.json"]}
-{"step_id":"specify","state":"running","message":"Starting philosopher persona"}
-{"step_id":"specify","state":"completed","duration_ms":120000,"artifacts":["output/spec.md"]}
-{"step_id":"plan","state":"running","message":"Starting philosopher persona"}
-{"step_id":"plan","state":"completed","duration_ms":95000,"artifacts":["output/plan.md"]}
-{"step_id":"implement","state":"running","message":"Starting craftsman persona"}
-{"step_id":"implement","state":"running","message":"Context relay triggered at 82%"}
-{"step_id":"implement","state":"completed","duration_ms":340000}
-{"step_id":"review","state":"running","message":"Starting auditor persona"}
-{"step_id":"review","state":"completed","duration_ms":65000,"artifacts":["output/review.md"]}
+[10:00:01] started   navigate    (navigator)              Starting step
+[10:01:27] completed navigate    (navigator)   86s   3.2k Analysis complete
+[10:01:28] started   specify     (philosopher)            Starting step
+[10:03:28] completed specify     (philosopher) 120s   4.1k Specification complete
+[10:03:29] started   plan        (philosopher)            Starting step
+[10:05:04] completed plan        (philosopher)  95s   2.8k Plan complete
+[10:05:05] started   implement   (craftsman)              Starting step
+[10:10:45] completed implement   (craftsman)  340s   8.5k Implementation complete
+[10:10:46] started   review      (auditor)                Starting step
+[10:11:51] completed review      (auditor)     65s   2.1k Review complete
+
+Pipeline speckit-flow completed in 11m 50s
+Artifacts: output/review.md
 ```
 
 ## Artifacts Produced

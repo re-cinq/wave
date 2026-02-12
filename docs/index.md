@@ -16,16 +16,18 @@ const heroProps = {
   },
   terminal: {
     title: 'wave',
-    command: 'wave run speckit-flow "add OAuth"',
+    command: 'wave run code-review "review the auth module"',
     outputLines: [
-      { text: '[wave] Loading pipeline: speckit-flow', variant: 'info' },
-      { text: '[wave] Persona: navigator (read-only)', variant: 'muted' },
-      { text: '[wave] Step 1/4: navigate ............. done  1m 12s', variant: 'success' },
-      { text: '[wave] Step 2/4: specify .............. done  2m 34s', variant: 'success' },
-      { text: '[wave] Step 3/4: implement ............ done  4m 18s', variant: 'success' },
-      { text: '[wave] Step 4/4: review ............... done  1m 45s', variant: 'success' },
+      { text: '[10:00:01] started   diff-analysis   (navigator)              Starting step', variant: 'muted' },
+      { text: '[10:00:25] completed diff-analysis   (navigator)   24s   2.5k Analysis complete', variant: 'success' },
+      { text: '[10:00:26] started   security-review (auditor)                Starting step', variant: 'muted' },
+      { text: '[10:00:26] started   quality-review  (auditor)                Starting step', variant: 'muted' },
+      { text: '[10:00:45] completed security-review (auditor)     19s   1.8k Review complete', variant: 'success' },
+      { text: '[10:00:48] completed quality-review  (auditor)     22s   2.1k Review complete', variant: 'success' },
+      { text: '[10:00:49] started   summary         (summarizer)             Starting step', variant: 'muted' },
+      { text: '[10:01:05] completed summary         (summarizer)  16s   1.2k Summary complete', variant: 'success' },
       { text: '' },
-      { text: '[wave] Pipeline completed in 9m 49s', variant: 'success' }
+      { text: 'Pipeline code-review completed in 64s', variant: 'success' }
     ]
   },
   valuePills: [

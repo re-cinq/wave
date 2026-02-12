@@ -156,13 +156,13 @@ which claude  # Should show the installation path
 **Solution:** Use `sudo` for system-wide installation or install to a user directory:
 ```bash
 # Option 1: Use sudo
-sudo curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o /usr/local/bin/wave
-sudo chmod +x /usr/local/bin/wave
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
+tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
 
 # Option 2: Install to user directory
 mkdir -p ~/.local/bin
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o ~/.local/bin/wave
-chmod +x ~/.local/bin/wave
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
+tar -xzf wave_linux_amd64.tar.gz && mv wave ~/.local/bin/
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 :::

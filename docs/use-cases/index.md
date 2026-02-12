@@ -112,14 +112,34 @@ const useCases = [
     link: '/use-cases/code-review'
   },
   {
-    id: 'documentation-generation',
-    title: 'Documentation Generation',
-    description: 'Generate API docs, README files, and usage guides automatically from your code.',
+    id: 'doc-loop',
+    title: 'Documentation Consistency',
+    description: 'Pre-PR gate that scans code changes, cross-references docs, and creates a GitHub issue for inconsistencies.',
     category: 'documentation',
-    complexity: 'beginner',
-    personas: ['navigator', 'philosopher', 'auditor'],
-    tags: ['API docs', 'README'],
-    link: '/use-cases/documentation-generation'
+    complexity: 'intermediate',
+    personas: ['navigator', 'reviewer', 'github-analyst'],
+    tags: ['docs', 'consistency', 'gh'],
+    link: '/use-cases/doc-loop'
+  },
+  {
+    id: 'github-issue-enhancer',
+    title: 'Issue Enhancement',
+    description: 'Scan GitHub issues for poor documentation, generate improvements, and apply them automatically.',
+    category: 'github',
+    complexity: 'intermediate',
+    personas: ['github-analyst', 'github-enhancer'],
+    tags: ['issues', 'quality', 'gh'],
+    link: '/use-cases/github-issue-enhancer'
+  },
+  {
+    id: 'issue-research',
+    title: 'Issue Research',
+    description: 'Research a GitHub issue with web search, synthesize findings, and post a structured comment.',
+    category: 'github',
+    complexity: 'intermediate',
+    personas: ['github-analyst', 'researcher', 'summarizer', 'github-commenter'],
+    tags: ['research', 'issues', 'gh'],
+    link: '/use-cases/issue-research'
   },
   {
     id: 'test-generation',
@@ -140,16 +160,6 @@ const useCases = [
     personas: ['navigator', 'craftsman', 'auditor'],
     tags: ['code quality', 'maintainability'],
     link: '/use-cases/refactoring'
-  },
-  {
-    id: 'onboarding',
-    title: 'Developer Onboarding',
-    description: 'Generate onboarding materials and codebase exploration guides for new team members.',
-    category: 'onboarding',
-    complexity: 'beginner',
-    personas: ['navigator', 'philosopher'],
-    tags: ['documentation', 'knowledge transfer'],
-    link: '/use-cases/onboarding'
   },
 ]
 </script>

@@ -10,21 +10,15 @@ const tabs: PlatformContent[] = [
     label: 'macOS',
     content: `
 <div class="install-option">
-<h4>Homebrew <span class="recommended-badge">Recommended</span></h4>
-<p>Install Wave using the Homebrew package manager:</p>
-<pre><code>brew install wave</code></pre>
-</div>
+<h4>GitHub Release <span class="recommended-badge">Recommended</span></h4>
+<p>Download the latest release from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
+<pre><code># Apple Silicon (M1/M2/M3/M4)
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_arm64.zip
+unzip wave_darwin_arm64.zip && sudo mv wave /usr/local/bin/
 
-<div class="install-option">
-<h4>Binary Download</h4>
-<p>Download the latest release for macOS:</p>
-<pre><code># Intel Mac
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-darwin-amd64 -o /usr/local/bin/wave
-chmod +x /usr/local/bin/wave
-
-# Apple Silicon (M1/M2/M3)
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-darwin-arm64 -o /usr/local/bin/wave
-chmod +x /usr/local/bin/wave</code></pre>
+# Intel Mac
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_darwin_amd64.zip
+unzip wave_darwin_amd64.zip && sudo mv wave /usr/local/bin/</code></pre>
 </div>
 `
   },
@@ -33,27 +27,27 @@ chmod +x /usr/local/bin/wave</code></pre>
     label: 'Linux',
     content: `
 <div class="install-option">
-<h4>APT (Debian/Ubuntu) <span class="recommended-badge">Recommended</span></h4>
-<p>Add the Wave repository and install:</p>
-<pre><code># Add Wave repository
-curl -fsSL https://packages.wave.dev/gpg | sudo gpg --dearmor -o /usr/share/keyrings/wave-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/wave-archive-keyring.gpg] https://packages.wave.dev/apt stable main" | sudo tee /etc/apt/sources.list.d/wave.list
+<h4>Debian/Ubuntu (.deb) <span class="recommended-badge">Recommended</span></h4>
+<p>Download the <code>.deb</code> package from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
+<pre><code># x86_64
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
+sudo dpkg -i wave_linux_amd64.deb
 
-# Install Wave
-sudo apt update
-sudo apt install wave</code></pre>
+# ARM64
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_arm64.deb
+sudo dpkg -i wave_linux_arm64.deb</code></pre>
 </div>
 
 <div class="install-option">
-<h4>Binary Download</h4>
+<h4>Binary Download (.tar.gz)</h4>
 <p>Download the latest release for Linux:</p>
 <pre><code># x86_64
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-amd64 -o /usr/local/bin/wave
-chmod +x /usr/local/bin/wave
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.tar.gz
+tar -xzf wave_linux_amd64.tar.gz && sudo mv wave /usr/local/bin/
 
 # ARM64
-curl -L https://github.com/re-cinq/wave/releases/latest/download/wave-linux-arm64 -o /usr/local/bin/wave
-chmod +x /usr/local/bin/wave</code></pre>
+curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_arm64.tar.gz
+tar -xzf wave_linux_arm64.tar.gz && sudo mv wave /usr/local/bin/</code></pre>
 </div>
 `
   },
@@ -62,26 +56,9 @@ chmod +x /usr/local/bin/wave</code></pre>
     label: 'Windows',
     content: `
 <div class="install-option">
-<h4>Scoop <span class="recommended-badge">Recommended</span></h4>
-<p>Install Wave using Scoop package manager:</p>
-<pre><code>scoop bucket add wave https://github.com/re-cinq/scoop-bucket
-scoop install wave</code></pre>
-</div>
-
-<div class="install-option">
-<h4>Chocolatey</h4>
-<p>Install Wave using Chocolatey:</p>
-<pre><code>choco install wave</code></pre>
-</div>
-
-<div class="install-option">
-<h4>Binary Download</h4>
-<p>Download the latest release for Windows:</p>
-<pre><code># PowerShell (run as Administrator)
-Invoke-WebRequest -Uri "https://github.com/re-cinq/wave/releases/latest/download/wave-windows-amd64.exe" -OutFile "C:\\Program Files\\wave\\wave.exe"
-
-# Add to PATH
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\\Program Files\\wave", "Machine")</code></pre>
+<h4>Not Yet Available</h4>
+<p>Windows binaries are not yet available. Wave currently supports Linux and macOS.</p>
+<p>See <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a> for available platforms.</p>
 </div>
 `
   }
