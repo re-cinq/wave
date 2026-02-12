@@ -67,6 +67,8 @@ wave run migrate --timeout 120
 
 ## Pipeline Structure
 
+<div v-pre>
+
 ```yaml
 kind: WavePipeline
 metadata:
@@ -99,6 +101,8 @@ steps:
       type: prompt
       source: "Implement based on the analysis."
 ```
+
+</div>
 
 ## Step Configuration
 
