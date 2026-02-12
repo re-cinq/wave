@@ -25,20 +25,20 @@ Perform systematic code refactoring with analysis, safe implementation, and veri
 wave run refactor "refactor the database connection handling for better error management"
 ```
 
-Expected output:
+With `-o text`:
 
 ```
-[10:00:01] started   analyze           (navigator)              Starting step
-[10:00:35] completed analyze           (navigator)   34s   3.1k Analysis complete
-[10:00:36] started   plan              (philosopher)            Starting step
-[10:01:05] completed plan              (philosopher)  29s   2.4k Plan complete
-[10:01:06] started   implement         (craftsman)              Starting step
-[10:02:15] completed implement         (craftsman)   69s   6.8k Implementation complete
-[10:02:16] started   verify            (auditor)                Starting step
-[10:02:45] completed verify            (auditor)     29s   2.1k Verification complete
+[10:00:01] → analyze (navigator)
+[10:00:01]   analyze: Executing agent
+[10:00:35] ✓ analyze completed (34.0s, 3.1k tokens)
+[10:00:36] → plan (philosopher)
+[10:01:05] ✓ plan completed (29.0s, 2.4k tokens)
+[10:01:06] → implement (craftsman)
+[10:02:15] ✓ implement completed (69.0s, 6.8k tokens)
+[10:02:16] → verify (auditor)
+[10:02:45] ✓ verify completed (29.0s, 2.1k tokens)
 
-Pipeline refactor completed in 164s
-Artifacts: output/refactoring-report.md
+  ✓ Pipeline 'refactor' completed successfully (2m 44s)
 ```
 
 ## Complete Pipeline

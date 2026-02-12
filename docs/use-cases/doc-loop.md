@@ -31,16 +31,18 @@ wave run doc-loop "v0.2.0"
 
 ## Expected Output
 
-```
-[10:00:01] started   scan-changes        (navigator)              Starting step
-[10:01:12] completed scan-changes        (navigator)   71s   4.2k Scan complete
-[10:01:13] started   analyze-consistency (reviewer)               Starting step
-[10:03:45] completed analyze-consistency (reviewer)   152s   6.1k Analysis complete
-[10:03:46] started   create-issue        (github-analyst)         Starting step
-[10:04:22] completed create-issue        (github-analyst)  36s   1.4k Issue created
+With `-o text`:
 
-Pipeline doc-loop completed in 4m 21s
-Artifacts: output/issue-result.json
+```
+[10:00:01] → scan-changes (navigator)
+[10:00:01]   scan-changes: Executing agent
+[10:01:12] ✓ scan-changes completed (71.0s, 4.2k tokens)
+[10:01:13] → analyze-consistency (reviewer)
+[10:03:45] ✓ analyze-consistency completed (152.0s, 6.1k tokens)
+[10:03:46] → create-issue (github-analyst)
+[10:04:22] ✓ create-issue completed (36.0s, 1.4k tokens)
+
+  ✓ Pipeline 'doc-loop' completed successfully (4m 21s)
 ```
 
 ## Steps

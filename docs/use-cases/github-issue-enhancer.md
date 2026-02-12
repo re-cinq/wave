@@ -29,18 +29,20 @@ wave run github-issue-enhancer "re-cinq/wave"
 
 ## Expected Output
 
-```
-[10:00:01] started   scan-issues         (github-analyst)         Starting step
-[10:00:38] completed scan-issues         (github-analyst)  37s   2.8k Scan complete
-[10:00:39] started   plan-enhancements   (github-analyst)         Starting step
-[10:01:52] completed plan-enhancements   (github-analyst)  73s   3.5k Plan complete
-[10:01:53] started   apply-enhancements  (github-enhancer)        Starting step
-[10:02:41] completed apply-enhancements  (github-enhancer) 48s   1.9k Applied
-[10:02:42] started   verify-enhancements (github-analyst)         Starting step
-[10:03:15] completed verify-enhancements (github-analyst)  33s   1.2k Verified
+With `-o text`:
 
-Pipeline github-issue-enhancer completed in 3m 14s
-Artifacts: artifact.json
+```
+[10:00:01] → scan-issues (github-analyst)
+[10:00:01]   scan-issues: Executing agent
+[10:00:38] ✓ scan-issues completed (37.0s, 2.8k tokens)
+[10:00:39] → plan-enhancements (github-analyst)
+[10:01:52] ✓ plan-enhancements completed (73.0s, 3.5k tokens)
+[10:01:53] → apply-enhancements (github-enhancer)
+[10:02:41] ✓ apply-enhancements completed (48.0s, 1.9k tokens)
+[10:02:42] → verify-enhancements (github-analyst)
+[10:03:15] ✓ verify-enhancements completed (33.0s, 1.2k tokens)
+
+  ✓ Pipeline 'github-issue-enhancer' completed successfully (3m 14s)
 ```
 
 ## Steps
