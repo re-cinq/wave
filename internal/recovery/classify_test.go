@@ -63,6 +63,16 @@ func TestClassifyError(t *testing.T) {
 			expected: ClassRuntimeError,
 		},
 		{
+			name:     "bare exit status is unknown",
+			err:      errors.New("exit status 1"),
+			expected: ClassUnknown,
+		},
+		{
+			name:     "signal error is unknown",
+			err:      errors.New("signal: killed"),
+			expected: ClassUnknown,
+		},
+		{
 			name: "multi-wrapped contract error",
 			err: fmt.Errorf("pipeline failed: %w",
 				fmt.Errorf("step failed: %w", &contract.ValidationError{
