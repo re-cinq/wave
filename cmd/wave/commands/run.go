@@ -267,33 +267,47 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if execErr != nil {
-		// Extract step ID from StepError for recovery hints
-		var stepErr *pipeline.StepError
+		// Extract step ID from StepError when available; fall back gracefully
+		// so recovery hints are shown for all failure paths (including resume).
+		var (
+			stepErr *pipeline.StepError
+			stepID  string
+			cause   error = execErr
+		)
 		if errors.As(execErr, &stepErr) {
-			errClass := recovery.ClassifyError(stepErr.Err)
-			block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepErr.StepID, runID, errClass)
+			stepID = stepErr.StepID
+			cause = stepErr.Err
+		}
 
-			if opts.Output.Format == OutputFormatJSON {
-				// In JSON mode, emit recovery hints as structured data
-				hints := make([]event.RecoveryHintJSON, len(block.Hints))
-				for i, h := range block.Hints {
-					hints[i] = event.RecoveryHintJSON{
-						Label:   h.Label,
-						Command: h.Command,
-						Type:    string(h.Type),
-					}
+		errClass := recovery.ClassifyError(cause)
+		block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepID, runID, wsRoot, errClass)
+
+		if opts.Output.Format == OutputFormatJSON {
+			// In JSON mode, emit recovery hints as structured data.
+			// The executor already emits a bare "failed" event; this enriched
+			// event carries the hints so consumers only need one event.
+			hints := make([]event.RecoveryHintJSON, len(block.Hints))
+			for i, h := range block.Hints {
+				hints[i] = event.RecoveryHintJSON{
+					Label:   h.Label,
+					Command: h.Command,
+					Type:    string(h.Type),
 				}
-				emitter.Emit(event.Event{
-					Timestamp:     time.Now(),
-					PipelineID:    runID,
-					StepID:        stepErr.StepID,
-					State:         event.StateFailed,
-					Message:       execErr.Error(),
-					RecoveryHints: hints,
-				})
-			} else {
-				// In text/auto/quiet modes, print recovery hints to stderr
-				fmt.Fprint(os.Stderr, recovery.FormatRecoveryBlock(block))
+			}
+			emitter.Emit(event.Event{
+				Timestamp:     time.Now(),
+				PipelineID:    runID,
+				StepID:        stepID,
+				State:         "recovery",
+				Message:       execErr.Error(),
+				RecoveryHints: hints,
+			})
+		} else {
+			// In text/auto/quiet modes, append recovery hints after the error
+			// line by embedding them in the returned error message.
+			hintBlock := recovery.FormatRecoveryBlock(block)
+			if hintBlock != "" {
+				return fmt.Errorf("pipeline execution failed: %w\n%s", execErr, hintBlock)
 			}
 		}
 		return fmt.Errorf("pipeline execution failed: %w", execErr)

@@ -84,7 +84,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block := BuildRecoveryBlock(tt.pipelineName, tt.input, tt.stepID, tt.runID, tt.errClass)
+			block := BuildRecoveryBlock(tt.pipelineName, tt.input, tt.stepID, tt.runID, "", tt.errClass)
 
 			if block.PipelineName != tt.pipelineName {
 				t.Errorf("PipelineName = %q, want %q", block.PipelineName, tt.pipelineName)
@@ -126,7 +126,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_EmptyInput(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "", "implement", "feature-abc123", ClassRuntimeError)
+	block := BuildRecoveryBlock("feature", "", "implement", "feature-abc123", "", ClassRuntimeError)
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintResume || hint.Type == HintDebug {
@@ -143,11 +143,11 @@ func TestBuildRecoveryBlock_EmptyInput(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_SpecialCharsInput(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "it's a test & more", "implement", "feature-abc123", ClassRuntimeError)
+	block := BuildRecoveryBlock("feature", "it's a test & more", "implement", "feature-abc123", "", ClassRuntimeError)
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintResume {
-			expected := "wave run feature 'it'\\''s a test & more' --from-step implement"
+			expected := "wave run feature --input 'it'\\''s a test & more' --from-step implement"
 			if hint.Command != expected {
 				t.Errorf("resume command = %q, want %q", hint.Command, expected)
 			}
@@ -156,7 +156,7 @@ func TestBuildRecoveryBlock_SpecialCharsInput(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_ForceLabel(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "add auth", "implement", "feature-abc123", ClassContractValidation)
+	block := BuildRecoveryBlock("feature", "add auth", "implement", "feature-abc123", "", ClassContractValidation)
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintForce {
@@ -164,5 +164,51 @@ func TestBuildRecoveryBlock_ForceLabel(t *testing.T) {
 				t.Errorf("force hint label = %q, want %q", hint.Label, "Resume and skip validation checks")
 			}
 		}
+	}
+}
+
+func TestBuildRecoveryBlock_CustomWorkspaceRoot(t *testing.T) {
+	block := BuildRecoveryBlock("feature", "", "implement", "feature-abc", "/tmp/ws", ClassRuntimeError)
+
+	if block.WorkspacePath != "/tmp/ws/feature-abc/implement/" {
+		t.Errorf("WorkspacePath = %q, want %q", block.WorkspacePath, "/tmp/ws/feature-abc/implement/")
+	}
+}
+
+func TestBuildRecoveryBlock_InputFlag(t *testing.T) {
+	// Input starting with "--" must use --input flag to avoid cobra misparse.
+	// "--help" contains no shell metacharacters so ShellEscape returns it as-is,
+	// but the --input flag prevents cobra from interpreting it as a flag.
+	block := BuildRecoveryBlock("feature", "--help", "implement", "run-abc", "", ClassRuntimeError)
+
+	for _, hint := range block.Hints {
+		if hint.Type == HintResume {
+			expected := "wave run feature --input --help --from-step implement"
+			if hint.Command != expected {
+				t.Errorf("resume command = %q, want %q", hint.Command, expected)
+			}
+		}
+	}
+}
+
+func TestBuildRecoveryBlock_EmptyStepID(t *testing.T) {
+	// When stepID is unknown, resume/force/debug hints should be omitted
+	block := BuildRecoveryBlock("feature", "test", "", "run-abc", "", ClassRuntimeError)
+
+	for _, hint := range block.Hints {
+		switch hint.Type {
+		case HintResume, HintForce, HintDebug:
+			t.Errorf("unexpected hint type %q when stepID is empty", hint.Type)
+		}
+	}
+	// Should still have workspace hint
+	found := false
+	for _, hint := range block.Hints {
+		if hint.Type == HintWorkspace {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected workspace hint even with empty stepID")
 	}
 }

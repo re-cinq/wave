@@ -40,42 +40,50 @@ type RecoveryBlock struct {
 }
 
 // BuildRecoveryBlock constructs a RecoveryBlock with appropriate hints based on the error class.
-func BuildRecoveryBlock(pipelineName, input, stepID, runID string, errClass ErrorClass) *RecoveryBlock {
+// workspaceRoot is the resolved workspace directory (e.g. from manifest runtime.workspace_root);
+// pass "" to use the default ".wave/workspaces".
+func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string, errClass ErrorClass) *RecoveryBlock {
+	if workspaceRoot == "" {
+		workspaceRoot = ".wave/workspaces"
+	}
+
 	block := &RecoveryBlock{
 		PipelineName:  pipelineName,
 		StepID:        stepID,
 		Input:         input,
-		WorkspacePath: fmt.Sprintf(".wave/workspaces/%s/%s/", runID, stepID),
+		WorkspacePath: fmt.Sprintf("%s/%s/%s/", workspaceRoot, runID, stepID),
 		ErrorClass:    errClass,
 	}
 
-	// Always add resume hint
-	resumeCmd := buildResumeCommand(pipelineName, input, stepID)
-	block.Hints = append(block.Hints, RecoveryHint{
-		Label:   "Resume from failed step",
-		Command: resumeCmd,
-		Type:    HintResume,
-	})
-
-	// Add force hint only for contract validation errors
-	if errClass == ClassContractValidation {
-		forceCmd := resumeCmd + " --force"
+	// Always add resume hint (skip if stepID is unknown)
+	if stepID != "" {
+		resumeCmd := buildResumeCommand(pipelineName, input, stepID)
 		block.Hints = append(block.Hints, RecoveryHint{
-			Label:   "Resume and skip validation checks",
-			Command: forceCmd,
-			Type:    HintForce,
+			Label:   "Resume from failed step",
+			Command: resumeCmd,
+			Type:    HintResume,
 		})
+
+		// Add force hint only for contract validation errors
+		if errClass == ClassContractValidation {
+			forceCmd := resumeCmd + " --force"
+			block.Hints = append(block.Hints, RecoveryHint{
+				Label:   "Resume and skip validation checks",
+				Command: forceCmd,
+				Type:    HintForce,
+			})
+		}
 	}
 
 	// Always add workspace hint
 	block.Hints = append(block.Hints, RecoveryHint{
 		Label:   "Inspect workspace artifacts",
-		Command: fmt.Sprintf("ls %s", block.WorkspacePath),
+		Command: fmt.Sprintf("ls %s", ShellEscape(block.WorkspacePath)),
 		Type:    HintWorkspace,
 	})
 
 	// Add debug hint for runtime errors and unknown errors
-	if errClass == ClassRuntimeError || errClass == ClassUnknown {
+	if stepID != "" && (errClass == ClassRuntimeError || errClass == ClassUnknown) {
 		debugCmd := buildResumeCommand(pipelineName, input, stepID) + " --debug"
 		block.Hints = append(block.Hints, RecoveryHint{
 			Label:   "Re-run with debug output",
@@ -88,9 +96,10 @@ func BuildRecoveryBlock(pipelineName, input, stepID, runID string, errClass Erro
 }
 
 // buildResumeCommand constructs the wave run command for resuming from a step.
+// Always uses --input flag to avoid ambiguity when input starts with "-".
 func buildResumeCommand(pipelineName, input, stepID string) string {
 	if input == "" {
 		return fmt.Sprintf("wave run %s --from-step %s", ShellEscape(pipelineName), ShellEscape(stepID))
 	}
-	return fmt.Sprintf("wave run %s %s --from-step %s", ShellEscape(pipelineName), ShellEscape(input), ShellEscape(stepID))
+	return fmt.Sprintf("wave run %s --input %s --from-step %s", ShellEscape(pipelineName), ShellEscape(input), ShellEscape(stepID))
 }
