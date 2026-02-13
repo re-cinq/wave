@@ -15,7 +15,8 @@ steps:
   - id: specify
     persona: implementer
     workspace:
-      root: ./
+      type: worktree
+      branch: "wave/{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/specify.md
@@ -33,7 +34,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/clarify.md
@@ -51,7 +52,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/plan.md
@@ -69,7 +70,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/tasks.md
@@ -87,7 +88,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/checklist.md
@@ -105,7 +106,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/analyze.md
@@ -123,7 +124,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/implement.md
@@ -147,7 +148,7 @@ steps:
           artifact: spec-status
           as: spec_info
     workspace:
-      root: ./
+      ref: specify
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/create-pr.md
