@@ -15,11 +15,8 @@ steps:
   - id: scan-changes
     persona: navigator
     workspace:
-      root: ./
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -85,11 +82,8 @@ steps:
           artifact: scan-results
           as: scan
     workspace:
-      root: ./
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -158,7 +152,8 @@ steps:
           artifact: consistency-report
           as: report
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
