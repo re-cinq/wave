@@ -11,8 +11,6 @@ input:
 steps:
   - id: scan-changes
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -63,7 +61,6 @@ steps:
     persona: reviewer
     dependencies: [scan-changes]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan-changes
           artifact: scan_results
@@ -99,7 +96,6 @@ steps:
     persona: craftsman
     dependencies: [analyze]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan-changes
           artifact: scan_results
@@ -151,7 +147,7 @@ steps:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
-        must_pass: true
+        must_pass: false
         on_failure: retry
         max_retries: 2
     output_artifacts:

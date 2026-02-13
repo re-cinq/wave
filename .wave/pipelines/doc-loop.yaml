@@ -14,8 +14,6 @@ input:
 steps:
   - id: scan-changes
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       root: ./
       mount:
@@ -82,7 +80,6 @@ steps:
     persona: reviewer
     dependencies: [scan-changes]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan-changes
           artifact: scan-results
@@ -156,7 +153,6 @@ steps:
     persona: github-analyst
     dependencies: [analyze-consistency]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze-consistency
           artifact: consistency-report

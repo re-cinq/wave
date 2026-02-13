@@ -14,8 +14,6 @@ input:
 steps:
   - id: scan-issues
     persona: github-analyst
-    memory:
-      strategy: fresh
     workspace:
       root: ./
     exec:
@@ -60,7 +58,6 @@ steps:
     persona: github-analyst
     dependencies: [scan-issues]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan-issues
           artifact: issue_analysis
@@ -105,7 +102,6 @@ steps:
     persona: github-enhancer
     dependencies: [plan-enhancements]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: plan-enhancements
           artifact: enhancement_plan
@@ -149,7 +145,6 @@ steps:
     persona: github-analyst
     dependencies: [apply-enhancements]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: apply-enhancements
           artifact: enhancement_results
