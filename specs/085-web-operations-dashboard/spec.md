@@ -124,7 +124,7 @@ As a Wave operator, I want to browse all configured personas from the dashboard 
 
 ### Edge Cases
 
-- What happens when the state database is locked by an active pipeline execution? The server MUST handle SQLite WAL-mode concurrent reads without blocking or errors.
+- What happens when the state database is locked by an active pipeline execution? The dashboard server MUST open a separate read-only SQLite connection (`?mode=ro`) for serving API queries, distinct from the pipeline executor's read-write connection. Both connections use WAL mode, which supports concurrent readers alongside a single writer. The existing `StateStore` interface should be reused via a new constructor (e.g., `NewReadOnlyStateStore`) that opens the database with `PRAGMA query_only=ON` and read-optimized settings (higher `MaxOpenConns` to support concurrent HTTP handlers).
 - What happens when the SSE connection is interrupted? The client MUST automatically reconnect and recover without losing visibility into active runs.
 - What happens when a pipeline run references a workspace that has been cleaned up? The artifact browser MUST display a clear message indicating artifacts are no longer available.
 - What happens when the server is started and no manifest file exists? The server MUST start successfully using only the state database, with persona/pipeline details degraded gracefully.
@@ -148,11 +148,11 @@ As a Wave operator, I want to browse all configured personas from the dashboard 
 - **FR-010**: System MUST render pipeline step dependencies as a visual directed acyclic graph (DAG).
 - **FR-011**: System MUST allow users to browse workspace artifacts and step outputs for completed runs.
 - **FR-012**: System MUST display all configured personas with their descriptions and permission rules.
-- **FR-013**: System MUST embed all frontend assets in the Go binary via `go:embed`, requiring no external CDN or runtime file dependencies.
-- **FR-014**: System MUST support a build tag mechanism to opt in or out of embedded UI assets.
+- **FR-013**: System MUST embed all frontend assets in the Go binary via `go:embed`, requiring no external CDN or runtime file dependencies. The frontend MUST use Go `html/template` for server-side rendering combined with vanilla JavaScript and minimal CSS for interactivity. This approach aligns with the project's zero-external-dependency philosophy, keeps the bundle well under NFR-001's 50 KB limit, and follows the same `go:embed` pattern established in `internal/defaults/embed.go`. No JavaScript build toolchain is required.
+- **FR-014**: System MUST support a build tag `webui` to opt in to embedded UI assets. When built without `//go:build webui`, the `wave serve` command MUST print an error message indicating the binary was built without dashboard support. The tag name `webui` follows Go convention of short, lowercase build tags.
 - **FR-015**: System MUST shut down gracefully on interrupt signals, completing in-flight responses before stopping.
 - **FR-016**: System MUST sanitize artifact contents before display, redacting patterns that match known credential formats.
-- **FR-017**: System MUST paginate pipeline run results to handle large histories without degraded performance.
+- **FR-017**: System MUST paginate pipeline run results using cursor-based pagination (keyed on `started_at` timestamp + `run_id` for uniqueness). Default page size MUST be 25, maximum page size MUST be 100. Cursor-based pagination is preferred over offset-based because it provides stable results when new runs are added during browsing and aligns with the existing `ListRuns` query pattern that orders by `started_at DESC`.
 - **FR-018**: System MUST NOT affect existing CLI functionality — all current commands MUST work identically with or without the dashboard feature.
 
 ### Non-Functional Requirements
@@ -166,7 +166,7 @@ As a Wave operator, I want to browse all configured personas from the dashboard 
 ### Security Requirements
 
 - **SR-001**: Server MUST bind to localhost (127.0.0.1) by default.
-- **SR-002**: When `--bind 0.0.0.0` is specified, the server MUST require authentication for all API endpoints.
+- **SR-002**: When `--bind 0.0.0.0` is specified, the server MUST require authentication for all API endpoints. Authentication MUST use a static bearer token passed via `--token` flag or `WAVE_SERVE_TOKEN` environment variable. The server MUST generate and display a random token at startup if none is provided. Clients authenticate via `Authorization: Bearer <token>` header. This approach avoids introducing user management infrastructure while providing adequate protection for a single-operator tool.
 - **SR-003**: System MUST prevent path traversal when serving workspace artifacts, validating all paths against the workspace root.
 - **SR-004**: CORS MUST be restricted to same-origin for localhost-bound servers.
 - **SR-005**: Pipeline outputs displayed in the browser MUST be sanitized to prevent XSS attacks.
@@ -195,3 +195,47 @@ As a Wave operator, I want to browse all configured personas from the dashboard 
 - **SC-008**: Build tag exclusion produces a binary with no UI asset overhead when the dashboard feature is not needed.
 - **SC-009**: Existing CLI commands (`wave run`, `wave status`, `wave list`) produce identical behavior with and without the dashboard build tag.
 - **SC-010**: The server handles concurrent read access from multiple browser clients while a pipeline is executing without errors or data corruption.
+
+## Clarifications
+
+The following ambiguities were identified during spec review and resolved based on codebase patterns and industry standards.
+
+### C-001: Authentication mechanism for non-localhost binding (SR-002)
+
+**Ambiguity**: SR-002 requires authentication when `--bind 0.0.0.0` is specified but did not define the authentication mechanism.
+
+**Resolution**: Static bearer token via `--token` flag or `WAVE_SERVE_TOKEN` environment variable. Auto-generated random token displayed at startup if none provided.
+
+**Rationale**: Wave is a single-operator development tool, not a multi-tenant service. The codebase has no existing user management or session infrastructure (`internal/security/` contains no authentication code). A static bearer token provides adequate protection against unauthorized access on a LAN without introducing infrastructure complexity. This follows the pattern used by tools like Jupyter Notebook and similar development servers.
+
+### C-002: SQLite concurrent access for dashboard reads (Edge Cases)
+
+**Ambiguity**: The edge case for database locking mentioned WAL mode but didn't specify how the dashboard server should coexist with the pipeline executor, which uses `SetMaxOpenConns(1)`.
+
+**Resolution**: Dashboard opens a separate read-only connection via `NewReadOnlyStateStore` with `PRAGMA query_only=ON` and higher connection limits suitable for concurrent HTTP handlers.
+
+**Rationale**: The existing `StateStore` in `internal/state/store.go` uses `SetMaxOpenConns(1)` which is correct for the single-writer pipeline executor. SQLite WAL mode (already enabled at line 129) supports unlimited concurrent readers alongside a single writer. A read-only connection pool allows multiple browser clients to query simultaneously without contending with the executor's write lock.
+
+### C-003: Frontend technology stack (FR-013)
+
+**Ambiguity**: The spec required `go:embed` and <50 KB JS but did not specify what frontend technology to use.
+
+**Resolution**: Go `html/template` for server-side rendering + vanilla JavaScript + minimal CSS. No JavaScript build toolchain.
+
+**Rationale**: The project already uses `go:embed` extensively (see `internal/defaults/embed.go` lines 18-28). Server-side templates with vanilla JS trivially meet the 50 KB JS limit, add zero build complexity, and keep the binary size increase well under NFR-002's 200 KB limit. This avoids introducing npm/Node.js as a build dependency, which would conflict with Wave's single-binary philosophy. DAG visualization (FR-010) can be achieved with SVG generation from Go templates or a tiny canvas library.
+
+### C-004: Build tag naming (FR-014)
+
+**Ambiguity**: FR-014 mentioned a "build tag mechanism" without specifying the tag name.
+
+**Resolution**: Build tag name is `webui`. Files guarded by `//go:build webui`.
+
+**Rationale**: Go convention favors short, lowercase build tags. `webui` is descriptive, unambiguous, and follows the pattern of other Go projects with optional web interfaces. Usage: `go build -tags webui ./cmd/wave`.
+
+### C-005: Pagination strategy (FR-017)
+
+**Ambiguity**: FR-017 required pagination without specifying the pagination model, default page size, or maximum page size.
+
+**Resolution**: Cursor-based pagination keyed on `(started_at, run_id)`. Default page size: 25. Maximum page size: 100.
+
+**Rationale**: The existing `ListRuns` method in `internal/state/store.go` (line 553) already queries with `ORDER BY started_at DESC` and supports a `Limit` parameter. Cursor-based pagination provides stable results when new runs are created during browsing (offset-based would cause items to shift). The composite cursor `(started_at, run_id)` ensures uniqueness since `started_at` alone could have ties. Default of 25 balances initial load time with utility; maximum of 100 prevents expensive queries.
