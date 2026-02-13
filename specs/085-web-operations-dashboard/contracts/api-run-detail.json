@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /api/runs/{id} — Pipeline Run Detail",
+  "description": "Returns detailed information about a single pipeline run including steps, events, artifacts, and DAG. (FR-005, FR-010, FR-011)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "GET" },
+        "path": { "type": "string", "pattern": "^/api/runs/[a-zA-Z0-9_-]+$" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["run", "steps", "events"],
+      "properties": {
+        "run": {
+          "type": "object",
+          "required": ["run_id", "pipeline_name", "status", "started_at"],
+          "properties": {
+            "run_id": { "type": "string" },
+            "pipeline_name": { "type": "string" },
+            "status": { "type": "string" },
+            "input": { "type": "string" },
+            "current_step": { "type": "string" },
+            "total_tokens": { "type": "integer" },
+            "started_at": { "type": "string", "format": "date-time" },
+            "completed_at": { "type": "string", "format": "date-time" },
+            "duration": { "type": "string" },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "progress": { "type": "integer" },
+            "error_message": { "type": "string" }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step_id", "state"],
+            "properties": {
+              "step_id": { "type": "string" },
+              "persona": { "type": "string" },
+              "state": { "type": "string" },
+              "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "current_action": { "type": "string" },
+              "started_at": { "type": "string", "format": "date-time" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "duration": { "type": "string" },
+              "tokens_used": { "type": "integer" },
+              "error": { "type": "string" },
+              "artifacts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "name", "path"],
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "name": { "type": "string" },
+                    "path": { "type": "string" },
+                    "type": { "type": "string" },
+                    "size_bytes": { "type": "integer" },
+                    "preview": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["timestamp", "state"],
+            "properties": {
+              "id": { "type": "integer" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "step_id": { "type": "string" },
+              "state": { "type": "string" },
+              "persona": { "type": "string" },
+              "message": { "type": "string" },
+              "tokens_used": { "type": "integer" },
+              "duration_ms": { "type": "integer" }
+            }
+          }
+        },
+        "dag": {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label", "status"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "label": { "type": "string" },
+                  "persona": { "type": "string" },
+                  "status": { "type": "string" },
+                  "progress": { "type": "integer" }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["from", "to"],
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
