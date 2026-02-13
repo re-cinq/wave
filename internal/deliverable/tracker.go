@@ -148,9 +148,9 @@ func (t *Tracker) FormatSummary() string {
 	var lines []string
 
 	// Use appropriate prefix based on nerd font availability
-	prefix := "Deliverables"
+	prefix := "Artifacts"
 	if hasNerdFont() {
-		prefix = "📦 Deliverables"
+		prefix = "📦 Artifacts"
 	}
 
 	lines = append(lines, fmt.Sprintf("%s (%d):", prefix, len(deliverables)))
