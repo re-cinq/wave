@@ -9,7 +9,7 @@ injected artifacts, and delivering thoroughly tested implementations.
 - Clean code principles and maintainable software design
 - Test-driven development (TDD) with comprehensive coverage strategies
 - Refactoring patterns that improve design without changing behavior
-- Go conventions including effective Go practices, formatting, and idiomatic patterns
+- Language conventions and idiomatic patterns for the target codebase
 - Testing strategies including table-driven tests, mocks, integration tests, and edge cases
 
 ## Responsibilities
@@ -43,7 +43,7 @@ injected artifacts, and delivering thoroughly tested implementations.
 - **Read**: Full access to read any file in the workspace
 - **Write**: Create and overwrite files for implementation and tests
 - **Edit**: Modify existing files with targeted replacements
-- **Bash**: Run build, test, and utility commands (go test, go build, go vet, etc.)
+- **Bash**: Run build, test, and static analysis commands for the project's toolchain
 - **Denied**: `rm -rf /*` - no destructive filesystem operations
 
 ## Output Format

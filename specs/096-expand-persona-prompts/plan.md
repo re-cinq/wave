@@ -1,111 +1,133 @@
-# Implementation Plan: Expand Persona Definitions
+# Implementation Plan: Expand Persona Definitions with Detailed System Prompts
 
-## Objective
+**Branch**: `096-expand-persona-prompts` | **Date**: 2026-02-13 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `specs/096-expand-persona-prompts/spec.md`
 
-Expand all 13 existing Wave persona markdown files in `.wave/personas/` from brief bullet-point descriptions into comprehensive system prompts (30+ lines each) that fully specify role, expertise, communication style, constraints, and behavioral guidelines — without changing any Go source code or `wave.yaml`.
+## Summary
 
-## Approach
+Refine the 13 already-expanded Wave persona definitions to fix language-specific references (FR-008 violations in 4 files: `craftsman.md`, `reviewer.md`, `auditor.md`, `debugger.md`) and sync all 13 persona files from `.wave/personas/` to `internal/defaults/personas/` for byte-identical parity (FR-010). This is a content-only change — no Go source code, `wave.yaml`, or JSON schemas are modified.
 
-This is a content-only change affecting 13 markdown files. The approach is:
+## Technical Context
 
-1. **Define a consistent template** — All personas follow the same structural sections (identity, expertise, responsibilities, communication style, process, tools/permissions, output format, constraints) while content is unique to each role.
-2. **Preserve existing content** — Current content should be retained and expanded, not replaced. Existing responsibilities, constraints, and output format sections already present should be kept and enriched.
-3. **Ground in Wave architecture** — Each persona should reference Wave-specific concepts (pipelines, contracts, artifacts, fresh memory boundaries, workspace isolation) where relevant.
-4. **Mirror `wave.yaml` permissions** — The tools/permissions section in each persona should document (not enforce) the same tools listed in `wave.yaml` for that persona, so the agent is self-aware of its capabilities.
-5. **Batch by functional group** — Personas can be grouped and worked in parallel since they are independent files.
+**Language/Version**: Go 1.25+ (project language, but this feature modifies only Markdown files)
+**Primary Dependencies**: None — content-only change to `.md` files
+**Storage**: Filesystem (Markdown files in two directories)
+**Testing**: `go test ./...` for regression validation (no new tests needed)
+**Target Platform**: N/A — persona files are platform-independent content
+**Project Type**: Single Go binary project
+**Performance Goals**: N/A — no runtime performance impact
+**Constraints**: Each persona file must be 30-200 lines; zero language-specific toolchain references
+**Scale/Scope**: 13 persona files × 2 locations = 26 files total; 4 files need FR-008 fixes, 13 files need parity sync
 
-## File Mapping
+## Constitution Check
 
-All changes are modifications to existing files. No files are created or deleted.
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| File | Action | Description |
-|------|--------|-------------|
-| `.wave/personas/navigator.md` | modify | Expand from 19 to 30+ lines |
-| `.wave/personas/implementer.md` | modify | Expand from 23 to 30+ lines |
-| `.wave/personas/reviewer.md` | modify | Expand from 30 to 40+ lines |
-| `.wave/personas/planner.md` | modify | Expand from 28 to 30+ lines |
-| `.wave/personas/researcher.md` | modify | Expand from 51 to 60+ lines (already most detailed) |
-| `.wave/personas/debugger.md` | modify | Expand from 36 to 45+ lines |
-| `.wave/personas/auditor.md` | modify | Expand from 25 to 30+ lines |
-| `.wave/personas/craftsman.md` | modify | Expand from 23 to 30+ lines |
-| `.wave/personas/summarizer.md` | modify | Expand from 23 to 30+ lines |
-| `.wave/personas/github-analyst.md` | modify | Expand from 33 to 40+ lines |
-| `.wave/personas/github-commenter.md` | modify | Expand from 48 to 55+ lines (already detailed) |
-| `.wave/personas/github-enhancer.md` | modify | Expand from 29 to 35+ lines |
-| `.wave/personas/philosopher.md` | modify | Expand from 20 to 30+ lines |
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| P1: Single Binary | PASS | No binary changes; Markdown files embedded via existing `//go:embed` |
+| P2: Manifest as SSOT | PASS | No `wave.yaml` changes; persona loading unchanged |
+| P3: Persona-Scoped Execution | PASS | Persona content improves behavioral clarity; execution boundaries unchanged |
+| P4: Fresh Memory | PASS | Expanded personas are designed for fresh-memory contexts (self-contained) |
+| P5: Navigator-First | PASS | Navigator persona expanded like all others; no architectural change |
+| P6: Contracts at Handover | PASS | No contract changes; output format sections note contract schema precedence |
+| P7: Relay via Summarizer | PASS | Summarizer persona expanded; relay mechanism unchanged |
+| P8: Ephemeral Workspaces | PASS | No workspace mechanism changes |
+| P9: Credentials Never Touch Disk | PASS | No credential handling changes |
+| P10: Observable Progress | PASS | No event system changes |
+| P11: Bounded Recursion | PASS | No recursion or resource limit changes |
+| P12: Minimal Step State Machine | PASS | No state machine changes |
+| P13: Test Ownership | PASS | `go test ./...` will be run after changes; content-only changes should not break tests |
 
-## Architecture Decisions
+**Result**: All 13 principles pass. No constitutional violations.
 
-### AD-1: Content-only changes
+## Project Structure
 
-No Go source code modifications. The manifest parser reads the file path from `wave.yaml` and passes the content to the adapter — so persona file content can be changed freely without affecting code.
+### Documentation (this feature)
 
-### AD-2: Consistent structure, unique content
+```
+specs/096-expand-persona-prompts/
+├── plan.md              # This file
+├── research.md          # Phase 0 output — current state analysis and FR-008 violations
+├── data-model.md        # Phase 1 output — persona file structure and validation rules
+└── tasks.md             # Phase 2 output (created by /speckit.tasks)
+```
 
-All personas follow the same section template:
-- `# Name` + identity statement
-- `## Domain Expertise`
-- `## Responsibilities`
-- `## Communication Style`
-- `## Process` (workflow steps)
-- `## Tools and Permissions`
-- `## Output Format`
-- `## Constraints`
+### Files Modified (repository root)
 
-But section depth and detail varies by persona complexity. Simple personas (summarizer) may have shorter sections than complex ones (implementer, researcher).
+```
+.wave/personas/
+├── craftsman.md          # FR-008 fix: remove Go-specific references
+├── reviewer.md           # FR-008 fix: remove go test/npm test references
+├── auditor.md            # FR-008 fix: remove Go-specific identity and tools
+└── debugger.md           # FR-008 fix: remove Go-specific identity and tools
 
-### AD-3: Document permissions, don't enforce them
+internal/defaults/personas/
+├── navigator.md          # Parity sync from .wave/personas/
+├── philosopher.md        # Parity sync from .wave/personas/
+├── planner.md            # Parity sync from .wave/personas/
+├── craftsman.md          # Parity sync from .wave/personas/ (after FR-008 fix)
+├── implementer.md        # Parity sync from .wave/personas/
+├── reviewer.md           # Parity sync from .wave/personas/ (after FR-008 fix)
+├── auditor.md            # Parity sync from .wave/personas/ (after FR-008 fix)
+├── debugger.md           # Parity sync from .wave/personas/ (after FR-008 fix)
+├── researcher.md         # Parity sync from .wave/personas/
+├── summarizer.md         # Parity sync from .wave/personas/
+├── github-analyst.md     # Parity sync from .wave/personas/
+├── github-commenter.md   # Parity sync from .wave/personas/
+└── github-enhancer.md    # Parity sync from .wave/personas/
+```
 
-Persona files describe expected tools for the agent's self-awareness. Actual enforcement is via `wave.yaml` deny/allow patterns projected into `settings.json` and `CLAUDE.md` restriction sections. The persona markdown should say "You have access to Read, Glob, Grep" to help the agent understand its capabilities, but this is documentation, not enforcement.
+**Structure Decision**: No new directories or files are created. This feature modifies existing Markdown files in two existing directories. The `.wave/personas/` directory is the canonical source; `internal/defaults/personas/` is the sync target.
 
-### AD-4: Self-contained prompts
+## Implementation Tasks
 
-Since Wave uses fresh memory at every step boundary, each persona prompt must be fully self-contained. It should not assume the agent has seen previous conversation context. All necessary behavioral instructions must be in the prompt itself.
+### Task 1: Fix FR-008 Violations in craftsman.md
 
-## Risks
+Edit `.wave/personas/craftsman.md`:
+- Line 12: `Go conventions including effective Go practices, formatting, and idiomatic patterns` → `Language conventions and idiomatic patterns for the target codebase`
+- Line 46: `go test, go build, go vet, etc.` → `build, test, and static analysis commands for the project's toolchain`
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Expanded prompts cause unexpected behavioral changes | Medium | Medium | Preserve all existing constraints; add detail, don't change intent |
-| Prompt length increases token usage per step | Low | Low | Keep prompts concise (30-60 lines, not 200+); focus on density over length |
-| Inconsistency between persona markdown and `wave.yaml` permissions | Medium | Low | Cross-reference `wave.yaml` when writing each persona's Tools section |
-| Tests fail due to content changes | Very Low | Low | Tests reference file existence, not content; run full test suite to verify |
+### Task 2: Fix FR-008 Violations in reviewer.md
 
-## Testing Strategy
+Edit `.wave/personas/reviewer.md`:
+- Line 35: `` Run available tests (`go test`, `npm test`) to verify passing state `` → `Run the project's test suite to verify passing state`
+- Lines 46-47: Replace `Bash(go test*)` and `Bash(npm test*)` with language-agnostic description: `Bash(...)`: Run the project's test suite to validate implementation behavior
 
-### Unit Tests
-- No new unit tests needed — this is a content-only change to markdown files
-- Existing tests validate persona file existence (via `system_prompt_file` in `wave.yaml`), which is unchanged
+### Task 3: Fix FR-008 Violations in auditor.md
 
-### Integration Tests
-- Run `go test ./...` to ensure all existing tests pass
-- Run `go test -race ./...` for race condition checking
-- Key test packages to verify:
-  - `internal/manifest/` — validates persona file existence
-  - `internal/pipeline/` — uses personas in execution
-  - `internal/adapter/` — reads persona content
-  - `cmd/wave/commands/` — validates manifest
+Edit `.wave/personas/auditor.md`:
+- Lines 2-3: `specializing in Go systems` → `specializing in software systems`
+- Line 16: `Go-specific security concerns: unsafe pointer usage, race conditions, path traversal` → `Language-specific security concerns: memory safety, race conditions, path traversal, type confusion`
+- Line 33: `` Run static analysis tools (`go vet`) `` → `Run static analysis tools available in the project's toolchain`
+- Lines 43-44: Replace `Bash(go vet*)` and `Bash(npm audit*)` with language-agnostic tool descriptions
 
-### Manual Validation
-- Verify each expanded persona file is at least 30 lines
-- Verify each has a "You are..." identity statement
-- Verify tools/permissions sections match `wave.yaml`
-- Verify consistent structure across all 13 files
+### Task 4: Fix FR-008 Violations in debugger.md
 
-## Grouping Strategy
+Edit `.wave/personas/debugger.md`:
+- Lines 2-3: `specializing in Go systems` → `specializing in software systems`
+- Line 9: `concurrent Go programs` → `concurrent programs`
+- Line 13: `Go-specific debugging: goroutine leaks, race conditions, deadlocks, channel misuse` → `Concurrency debugging: race conditions, deadlocks, resource leaks, and synchronization issues`
+- Line 51: Replace `Bash(go test*)` with language-agnostic test description
 
-Personas can be grouped by functional similarity for efficient batch writing:
+### Task 5: Sync All 13 Persona Files to internal/defaults/personas/
 
-**Group A: Core Pipeline Roles** (4 personas)
-- navigator, implementer, reviewer, craftsman
+Copy each file from `.wave/personas/{name}.md` to `internal/defaults/personas/{name}.md` for all 13 personas. Validate with `diff -r .wave/personas/ internal/defaults/personas/` — must produce zero differences.
 
-**Group B: Planning & Analysis** (3 personas)
-- planner, philosopher, researcher
+### Task 6: Validate All Requirements
 
-**Group C: Specialized Operations** (3 personas)
-- debugger, auditor, summarizer
+Run validation checks:
+1. `wc -l` on all 26 persona files — each must be ≥30 and ≤200 lines
+2. Grep for language-specific toolchain references — must find zero matches
+3. Verify all 7 structural concepts present in each file
+4. `diff -r .wave/personas/ internal/defaults/personas/` — zero differences
+5. `go test ./...` — zero failures
+6. Confirm no `.go`, `wave.yaml`, or `.json` schema files were modified
 
-**Group D: GitHub Integration** (3 personas)
-- github-analyst, github-commenter, github-enhancer
+## Complexity Tracking
 
-All groups are independent and can be worked in parallel.
+_No constitutional violations to justify._
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|-----------|--------------------------------------|
+| (none) | — | — |

@@ -32,7 +32,7 @@ that determine whether work meets the specification and project standards.
 1. Read the injected specification, plan, and implementation artifacts to understand intent
 2. Examine the changed files and understand what was modified and why
 3. Validate correctness: does the implementation match the specification?
-4. Run available tests (`go test`, `npm test`) to verify passing state
+4. Run the project's test suite to verify passing state
 5. Check for common issues: error handling, edge cases, security, performance
 6. Classify each finding by severity and provide actionable remediation guidance
 7. Produce the structured review artifact for pipeline handoff
@@ -43,8 +43,7 @@ that determine whether work meets the specification and project standards.
 - **Grep**: Content search for tracing references, finding patterns, and verifying consistency
 - **Write(artifact.json)**: Write the review output artifact
 - **Write(artifacts/*)**: Write supplementary review artifacts to the artifacts directory
-- **Bash(go test*)**: Run Go test suites to validate implementation behavior
-- **Bash(npm test*)**: Run Node.js test suites when applicable
+- **Bash(...)**: Run the project's test suite to validate implementation behavior
 - **Denied**: Write(*.go), Write(*.ts), Edit(*) - reviewers do not modify source code
 
 ## Output Format
