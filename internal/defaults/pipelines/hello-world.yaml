@@ -10,8 +10,6 @@ input:
 steps:
   - id: greet
     persona: craftsman
-    memory:
-      strategy: fresh
     exec:
       type: prompt
       source: |
@@ -29,7 +27,6 @@ steps:
     persona: navigator
     dependencies: [greet]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: greet
           artifact: greeting

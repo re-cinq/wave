@@ -10,8 +10,6 @@ input:
 steps:
   - id: investigate
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -44,7 +42,6 @@ steps:
     persona: craftsman
     dependencies: [investigate]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: investigate
           artifact: findings
@@ -76,8 +73,6 @@ steps:
   - id: verify
     persona: auditor
     dependencies: [fix]
-    memory:
-      strategy: fresh
     exec:
       type: prompt
       source: |

@@ -11,8 +11,6 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -47,7 +45,6 @@ steps:
     persona: craftsman
     dependencies: [analyze-coverage]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze-coverage
           artifact: coverage
@@ -86,8 +83,6 @@ steps:
   - id: verify-coverage
     persona: auditor
     dependencies: [generate-tests]
-    memory:
-      strategy: fresh
     exec:
       type: prompt
       source: |
