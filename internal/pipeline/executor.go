@@ -121,6 +121,7 @@ type PipelineExecution struct {
 	Input          string
 	Status         *PipelineStatus
 	Context        *PipelineContext  // Dynamic template variables
+	StepIndex      map[string]int    // step ID -> 1-based execution order
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -203,6 +204,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
 		Context:        pipelineContext,
+		StepIndex:      make(map[string]int),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -263,6 +265,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	})
 
 	for stepIdx, step := range sortedSteps {
+		execution.StepIndex[step.ID] = stepIdx + 1
 		if err := e.executeStep(ctx, execution, step); err != nil {
 			execution.Status.State = StateFailed
 			execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
@@ -991,12 +994,36 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
+// artifactBasePath returns the directory where artifacts (output and injected)
+// should be stored for a given step. For worktree workspaces, artifacts are
+// redirected to a numbered sidecar directory alongside the worktree to keep the
+// git checkout clean. For non-worktree workspaces, the workspace path is
+// returned unchanged.
+func (e *DefaultPipelineExecutor) artifactBasePath(execution *PipelineExecution, step *Step, workspacePath string) string {
+	if step.Workspace.Type != "worktree" {
+		return workspacePath
+	}
+	// workspacePath = .wave/workspaces/<pipeline>/<run-id>/<step-id>  (worktree checkout)
+	// Redirect to:    .wave/workspaces/<pipeline>/<run-id>/<NN>-<step-id>/
+	runDir := filepath.Dir(workspacePath)
+	idx := 0
+	if execution.StepIndex != nil {
+		idx = execution.StepIndex[step.ID]
+	}
+	if idx == 0 {
+		idx = 1 // fallback to avoid "00-" prefix
+	}
+	dirName := fmt.Sprintf("%02d-%s", idx, step.ID)
+	return filepath.Join(runDir, dirName)
+}
+
 func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
 	if len(step.Memory.InjectArtifacts) == 0 {
 		return nil
 	}
 
-	artifactsDir := filepath.Join(workspacePath, "artifacts")
+	artBase := e.artifactBasePath(execution, step, workspacePath)
+	artifactsDir := filepath.Join(artBase, "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
 	}
@@ -1045,10 +1072,11 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 }
 
 func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecution, step *Step, workspacePath string, stdout []byte) {
+	artBase := e.artifactBasePath(execution, step, workspacePath)
 	for _, art := range step.OutputArtifacts {
 		// Resolve artifact path using pipeline context
 		resolvedPath := execution.Context.ResolveArtifactPath(art)
-		artPath := filepath.Join(workspacePath, resolvedPath)
+		artPath := filepath.Join(artBase, resolvedPath)
 		key := step.ID + ":" + art.Name
 
 		// If the persona already wrote the file, trust it and don't overwrite
