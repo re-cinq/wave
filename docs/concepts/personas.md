@@ -23,7 +23,7 @@ personas:
 
 ## Built-in Personas
 
-Wave includes four core personas designed for secure, specialized execution:
+Wave includes **14 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
 
 <script setup>
 const builtInPersonas = [

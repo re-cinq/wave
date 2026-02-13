@@ -17,6 +17,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
+| `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
 
 ---
@@ -452,7 +453,7 @@ Contracts
 ### Options
 
 ```bash
-wave list runs --status failed           # Filter by status
+wave list runs --run-status failed       # Filter by status
 wave list runs --limit 20                # Show more runs
 wave list runs --run-pipeline hotfix     # Filter by pipeline
 wave list --format json                  # JSON output
@@ -524,6 +525,55 @@ wave clean --keep-last 5             # Keep 5 most recent
 wave clean --force                   # Skip confirmation
 wave clean --dry-run                 # Preview what would be deleted
 wave clean --quiet                   # Suppress output for scripting
+```
+
+---
+
+## wave serve
+
+Start the web dashboard server. Provides real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing through a web interface.
+
+> **Note:** `wave serve` requires the `webui` build tag. Install with `go install -tags webui` or use a release binary that includes the web UI.
+
+```bash
+wave serve
+```
+
+**Output:**
+```
+Starting Wave dashboard on http://127.0.0.1:8080
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port` | `8080` | Port to listen on |
+| `--bind` | `127.0.0.1` | Address to bind to |
+| `--token` | `""` | Authentication token (required for non-localhost binding) |
+| `--db` | `.wave/state.db` | Path to state database |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+
+### Authentication
+
+When binding to a non-localhost address (`--bind 0.0.0.0`), authentication is required. The token can be provided via:
+
+1. `--token` flag
+2. `WAVE_SERVE_TOKEN` environment variable
+3. Auto-generated (printed to stderr on startup)
+
+```bash
+# Local development (no auth required)
+wave serve
+
+# Custom port
+wave serve --port 9090
+
+# Expose on all interfaces with explicit token
+wave serve --bind 0.0.0.0 --token mysecret
+
+# Use custom database path
+wave serve --db .wave/state.db
 ```
 
 ---
