@@ -53,7 +53,8 @@ homebrew_casks:
       name: homebrew-tap
     description: "Multi-agent pipeline orchestrator"
     homepage: "https://github.com/re-cinq/wave"
-    skip_upload: auto  # Skip if tap repo doesn't exist yet
+    # TODO: change to "auto" once re-cinq/homebrew-tap repo is created
+    skip_upload: true
 
 changelog:
   sort: asc

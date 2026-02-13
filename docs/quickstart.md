@@ -167,13 +167,17 @@ which claude  # Should show the installation path
 ::: danger Permission denied errors
 **Error:** `Permission denied: cannot write to /usr/local/bin/wave`
 
-**Solution:** Use `sudo` for system-wide installation or install to a user directory:
+**Solution:** Build from source and install to a user directory:
 ```bash
-# Option 1: Run install script as root (installs to /usr/local/bin)
-curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sudo sh
+# Option 1: Install to /usr/local/bin (requires sudo)
+git clone https://github.com/re-cinq/wave.git
+cd wave && make build
+sudo mv wave /usr/local/bin/
 
 # Option 2: Install to user directory
-WAVE_INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+git clone https://github.com/re-cinq/wave.git
+cd wave && make build
+mkdir -p ~/.local/bin && mv wave ~/.local/bin/
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 :::
