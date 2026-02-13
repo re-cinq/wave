@@ -151,7 +151,7 @@ func (d *Dashboard) renderProgressPanel(ctx *PipelineContext) string {
 	return sb.String()
 }
 
-// renderStepStatusPanel displays compact step status.
+// renderStepStatusPanel displays all pipeline steps with their status.
 func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 	var sb strings.Builder
 
@@ -161,24 +161,44 @@ func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 		return sb.String()
 	}
 
-	// Compact step display - only current step or recent activity
-	stepNum := 1
-	for stepID, state := range ctx.StepStatuses {
-		// Show current step with pulsating effect, others just as status
-		if stepID == ctx.CurrentStepID {
-			icon := d.getStatusIcon(state)
-			stepLabel := fmt.Sprintf("%s %s", icon, stepID)
+	// Iterate all steps in pipeline definition order
+	for _, stepID := range ctx.StepOrder {
+		state, exists := ctx.StepStatuses[stepID]
+		if !exists {
+			state = StateNotStarted
+		}
 
-			// Pulsating current step
+		icon := d.getStatusIcon(state)
+
+		// Look up persona
+		persona := ""
+		if ctx.StepPersonas != nil {
+			persona = ctx.StepPersonas[stepID]
+		}
+
+		if state == StateRunning {
+			// Pulsating effect for running step
+			stepLabel := fmt.Sprintf("%s %s", icon, stepID)
 			pulsatingLabel := d.renderPulsatingStep(stepLabel)
-			if ctx.CurrentPersona != "" {
-				pulsatingLabel += fmt.Sprintf(" (%s)", ctx.CurrentPersona)
+			if persona != "" {
+				pulsatingLabel += fmt.Sprintf(" (%s)", persona)
 			}
 			sb.WriteString(pulsatingLabel)
-			sb.WriteString("\n")
-			break
+		} else {
+			// Static rendering for non-running steps
+			stepLine := fmt.Sprintf("%s %s", icon, stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			// Show duration for completed and failed steps
+			if (state == StateCompleted || state == StateFailed) && ctx.StepDurations != nil {
+				if durationMs, exists := ctx.StepDurations[stepID]; exists {
+					stepLine += fmt.Sprintf(" (%.1fs)", float64(durationMs)/1000.0)
+				}
+			}
+			sb.WriteString(stepLine)
 		}
-		stepNum++
+		sb.WriteString("\n")
 	}
 
 	return sb.String()
@@ -296,9 +316,9 @@ func (d *Dashboard) getStatusIcon(state ProgressState) string {
 	case StateRunning:
 		return ">"
 	case StateSkipped:
-		return "-"
+		return "—"
 	case StateCancelled:
-		return "X"
+		return "⊛"
 	case StateNotStarted:
 		return "○"
 	default:

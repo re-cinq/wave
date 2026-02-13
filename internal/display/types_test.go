@@ -396,3 +396,72 @@ func (m *mockProgressRenderer) Clear() error {
 func (m *mockProgressRenderer) Close() error {
 	return nil
 }
+
+func TestPipelineContext_StepPersonas(t *testing.T) {
+	ctx := PipelineContext{
+		StepOrder: []string{"step-1", "step-2", "step-3"},
+		StepStatuses: map[string]ProgressState{
+			"step-1": StateCompleted,
+			"step-2": StateRunning,
+			"step-3": StateNotStarted,
+		},
+		StepPersonas: map[string]string{
+			"step-1": "navigator",
+			"step-2": "implementer",
+			"step-3": "reviewer",
+		},
+	}
+
+	// Verify mapping
+	if ctx.StepPersonas["step-1"] != "navigator" {
+		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
+	}
+	if ctx.StepPersonas["step-2"] != "implementer" {
+		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "implementer")
+	}
+	if ctx.StepPersonas["step-3"] != "reviewer" {
+		t.Errorf("StepPersonas[step-3] = %q, want %q", ctx.StepPersonas["step-3"], "reviewer")
+	}
+
+	// Verify length
+	if len(ctx.StepPersonas) != 3 {
+		t.Errorf("StepPersonas length = %d, want 3", len(ctx.StepPersonas))
+	}
+}
+
+func TestPipelineContext_StepPersonasInStructLiteral(t *testing.T) {
+	// Verify StepPersonas works alongside all other fields in PipelineContext
+	ctx := PipelineContext{
+		ManifestPath:      "wave.yaml",
+		PipelineName:      "test-pipeline",
+		WorkspacePath:     "/tmp/workspace",
+		TotalSteps:        3,
+		CurrentStepNum:    2,
+		CompletedSteps:    1,
+		FailedSteps:       0,
+		SkippedSteps:      0,
+		OverallProgress:   50,
+		CurrentStepID:     "step-2",
+		CurrentPersona:    "implementer",
+		PipelineStartTime: 1234567890,
+		CurrentStepStart:  1234567900,
+		StepStatuses:      map[string]ProgressState{"step-1": StateCompleted},
+		StepOrder:         []string{"step-1", "step-2", "step-3"},
+		StepDurations:     map[string]int64{"step-1": 60000},
+		StepPersonas: map[string]string{
+			"step-1": "navigator",
+			"step-2": "implementer",
+			"step-3": "reviewer",
+		},
+		DeliverablesByStep: map[string][]string{
+			"step-1": {"output.txt"},
+		},
+	}
+
+	if ctx.StepPersonas["step-1"] != "navigator" {
+		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
+	}
+	if ctx.PipelineName != "test-pipeline" {
+		t.Errorf("PipelineName = %q, want %q", ctx.PipelineName, "test-pipeline")
+	}
+}

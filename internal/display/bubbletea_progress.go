@@ -326,6 +326,14 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		stepStatuses[stepID] = step.State
 	}
 
+	// Build step personas mapping
+	stepPersonas := make(map[string]string)
+	for stepID, step := range btpd.steps {
+		if step.Persona != "" {
+			stepPersonas[stepID] = step.Persona
+		}
+	}
+
 	// Get deliverables by step
 	deliverablesByStep := make(map[string][]string)
 	if btpd.deliverableTracker != nil {
@@ -357,6 +365,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepStatuses:       stepStatuses,
 		StepOrder:          btpd.stepOrder,
 		StepDurations:      btpd.stepDurations,
+		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
 		EstimatedTimeMs:    0, // Not calculated
