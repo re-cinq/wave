@@ -3,10 +3,12 @@
 package webui
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,24 +17,27 @@ import (
 )
 
 // testTemplates creates minimal stub templates for handler tests.
-// This avoids depending on the embedded template files which use a nested
-// define pattern that requires specific parse ordering.
-func testTemplates(t *testing.T) *template.Template {
+// Each page gets its own template set with a "templates/layout.html" entry
+// that the handlers execute, matching the clone-per-page production approach.
+func testTemplates(t *testing.T) map[string]*template.Template {
 	t.Helper()
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 	}
-	tmpl := template.New("").Funcs(funcMap)
-	// Stub templates that handlers reference via ExecuteTemplate
-	template.Must(tmpl.New("templates/runs.html").Parse(
-		`<html><body>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`))
-	template.Must(tmpl.New("templates/run_detail.html").Parse(
-		`<html><body><div>{{.Run.RunID}}</div></body></html>`))
-	template.Must(tmpl.New("templates/personas.html").Parse(
-		`<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`))
-	return tmpl
+	pages := map[string]string{
+		"templates/runs.html":       `<html><body>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
+		"templates/run_detail.html": `<html><body><div>{{.Run.RunID}}</div></body></html>`,
+		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
+	}
+	result := make(map[string]*template.Template, len(pages))
+	for name, body := range pages {
+		tmpl := template.Must(template.New("templates/layout.html").Funcs(funcMap).Parse(body))
+		result[name] = tmpl
+	}
+	return result
 }
 
 // testServer creates a test server with a temporary database.
@@ -55,12 +60,13 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 	tmpl := testTemplates(t)
 
 	srv := &Server{
-		store:     roStore,
-		rwStore:   rwStore,
-		templates: tmpl,
-		broker:    NewSSEBroker(),
-		bind:      "127.0.0.1",
-		port:      0,
+		store:      roStore,
+		rwStore:    rwStore,
+		templates:  tmpl,
+		broker:     NewSSEBroker(),
+		bind:       "127.0.0.1",
+		port:       0,
+		activeRuns: make(map[string]context.CancelFunc),
 	}
 
 	t.Cleanup(func() {
@@ -209,8 +215,43 @@ func TestHandleAPIRunDetail_NotFound(t *testing.T) {
 	}
 }
 
-func TestHandleStartPipeline(t *testing.T) {
+func TestHandleStartPipeline_MissingPipeline(t *testing.T) {
 	srv, _ := testServer(t)
+
+	body := strings.NewReader(`{"input":"test input"}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/nonexistent/start", body)
+	req.SetPathValue("name", "nonexistent")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing pipeline, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleStartPipeline_WithPipeline(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Create a minimal pipeline YAML in a temp location
+	tmpDir := t.TempDir()
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+`
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	os.MkdirAll(pipelineDir, 0o755)
+	os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644)
+
+	// Change to temp dir so loadPipelineYAML finds the file
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
 
 	body := strings.NewReader(`{"input":"test input"}`)
 	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
@@ -234,8 +275,8 @@ func TestHandleStartPipeline(t *testing.T) {
 	if resp.RunID == "" {
 		t.Error("expected non-empty run ID")
 	}
-	if resp.Status != "pending" {
-		t.Errorf("expected status 'pending', got %q", resp.Status)
+	if resp.Status != "running" {
+		t.Errorf("expected status 'running', got %q", resp.Status)
 	}
 }
 
