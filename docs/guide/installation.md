@@ -7,7 +7,32 @@
 
 ## Install Wave
 
-### Install Script (Recommended)
+### Build from Source (Recommended)
+
+While the repository is private, building from source is the recommended installation method:
+
+```bash
+git clone https://github.com/re-cinq/wave.git
+cd wave
+make build
+sudo mv wave /usr/local/bin/
+```
+
+Or install to a user directory without sudo:
+
+```bash
+git clone https://github.com/re-cinq/wave.git
+cd wave
+make build
+mkdir -p ~/.local/bin
+mv wave ~/.local/bin/
+```
+
+::: warning Private Repository
+The install script, `.deb` packages, and pre-built binary downloads require the repository to be **public**. While `re-cinq/wave` is private, use the "Build from Source" method above. The methods below will become available once the repository is open-sourced.
+:::
+
+### Install Script
 
 The install script detects your OS and architecture, downloads the correct binary from [GitHub Releases](https://github.com/re-cinq/wave/releases), and verifies the SHA256 checksum:
 
@@ -48,15 +73,6 @@ Download pre-built archives from [GitHub Releases](https://github.com/re-cinq/wa
 | Linux | ARM64 | `wave_<version>_linux_arm64.tar.gz` |
 | macOS | Intel | `wave_<version>_darwin_amd64.zip` |
 | macOS | Apple Silicon | `wave_<version>_darwin_arm64.zip` |
-
-### Build from Source
-
-```bash
-git clone https://github.com/re-cinq/wave.git
-cd wave
-make build
-sudo mv wave /usr/local/bin/
-```
 
 ## Versioning
 
