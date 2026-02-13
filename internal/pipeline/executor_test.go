@@ -1488,6 +1488,89 @@ func TestStreamActivityEventBridge(t *testing.T) {
 	}
 }
 
+func TestArtifactBasePath_WorktreeRedirect(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	step := &Step{
+		ID:        "specify",
+		Workspace: WorkspaceConfig{Type: "worktree"},
+	}
+	execution := &PipelineExecution{
+		StepIndex: map[string]int{"specify": 1},
+	}
+
+	workspacePath := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123", "specify")
+	result := executor.artifactBasePath(execution, step, workspacePath)
+
+	expected := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123", "01-specify")
+	assert.Equal(t, expected, result)
+}
+
+func TestArtifactBasePath_WorktreeMultipleSteps(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	tests := []struct {
+		stepID   string
+		idx      int
+		expected string
+	}{
+		{"specify", 1, "01-specify"},
+		{"clarify", 2, "02-clarify"},
+		{"plan", 3, "03-plan"},
+	}
+
+	runDir := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123")
+
+	for _, tt := range tests {
+		step := &Step{
+			ID:        tt.stepID,
+			Workspace: WorkspaceConfig{Type: "worktree"},
+		}
+		execution := &PipelineExecution{
+			StepIndex: map[string]int{tt.stepID: tt.idx},
+		}
+		workspacePath := filepath.Join(runDir, tt.stepID)
+		result := executor.artifactBasePath(execution, step, workspacePath)
+		assert.Equal(t, filepath.Join(runDir, tt.expected), result, "step %s", tt.stepID)
+	}
+}
+
+func TestArtifactBasePath_NonWorktreeUnchanged(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	step := &Step{
+		ID:        "specify",
+		Workspace: WorkspaceConfig{}, // not a worktree
+	}
+	execution := &PipelineExecution{
+		StepIndex: map[string]int{"specify": 1},
+	}
+
+	workspacePath := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123", "specify")
+	result := executor.artifactBasePath(execution, step, workspacePath)
+
+	assert.Equal(t, workspacePath, result, "non-worktree should return workspace path unchanged")
+}
+
+func TestArtifactBasePath_NilStepIndex(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	step := &Step{
+		ID:        "specify",
+		Workspace: WorkspaceConfig{Type: "worktree"},
+	}
+	execution := &PipelineExecution{
+		StepIndex: nil, // nil map
+	}
+
+	workspacePath := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123", "specify")
+	result := executor.artifactBasePath(execution, step, workspacePath)
+
+	// Should fallback to idx=1
+	expected := filepath.Join(".wave", "workspaces", "my-pipeline", "run-abc123", "01-specify")
+	assert.Equal(t, expected, result)
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {

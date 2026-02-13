@@ -107,6 +107,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		WorkspacePaths: resumeState.WorkspacePaths,
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
+		StepIndex:      make(map[string]int),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -163,7 +164,19 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 			// Load artifact paths for this step
 			for _, artifact := range step.OutputArtifacts {
 				artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
-				artifactPath := filepath.Join(stepWorkspace, artifact.Path)
+				var artifactPath string
+				if step.Workspace.Type == "worktree" {
+					// Artifacts stored in numbered dirs alongside worktree: <NN>-<step-id>/
+					pattern := filepath.Join(workspaceRoot, "*", fmt.Sprintf("*-%s", step.ID))
+					entries, _ := filepath.Glob(pattern)
+					if len(entries) > 0 {
+						artifactPath = filepath.Join(entries[0], artifact.Path)
+					} else {
+						artifactPath = filepath.Join(stepWorkspace, artifact.Path)
+					}
+				} else {
+					artifactPath = filepath.Join(stepWorkspace, artifact.Path)
+				}
 				state.ArtifactPaths[artifactKey] = artifactPath
 			}
 		}
@@ -234,7 +247,9 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 	}
 
 	// Execute each step in order
-	for _, step := range sortedSteps {
+	for stepIdx, step := range sortedSteps {
+		execution.StepIndex[step.ID] = stepIdx + 1
+
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("pipeline execution cancelled: %w", ctx.Err())
