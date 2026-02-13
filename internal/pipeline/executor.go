@@ -276,8 +276,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				State:      "failed",
 				Message:    err.Error(),
 			})
-			// Clean up worktree workspaces created during this pipeline run
-			e.cleanupWorktrees(execution, pipelineID)
 			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
 			return &StepError{StepID: step.ID, Err: err}
@@ -313,9 +311,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
 	})
-
-	// Clean up worktree workspaces created during this pipeline run
-	e.cleanupWorktrees(execution, pipelineID)
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
@@ -778,9 +773,6 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
 
-		// Store worktree manager reference for cleanup
-		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
-
 		return absPath, nil
 	}
 
@@ -1238,8 +1230,21 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		return
 	}
 
-	// Track workspace files automatically
-	e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
+	// Only auto-scan workspace files for non-worktree workspaces.
+	// Worktrees contain the full repo checkout; scanning would list repo files as deliverables.
+	isWorktree := step.Workspace.Type == "worktree"
+	if !isWorktree && step.Workspace.Ref != "" {
+		// Check if the referenced step is a worktree
+		for _, s := range execution.Pipeline.Steps {
+			if s.ID == step.Workspace.Ref && s.Workspace.Type == "worktree" {
+				isWorktree = true
+				break
+			}
+		}
+	}
+	if !isWorktree {
+		e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
+	}
 
 	// Track explicit output artifacts
 	for _, artifact := range step.OutputArtifacts {
@@ -1448,40 +1453,6 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 	}
 
 	return nil, fmt.Errorf("pipeline %q not found", pipelineID)
-}
-
-// cleanupWorktrees removes any git worktrees created during pipeline execution.
-func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
-	for key, repoRoot := range execution.WorkspacePaths {
-		if !strings.HasSuffix(key, "__worktree_repo_root") {
-			continue
-		}
-		stepID := strings.TrimSuffix(key, "__worktree_repo_root")
-		wsPath := execution.WorkspacePaths[stepID]
-		if wsPath == "" {
-			continue
-		}
-		mgr, err := worktree.NewManager(repoRoot)
-		if err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
-			})
-			continue
-		}
-		if err := mgr.Remove(wsPath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
-			})
-		}
-	}
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
