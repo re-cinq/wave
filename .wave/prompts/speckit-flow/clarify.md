@@ -2,15 +2,16 @@ You are refining a feature specification by identifying and resolving ambiguitie
 
 Feature context: {{ input }}
 
-## IMPORTANT: Workspace Isolation via Git Worktree
+## IMPORTANT: Working Directory
 
 Your current working directory is a Wave workspace, NOT the project root.
-Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
-to work concurrently without conflicts.
+Before running any scripts or accessing project files, navigate to the project root:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)"
 ```
+
+Run this FIRST before any other bash commands.
 
 A status report from the previous step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -19,13 +20,9 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.clarify` workflow:
 
-1. Set up the repo root reference (see above)
+1. Navigate to the project root (see above)
 2. Read `artifacts/spec_info` to find the feature directory and spec file path
-3. Create an isolated worktree for the feature branch:
-   ```bash
-   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
-   cd repo
-   ```
+3. Check out the feature branch identified in the status report
 4. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
 5. Load the current spec and perform a focused ambiguity scan across:
    - Functional scope and domain model
@@ -34,16 +31,7 @@ Follow the `/speckit.clarify` workflow:
 6. Generate up to 5 clarification questions (prioritized)
 7. For each question, select the best option based on codebase context
 8. Integrate each resolution directly into the spec file
-9. Save the updated spec and commit:
-   ```bash
-   git add specs/
-   git commit -m "docs: resolve spec clarifications"
-   ```
-10. Clean up worktree:
-    ```bash
-    cd "$OLDPWD"
-    git -C "$REPO_ROOT" worktree remove "$PWD/repo"
-    ```
+9. Save the updated spec
 
 ## CONSTRAINTS
 
