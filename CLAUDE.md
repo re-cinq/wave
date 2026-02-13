@@ -276,6 +276,7 @@ The highest bump type wins when multiple commits are present. The CI then create
 - Structured events for programmatic monitoring
 
 ## Recent Changes
+- 086-pipeline-recovery-hints: Added Go 1.25+ + `github.com/spf13/cobra` (CLI), `gopkg.in/yaml.v3` (config) — no new dependencies
 - 085-web-operations-dashboard: Added Go 1.25+ (existing project) + `net/http` stdlib (Go 1.22+ enhanced `ServeMux`), `html/template`, `go:embed`, `modernc.org/sqlite` (existing)
 - 029-release-gated-embedding: Added Go 1.25+ + `gopkg.in/yaml.v3`, `github.com/spf13/cobra`
 - 021-add-missing-personas: Added implementer and reviewer personas, updated persona prompts to decouple schema details per issue #24
