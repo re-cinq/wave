@@ -54,6 +54,24 @@ func (m *Manager) Create(worktreePath, branch string) error {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
+	// Clean up stale worktree if path already exists from a previous failed run
+	if _, err := os.Stat(worktreePath); err == nil {
+		// Prune stale worktree references first
+		pruneCmd := exec.Command("git", "-C", m.repoRoot, "worktree", "prune")
+		_ = pruneCmd.Run()
+
+		// Try to remove the existing worktree
+		removeCmd := exec.Command("git", "-C", m.repoRoot, "worktree", "remove", "--force", worktreePath)
+		_ = removeCmd.Run()
+
+		// If git couldn't remove it, clean up the directory manually
+		if _, err := os.Stat(worktreePath); err == nil {
+			if err := os.RemoveAll(worktreePath); err != nil {
+				return fmt.Errorf("failed to clean up stale worktree at %s: %w", worktreePath, err)
+			}
+		}
+	}
+
 	// Check if branch exists
 	branchExists := m.branchExists(branch)
 
