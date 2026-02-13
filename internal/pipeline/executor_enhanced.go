@@ -59,7 +59,6 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, "", m),
-		StepIndex:      make(map[string]int),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -74,9 +73,7 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 	e.mu.Unlock()
 
 	// Execute each step with enhanced error handling
-	for stepIdx, step := range sortedSteps {
-		execution.StepIndex[step.ID] = stepIdx + 1
-
+	for _, step := range sortedSteps {
 		select {
 		case <-ctx.Done():
 			execution.Status.State = StateFailed

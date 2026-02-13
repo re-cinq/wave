@@ -36,17 +36,18 @@ func NewManager(repoRoot string) (*Manager, error) {
 	return &Manager{repoRoot: repoRoot}, nil
 }
 
-// Create creates a new git worktree at the given path on the specified branch.
-// If the branch doesn't exist, it creates a new branch from HEAD.
-func (m *Manager) Create(worktreePath, branch string) error {
+// Create creates a new git worktree at the given path.
+// If branch is specified and doesn't exist, it creates a new branch (from base if set, otherwise HEAD).
+// If branch is empty and base is set, creates a detached HEAD worktree at the base ref.
+func (m *Manager) Create(worktreePath, branch, base string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if worktreePath == "" {
 		return fmt.Errorf("worktree path cannot be empty")
 	}
-	if branch == "" {
-		return fmt.Errorf("branch name cannot be empty")
+	if branch == "" && base == "" {
+		return fmt.Errorf("branch name or base ref is required")
 	}
 
 	// Ensure parent directory exists
@@ -72,14 +73,23 @@ func (m *Manager) Create(worktreePath, branch string) error {
 		}
 	}
 
-	// Check if branch exists
-	branchExists := m.branchExists(branch)
+	// Check if branch exists (only when branch is specified)
+	var branchExists bool
+	if branch != "" {
+		branchExists = m.branchExists(branch)
+	}
 
 	var cmd *exec.Cmd
-	if branchExists {
+	if branch == "" && base != "" {
+		// Detached HEAD at base ref
+		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "--detach", worktreePath, base)
+	} else if branchExists {
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", worktreePath, branch)
+	} else if base != "" {
+		// New branch from specific base
+		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath, base)
 	} else {
-		// Create new branch from HEAD
+		// New branch from HEAD (legacy behavior)
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath)
 	}
 
