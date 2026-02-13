@@ -3,16 +3,11 @@ implementation.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by a
+previous step and is already checked out.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -21,16 +16,15 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.checklist` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
-3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
-4. Load feature context: spec.md, plan.md, tasks.md
-5. Generate focused checklists as "unit tests for requirements":
+1. Read `artifacts/spec_info` to find the feature directory and spec file path
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
+3. Load feature context: spec.md, plan.md, tasks.md
+4. Generate focused checklists as "unit tests for requirements":
    - Each item tests the QUALITY of requirements, not the implementation
    - Use format: `- [ ] CHK### - Question about requirement quality [Dimension]`
    - Group by quality dimensions: Completeness, Clarity, Consistency, Coverage
 
-6. Create the following checklist files in `FEATURE_DIR/checklists/`:
+5. Create the following checklist files in `FEATURE_DIR/checklists/`:
    - `review.md` — overall requirements quality validation
    - Additional domain-specific checklists as warranted by the feature
 

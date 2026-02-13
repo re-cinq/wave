@@ -2,16 +2,12 @@ You are implementing a GitHub issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-You are running in an **isolated git worktree** — your changes cannot affect the main working tree.
-Before running any commands, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by the
+plan step and is already checked out. All git operations here are isolated from
+the main working tree.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 The implementation plan is available at `artifacts/plan`.
@@ -22,10 +18,6 @@ The implementation plan is available at `artifacts/plan`.
 
 1. Read `artifacts/issue_assessment` for the issue details and branch name
 2. Read `artifacts/plan` for the task breakdown, file changes, and feature directory
-3. Create the feature branch (you are in an isolated worktree — safe to branch):
-   ```bash
-   git checkout -b <BRANCH_NAME>
-   ```
 
 ### Step 2: Read Plan Files
 
