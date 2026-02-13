@@ -15,20 +15,20 @@ Use `create-new-feature.sh` to create the feature branch from this clean startin
 Follow the `/speckit.specify` workflow to generate a complete feature specification:
 
 1. Generate a concise short name (2-4 words) for the feature branch
-3. Check existing branches to determine the next available number:
+2. Check existing branches to determine the next available number:
    ```bash
    git fetch --all --prune
    git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-'
    git branch | grep -E '^[* ]*[0-9]+-'
    ```
-4. Run the feature creation script:
+3. Run the feature creation script:
    ```bash
    .specify/scripts/bash/create-new-feature.sh --json --number <N> --short-name "<name>" "{{ input }}"
    ```
-5. Load `.specify/templates/spec-template.md` for the required structure
-6. Write the specification to the SPEC_FILE returned by the script
-7. Create the quality checklist at `FEATURE_DIR/checklists/requirements.md`
-8. Run self-validation against the checklist (up to 3 iterations)
+4. Load `.specify/templates/spec-template.md` for the required structure
+5. Write the specification to the SPEC_FILE returned by the script
+6. Create the quality checklist at `FEATURE_DIR/checklists/requirements.md`
+7. Run self-validation against the checklist (up to 3 iterations)
 
 ## Agent Usage
 

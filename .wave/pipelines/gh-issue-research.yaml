@@ -15,7 +15,8 @@ steps:
   - id: fetch-issue
     persona: github-analyst
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -53,7 +54,8 @@ steps:
           artifact: issue-content
           as: issue
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -103,7 +105,8 @@ steps:
           artifact: topics
           as: research_plan
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -155,7 +158,8 @@ steps:
           artifact: findings
           as: research
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -217,7 +221,8 @@ steps:
           artifact: report
           as: report
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
