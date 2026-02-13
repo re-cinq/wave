@@ -2,15 +2,16 @@ You are generating an actionable, dependency-ordered task breakdown for implemen
 
 Feature context: {{ input }}
 
-## IMPORTANT: Workspace Isolation via Git Worktree
+## IMPORTANT: Working Directory
 
 Your current working directory is a Wave workspace, NOT the project root.
-Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs
-to work concurrently without conflicts.
+Before running any scripts or accessing project files, navigate to the project root:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)"
 ```
+
+Run this FIRST before any other bash commands.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -19,12 +20,8 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.tasks` workflow:
 
-1. Set up the repo root reference (see above)
-2. Read `artifacts/spec_info` and create a worktree for the feature branch:
-   ```bash
-   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
-   cd repo
-   ```
+1. Navigate to the project root (see above)
+2. Read `artifacts/spec_info` and check out the feature branch
 3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
    and AVAILABLE_DOCS
 4. Load from FEATURE_DIR:
@@ -46,21 +43,8 @@ Follow the `/speckit.tasks` workflow:
    - Phase 3+: One phase per user story (priority order)
    - Final: Polish & cross-cutting concerns
 
-8. Commit task breakdown:
-   ```bash
-   git add specs/
-   git commit -m "docs: add task breakdown"
-   ```
-
-9. Clean up worktree:
-   ```bash
-   cd "$OLDPWD"
-   git -C "$REPO_ROOT" worktree remove "$PWD/repo"
-   ```
-
 ## CONSTRAINTS
 
-- **Maximum 20 tasks total** — scope aggressively. A single LLM implement step must complete all tasks within a 10-minute budget. If the feature requires more than 20 tasks, split into coarser units (e.g., "implement all handlers" instead of one task per handler). Prefer fewer, larger tasks over many granular ones.
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT use WebSearch — all information is in the spec artifacts
 - Keep the scope tight: generate tasks from existing artifacts only

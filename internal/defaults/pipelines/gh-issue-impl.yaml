@@ -69,7 +69,8 @@ steps:
           artifact: impl-plan
           as: plan
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/implement.md

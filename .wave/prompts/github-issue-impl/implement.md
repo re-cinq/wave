@@ -2,31 +2,30 @@ You are implementing a GitHub issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
-## IMPORTANT: Workspace Isolation via Git Worktree
+## IMPORTANT: Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs to work concurrently without conflicts.
+You are running in an **isolated git worktree** — your changes cannot affect the main working tree.
+Before running any commands, navigate to the project root:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)"
 ```
+
+Run this FIRST before any other bash commands.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 The implementation plan is available at `artifacts/plan`.
 
 ## Instructions
 
-### Step 1: Load Context and Create Worktree
+### Step 1: Load Context
 
 1. Read `artifacts/issue_assessment` for the issue details and branch name
 2. Read `artifacts/plan` for the task breakdown, file changes, and feature directory
-3. Create an isolated worktree for the feature branch:
+3. Create the feature branch (you are in an isolated worktree — safe to branch):
    ```bash
-   git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
-   cd repo
+   git checkout -b <BRANCH_NAME>
    ```
-
-All subsequent commands run inside this worktree.
 
 ### Step 2: Read Plan Files
 
@@ -65,7 +64,7 @@ If tests fail, fix the issue before proceeding to the next phase.
 
 As you complete each task, mark it as `[X]` in `tasks.md`.
 
-### Step 6: Final Validation and Commit
+### Step 6: Final Validation
 
 After all tasks are complete:
 1. Run `go test -race ./...` one final time
@@ -76,14 +75,7 @@ After all tasks are complete:
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 
-### Step 7: Clean Up Worktree
-
-Remove the worktree reference (the branch and commits persist):
-
-```bash
-cd "$OLDPWD"
-git -C "$REPO_ROOT" worktree remove "$PWD/repo"
-```
+Do NOT push or create a PR — just commit to this worktree branch.
 
 ## Agent Usage — USE UP TO 6 AGENTS
 
