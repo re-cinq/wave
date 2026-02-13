@@ -172,6 +172,17 @@ func (is *InputSanitizer) removeSuspiciousContent(content string) string {
 	return content
 }
 
+// shellMetachars are characters that have special meaning in POSIX shells.
+// Their presence in user input is not inherently dangerous when exec.Command
+// is used (bypasses shell), but it signals elevated risk if any code path
+// ever routes through a shell interpreter.
+const shellMetachars = "|&;$`\\!(){}[]<>*?~#"
+
+// containsShellMetachars returns true if s contains any POSIX shell metacharacter.
+func containsShellMetachars(s string) bool {
+	return strings.ContainsAny(s, shellMetachars)
+}
+
 // calculateRiskScore calculates a risk score for the input
 func (is *InputSanitizer) calculateRiskScore(input string, sanitizationRules []string) int {
 	score := 0
@@ -191,6 +202,19 @@ func (is *InputSanitizer) calculateRiskScore(input string, sanitizationRules []s
 		case "removed_suspicious_content":
 			score += 30
 		}
+	}
+
+	// Shell metacharacters: safe under exec.Command but dangerous if any
+	// code path routes through a shell. Flag as elevated risk.
+	if containsShellMetachars(input) {
+		score += 15
+		is.logger.LogViolation(
+			string(ViolationInputValidation),
+			string(SourceUserInput),
+			fmt.Sprintf("Input contains shell metacharacters: defense-in-depth warning"),
+			SeverityLow,
+			false,
+		)
 	}
 
 	// Factor in input characteristics

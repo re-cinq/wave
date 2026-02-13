@@ -78,7 +78,7 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	cmd.Dir = workspacePath
 
 	if cfg.Debug {
-		fmt.Printf("[DEBUG] Claude command: %s %s\n", a.claudePath, strings.Join(args, " "))
+		fmt.Printf("[DEBUG] Claude command: %s %s\n", a.claudePath, shelljoinArgs(args))
 		fmt.Printf("[DEBUG] Working directory: %s\n", workspacePath)
 	}
 
@@ -772,6 +772,23 @@ func (a *ClaudeAdapter) cleanJSONContent(content string) string {
 	}
 
 	return content
+}
+
+// shelljoinArgs formats command arguments for debug logging, quoting any
+// argument that contains shell metacharacters or whitespace so the logged
+// command line is copy-pasteable and not misleading.
+func shelljoinArgs(args []string) string {
+	var parts []string
+	for _, arg := range args {
+		if arg == "" || strings.ContainsAny(arg, " \t\n|&;$`\\!(){}[]<>*?~#'\"") {
+			// Single-quote the argument, escaping interior single quotes
+			escaped := strings.ReplaceAll(arg, "'", `'\''`)
+			parts = append(parts, "'"+escaped+"'")
+		} else {
+			parts = append(parts, arg)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // buildRestrictionSection generates the restriction directives for CLAUDE.md
