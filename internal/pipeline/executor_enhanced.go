@@ -2,10 +2,11 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 )
@@ -207,26 +208,13 @@ func (e *DefaultPipelineExecutor) simulateStepExecution(ctx context.Context, exe
 }
 
 // isContractValidationError checks if an error is related to contract validation
+// using errors.As() to unwrap the error chain and match the typed error.
 func isContractValidationError(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	errorText := err.Error()
-	contractKeywords := []string{
-		"contract validation failed",
-		"schema validation",
-		"artifact.json",
-		"json_schema",
-	}
-
-	for _, keyword := range contractKeywords {
-		if strings.Contains(errorText, keyword) {
-			return true
-		}
-	}
-
-	return false
+	var ve *contract.ValidationError
+	return errors.As(err, &ve)
 }
 
 // GetPipelineErrors returns formatted error information for a pipeline
