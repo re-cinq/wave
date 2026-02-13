@@ -159,25 +159,6 @@ func BenchmarkValidateConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkValidateCheckpointFormat_Valid(b *testing.B) {
-	content := `# Checkpoint
-
-## Summary
-Valid checkpoint content for benchmarking.
-
-## Decisions
-Benchmark decision
-
----
-*Generated at test*
-`
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ValidateCheckpointFormat(content)
-	}
-}
-
 func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
 	mockRunner := &mockAdapterRunner{
 		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {

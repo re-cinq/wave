@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 )
 
 // TemplateConfig defines a structured template that AI must fill
@@ -178,36 +177,4 @@ func (v *TemplateValidator) validateConstraint(field string, value interface{}, 
 	}
 
 	return nil
-}
-
-// GenerateTemplate creates a template file with placeholders
-func GenerateTemplate(templateType string, fields []string, outputPath string) error {
-	var content string
-
-	switch templateType {
-	case "json":
-		obj := make(map[string]string)
-		for _, field := range fields {
-			obj[field] = fmt.Sprintf("[TODO: Fill in %s]", field)
-		}
-		data, err := json.MarshalIndent(obj, "", "  ")
-		if err != nil {
-			return err
-		}
-		content = string(data)
-
-	case "markdown":
-		var lines []string
-		lines = append(lines, "# Output Document\n")
-		for _, field := range fields {
-			lines = append(lines, fmt.Sprintf("## %s\n", field))
-			lines = append(lines, fmt.Sprintf("[TODO: Fill in %s]\n", field))
-		}
-		content = strings.Join(lines, "\n")
-
-	default:
-		return fmt.Errorf("unsupported template type: %s", templateType)
-	}
-
-	return os.WriteFile(outputPath, []byte(content), 0644)
 }
