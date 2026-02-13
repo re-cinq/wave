@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StatisticsResponse",
+  "description": "GET /api/statistics?range={24h|7d|30d|all} — Aggregate run statistics",
+  "type": "object",
+  "required": ["aggregate", "trends", "pipelines", "time_range"],
+  "properties": {
+    "aggregate": {
+      "type": "object",
+      "required": ["total", "succeeded", "failed", "cancelled", "success_rate"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "succeeded": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "cancelled": { "type": "integer", "minimum": 0 },
+        "pending": { "type": "integer", "minimum": 0 },
+        "running": { "type": "integer", "minimum": 0 },
+        "success_rate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "trends": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "total", "succeeded", "failed", "success_rate"],
+        "properties": {
+          "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "total": { "type": "integer", "minimum": 0 },
+          "succeeded": { "type": "integer", "minimum": 0 },
+          "failed": { "type": "integer", "minimum": 0 },
+          "success_rate": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pipeline_name", "run_count", "success_rate"],
+        "properties": {
+          "pipeline_name": { "type": "string" },
+          "run_count": { "type": "integer", "minimum": 0 },
+          "success_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+          "avg_duration_ms": { "type": "integer", "minimum": 0 },
+          "avg_tokens": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "time_range": {
+      "type": "string",
+      "enum": ["24h", "7d", "30d", "all"]
+    }
+  }
+}

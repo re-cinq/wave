@@ -103,6 +103,13 @@ type StateStore interface {
 	GetRunTags(runID string) ([]string, error)
 	AddRunTag(runID string, tag string) error
 	RemoveRunTag(runID string, tag string) error
+
+	// Statistics (spec 091 - Dashboard Introspection)
+	GetRunStatistics(since time.Time) (*RunStatisticsRecord, error)
+	GetRunTrends(since time.Time) ([]RunTrendRecord, error)
+	GetPipelineStatistics(since time.Time) ([]PipelineStatisticsRecord, error)
+	GetPipelineStepStats(pipelineName string, since time.Time) ([]StepPerformanceStats, error)
+	GetLastRunForPipeline(pipelineName string) (*RunRecord, error)
 }
 
 type stateStore struct {
@@ -1717,4 +1724,201 @@ func (s *stateStore) RemoveRunTag(runID string, tag string) error {
 	}
 
 	return s.SetRunTags(runID, newTags)
+}
+
+// =============================================================================
+// Statistics Methods (spec 091 - Dashboard Introspection)
+// =============================================================================
+
+// GetRunStatistics returns aggregate run counts filtered by time range.
+func (s *stateStore) GetRunStatistics(since time.Time) (*RunStatisticsRecord, error) {
+	query := `SELECT
+		COUNT(*) as total,
+		COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as succeeded,
+		COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+		COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled,
+		COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending,
+		COALESCE(SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END), 0) as running
+	FROM pipeline_run
+	WHERE started_at >= ?`
+
+	var record RunStatisticsRecord
+	err := s.db.QueryRow(query, since.Unix()).Scan(
+		&record.Total,
+		&record.Succeeded,
+		&record.Failed,
+		&record.Cancelled,
+		&record.Pending,
+		&record.Running,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get run statistics: %w", err)
+	}
+	return &record, nil
+}
+
+// GetRunTrends returns daily run counts grouped by date.
+func (s *stateStore) GetRunTrends(since time.Time) ([]RunTrendRecord, error) {
+	query := `SELECT
+		strftime('%Y-%m-%d', started_at, 'unixepoch') as date,
+		COUNT(*) as total,
+		SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as succeeded,
+		SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+	FROM pipeline_run
+	WHERE started_at >= ?
+	GROUP BY strftime('%Y-%m-%d', started_at, 'unixepoch')
+	ORDER BY date ASC`
+
+	rows, err := s.db.Query(query, since.Unix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get run trends: %w", err)
+	}
+	defer rows.Close()
+
+	var records []RunTrendRecord
+	for rows.Next() {
+		var r RunTrendRecord
+		if err := rows.Scan(&r.Date, &r.Total, &r.Succeeded, &r.Failed); err != nil {
+			return nil, fmt.Errorf("failed to scan run trend: %w", err)
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+// GetPipelineStatistics returns per-pipeline aggregate stats.
+func (s *stateStore) GetPipelineStatistics(since time.Time) ([]PipelineStatisticsRecord, error) {
+	query := `SELECT
+		pipeline_name,
+		COUNT(*) as run_count,
+		SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as succeeded,
+		SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+		AVG(CASE WHEN completed_at IS NOT NULL THEN (completed_at - started_at) * 1000 ELSE NULL END) as avg_duration_ms,
+		AVG(total_tokens) as avg_tokens
+	FROM pipeline_run
+	WHERE started_at >= ?
+	GROUP BY pipeline_name
+	ORDER BY run_count DESC`
+
+	rows, err := s.db.Query(query, since.Unix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pipeline statistics: %w", err)
+	}
+	defer rows.Close()
+
+	var records []PipelineStatisticsRecord
+	for rows.Next() {
+		var r PipelineStatisticsRecord
+		var avgDuration, avgTokens sql.NullFloat64
+		if err := rows.Scan(&r.PipelineName, &r.RunCount, &r.Succeeded, &r.Failed, &avgDuration, &avgTokens); err != nil {
+			return nil, fmt.Errorf("failed to scan pipeline statistics: %w", err)
+		}
+		if avgDuration.Valid {
+			r.AvgDurationMs = int64(avgDuration.Float64)
+		}
+		if avgTokens.Valid {
+			r.AvgTokens = int(avgTokens.Float64)
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+// GetPipelineStepStats returns per-step stats for a given pipeline.
+func (s *stateStore) GetPipelineStepStats(pipelineName string, since time.Time) ([]StepPerformanceStats, error) {
+	query := `SELECT
+		step_id,
+		persona,
+		COUNT(*) as total_runs,
+		SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_runs,
+		SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed_runs,
+		AVG(duration_ms) as avg_duration,
+		MIN(duration_ms) as min_duration,
+		MAX(duration_ms) as max_duration,
+		AVG(tokens_used) as avg_tokens,
+		SUM(tokens_used) as total_tokens,
+		AVG(files_modified) as avg_files,
+		AVG(artifacts_generated) as avg_artifacts,
+		MAX(started_at) as last_run
+	FROM performance_metric
+	WHERE pipeline_name = ? AND started_at >= ?
+	GROUP BY step_id, persona
+	ORDER BY step_id`
+
+	rows, err := s.db.Query(query, pipelineName, since.Unix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pipeline step stats: %w", err)
+	}
+	defer rows.Close()
+
+	var stats []StepPerformanceStats
+	for rows.Next() {
+		var st StepPerformanceStats
+		var persona sql.NullString
+		var avgDuration, avgTokens, avgFiles, avgArtifacts sql.NullFloat64
+		var minDuration, maxDuration, totalTokens, lastRun sql.NullInt64
+
+		if err := rows.Scan(
+			&st.StepID, &persona,
+			&st.TotalRuns, &st.SuccessfulRuns, &st.FailedRuns,
+			&avgDuration, &minDuration, &maxDuration,
+			&avgTokens, &totalTokens,
+			&avgFiles, &avgArtifacts, &lastRun,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan step stats: %w", err)
+		}
+
+		if persona.Valid {
+			st.Persona = persona.String
+		}
+		if avgDuration.Valid {
+			st.AvgDurationMs = int64(avgDuration.Float64)
+		}
+		if minDuration.Valid {
+			st.MinDurationMs = minDuration.Int64
+		}
+		if maxDuration.Valid {
+			st.MaxDurationMs = maxDuration.Int64
+		}
+		if avgTokens.Valid {
+			st.AvgTokensUsed = int(avgTokens.Float64)
+		}
+		if totalTokens.Valid {
+			st.TotalTokensUsed = int(totalTokens.Int64)
+		}
+		if avgFiles.Valid {
+			st.AvgFilesModified = int(avgFiles.Float64)
+		}
+		if avgArtifacts.Valid {
+			st.AvgArtifacts = int(avgArtifacts.Float64)
+		}
+		if lastRun.Valid {
+			st.LastRunAt = time.Unix(lastRun.Int64, 0)
+		}
+		if st.AvgDurationMs > 0 && st.AvgTokensUsed > 0 {
+			st.TokenBurnRate = float64(st.AvgTokensUsed) / (float64(st.AvgDurationMs) / 1000.0)
+		}
+
+		stats = append(stats, st)
+	}
+	return stats, rows.Err()
+}
+
+// GetLastRunForPipeline returns the most recent run for a pipeline.
+func (s *stateStore) GetLastRunForPipeline(pipelineName string) (*RunRecord, error) {
+	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
+	                 started_at, completed_at, cancelled_at, error_message, tags_json
+	          FROM pipeline_run
+	          WHERE pipeline_name = ?
+	          ORDER BY started_at DESC
+	          LIMIT 1`
+
+	runs, err := s.queryRunsWithArgs(query, pipelineName)
+	if err != nil {
+		return nil, err
+	}
+	if len(runs) == 0 {
+		return nil, nil
+	}
+	return &runs[0], nil
 }

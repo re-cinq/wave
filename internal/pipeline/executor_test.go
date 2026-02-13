@@ -191,6 +191,11 @@ func (m *MockStateStore) SetRunTags(runID string, tags []string) error { return 
 func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil, nil }
 func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
 func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
+func (m *MockStateStore) GetRunStatistics(since time.Time) (*state.RunStatisticsRecord, error) { return nil, nil }
+func (m *MockStateStore) GetRunTrends(since time.Time) ([]state.RunTrendRecord, error) { return nil, nil }
+func (m *MockStateStore) GetPipelineStatistics(since time.Time) ([]state.PipelineStatisticsRecord, error) { return nil, nil }
+func (m *MockStateStore) GetPipelineStepStats(pipelineName string, since time.Time) ([]state.StepPerformanceStats, error) { return nil, nil }
+func (m *MockStateStore) GetLastRunForPipeline(pipelineName string) (*state.RunRecord, error) { return nil, nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {

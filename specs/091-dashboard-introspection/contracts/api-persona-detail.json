@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonaDetailResponse",
+  "description": "GET /api/personas/{name} — Full persona configuration for inspection",
+  "type": "object",
+  "required": ["name", "adapter"],
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "adapter": { "type": "string" },
+    "model": { "type": "string" },
+    "temperature": { "type": "number" },
+    "system_prompt": { "type": "string", "description": "Full system prompt content (HTML-escaped)" },
+    "system_prompt_file": { "type": "string", "description": "Path to system prompt file" },
+    "allowed_tools": { "type": "array", "items": { "type": "string" } },
+    "denied_tools": { "type": "array", "items": { "type": "string" } },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "pre_tool_use": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "matcher": { "type": "string" },
+              "command": { "type": "string" }
+            }
+          }
+        },
+        "post_tool_use": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "matcher": { "type": "string" },
+              "command": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "sandbox": {
+      "type": "object",
+      "properties": {
+        "allowed_domains": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "used_in_pipelines": { "type": "array", "items": { "type": "string" } }
+  }
+}

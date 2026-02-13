@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkspaceAPIs",
+  "description": "Workspace browsing API contracts",
+  "definitions": {
+    "WorkspaceTreeResponse": {
+      "description": "GET /api/runs/{id}/workspace/{step}/tree?path= — Directory listing",
+      "type": "object",
+      "required": ["path", "entries"],
+      "properties": {
+        "path": { "type": "string", "description": "Requested directory path" },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "is_dir", "size"],
+            "properties": {
+              "name": { "type": "string" },
+              "is_dir": { "type": "boolean" },
+              "size": { "type": "integer", "minimum": 0 },
+              "extension": { "type": "string" }
+            }
+          },
+          "maxItems": 500
+        },
+        "error": { "type": "string" }
+      }
+    },
+    "WorkspaceFileResponse": {
+      "description": "GET /api/runs/{id}/workspace/{step}/file?path= — File content",
+      "type": "object",
+      "required": ["path", "content", "mime_type", "size", "truncated"],
+      "properties": {
+        "path": { "type": "string" },
+        "content": { "type": "string", "description": "HTML-escaped file content" },
+        "mime_type": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

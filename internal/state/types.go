@@ -161,3 +161,35 @@ type ArtifactMetadataRecord struct {
 	MetadataJSON string
 	IndexedAt    time.Time
 }
+
+// =============================================================================
+// Statistics Types (spec 091 - Dashboard Introspection)
+// =============================================================================
+
+// RunStatisticsRecord holds aggregate run statistics from SQL.
+type RunStatisticsRecord struct {
+	Total     int
+	Succeeded int
+	Failed    int
+	Cancelled int
+	Pending   int
+	Running   int
+}
+
+// RunTrendRecord holds a daily trend data point from SQL.
+type RunTrendRecord struct {
+	Date      string // YYYY-MM-DD
+	Total     int
+	Succeeded int
+	Failed    int
+}
+
+// PipelineStatisticsRecord holds per-pipeline aggregate stats from SQL.
+type PipelineStatisticsRecord struct {
+	PipelineName  string
+	RunCount      int
+	Succeeded     int
+	Failed        int
+	AvgDurationMs int64
+	AvgTokens     int
+}

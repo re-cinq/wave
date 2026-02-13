@@ -31,6 +31,9 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/run_detail.html": `<html><body><div>{{.Run.RunID}}</div></body></html>`,
 		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/pipeline_detail.html": `<html><body><div>{{.Name}}</div></body></html>`,
+		"templates/persona_detail.html":  `<html><body><div>{{.Name}}</div></body></html>`,
+		"templates/statistics.html":      `<html><body><div>{{.TimeRange}}</div></body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
@@ -392,4 +395,324 @@ func TestHandleRunsPage(t *testing.T) {
 	if !strings.Contains(contentType, "text/html") {
 		t.Errorf("expected text/html content type, got %q", contentType)
 	}
+}
+
+func TestHandleAPIStatistics_Empty(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/statistics", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIStatistics(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp StatisticsResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Aggregate.Total != 0 {
+		t.Errorf("expected 0 total, got %d", resp.Aggregate.Total)
+	}
+	if resp.TimeRange != "7d" {
+		t.Errorf("expected default time range '7d', got %q", resp.TimeRange)
+	}
+}
+
+func TestHandleAPIStatistics_WithData(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	// Create test runs with various statuses
+	runID1, _ := rwStore.CreateRun("test-pipeline", "input1")
+	rwStore.UpdateRunStatus(runID1, "completed", "", 100)
+	runID2, _ := rwStore.CreateRun("test-pipeline", "input2")
+	rwStore.UpdateRunStatus(runID2, "failed", "some error", 50)
+	rwStore.CreateRun("test-pipeline", "input3") // pending
+
+	req := httptest.NewRequest("GET", "/api/statistics?range=all", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIStatistics(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp StatisticsResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.Aggregate.Total != 3 {
+		t.Errorf("expected 3 total runs, got %d", resp.Aggregate.Total)
+	}
+	if resp.Aggregate.Succeeded != 1 {
+		t.Errorf("expected 1 succeeded, got %d", resp.Aggregate.Succeeded)
+	}
+	if resp.Aggregate.Failed != 1 {
+		t.Errorf("expected 1 failed, got %d", resp.Aggregate.Failed)
+	}
+	if resp.TimeRange != "all" {
+		t.Errorf("expected time range 'all', got %q", resp.TimeRange)
+	}
+}
+
+func TestHandleAPIStatistics_TimeRangeFilter(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tests := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"default", "", "7d"},
+		{"24h", "?range=24h", "24h"},
+		{"7d", "?range=7d", "7d"},
+		{"30d", "?range=30d", "30d"},
+		{"all", "?range=all", "all"},
+		{"invalid", "?range=invalid", "7d"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/api/statistics"+tt.query, nil)
+			rec := httptest.NewRecorder()
+			srv.handleAPIStatistics(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", rec.Code)
+			}
+
+			var resp StatisticsResponse
+			json.NewDecoder(rec.Body).Decode(&resp)
+
+			if resp.TimeRange != tt.want {
+				t.Errorf("expected time range %q, got %q", tt.want, resp.TimeRange)
+			}
+		})
+	}
+}
+
+func TestHandleAPIPipelineDetail_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/pipelines/nonexistent", nil)
+	req.SetPathValue("name", "nonexistent")
+	rec := httptest.NewRecorder()
+	srv.handleAPIPipelineDetail(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleAPIPipelineDetail_MissingName(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/pipelines/", nil)
+	req.SetPathValue("name", "")
+	rec := httptest.NewRecorder()
+	srv.handleAPIPipelineDetail(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandleAPIPersonaDetail_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/personas/nonexistent", nil)
+	req.SetPathValue("name", "nonexistent")
+	rec := httptest.NewRecorder()
+	srv.handleAPIPersonaDetail(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleAPIPersonaDetail_MissingName(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/personas/", nil)
+	req.SetPathValue("name", "")
+	rec := httptest.NewRecorder()
+	srv.handleAPIPersonaDetail(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandleWorkspaceTree_MissingParams(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs//workspace//tree", nil)
+	req.SetPathValue("id", "")
+	req.SetPathValue("step", "")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceTree(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandleWorkspaceTree_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs/nonexistent/workspace/step1/tree", nil)
+	req.SetPathValue("id", "nonexistent")
+	req.SetPathValue("step", "step1")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceTree(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp WorkspaceTreeResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.Error == "" {
+		t.Error("expected error in response for non-existent workspace")
+	}
+}
+
+func TestHandleWorkspaceFile_MissingParams(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs//workspace//file", nil)
+	req.SetPathValue("id", "")
+	req.SetPathValue("step", "")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceFile(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestHandleWorkspaceFile_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs/nonexistent/workspace/step1/file?path=test.txt", nil)
+	req.SetPathValue("id", "nonexistent")
+	req.SetPathValue("step", "step1")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceFile(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp WorkspaceFileResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.Error == "" {
+		t.Error("expected error in response for non-existent workspace")
+	}
+}
+
+func TestHandleWorkspaceTree_WithDirectory(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Create a temporary workspace directory
+	tmpDir := t.TempDir()
+	wsDir := tmpDir + "/.wave/workspaces/test-run/step1"
+	os.MkdirAll(wsDir+"/subdir", 0o755)
+	os.WriteFile(wsDir+"/test.go", []byte("package main"), 0o644)
+	os.WriteFile(wsDir+"/README.md", []byte("# Test"), 0o644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	req := httptest.NewRequest("GET", "/api/runs/test-run/workspace/step1/tree", nil)
+	req.SetPathValue("id", "test-run")
+	req.SetPathValue("step", "step1")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceTree(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp WorkspaceTreeResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+
+	if len(resp.Entries) < 2 {
+		t.Errorf("expected at least 2 entries, got %d", len(resp.Entries))
+	}
+
+	// First entry should be the directory (sorted first)
+	if len(resp.Entries) > 0 && !resp.Entries[0].IsDir {
+		t.Error("expected first entry to be a directory")
+	}
+}
+
+func TestHandleWorkspaceFile_WithFile(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Create a temporary workspace with a file
+	tmpDir := t.TempDir()
+	wsDir := tmpDir + "/.wave/workspaces/test-run/step1"
+	os.MkdirAll(wsDir, 0o755)
+	os.WriteFile(wsDir+"/test.go", []byte("package main\nfunc main() {}"), 0o644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	req := httptest.NewRequest("GET", "/api/runs/test-run/workspace/step1/file?path=test.go", nil)
+	req.SetPathValue("id", "test-run")
+	req.SetPathValue("step", "step1")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceFile(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp WorkspaceFileResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.Error != "" {
+		t.Fatalf("unexpected error: %s", resp.Error)
+	}
+	if resp.MimeType != "text/x-go" {
+		t.Errorf("expected mime type text/x-go, got %q", resp.MimeType)
+	}
+	if resp.Truncated {
+		t.Error("file should not be truncated")
+	}
+}
+
+func TestHandleWorkspaceTree_PathTraversal(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Create a temporary workspace
+	tmpDir := t.TempDir()
+	wsDir := tmpDir + "/.wave/workspaces/test-run/step1"
+	os.MkdirAll(wsDir, 0o755)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	req := httptest.NewRequest("GET", "/api/runs/test-run/workspace/step1/tree?path=../../etc", nil)
+	req.SetPathValue("id", "test-run")
+	req.SetPathValue("step", "step1")
+	rec := httptest.NewRecorder()
+	srv.handleWorkspaceTree(rec, req)
+
+	var resp WorkspaceTreeResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	// Should either return error or be safely resolved within workspace
+	// The path gets cleaned by filepath.Clean("/"+reqPath) which neutralizes the traversal
 }

@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PipelineDetailResponse",
+  "description": "GET /api/pipelines/{name} — Full pipeline configuration for inspection",
+  "type": "object",
+  "required": ["name", "step_count", "input", "steps"],
+  "properties": {
+    "name": { "type": "string", "description": "Pipeline name" },
+    "description": { "type": "string" },
+    "step_count": { "type": "integer", "minimum": 0 },
+    "input": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string" },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        },
+        "example": { "type": "string" }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "persona"],
+        "properties": {
+          "id": { "type": "string" },
+          "persona": { "type": "string" },
+          "dependencies": { "type": "array", "items": { "type": "string" } },
+          "workspace": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "root": { "type": "string" },
+              "mounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": { "type": "string" },
+                    "target": { "type": "string" },
+                    "mode": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "contract": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "schema": { "type": "string" },
+              "schema_path": { "type": "string" },
+              "must_pass": { "type": "boolean" },
+              "max_retries": { "type": "integer" }
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "type": { "type": "string" },
+                "required": { "type": "boolean" }
+              }
+            }
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "strategy": { "type": "string" },
+              "injected": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from_step": { "type": "string" },
+                    "artifact": { "type": "string" },
+                    "as": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dag": {
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    },
+    "last_run": {
+      "type": "object",
+      "properties": {
+        "run_id": { "type": "string" },
+        "pipeline_name": { "type": "string" },
+        "status": { "type": "string" },
+        "started_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

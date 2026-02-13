@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EnhancedRunDetailResponse",
+  "description": "GET /api/runs/{id} — Enhanced run detail with introspection data (extends existing RunDetailResponse)",
+  "type": "object",
+  "required": ["run", "steps", "events"],
+  "properties": {
+    "run": {
+      "type": "object",
+      "required": ["run_id", "pipeline_name", "status", "started_at"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "pipeline_name": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "running", "completed", "failed", "cancelled"] },
+        "current_step": { "type": "string" },
+        "total_tokens": { "type": "integer" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "duration": { "type": "string" },
+        "error_message": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step_id", "persona", "state"],
+        "properties": {
+          "step_id": { "type": "string" },
+          "persona": { "type": "string" },
+          "state": { "type": "string" },
+          "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "current_action": { "type": "string" },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" },
+          "duration": { "type": "string" },
+          "tokens_used": { "type": "integer" },
+          "error": { "type": "string" },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "type": { "type": "string" },
+                "size_bytes": { "type": "integer" },
+                "preview": { "type": "string" }
+              }
+            }
+          },
+          "contract_result": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "passed": { "type": "boolean" },
+              "error_message": { "type": "string" },
+              "schema": { "type": "string" }
+            }
+          },
+          "recovery_hints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "command", "type"],
+              "properties": {
+                "label": { "type": "string" },
+                "command": { "type": "string" },
+                "type": { "type": "string", "enum": ["resume", "force", "workspace", "debug"] }
+              }
+            }
+          },
+          "performance": {
+            "type": "object",
+            "properties": {
+              "duration_ms": { "type": "integer" },
+              "tokens_used": { "type": "integer" },
+              "files_modified": { "type": "integer" },
+              "artifacts_generated": { "type": "integer" }
+            }
+          },
+          "workspace_path": { "type": "string" },
+          "workspace_exists": { "type": "boolean" }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "timestamp", "state"],
+        "properties": {
+          "id": { "type": "integer" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "step_id": { "type": "string" },
+          "state": { "type": "string" },
+          "persona": { "type": "string" },
+          "message": { "type": "string" },
+          "tokens_used": { "type": "integer" },
+          "duration_ms": { "type": "integer" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "type": { "type": "string" },
+          "size_bytes": { "type": "integer" },
+          "preview": { "type": "string" }
+        }
+      }
+    },
+    "dag": {
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    }
+  }
+}
