@@ -4,9 +4,11 @@ Input: {{ input }}
 
 ## Working Directory
 
-You are running in an **isolated git worktree** — a full checkout of the repository.
+You are running in an **isolated git worktree** checked out at `main` (detached HEAD).
 Your working directory IS the project root. All git operations here are isolated
 from the main working tree and will not affect it.
+
+Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to get the issue details, branch name, complexity, and assessment.

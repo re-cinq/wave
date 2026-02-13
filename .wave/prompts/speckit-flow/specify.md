@@ -4,9 +4,11 @@ You are creating a feature specification for the following request:
 
 ## Working Directory
 
-You are running in an **isolated git worktree** — a full checkout of the repository.
+You are running in an **isolated git worktree** checked out at `main` (detached HEAD).
 Your working directory IS the project root. All git operations here are isolated
 from the main working tree and will not affect it.
+
+Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
 ## Instructions
 

@@ -121,7 +121,6 @@ type PipelineExecution struct {
 	Input          string
 	Status         *PipelineStatus
 	Context        *PipelineContext  // Dynamic template variables
-	StepIndex      map[string]int    // step ID -> 1-based execution order
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -204,7 +203,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
 		Context:        pipelineContext,
-		StepIndex:      make(map[string]int),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -265,7 +263,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	})
 
 	for stepIdx, step := range sortedSteps {
-		execution.StepIndex[step.ID] = stepIdx + 1
 		if err := e.executeStep(ctx, execution, step); err != nil {
 			execution.Status.State = StateFailed
 			execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
@@ -752,7 +749,14 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		if execution.Context != nil && branch != "" {
 			branch = execution.Context.ResolvePlaceholders(branch)
 		}
-		if branch == "" {
+
+		// Resolve base ref from template variables
+		base := step.Workspace.Base
+		if execution.Context != nil && base != "" {
+			base = execution.Context.ResolvePlaceholders(base)
+		}
+
+		if branch == "" && base == "" {
 			// Fall back to pipeline context branch or generate one
 			branch = execution.Context.BranchName
 			if branch == "" {
@@ -770,7 +774,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
 		}
 
-		if err := mgr.Create(absPath, branch); err != nil {
+		if err := mgr.Create(absPath, branch, base); err != nil {
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
 
@@ -1003,29 +1007,6 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
-// artifactBasePath returns the directory where artifacts (output and injected)
-// should be stored for a given step. For worktree workspaces, artifacts are
-// redirected to a numbered sidecar directory alongside the worktree to keep the
-// git checkout clean. For non-worktree workspaces, the workspace path is
-// returned unchanged.
-func (e *DefaultPipelineExecutor) artifactBasePath(execution *PipelineExecution, step *Step, workspacePath string) string {
-	if step.Workspace.Type != "worktree" || step.Workspace.Ref != "" {
-		return workspacePath
-	}
-	// workspacePath = .wave/workspaces/<pipeline>/<run-id>/<step-id>  (worktree checkout)
-	// Redirect to:    .wave/workspaces/<pipeline>/<run-id>/<NN>-<step-id>/
-	runDir := filepath.Dir(workspacePath)
-	idx := 0
-	if execution.StepIndex != nil {
-		idx = execution.StepIndex[step.ID]
-	}
-	if idx == 0 {
-		idx = 1 // fallback to avoid "00-" prefix
-	}
-	dirName := fmt.Sprintf("%02d-%s", idx, step.ID)
-	return filepath.Join(runDir, dirName)
-}
-
 func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
 	if len(step.Memory.InjectArtifacts) == 0 {
 		return nil
@@ -1083,31 +1064,11 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 }
 
 func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecution, step *Step, workspacePath string, stdout []byte) {
-	artBase := e.artifactBasePath(execution, step, workspacePath)
 	for _, art := range step.OutputArtifacts {
 		// Resolve artifact path using pipeline context
 		resolvedPath := execution.Context.ResolveArtifactPath(art)
-		artPath := filepath.Join(artBase, resolvedPath)
+		artPath := filepath.Join(workspacePath, resolvedPath)
 		key := step.ID + ":" + art.Name
-
-		// When sidecar redirect is active (artBase != workspacePath), the
-		// persona writes files in the workspace (worktree) but we register
-		// them in the sidecar. Check the workspace first.
-		if artBase != workspacePath {
-			wsArtPath := filepath.Join(workspacePath, resolvedPath)
-			if _, err := os.Stat(wsArtPath); err == nil {
-				// Copy from workspace to sidecar for registration
-				if data, readErr := os.ReadFile(wsArtPath); readErr == nil {
-					os.MkdirAll(filepath.Dir(artPath), 0755)
-					os.WriteFile(artPath, data, 0644)
-				}
-				execution.ArtifactPaths[key] = artPath
-				if e.debug {
-					fmt.Printf("[DEBUG] Artifact %s copied from worktree %s to sidecar %s\n", art.Name, wsArtPath, artPath)
-				}
-				continue
-			}
-		}
 
 		// If the persona already wrote the file, trust it and don't overwrite
 		if _, err := os.Stat(artPath); err == nil {

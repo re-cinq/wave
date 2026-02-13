@@ -16,7 +16,7 @@ steps:
     persona: implementer
     workspace:
       type: worktree
-      branch: "wave/{{ pipeline_id }}"
+      base: main
     exec:
       type: prompt
       source_path: .wave/prompts/speckit-flow/specify.md
