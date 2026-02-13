@@ -163,8 +163,31 @@ func runRun(opts RunOptions, debug bool) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	// Generate run ID once — shared by display and executor
-	runID := pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
+	// Initialize state store under .wave/ — must happen before run ID generation
+	// so we can use CreateRun() to produce IDs visible to the dashboard.
+	stateDB := ".wave/state.db"
+	store, err := state.NewStateStore(stateDB)
+	if err != nil {
+		// Non-fatal: continue without state persistence
+		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
+		store = nil
+	}
+	if store != nil {
+		defer store.Close()
+	}
+
+	// Generate run ID — prefer CreateRun() so CLI runs appear in the dashboard.
+	// Falls back to GenerateRunID() if the state store is unavailable.
+	var runID string
+	if store != nil {
+		runID, err = store.CreateRun(p.Metadata.Name, opts.Input)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", err)
+		}
+	}
+	if runID == "" {
+		runID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
+	}
 
 	// Initialize event emitter based on output format
 	result := CreateEmitter(opts.Output, runID, p.Metadata.Name, p.Steps, &m)
@@ -180,18 +203,6 @@ func runRun(opts RunOptions, debug bool) error {
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace manager: %w", err)
-	}
-
-	// Initialize state store under .wave/
-	stateDB := ".wave/state.db"
-	store, err := state.NewStateStore(stateDB)
-	if err != nil {
-		// Non-fatal: continue without state persistence
-		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
-		store = nil
-	}
-	if store != nil {
-		defer store.Close()
 	}
 
 	// Initialize audit logger under .wave/traces/
@@ -242,6 +253,17 @@ func runRun(opts RunOptions, debug bool) error {
 	} else {
 		execErr = executor.Execute(ctx, p, &m, opts.Input)
 	}
+
+	// Update the pipeline_run record so the dashboard reflects final status
+	if store != nil {
+		tokens := executor.GetTotalTokens()
+		if execErr != nil {
+			store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
+		} else {
+			store.UpdateRunStatus(runID, "completed", "", tokens)
+		}
+	}
+
 	if execErr != nil {
 		return fmt.Errorf("pipeline execution failed: %w", execErr)
 	}

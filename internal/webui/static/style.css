@@ -141,9 +141,14 @@ h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .event-step { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-bg-tertiary); padding: 0.1em 0.4em; border-radius: var(--radius-sm); }
 .event-message { color: var(--color-text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Run Detail Layout — sidebar (DAG) + main (steps/events) */
+.run-detail-layout { display: flex; gap: 1rem; align-items: flex-start; }
+.run-detail-sidebar { flex: 0 0 auto; position: sticky; top: 4.5rem; }
+.run-detail-main { flex: 1; min-width: 0; }
+
 /* DAG Visualization */
-.dag-container { overflow-x: auto; padding: 1rem 0; }
-.dag-svg { width: 100%; max-height: 400px; }
+.dag-container { overflow-x: auto; padding: 0.5rem 0; }
+.dag-svg { display: block; margin: 0 auto; }
 .dag-edge { stroke: var(--color-border-light); stroke-width: 2; fill: none; }
 .dag-node-rect { fill: var(--color-bg-tertiary); stroke: var(--color-border); stroke-width: 1.5; }
 .dag-node-rect.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }

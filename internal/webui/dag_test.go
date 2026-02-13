@@ -50,13 +50,13 @@ func TestComputeDAGLayout_LinearChain(t *testing.T) {
 		t.Errorf("expected 2 edges, got %d", len(layout.Edges))
 	}
 
-	// Verify nodes are in different layers (different X positions)
-	xPositions := make(map[int]bool)
+	// Verify nodes are in different layers (different Y positions in top-to-bottom layout)
+	yPositions := make(map[int]bool)
 	for _, n := range layout.Nodes {
-		xPositions[n.X] = true
+		yPositions[n.Y] = true
 	}
-	if len(xPositions) != 3 {
-		t.Errorf("expected 3 different X positions for linear chain, got %d", len(xPositions))
+	if len(yPositions) != 3 {
+		t.Errorf("expected 3 different Y positions for linear chain, got %d", len(yPositions))
 	}
 }
 
@@ -80,9 +80,9 @@ func TestComputeDAGLayout_Diamond(t *testing.T) {
 		t.Errorf("expected 4 edges, got %d", len(layout.Edges))
 	}
 
-	// Width should accommodate at least 3 layers
-	if layout.Width < 3*layerGapX {
-		t.Errorf("expected width >= %d for 3-layer graph, got %d", 3*layerGapX, layout.Width)
+	// Height should accommodate at least 3 layers (top-to-bottom layout)
+	if layout.Height < 3*layerGapY {
+		t.Errorf("expected height >= %d for 3-layer graph, got %d", 3*layerGapY, layout.Height)
 	}
 }
 

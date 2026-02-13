@@ -91,10 +91,11 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		return fmt.Errorf("failed to load resume state: %w", err)
 	}
 
-	// Generate a new runtime ID for this resumed execution
+	// Generate a new runtime ID for this resumed execution.
+	// Prefer CreateRun() so resumed runs appear in the dashboard.
 	pipelineName := p.Metadata.Name
 	hashLength := m.Runtime.PipelineIDHashLength
-	pipelineID := GenerateRunID(pipelineName, hashLength)
+	pipelineID := r.executor.createRunID(pipelineName, hashLength, input)
 
 	// Create new execution with preserved artifacts and state
 	execution := &PipelineExecution{

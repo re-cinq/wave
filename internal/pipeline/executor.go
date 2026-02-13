@@ -99,6 +99,18 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepTimeoutOverride = d }
 }
 
+// createRunID generates a run ID, preferring the state store's CreateRun()
+// so the run appears in the dashboard. Falls back to GenerateRunID() if
+// the store is unavailable or the call fails.
+func (e *DefaultPipelineExecutor) createRunID(name string, hashLen int, input string) string {
+	if e.store != nil {
+		if id, err := e.store.CreateRun(name, input); err == nil {
+			return id
+		}
+	}
+	return GenerateRunID(name, hashLen)
+}
+
 type PipelineExecution struct {
 	Pipeline       *Pipeline
 	Manifest       *manifest.Manifest

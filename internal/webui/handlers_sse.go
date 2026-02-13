@@ -3,8 +3,10 @@
 package webui
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // handleSSE handles GET /api/runs/{id}/events - SSE stream for real-time updates.
@@ -38,17 +40,33 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	for {
 		select {
-		case event, ok := <-ch:
+		case sseEvent, ok := <-ch:
 			if !ok {
 				return
 			}
 			// Filter events to this run's events only
-			// The SSE broker broadcasts all events; we filter here
-			// In a production system, you'd want per-run channels
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Event, event.Data)
+			if !matchesRunID(sseEvent.Data, runID) {
+				continue
+			}
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", sseEvent.Event, sseEvent.Data)
 			flusher.Flush()
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// matchesRunID checks if the SSE event data belongs to the given run ID.
+func matchesRunID(data string, runID string) bool {
+	// Quick check before full JSON parse
+	if !strings.Contains(data, runID) {
+		return false
+	}
+	var partial struct {
+		PipelineID string `json:"pipeline_id"`
+	}
+	if err := json.Unmarshal([]byte(data), &partial); err != nil {
+		return false
+	}
+	return partial.PipelineID == runID
 }

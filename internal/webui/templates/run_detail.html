@@ -1,5 +1,3 @@
-{{define "templates/run_detail.html"}}
-{{template "templates/layout.html" .}}
 {{define "title"}} - {{.Run.PipelineName}}{{end}}
 {{define "content"}}
 <div class="page-header">
@@ -24,46 +22,53 @@
 </div>
 {{end}}
 
-{{if .DAG}}
-<div class="card">
-    <h2>Pipeline Graph</h2>
-    <div id="dag-container" class="dag-container">
-        {{template "templates/partials/dag_svg.html" .DAG}}
+<div class="run-detail-layout">
+    {{if .DAG}}
+    <div class="run-detail-sidebar">
+        <div class="card">
+            <h2>Pipeline Graph</h2>
+            <div id="dag-container" class="dag-container">
+                {{template "templates/partials/dag_svg.html" .DAG}}
+            </div>
+        </div>
     </div>
-</div>
-{{end}}
+    {{end}}
 
-<div class="card">
-    <h2>Steps</h2>
-    <div class="steps-list">
-        {{range .Steps}}
-        {{template "templates/partials/step_card.html" .}}
-        {{end}}
-    </div>
-</div>
+    <div class="run-detail-main">
+        <div class="card">
+            <h2>Steps</h2>
+            <div class="steps-list">
+                {{range .Steps}}
+                {{template "templates/partials/step_card.html" .}}
+                {{end}}
+            </div>
+        </div>
 
-{{if .Events}}
-<div class="card">
-    <h2>Events</h2>
-    <div class="events-timeline">
-        {{range .Events}}
-        <div class="event-item">
-            <span class="event-time">{{formatTime .Timestamp}}</span>
-            <span class="badge {{statusClass .State}}">{{.State}}</span>
-            {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
-            <span class="event-message">{{.Message}}</span>
+        {{if .Events}}
+        <div class="card">
+            <h2>Events</h2>
+            <div class="events-timeline">
+                {{range .Events}}
+                <div class="event-item">
+                    <span class="event-time">{{formatTime .Timestamp}}</span>
+                    <span class="badge {{statusClass .State}}">{{.State}}</span>
+                    {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
+                    <span class="event-message">{{.Message}}</span>
+                </div>
+                {{end}}
+            </div>
         </div>
         {{end}}
     </div>
 </div>
 {{end}}
-{{end}}
 {{define "scripts"}}
 <script src="/static/sse.js"></script>
 <script>
-if (document.querySelector('.status-running')) {
+// Connect SSE for any non-terminal run
+var runStatus = '{{.Run.Status}}';
+if (runStatus === 'running' || runStatus === 'pending') {
     connectSSE('{{.Run.RunID}}');
 }
 </script>
-{{end}}
 {{end}}

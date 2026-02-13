@@ -23,3 +23,9 @@ func (b *SSEBroker) EmitProgress(ev event.Event) error {
 
 	return nil
 }
+
+// Emit implements event.EventEmitter so the broker can be used as the
+// executor's event sink, bridging pipeline progress into SSE streams.
+func (b *SSEBroker) Emit(ev event.Event) {
+	_ = b.EmitProgress(ev)
+}
