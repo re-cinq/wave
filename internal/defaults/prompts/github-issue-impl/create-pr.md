@@ -16,6 +16,12 @@ Run this FIRST before any other bash commands.
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to find the issue number, repository, branch name, and issue URL.
 
+## SAFETY: Do NOT Modify the Working Tree
+
+This step MUST NOT run `git checkout`, `git stash`, or any command that changes
+the current branch or working tree state. The branch already exists from the
+implement step — just push it and create the PR.
+
 ## Instructions
 
 ### Step 1: Load Context
@@ -26,41 +32,20 @@ Read `artifacts/issue_assessment` to extract:
 - Branch name
 - Issue URL
 
-### Step 2: Check Out Branch and Verify
+### Step 2: Push the Branch
+
+Push the feature branch without checking it out:
 
 ```bash
-git checkout <BRANCH_NAME>
+git push -u origin <BRANCH_NAME>
 ```
 
-Run final test validation:
-```bash
-go test -race ./...
-```
+### Step 3: Create Pull Request
 
-If tests fail, fix them before proceeding.
-
-### Step 3: Stage and Commit
-
-1. Review all changes with `git status` and `git diff`
-2. Stage relevant files — exclude sensitive files (.env, credentials)
-3. Create well-structured commits:
-   - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
-   - Write concise commit messages focused on the "why"
-   - Do NOT include Co-Authored-By or AI attribution lines
-   - Reference the issue number in the commit message (e.g. `feat: add X for #42`)
-
-### Step 4: Push
+Create the PR using `gh pr create` with `--head` to target the branch. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
 
 ```bash
-git push -u origin HEAD
-```
-
-### Step 5: Create Pull Request
-
-Create the PR using `gh pr create`. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
-
-```bash
-gh pr create --repo <OWNER/REPO> --title "<concise title>" --body "$(cat <<'EOF'
+gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
@@ -75,7 +60,7 @@ EOF
 )"
 ```
 
-### Step 6: Request Copilot Review (Best-Effort)
+### Step 4: Request Copilot Review (Best-Effort)
 
 After the PR is created, attempt to add Copilot as a reviewer:
 ```bash
@@ -87,6 +72,7 @@ This is a best-effort command. If Copilot isn't available in the repository, the
 ## CONSTRAINTS
 
 - Do NOT spawn Task subagents — work directly in the main context
+- Do NOT run `git checkout`, `git stash`, or any branch-switching commands
 - The PR body MUST contain `Closes #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
