@@ -203,10 +203,6 @@ func validateRuntime(r *Runtime, basePath string) *ValidationError {
 	return nil
 }
 
-func validateAdapters(adapters map[string]Adapter, basePath string) []error {
-	return validateAdaptersWithFile(adapters, basePath, "")
-}
-
 func validateAdaptersWithFile(adapters map[string]Adapter, basePath, filePath string) []error {
 	var errs []error
 	for name, adapter := range adapters {
@@ -228,10 +224,6 @@ func validateAdaptersWithFile(adapters map[string]Adapter, basePath, filePath st
 		}
 	}
 	return errs
-}
-
-func validatePersonasList(personas map[string]Persona, adapters map[string]Adapter, basePath string) []error {
-	return validatePersonasListWithFile(personas, adapters, basePath, "")
 }
 
 func validatePersonasListWithFile(personas map[string]Persona, adapters map[string]Adapter, basePath, filePath string) []error {
@@ -289,10 +281,6 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 		}
 	}
 	return errs
-}
-
-func validateSkillMounts(mounts []SkillMount, basePath string) []error {
-	return validateSkillMountsWithFile(mounts, basePath, "")
 }
 
 func validateSkillMountsWithFile(mounts []SkillMount, basePath, filePath string) []error {
