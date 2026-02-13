@@ -62,7 +62,7 @@ type RelayMonitor struct {
 // NewRelayMonitor creates a new RelayMonitor with the given configuration.
 func NewRelayMonitor(cfg RelayMonitorConfig, adapter CompactionAdapter) *RelayMonitor {
 	if cfg.DefaultThreshold == 0 {
-		cfg.DefaultThreshold = 80
+		cfg.DefaultThreshold = 70
 	}
 	if cfg.MinTokensToCompact == 0 {
 		cfg.MinTokensToCompact = 1000

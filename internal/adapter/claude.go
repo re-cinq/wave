@@ -139,8 +139,17 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		if cmd.Process != nil {
 			killProcessGroup(cmd.Process)
 		}
+		// Wait briefly for stdout to drain so we can capture diagnostic data
+		select {
+		case <-stdoutDone:
+		case <-time.After(1 * time.Second):
+		}
 		cmd.Wait()
-		return nil, ctx.Err()
+
+		// Parse buffered output for token usage and subtype even on timeout
+		parsed := a.parseOutput(stdoutBuf.Bytes())
+		reason := ClassifyFailure(parsed.Subtype, parsed.ResultContent, ctx.Err())
+		return nil, NewStepError(reason, ctx.Err(), parsed.Tokens, parsed.Subtype)
 	case err := <-stdoutDone:
 		if err != nil {
 			return nil, fmt.Errorf("failed to read stdout: %w", err)
@@ -160,28 +169,34 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		result.ExitCode = exitCodeFromError(cmdErr)
 	}
 
-	tokens, artifacts, resultContent := a.parseOutput(stdoutBuf.Bytes())
-	result.TokensUsed = tokens
-	result.Artifacts = artifacts
+	parsed := a.parseOutput(stdoutBuf.Bytes())
+	result.TokensUsed = parsed.Tokens
+	result.Artifacts = parsed.Artifacts
+	result.Subtype = parsed.Subtype
+
+	// Classify failure for non-zero exit codes with context exhaustion indicators
+	if result.ExitCode != 0 || parsed.Subtype == "error_max_turns" || parsed.Subtype == "error_during_execution" {
+		result.FailureReason = ClassifyFailure(parsed.Subtype, parsed.ResultContent, nil)
+	}
 
 	// Apply output validation and correction
-	correctedContent, err := a.validateAndCorrectOutput(resultContent, cfg.OutputFormat)
+	correctedContent, err := a.validateAndCorrectOutput(parsed.ResultContent, cfg.OutputFormat)
 	if err != nil && cfg.Debug {
 		fmt.Printf("[DEBUG] Output validation/correction failed: %v\n", err)
 		fmt.Printf("[DEBUG] Using original content\n")
-		result.ResultContent = resultContent
+		result.ResultContent = parsed.ResultContent
 	} else {
 		result.ResultContent = correctedContent
 	}
 
 	if cfg.Debug {
 		fmt.Printf("[DEBUG] Claude exit code: %d\n", result.ExitCode)
-		fmt.Printf("[DEBUG] Claude tokens used: %d\n", tokens)
+		fmt.Printf("[DEBUG] Claude tokens used: %d\n", parsed.Tokens)
 		if stderrBuf.Len() > 0 {
 			fmt.Printf("[DEBUG] Claude stderr:\n%s\n", stderrBuf.String())
 		}
 		fmt.Printf("[DEBUG] Claude raw output (%d bytes):\n%s\n", stdoutBuf.Len(), stdoutBuf.String())
-		fmt.Printf("[DEBUG] Extracted result content (%d chars):\n%s\n", len(resultContent), resultContent)
+		fmt.Printf("[DEBUG] Extracted result content (%d chars):\n%s\n", len(parsed.ResultContent), parsed.ResultContent)
 	}
 
 	return result, nil
@@ -370,11 +385,20 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	return args
 }
 
-func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
+// parseOutputResult holds the parsed output data from NDJSON stream.
+type parseOutputResult struct {
+	Tokens        int
+	Artifacts     []string
+	ResultContent string
+	Subtype       string // Result event subtype: "success", "error_max_turns", "error_during_execution"
+}
+
+func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 	var resultTokens int
 	var assistantTokens int
 	var artifacts []string
 	var resultContent string
+	var subtype string
 
 	lines := bytes.Split(data, []byte("\n"))
 	for _, line := range lines {
@@ -389,6 +413,7 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 		// Without counting these, token counts appear artificially low.
 		var obj struct {
 			Type    string `json:"type"`
+			Subtype string `json:"subtype"`
 			Result  string `json:"result"`
 			Usage   struct {
 				InputTokens              int `json:"input_tokens"`
@@ -416,6 +441,7 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 			resultTokens = obj.Usage.InputTokens + obj.Usage.OutputTokens +
 				obj.Usage.CacheReadInputTokens + obj.Usage.CacheCreationInputTokens
 			resultContent = obj.Result
+			subtype = obj.Subtype
 		case "assistant":
 			// Take the last assistant event's usage (not sum), since each turn's
 			// input_tokens already includes the full conversation history.
@@ -442,7 +468,12 @@ func (a *ClaudeAdapter) parseOutput(data []byte) (int, []string, string) {
 		}
 	}
 
-	return tokens, artifacts, resultContent
+	return parseOutputResult{
+		Tokens:        tokens,
+		Artifacts:     artifacts,
+		ResultContent: resultContent,
+		Subtype:       subtype,
+	}
 }
 
 // parseStreamLine parses a single NDJSON line from Claude Code's stream-json output
@@ -479,10 +510,15 @@ func parseStreamLine(line []byte) (StreamEvent, bool) {
 		if raw, ok := obj["usage"]; ok {
 			json.Unmarshal(raw, &usage)
 		}
+		var subtype string
+		if raw, ok := obj["subtype"]; ok {
+			json.Unmarshal(raw, &subtype)
+		}
 		return StreamEvent{
 			Type:      "result",
 			TokensIn:  usage.InputTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens,
 			TokensOut: usage.OutputTokens,
+			Subtype:   subtype,
 		}, true
 
 	default:

@@ -28,6 +28,10 @@ type Event struct {
 	ValidationPhase string  `json:"validation_phase,omitempty"`  // Contract validation phase
 	CompactionStats *string `json:"compaction_stats,omitempty"`  // Compaction statistics (JSON)
 
+	// Error classification fields (context exhaustion handling)
+	FailureReason string `json:"failure_reason,omitempty"` // "timeout", "context_exhaustion", "general_error"
+	Remediation   string `json:"remediation,omitempty"`    // Actionable suggestion for the user
+
 	// Stream event fields (real-time Claude Code activity)
 	ToolName   string `json:"tool_name,omitempty"`   // Tool being used (Read, Write, Bash, etc.)
 	ToolTarget string `json:"tool_target,omitempty"` // Target (file path, command, pattern)

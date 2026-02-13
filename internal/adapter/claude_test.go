@@ -942,6 +942,39 @@ func TestParseStreamLine(t *testing.T) {
 			},
 		},
 		{
+			name:   "result type with subtype success",
+			line:   []byte(`{"type":"result","subtype":"success","usage":{"input_tokens":2000,"output_tokens":800}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:      "result",
+				TokensIn:  2000,
+				TokensOut: 800,
+				Subtype:   "success",
+			},
+		},
+		{
+			name:   "result type with subtype error_max_turns",
+			line:   []byte(`{"type":"result","subtype":"error_max_turns","usage":{"input_tokens":180000,"output_tokens":20000}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:      "result",
+				TokensIn:  180000,
+				TokensOut: 20000,
+				Subtype:   "error_max_turns",
+			},
+		},
+		{
+			name:   "result type with subtype error_during_execution",
+			line:   []byte(`{"type":"result","subtype":"error_during_execution","usage":{"input_tokens":500,"output_tokens":100}}`),
+			wantOK: true,
+			wantEvent: StreamEvent{
+				Type:      "result",
+				TokensIn:  500,
+				TokensOut: 100,
+				Subtype:   "error_during_execution",
+			},
+		},
+		{
 			name:   "malformed JSON",
 			line:   []byte(`not json at all`),
 			wantOK: false,
@@ -993,6 +1026,9 @@ func TestParseStreamLine(t *testing.T) {
 			}
 			if got.TokensOut != tt.wantEvent.TokensOut {
 				t.Errorf("TokensOut = %d, want %d", got.TokensOut, tt.wantEvent.TokensOut)
+			}
+			if got.Subtype != tt.wantEvent.Subtype {
+				t.Errorf("Subtype = %q, want %q", got.Subtype, tt.wantEvent.Subtype)
 			}
 		})
 	}
@@ -1255,5 +1291,61 @@ func TestSkillCommandsDir_NonExistent(t *testing.T) {
 	// Should not error - silently skip non-existent source
 	if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
 		t.Fatalf("prepareWorkspace should not fail for non-existent source: %v", err)
+	}
+}
+
+// TestParseOutputSubtype verifies that parseOutput extracts the subtype field
+// from NDJSON result events for error classification.
+func TestParseOutputSubtype(t *testing.T) {
+	adapter := NewClaudeAdapter()
+
+	tests := []struct {
+		name        string
+		data        string
+		wantSubtype string
+		wantTokens  int
+	}{
+		{
+			name:        "result with success subtype",
+			data:        `{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":1000,"output_tokens":500}}` + "\n",
+			wantSubtype: "success",
+			wantTokens:  1500,
+		},
+		{
+			name:        "result with error_max_turns subtype",
+			data:        `{"type":"result","subtype":"error_max_turns","result":"exceeded max turns","usage":{"input_tokens":180000,"output_tokens":20000}}` + "\n",
+			wantSubtype: "error_max_turns",
+			wantTokens:  200000,
+		},
+		{
+			name:        "result with error_during_execution subtype",
+			data:        `{"type":"result","subtype":"error_during_execution","result":"prompt is too long","usage":{"input_tokens":5000,"output_tokens":100}}` + "\n",
+			wantSubtype: "error_during_execution",
+			wantTokens:  5100,
+		},
+		{
+			name:        "result without subtype field",
+			data:        `{"type":"result","result":"done","usage":{"input_tokens":1000,"output_tokens":500}}` + "\n",
+			wantSubtype: "",
+			wantTokens:  1500,
+		},
+		{
+			name:        "no result event falls back to assistant tokens",
+			data:        `{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":100,"output_tokens":50}}}` + "\n",
+			wantSubtype: "",
+			wantTokens:  150,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := adapter.parseOutput([]byte(tt.data))
+			if parsed.Subtype != tt.wantSubtype {
+				t.Errorf("Subtype = %q, want %q", parsed.Subtype, tt.wantSubtype)
+			}
+			if parsed.Tokens != tt.wantTokens {
+				t.Errorf("Tokens = %d, want %d", parsed.Tokens, tt.wantTokens)
+			}
+		})
 	}
 }
