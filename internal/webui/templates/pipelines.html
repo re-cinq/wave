@@ -1,0 +1,55 @@
+{{define "title"}} - Pipelines{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Pipelines</h1>
+</div>
+{{if .Pipelines}}
+<div class="personas-grid">
+    {{range .Pipelines}}
+    <div class="card persona-card">
+        <h3>{{.Name}}</h3>
+        {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
+        <div class="persona-meta">
+            <span class="badge">{{.StepCount}} steps</span>
+        </div>
+        {{if .Steps}}
+        <div class="persona-tools">
+            <strong>Steps:</strong>
+            {{range .Steps}}<code>{{.}}</code> {{end}}
+        </div>
+        {{end}}
+        <div style="margin-top: 0.5rem;">
+            <button class="btn btn-primary" onclick="quickStart('{{.Name}}')">Start</button>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No pipelines found. Add pipeline YAML files to <code>.wave/pipelines/</code>.</p>
+</div>
+{{end}}
+{{end}}
+{{define "scripts"}}
+<script>
+function quickStart(name) {
+    var input = prompt('Pipeline input (optional):');
+    if (input === null) return;
+    fetch('/api/pipelines/' + encodeURIComponent(name) + '/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({input: input || ''})
+    }).then(function(resp) {
+        if (resp.ok) {
+            return resp.json().then(function(data) {
+                window.location.href = '/runs/' + data.run_id;
+            });
+        } else {
+            return resp.json().then(function(err) {
+                alert('Failed: ' + (err.error || resp.statusText));
+            });
+        }
+    });
+}
+</script>
+{{end}}

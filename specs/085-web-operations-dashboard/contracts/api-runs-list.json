@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /api/runs — Pipeline Run List",
+  "description": "Returns a paginated list of pipeline runs with cursor-based pagination. Supports filtering by status, pipeline name, and time range. (FR-003, FR-006, FR-017)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "GET" },
+        "path": { "const": "/api/runs" },
+        "query_parameters": {
+          "type": "object",
+          "properties": {
+            "cursor": {
+              "type": "string",
+              "description": "Base64-encoded pagination cursor {t: unix_timestamp, id: run_id}"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "description": "Number of runs per page"
+            },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "running", "completed", "failed", "cancelled"],
+              "description": "Filter by run status"
+            },
+            "pipeline": {
+              "type": "string",
+              "description": "Filter by pipeline name"
+            },
+            "since": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Filter runs started after this timestamp"
+            }
+          }
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["runs", "has_more"],
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["run_id", "pipeline_name", "status", "started_at"],
+            "properties": {
+              "run_id": { "type": "string" },
+              "pipeline_name": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "running", "completed", "failed", "cancelled"]
+              },
+              "current_step": { "type": "string" },
+              "total_tokens": { "type": "integer", "minimum": 0 },
+              "started_at": { "type": "string", "format": "date-time" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "duration": { "type": "string", "description": "Human-readable duration" },
+              "tags": { "type": "array", "items": { "type": "string" } },
+              "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "error_message": { "type": "string" }
+            }
+          }
+        },
+        "next_cursor": {
+          "type": "string",
+          "description": "Cursor for next page, absent if no more results"
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Whether more results exist beyond this page"
+        }
+      }
+    }
+  }
+}
