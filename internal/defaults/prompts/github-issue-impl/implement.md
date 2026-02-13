@@ -2,17 +2,6 @@ You are implementing a GitHub issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
-
-You are running in an **isolated git worktree** — your changes cannot affect the main working tree.
-Before running any commands, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
-
 The issue assessment is available at `artifacts/issue_assessment`.
 The implementation plan is available at `artifacts/plan`.
 

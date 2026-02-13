@@ -2,17 +2,6 @@ You are creating a pull request for the implemented GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
-
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
-
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to find the issue number, repository, branch name, and issue URL.
 

@@ -2,17 +2,6 @@ You are implementing a feature according to the specification, plan, and task br
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
-
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
-
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
@@ -20,13 +9,12 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.implement` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
-3. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
+1. Read `artifacts/spec_info`
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR, load tasks.md, plan.md, and all available artifacts
-4. Check checklists status — if any are incomplete, note them but proceed
-5. Parse tasks.md and extract phase structure, dependencies, and execution order
-6. Execute implementation phase-by-phase:
+3. Check checklists status — if any are incomplete, note them but proceed
+4. Parse tasks.md and extract phase structure, dependencies, and execution order
+5. Execute implementation phase-by-phase:
 
    **Setup first**: Initialize project structure, dependencies, configuration
    **Tests before code**: Write tests for contracts and entities (TDD approach)
@@ -34,9 +22,9 @@ Follow the `/speckit.implement` workflow:
    **Integration**: Database connections, middleware, logging, external services
    **Polish**: Unit tests, performance optimization, documentation
 
-7. For each completed task, mark it as `[X]` in tasks.md
-8. Run `go test -race ./...` after each phase to catch regressions early
-9. Final validation: verify all tasks complete, tests pass, spec requirements met
+6. For each completed task, mark it as `[X]` in tasks.md
+7. Run `go test -race ./...` after each phase to catch regressions early
+8. Final validation: verify all tasks complete, tests pass, spec requirements met
 
 ## Agent Usage — USE UP TO 6 AGENTS
 

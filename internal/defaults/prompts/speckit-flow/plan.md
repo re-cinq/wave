@@ -2,17 +2,6 @@ You are creating an implementation plan for a feature specification.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
-
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
-
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
@@ -20,12 +9,11 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.plan` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
-3. Run `.specify/scripts/bash/setup-plan.sh --json` to get FEATURE_SPEC, IMPL_PLAN,
+1. Read `artifacts/spec_info`
+2. Run `.specify/scripts/bash/setup-plan.sh --json` to get FEATURE_SPEC, IMPL_PLAN,
    SPECS_DIR, and BRANCH paths
-4. Load the feature spec and `.specify/memory/constitution.md`
-5. Follow the plan template phases:
+3. Load the feature spec and `.specify/memory/constitution.md`
+4. Follow the plan template phases:
 
    **Phase 0 — Outline & Research**:
    - Extract unknowns from the spec (NEEDS CLARIFICATION markers, tech decisions)
@@ -37,8 +25,8 @@ Follow the `/speckit.plan` workflow:
    - Generate API contracts from functional requirements → `/contracts/`
    - Run `.specify/scripts/bash/update-agent-context.sh claude`
 
-6. Evaluate constitution compliance at each phase gate
-7. Stop after Phase 1 — report branch, plan path, and generated artifacts
+5. Evaluate constitution compliance at each phase gate
+6. Stop after Phase 1 — report branch, plan path, and generated artifacts
 
 ## CONSTRAINTS
 

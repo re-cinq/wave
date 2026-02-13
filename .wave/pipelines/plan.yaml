@@ -12,11 +12,8 @@ steps:
   - id: explore
     persona: navigator
     workspace:
-      root: ./
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -81,7 +78,8 @@ steps:
           artifact: exploration
           as: context
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -161,7 +159,8 @@ steps:
           artifact: tasks
           as: task_list
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |

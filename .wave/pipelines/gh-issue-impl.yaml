@@ -14,7 +14,8 @@ steps:
   - id: fetch-assess
     persona: implementer
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/fetch-assess.md
@@ -40,7 +41,8 @@ steps:
           artifact: assessment
           as: issue_assessment
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/plan.md
@@ -94,7 +96,8 @@ steps:
           artifact: assessment
           as: issue_assessment
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/create-pr.md

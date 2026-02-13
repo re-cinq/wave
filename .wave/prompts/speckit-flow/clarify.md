@@ -2,17 +2,6 @@ You are refining a feature specification by identifying and resolving ambiguitie
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
-
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
-
 A status report from the previous step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
@@ -20,18 +9,16 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.clarify` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` to find the feature directory and spec file path
-3. Check out the feature branch identified in the status report
-4. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
-5. Load the current spec and perform a focused ambiguity scan across:
+1. Read `artifacts/spec_info` to find the feature directory and spec file path
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
+3. Load the current spec and perform a focused ambiguity scan across:
    - Functional scope and domain model
    - Integration points and edge cases
    - Terminology consistency
-6. Generate up to 5 clarification questions (prioritized)
-7. For each question, select the best option based on codebase context
-8. Integrate each resolution directly into the spec file
-9. Save the updated spec
+4. Generate up to 5 clarification questions (prioritized)
+5. For each question, select the best option based on codebase context
+6. Integrate each resolution directly into the spec file
+7. Save the updated spec
 
 ## CONSTRAINTS
 
