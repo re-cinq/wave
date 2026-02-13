@@ -34,7 +34,8 @@ func TestDashboard_Render(t *testing.T) {
 			"step2": StateRunning,
 			"step3": StateNotStarted,
 		},
-		Message: "Processing",
+		StepOrder: []string{"step1", "step2", "step3"},
+		Message:   "Processing",
 	}
 
 	// Test rendering
@@ -151,6 +152,7 @@ func TestDashboard_RenderPanels(t *testing.T) {
 			"step2": StateNotStarted,
 			"step3": StateNotStarted,
 		},
+		StepOrder: []string{"step1", "step2", "step3"},
 	}
 
 	// Test individual panel rendering
@@ -170,9 +172,19 @@ func TestDashboard_RenderPanels(t *testing.T) {
 
 	t.Run("step status panel", func(t *testing.T) {
 		panel := dashboard.renderStepStatusPanel(ctx)
-		// Panel shows step info (step ID or "No steps"), not a header
+		// Panel shows all steps with their status
 		if panel == "" {
 			t.Error("Step status panel should not be empty")
+		}
+		// Should contain all step IDs
+		if !strings.Contains(panel, "step1") {
+			t.Error("Step status panel should contain step1")
+		}
+		if !strings.Contains(panel, "step2") {
+			t.Error("Step status panel should contain step2")
+		}
+		if !strings.Contains(panel, "step3") {
+			t.Error("Step status panel should contain step3")
 		}
 	})
 
@@ -193,6 +205,7 @@ func TestDashboard_Clear(t *testing.T) {
 		StepStatuses: map[string]ProgressState{
 			"step1": StateRunning,
 		},
+		StepOrder: []string{"step1"},
 	}
 
 	// Render then clear
