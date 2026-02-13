@@ -5,6 +5,7 @@ package webui
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -86,18 +87,8 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get step progress
-	steps, _ := s.store.GetAllStepProgress(runID)
-	stepDetails := make([]StepDetail, len(steps))
-	for i, sp := range steps {
-		// Get artifacts for this step
-		arts, _ := s.store.GetArtifacts(runID, sp.StepID)
-		artSummaries := make([]ArtifactSummary, len(arts))
-		for j, a := range arts {
-			artSummaries[j] = artifactToSummary(a)
-		}
-		stepDetails[i] = stepProgressToDetail(sp, artSummaries)
-	}
+	// Get step details from step_state table (what the executor writes to)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
 	// Get events
 	events, _ := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
@@ -158,12 +149,8 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		nextCursor = encodeCursor(lastRun.StartedAt, lastRun.RunID)
 	}
 
-	// Get pipeline names for the start form
-	var pipelineNames []string
-	if s.manifest != nil {
-		// List pipeline files from .wave/pipelines/
-		pipelineNames = listPipelineNames()
-	}
+	// Get pipeline names for the start form from .wave/pipelines/
+	pipelineNames := listPipelineNames()
 
 	data := struct {
 		Runs       []RunSummary
@@ -178,7 +165,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates.ExecuteTemplate(w, "templates/runs.html", data); err != nil {
+	if err := s.templates["templates/runs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
@@ -197,16 +184,13 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get step progress
-	steps, _ := s.store.GetAllStepProgress(runID)
-	stepDetails := make([]StepDetail, len(steps))
-	for i, sp := range steps {
-		arts, _ := s.store.GetArtifacts(runID, sp.StepID)
-		artSummaries := make([]ArtifactSummary, len(arts))
-		for j, a := range arts {
-			artSummaries[j] = artifactToSummary(a)
-		}
-		stepDetails[i] = stepProgressToDetail(sp, artSummaries)
+	// Get step details from step_state table (what the executor writes to)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+
+	// Build step status map for DAG
+	stepStatusMap := make(map[string]string)
+	for _, sd := range stepDetails {
+		stepStatusMap[sd.StepID] = sd.State
 	}
 
 	// Get events
@@ -216,19 +200,39 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		eventSummaries[i] = eventToSummary(e)
 	}
 
+	// Compute DAG layout from pipeline definition
+	var dagLayout *DAGLayout
+	if p, err := loadPipelineYAML(run.PipelineName); err == nil {
+		var dagSteps []DAGStepInput
+		for _, step := range p.Steps {
+			status := "pending"
+			if s, ok := stepStatusMap[step.ID]; ok {
+				status = s
+			}
+			dagSteps = append(dagSteps, DAGStepInput{
+				ID:           step.ID,
+				Persona:      step.Persona,
+				Status:       status,
+				Dependencies: step.Dependencies,
+			})
+		}
+		dagLayout = ComputeDAGLayout(dagSteps)
+	}
+
 	data := struct {
 		Run    RunSummary
 		Steps  []StepDetail
 		Events []EventSummary
-		DAG    *DAGData
+		DAG    *DAGLayout
 	}{
 		Run:    runToSummary(*run),
 		Steps:  stepDetails,
 		Events: eventSummaries,
+		DAG:    dagLayout,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates.ExecuteTemplate(w, "templates/run_detail.html", data); err != nil {
+	if err := s.templates["templates/run_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -277,6 +281,126 @@ func stepProgressToDetail(sp state.StepProgressRecord, artifacts []ArtifactSumma
 	}
 
 	return d
+}
+
+// buildStepDetails derives step details from the event_log table combined with
+// the pipeline definition. We use events rather than step_state because the
+// step_state table has a unique constraint on step_id alone (not per-pipeline),
+// causing cross-run collisions.
+func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
+	// Load pipeline definition to get ordered step list with personas
+	p, err := loadPipelineYAML(pipelineName)
+	if err != nil {
+		log.Printf("[webui] buildStepDetails: failed to load pipeline %q: %v", pipelineName, err)
+		return nil
+	}
+
+	// Get all events for this run
+	events, _ := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	log.Printf("[webui] buildStepDetails: runID=%s pipeline=%s steps=%d events=%d", runID, pipelineName, len(p.Steps), len(events))
+
+	// Build step state from events: track latest state, timestamps, tokens per step
+	type stepInfo struct {
+		state      string
+		persona    string
+		startedAt  *time.Time
+		completedAt *time.Time
+		tokens     int
+		durationMs int64
+		errMsg     string
+	}
+	stepMap := make(map[string]*stepInfo)
+
+	for _, ev := range events {
+		if ev.StepID == "" {
+			continue
+		}
+		si, exists := stepMap[ev.StepID]
+		if !exists {
+			si = &stepInfo{}
+			stepMap[ev.StepID] = si
+		}
+		if ev.Persona != "" {
+			si.persona = ev.Persona
+		}
+
+		// Track state transitions
+		switch ev.State {
+		case "running":
+			if si.startedAt == nil {
+				t := ev.Timestamp
+				si.startedAt = &t
+			}
+			si.state = "running"
+		case "completed":
+			t := ev.Timestamp
+			si.completedAt = &t
+			si.state = "completed"
+		case "failed":
+			t := ev.Timestamp
+			si.completedAt = &t
+			si.state = "failed"
+			si.errMsg = ev.Message
+		}
+
+		if ev.TokensUsed > si.tokens {
+			si.tokens = ev.TokensUsed
+		}
+		if ev.DurationMs > si.durationMs {
+			si.durationMs = ev.DurationMs
+		}
+	}
+
+	// Build details in pipeline step order
+	details := make([]StepDetail, 0, len(p.Steps))
+	for _, step := range p.Steps {
+		sd := StepDetail{
+			StepID:  step.ID,
+			Persona: step.Persona,
+			State:   "pending",
+		}
+
+		if si, ok := stepMap[step.ID]; ok {
+			if si.state != "" {
+				sd.State = si.state
+			}
+			if si.persona != "" {
+				sd.Persona = si.persona
+			}
+			sd.StartedAt = si.startedAt
+			sd.CompletedAt = si.completedAt
+			sd.TokensUsed = si.tokens
+			sd.Error = si.errMsg
+
+			// Calculate progress
+			switch sd.State {
+			case "completed":
+				sd.Progress = 100
+			case "running":
+				sd.Progress = 50
+			}
+
+			// Calculate duration
+			if si.startedAt != nil {
+				if si.completedAt != nil {
+					sd.Duration = formatDurationValue(si.completedAt.Sub(*si.startedAt))
+				} else if sd.State == "running" {
+					sd.Duration = formatDurationValue(time.Since(*si.startedAt))
+				}
+			}
+		}
+
+		arts, _ := s.store.GetArtifacts(runID, step.ID)
+		artSummaries := make([]ArtifactSummary, len(arts))
+		for j, a := range arts {
+			artSummaries[j] = artifactToSummary(a)
+		}
+		sd.Artifacts = artSummaries
+
+		details = append(details, sd)
+	}
+
+	return details
 }
 
 func eventToSummary(e state.LogRecord) EventSummary {
