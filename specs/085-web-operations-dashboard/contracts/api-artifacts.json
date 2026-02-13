@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /api/runs/{id}/artifacts/{step}/{name} — Artifact Content",
+  "description": "Serves artifact file content with credential redaction and size limits. (FR-011, FR-016, SR-003, SR-005)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "GET" },
+        "path": {
+          "type": "string",
+          "pattern": "^/api/runs/[a-zA-Z0-9_-]+/artifacts/[a-zA-Z0-9_-]+/.+$"
+        },
+        "query_parameters": {
+          "type": "object",
+          "properties": {
+            "raw": {
+              "type": "boolean",
+              "default": false,
+              "description": "If true, download raw file without redaction (text/plain)"
+            }
+          }
+        }
+      }
+    },
+    "response_200": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "File content with credentials redacted. Truncated at 1 MB with truncation indicator."
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string" },
+            "size_bytes": { "type": "integer" },
+            "truncated": { "type": "boolean" },
+            "mime_type": { "type": "string" }
+          }
+        }
+      }
+    },
+    "response_404": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "type": "string", "description": "Artifact not found or workspace cleaned up" }
+      }
+    },
+    "response_403": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "type": "string", "description": "Path traversal attempt detected" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "path_validation": {
+          "type": "string",
+          "description": "All artifact paths validated against workspace root to prevent path traversal (SR-003)"
+        },
+        "credential_redaction": {
+          "type": "string",
+          "description": "Known credential patterns redacted before display (FR-016)"
+        },
+        "xss_prevention": {
+          "type": "string",
+          "description": "All output HTML-escaped, Content-Type set to text/plain for raw downloads (SR-005)"
+        },
+        "size_limit": {
+          "type": "string",
+          "description": "Files >1MB truncated with download option for full file"
+        }
+      }
+    }
+  }
+}
