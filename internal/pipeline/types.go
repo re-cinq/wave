@@ -76,6 +76,7 @@ type WorkspaceConfig struct {
 	Mount  []Mount `yaml:"mount,omitempty"`
 	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for legacy directory
 	Branch string  `yaml:"branch,omitempty"` // Branch name for worktree workspaces
+	Ref    string  `yaml:"ref,omitempty"`    // Reference another step's workspace (shared worktree)
 }
 
 type Mount struct {

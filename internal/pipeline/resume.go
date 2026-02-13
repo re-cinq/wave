@@ -154,7 +154,15 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 			break // Don't include the target step in completed steps
 		}
 
+		// Resolve workspace path for this step
 		stepWorkspace := filepath.Join(workspaceRoot, step.ID)
+		if step.Workspace.Ref != "" {
+			// Ref steps share the referenced step's workspace
+			if refPath, ok := state.WorkspacePaths[step.Workspace.Ref]; ok {
+				stepWorkspace = refPath
+			}
+		}
+
 		if _, err := os.Stat(stepWorkspace); err == nil {
 			// Step workspace exists, mark as completed
 			state.States[step.ID] = StateCompleted
@@ -165,8 +173,8 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 			for _, artifact := range step.OutputArtifacts {
 				artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
 				var artifactPath string
-				if step.Workspace.Type == "worktree" {
-					// Artifacts stored in numbered dirs alongside worktree: <NN>-<step-id>/
+				if step.Workspace.Type == "worktree" && step.Workspace.Ref == "" {
+					// Own worktree: artifacts stored in numbered dirs alongside worktree
 					pattern := filepath.Join(workspaceRoot, "*", fmt.Sprintf("*-%s", step.ID))
 					entries, _ := filepath.Glob(pattern)
 					if len(entries) > 0 {
@@ -175,6 +183,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 						artifactPath = filepath.Join(stepWorkspace, artifact.Path)
 					}
 				} else {
+					// Regular, ref, or mounted workspace: artifacts in workspace dir
 					artifactPath = filepath.Join(stepWorkspace, artifact.Path)
 				}
 				state.ArtifactPaths[artifactKey] = artifactPath

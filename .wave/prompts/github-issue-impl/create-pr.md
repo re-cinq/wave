@@ -2,16 +2,12 @@ You are creating a pull request for the implemented GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by the
+plan step and is already checked out. All git operations here are isolated from
+the main working tree.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to find the issue number, repository, branch name, and issue URL.
