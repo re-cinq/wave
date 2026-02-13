@@ -1,5 +1,54 @@
 // Wave Dashboard - Main Application JS
 
+// Theme: init from localStorage or system preference, default dark
+function initTheme() {
+    var saved = localStorage.getItem('wave-theme');
+    if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+    }
+    updateToggleIcon();
+}
+
+function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var isDark;
+    if (current === 'light') {
+        isDark = true;
+    } else if (current === 'dark') {
+        isDark = false;
+    } else {
+        // No explicit theme — check system preference
+        isDark = !window.matchMedia('(prefers-color-scheme: light)').matches;
+    }
+
+    var next = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('wave-theme', next);
+    updateToggleIcon();
+}
+
+function updateToggleIcon() {
+    var btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    var theme = document.documentElement.getAttribute('data-theme');
+    if (!theme) {
+        // Use system preference to determine current icon
+        theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    // Moon for dark mode, sun for light mode
+    btn.innerHTML = theme === 'light' ? '&#9728;' : '&#9790;';
+    btn.title = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+}
+
+// Initialize theme on load
+initTheme();
+
+// Bind toggle button
+(function() {
+    var btn = document.getElementById('theme-toggle');
+    if (btn) btn.addEventListener('click', toggleTheme);
+})();
+
 // Toggle start pipeline form
 function toggleStartForm() {
     const form = document.getElementById('start-form');

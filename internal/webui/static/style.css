@@ -1,5 +1,12 @@
 /* Wave Dashboard */
 :root {
+    /* Wave brand colors */
+    --wave-primary: #4f46e5;
+    --wave-primary-hover: #4338ca;
+    --wave-accent: #8b5cf6;
+    --wave-secondary: #06b6d4;
+
+    /* Dark mode (default) */
     --color-bg: #0d1117;
     --color-bg-secondary: #161b22;
     --color-bg-tertiary: #21262d;
@@ -8,25 +15,83 @@
     --color-text: #e6edf3;
     --color-text-secondary: #8b949e;
     --color-text-muted: #6e7681;
-    --color-link: #58a6ff;
-    --color-link-hover: #79c0ff;
+    --color-link: #818cf8;
+    --color-link-hover: #a5b4fc;
     --color-completed: #3fb950;
     --color-completed-bg: rgba(63, 185, 80, 0.15);
-    --color-running: #58a6ff;
-    --color-running-bg: rgba(88, 166, 255, 0.15);
+    --color-running: #818cf8;
+    --color-running-bg: rgba(129, 140, 248, 0.15);
     --color-failed: #f85149;
     --color-failed-bg: rgba(248, 81, 73, 0.15);
     --color-cancelled: #8b949e;
     --color-cancelled-bg: rgba(139, 148, 158, 0.15);
     --color-pending: #d29922;
     --color-pending-bg: rgba(210, 153, 34, 0.15);
-    --color-btn-primary: #238636;
-    --color-btn-primary-hover: #2ea043;
+    --color-btn-primary: #4f46e5;
+    --color-btn-primary-hover: #4338ca;
     --color-btn-danger: #da3633;
     --color-btn-danger-hover: #f85149;
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px;
+}
+
+/* Light mode */
+[data-theme="light"] {
+    --color-bg: #ffffff;
+    --color-bg-secondary: #f8fafc;
+    --color-bg-tertiary: #f1f5f9;
+    --color-border: #e2e8f0;
+    --color-border-light: #cbd5e1;
+    --color-text: #1e293b;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+    --color-link: #4f46e5;
+    --color-link-hover: #4338ca;
+    --color-completed: #16a34a;
+    --color-completed-bg: rgba(22, 163, 74, 0.1);
+    --color-running: #4f46e5;
+    --color-running-bg: rgba(79, 70, 229, 0.1);
+    --color-failed: #dc2626;
+    --color-failed-bg: rgba(220, 38, 38, 0.1);
+    --color-cancelled: #64748b;
+    --color-cancelled-bg: rgba(100, 116, 139, 0.1);
+    --color-pending: #ca8a04;
+    --color-pending-bg: rgba(202, 138, 4, 0.1);
+    --color-btn-primary: #4f46e5;
+    --color-btn-primary-hover: #4338ca;
+    --color-btn-danger: #dc2626;
+    --color-btn-danger-hover: #b91c1c;
+}
+
+/* System preference: apply light vars when no explicit theme set */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+        --color-bg: #ffffff;
+        --color-bg-secondary: #f8fafc;
+        --color-bg-tertiary: #f1f5f9;
+        --color-border: #e2e8f0;
+        --color-border-light: #cbd5e1;
+        --color-text: #1e293b;
+        --color-text-secondary: #475569;
+        --color-text-muted: #94a3b8;
+        --color-link: #4f46e5;
+        --color-link-hover: #4338ca;
+        --color-completed: #16a34a;
+        --color-completed-bg: rgba(22, 163, 74, 0.1);
+        --color-running: #4f46e5;
+        --color-running-bg: rgba(79, 70, 229, 0.1);
+        --color-failed: #dc2626;
+        --color-failed-bg: rgba(220, 38, 38, 0.1);
+        --color-cancelled: #64748b;
+        --color-cancelled-bg: rgba(100, 116, 139, 0.1);
+        --color-pending: #ca8a04;
+        --color-pending-bg: rgba(202, 138, 4, 0.1);
+        --color-btn-primary: #4f46e5;
+        --color-btn-primary-hover: #4338ca;
+        --color-btn-danger: #dc2626;
+        --color-btn-danger-hover: #b91c1c;
+    }
 }
 
 /* Reset */
@@ -45,9 +110,13 @@ h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .navbar { display: flex; align-items: center; justify-content: space-between; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); padding: 0 1.5rem; height: 3.5rem; position: sticky; top: 0; z-index: 100; }
 .nav-brand a { font-size: 1.3rem; font-weight: 700; color: var(--color-text); text-decoration: none; letter-spacing: -0.02em; }
 .nav-brand a:hover { color: var(--color-link); text-decoration: none; }
-.nav-links { display: flex; gap: 0.25rem; }
+.nav-links { display: flex; gap: 0.25rem; align-items: center; }
 .nav-link { padding: 0.5rem 0.75rem; border-radius: var(--radius-md); color: var(--color-text-secondary); font-size: 0.9rem; font-weight: 500; transition: background-color 0.15s, color 0.15s; }
 .nav-link:hover { background: var(--color-bg-tertiary); color: var(--color-text); text-decoration: none; }
+
+/* Theme Toggle */
+.theme-toggle { background: none; border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-text-secondary); cursor: pointer; font-size: 1.1rem; padding: 0.35rem 0.5rem; line-height: 1; transition: background-color 0.15s, color 0.15s, border-color 0.15s; margin-left: 0.5rem; }
+.theme-toggle:hover { background: var(--color-bg-tertiary); color: var(--color-text); border-color: var(--color-border-light); }
 
 /* Layout */
 .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
@@ -92,7 +161,7 @@ h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 0.3rem; }
 .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-family: var(--font-sans); background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-md); outline: none; transition: border-color 0.15s; }
-.form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--color-link); box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2); }
+.form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--color-link); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); }
 .form-group textarea { font-family: var(--font-mono); resize: vertical; min-height: 3rem; }
 
 /* Filters */
@@ -132,6 +201,7 @@ h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .step-artifacts strong { color: var(--color-text-secondary); }
 .step-artifacts ul { list-style: none; margin-top: 0.25rem; padding-left: 0; }
 .step-artifacts li { padding: 0.15rem 0; }
+.artifact-size { color: var(--color-text-muted); }
 
 /* Events Timeline */
 .events-timeline { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -141,7 +211,7 @@ h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .event-step { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-bg-tertiary); padding: 0.1em 0.4em; border-radius: var(--radius-sm); }
 .event-message { color: var(--color-text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Run Detail Layout — sidebar (DAG) + main (steps/events) */
+/* Run Detail Layout -- sidebar (DAG) + main (steps/events) */
 .run-detail-layout { display: flex; gap: 1rem; align-items: flex-start; }
 .run-detail-sidebar { flex: 0 0 auto; position: sticky; top: 4.5rem; }
 .run-detail-main { flex: 1; min-width: 0; }
