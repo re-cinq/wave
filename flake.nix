@@ -136,6 +136,9 @@
 
               export WAVE_PROJECT_DIR="$PWD"
 
+              # Skip system SSH config that pulls in broken Nix store systemd drop-in
+              export GIT_SSH_COMMAND="ssh -F ~/.ssh/config"
+
               # Export GH_TOKEN so Wave subprocesses can auth without keyring
               if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
                 export GH_TOKEN=$(gh auth token 2>/dev/null)
@@ -189,6 +192,9 @@ WAVE_BASHRC
               echo "  ╚╩╝╩ ╩ ╚╝ ╚═╝"
               echo "  Multi-Agent Pipeline Orchestrator (NO SANDBOX)"
               echo ""
+
+              # Skip system SSH config that pulls in broken Nix store systemd drop-in
+              export GIT_SSH_COMMAND="ssh -F ~/.ssh/config"
 
               # Export GH_TOKEN so Wave subprocesses can auth without keyring
               if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
