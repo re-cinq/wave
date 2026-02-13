@@ -1054,13 +1054,21 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			if e.debug {
 				fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
 			}
-			continue
+		} else {
+			// Fall back to writing ResultContent
+			os.MkdirAll(filepath.Dir(artPath), 0755)
+			os.WriteFile(artPath, stdout, 0644)
+			execution.ArtifactPaths[key] = artPath
 		}
 
-		// Fall back to writing ResultContent
-		os.MkdirAll(filepath.Dir(artPath), 0755)
-		os.WriteFile(artPath, stdout, 0644)
-		execution.ArtifactPaths[key] = artPath
+		// Register artifact in DB for web dashboard visibility
+		if e.store != nil {
+			var size int64
+			if info, err := os.Stat(artPath); err == nil {
+				size = info.Size()
+			}
+			e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, artPath, art.Type, size)
+		}
 	}
 }
 
@@ -1223,6 +1231,15 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 
 		e.deliverableTracker.AddFile(step.ID, artifact.Name, absPath, artifact.Type)
+
+		// Register artifact in DB for web dashboard visibility
+		if e.store != nil {
+			var size int64
+			if info, statErr := os.Stat(absPath); statErr == nil {
+				size = info.Size()
+			}
+			e.store.RegisterArtifact(execution.Status.ID, step.ID, artifact.Name, absPath, artifact.Type, size)
+		}
 	}
 
 	// Check for common deliverable patterns
