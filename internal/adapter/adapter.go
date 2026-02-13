@@ -138,28 +138,21 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	return &result, nil
 }
 
-// killProcessGroup sends SIGTERM to the process group, waits up to 3 seconds
-// for graceful shutdown, then sends SIGKILL if the process hasn't exited.
-// This allows Claude Code to flush its final result event before termination.
+// killProcessGroup sends SIGTERM to the process group, then SIGKILL after a
+// 3-second grace period if the process hasn't exited. It does NOT call
+// process.Wait() — callers must call cmd.Wait() themselves to avoid
+// "wait: no child processes" errors from double-waiting.
 func killProcessGroup(process *os.Process) {
 	// Send SIGTERM first for graceful shutdown
 	_ = syscall.Kill(-process.Pid, syscall.SIGTERM)
 
-	// Wait up to 3 seconds for the process to exit
-	done := make(chan struct{})
+	// Schedule a forced kill after the grace period. The caller's cmd.Wait()
+	// will reap the process; if it hasn't exited by then, SIGKILL finishes it.
 	go func() {
-		process.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Process exited gracefully
-	case <-time.After(3 * time.Second):
-		// Force kill after grace period
+		time.Sleep(3 * time.Second)
+		// SIGKILL is harmless if the process already exited
 		_ = syscall.Kill(-process.Pid, syscall.SIGKILL)
-		_ = process.Release()
-	}
+	}()
 }
 
 func exitCodeFromError(err error) int {
