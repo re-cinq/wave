@@ -105,6 +105,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		Results:        resumeState.Results,
 		ArtifactPaths:  resumeState.ArtifactPaths,
 		WorkspacePaths: resumeState.WorkspacePaths,
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
@@ -161,7 +162,13 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 				stepWorkspace = refPath
 			}
 		}
-
+		// For worktree steps, try branch-keyed worktree path first
+		if step.Workspace.Type == "worktree" {
+			entries, _ := filepath.Glob(filepath.Join(workspaceRoot, "__wt_*"))
+			if len(entries) > 0 {
+				stepWorkspace = entries[0] // shared worktree
+			}
+		}
 		if _, err := os.Stat(stepWorkspace); err == nil {
 			// Step workspace exists, mark as completed
 			state.States[step.ID] = StateCompleted
