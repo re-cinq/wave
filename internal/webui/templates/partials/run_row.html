@@ -5,6 +5,6 @@
     <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
     <td>{{formatTime .StartedAt}}</td>
     <td>{{.Duration}}</td>
-    <td>{{.TotalTokens}}</td>
+    <td>{{formatTokens .TotalTokens}}</td>
 </tr>
 {{end}}

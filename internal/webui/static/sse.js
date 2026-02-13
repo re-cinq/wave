@@ -1,5 +1,15 @@
 // Wave Dashboard - Server-Sent Events client with polling fallback
 
+// formatTokens formats a token count to abbreviated human-readable form,
+// mirroring the Go FormatTokenCount logic for k/M/B thresholds.
+function formatTokens(n) {
+    if (n == null || n === undefined) return '0';
+    if (n < 1000) return String(n);
+    if (n < 1000000) return (n / 1000).toFixed(1) + 'k';
+    if (n < 1000000000) return (n / 1000000).toFixed(1) + 'M';
+    return (n / 1000000000).toFixed(1) + 'B';
+}
+
 var sseConnection = null;
 var pollTimer = null;
 var currentRunID = null;
@@ -139,7 +149,9 @@ function createStepCard(step) {
     }
     var metaParts = [];
     if (step.duration) metaParts.push('<span>Duration: ' + step.duration + '</span>');
-    if (step.tokens_used > 0) metaParts.push('<span>Tokens: ' + step.tokens_used + '</span>');
+    if (step.state === 'completed' || step.state === 'failed' || step.state === 'running') {
+        metaParts.push('<span class="token-count" data-step-id="' + step.step_id + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
+    }
     if (metaParts.length) {
         bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
     }
@@ -183,6 +195,11 @@ function handleSSEEvent(type, data) {
         updateStepCardState(data.step_id, 'failed');
     }
 
+    // Update step card tokens in real-time
+    if (data.step_id && data.tokens_used !== undefined) {
+        updateStepCardTokens(data.step_id, data.tokens_used);
+    }
+
     // Append meaningful events to the timeline (skip empty heartbeats)
     if (data.message && type !== 'step_progress' && type !== 'stream_activity') {
         appendEventToTimeline(data, type);
@@ -206,6 +223,37 @@ function updateDAGNodeStatus(stepID, status) {
             rect.setAttribute('class', 'dag-node-rect ' + cssStatus);
         }
     }
+}
+
+function updateStepCardTokens(stepID, tokensUsed) {
+    var cards = document.querySelectorAll('.step-card');
+    cards.forEach(function(card) {
+        var idEl = card.querySelector('.step-id');
+        if (idEl && idEl.textContent === stepID) {
+            var tokenSpan = card.querySelector('.token-count');
+            if (tokenSpan) {
+                tokenSpan.textContent = 'Tokens: ' + formatTokens(tokensUsed);
+            } else {
+                // Step transitioned from pending to running — create token span
+                var meta = card.querySelector('.step-meta');
+                if (!meta) {
+                    var body = card.querySelector('.step-body');
+                    if (body) {
+                        meta = document.createElement('div');
+                        meta.className = 'step-meta';
+                        body.appendChild(meta);
+                    }
+                }
+                if (meta) {
+                    var span = document.createElement('span');
+                    span.className = 'token-count';
+                    span.setAttribute('data-step-id', stepID);
+                    span.textContent = 'Tokens: ' + formatTokens(tokensUsed);
+                    meta.appendChild(span);
+                }
+            }
+        }
+    });
 }
 
 function updateStepCardState(stepID, newState) {
