@@ -4,7 +4,7 @@ Input: {{ input }}
 
 ## IMPORTANT: Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
+You are running in an **isolated git worktree** — your changes cannot affect the main working tree.
 Before running any commands, navigate to the project root:
 
 ```bash
@@ -22,9 +22,9 @@ The implementation plan is available at `artifacts/plan`.
 
 1. Read `artifacts/issue_assessment` for the issue details and branch name
 2. Read `artifacts/plan` for the task breakdown, file changes, and feature directory
-3. Check out the feature branch:
+3. Create the feature branch (you are in an isolated worktree — safe to branch):
    ```bash
-   git checkout <BRANCH_NAME>
+   git checkout -b <BRANCH_NAME>
    ```
 
 ### Step 2: Read Plan Files
@@ -69,7 +69,13 @@ As you complete each task, mark it as `[X]` in `tasks.md`.
 After all tasks are complete:
 1. Run `go test -race ./...` one final time
 2. Verify all tasks in `tasks.md` are marked complete
-3. Review changes with `git diff` to ensure nothing was missed
+3. Stage and commit all changes:
+   ```bash
+   git add -A
+   git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
+   ```
+
+Do NOT push or create a PR — just commit to this worktree branch.
 
 ## Agent Usage — USE UP TO 6 AGENTS
 

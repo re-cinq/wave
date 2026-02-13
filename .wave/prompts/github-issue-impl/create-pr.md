@@ -2,17 +2,25 @@ You are creating a pull request for the implemented GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Workspace Isolation via Git Worktree
+## IMPORTANT: Working Directory
 
 Your current working directory is a Wave workspace, NOT the project root.
-Use `git worktree` to create an isolated checkout — this allows multiple pipeline runs to work concurrently without conflicts.
+Before running any commands, navigate to the project root:
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)"
 ```
+
+Run this FIRST before any other bash commands.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to find the issue number, repository, branch name, and issue URL.
+
+## SAFETY: Do NOT Modify the Working Tree
+
+This step MUST NOT run `git checkout`, `git stash`, or any command that changes
+the current branch or working tree state. The branch already exists from the
+implement step — just push it and create the PR.
 
 ## Instructions
 
@@ -24,44 +32,20 @@ Read `artifacts/issue_assessment` to extract:
 - Branch name
 - Issue URL
 
-### Step 2: Create Worktree and Verify
+### Step 2: Push the Branch
 
-Create an isolated worktree for the feature branch:
+Push the feature branch without checking it out:
 
 ```bash
-git -C "$REPO_ROOT" worktree add "$PWD/repo" <BRANCH_NAME>
-cd repo
+git push -u origin <BRANCH_NAME>
 ```
 
-Run final test validation:
-```bash
-go test -race ./...
-```
+### Step 3: Create Pull Request
 
-If tests fail, fix them before proceeding.
-
-### Step 3: Stage and Commit
-
-1. Review all changes with `git status` and `git diff`
-2. Stage relevant files — exclude sensitive files (.env, credentials)
-3. Create well-structured commits:
-   - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
-   - Write concise commit messages focused on the "why"
-   - Do NOT include Co-Authored-By or AI attribution lines
-   - Reference the issue number in the commit message (e.g. `feat: add X for #42`)
-
-### Step 4: Push
+Create the PR using `gh pr create` with `--head` to target the branch. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
 
 ```bash
-git push -u origin HEAD
-```
-
-### Step 5: Create Pull Request
-
-Create the PR using `gh pr create`. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
-
-```bash
-gh pr create --repo <OWNER/REPO> --title "<concise title>" --body "$(cat <<'EOF'
+gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
@@ -76,25 +60,19 @@ EOF
 )"
 ```
 
-### Step 6: Request Copilot Review
+### Step 4: Request Copilot Review (Best-Effort)
 
-After the PR is created:
+After the PR is created, attempt to add Copilot as a reviewer:
 ```bash
 gh pr edit --add-reviewer "copilot"
 ```
 
-### Step 7: Clean Up Worktree
-
-Remove the worktree reference:
-
-```bash
-cd "$OLDPWD"
-git -C "$REPO_ROOT" worktree remove "$PWD/repo"
-```
+This is a best-effort command. If Copilot isn't available in the repository, the command will fail silently and the PR will still be created successfully.
 
 ## CONSTRAINTS
 
 - Do NOT spawn Task subagents — work directly in the main context
+- Do NOT run `git checkout`, `git stash`, or any branch-switching commands
 - The PR body MUST contain `Closes #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
