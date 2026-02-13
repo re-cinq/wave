@@ -61,6 +61,8 @@ type DefaultPipelineExecutor struct {
 	deliverableTracker *deliverable.Tracker
 	// Pre-generated run ID (optional — if empty, Execute generates one)
 	runID string
+	// Per-step timeout override (from CLI --timeout flag)
+	stepTimeoutOverride time.Duration
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -91,6 +93,10 @@ func WithRelayMonitor(r *relay.RelayMonitor) ExecutorOption {
 
 func WithRunID(id string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.runID = id }
+}
+
+func WithStepTimeout(d time.Duration) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.stepTimeoutOverride = d }
 }
 
 type PipelineExecution struct {
@@ -331,6 +337,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if attempt > 1 {
+			// Don't retry if the parent context is already cancelled
+			if ctx.Err() != nil {
+				return fmt.Errorf("context cancelled, skipping retry: %w", lastErr)
+			}
 			execution.States[step.ID] = StateRetrying
 			if e.store != nil {
 				e.store.SaveStepState(pipelineID, step.ID, state.StateRetrying, "")
@@ -448,6 +458,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	timeout := execution.Manifest.Runtime.GetDefaultTimeout()
+	if e.stepTimeoutOverride > 0 {
+		timeout = e.stepTimeoutOverride
+	}
 
 	// Load system prompt from persona file
 	systemPrompt := ""
