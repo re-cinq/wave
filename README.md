@@ -321,8 +321,7 @@ A selection of the 23 built-in pipelines:
 | Pipeline | Description |
 |----------|-------------|
 | `plan` | Break down a feature into actionable tasks |
-| `docs` | Generate or update documentation |
-| `migrate` | Database or API migration with rollback plan |
+| `doc-sync` | Generate or update documentation |
 
 ### GitHub Automation
 
@@ -331,7 +330,7 @@ A selection of the 23 built-in pipelines:
 | `github-issue-enhancer` | Analyze and enhance poorly documented issues |
 | `doc-loop` | Documentation impact analysis before merge |
 
-> **More pipelines:** `docs-to-impl`, `hello-world`, `issue-research`, `smoke-test`, `gh-poor-issues`, `umami`
+> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
