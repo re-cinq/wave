@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import type { HeroSectionProps, TerminalLineVariant, TerminalIcon } from '../types'
 
 const props = withDefaults(defineProps<HeroSectionProps>(), {
@@ -8,6 +8,47 @@ const props = withDefaults(defineProps<HeroSectionProps>(), {
   valuePills: undefined,
   github: undefined,
   showBackground: undefined
+})
+
+// Typewriter animation
+const visibleLines = ref(0)
+let lineTimers: ReturnType<typeof setTimeout>[] = []
+
+function clearLineTimers() {
+  lineTimers.forEach(t => clearTimeout(t))
+  lineTimers = []
+}
+
+function animateLines() {
+  clearLineTimers()
+  visibleLines.value = 0
+
+  if (!props.terminal?.outputLines) return
+
+  const lines = props.terminal.outputLines
+  for (let i = 0; i < lines.length; i++) {
+    const timer = setTimeout(() => {
+      visibleLines.value = i + 1
+    }, 400 + 80 * i)
+    lineTimers.push(timer)
+  }
+}
+
+const displayedOutputLines = computed(() => {
+  if (!props.terminal?.outputLines) return []
+  return props.terminal.outputLines.slice(0, visibleLines.value)
+})
+
+watch(() => props.terminal, () => {
+  animateLines()
+})
+
+onMounted(() => {
+  animateLines()
+})
+
+onUnmounted(() => {
+  clearLineTimers()
 })
 
 // Determine if we should use two-column layout (when terminal is provided)
@@ -177,7 +218,7 @@ function getLineIcon(icon?: TerminalIcon): string {
             <div class="terminal-line command">{{ terminalCommand }}</div>
             <div class="terminal-line empty"></div>
             <div
-              v-for="(line, index) in props.terminal.outputLines"
+              v-for="(line, index) in displayedOutputLines"
               :key="index"
               class="terminal-line"
               :class="getLineVariantClass(line.variant)"
@@ -416,24 +457,34 @@ a.hero-pill {
 }
 
 .terminal-content {
+  position: relative;
   padding: 16px 20px;
   font-family: var(--wave-font-mono, 'SF Mono', 'Fira Code', monospace);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.2;
   color: #a9b1d6;
-  min-height: 200px;
-  max-height: 320px;
+  height: 260px;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
+}
+
+.terminal-content::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, #1a1a2e);
+  pointer-events: none;
 }
 
 .terminal-line {
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre;
 }
 
 .terminal-line.empty {
-  height: 1.7em;
+  height: 1.2em;
 }
 
 .terminal-line.command {
@@ -492,7 +543,7 @@ a.hero-pill {
   }
 
   .terminal-content {
-    max-height: 240px;
+    height: 260px;
   }
 }
 
@@ -542,8 +593,7 @@ a.hero-pill {
   }
 
   .terminal-content {
-    min-height: 160px;
-    max-height: 180px;
+    height: 220px;
     font-size: 12px;
     padding: 12px 16px;
   }
