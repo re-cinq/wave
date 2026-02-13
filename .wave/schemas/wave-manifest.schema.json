@@ -1,0 +1,436 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.re-cinq.com/schemas/wave-manifest.schema.json",
+  "title": "WaveManifest",
+  "description": "Wave project manifest (wave.yaml)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "runtime"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "enum": ["v1"],
+      "description": "API version"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["WaveManifest"],
+      "description": "Must be 'WaveManifest'"
+    },
+    "metadata": {
+      "$ref": "#/definitions/Metadata"
+    },
+    "project": {
+      "$ref": "#/definitions/Project"
+    },
+    "adapters": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Adapter"
+      },
+      "description": "Named adapter configurations (e.g., 'claude')"
+    },
+    "personas": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Persona"
+      },
+      "description": "Named persona configurations"
+    },
+    "runtime": {
+      "$ref": "#/definitions/Runtime"
+    },
+    "skill_mounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SkillMount"
+      },
+      "description": "Directories to scan for skill definitions"
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/SkillConfig"
+      },
+      "description": "External skill declarations with install/check commands"
+    }
+  },
+  "definitions": {
+    "Metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Project description"
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository URL"
+        }
+      }
+    },
+    "Project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "Primary programming language (e.g., 'go', 'typescript')"
+        },
+        "test_command": {
+          "type": "string",
+          "description": "Command to run tests (referenced as {{ project.test_command }})"
+        },
+        "lint_command": {
+          "type": "string",
+          "description": "Command to run linter"
+        },
+        "build_command": {
+          "type": "string",
+          "description": "Command to build the project"
+        },
+        "source_glob": {
+          "type": "string",
+          "description": "Glob pattern for source files (e.g., '*.go')"
+        }
+      }
+    },
+    "Adapter": {
+      "type": "object",
+      "required": ["binary", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "binary": {
+          "type": "string",
+          "description": "Path or name of the CLI binary (e.g., 'claude')"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["headless", "interactive"],
+          "description": "Execution mode"
+        },
+        "output_format": {
+          "type": "string",
+          "enum": ["json", "text"],
+          "description": "Expected output format from the adapter"
+        },
+        "project_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Project files to copy into workspace (e.g., CLAUDE.md)"
+        },
+        "default_permissions": {
+          "$ref": "#/definitions/Permissions"
+        },
+        "hooks_template": {
+          "type": "string",
+          "description": "Path to hooks template file"
+        }
+      }
+    },
+    "Persona": {
+      "type": "object",
+      "required": ["adapter", "system_prompt_file"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "description": "Adapter name from the adapters map"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the persona's role"
+        },
+        "system_prompt_file": {
+          "type": "string",
+          "description": "Path to the system prompt markdown file"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Model temperature (0=deterministic, higher=creative)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model to use (e.g., 'opus', 'sonnet')"
+        },
+        "permissions": {
+          "$ref": "#/definitions/Permissions"
+        },
+        "hooks": {
+          "$ref": "#/definitions/HookConfig"
+        },
+        "sandbox": {
+          "$ref": "#/definitions/PersonaSandbox"
+        }
+      }
+    },
+    "PersonaSandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Network domains this persona can access"
+        }
+      }
+    },
+    "Permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed tool patterns (e.g., 'Read', 'Bash(go test*)')"
+        },
+        "deny": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Denied tool patterns (e.g., 'Write(*)', 'Bash(rm -rf /*)')"
+        }
+      }
+    },
+    "HookConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "PreToolUse": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/HookRule" },
+          "description": "Hooks that run before tool execution"
+        },
+        "PostToolUse": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/HookRule" },
+          "description": "Hooks that run after tool execution"
+        }
+      }
+    },
+    "HookRule": {
+      "type": "object",
+      "required": ["matcher", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "matcher": {
+          "type": "string",
+          "description": "Tool name pattern to match"
+        },
+        "command": {
+          "type": "string",
+          "description": "Shell command to execute"
+        }
+      }
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["workspace_root"],
+      "additionalProperties": false,
+      "properties": {
+        "workspace_root": {
+          "type": "string",
+          "description": "Base directory for ephemeral workspaces"
+        },
+        "max_concurrent_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum parallel step executions"
+        },
+        "default_timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default step timeout in minutes"
+        },
+        "pipeline_id_hash_length": {
+          "type": "integer",
+          "minimum": 4,
+          "description": "Length of the hash suffix in pipeline run IDs"
+        },
+        "relay": {
+          "$ref": "#/definitions/RelayConfig"
+        },
+        "audit": {
+          "$ref": "#/definitions/AuditConfig"
+        },
+        "meta_pipeline": {
+          "$ref": "#/definitions/MetaConfig"
+        },
+        "routing": {
+          "$ref": "#/definitions/RoutingConfig"
+        },
+        "sandbox": {
+          "$ref": "#/definitions/RuntimeSandbox"
+        }
+      }
+    },
+    "RuntimeSandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable sandbox isolation"
+        },
+        "default_allowed_domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Network domains allowed by default for all personas"
+        },
+        "env_passthrough": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Environment variables to pass through to subprocesses"
+        }
+      }
+    },
+    "RelayConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token_threshold_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Context usage percentage that triggers compaction"
+        },
+        "strategy": {
+          "type": "string",
+          "enum": ["summarize_to_checkpoint"],
+          "description": "Compaction strategy"
+        },
+        "context_window": {
+          "type": "integer",
+          "description": "Override context window size in tokens"
+        },
+        "summarizer_persona": {
+          "type": "string",
+          "description": "Persona to use for summarization"
+        }
+      }
+    },
+    "AuditConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "log_dir": {
+          "type": "string",
+          "description": "Directory for audit logs"
+        },
+        "log_all_tool_calls": {
+          "type": "boolean",
+          "description": "Log every tool call"
+        },
+        "log_all_file_operations": {
+          "type": "boolean",
+          "description": "Log every file read/write"
+        }
+      }
+    },
+    "MetaConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum meta-pipeline nesting depth"
+        },
+        "max_total_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum total steps across all nested pipelines"
+        },
+        "max_total_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum total tokens across all nested pipelines"
+        },
+        "timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total timeout for meta-pipeline execution"
+        }
+      }
+    },
+    "RoutingConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "Default pipeline when no routing rules match"
+        },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RoutingRule" },
+          "description": "Routing rules evaluated in priority order"
+        }
+      }
+    },
+    "RoutingRule": {
+      "type": "object",
+      "required": ["pipeline"],
+      "additionalProperties": false,
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "Glob pattern for matching input strings"
+        },
+        "pipeline": {
+          "type": "string",
+          "description": "Pipeline to route to when matched"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Higher priority rules evaluated first"
+        },
+        "match_labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Label key-value patterns that must all match"
+        }
+      }
+    },
+    "SkillMount": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Directory path to scan for skill definitions"
+        }
+      }
+    },
+    "SkillConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "install": {
+          "type": "string",
+          "description": "Command to install the skill"
+        },
+        "init": {
+          "type": "string",
+          "description": "Command to initialize the skill after install"
+        },
+        "check": {
+          "type": "string",
+          "description": "Command to verify the skill is installed"
+        },
+        "commands_glob": {
+          "type": "string",
+          "description": "Glob pattern for skill command files"
+        }
+      }
+    }
+  }
+}

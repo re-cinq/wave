@@ -11,8 +11,6 @@ input:
 steps:
   - id: survey
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -71,7 +69,6 @@ steps:
     persona: philosopher
     dependencies: [survey]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: survey
           artifact: survey

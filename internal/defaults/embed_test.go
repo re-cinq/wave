@@ -182,7 +182,6 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 		"debug.yaml",
 		"doc-sync.yaml",
 		"explain.yaml",
-		"feature.yaml",
 		"gh-issue-research.yaml",
 		"gh-issue-rewrite.yaml",
 		"improve.yaml",

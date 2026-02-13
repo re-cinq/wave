@@ -14,8 +14,6 @@ input:
 steps:
   - id: analyze
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -50,7 +48,6 @@ steps:
     persona: craftsman
     dependencies: [analyze]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze
           artifact: analysis
@@ -88,7 +85,6 @@ steps:
     persona: craftsman
     dependencies: [test-baseline]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze
           artifact: analysis
@@ -126,8 +122,6 @@ steps:
   - id: verify
     persona: auditor
     dependencies: [refactor]
-    memory:
-      strategy: fresh
     exec:
       type: prompt
       source: |

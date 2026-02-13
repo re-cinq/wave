@@ -921,6 +921,13 @@ func ValidatePipelineYAML(data []byte) (*Pipeline, error) {
 		pipeline.Kind = "WavePipeline"
 	}
 
+	// Default memory strategy to "fresh" (constitutional requirement)
+	for i := range pipeline.Steps {
+		if pipeline.Steps[i].Memory.Strategy == "" {
+			pipeline.Steps[i].Memory.Strategy = "fresh"
+		}
+	}
+
 	if pipeline.Kind != "WavePipeline" {
 		return nil, fmt.Errorf("invalid kind: expected WavePipeline, got %s", pipeline.Kind)
 	}

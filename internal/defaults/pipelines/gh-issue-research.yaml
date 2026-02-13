@@ -14,8 +14,6 @@ input:
 steps:
   - id: fetch-issue
     persona: github-analyst
-    memory:
-      strategy: fresh
     workspace:
       root: ./
     exec:
@@ -50,7 +48,6 @@ steps:
     persona: researcher
     dependencies: [fetch-issue]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-issue
           artifact: issue-content
@@ -98,7 +95,6 @@ steps:
     persona: researcher
     dependencies: [analyze-topics]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-issue
           artifact: issue-content
@@ -151,7 +147,6 @@ steps:
     persona: summarizer
     dependencies: [research-topics]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-issue
           artifact: issue-content
@@ -214,7 +209,6 @@ steps:
     persona: github-commenter
     dependencies: [synthesize-report]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-issue
           artifact: issue-content

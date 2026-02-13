@@ -11,8 +11,6 @@ input:
 steps:
   - id: scan
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -73,7 +71,6 @@ steps:
     persona: craftsman
     dependencies: [scan]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan
           artifact: scan_results
@@ -135,7 +132,6 @@ steps:
     persona: auditor
     dependencies: [clean]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: scan
           artifact: scan_results

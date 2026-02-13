@@ -11,8 +11,6 @@ input:
 steps:
   - id: analyze
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -40,7 +38,6 @@ steps:
     persona: summarizer
     dependencies: [analyze]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze
           artifact: analysis

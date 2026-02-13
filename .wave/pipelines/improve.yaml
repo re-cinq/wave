@@ -11,8 +11,6 @@ input:
 steps:
   - id: assess
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -57,7 +55,6 @@ steps:
     persona: craftsman
     dependencies: [assess]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: assess
           artifact: assessment
@@ -99,7 +96,6 @@ steps:
     persona: auditor
     dependencies: [implement]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: assess
           artifact: assessment

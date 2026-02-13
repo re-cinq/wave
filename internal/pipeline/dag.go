@@ -30,6 +30,13 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		pipeline.Kind = "WavePipeline"
 	}
 
+	// Default memory strategy to "fresh" (constitutional requirement)
+	for i := range pipeline.Steps {
+		if pipeline.Steps[i].Memory.Strategy == "" {
+			pipeline.Steps[i].Memory.Strategy = "fresh"
+		}
+	}
+
 	return &pipeline, nil
 }
 

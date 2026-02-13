@@ -11,8 +11,6 @@ input:
 steps:
   - id: analyze-commits
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -62,7 +60,6 @@ steps:
     persona: planner
     dependencies: [analyze-commits]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze-commits
           artifact: commits
@@ -104,7 +101,6 @@ steps:
     persona: philosopher
     dependencies: [categorize]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: analyze-commits
           artifact: commits
