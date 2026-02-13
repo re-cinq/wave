@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Execution Control APIs",
+  "description": "Start, cancel, and retry pipeline executions from the dashboard. (FR-007, FR-008, FR-009)",
+  "type": "object",
+  "properties": {
+    "start_pipeline": {
+      "type": "object",
+      "description": "POST /api/pipelines/{name}/start — Start a new pipeline run",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": { "const": "POST" },
+            "path": { "type": "string", "pattern": "^/api/pipelines/[a-zA-Z0-9_-]+/start$" },
+            "body": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string",
+                  "description": "Input data for the pipeline"
+                }
+              }
+            }
+          }
+        },
+        "response_201": {
+          "type": "object",
+          "required": ["run_id", "status"],
+          "properties": {
+            "run_id": { "type": "string" },
+            "pipeline_name": { "type": "string" },
+            "status": { "const": "pending" },
+            "started_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "response_400": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string", "description": "Validation error (e.g., missing required input)" }
+          }
+        },
+        "response_404": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string", "description": "Pipeline not found" }
+          }
+        }
+      }
+    },
+    "cancel_run": {
+      "type": "object",
+      "description": "POST /api/runs/{id}/cancel — Cancel an active pipeline run",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": { "const": "POST" },
+            "path": { "type": "string", "pattern": "^/api/runs/[a-zA-Z0-9_-]+/cancel$" },
+            "body": {
+              "type": "object",
+              "properties": {
+                "force": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Force immediate cancellation"
+                }
+              }
+            }
+          }
+        },
+        "response_200": {
+          "type": "object",
+          "required": ["run_id", "status"],
+          "properties": {
+            "run_id": { "type": "string" },
+            "status": { "type": "string", "description": "Updated run status" }
+          }
+        },
+        "response_404": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string" }
+          }
+        },
+        "response_409": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string", "description": "Run is not in a cancellable state" }
+          }
+        }
+      }
+    },
+    "retry_run": {
+      "type": "object",
+      "description": "POST /api/runs/{id}/retry — Retry a failed pipeline run",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": { "const": "POST" },
+            "path": { "type": "string", "pattern": "^/api/runs/[a-zA-Z0-9_-]+/retry$" }
+          }
+        },
+        "response_201": {
+          "type": "object",
+          "required": ["run_id", "status"],
+          "properties": {
+            "run_id": { "type": "string", "description": "New run ID for the retry" },
+            "original_run_id": { "type": "string" },
+            "pipeline_name": { "type": "string" },
+            "status": { "const": "pending" },
+            "started_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "response_404": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string" }
+          }
+        },
+        "response_409": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": { "type": "string", "description": "Run is not in a retryable state" }
+          }
+        }
+      }
+    }
+  }
+}

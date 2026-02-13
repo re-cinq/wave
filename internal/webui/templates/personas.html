@@ -1,0 +1,36 @@
+{{define "title"}} - Personas{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Personas</h1>
+</div>
+{{if .Personas}}
+<div class="personas-grid">
+    {{range .Personas}}
+    <div class="card persona-card">
+        <h3>{{.Name}}</h3>
+        <p class="persona-desc">{{.Description}}</p>
+        <div class="persona-meta">
+            <span class="badge">{{.Adapter}}</span>
+            {{if .Model}}<span class="badge">{{.Model}}</span>{{end}}
+        </div>
+        {{if .AllowedTools}}
+        <div class="persona-tools">
+            <strong>Allowed:</strong>
+            {{range .AllowedTools}}<code>{{.}}</code> {{end}}
+        </div>
+        {{end}}
+        {{if .DeniedTools}}
+        <div class="persona-tools denied">
+            <strong>Denied:</strong>
+            {{range .DeniedTools}}<code>{{.}}</code> {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No personas configured. Add personas to your <code>wave.yaml</code> manifest.</p>
+</div>
+{{end}}
+{{end}}

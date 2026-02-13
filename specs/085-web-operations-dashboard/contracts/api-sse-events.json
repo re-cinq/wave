@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /api/runs/{id}/events — Server-Sent Events Stream",
+  "description": "SSE endpoint for real-time pipeline progress updates. Clients connect via EventSource. (FR-004, NFR-004)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "GET" },
+        "path": { "type": "string", "pattern": "^/api/runs/[a-zA-Z0-9_-]+/events$" },
+        "headers": {
+          "type": "object",
+          "properties": {
+            "Accept": { "const": "text/event-stream" }
+          }
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "content_type": { "const": "text/event-stream" },
+        "headers": {
+          "type": "object",
+          "properties": {
+            "Cache-Control": { "const": "no-cache" },
+            "Connection": { "const": "keep-alive" },
+            "X-Accel-Buffering": { "const": "no" }
+          }
+        },
+        "event_format": {
+          "description": "Each SSE message has: event: <state>\\ndata: <json>\\n\\n",
+          "type": "object",
+          "properties": {
+            "event_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "started",
+                  "running",
+                  "completed",
+                  "failed",
+                  "retrying",
+                  "step_progress",
+                  "eta_updated",
+                  "contract_validating",
+                  "compaction_progress",
+                  "stream_activity"
+                ]
+              }
+            },
+            "data_schema": {
+              "type": "object",
+              "description": "JSON-encoded event.Event struct",
+              "required": ["timestamp", "pipeline_id", "state"],
+              "properties": {
+                "timestamp": { "type": "string", "format": "date-time" },
+                "pipeline_id": { "type": "string" },
+                "step_id": { "type": "string" },
+                "state": { "type": "string" },
+                "duration_ms": { "type": "integer" },
+                "message": { "type": "string" },
+                "persona": { "type": "string" },
+                "tokens_used": { "type": "integer" },
+                "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "current_action": { "type": "string" },
+                "total_steps": { "type": "integer" },
+                "completed_steps": { "type": "integer" },
+                "estimated_time_ms": { "type": "integer" },
+                "tool_name": { "type": "string" },
+                "tool_target": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reconnection": {
+      "description": "Client must automatically reconnect within 5 seconds of disconnection (NFR-004). Browser EventSource handles this natively with retry parameter.",
+      "type": "object",
+      "properties": {
+        "retry_ms": { "type": "integer", "default": 3000, "description": "SSE retry interval sent in initial response" }
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{{define "title"}} - Pipeline Runs{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Pipeline Runs</h1>
+    <div class="actions">
+        <button id="start-pipeline-btn" class="btn btn-primary" onclick="toggleStartForm()">Start Pipeline</button>
+    </div>
+</div>
+
+<div id="start-form" class="card start-form" style="display:none;">
+    <h3>Start Pipeline</h3>
+    <form id="pipeline-start-form" onsubmit="return startPipeline(event)">
+        <div class="form-group">
+            <label for="pipeline-select">Pipeline</label>
+            <select id="pipeline-select" name="pipeline" required>
+                <option value="">Select a pipeline...</option>
+                {{range .Pipelines}}
+                <option value="{{.}}">{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="pipeline-input">Input</label>
+            <textarea id="pipeline-input" name="input" rows="3" placeholder="Pipeline input..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Start</button>
+        <button type="button" class="btn" onclick="toggleStartForm()">Cancel</button>
+    </form>
+</div>
+
+<div class="filters">
+    <select id="status-filter" onchange="filterRuns()">
+        <option value="">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="running">Running</option>
+        <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
+        <option value="cancelled">Cancelled</option>
+    </select>
+</div>
+
+<div id="runs-list" class="runs-list">
+    {{if .Runs}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Pipeline</th>
+                <th>Run ID</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Tokens</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Runs}}
+            {{template "templates/partials/run_row.html" .}}
+            {{end}}
+        </tbody>
+    </table>
+    {{if .HasMore}}
+    <div class="pagination">
+        <a href="/runs?cursor={{.NextCursor}}" class="btn">Load More</a>
+    </div>
+    {{end}}
+    {{else}}
+    <div class="empty-state">
+        <p>No pipeline runs found.</p>
+        <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/static/sse.js"></script>
+{{end}}
