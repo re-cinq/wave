@@ -3,16 +3,11 @@ specification, plan, and tasks before implementation begins.
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by a
+previous step and is already checked out.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -21,17 +16,16 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.analyze` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
-3. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
+1. Read `artifacts/spec_info` to find the feature directory and spec file path
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR and locate spec.md, plan.md, tasks.md
-4. Load all three artifacts and build semantic models:
+3. Load all three artifacts and build semantic models:
    - Requirements inventory from spec.md
    - User story/action inventory with acceptance criteria
    - Task coverage mapping from tasks.md
    - Constitution rule set from `.specify/memory/constitution.md`
 
-5. Run detection passes (limit to 50 findings total):
+4. Run detection passes (limit to 50 findings total):
    - **Duplication**: Near-duplicate requirements across artifacts
    - **Ambiguity**: Vague adjectives, unresolved placeholders
    - **Underspecification**: Requirements missing outcomes, tasks missing file paths
@@ -39,8 +33,8 @@ Follow the `/speckit.analyze` workflow:
    - **Coverage gaps**: Requirements with no tasks, tasks with no requirements
    - **Inconsistency**: Terminology drift, data entity mismatches, ordering contradictions
 
-6. Assign severity: CRITICAL / HIGH / MEDIUM / LOW
-7. Produce a compact analysis report (do NOT modify files — read-only analysis)
+5. Assign severity: CRITICAL / HIGH / MEDIUM / LOW
+6. Produce a compact analysis report (do NOT modify files — read-only analysis)
 
 ## CONSTRAINTS
 

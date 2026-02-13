@@ -17,14 +17,14 @@ Follow the `/speckit.clarify` workflow:
 
 1. Read `artifacts/spec_info` to find the feature directory and spec file path
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
-5. Load the current spec and perform a focused ambiguity scan across:
+3. Load the current spec and perform a focused ambiguity scan across:
    - Functional scope and domain model
    - Integration points and edge cases
    - Terminology consistency
-6. Generate up to 5 clarification questions (prioritized)
-7. For each question, select the best option based on codebase context
-8. Integrate each resolution directly into the spec file
-9. Save the updated spec
+4. Generate up to 5 clarification questions (prioritized)
+5. For each question, select the best option based on codebase context
+6. Integrate each resolution directly into the spec file
+7. Save the updated spec
 
 ## CONSTRAINTS
 

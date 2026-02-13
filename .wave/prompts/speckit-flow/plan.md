@@ -18,8 +18,8 @@ Follow the `/speckit.plan` workflow:
 1. Read `artifacts/spec_info` to find the feature directory and spec file path
 2. Run `.specify/scripts/bash/setup-plan.sh --json` to get FEATURE_SPEC, IMPL_PLAN,
    SPECS_DIR, and BRANCH paths
-4. Load the feature spec and `.specify/memory/constitution.md`
-5. Follow the plan template phases:
+3. Load the feature spec and `.specify/memory/constitution.md`
+4. Follow the plan template phases:
 
    **Phase 0 — Outline & Research**:
    - Extract unknowns from the spec (NEEDS CLARIFICATION markers, tech decisions)
@@ -31,8 +31,8 @@ Follow the `/speckit.plan` workflow:
    - Generate API contracts from functional requirements → `/contracts/`
    - Run `.specify/scripts/bash/update-agent-context.sh claude`
 
-6. Evaluate constitution compliance at each phase gate
-7. Stop after Phase 1 — report branch, plan path, and generated artifacts
+5. Evaluate constitution compliance at each phase gate
+6. Stop after Phase 1 — report branch, plan path, and generated artifacts
 
 ## CONSTRAINTS
 
