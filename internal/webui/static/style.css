@@ -138,12 +138,14 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--wave-primary); 
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .nav-brand a {
+    display: inline-flex; align-items: center; gap: 0.5rem;
     font-size: 1.3rem; font-weight: 700; text-decoration: none; letter-spacing: -0.02em;
     background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 .nav-brand a:hover { opacity: 0.8; text-decoration: none; }
+.nav-logo { width: 24px; height: 24px; flex-shrink: 0; }
 .nav-links { display: flex; gap: 0.25rem; align-items: center; }
 .nav-link {
     padding: 0.5rem 0.75rem; border-radius: var(--radius-md);
@@ -171,17 +173,12 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--wave-primary); 
 .run-meta { color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 0.25rem; }
 .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 
-/* Cards — with hover lift like docs feature cards */
+/* Cards */
 .card {
     background: var(--color-bg-secondary); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem;
     box-shadow: 0 1px 3px var(--color-shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.3s ease;
-}
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px var(--color-shadow);
-    border-color: var(--color-border-light);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* Buttons */
@@ -204,7 +201,6 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--wave-primary); 
     background: linear-gradient(135deg, var(--color-btn-primary-hover) 0%, var(--wave-primary-dark) 100%);
     border-color: var(--color-btn-primary-hover); color: #fff;
     box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
-    transform: translateY(-1px);
 }
 .btn-danger { background: var(--color-btn-danger); border-color: var(--color-btn-danger); color: #fff; }
 .btn-danger:hover { background: var(--color-btn-danger-hover); border-color: var(--color-btn-danger-hover); color: #fff; }
@@ -277,9 +273,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--wave-primary); 
 .step-card {
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.step-card:hover { box-shadow: 0 4px 12px var(--color-shadow); }
 .step-card.status-running { border-left: 3px solid var(--color-running); }
 .step-card.status-completed { border-left: 3px solid var(--color-completed); }
 .step-card.status-failed { border-left: 3px solid var(--color-failed); }
@@ -373,7 +367,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--wave-primary); 
     .personas-grid { grid-template-columns: 1fr; }
     .step-header { flex-wrap: wrap; }
     .step-persona { margin-left: 0; }
-    .card:hover, .persona-card:hover { transform: none; }
+    .persona-card:hover { transform: none; }
 }
 
 /* Reduced motion */
