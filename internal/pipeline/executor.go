@@ -734,6 +734,15 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		wsRoot = ".wave/workspaces"
 	}
 
+	// Handle workspace ref — share another step's workspace
+	if step.Workspace.Ref != "" {
+		refPath, ok := execution.WorkspacePaths[step.Workspace.Ref]
+		if !ok {
+			return "", fmt.Errorf("referenced workspace step %q has not been executed yet", step.Workspace.Ref)
+		}
+		return refPath, nil
+	}
+
 	// Handle worktree workspace type
 	if step.Workspace.Type == "worktree" {
 		wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
@@ -1000,7 +1009,7 @@ func indexOf(s, sub string) int {
 // git checkout clean. For non-worktree workspaces, the workspace path is
 // returned unchanged.
 func (e *DefaultPipelineExecutor) artifactBasePath(execution *PipelineExecution, step *Step, workspacePath string) string {
-	if step.Workspace.Type != "worktree" {
+	if step.Workspace.Type != "worktree" || step.Workspace.Ref != "" {
 		return workspacePath
 	}
 	// workspacePath = .wave/workspaces/<pipeline>/<run-id>/<step-id>  (worktree checkout)
@@ -1022,8 +1031,10 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		return nil
 	}
 
-	artBase := e.artifactBasePath(execution, step, workspacePath)
-	artifactsDir := filepath.Join(artBase, "artifacts")
+	// Always inject into the workspace (agent's working directory) so the
+	// agent can find artifacts at relative paths like "artifacts/<name>".
+	// Do NOT redirect to the sidecar — the agent runs in workspacePath.
+	artifactsDir := filepath.Join(workspacePath, "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
 	}
@@ -1078,6 +1089,25 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 		resolvedPath := execution.Context.ResolveArtifactPath(art)
 		artPath := filepath.Join(artBase, resolvedPath)
 		key := step.ID + ":" + art.Name
+
+		// When sidecar redirect is active (artBase != workspacePath), the
+		// persona writes files in the workspace (worktree) but we register
+		// them in the sidecar. Check the workspace first.
+		if artBase != workspacePath {
+			wsArtPath := filepath.Join(workspacePath, resolvedPath)
+			if _, err := os.Stat(wsArtPath); err == nil {
+				// Copy from workspace to sidecar for registration
+				if data, readErr := os.ReadFile(wsArtPath); readErr == nil {
+					os.MkdirAll(filepath.Dir(artPath), 0755)
+					os.WriteFile(artPath, data, 0644)
+				}
+				execution.ArtifactPaths[key] = artPath
+				if e.debug {
+					fmt.Printf("[DEBUG] Artifact %s copied from worktree %s to sidecar %s\n", art.Name, wsArtPath, artPath)
+				}
+				continue
+			}
+		}
 
 		// If the persona already wrote the file, trust it and don't overwrite
 		if _, err := os.Stat(artPath); err == nil {
