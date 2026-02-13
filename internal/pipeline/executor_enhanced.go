@@ -57,6 +57,7 @@ func (e *DefaultPipelineExecutor) ExecuteWithValidation(ctx context.Context, p *
 		Results:        make(map[string]map[string]interface{}),
 		ArtifactPaths:  make(map[string]string),
 		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, "", m),
 		Status: &PipelineStatus{

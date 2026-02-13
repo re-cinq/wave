@@ -358,6 +358,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 		Results:        make(map[string]map[string]interface{}),
 		ArtifactPaths:  make(map[string]string),
 		WorkspacePaths: map[string]string{step.ID: workspacePath},
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		Input:          execution.Input,
 		Status:         execution.Status,
 		Context:        execution.Context, // Fix: Copy context to prevent nil pointer dereference
