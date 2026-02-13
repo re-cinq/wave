@@ -22,7 +22,7 @@
             <strong>Artifacts:</strong>
             <ul>
                 {{range .Artifacts}}
-                <li><a href="/runs/{{$.StepID}}/artifacts/{{.Name}}">{{.Name}}</a> ({{.SizeBytes}} bytes)</li>
+                <li>{{.Name}} <span class="artifact-size">({{.SizeBytes}} bytes)</span></li>
                 {{end}}
             </ul>
         </div>
