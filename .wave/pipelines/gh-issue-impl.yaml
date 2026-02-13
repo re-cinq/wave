@@ -40,7 +40,8 @@ steps:
           artifact: assessment
           as: issue_assessment
     workspace:
-      root: ./
+      type: worktree
+      branch: "wave/{{ pipeline_id }}"
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/plan.md
@@ -69,8 +70,7 @@ steps:
           artifact: impl-plan
           as: plan
     workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
+      ref: plan
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/implement.md
@@ -94,7 +94,7 @@ steps:
           artifact: assessment
           as: issue_assessment
     workspace:
-      root: ./
+      ref: plan
     exec:
       type: prompt
       source_path: .wave/prompts/github-issue-impl/create-pr.md
