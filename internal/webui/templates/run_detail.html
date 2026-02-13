@@ -1,0 +1,69 @@
+{{define "templates/run_detail.html"}}
+{{template "templates/layout.html" .}}
+{{define "title"}} - {{.Run.PipelineName}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/runs" class="back-link">&larr; Back to Runs</a>
+        <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}}</p>
+    </div>
+    <div class="actions">
+        {{if eq .Run.Status "running"}}
+        <button class="btn btn-danger" onclick="cancelRun('{{.Run.RunID}}')">Stop</button>
+        {{end}}
+        {{if eq .Run.Status "failed"}}
+        <button class="btn btn-primary" onclick="retryRun('{{.Run.RunID}}')">Retry</button>
+        {{end}}
+    </div>
+</div>
+
+{{if .Run.ErrorMessage}}
+<div class="alert alert-error">
+    <strong>Error:</strong> {{.Run.ErrorMessage}}
+</div>
+{{end}}
+
+{{if .DAG}}
+<div class="card">
+    <h2>Pipeline Graph</h2>
+    <div id="dag-container" class="dag-container">
+        {{template "templates/partials/dag_svg.html" .DAG}}
+    </div>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Steps</h2>
+    <div class="steps-list">
+        {{range .Steps}}
+        {{template "templates/partials/step_card.html" .}}
+        {{end}}
+    </div>
+</div>
+
+{{if .Events}}
+<div class="card">
+    <h2>Events</h2>
+    <div class="events-timeline">
+        {{range .Events}}
+        <div class="event-item">
+            <span class="event-time">{{formatTime .Timestamp}}</span>
+            <span class="badge {{statusClass .State}}">{{.State}}</span>
+            {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
+            <span class="event-message">{{.Message}}</span>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}
+{{define "scripts"}}
+<script src="/static/sse.js"></script>
+<script>
+if (document.querySelector('.status-running')) {
+    connectSSE('{{.Run.RunID}}');
+}
+</script>
+{{end}}
+{{end}}

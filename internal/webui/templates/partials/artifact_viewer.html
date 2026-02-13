@@ -1,0 +1,10 @@
+{{define "templates/partials/artifact_viewer.html"}}
+<div class="artifact-viewer">
+    <div class="artifact-header">
+        <h3>{{.Metadata.Name}}</h3>
+        <span class="artifact-meta">{{.Metadata.MimeType}} | {{.Metadata.SizeBytes}} bytes</span>
+        {{if .Metadata.Truncated}}<span class="badge status-warning">Truncated</span>{{end}}
+    </div>
+    <pre class="artifact-content"><code>{{.Content}}</code></pre>
+</div>
+{{end}}
