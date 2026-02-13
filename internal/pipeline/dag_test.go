@@ -164,6 +164,105 @@ func TestTopologicalSort_WithCycle(t *testing.T) {
 	}
 }
 
+func TestValidateDAG_NegativeConcurrencyRejected(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{ID: "step1", Persona: "agent1", Concurrency: -1},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Error("Expected error for negative concurrency, got nil")
+	}
+}
+
+func TestValidateDAG_ConcurrencyZeroAndOneAccepted(t *testing.T) {
+	tests := []struct {
+		name        string
+		concurrency int
+	}{
+		{"concurrency=0 is non-concurrent", 0},
+		{"concurrency=1 is non-concurrent", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeline := &Pipeline{
+				Steps: []Step{
+					{ID: "step1", Persona: "agent1", Concurrency: tt.concurrency},
+				},
+			}
+
+			validator := &DAGValidator{}
+			err := validator.ValidateDAG(pipeline)
+			if err != nil {
+				t.Errorf("Expected no error for concurrency=%d, got: %v", tt.concurrency, err)
+			}
+		})
+	}
+}
+
+func TestValidateDAG_ConcurrencyAndMatrixMutuallyExclusive(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:          "step1",
+				Persona:     "agent1",
+				Concurrency: 3,
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: "items.json",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Error("Expected error for step with both concurrency and matrix strategy, got nil")
+	}
+}
+
+func TestValidateDAG_ConcurrencyOneWithMatrixAllowed(t *testing.T) {
+	// concurrency=1 should NOT trigger mutual exclusion since it's treated as non-concurrent
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:          "step1",
+				Persona:     "agent1",
+				Concurrency: 1,
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: "items.json",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err != nil {
+		t.Errorf("Expected no error for concurrency=1 with matrix (non-concurrent), got: %v", err)
+	}
+}
+
+func TestValidateDAG_HighConcurrencyAccepted(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{ID: "step1", Persona: "agent1", Concurrency: 100},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err != nil {
+		t.Errorf("Expected no error for high concurrency value, got: %v", err)
+	}
+}
+
 func TestYAMLPipelineLoader_ValidYAML(t *testing.T) {
 	yamlContent := []byte(`
 kind: WavePipeline
@@ -195,6 +294,54 @@ steps:
 
 	if len(pipeline.Steps) != 1 {
 		t.Errorf("Expected 1 step, got %d", len(pipeline.Steps))
+	}
+}
+
+func TestYAMLPipelineLoader_ConcurrencyField(t *testing.T) {
+	yamlContent := []byte(`
+kind: WavePipeline
+metadata:
+  name: concurrency-test
+input:
+  source: cli
+steps:
+  - id: parallel-step
+    persona: worker
+    concurrency: 3
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: do work
+  - id: normal-step
+    persona: worker
+    memory:
+      strategy: fresh
+    workspace:
+      root: ./
+    exec:
+      type: prompt
+      source: do other work
+`)
+
+	loader := &YAMLPipelineLoader{}
+	pipeline, err := loader.Unmarshal(yamlContent)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if len(pipeline.Steps) != 2 {
+		t.Fatalf("Expected 2 steps, got %d", len(pipeline.Steps))
+	}
+
+	if pipeline.Steps[0].Concurrency != 3 {
+		t.Errorf("Expected concurrency=3 for parallel-step, got %d", pipeline.Steps[0].Concurrency)
+	}
+
+	if pipeline.Steps[1].Concurrency != 0 {
+		t.Errorf("Expected concurrency=0 (default) for normal-step, got %d", pipeline.Steps[1].Concurrency)
 	}
 }
 

@@ -54,6 +54,16 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return fmt.Errorf("step %q depends on non-existent step %q", step.ID, depID)
 			}
 		}
+
+		// Validate concurrency field
+		if step.Concurrency < 0 {
+			return fmt.Errorf("step %q has invalid concurrency value %d: must be >= 0", step.ID, step.Concurrency)
+		}
+
+		// Concurrency and matrix strategy are mutually exclusive
+		if step.Concurrency > 1 && step.Strategy != nil && step.Strategy.Type == "matrix" {
+			return fmt.Errorf("step %q cannot use both concurrency (%d) and matrix strategy: they are mutually exclusive", step.ID, step.Concurrency)
+		}
 	}
 
 	visited := make(map[string]bool)

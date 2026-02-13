@@ -332,6 +332,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
 	}
 
+	// Check if this step uses concurrency (before matrix check — mutually exclusive, validated in DAG)
+	if step.Concurrency > 1 {
+		return e.executeConcurrentStep(ctx, execution, step)
+	}
+
 	// Check if this step uses a matrix strategy
 	if step.Strategy != nil && step.Strategy.Type == "matrix" {
 		return e.executeMatrixStep(ctx, execution, step)
@@ -398,6 +403,32 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	}
 
 	return lastErr
+}
+
+// executeConcurrentStep handles steps with concurrency > 1 by spawning N identical agents.
+func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	concurrencyExecutor := NewConcurrencyExecutor(e)
+	err := concurrencyExecutor.Execute(ctx, execution, step)
+
+	if err != nil {
+		execution.States[step.ID] = StateFailed
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return err
+	}
+
+	execution.States[step.ID] = StateCompleted
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	// Track deliverables from completed concurrent step
+	e.trackStepDeliverables(execution, step)
+
+	return nil
 }
 
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.

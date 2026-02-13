@@ -56,6 +56,7 @@ type Step struct {
 	Exec            ExecConfig       `yaml:"exec"`
 	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
 	Handover        HandoverConfig   `yaml:"handover,omitempty"`
+	Concurrency     int              `yaml:"concurrency,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 }
