@@ -4,7 +4,7 @@
     <div>
         <a href="/runs" class="back-link">&larr; Back to Runs</a>
         <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
-        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}}</p>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
