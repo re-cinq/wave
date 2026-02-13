@@ -1,0 +1,28 @@
+{{define "templates/layout.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Dashboard{{block "title" .}} {{end}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/runs">Wave</a>
+        </div>
+        <div class="nav-links">
+            <a href="/runs" class="nav-link">Runs</a>
+            <a href="/pipelines" class="nav-link">Pipelines</a>
+            <a href="/personas" class="nav-link">Personas</a>
+        </div>
+    </nav>
+    <main class="container">
+        {{block "content" .}}{{end}}
+    </main>
+    <script src="/static/app.js"></script>
+    {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
