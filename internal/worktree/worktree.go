@@ -1,22 +1,36 @@
 package worktree
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 )
 
+const defaultLockTimeout = 30 * time.Second
+
+// ManagerOption configures a Manager.
+type ManagerOption func(*Manager)
+
+// WithLockTimeout sets the lock acquisition timeout for worktree operations.
+func WithLockTimeout(d time.Duration) ManagerOption {
+	return func(m *Manager) { m.lockTimeout = d }
+}
+
 // Manager handles git worktree lifecycle for isolated workspace execution.
+// All git worktree operations are coordinated through a repository-scoped lock
+// that works across all Manager instances targeting the same repository.
 type Manager struct {
-	repoRoot string
-	mu       sync.Mutex
+	repoRoot    string
+	lockTimeout time.Duration
 }
 
 // NewManager creates a worktree manager for the given git repository root.
-func NewManager(repoRoot string) (*Manager, error) {
+// If repoRoot is empty, auto-detects via `git rev-parse --show-toplevel`.
+func NewManager(repoRoot string, opts ...ManagerOption) (*Manager, error) {
 	if repoRoot == "" {
 		// Auto-detect repo root
 		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -33,21 +47,45 @@ func NewManager(repoRoot string) (*Manager, error) {
 		return nil, fmt.Errorf("not a git repository: %s", repoRoot)
 	}
 
-	return &Manager{repoRoot: repoRoot}, nil
+	// Canonicalize the repo root so different path representations
+	// resolve to the same repository-scoped lock.
+	canonical, err := canonicalPath(repoRoot)
+	if err != nil {
+		// Fall back to the raw path if canonicalization fails
+		canonical = repoRoot
+	}
+
+	m := &Manager{
+		repoRoot:    canonical,
+		lockTimeout: defaultLockTimeout,
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m, nil
 }
 
 // Create creates a new git worktree at the given path on the specified branch.
+// Acquires repository-scoped lock for the duration of git operations.
 // If the branch doesn't exist, it creates a new branch from HEAD.
-func (m *Manager) Create(worktreePath, branch string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+// Runs `git worktree prune` before creation to clean stale worktrees.
+func (m *Manager) Create(ctx context.Context, worktreePath, branch string) error {
 	if worktreePath == "" {
 		return fmt.Errorf("worktree path cannot be empty")
 	}
 	if branch == "" {
 		return fmt.Errorf("branch name cannot be empty")
 	}
+
+	// Acquire repository-scoped lock with timeout
+	lockCtx, cancel := context.WithTimeout(ctx, m.lockTimeout)
+	defer cancel()
+
+	lock := getRepoLock(m.repoRoot)
+	if err := lock.LockWithContext(lockCtx); err != nil {
+		return fmt.Errorf("lock acquisition timed out for repository %s: %w", m.repoRoot, err)
+	}
+	defer lock.Unlock()
 
 	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(worktreePath), 0755); err != nil {
@@ -91,13 +129,22 @@ func (m *Manager) Create(worktreePath, branch string) error {
 }
 
 // Remove removes a git worktree at the given path.
-func (m *Manager) Remove(worktreePath string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+// Acquires repository-scoped lock for the duration of git operations.
+// Falls back to force removal if normal removal fails (dirty worktree).
+func (m *Manager) Remove(ctx context.Context, worktreePath string) error {
 	if worktreePath == "" {
 		return fmt.Errorf("worktree path cannot be empty")
 	}
+
+	// Acquire repository-scoped lock with timeout
+	lockCtx, cancel := context.WithTimeout(ctx, m.lockTimeout)
+	defer cancel()
+
+	lock := getRepoLock(m.repoRoot)
+	if err := lock.LockWithContext(lockCtx); err != nil {
+		return fmt.Errorf("lock acquisition timed out for repository %s: %w", m.repoRoot, err)
+	}
+	defer lock.Unlock()
 
 	// Try normal removal first
 	cmd := exec.Command("git", "-C", m.repoRoot, "worktree", "remove", worktreePath)

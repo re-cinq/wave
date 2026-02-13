@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/worktree"
 )
 
 // ResumeManager handles pipeline resumption from specific steps
@@ -106,6 +107,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		WorkspacePaths: resumeState.WorkspacePaths,
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
+		Worktrees:      worktree.NewWorktreeRegistry(),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/worktree"
 	"github.com/recinq/wave/internal/workspace"
 	"golang.org/x/sync/errgroup"
 )
@@ -326,7 +327,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 	pipelineID := execution.Status.ID
 
 	// Create isolated workspace for this worker
-	workspacePath, err := m.createWorkerWorkspace(execution, step, itemIndex)
+	workspacePath, err := m.createWorkerWorkspace(ctx, execution, step, itemIndex)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create worker workspace: %w", err)
 		return result
@@ -351,6 +352,8 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 	}
 
 	// Execute the step using the executor's run method
+	// Share the parent execution's Worktrees registry so matrix worker
+	// worktrees are tracked for cleanup at pipeline completion.
 	workerExecution := &PipelineExecution{
 		Pipeline:       execution.Pipeline,
 		Manifest:       execution.Manifest,
@@ -360,7 +363,8 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 		WorkspacePaths: map[string]string{step.ID: workspacePath},
 		Input:          execution.Input,
 		Status:         execution.Status,
-		Context:        execution.Context, // Fix: Copy context to prevent nil pointer dereference
+		Context:        execution.Context,
+		Worktrees:      execution.Worktrees,
 	}
 
 	// Copy artifact paths from parent execution
@@ -402,11 +406,52 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 }
 
 // createWorkerWorkspace creates an isolated workspace for a matrix worker.
-func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, step *Step, itemIndex int) (string, error) {
+func (m *MatrixExecutor) createWorkerWorkspace(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int) (string, error) {
 	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
 		wsRoot = ".wave/workspaces"
+	}
+
+	// Handle worktree workspace type for matrix workers
+	if step.Workspace.Type == "worktree" {
+		wsPath := filepath.Join(wsRoot, pipelineID, step.ID, fmt.Sprintf("worker_%d", itemIndex))
+
+		branch := step.Workspace.Branch
+		if execution.Context != nil && branch != "" {
+			branch = execution.Context.ResolvePlaceholders(branch)
+		}
+		if branch == "" {
+			branch = fmt.Sprintf("wave/%s/%s/worker_%d", pipelineID, step.ID, itemIndex)
+		} else {
+			// Ensure unique branch per worker
+			branch = fmt.Sprintf("%s-worker-%d", branch, itemIndex)
+		}
+
+		mgr, err := worktree.NewManager("")
+		if err != nil {
+			return "", fmt.Errorf("failed to create worktree manager: %w", err)
+		}
+
+		absPath, err := filepath.Abs(wsPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
+		}
+
+		if err := mgr.Create(ctx, absPath, branch); err != nil {
+			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
+		}
+
+		// Register worktree in the parent execution's registry for cleanup
+		if execution.Worktrees != nil {
+			execution.Worktrees.Register(worktree.WorktreeEntry{
+				StepID:       fmt.Sprintf("%s/worker_%d", step.ID, itemIndex),
+				WorktreePath: absPath,
+				RepoRoot:     mgr.RepoRoot(),
+			})
+		}
+
+		return absPath, nil
 	}
 
 	// Create worker-specific workspace under .wave/workspaces/<pipeline>/<step>/worker_<index>/

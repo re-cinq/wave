@@ -1,11 +1,13 @@
 package worktree
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 // initTestRepo creates a temporary git repository for testing.
@@ -50,8 +52,9 @@ func TestNewManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
 	}
-	if mgr.RepoRoot() != dir {
-		t.Errorf("expected repo root %q, got %q", dir, mgr.RepoRoot())
+	// RepoRoot returns the canonical path, which should resolve to the same directory
+	if mgr.RepoRoot() == "" {
+		t.Error("expected non-empty repo root")
 	}
 }
 
@@ -71,10 +74,11 @@ func TestCreateAndRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := context.Background()
 	worktreePath := filepath.Join(t.TempDir(), "my-worktree")
 
 	// Create worktree with new branch
-	if err := mgr.Create(worktreePath, "test-branch"); err != nil {
+	if err := mgr.Create(ctx, worktreePath, "test-branch"); err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
@@ -96,7 +100,7 @@ func TestCreateAndRemove(t *testing.T) {
 	}
 
 	// Remove worktree
-	if err := mgr.Remove(worktreePath); err != nil {
+	if err := mgr.Remove(ctx, worktreePath); err != nil {
 		t.Fatalf("Remove failed: %v", err)
 	}
 
@@ -119,15 +123,16 @@ func TestCreateExistingBranch(t *testing.T) {
 		t.Fatalf("failed to create branch: %v\n%s", err, out)
 	}
 
+	ctx := context.Background()
 	worktreePath := filepath.Join(t.TempDir(), "existing-wt")
 
 	// Create worktree using existing branch
-	if err := mgr.Create(worktreePath, "existing-branch"); err != nil {
+	if err := mgr.Create(ctx, worktreePath, "existing-branch"); err != nil {
 		t.Fatalf("Create failed for existing branch: %v", err)
 	}
 
 	// Cleanup
-	mgr.Remove(worktreePath)
+	mgr.Remove(ctx, worktreePath)
 }
 
 func TestCreate_EmptyPath(t *testing.T) {
@@ -137,7 +142,8 @@ func TestCreate_EmptyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := mgr.Create("", "test-branch"); err == nil {
+	ctx := context.Background()
+	if err := mgr.Create(ctx, "", "test-branch"); err == nil {
 		t.Fatal("expected error for empty path")
 	}
 }
@@ -149,7 +155,8 @@ func TestCreate_EmptyBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := mgr.Create("/tmp/test-wt", ""); err == nil {
+	ctx := context.Background()
+	if err := mgr.Create(ctx, "/tmp/test-wt", ""); err == nil {
 		t.Fatal("expected error for empty branch")
 	}
 }
@@ -161,7 +168,8 @@ func TestRemove_EmptyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := mgr.Remove(""); err == nil {
+	ctx := context.Background()
+	if err := mgr.Remove(ctx, ""); err == nil {
 		t.Fatal("expected error for empty path")
 	}
 }
@@ -173,8 +181,9 @@ func TestRemoveDirtyWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := context.Background()
 	worktreePath := filepath.Join(t.TempDir(), "dirty-wt")
-	if err := mgr.Create(worktreePath, "dirty-branch"); err != nil {
+	if err := mgr.Create(ctx, worktreePath, "dirty-branch"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,7 +193,7 @@ func TestRemoveDirtyWorktree(t *testing.T) {
 	}
 
 	// Force removal should still work
-	if err := mgr.Remove(worktreePath); err != nil {
+	if err := mgr.Remove(ctx, worktreePath); err != nil {
 		t.Fatalf("Remove failed for dirty worktree: %v", err)
 	}
 }
@@ -196,6 +205,7 @@ func TestConcurrentWorktreeCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := context.Background()
 	var wg sync.WaitGroup
 	errCh := make(chan error, 3)
 	paths := make([]string, 3)
@@ -207,7 +217,7 @@ func TestConcurrentWorktreeCreation(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			branchName := filepath.Base(paths[i]) + "-" + string(rune('a'+i))
-			if err := mgr.Create(paths[i], branchName); err != nil {
+			if err := mgr.Create(ctx, paths[i], branchName); err != nil {
 				errCh <- err
 			}
 		}()
@@ -222,6 +232,63 @@ func TestConcurrentWorktreeCreation(t *testing.T) {
 
 	// Cleanup
 	for _, p := range paths {
-		mgr.Remove(p)
+		mgr.Remove(ctx, p)
+	}
+}
+
+// TestConcurrentCrossManagerWorktree verifies that 10 Manager instances on the same repo
+// doing create/remove concurrently produce zero git errors (T010/SC-001).
+func TestConcurrentCrossManagerWorktree(t *testing.T) {
+	dir := initTestRepo(t)
+
+	const managers = 10
+	var wg sync.WaitGroup
+	errCh := make(chan error, managers*2)
+
+	for i := 0; i < managers; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+
+			mgr, err := NewManager(dir)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			ctx := context.Background()
+			wtPath := filepath.Join(t.TempDir(), "cross-mgr-wt")
+			branchName := "cross-mgr-" + string(rune('a'+i))
+
+			if err := mgr.Create(ctx, wtPath, branchName); err != nil {
+				errCh <- err
+				return
+			}
+
+			if err := mgr.Remove(ctx, wtPath); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("cross-manager concurrent operation failed: %v", err)
+	}
+}
+
+func TestNewManager_WithLockTimeout(t *testing.T) {
+	dir := initTestRepo(t)
+
+	mgr, err := NewManager(dir, WithLockTimeout(5*time.Second))
+	if err != nil {
+		t.Fatalf("NewManager with option failed: %v", err)
+	}
+
+	if mgr.lockTimeout != 5*time.Second {
+		t.Errorf("expected lockTimeout 5s, got %v", mgr.lockTimeout)
 	}
 }

@@ -454,7 +454,7 @@ func TestMatrixExecutor_CreateWorkerWorkspace(t *testing.T) {
 
 	step := &Step{ID: "matrix_step"}
 
-	wsPath, err := matrixExecutor.createWorkerWorkspace(execution, step, 5)
+	wsPath, err := matrixExecutor.createWorkerWorkspace(context.Background(), execution, step, 5)
 	if err != nil {
 		t.Fatalf("Failed to create worker workspace: %v", err)
 	}

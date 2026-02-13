@@ -1498,3 +1498,108 @@ func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*Pipelin
 	}
 	return nil, false
 }
+
+// TestWorkspacePathUniqueness verifies that workspace paths for two concurrent
+// runs of the same pipeline definition are distinct (T021/SC-004).
+func TestWorkspacePathUniqueness(t *testing.T) {
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	const runs = 5
+	paths := make(chan string, runs)
+
+	var wg sync.WaitGroup
+	for i := 0; i < runs; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			collector := newTestEventCollector()
+			executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+
+			p := &Pipeline{
+				Metadata: PipelineMetadata{Name: "uniqueness-test"},
+				Steps: []Step{
+					{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			err := executor.Execute(ctx, p, m, "test")
+			if err != nil {
+				t.Errorf("execution failed: %v", err)
+				return
+			}
+
+			// Capture the workspace path from events
+			for _, ev := range collector.GetEvents() {
+				if ev.State == "started" && strings.Contains(ev.Message, "workspace root") {
+					paths <- ev.Message
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(paths)
+
+	seen := make(map[string]bool)
+	for p := range paths {
+		assert.False(t, seen[p], "workspace path collision: %s", p)
+		seen[p] = true
+	}
+
+	assert.Len(t, seen, runs, "all workspace paths should be unique")
+}
+
+// TestWorktreeEventObservability verifies that worktree operations emit events
+// that include the pipeline run ID (T022/T023/SC-005).
+func TestWorktreeEventObservability(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "observability-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	events := collector.GetEvents()
+	runtimeID := collector.GetPipelineID()
+
+	// All events with a PipelineID should have the correct run ID
+	for _, ev := range events {
+		if ev.PipelineID != "" {
+			assert.Equal(t, runtimeID, ev.PipelineID,
+				"all events should reference the pipeline run ID (event state: %s)", ev.State)
+		}
+	}
+
+	// The pipeline should have started and completed events
+	assert.True(t, collector.HasEventWithState("started"))
+	assert.True(t, collector.HasEventWithState("completed"))
+}

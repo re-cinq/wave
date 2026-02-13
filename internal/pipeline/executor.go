@@ -108,7 +108,8 @@ type PipelineExecution struct {
 	WorkspacePaths map[string]string // stepID -> workspace path
 	Input          string
 	Status         *PipelineStatus
-	Context        *PipelineContext  // Dynamic template variables
+	Context        *PipelineContext           // Dynamic template variables
+	Worktrees      *worktree.WorktreeRegistry // Tracks worktrees for cleanup
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -191,6 +192,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorkspacePaths: make(map[string]string),
 		Input:          input,
 		Context:        pipelineContext,
+		Worktrees:      worktree.NewWorktreeRegistry(),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -428,7 +430,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
-	workspacePath, err := e.createStepWorkspace(execution, step)
+	workspacePath, err := e.createStepWorkspace(ctx, execution, step)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
@@ -709,7 +711,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
+func (e *DefaultPipelineExecutor) createStepWorkspace(ctx context.Context, execution *PipelineExecution, step *Step) (string, error) {
 	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
@@ -743,12 +745,32 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
 		}
 
-		if err := mgr.Create(absPath, branch); err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "worktree_creating",
+			Message:    fmt.Sprintf("creating worktree at %s on branch %s", absPath, branch),
+		})
+
+		if err := mgr.Create(ctx, absPath, branch); err != nil {
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
 
-		// Store worktree manager reference for cleanup
-		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
+		// Register worktree in the typed registry for cleanup
+		execution.Worktrees.Register(worktree.WorktreeEntry{
+			StepID:       step.ID,
+			WorktreePath: absPath,
+			RepoRoot:     mgr.RepoRoot(),
+		})
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "worktree_created",
+			Message:    fmt.Sprintf("worktree created at %s", absPath),
+		})
 
 		return absPath, nil
 	}
@@ -1400,34 +1422,41 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 }
 
 // cleanupWorktrees removes any git worktrees created during pipeline execution.
+// Uses the typed WorktreeRegistry instead of scanning WorkspacePaths for magic suffixes.
 func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
-	for key, repoRoot := range execution.WorkspacePaths {
-		if !strings.HasSuffix(key, "__worktree_repo_root") {
-			continue
-		}
-		stepID := strings.TrimSuffix(key, "__worktree_repo_root")
-		wsPath := execution.WorkspacePaths[stepID]
-		if wsPath == "" {
-			continue
-		}
-		mgr, err := worktree.NewManager(repoRoot)
+	if execution.Worktrees == nil {
+		return
+	}
+
+	ctx := context.Background()
+	for _, entry := range execution.Worktrees.Entries() {
+		mgr, err := worktree.NewManager(entry.RepoRoot)
 		if err != nil {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
-				StepID:     stepID,
+				StepID:     entry.StepID,
 				State:      "warning",
 				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
 			})
 			continue
 		}
-		if err := mgr.Remove(wsPath); err != nil {
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     entry.StepID,
+			State:      "worktree_removing",
+			Message:    fmt.Sprintf("removing worktree at %s", entry.WorktreePath),
+		})
+
+		if err := mgr.Remove(ctx, entry.WorktreePath); err != nil {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
-				StepID:     stepID,
+				StepID:     entry.StepID,
 				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
+				Message:    fmt.Sprintf("worktree cleanup failed for %s: %v", entry.WorktreePath, err),
 			})
 		}
 	}

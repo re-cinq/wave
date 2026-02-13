@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"regexp"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,4 +97,29 @@ func TestTimestampFallback(t *testing.T) {
 
 	re := regexp.MustCompile(`^[0-9a-f]+$`)
 	assert.Regexp(t, re, result, "fallback should return valid hex")
+}
+
+func TestGenerateRunID_ConcurrentUniqueness(t *testing.T) {
+	const goroutines = 100
+	ids := make(chan string, goroutines)
+
+	var wg sync.WaitGroup
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ids <- GenerateRunID("same-pipeline", 8)
+		}()
+	}
+
+	wg.Wait()
+	close(ids)
+
+	seen := make(map[string]bool)
+	for id := range ids {
+		require.False(t, seen[id], "concurrent ID collision detected: %s", id)
+		seen[id] = true
+	}
+
+	assert.Len(t, seen, goroutines, "all concurrent IDs should be unique")
 }
