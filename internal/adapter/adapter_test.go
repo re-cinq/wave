@@ -385,18 +385,18 @@ func TestClaudeAdapter_ParseOutput(t *testing.T) {
 	// Test with new Claude CLI output format
 	jsonl := `{"type":"result","subtype":"success","result":"Hello world","usage":{"input_tokens":10,"output_tokens":5}}`
 
-	tokens, artifacts, resultContent := adapter.parseOutput([]byte(jsonl))
+	parsed := adapter.parseOutput([]byte(jsonl))
 
-	if tokens != 15 {
-		t.Errorf("expected 15 tokens, got: %d", tokens)
+	if parsed.Tokens != 15 {
+		t.Errorf("expected 15 tokens, got: %d", parsed.Tokens)
 	}
 
-	if len(artifacts) != 0 {
-		t.Errorf("expected 0 artifacts, got: %d", len(artifacts))
+	if len(parsed.Artifacts) != 0 {
+		t.Errorf("expected 0 artifacts, got: %d", len(parsed.Artifacts))
 	}
 
-	if resultContent != "Hello world" {
-		t.Errorf("expected result content 'Hello world', got: %s", resultContent)
+	if parsed.ResultContent != "Hello world" {
+		t.Errorf("expected result content 'Hello world', got: %s", parsed.ResultContent)
 	}
 }
 
