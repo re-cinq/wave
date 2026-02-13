@@ -1,0 +1,10 @@
+{{define "templates/partials/run_row.html"}}
+<tr class="run-row" data-status="{{.Status}}">
+    <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
+    <td>{{.PipelineName}}</td>
+    <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
+    <td>{{formatTime .StartedAt}}</td>
+    <td>{{.Duration}}</td>
+    <td>{{.TotalTokens}}</td>
+</tr>
+{{end}}

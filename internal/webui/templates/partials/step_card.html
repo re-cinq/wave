@@ -1,0 +1,32 @@
+{{define "templates/partials/step_card.html"}}
+<div class="step-card {{statusClass .State}}">
+    <div class="step-header">
+        <span class="step-id">{{.StepID}}</span>
+        <span class="badge {{statusClass .State}}">{{.State}}</span>
+        <span class="step-persona">{{.Persona}}</span>
+    </div>
+    <div class="step-body">
+        {{if .Action}}<div class="step-action">{{.Action}}</div>{{end}}
+        {{if gt .Progress 0}}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{.Progress}}%">{{.Progress}}%</div>
+        </div>
+        {{end}}
+        <div class="step-meta">
+            {{if .Duration}}<span>Duration: {{.Duration}}</span>{{end}}
+            {{if gt .TokensUsed 0}}<span>Tokens: {{.TokensUsed}}</span>{{end}}
+        </div>
+        {{if .Error}}<div class="step-error">{{.Error}}</div>{{end}}
+        {{if .Artifacts}}
+        <div class="step-artifacts">
+            <strong>Artifacts:</strong>
+            <ul>
+                {{range .Artifacts}}
+                <li><a href="/runs/{{$.StepID}}/artifacts/{{.Name}}">{{.Name}}</a> ({{.SizeBytes}} bytes)</li>
+                {{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
