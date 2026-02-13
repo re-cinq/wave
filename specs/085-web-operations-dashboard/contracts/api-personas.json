@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /api/personas — Persona List",
+  "description": "Returns all configured personas from the manifest and defaults. (FR-012)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "GET" },
+        "path": { "const": "/api/personas" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["personas"],
+      "properties": {
+        "personas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "adapter": { "type": "string" },
+              "model": { "type": "string" },
+              "temperature": { "type": "number" },
+              "allowed_tools": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "denied_tools": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
