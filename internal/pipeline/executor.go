@@ -280,7 +280,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			e.cleanupWorktrees(execution, pipelineID)
 			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
-			return fmt.Errorf("step %q failed: %w", step.ID, err)
+			return &StepError{StepID: step.ID, Err: err}
 		}
 		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
 
@@ -1359,7 +1359,7 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 				// Clean up failed pipeline from in-memory storage to prevent memory leak
 				e.cleanupCompletedPipeline(execution.Status.ID)
-				return fmt.Errorf("step %q failed: %w", step.ID, err)
+				return &StepError{StepID: step.ID, Err: err}
 			}
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
 		}

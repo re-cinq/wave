@@ -13,8 +13,10 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -265,6 +267,35 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if execErr != nil {
+		// Extract step ID from StepError for recovery hints
+		var stepErr *pipeline.StepError
+		if errors.As(execErr, &stepErr) {
+			errClass := recovery.ClassifyError(stepErr.Err)
+			block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepErr.StepID, runID, errClass)
+
+			if opts.Output.Format == OutputFormatJSON {
+				// In JSON mode, emit recovery hints as structured data
+				hints := make([]event.RecoveryHintJSON, len(block.Hints))
+				for i, h := range block.Hints {
+					hints[i] = event.RecoveryHintJSON{
+						Label:   h.Label,
+						Command: h.Command,
+						Type:    string(h.Type),
+					}
+				}
+				emitter.Emit(event.Event{
+					Timestamp:     time.Now(),
+					PipelineID:    runID,
+					StepID:        stepErr.StepID,
+					State:         event.StateFailed,
+					Message:       execErr.Error(),
+					RecoveryHints: hints,
+				})
+			} else {
+				// In text/auto/quiet modes, print recovery hints to stderr
+				fmt.Fprint(os.Stderr, recovery.FormatRecoveryBlock(block))
+			}
+		}
 		return fmt.Errorf("pipeline execution failed: %w", execErr)
 	}
 

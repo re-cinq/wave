@@ -35,6 +35,16 @@ type Event struct {
 	// Step metadata fields (FR-010: model and adapter type in step-start events)
 	Model   string `json:"model,omitempty"`   // Model name (e.g., "opus", "sonnet")
 	Adapter string `json:"adapter,omitempty"` // Adapter type (e.g., "claude")
+
+	// Recovery hints (populated on failure events only)
+	RecoveryHints []RecoveryHintJSON `json:"recovery_hints,omitempty"`
+}
+
+// RecoveryHintJSON is the JSON-serializable representation of a recovery hint.
+type RecoveryHintJSON struct {
+	Label   string `json:"label"`
+	Command string `json:"command"`
+	Type    string `json:"type"`
 }
 
 // Event state constants for pipeline and step lifecycle
