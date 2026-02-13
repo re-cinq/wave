@@ -60,6 +60,7 @@ Follow the `/speckit.tasks` workflow:
 
 ## CONSTRAINTS
 
+- **Maximum 20 tasks total** — scope aggressively. A single LLM implement step must complete all tasks within a 10-minute budget. If the feature requires more than 20 tasks, split into coarser units (e.g., "implement all handlers" instead of one task per handler). Prefer fewer, larger tasks over many granular ones.
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT use WebSearch — all information is in the spec artifacts
 - Keep the scope tight: generate tasks from existing artifacts only
