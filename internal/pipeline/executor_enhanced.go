@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -220,39 +221,11 @@ func isContractValidationError(err error) bool {
 	}
 
 	for _, keyword := range contractKeywords {
-		if contains(errorText, keyword) {
+		if strings.Contains(errorText, keyword) {
 			return true
 		}
 	}
 
-	return false
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(text, substr string) bool {
-	return len(text) >= len(substr) && findSubstring(text, substr)
-}
-
-func findSubstring(text, substr string) bool {
-	if len(substr) == 0 {
-		return true
-	}
-	if len(text) < len(substr) {
-		return false
-	}
-
-	for i := 0; i <= len(text)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			if text[i+j] != substr[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
 	return false
 }
 

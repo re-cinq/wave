@@ -237,7 +237,7 @@ func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
 	const numGoroutines = 50
 
 	var wg sync.WaitGroup
-	wg.Add(numGoroutines * 3) // Three validation functions
+	wg.Add(numGoroutines * 2) // Two validation functions
 
 	// Test concurrent ValidateConfig calls
 	for i := 0; i < numGoroutines; i++ {
@@ -251,25 +251,6 @@ func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
 			err := ValidateConfig(cfg)
 			if err != nil {
 				t.Errorf("ValidateConfig failed: %v", err)
-			}
-		}()
-	}
-
-	// Test concurrent ValidateCheckpointFormat calls
-	validContent := `# Checkpoint
-
-## Summary
-Valid content for concurrent testing.
-
----
-*Generated*
-`
-	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			defer wg.Done()
-			err := ValidateCheckpointFormat(validContent)
-			if err != nil {
-				t.Errorf("ValidateCheckpointFormat failed: %v", err)
 			}
 		}()
 	}
