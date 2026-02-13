@@ -36,7 +36,7 @@ As the Wave runtime, all git worktree operations (create, remove, prune) across 
 
 1. **Given** multiple `worktree.Manager` instances targeting the same repository, **When** they perform create/remove operations concurrently, **Then** all operations are serialized through a shared coordination mechanism.
 2. **Given** a repository-scoped lock, **When** a worktree create operation is in progress, **Then** another create operation targeting the same repository blocks until the first completes.
-3. **Given** a worktree lock held by a process that crashes, **When** another process attempts to acquire the lock, **Then** the stale lock is detected and recovered after a configurable timeout.
+3. **Given** a goroutine holding the repository lock that panics or whose context is cancelled, **When** another goroutine attempts to acquire the lock, **Then** the lock is released via `defer`-based cleanup and the waiting goroutine proceeds. If the lock cannot be acquired within the configurable timeout (default 30s), the operation fails with a clear error.
 4. **Given** worktree operations on two different repositories, **When** they execute concurrently, **Then** they do NOT block each other (locks are per-repository, not global).
 
 ---
@@ -110,7 +110,7 @@ As a Wave operator monitoring concurrent pipeline runs, I can distinguish betwee
 - What happens when the filesystem runs out of space during concurrent worktree creation? The system should fail the current operation cleanly and not leave partial worktree state. Other active pipelines should continue unaffected.
 - What happens when `git worktree add` is interrupted by SIGTERM/SIGKILL during concurrent execution? The next pipeline run should detect and clean up partial worktree state during its prune phase.
 - What happens when two pipelines attempt to create worktrees on the same branch name simultaneously? The coordination mechanism should serialize these operations; the second attempt should fail with a clear error (branch already checked out) rather than corrupting state.
-- What happens when the lock file becomes corrupted? The system should detect corruption, log a warning, remove the corrupted lock, and recreate it.
+- What happens when a goroutine panics while holding the repository lock? The `defer`-based unlock ensures the mutex is released. The worktree may be left in a partial state, which is cleaned up by `git worktree prune` on the next create operation.
 - What happens when a pipeline run takes extremely long and its lock prevents other pipelines from proceeding? The lock should be scoped to individual git operations (create/remove), not held for the entire pipeline execution.
 - What happens when `os.MkdirAll` races between two concurrent workspace creations? The system should handle `EEXIST` gracefully and use the existing directory or generate a new unique path.
 
@@ -121,7 +121,7 @@ As a Wave operator monitoring concurrent pipeline runs, I can distinguish betwee
 - **FR-001**: The system MUST provide a repository-scoped coordination mechanism for git worktree operations that works across all `worktree.Manager` instances targeting the same repository.
 - **FR-002**: The coordination mechanism MUST serialize `git worktree add`, `git worktree remove`, and `git worktree prune` operations on the same repository to prevent concurrent git state corruption.
 - **FR-003**: The coordination mechanism MUST NOT serialize operations on different repositories (per-repo scoping).
-- **FR-004**: The coordination mechanism MUST handle stale locks from crashed processes, recovering automatically after a configurable timeout.
+- **FR-004**: The system MUST detect and recover from stale worktree directories left by previously-crashed Wave processes (via `git worktree prune` during creation). Lock acquisition MUST support context-based timeout to prevent indefinite blocking when a goroutine holds the repository lock for too long.
 - **FR-005**: The pipeline executor MUST clean up worktrees in a `defer`-style pattern that executes even when pipeline steps fail or panic.
 - **FR-006**: Worktree cleanup MUST be coordinated through the same mechanism as worktree creation to prevent cleanup/creation races.
 - **FR-007**: Workspace paths for concurrent pipeline runs MUST include a unique component (e.g., run ID) that prevents path collisions between runs of the same pipeline definition.
@@ -133,11 +133,11 @@ As a Wave operator monitoring concurrent pipeline runs, I can distinguish betwee
 
 ### Key Entities
 
-- **Repository Lock**: A per-repository synchronization primitive that coordinates all git worktree operations targeting a specific repository. Scoped by the repository root path. Supports timeout-based stale lock recovery.
+- **Repository Lock**: An in-process `sync.Mutex` keyed by canonical repository root path, managed via a package-level `sync.Map` in `internal/worktree/`. Coordinates all git worktree operations (create, remove, prune) targeting a specific repository across all `worktree.Manager` instances within the same Wave process. Lock acquisition supports context-based timeout to prevent indefinite blocking.
 - **Worktree Manager**: The existing `worktree.Manager` struct, extended to participate in repository-scoped coordination rather than relying solely on per-instance mutexes.
 - **Pipeline Run ID**: A unique identifier for each pipeline execution that provides workspace path uniqueness and log correlation. Already partially implemented via the hash-suffixed pipeline IDs from issue #25.
 - **Workspace Path**: The filesystem path where a pipeline step executes. Unique across all concurrent executions through incorporation of the pipeline run ID.
-- **Cleanup Registry**: A record of worktrees owned by a specific pipeline run, enabling targeted cleanup on failure without affecting other runs' worktrees.
+- **Cleanup Registry**: An in-memory data structure within `PipelineExecution` that tracks worktrees created during a pipeline run. Formalizes the existing `WorkspacePaths` tracking (currently using `__worktree_repo_root` suffix convention) into a dedicated typed structure. Enables targeted cleanup on failure without affecting other runs' worktrees. Not persisted to SQLite — stale worktree recovery from prior process crashes is handled by `git worktree prune` at creation time.
 
 ## Success Criteria _(mandatory)_
 
@@ -149,5 +149,68 @@ As a Wave operator monitoring concurrent pipeline runs, I can distinguish betwee
 - **SC-004**: Workspace paths for two concurrent runs of the same pipeline definition are guaranteed to differ, verified by test.
 - **SC-005**: All worktree operation log messages include the pipeline run ID, verifiable by log output inspection in tests.
 - **SC-006**: The coordination mechanism adds less than 100ms of overhead per worktree operation compared to uncoordinated execution (measured under no contention).
-- **SC-007**: Stale lock recovery triggers within 30 seconds of the lock holder's crash (configurable timeout).
+- **SC-007**: Lock acquisition times out after 30 seconds (configurable) if the repository lock cannot be obtained, preventing indefinite blocking. Stale worktree directories from prior process crashes are automatically cleaned up via `git worktree prune` during creation.
 - **SC-008**: No deadlocks occur when 5 matrix workers and 3 concurrent pipelines operate on the same repository simultaneously, verified by a test with `-race` and a reasonable timeout.
+
+## Clarifications _(resolved)_
+
+### CLR-001: Coordination mechanism implementation strategy
+
+**Ambiguity**: The spec references a "repository-scoped coordination mechanism" and "Repository Lock" entity but does not specify the concrete implementation: in-process `sync.Mutex` keyed by repo path, filesystem-based advisory locks (`flock`/lock files), or a hybrid approach.
+
+**Resolution**: Use an **in-process `sync.Mutex` keyed by canonical repository root path**, managed via a package-level `sync.Map` in `internal/worktree/`. This is the correct approach because:
+
+1. **Deployment model**: Wave runs as a single Go process — all pipeline goroutines share the same address space. Filesystem locks add complexity and failure modes (stale lock files, NFS incompatibility) without benefit for single-process coordination.
+2. **Codebase precedent**: The existing `worktree.Manager` already uses `sync.Mutex`; this extends the same pattern from per-instance to per-repository scoping.
+3. **FR-004 (stale lock recovery)**: Since coordination is in-process, "stale locks from crashed processes" becomes a non-issue — when the process dies, all locks are released. FR-004's scope is narrowed to detecting stale *worktree directories* from previous process crashes (already partially handled by `git worktree prune`), not stale lock files.
+
+**Sections updated**: FR-004 is reinterpreted; User Story 2 Scenario 3 is reframed from "process crash" to "goroutine panic/context cancellation".
+
+### CLR-002: Cleanup Registry — in-memory per-execution tracking
+
+**Ambiguity**: The "Cleanup Registry" key entity is described as "a record of worktrees owned by a specific pipeline run" but the spec doesn't specify whether it should be persisted (SQLite) or held in memory, or what its lifecycle is.
+
+**Resolution**: The Cleanup Registry is an **in-memory data structure within `PipelineExecution`**, not a persistent store. Rationale:
+
+1. **Existing pattern**: The current code already tracks worktrees via the `WorkspacePaths` map with `__worktree_repo_root` suffix keys — this IS the cleanup registry, just unnamed.
+2. **Lifecycle**: The registry lives for the duration of a pipeline execution and is used in the deferred cleanup at the end of `Execute()`. No persistence needed because worktree cleanup must happen before the process exits (and stale worktree recovery from prior crashes is handled by `git worktree prune` at creation time).
+3. **Implementation**: Formalize the existing `WorkspacePaths` tracking into a dedicated `WorktreeRegistry` field on `PipelineExecution` (or refactor the `__worktree_repo_root` convention into a proper struct), rather than introducing a new SQLite table.
+
+**Sections updated**: Key Entities (Cleanup Registry definition clarified).
+
+### CLR-003: Workspace path uniqueness — existing mechanism is sufficient
+
+**Ambiguity**: FR-007 requires workspace paths to include a "unique component (e.g., run ID)" but the existing `GenerateRunID()` already produces `{name}-{8-char-hex}` using `crypto/rand`, and workspace paths are already `{wsRoot}/{pipelineID}/{stepID}`. The spec doesn't state whether changes are needed or this is documenting existing behavior.
+
+**Resolution**: The existing `GenerateRunID()` mechanism **already satisfies FR-007**. The 8-character hex suffix from `crypto/rand` provides 32 bits of entropy (4 billion possible values), making collisions astronomically unlikely for concurrent runs. No changes to the path generation are required. Implementation should:
+
+1. **Verify** (via test) that two concurrent `GenerateRunID()` calls for the same pipeline name produce different IDs.
+2. **Document** that workspace path uniqueness is guaranteed by the existing run ID generation, not by additional mechanisms.
+3. **Handle the edge case** of a stale workspace directory from a previous run at the same path (already handled by `os.RemoveAll` in `Execute()`).
+
+**Sections updated**: FR-007 (confirmed as existing behavior); User Story 5 (test focus clarified).
+
+### CLR-004: Scope is intra-process coordination, not inter-process
+
+**Ambiguity**: FR-004 references "crashed processes" and SC-007 mentions "lock holder's crash," which implies inter-process coordination. However, Wave's architecture runs pipelines as goroutines within a single `wave run` or `wave serve` process — multiple OS processes managing the same repository simultaneously is not a supported deployment model.
+
+**Resolution**: The coordination scope is **intra-process (goroutine-level)**, not inter-process. Clarifications:
+
+1. **FR-004 reinterpretation**: "Stale locks from crashed processes" is reinterpreted as "stale worktree directories left by a previously-crashed Wave process." Recovery means detecting these via `git worktree prune` at creation time (already implemented in `Manager.Create()`), not implementing filesystem lock timeout mechanisms.
+2. **SC-007 reinterpretation**: "Stale lock recovery" refers to stale *worktree cleanup*, not lock file recovery. The 30-second timeout applies to the wait time for a goroutine holding a `sync.Mutex` before the waiter gives up (via `context.WithTimeout` on lock acquisition).
+3. **User Story 2 Scenario 3**: "Process that crashes" is reframed as "goroutine that panics or whose context is cancelled." `defer`-based unlock in the mutex wrapper ensures the lock is always released.
+
+**Sections updated**: FR-004, SC-007, User Story 2 Scenario 3.
+
+### CLR-005: Lock granularity — prune runs under the same repository lock
+
+**Ambiguity**: FR-002 lists `git worktree prune` as a separately-serialized operation, but the current code calls `prune` as part of the `Create()` flow (line 60-61 in worktree.go). The spec doesn't clarify whether `prune` needs its own lock acquisition or runs under the create/remove lock.
+
+**Resolution**: `git worktree prune` runs **under the same repository-scoped lock** as the enclosing `create` or `remove` operation — it does NOT require separate lock acquisition. Rationale:
+
+1. **Current behavior**: `prune` is called within `Create()` as a cleanup step before the actual `git worktree add`. It's not invoked as a standalone operation.
+2. **Simplicity**: A single repository-scoped lock for all git worktree operations (create, remove, prune) is simpler and avoids reentrant lock complexity.
+3. **Lock scope**: Per FR-011, the lock covers only the git operation duration. Since `prune` is part of the create flow, the lock held during `Create()` naturally covers both prune and add operations.
+4. **Future proofing**: If a standalone `Prune()` method is added later, it should acquire the same repository lock independently.
+
+**Sections updated**: FR-002 (clarified that prune runs under create/remove lock).
