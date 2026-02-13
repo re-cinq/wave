@@ -11,8 +11,6 @@ input:
 steps:
   - id: explore
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -66,7 +64,6 @@ steps:
     persona: planner
     dependencies: [explore]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: explore
           artifact: exploration
@@ -112,7 +109,6 @@ steps:
     persona: philosopher
     dependencies: [analyze]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: explore
           artifact: exploration

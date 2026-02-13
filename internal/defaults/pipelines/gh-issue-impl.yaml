@@ -13,8 +13,6 @@ input:
 steps:
   - id: fetch-assess
     persona: implementer
-    memory:
-      strategy: fresh
     workspace:
       root: ./
     exec:
@@ -37,7 +35,6 @@ steps:
     persona: implementer
     dependencies: [fetch-assess]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-assess
           artifact: assessment
@@ -64,7 +61,6 @@ steps:
     persona: craftsman
     dependencies: [plan]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-assess
           artifact: assessment
@@ -92,7 +88,6 @@ steps:
     persona: craftsman
     dependencies: [implement]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: fetch-assess
           artifact: assessment
