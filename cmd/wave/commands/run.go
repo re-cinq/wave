@@ -222,6 +222,9 @@ func runRun(opts RunOptions, debug bool) error {
 	if logger != nil {
 		execOpts = append(execOpts, pipeline.WithAuditLogger(logger))
 	}
+	if opts.Timeout > 0 {
+		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
+	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
@@ -230,22 +233,14 @@ func runRun(opts RunOptions, debug bool) error {
 		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
 	}
 
-	timeout := time.Duration(opts.Timeout) * time.Minute
-	if opts.Timeout == 0 {
-		timeout = m.Runtime.GetDefaultTimeout()
-	}
-
-	execCtx, execCancel := context.WithTimeout(ctx, timeout)
-	defer execCancel()
-
 	pipelineStart := time.Now()
 
 	var execErr error
 	if opts.FromStep != "" {
 		// Resume from specific step - uses ResumeWithValidation which handles artifacts
-		execErr = executor.ResumeWithValidation(execCtx, p, &m, opts.Input, opts.FromStep, opts.Force)
+		execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force)
 	} else {
-		execErr = executor.Execute(execCtx, p, &m, opts.Input)
+		execErr = executor.Execute(ctx, p, &m, opts.Input)
 	}
 	if execErr != nil {
 		return fmt.Errorf("pipeline execution failed: %w", execErr)
