@@ -25,6 +25,7 @@ type StreamEvent struct {
 	Content   string // text content or result summary
 	TokensIn  int    // cumulative input tokens
 	TokensOut int    // cumulative output tokens
+	Subtype   string // result event subtype: "success", "error_max_turns", "error_during_execution"
 }
 
 type AdapterRunConfig struct {
@@ -61,6 +62,8 @@ type AdapterResult struct {
 	TokensUsed    int
 	Artifacts     []string
 	ResultContent string // Extracted content from the adapter response
+	FailureReason string // Classification: "timeout", "context_exhaustion", "general_error"
+	Subtype       string // Result event subtype from Claude Code NDJSON
 }
 
 type ProcessGroupRunner struct{}
@@ -135,9 +138,21 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	return &result, nil
 }
 
+// killProcessGroup sends SIGTERM to the process group, then SIGKILL after a
+// 3-second grace period if the process hasn't exited. It does NOT call
+// process.Wait() — callers must call cmd.Wait() themselves to avoid
+// "wait: no child processes" errors from double-waiting.
 func killProcessGroup(process *os.Process) {
-	_ = syscall.Kill(-process.Pid, syscall.SIGKILL)
-	_ = process.Release()
+	// Send SIGTERM first for graceful shutdown
+	_ = syscall.Kill(-process.Pid, syscall.SIGTERM)
+
+	// Schedule a forced kill after the grace period. The caller's cmd.Wait()
+	// will reap the process; if it hasn't exited by then, SIGKILL finishes it.
+	go func() {
+		time.Sleep(3 * time.Second)
+		// SIGKILL is harmless if the process already exited
+		_ = syscall.Kill(-process.Pid, syscall.SIGKILL)
+	}()
 }
 
 func exitCodeFromError(err error) int {

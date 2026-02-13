@@ -574,6 +574,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	stepStart := time.Now()
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
+		// Let the higher-level executor emit a single failure event; just
+		// propagate the error with context so enriched details (e.g. from
+		// *adapter.StepError) remain available to callers.
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 

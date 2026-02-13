@@ -25,7 +25,7 @@ func TestNewRelayMonitor_ConfigDefaults(t *testing.T) {
 			name:   "all zeros - should use defaults",
 			config: RelayMonitorConfig{},
 			expectedConfig: RelayMonitorConfig{
-				DefaultThreshold:   80,
+				DefaultThreshold:   70,
 				MinTokensToCompact: 1000,
 				ContextWindow:      200000,
 			},
