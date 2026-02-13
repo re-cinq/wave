@@ -17,35 +17,74 @@ var staticFS embed.FS
 //go:embed templates/*
 var templatesFS embed.FS
 
-// parseTemplates parses all embedded HTML templates.
-func parseTemplates() (*template.Template, error) {
+// pageTemplates is the list of page templates that get their own clone of the
+// base (layout + partials) so that each page can independently define "title",
+// "content", and "scripts" blocks without colliding.
+var pageTemplates = []string{
+	"templates/runs.html",
+	"templates/run_detail.html",
+	"templates/personas.html",
+	"templates/pipelines.html",
+}
+
+// parseTemplates parses all embedded HTML templates using a clone-per-page
+// strategy. The layout and partials form a shared base; each page template is
+// parsed into its own clone so that block overrides (title, content, scripts)
+// don't conflict across pages.
+func parseTemplates() (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 	}
 
-	tmpl := template.New("").Funcs(funcMap)
+	// Parse layout into the base template.
+	layoutData, err := templatesFS.ReadFile("templates/layout.html")
+	if err != nil {
+		return nil, fmt.Errorf("reading layout: %w", err)
+	}
+	base, err := template.New("base").Funcs(funcMap).Parse(string(layoutData))
+	if err != nil {
+		return nil, fmt.Errorf("parsing layout: %w", err)
+	}
 
-	err := fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	// Parse all partials into the base.
+	err = fs.WalkDir(templatesFS, "templates/partials", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if d.IsDir() {
 			return nil
 		}
-		data, err := templatesFS.ReadFile(path)
-		if err != nil {
-			return err
+		data, readErr := templatesFS.ReadFile(path)
+		if readErr != nil {
+			return readErr
 		}
-		_, err = tmpl.New(path).Parse(string(data))
-		return err
+		_, parseErr := base.New(path).Parse(string(data))
+		return parseErr
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing partials: %w", err)
 	}
 
-	return tmpl, nil
+	// Clone the base for each page template.
+	pages := make(map[string]*template.Template, len(pageTemplates))
+	for _, page := range pageTemplates {
+		clone, cloneErr := base.Clone()
+		if cloneErr != nil {
+			return nil, fmt.Errorf("cloning base for %s: %w", page, cloneErr)
+		}
+		data, readErr := templatesFS.ReadFile(page)
+		if readErr != nil {
+			return nil, fmt.Errorf("reading %s: %w", page, readErr)
+		}
+		if _, parseErr := clone.Parse(string(data)); parseErr != nil {
+			return nil, fmt.Errorf("parsing %s: %w", page, parseErr)
+		}
+		pages[page] = clone
+	}
+
+	return pages, nil
 }
 
 // staticHandler returns an http.Handler that serves embedded static files.

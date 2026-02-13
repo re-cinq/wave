@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // Server is the HTTP server for the Wave dashboard.
@@ -23,11 +25,14 @@ type Server struct {
 	store      state.StateStore
 	rwStore    state.StateStore // read-write store for execution control
 	manifest   *manifest.Manifest
-	templates  *template.Template
+	templates  map[string]*template.Template
 	broker     *SSEBroker
+	wsManager  workspace.WorkspaceManager
 	bind       string
 	port       int
 	token      string
+	activeRuns map[string]context.CancelFunc // runID -> cancel
+	mu         sync.Mutex
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -60,15 +65,24 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
 
+	// Initialize workspace manager
+	wsRoot := ".wave/workspaces"
+	if cfg.Manifest != nil && cfg.Manifest.Runtime.WorkspaceRoot != "" {
+		wsRoot = cfg.Manifest.Runtime.WorkspaceRoot
+	}
+	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
+
 	s := &Server{
-		store:     roStore,
-		rwStore:   rwStore,
-		manifest:  cfg.Manifest,
-		templates: tmpl,
-		broker:    NewSSEBroker(),
-		bind:      cfg.Bind,
-		port:      cfg.Port,
-		token:     cfg.Token,
+		store:      roStore,
+		rwStore:    rwStore,
+		manifest:   cfg.Manifest,
+		templates:  tmpl,
+		broker:     NewSSEBroker(),
+		wsManager:  wsManager,
+		bind:       cfg.Bind,
+		port:       cfg.Port,
+		token:      cfg.Token,
+		activeRuns: make(map[string]context.CancelFunc),
 	}
 
 	mux := http.NewServeMux()
