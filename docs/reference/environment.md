@@ -7,6 +7,7 @@ Reference for all environment variables that control Wave behavior, and the cred
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `WAVE_FORCE_TTY` | `bool` | _(auto)_ | Override TTY detection for `-o auto` mode. Set `1` to force TUI, `0` to force plain text. Useful in CI and testing. |
+| `WAVE_SERVE_TOKEN` | `string` | `""` | Authentication token for `wave serve` dashboard. Can also be set via `--token` flag. Auto-generated when binding to non-localhost addresses. |
 | `WAVE_MIGRATION_ENABLED` | `bool` | `true` | Enable the database migration system. |
 | `WAVE_AUTO_MIGRATE` | `bool` | `true` | Automatically apply pending migrations on startup. |
 | `WAVE_SKIP_MIGRATION_VALIDATION` | `bool` | `false` | Skip migration checksum validation (development only). |
