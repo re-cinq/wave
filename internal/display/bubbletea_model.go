@@ -247,92 +247,128 @@ func (m *ProgressModel) renderProgress() string {
 func (m *ProgressModel) renderCurrentStep() string {
 	var steps []string
 
-	// Show all completed steps first, then current step
-	// Use proper step order from StepOrder slice, not random map iteration
-	completedSteps := []string{}
-	currentStep := ""
-
-	// Collect completed and current steps in proper order
+	// Iterate ALL steps in pipeline definition order
 	for _, stepID := range m.ctx.StepOrder {
-		if stepState, exists := m.ctx.StepStatuses[stepID]; exists {
-			if stepState == StateCompleted {
-				completedSteps = append(completedSteps, stepID)
-			} else if stepState == StateRunning && stepID == m.ctx.CurrentStepID {
-				currentStep = stepID
-			}
+		state, exists := m.ctx.StepStatuses[stepID]
+		if !exists {
+			state = StateNotStarted
 		}
-	}
 
-	// Show completed steps with deliverables
-	for _, stepID := range completedSteps {
-		// Show completed step with actual duration
-		durationText := "0.0s"
-		if m.ctx.StepDurations != nil {
-			if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
-				durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
-			}
+		// Look up persona for this step
+		persona := ""
+		if m.ctx.StepPersonas != nil {
+			persona = m.ctx.StepPersonas[stepID]
 		}
-		stepLine := fmt.Sprintf("✓ %s (%s)", stepID, durationText)
-		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine) // Bright cyan like logo
-		steps = append(steps, stepLine)
 
-		// Show deliverables for this step in tree format
-		if m.ctx.DeliverablesByStep != nil {
-			if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
-				for _, deliverable := range stepDeliverables {
-					deliverableLine := fmt.Sprintf("   ├─ %s", deliverable)
-					deliverableLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(deliverableLine) // Medium gray
-					steps = append(steps, deliverableLine)
+		switch state {
+		case StateCompleted:
+			// Completed: checkmark stepID (persona) (duration)
+			durationText := "0.0s"
+			if m.ctx.StepDurations != nil {
+				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+					durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
 				}
 			}
-		}
-	}
-
-	// Add spacing after deliverables if any were shown
-	if len(completedSteps) > 0 {
-		steps = append(steps, "")
-	}
-
-	// Show current running step
-	if currentStep != "" {
-		// Show current running step with spinner
-		spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		now := time.Now().UnixMilli()
-		frame := (now / 80) % int64(len(spinners)) // 80ms per frame
-		icon := spinners[frame]
-
-		stepLine := fmt.Sprintf("%s %s", icon, currentStep)
-		if m.ctx.CurrentPersona != "" {
-			stepLine += fmt.Sprintf(" (%s)", m.ctx.CurrentPersona)
-		}
-		// Real-time step timing
-		stepStart := time.Unix(0, m.ctx.CurrentStepStart)
-		stepElapsed := time.Since(stepStart)
-		stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
-
-		if m.ctx.CurrentAction != "" {
-			stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
-		}
-
-		stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine) // Bright yellow
-		steps = append(steps, stepLine)
-
-		// Show tool activity line when verbose data is available
-		if m.ctx.LastToolName != "" {
-			// Compute available space: "   %s → " = 3 + toolName + 3
-			overhead := 6 + len(m.ctx.LastToolName)
-			termWidth := getTerminalWidth()
-			maxTarget := termWidth - overhead
-			if maxTarget < 20 {
-				maxTarget = 20
+			stepLine := fmt.Sprintf("✓ %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			target := m.ctx.LastToolTarget
-			if len(target) > maxTarget {
-				target = target[:maxTarget-3] + "..."
+			stepLine += fmt.Sprintf(" (%s)", durationText)
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine)
+			steps = append(steps, stepLine)
+
+			// Show deliverables for completed steps in tree format
+			if m.ctx.DeliverablesByStep != nil {
+				if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
+					for _, deliverable := range stepDeliverables {
+						deliverableLine := fmt.Sprintf("   ├─ %s", deliverable)
+						deliverableLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(deliverableLine)
+						steps = append(steps, deliverableLine)
+					}
+				}
 			}
-			toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
-			toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine) // Medium gray
-			steps = append(steps, toolLine)
+
+		case StateRunning:
+			// Running: spinner stepID (persona) (elapsed) bullet action
+			spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+			now := time.Now().UnixMilli()
+			frame := (now / 80) % int64(len(spinners))
+			icon := spinners[frame]
+
+			stepLine := fmt.Sprintf("%s %s", icon, stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			// Real-time step timing
+			stepStart := time.Unix(0, m.ctx.CurrentStepStart)
+			stepElapsed := time.Since(stepStart)
+			stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
+
+			if m.ctx.CurrentAction != "" {
+				stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
+			}
+
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			steps = append(steps, stepLine)
+
+			// Show tool activity line when verbose data is available
+			if m.ctx.LastToolName != "" {
+				overhead := 6 + len(m.ctx.LastToolName)
+				termWidth := getTerminalWidth()
+				maxTarget := termWidth - overhead
+				if maxTarget < 20 {
+					maxTarget = 20
+				}
+				target := m.ctx.LastToolTarget
+				if len(target) > maxTarget {
+					target = target[:maxTarget-3] + "..."
+				}
+				toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
+				toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine)
+				steps = append(steps, toolLine)
+			}
+
+		case StateFailed:
+			// Failed: cross stepID (persona) (duration)
+			stepLine := fmt.Sprintf("✗ %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			if m.ctx.StepDurations != nil {
+				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+					durationText := fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
+					stepLine += fmt.Sprintf(" (%s)", durationText)
+				}
+			}
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(stepLine)
+			steps = append(steps, stepLine)
+
+		case StateSkipped:
+			// Skipped: dash stepID (persona)
+			stepLine := fmt.Sprintf("— %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			steps = append(steps, stepLine)
+
+		case StateCancelled:
+			// Cancelled: circled asterisk stepID (persona)
+			stepLine := fmt.Sprintf("⊛ %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			steps = append(steps, stepLine)
+
+		default:
+			// Not started (pending): circle stepID (persona)
+			stepLine := fmt.Sprintf("○ %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			steps = append(steps, stepLine)
 		}
 	}
 
