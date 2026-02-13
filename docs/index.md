@@ -3,7 +3,108 @@ layout: home
 ---
 
 <script setup>
-const heroProps = {
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+
+const pipelineIndex = ref(0)
+const fading = ref(false)
+let rotationInterval = null
+
+const terminals = [
+  {
+    command: 'wave run code-review',
+    outputLines: [
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: code-review' },
+      { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
+      { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  1m 21s' },
+      { text: ' ' },
+      { text: ' [█████████████████████████] 100%  4/4 (4 ok)', variant: 'info' },
+      { text: ' ' },
+      { text: ' ✓ diff-analysis (24.0s)', variant: 'success' },
+      { text: ' ✓ security-review (19.0s)', variant: 'success' },
+      { text: ' ✓ quality-review (22.0s)', variant: 'success' },
+      { text: ' ✓ summary (16.0s)', variant: 'success' },
+    ]
+  },
+  {
+    command: 'wave run speckit-flow',
+    outputLines: [
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: speckit-flow' },
+      { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
+      { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  26m 27s' },
+      { text: ' ' },
+      { text: ' [███████████████░░░░░░░░░░] 62%  5/8 (5 ok)', variant: 'info' },
+      { text: ' ' },
+      { text: ' ✓ specify (425.5s)', variant: 'success' },
+      { text: ' ✓ clarify (205.7s)', variant: 'success' },
+      { text: ' ✓ plan (400.5s)', variant: 'success' },
+      { text: ' ✓ tasks (303.7s)', variant: 'success' },
+      { text: ' ✓ checklist (251.3s)', variant: 'success' },
+      { text: ' ● analyze ...', variant: 'info' },
+    ]
+  },
+  {
+    command: 'wave run doc-sync',
+    outputLines: [
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: doc-sync' },
+      { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
+      { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  4m 38s' },
+      { text: ' ' },
+      { text: ' [█████████████████████████] 100%  3/3 (3 ok)', variant: 'info' },
+      { text: ' ' },
+      { text: ' ✓ scan-changes (45.2s)', variant: 'success' },
+      { text: ' ✓ analyze (120.8s)', variant: 'success' },
+      { text: ' ✓ fix-docs (112.3s)', variant: 'success' },
+    ]
+  },
+  {
+    command: 'wave run dead-code',
+    outputLines: [
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: dead-code' },
+      { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
+      { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  2m 15s' },
+      { text: ' ' },
+      { text: ' [█████████████████████████] 100%  3/3 (3 ok)', variant: 'info' },
+      { text: ' ' },
+      { text: ' ✓ scan (52.3s)', variant: 'success' },
+      { text: ' ✓ clean (48.7s)', variant: 'success' },
+      { text: ' ✓ verify (34.1s)', variant: 'success' },
+    ]
+  },
+  {
+    command: 'wave run security-scan',
+    outputLines: [
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: security-scan' },
+      { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
+      { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  5m 42s' },
+      { text: ' ' },
+      { text: ' [█████████████████████████] 100%  3/3 (3 ok)', variant: 'info' },
+      { text: ' ' },
+      { text: ' ✓ scan (98.4s)', variant: 'success' },
+      { text: ' ✓ deep-dive (145.2s)', variant: 'success' },
+      { text: ' ✓ report (98.7s)', variant: 'success' },
+    ]
+  },
+]
+
+function rotatePipeline() {
+  fading.value = true
+  setTimeout(() => {
+    pipelineIndex.value = (pipelineIndex.value + 1) % terminals.length
+    requestAnimationFrame(() => {
+      fading.value = false
+    })
+  }, 400)
+}
+
+onMounted(() => {
+  rotationInterval = setInterval(rotatePipeline, 12000)
+})
+
+onUnmounted(() => {
+  if (rotationInterval) clearInterval(rotationInterval)
+})
+
+const heroProps = computed(() => ({
   title: 'Wave · AI-as-Code for multi-agent pipelines',
   tagline: 'Define, version, and run AI workflows like you manage infrastructure.',
   primaryAction: {
@@ -16,19 +117,7 @@ const heroProps = {
   },
   terminal: {
     title: 'wave',
-    command: 'wave run code-review "review the auth module"',
-    outputLines: [
-      { text: '[10:00:01] → diff-analysis (navigator)', variant: 'muted' },
-      { text: '[10:00:25] ✓ diff-analysis completed (24.0s, 2.5k tokens)', variant: 'success' },
-      { text: '[10:00:26] → security-review (auditor)', variant: 'muted' },
-      { text: '[10:00:26] → quality-review (auditor)', variant: 'muted' },
-      { text: '[10:00:45] ✓ security-review completed (19.0s, 1.8k tokens)', variant: 'success' },
-      { text: '[10:00:48] ✓ quality-review completed (22.0s, 2.1k tokens)', variant: 'success' },
-      { text: '[10:00:49] → summary (summarizer)', variant: 'muted' },
-      { text: '[10:01:05] ✓ summary completed (16.0s, 1.2k tokens)', variant: 'success' },
-      { text: '' },
-      { text: "  ✓ Pipeline 'code-review' completed successfully (64s)", variant: 'success' }
-    ]
+    ...terminals[pipelineIndex.value]
   },
   valuePills: [
     { label: 'Declarative', link: '/concepts/pipelines', tooltip: 'YAML-based configuration' },
@@ -37,7 +126,7 @@ const heroProps = {
     { label: 'Auditable', link: '/trust-center/', tooltip: 'Full execution traces' }
   ],
   showBackground: true
-}
+}))
 
 const features = [
   {
@@ -77,9 +166,15 @@ const features = [
     link: '/use-cases/'
   }
 ]
-
 </script>
 
-<HeroSection v-bind="heroProps" />
+<HeroSection v-bind="heroProps" :style="{ '--terminal-opacity': fading ? '0' : '1' }" />
 
 <FeatureCards :features="features" />
+
+<style>
+.terminal-content {
+  opacity: var(--terminal-opacity, 1);
+  transition: opacity 0.4s ease;
+}
+</style>
