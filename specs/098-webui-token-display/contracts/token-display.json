@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Token Display Contract",
+  "description": "Validates that token display in web UI and TUI meets feature requirements (FR-001 through FR-010, SC-001 through SC-006)",
+  "type": "object",
+  "properties": {
+    "format_function": {
+      "description": "FormatTokenCount must produce abbreviated human-readable strings (FR-007)",
+      "type": "object",
+      "properties": {
+        "test_vectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["input", "expected"],
+            "properties": {
+              "input": { "type": "integer", "description": "Token count input" },
+              "expected": { "type": "string", "description": "Expected formatted output" }
+            }
+          },
+          "examples": [
+            { "input": 0, "expected": "0" },
+            { "input": 842, "expected": "842" },
+            { "input": 1500, "expected": "1.5k" },
+            { "input": 999999, "expected": "1000.0k" },
+            { "input": 1500000, "expected": "1.5M" },
+            { "input": 2300000000, "expected": "2.3B" }
+          ]
+        }
+      }
+    },
+    "run_detail_api": {
+      "description": "GET /api/runs/{id} response must include total_tokens in run and tokens_used per step (FR-001, FR-004)",
+      "type": "object",
+      "properties": {
+        "run": {
+          "type": "object",
+          "required": ["total_tokens"],
+          "properties": {
+            "total_tokens": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Sum of all step-level token counts (SC-002)"
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["tokens_used", "state"],
+            "properties": {
+              "tokens_used": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Exact adapter-reported token count for completed steps (SC-001)"
+              },
+              "state": {
+                "type": "string",
+                "enum": ["pending", "running", "completed", "failed"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "run_list_api": {
+      "description": "GET /api/runs response must include total_tokens per run (FR-002)",
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["total_tokens"],
+            "properties": {
+              "total_tokens": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Aggregate token count for the run"
+              }
+            }
+          }
+        }
+      }
+    },
+    "sse_token_events": {
+      "description": "SSE events must include tokens_used for step_progress and completed events (FR-005)",
+      "type": "object",
+      "properties": {
+        "completed_event": {
+          "type": "object",
+          "required": ["tokens_used", "step_id", "state"],
+          "properties": {
+            "tokens_used": { "type": "integer", "minimum": 0 },
+            "step_id": { "type": "string" },
+            "state": { "const": "completed" }
+          }
+        },
+        "step_progress_event": {
+          "type": "object",
+          "properties": {
+            "tokens_used": { "type": "integer", "minimum": 0 },
+            "step_id": { "type": "string" },
+            "state": { "const": "step_progress" }
+          }
+        }
+      }
+    },
+    "html_templates": {
+      "description": "HTML template rendering contracts for token display",
+      "type": "object",
+      "properties": {
+        "step_card": {
+          "description": "Step card must show tokens for completed/failed steps (FR-001, FR-008)",
+          "type": "object",
+          "properties": {
+            "completed_step_with_tokens": {
+              "description": "Completed step with tokens > 0 shows formatted token count"
+            },
+            "completed_step_zero_tokens": {
+              "description": "Completed step with 0 tokens shows '0' (FR-008)"
+            },
+            "pending_step": {
+              "description": "Pending step omits token display (FR-008)"
+            },
+            "running_step": {
+              "description": "Running step shows cumulative token count"
+            }
+          }
+        },
+        "run_detail_header": {
+          "description": "Run detail header must show total tokens alongside elapsed time (FR-004)"
+        },
+        "run_row": {
+          "description": "Run list row must show formatted total tokens (FR-002)"
+        }
+      }
+    },
+    "tui_consistency": {
+      "description": "TUI and web UI must display identical token counts for the same run (SC-004)",
+      "type": "object",
+      "properties": {
+        "data_source": {
+          "description": "Both TUI (executor.GetTotalTokens) and web UI (pipeline_run.total_tokens) read from the same authoritative source",
+          "const": "pipeline_run.total_tokens"
+        },
+        "completion_summary": {
+          "description": "TUI pipeline completion summary must always show total tokens (FR-010)"
+        }
+      }
+    }
+  }
+}
