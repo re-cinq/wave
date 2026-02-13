@@ -111,13 +111,21 @@ func (e *DefaultPipelineExecutor) createRunID(name string, hashLen int, input st
 	return GenerateRunID(name, hashLen)
 }
 
+// WorktreeInfo tracks a shared worktree created for a specific branch.
+// Multiple steps using the same branch reuse the same worktree.
+type WorktreeInfo struct {
+	AbsPath  string // Absolute path to the worktree directory
+	RepoRoot string // Repository root for cleanup
+}
+
 type PipelineExecution struct {
 	Pipeline       *Pipeline
 	Manifest       *manifest.Manifest
 	States         map[string]string
 	Results        map[string]map[string]interface{}
-	ArtifactPaths  map[string]string // "stepID:artifactName" -> filesystem path
-	WorkspacePaths map[string]string // stepID -> workspace path
+	ArtifactPaths  map[string]string          // "stepID:artifactName" -> filesystem path
+	WorkspacePaths map[string]string          // stepID -> workspace path
+	WorktreePaths  map[string]*WorktreeInfo   // resolved branch -> worktree info
 	Input          string
 	Status         *PipelineStatus
 	Context        *PipelineContext  // Dynamic template variables
@@ -201,6 +209,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Results:        make(map[string]map[string]interface{}),
 		ArtifactPaths:  make(map[string]string),
 		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		Input:          input,
 		Context:        pipelineContext,
 		Status: &PipelineStatus{
@@ -733,8 +742,6 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 	// Handle worktree workspace type
 	if step.Workspace.Type == "worktree" {
-		wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
-
 		// Resolve branch name from template variables
 		branch := step.Workspace.Branch
 		if execution.Context != nil && branch != "" {
@@ -748,21 +755,33 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			}
 		}
 
-		mgr, err := worktree.NewManager("")
-		if err != nil {
-			return "", fmt.Errorf("failed to create worktree manager: %w", err)
+		// Reuse existing worktree for the same branch
+		if info, ok := execution.WorktreePaths[branch]; ok {
+			execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = info.RepoRoot
+			return info.AbsPath, nil
 		}
+
+		// Branch-keyed path for sharing across steps
+		sanitized := sanitizeBranchName(branch)
+		wtKey := "__wt_" + sanitized
+		wsPath := filepath.Join(wsRoot, pipelineID, wtKey)
 
 		absPath, err := filepath.Abs(wsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
 		}
 
+		mgr, err := worktree.NewManager("")
+		if err != nil {
+			return "", fmt.Errorf("failed to create worktree manager: %w", err)
+		}
+
 		if err := mgr.Create(absPath, branch); err != nil {
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
 
-		// Store worktree manager reference for cleanup
+		// Register for reuse and cleanup
+		execution.WorktreePaths[branch] = &WorktreeInfo{AbsPath: absPath, RepoRoot: mgr.RepoRoot()}
 		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
 		return absPath, nil
@@ -1433,6 +1452,7 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 
 // cleanupWorktrees removes any git worktrees created during pipeline execution.
 func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
+	cleaned := map[string]bool{}
 	for key, repoRoot := range execution.WorkspacePaths {
 		if !strings.HasSuffix(key, "__worktree_repo_root") {
 			continue
@@ -1442,6 +1462,11 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 		if wsPath == "" {
 			continue
 		}
+		// Skip already-cleaned paths (shared worktrees used by multiple steps)
+		if cleaned[wsPath] {
+			continue
+		}
+		cleaned[wsPath] = true
 		mgr, err := worktree.NewManager(repoRoot)
 		if err != nil {
 			e.emit(event.Event{

@@ -1039,12 +1039,14 @@ func TestRegressionProductionIssues(t *testing.T) {
 		m := createTestManifest(tmpDir)
 
 		execution := &PipelineExecution{
-			Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "nil-context-test"}},
-			Manifest: m,
-			States:   make(map[string]string),
-			Results:  make(map[string]map[string]interface{}),
-			Input:    "test input",
-			Status:   &PipelineStatus{ID: "nil-context-test", PipelineName: "nil-context-test"},
+			Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "nil-context-test"}},
+			Manifest:       m,
+			States:         make(map[string]string),
+			Results:        make(map[string]map[string]interface{}),
+			WorkspacePaths: make(map[string]string),
+			WorktreePaths:  make(map[string]*WorktreeInfo),
+			Input:          "test input",
+			Status:         &PipelineStatus{ID: "nil-context-test", PipelineName: "nil-context-test"},
 			// Context: nil  // Deliberately omitted to test nil handling
 		}
 
@@ -1091,6 +1093,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 			Results:        make(map[string]map[string]interface{}),
 			ArtifactPaths:  make(map[string]string),
 			WorkspacePaths: make(map[string]string),
+			WorktreePaths:  make(map[string]*WorktreeInfo),
 			Input:          "test input",
 			Context:        NewPipelineContext("matrix-context-test", "matrix-context-test", "matrix-step"), // Proper context
 			Status:         &PipelineStatus{ID: "matrix-context-test", PipelineName: "matrix-context-test"},
@@ -1486,6 +1489,169 @@ func TestStreamActivityEventBridge(t *testing.T) {
 			assert.NotEmpty(t, e.ToolName, "stream_activity events must have non-empty ToolName")
 		}
 	}
+}
+
+func TestCreateStepWorkspace_SharedWorktree(t *testing.T) {
+	// Test that two steps with the same branch reuse the same worktree path
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "shared-wt-test"}},
+		Manifest:       m,
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		Input:          "test",
+		Context:        NewPipelineContext("shared-wt-test", "shared-wt-test", "step1"),
+		Status:         &PipelineStatus{ID: "shared-wt-test", PipelineName: "shared-wt-test"},
+	}
+
+	// Pre-populate WorktreePaths to simulate a previously created worktree
+	branch := "feature/test-branch"
+	expectedPath := "/tmp/test-worktree-path"
+	expectedRepoRoot := "/tmp/test-repo-root"
+	execution.WorktreePaths[branch] = &WorktreeInfo{
+		AbsPath:  expectedPath,
+		RepoRoot: expectedRepoRoot,
+	}
+
+	step1 := &Step{
+		ID:      "step1",
+		Persona: "navigator",
+		Workspace: WorkspaceConfig{
+			Type:   "worktree",
+			Branch: branch,
+		},
+	}
+
+	step2 := &Step{
+		ID:      "step2",
+		Persona: "craftsman",
+		Workspace: WorkspaceConfig{
+			Type:   "worktree",
+			Branch: branch,
+		},
+	}
+
+	// Both steps should return the cached path without creating new worktrees
+	path1, err := executor.createStepWorkspace(execution, step1)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedPath, path1)
+	assert.Equal(t, expectedRepoRoot, execution.WorkspacePaths["step1__worktree_repo_root"])
+
+	path2, err := executor.createStepWorkspace(execution, step2)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedPath, path2)
+	assert.Equal(t, expectedRepoRoot, execution.WorkspacePaths["step2__worktree_repo_root"])
+
+	// Both should point to the same worktree
+	assert.Equal(t, path1, path2, "Steps with the same branch should share the same worktree")
+}
+
+func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
+	// Test that two steps with different branches get separate worktree entries
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "diff-branch-test"}},
+		Manifest:       m,
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		Input:          "test",
+		Context:        NewPipelineContext("diff-branch-test", "diff-branch-test", "step1"),
+		Status:         &PipelineStatus{ID: "diff-branch-test", PipelineName: "diff-branch-test"},
+	}
+
+	// Pre-populate two different branches
+	execution.WorktreePaths["branch-a"] = &WorktreeInfo{
+		AbsPath:  "/tmp/worktree-a",
+		RepoRoot: "/tmp/repo",
+	}
+	execution.WorktreePaths["branch-b"] = &WorktreeInfo{
+		AbsPath:  "/tmp/worktree-b",
+		RepoRoot: "/tmp/repo",
+	}
+
+	stepA := &Step{
+		ID:      "step-a",
+		Persona: "navigator",
+		Workspace: WorkspaceConfig{
+			Type:   "worktree",
+			Branch: "branch-a",
+		},
+	}
+
+	stepB := &Step{
+		ID:      "step-b",
+		Persona: "craftsman",
+		Workspace: WorkspaceConfig{
+			Type:   "worktree",
+			Branch: "branch-b",
+		},
+	}
+
+	pathA, err := executor.createStepWorkspace(execution, stepA)
+	assert.NoError(t, err)
+	assert.Equal(t, "/tmp/worktree-a", pathA)
+
+	pathB, err := executor.createStepWorkspace(execution, stepB)
+	assert.NoError(t, err)
+	assert.Equal(t, "/tmp/worktree-b", pathB)
+
+	assert.NotEqual(t, pathA, pathB, "Different branches should get different worktree paths")
+}
+
+func TestCleanupWorktrees_Dedup(t *testing.T) {
+	// Test that shared worktree paths are only cleaned up once
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	sharedPath := "/tmp/shared-worktree"
+	repoRoot := "/tmp/test-repo"
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "dedup-test"}},
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: map[string]string{
+			"step1":                       sharedPath,
+			"step1__worktree_repo_root":   repoRoot,
+			"step2":                       sharedPath,
+			"step2__worktree_repo_root":   repoRoot,
+			"step3":                       sharedPath,
+			"step3__worktree_repo_root":   repoRoot,
+		},
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "test",
+		Status:        &PipelineStatus{ID: "dedup-test", PipelineName: "dedup-test"},
+	}
+
+	// cleanupWorktrees should not panic even though all steps share the same path
+	// It will try to create a worktree manager for a non-existent repo root,
+	// but the important thing is it only attempts cleanup once per unique path
+	assert.NotPanics(t, func() {
+		executor.cleanupWorktrees(execution, "dedup-test")
+	}, "Cleanup should not panic with shared worktree paths")
 }
 
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
