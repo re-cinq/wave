@@ -2,7 +2,7 @@ kind: WavePipeline
 metadata:
   name: feature
   description: "Plan, implement, test, and commit a feature to a new branch"
-  release: true
+  release: false
 
 input:
   source: cli
@@ -11,8 +11,6 @@ input:
 steps:
   - id: explore
     persona: navigator
-    memory:
-      strategy: fresh
     workspace:
       mount:
         - source: ./
@@ -59,7 +57,6 @@ steps:
     persona: planner
     dependencies: [explore]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: explore
           artifact: exploration
@@ -105,7 +102,6 @@ steps:
     persona: craftsman
     dependencies: [plan]
     memory:
-      strategy: fresh
       inject_artifacts:
         - step: explore
           artifact: exploration
