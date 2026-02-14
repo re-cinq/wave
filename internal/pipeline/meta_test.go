@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -26,9 +28,10 @@ func (m *mockMetaRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) 
 		return nil, m.err
 	}
 	return &adapter.AdapterResult{
-		Stdout:     io.NopCloser(strings.NewReader(m.response)),
-		ExitCode:   0,
-		TokensUsed: m.tokensUsed,
+		Stdout:        io.NopCloser(strings.NewReader(m.response)),
+		ExitCode:      0,
+		TokensUsed:    m.tokensUsed,
+		ResultContent: m.response,
 	}, nil
 }
 
@@ -1649,5 +1652,275 @@ func TestBuildPhilosopherPrompt_ExampleSchemaIsComplete(t *testing.T) {
 	// Should not have incomplete/vague schemas
 	if strings.Contains(schemaSection, `"type": "object"}`) && !strings.Contains(schemaSection, `"properties"`) {
 		t.Error("example schema should not be vague - must define properties")
+	}
+}
+
+// =============================================================================
+// Tests for ResultContent preference (Issue #95)
+// =============================================================================
+
+// TestMetaPipelineResultContentPreference verifies that invokePhilosopherWithSchemas
+// uses ResultContent when set, and falls back to Stdout when empty.
+func TestMetaPipelineResultContentPreference(t *testing.T) {
+	validOutput := `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: test-pipeline
+  description: Test pipeline
+input:
+  source: meta
+steps:
+  - id: nav
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Analyze: {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: test_suite
+
+--- SCHEMAS ---
+`
+
+	tests := []struct {
+		name           string
+		resultContent  string
+		stdoutContent  string
+		expectPipeline string
+	}{
+		{
+			name:           "prefers ResultContent when set",
+			resultContent:  validOutput,
+			stdoutContent:  "this is raw NDJSON garbage that should not be used",
+			expectPipeline: "test-pipeline",
+		},
+		{
+			name:           "falls back to Stdout when ResultContent is empty",
+			resultContent:  "",
+			stdoutContent:  validOutput,
+			expectPipeline: "test-pipeline",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockResultContentRunner{
+				resultContent: tt.resultContent,
+				stdoutContent: tt.stdoutContent,
+				tokensUsed:    1000,
+			}
+
+			executor := NewMetaPipelineExecutor(runner)
+			m := createTestMetaManifest()
+
+			ctx := context.Background()
+			p, err := executor.GenerateOnly(ctx, "test task", m)
+			if err != nil {
+				t.Fatalf("GenerateOnly() failed: %v", err)
+			}
+
+			if p.Metadata.Name != tt.expectPipeline {
+				t.Errorf("pipeline name = %q, want %q", p.Metadata.Name, tt.expectPipeline)
+			}
+		})
+	}
+}
+
+// mockResultContentRunner allows independent control of ResultContent and Stdout
+type mockResultContentRunner struct {
+	resultContent string
+	stdoutContent string
+	tokensUsed    int
+}
+
+func (m *mockResultContentRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	return &adapter.AdapterResult{
+		Stdout:        io.NopCloser(strings.NewReader(m.stdoutContent)),
+		ExitCode:      0,
+		TokensUsed:    m.tokensUsed,
+		ResultContent: m.resultContent,
+	}, nil
+}
+
+// =============================================================================
+// Test for extractPipelineAndSchemas with mock adapter output (Issue #95)
+// =============================================================================
+
+// TestExtractPipelineAndSchemasWithMockOutput verifies that the mock philosopher
+// output is correctly parsed by extractPipelineAndSchemas.
+func TestExtractPipelineAndSchemasWithMockOutput(t *testing.T) {
+	// Use the same output format that generateMetaPhilosopherOutput produces
+	mockOutput := `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: generated-meta-pipeline
+  description: Dynamically generated pipeline for the given task
+input:
+  source: meta
+steps:
+  - id: navigate
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas."
+    output_artifacts:
+      - name: analysis
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/meta-navigation.schema.json"
+
+  - id: implement
+    persona: craftsman
+    dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Read artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
+    output_artifacts:
+      - name: result
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/meta-implementation.schema.json"
+
+--- SCHEMAS ---
+SCHEMA: .wave/contracts/meta-navigation.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Navigation analysis results",
+  "required": ["files", "summary"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "description": "List of relevant files",
+      "items": {
+        "type": "object",
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": {"type": "string", "description": "File path"},
+          "purpose": {"type": "string", "description": "Purpose of this file"}
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Summary of the analysis"
+    }
+  }
+}
+
+SCHEMA: .wave/contracts/meta-implementation.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Implementation results",
+  "required": ["status", "changes"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Implementation status",
+      "enum": ["success", "partial", "failed"]
+    },
+    "changes": {
+      "type": "array",
+      "description": "List of changes made",
+      "items": {
+        "type": "object",
+        "required": ["file", "action"],
+        "properties": {
+          "file": {"type": "string", "description": "File path"},
+          "action": {"type": "string", "description": "Action taken"}
+        }
+      }
+    }
+  }
+}
+`
+
+	result, err := extractPipelineAndSchemas(mockOutput)
+	if err != nil {
+		t.Fatalf("extractPipelineAndSchemas() failed: %v", err)
+	}
+
+	// Verify pipeline YAML was extracted
+	if result.PipelineYAML == "" {
+		t.Fatal("PipelineYAML should not be empty")
+	}
+
+	if !strings.Contains(result.PipelineYAML, "generated-meta-pipeline") {
+		t.Error("PipelineYAML should contain the pipeline name")
+	}
+
+	// Verify pipeline YAML can be parsed and validated
+	loader := &YAMLPipelineLoader{}
+	p, err := loader.Unmarshal([]byte(result.PipelineYAML))
+	if err != nil {
+		t.Fatalf("failed to unmarshal pipeline YAML: %v", err)
+	}
+
+	if len(p.Steps) != 2 {
+		t.Errorf("expected 2 steps, got %d", len(p.Steps))
+	}
+
+	if p.Steps[0].Persona != "navigator" {
+		t.Errorf("first step persona = %q, want navigator", p.Steps[0].Persona)
+	}
+
+	// Verify schemas were extracted
+	if len(result.Schemas) != 2 {
+		t.Errorf("expected 2 schemas, got %d", len(result.Schemas))
+	}
+
+	navSchema, ok := result.Schemas[".wave/contracts/meta-navigation.schema.json"]
+	if !ok {
+		t.Error("missing meta-navigation schema")
+	} else if !strings.Contains(navSchema, `"$schema"`) {
+		t.Error("navigation schema should contain $schema field")
+	}
+
+	implSchema, ok := result.Schemas[".wave/contracts/meta-implementation.schema.json"]
+	if !ok {
+		t.Error("missing meta-implementation schema")
+	} else if !strings.Contains(implSchema, `"$schema"`) {
+		t.Error("implementation schema should contain $schema field")
+	}
+
+	// Verify schemas can be saved and the pipeline validated
+	tmpDir := t.TempDir()
+	// Save schemas relative to tmpDir
+	for schemaPath, schemaContent := range result.Schemas {
+		fullPath := filepath.Join(tmpDir, schemaPath)
+		dir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("failed to create dir %s: %v", dir, err)
+		}
+		if err := os.WriteFile(fullPath, []byte(schemaContent), 0644); err != nil {
+			t.Fatalf("failed to write schema %s: %v", fullPath, err)
+		}
 	}
 }

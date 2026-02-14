@@ -113,6 +113,11 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 // It first checks the workspace path for a known prototype phase name, then
 // falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
+	// Check for meta-philosopher workspace (dynamic pipeline generation)
+	if strings.Contains(cfg.WorkspacePath, "meta-philosopher") {
+		return generateMetaPhilosopherOutput(cfg)
+	}
+
 	// Check for pipeline-specific step generators first
 	// (workspace path contains pipeline name, e.g., ".wave/workspaces/github-issue-impl/fetch-assess/")
 	if strings.Contains(cfg.WorkspacePath, "github-issue-impl") {
@@ -465,6 +470,114 @@ func generateIssuePROutput(cfg AdapterRunConfig) string {
 	}
 	out, _ := json.MarshalIndent(data, "", "  ")
 	return string(out)
+}
+
+// generateMetaPhilosopherOutput returns valid meta-pipeline output with
+// --- PIPELINE --- and --- SCHEMAS --- sections that pass ValidateGeneratedPipeline().
+func generateMetaPhilosopherOutput(cfg AdapterRunConfig) string {
+	return `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: generated-meta-pipeline
+  description: Dynamically generated pipeline for the given task
+input:
+  source: meta
+steps:
+  - id: navigate
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas."
+    output_artifacts:
+      - name: analysis
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/meta-navigation.schema.json"
+
+  - id: implement
+    persona: craftsman
+    dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Read artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
+    output_artifacts:
+      - name: result
+        path: artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/meta-implementation.schema.json"
+
+--- SCHEMAS ---
+SCHEMA: .wave/contracts/meta-navigation.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Navigation analysis results",
+  "required": ["files", "summary"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "description": "List of relevant files",
+      "items": {
+        "type": "object",
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": {"type": "string", "description": "File path"},
+          "purpose": {"type": "string", "description": "Purpose of this file"}
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Summary of the analysis"
+    }
+  }
+}
+
+SCHEMA: .wave/contracts/meta-implementation.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Implementation results",
+  "required": ["status", "changes"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Implementation status",
+      "enum": ["success", "partial", "failed"]
+    },
+    "changes": {
+      "type": "array",
+      "description": "List of changes made",
+      "items": {
+        "type": "object",
+        "required": ["file", "action"],
+        "properties": {
+          "file": {"type": "string", "description": "File path"},
+          "action": {"type": "string", "description": "Action taken"}
+        }
+      }
+    }
+  }
+}
+`
 }
 
 func extractArtifactNames(stdout string) []string {

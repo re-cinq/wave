@@ -206,6 +206,29 @@ func TestMetaCommand_HelpText(t *testing.T) {
 	assert.Contains(t, cmd.Long, "--save")
 }
 
+// TestMetaCommand_MockDryRunFlow tests the full --mock --dry-run flow end-to-end
+func TestMetaCommand_MockDryRunFlow(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create manifest with philosopher persona
+	setupTestManifestWithPhilosopher(t, tmpDir)
+
+	// Change to test directory
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(oldWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := MetaOptions{
+		Manifest: "wave.yaml",
+		DryRun:   true,
+		Mock:     true,
+	}
+
+	err = runMeta("implement a test feature", opts)
+	require.NoError(t, err, "mock dry-run should succeed without error")
+}
+
 // TestSaveMetaPipelinePath verifies save path logic
 func TestSaveMetaPipelinePath(t *testing.T) {
 	tmpDir := t.TempDir()
