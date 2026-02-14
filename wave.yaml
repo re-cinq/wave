@@ -28,6 +28,8 @@ personas:
     auditor:
         adapter: claude
         description: Security review and quality assurance
+        model: opus
+        temperature: 0.1
         permissions:
             allowed_tools:
                 - Read
@@ -41,6 +43,8 @@ personas:
     craftsman:
         adapter: claude
         description: Code implementation and testing
+        model: opus
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -53,6 +57,8 @@ personas:
     debugger:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
+        model: opus
+        temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -69,6 +75,8 @@ personas:
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
+        model: sonnet
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -85,6 +93,8 @@ personas:
     philosopher:
         adapter: claude
         description: Architecture design and specification
+        model: opus
+        temperature: 0.7
         permissions:
             allowed_tools:
                 - Read
@@ -95,6 +105,8 @@ personas:
     planner:
         adapter: claude
         description: Task breakdown and project planning
+        model: sonnet
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -108,6 +120,8 @@ personas:
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
+        model: sonnet
+        temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -118,6 +132,8 @@ personas:
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
+        model: sonnet
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -127,6 +143,8 @@ personas:
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
+        model: sonnet
+        temperature: 0.5
         permissions:
             allowed_tools:
                 - Read
@@ -138,6 +156,8 @@ personas:
     implementer:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
+        model: opus
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -153,6 +173,8 @@ personas:
     reviewer:
         adapter: claude
         description: Quality review, validation, and assessment
+        model: sonnet
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -170,6 +192,8 @@ personas:
     researcher:
         adapter: claude
         description: Web research and information synthesis
+        model: sonnet
+        temperature: 0.5
         permissions:
             allowed_tools:
                 - Read
@@ -188,6 +212,8 @@ personas:
     github-commenter:
         adapter: claude
         description: Post comments on GitHub issues
+        model: sonnet
+        temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
