@@ -6,10 +6,11 @@ import (
 	"strings"
 )
 
-// Failure reason constants for three-way error classification.
+// Failure reason constants for error classification.
 const (
 	FailureReasonTimeout            = "timeout"
 	FailureReasonContextExhaustion  = "context_exhaustion"
+	FailureReasonRateLimit          = "rate_limit"
 	FailureReasonGeneralError       = "general_error"
 )
 
@@ -65,6 +66,12 @@ func ClassifyFailure(subtype string, resultContent string, ctxErr error) string 
 	if strings.Contains(strings.ToLower(resultContent), "prompt is too long") {
 		return FailureReasonContextExhaustion
 	}
+	lowerContent := strings.ToLower(resultContent)
+	if strings.Contains(lowerContent, "you've hit your limit") ||
+		strings.Contains(lowerContent, "rate limit") ||
+		strings.Contains(lowerContent, "too many requests") {
+		return FailureReasonRateLimit
+	}
 	return FailureReasonGeneralError
 }
 
@@ -76,6 +83,8 @@ func remediationFor(reason string) string {
 		return "Consider increasing the step timeout with --timeout or breaking the task into smaller steps."
 	case FailureReasonContextExhaustion:
 		return "The context window was exhausted. Consider breaking the task into smaller steps or adjusting relay compaction thresholds (relay.token_threshold_percent)."
+	case FailureReasonRateLimit:
+		return "API rate limit reached. Wait for the limit to reset and retry."
 	case FailureReasonGeneralError:
 		return "Check the adapter output and logs for details."
 	default:
