@@ -588,6 +588,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		})
 	}
 
+	// Fail immediately on rate limit — the result content is an error message,
+	// not useful work product. Proceeding would write the error as an artifact.
+	if result.FailureReason == adapter.FailureReasonRateLimit {
+		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
+	}
+
 	stepDuration := time.Since(stepStart).Milliseconds()
 
 	// Emit step progress: processing results
