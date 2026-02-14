@@ -244,3 +244,369 @@ func TestRun_Empty(t *testing.T) {
 		t.Fatalf("expected 0 results, got %d", len(results))
 	}
 }
+
+// T011: Test nil emitter doesn't panic
+func TestNilEmitter_NoPanic(t *testing.T) {
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {Check: "true"},
+	}
+
+	// No WithEmitter option — emitter is nil
+	c := NewChecker(skills)
+
+	// CheckTools should work without panic
+	results, err := c.CheckTools([]string{"sh"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if len(results) != 1 || !results[0].OK {
+		t.Error("expected tool 'sh' to be found")
+	}
+
+	// CheckSkills should work without panic
+	results, err = c.CheckSkills([]string{"myskill"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if len(results) != 1 || !results[0].OK {
+		t.Error("expected skill to be installed")
+	}
+}
+
+// T012: Test emitter callback is called during tool checks
+func TestEmitter_ToolChecks(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	c := NewChecker(nil, WithEmitter(func(name, kind, message string) {
+		emitted = append(emitted, emitRecord{name, kind, message})
+	}))
+
+	// Check a tool that exists
+	results, err := c.CheckTools([]string{"sh"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if !results[0].OK {
+		t.Error("expected tool 'sh' to be found")
+	}
+
+	// Should have 2 emitter calls: "checking" and "found"
+	if len(emitted) != 2 {
+		t.Fatalf("expected 2 emitter calls, got %d: %+v", len(emitted), emitted)
+	}
+
+	// First call: checking
+	if emitted[0].kind != "tool" {
+		t.Errorf("expected kind 'tool', got %q", emitted[0].kind)
+	}
+	if !contains(emitted[0].message, "checking") {
+		t.Errorf("expected 'checking' in message, got %q", emitted[0].message)
+	}
+
+	// Second call: found
+	if !contains(emitted[1].message, "found") {
+		t.Errorf("expected 'found' in message, got %q", emitted[1].message)
+	}
+}
+
+// T013: Test emitter callback is called during skill checks (already installed)
+func TestEmitter_SkillAlreadyInstalled(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {Check: "true"},
+	}
+
+	c := NewChecker(skills,
+		WithEmitter(func(name, kind, message string) {
+			emitted = append(emitted, emitRecord{name, kind, message})
+		}),
+	)
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if !results[0].OK {
+		t.Error("expected skill to be installed")
+	}
+
+	// Should have emitter calls with kind="skill"
+	if len(emitted) < 2 {
+		t.Fatalf("expected at least 2 emitter calls, got %d: %+v", len(emitted), emitted)
+	}
+
+	// Verify kind is "skill" for all calls
+	for _, e := range emitted {
+		if e.kind != "skill" {
+			t.Errorf("expected kind 'skill', got %q", e.kind)
+		}
+	}
+
+	// Should have "checking" and "installed" messages
+	foundChecking := false
+	foundInstalled := false
+	for _, e := range emitted {
+		if contains(e.message, "checking") {
+			foundChecking = true
+		}
+		if contains(e.message, "installed") {
+			foundInstalled = true
+		}
+	}
+	if !foundChecking {
+		t.Error("expected 'checking' message from emitter")
+	}
+	if !foundInstalled {
+		t.Error("expected 'installed' message from emitter")
+	}
+}
+
+// T014: Test emitter callback for install+init sequence
+func TestEmitter_InstallInitSequence(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {
+			Check:   "check-cmd",
+			Install: "install-cmd",
+			Init:    "init-cmd",
+		},
+	}
+
+	callNum := 0
+	c := NewChecker(skills,
+		WithEmitter(func(name, kind, message string) {
+			emitted = append(emitted, emitRecord{name, kind, message})
+		}),
+		WithRunCmd(func(name string, args ...string) error {
+			callNum++
+			// First call is check (fail), rest succeed
+			if callNum == 1 {
+				return fmt.Errorf("not installed")
+			}
+			return nil
+		}),
+	)
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if !results[0].OK {
+		t.Error("expected skill to be installed after install+init")
+	}
+
+	// Verify emitter message sequence: checking → installing → initializing → installed
+	var messages []string
+	for _, e := range emitted {
+		messages = append(messages, e.message)
+	}
+
+	expectedSequence := []string{"checking", "installing", "initializing", "installed successfully"}
+	for _, expected := range expectedSequence {
+		found := false
+		for _, msg := range messages {
+			if contains(msg, expected) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected message containing %q in sequence, got: %v", expected, messages)
+		}
+	}
+}
+
+// T015: Test edge case: install succeeds but re-check fails
+func TestEmitter_InstallSucceeds_RecheckFails(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {
+			Check:   "check-cmd",
+			Install: "install-cmd",
+		},
+	}
+
+	c := NewChecker(skills,
+		WithEmitter(func(name, kind, message string) {
+			emitted = append(emitted, emitRecord{name, kind, message})
+		}),
+		WithRunCmd(func(name string, args ...string) error {
+			// check always fails, install succeeds
+			cmd := args[len(args)-1]
+			if cmd == "check-cmd" {
+				return fmt.Errorf("not installed")
+			}
+			return nil // install succeeds
+		}),
+	)
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err == nil {
+		t.Fatal("expected error for skill that fails re-check")
+	}
+	if results[0].OK {
+		t.Error("expected skill to not be OK")
+	}
+	if !contains(results[0].Message, "still not detected after install") {
+		t.Errorf("expected 'still not detected' message, got %q", results[0].Message)
+	}
+
+	// Verify emitter captured the "still not detected" message
+	foundNotDetected := false
+	for _, e := range emitted {
+		if contains(e.message, "still not detected") {
+			foundNotDetected = true
+			break
+		}
+	}
+	if !foundNotDetected {
+		t.Error("expected emitter to capture 'still not detected' message")
+	}
+}
+
+// T016: Test edge case: init fails after successful install
+func TestEmitter_InitFailsAfterInstall(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {
+			Check:   "check-cmd",
+			Install: "install-cmd",
+			Init:    "init-cmd",
+		},
+	}
+
+	c := NewChecker(skills,
+		WithEmitter(func(name, kind, message string) {
+			emitted = append(emitted, emitRecord{name, kind, message})
+		}),
+		WithRunCmd(func(name string, args ...string) error {
+			cmd := args[len(args)-1]
+			if cmd == "check-cmd" {
+				return fmt.Errorf("not installed")
+			}
+			if cmd == "init-cmd" {
+				return fmt.Errorf("init failed")
+			}
+			return nil // install succeeds
+		}),
+	)
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err == nil {
+		t.Fatal("expected error for failed init")
+	}
+	if results[0].OK {
+		t.Error("expected skill to not be OK after init failure")
+	}
+	if !contains(results[0].Message, "init failed") {
+		t.Errorf("expected 'init failed' in message, got %q", results[0].Message)
+	}
+
+	// Verify emitter captured init failure
+	foundInitFailed := false
+	for _, e := range emitted {
+		if contains(e.message, "init failed") {
+			foundInitFailed = true
+			break
+		}
+	}
+	if !foundInitFailed {
+		t.Error("expected emitter to capture 'init failed' message")
+	}
+}
+
+// T017: Test edge case: skill declared in requires but not in manifest (with emitter)
+func TestEmitter_UndeclaredSkill(t *testing.T) {
+	type emitRecord struct {
+		name, kind, message string
+	}
+	var emitted []emitRecord
+
+	// Empty skills map — no skills declared
+	c := NewChecker(nil, WithEmitter(func(name, kind, message string) {
+		emitted = append(emitted, emitRecord{name, kind, message})
+	}))
+
+	results, err := c.CheckSkills([]string{"undeclared"})
+	if err == nil {
+		t.Fatal("expected error for undeclared skill")
+	}
+	if results[0].OK {
+		t.Error("expected undeclared skill to fail")
+	}
+	if !contains(results[0].Message, "not declared") {
+		t.Errorf("expected 'not declared' in message, got %q", results[0].Message)
+	}
+
+	// Verify emitter fired for undeclared skill
+	if len(emitted) == 0 {
+		t.Fatal("expected emitter to fire for undeclared skill")
+	}
+	foundNotDeclared := false
+	for _, e := range emitted {
+		if contains(e.message, "not declared") {
+			foundNotDeclared = true
+			break
+		}
+	}
+	if !foundNotDeclared {
+		t.Error("expected emitter to capture 'not declared' message")
+	}
+}
+
+// T018: Test WithRunCmd option works for test injection
+func TestWithRunCmd_Option(t *testing.T) {
+	var called bool
+	skills := map[string]manifest.SkillConfig{
+		"myskill": {Check: "check-cmd"},
+	}
+
+	c := NewChecker(skills, WithRunCmd(func(name string, args ...string) error {
+		called = true
+		return nil // check succeeds
+	}))
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if !results[0].OK {
+		t.Error("expected skill to be installed via mock")
+	}
+	if !called {
+		t.Error("expected WithRunCmd mock to be called")
+	}
+}
+
+// contains checks if substr is in s (helper for tests).
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

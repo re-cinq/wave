@@ -66,6 +66,7 @@ const (
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
+	StatePreflight          = "preflight"           // Preflight dependency check in progress
 )
 
 type EventEmitter interface {

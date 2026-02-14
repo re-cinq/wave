@@ -219,3 +219,14 @@ runtime:
     workspace_root: .wave/workspaces
 skill_mounts:
     - path: .wave/skills/
+skills:
+    speckit:
+        check: "test -d .specify"
+        install: "npx -y @anthropic/speckit init"
+        commands_glob: ".claude/commands/speckit.*.md"
+    bmad:
+        check: "test -f .claude/commands/bmad.*.md"
+        commands_glob: ".claude/commands/bmad.*.md"
+    openspec:
+        check: "test -d .openspec"
+        commands_glob: ".claude/commands/openspec.*.md"

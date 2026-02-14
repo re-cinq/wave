@@ -20,14 +20,36 @@ type Result struct {
 type Checker struct {
 	skills  map[string]manifest.SkillConfig
 	runCmd  func(name string, args ...string) error // for testing
+	emitter func(name, kind, message string)        // optional progress callback
+}
+
+// CheckerOption configures optional behavior on the preflight Checker.
+type CheckerOption func(*Checker)
+
+// WithEmitter sets a callback for per-dependency progress events.
+func WithEmitter(fn func(name, kind, message string)) CheckerOption {
+	return func(c *Checker) {
+		c.emitter = fn
+	}
+}
+
+// WithRunCmd overrides the command execution function (for testing).
+func WithRunCmd(fn func(name string, args ...string) error) CheckerOption {
+	return func(c *Checker) {
+		c.runCmd = fn
+	}
 }
 
 // NewChecker creates a preflight checker with the given skill configurations.
-func NewChecker(skills map[string]manifest.SkillConfig) *Checker {
-	return &Checker{
+func NewChecker(skills map[string]manifest.SkillConfig, opts ...CheckerOption) *Checker {
+	c := &Checker{
 		skills: skills,
 		runCmd: defaultRunCmd,
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 // defaultRunCmd executes a command and returns an error if it fails.
@@ -36,27 +58,40 @@ func defaultRunCmd(name string, args ...string) error {
 	return cmd.Run()
 }
 
+// emitProgress calls the emitter callback if configured.
+func (c *Checker) emitProgress(name, kind, message string) {
+	if c.emitter != nil {
+		c.emitter(name, kind, message)
+	}
+}
+
 // CheckTools verifies that all required CLI tools are available on PATH.
 func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 	var results []Result
 	var missing []string
 
 	for _, tool := range tools {
+		c.emitProgress(tool, "tool", fmt.Sprintf("checking tool %q", tool))
+
 		_, err := exec.LookPath(tool)
 		if err != nil {
+			msg := fmt.Sprintf("tool %q not found on PATH", tool)
+			c.emitProgress(tool, "tool", msg)
 			results = append(results, Result{
 				Name:    tool,
 				Kind:    "tool",
 				OK:      false,
-				Message: fmt.Sprintf("tool %q not found on PATH", tool),
+				Message: msg,
 			})
 			missing = append(missing, tool)
 		} else {
+			msg := fmt.Sprintf("tool %q found", tool)
+			c.emitProgress(tool, "tool", msg)
 			results = append(results, Result{
 				Name:    tool,
 				Kind:    "tool",
 				OK:      true,
-				Message: fmt.Sprintf("tool %q found", tool),
+				Message: msg,
 			})
 		}
 	}
@@ -75,46 +110,56 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 	for _, name := range skills {
 		cfg, exists := c.skills[name]
 		if !exists {
+			msg := fmt.Sprintf("skill %q not declared in wave.yaml skills section", name)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q not declared in wave.yaml skills section", name),
+				Message: msg,
 			})
 			failed = append(failed, name)
 			continue
 		}
 
 		// Check if skill is already installed
+		c.emitProgress(name, "skill", fmt.Sprintf("checking skill %q", name))
 		if c.isSkillInstalled(cfg) {
+			msg := fmt.Sprintf("skill %q installed", name)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      true,
-				Message: fmt.Sprintf("skill %q installed", name),
+				Message: msg,
 			})
 			continue
 		}
 
 		// Attempt auto-install if install command is configured
 		if cfg.Install == "" {
+			msg := fmt.Sprintf("skill %q not installed, no install command", name)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q not installed and no install command configured", name),
+				Message: msg,
 			})
 			failed = append(failed, name)
 			continue
 		}
 
 		// Run install command
+		c.emitProgress(name, "skill", fmt.Sprintf("installing skill %q", name))
 		if err := c.runShellCommand(cfg.Install); err != nil {
+			msg := fmt.Sprintf("skill %q install failed: %v", name, err)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q install failed: %v", name, err),
+				Message: msg,
 			})
 			failed = append(failed, name)
 			continue
@@ -122,12 +167,15 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 		// Run init command if configured
 		if cfg.Init != "" {
+			c.emitProgress(name, "skill", fmt.Sprintf("initializing skill %q", name))
 			if err := c.runShellCommand(cfg.Init); err != nil {
+				msg := fmt.Sprintf("skill %q init failed: %v", name, err)
+				c.emitProgress(name, "skill", msg)
 				results = append(results, Result{
 					Name:    name,
 					Kind:    "skill",
 					OK:      false,
-					Message: fmt.Sprintf("skill %q init failed: %v", name, err),
+					Message: msg,
 				})
 				failed = append(failed, name)
 				continue
@@ -136,18 +184,22 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 		// Re-check after install
 		if c.isSkillInstalled(cfg) {
+			msg := fmt.Sprintf("skill %q installed successfully", name)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      true,
-				Message: fmt.Sprintf("skill %q installed successfully", name),
+				Message: msg,
 			})
 		} else {
+			msg := fmt.Sprintf("skill %q still not detected after install", name)
+			c.emitProgress(name, "skill", msg)
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q still not detected after install", name),
+				Message: msg,
 			})
 			failed = append(failed, name)
 		}

@@ -155,9 +155,22 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
 
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
-		checker := preflight.NewChecker(m.Skills)
+		checker := preflight.NewChecker(m.Skills, preflight.WithEmitter(func(name, kind, msg string) {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				State:      event.StatePreflight,
+				Message:    msg,
+			})
+		}))
 		var tools, skills []string
 		if len(p.Requires.Tools) > 0 {
 			tools = p.Requires.Tools
@@ -166,24 +179,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			skills = p.Requires.Skills
 		}
 		if len(tools) > 0 || len(skills) > 0 {
-			results, err := checker.Run(tools, skills)
-			for _, r := range results {
-				e.emit(event.Event{
-					Timestamp: time.Now(),
-					State:     "preflight",
-					Message:   r.Message,
-				})
-			}
-			if err != nil {
+			if _, err := checker.Run(tools, skills); err != nil {
 				return fmt.Errorf("preflight check failed: %w", err)
 			}
 		}
-	}
-
-	pipelineName := p.Metadata.Name
-	pipelineID := e.runID
-	if pipelineID == "" {
-		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
@@ -509,7 +508,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Resolve skill commands directory for provisioning
 	var skillCommandsDir string
 	if execution.Pipeline.Requires != nil && len(execution.Pipeline.Requires.Skills) > 0 && len(execution.Manifest.Skills) > 0 {
-		provisioner := skill.NewProvisioner(execution.Manifest.Skills, "")
+		repoRoot, _ := os.Getwd()
+		provisioner := skill.NewProvisioner(execution.Manifest.Skills, repoRoot)
 		commands, _ := provisioner.DiscoverCommands(execution.Pipeline.Requires.Skills)
 		// If we found any commands, provision them into a temp dir that the adapter can use
 		if len(commands) > 0 {
