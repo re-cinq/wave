@@ -1,0 +1,46 @@
+# YAML Schema Contract: Skill Definitions in wave.yaml
+#
+# This documents the expected YAML structure for the `skills` section
+# of wave.yaml. The Go types already exist in internal/manifest/types.go.
+#
+# Location: wave.yaml top-level `skills` key
+# Go Type: map[string]manifest.SkillConfig
+
+# --- Schema ---
+# skills:
+#   <skill-name>:
+#     check: <string, REQUIRED>       # Command to verify skill is installed
+#     install: <string, optional>      # Command to install the skill
+#     init: <string, optional>         # Command to initialize after install
+#     commands_glob: <string, optional> # Glob for skill command files
+#                                      # Default: .claude/commands/<name>.*.md
+
+# --- Example: Three Target Skills (FR-011) ---
+skills:
+  speckit:
+    check: "test -d .specify"
+    install: "npx -y @anthropic/speckit init"
+    commands_glob: ".claude/commands/speckit.*.md"
+
+  bmad:
+    check: "test -f .claude/commands/bmad.*.md"
+    commands_glob: ".claude/commands/bmad.*.md"
+
+  openspec:
+    check: "test -d .openspec"
+    commands_glob: ".claude/commands/openspec.*.md"
+
+# --- Pipeline Requires Schema ---
+# Location: pipeline YAML top-level `requires` key
+# Go Type: pipeline.Requires
+#
+# requires:
+#   skills:
+#     - <string>  # Must match a key in wave.yaml skills section
+#   tools:
+#     - <string>  # Must be findable via exec.LookPath()
+#
+# Example:
+# requires:
+#   skills: [speckit, bmad]
+#   tools: [git, go, node]
