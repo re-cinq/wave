@@ -276,8 +276,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				State:      "failed",
 				Message:    err.Error(),
 			})
-			// Clean up worktree workspaces created during this pipeline run
-			e.cleanupWorktrees(execution, pipelineID)
 			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
 			return &StepError{StepID: step.ID, Err: err}
@@ -313,9 +311,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
 	})
-
-	// Clean up worktree workspaces created during this pipeline run
-	e.cleanupWorktrees(execution, pipelineID)
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
@@ -593,6 +588,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		})
 	}
 
+	// Fail immediately on rate limit — the result content is an error message,
+	// not useful work product. Proceeding would write the error as an artifact.
+	if result.FailureReason == adapter.FailureReasonRateLimit {
+		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
+	}
+
 	stepDuration := time.Since(stepStart).Milliseconds()
 
 	// Emit step progress: processing results
@@ -731,6 +732,15 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		wsRoot = ".wave/workspaces"
 	}
 
+	// Handle workspace ref — share another step's workspace
+	if step.Workspace.Ref != "" {
+		refPath, ok := execution.WorkspacePaths[step.Workspace.Ref]
+		if !ok {
+			return "", fmt.Errorf("referenced workspace step %q has not been executed yet", step.Workspace.Ref)
+		}
+		return refPath, nil
+	}
+
 	// Handle worktree workspace type
 	if step.Workspace.Type == "worktree" {
 		wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
@@ -740,7 +750,14 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		if execution.Context != nil && branch != "" {
 			branch = execution.Context.ResolvePlaceholders(branch)
 		}
-		if branch == "" {
+
+		// Resolve base ref from template variables
+		base := step.Workspace.Base
+		if execution.Context != nil && base != "" {
+			base = execution.Context.ResolvePlaceholders(base)
+		}
+
+		if branch == "" && base == "" {
 			// Fall back to pipeline context branch or generate one
 			branch = execution.Context.BranchName
 			if branch == "" {
@@ -758,12 +775,9 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			return "", fmt.Errorf("failed to resolve workspace path: %w", err)
 		}
 
-		if err := mgr.Create(absPath, branch); err != nil {
+		if err := mgr.Create(absPath, branch, base); err != nil {
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
-
-		// Store worktree manager reference for cleanup
-		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
 		return absPath, nil
 	}
@@ -996,6 +1010,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		return nil
 	}
 
+	// Always inject into the workspace (agent's working directory) so the
+	// agent can find artifacts at relative paths like "artifacts/<name>".
+	// Do NOT redirect to the sidecar — the agent runs in workspacePath.
 	artifactsDir := filepath.Join(workspacePath, "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
@@ -1219,8 +1236,21 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		return
 	}
 
-	// Track workspace files automatically
-	e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
+	// Only auto-scan workspace files for non-worktree workspaces.
+	// Worktrees contain the full repo checkout; scanning would list repo files as deliverables.
+	isWorktree := step.Workspace.Type == "worktree"
+	if !isWorktree && step.Workspace.Ref != "" {
+		// Check if the referenced step is a worktree
+		for _, s := range execution.Pipeline.Steps {
+			if s.ID == step.Workspace.Ref && s.Workspace.Type == "worktree" {
+				isWorktree = true
+				break
+			}
+		}
+	}
+	if !isWorktree {
+		e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
+	}
 
 	// Track explicit output artifacts
 	for _, artifact := range step.OutputArtifacts {
@@ -1429,40 +1459,6 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 	}
 
 	return nil, fmt.Errorf("pipeline %q not found", pipelineID)
-}
-
-// cleanupWorktrees removes any git worktrees created during pipeline execution.
-func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
-	for key, repoRoot := range execution.WorkspacePaths {
-		if !strings.HasSuffix(key, "__worktree_repo_root") {
-			continue
-		}
-		stepID := strings.TrimSuffix(key, "__worktree_repo_root")
-		wsPath := execution.WorkspacePaths[stepID]
-		if wsPath == "" {
-			continue
-		}
-		mgr, err := worktree.NewManager(repoRoot)
-		if err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
-			})
-			continue
-		}
-		if err := mgr.Remove(wsPath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
-			})
-		}
-	}
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage

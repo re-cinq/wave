@@ -2,16 +2,11 @@ You are generating an actionable, dependency-ordered task breakdown for implemen
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by a
+previous step and is already checked out.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
@@ -20,9 +15,8 @@ Read it to find the branch name, spec file, and feature directory.
 
 Follow the `/speckit.tasks` workflow:
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
-3. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
+1. Read `artifacts/spec_info` to find the feature directory and spec file path
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
    and AVAILABLE_DOCS
 4. Load from FEATURE_DIR:
    - **Required**: plan.md (tech stack, structure), spec.md (user stories, priorities)

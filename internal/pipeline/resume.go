@@ -153,7 +153,15 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 			break // Don't include the target step in completed steps
 		}
 
+		// Resolve workspace path for this step
 		stepWorkspace := filepath.Join(workspaceRoot, step.ID)
+		if step.Workspace.Ref != "" {
+			// Ref steps share the referenced step's workspace
+			if refPath, ok := state.WorkspacePaths[step.Workspace.Ref]; ok {
+				stepWorkspace = refPath
+			}
+		}
+
 		if _, err := os.Stat(stepWorkspace); err == nil {
 			// Step workspace exists, mark as completed
 			state.States[step.ID] = StateCompleted
