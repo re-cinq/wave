@@ -56,6 +56,26 @@ func TestClassifyFailure(t *testing.T) {
 			want: FailureReasonGeneralError,
 		},
 		{
+			name:          "you've hit your limit returns rate_limit",
+			resultContent: "You've hit your limit for the day. Please wait and try again.",
+			want:          FailureReasonRateLimit,
+		},
+		{
+			name:          "rate limit in content returns rate_limit",
+			resultContent: "Error: rate limit exceeded, please retry later",
+			want:          FailureReasonRateLimit,
+		},
+		{
+			name:          "too many requests returns rate_limit",
+			resultContent: "HTTP 429: Too Many Requests",
+			want:          FailureReasonRateLimit,
+		},
+		{
+			name:          "case insensitive rate limit detection",
+			resultContent: "RATE LIMIT reached",
+			want:          FailureReasonRateLimit,
+		},
+		{
 			name:          "unrelated content returns general_error",
 			resultContent: "some other error message",
 			want:          FailureReasonGeneralError,
@@ -142,6 +162,10 @@ func TestStepErrorRemediation(t *testing.T) {
 		{
 			reason: FailureReasonContextExhaustion,
 			want:   "The context window was exhausted. Consider breaking the task into smaller steps or adjusting relay compaction thresholds (relay.token_threshold_percent).",
+		},
+		{
+			reason: FailureReasonRateLimit,
+			want:   "API rate limit reached. Wait for the limit to reset and retry.",
 		},
 		{
 			reason: FailureReasonGeneralError,
