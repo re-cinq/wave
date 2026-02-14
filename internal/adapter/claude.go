@@ -179,6 +179,14 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		result.FailureReason = ClassifyFailure(parsed.Subtype, parsed.ResultContent, nil)
 	}
 
+	// Also classify when result content indicates rate limiting (may have exit code 0)
+	if result.FailureReason == "" && parsed.ResultContent != "" {
+		reason := ClassifyFailure("", parsed.ResultContent, nil)
+		if reason == FailureReasonRateLimit {
+			result.FailureReason = reason
+		}
+	}
+
 	// Apply output validation and correction
 	correctedContent, err := a.validateAndCorrectOutput(parsed.ResultContent, cfg.OutputFormat)
 	if err != nil && cfg.Debug {
