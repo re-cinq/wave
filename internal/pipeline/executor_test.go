@@ -1488,6 +1488,51 @@ func TestStreamActivityEventBridge(t *testing.T) {
 	}
 }
 
+func TestCreateStepWorkspace_Ref(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	m := &manifest.Manifest{}
+	tmpDir := t.TempDir()
+
+	// Simulate a prior step that created a workspace
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "test-ref"}},
+		Manifest:       m,
+		WorkspacePaths: map[string]string{"specify": tmpDir},
+		Status:         &PipelineStatus{ID: "test-ref-abc"},
+	}
+
+	// Step that references specify's workspace
+	step := &Step{
+		ID:        "implement",
+		Workspace: WorkspaceConfig{Ref: "specify"},
+	}
+
+	wsPath, err := executor.createStepWorkspace(execution, step)
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, wsPath, "ref workspace should return referenced step's path")
+}
+
+func TestCreateStepWorkspace_RefMissing(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	m := &manifest.Manifest{}
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "test-ref"}},
+		Manifest:       m,
+		WorkspacePaths: map[string]string{}, // no prior workspaces
+		Status:         &PipelineStatus{ID: "test-ref-abc"},
+	}
+
+	step := &Step{
+		ID:        "implement",
+		Workspace: WorkspaceConfig{Ref: "specify"},
+	}
+
+	_, err := executor.createStepWorkspace(execution, step)
+	assert.Error(t, err, "should error when referenced workspace doesn't exist")
+	assert.Contains(t, err.Error(), "specify")
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {

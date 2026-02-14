@@ -2,23 +2,19 @@ You are creating a feature specification for the following request:
 
 {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
+You are running in an **isolated git worktree** checked out at `main` (detached HEAD).
+Your working directory IS the project root. All git operations here are isolated
+from the main working tree and will not affect it.
 
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
 ## Instructions
 
 Follow the `/speckit.specify` workflow to generate a complete feature specification:
 
-1. Navigate to the project root (see above)
-2. Generate a concise short name (2-4 words) for the feature branch
+1. Generate a concise short name (2-4 words) for the feature branch
 3. Check existing branches to determine the next available number:
    ```bash
    git fetch --all --prune
