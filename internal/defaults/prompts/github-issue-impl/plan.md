@@ -2,16 +2,13 @@ You are creating an implementation plan for a GitHub issue.
 
 Input: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
+You are running in an **isolated git worktree** checked out at `main` (detached HEAD).
+Your working directory IS the project root. All git operations here are isolated
+from the main working tree and will not affect it.
 
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
 The issue assessment is available at `artifacts/issue_assessment`.
 Read it to get the issue details, branch name, complexity, and assessment.
