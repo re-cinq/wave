@@ -1,0 +1,17 @@
+# Contract: Makefile Lint Target Validation
+#
+# Validates that the Makefile lint target uses golangci-lint.
+
+name: makefile-lint
+type: behavioral
+description: Validates Makefile lint target meets FR-010
+
+checks:
+  # FR-010: lint target runs golangci-lint
+  - command: "grep -A1 '^lint:' Makefile"
+    contains: "golangci-lint run ./..."
+    description: "lint target must invoke golangci-lint run ./..."
+
+  - command: "grep -A1 '^lint:' Makefile"
+    not_contains: "go vet"
+    description: "lint target must not use go vet (replaced by golangci-lint)"

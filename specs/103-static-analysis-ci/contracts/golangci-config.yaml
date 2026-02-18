@@ -1,0 +1,50 @@
+# Contract: .golangci.yml Configuration Validation
+#
+# Validates that the golangci-lint configuration meets all spec requirements.
+# This contract is checked by verifying the YAML structure of .golangci.yml.
+
+name: golangci-config
+type: structural
+description: Validates .golangci.yml against spec requirements FR-001 through FR-015
+
+checks:
+  # FR-001: v2 format marker
+  - field: version
+    expected: "2"
+    description: "Config must use golangci-lint v2 format"
+
+  # FR-002: Standard preset baseline
+  - field: linters.default
+    expected: standard
+    description: "Must use standard linter preset as baseline"
+
+  # FR-003: Required additional linters
+  - field: linters.enable
+    contains:
+      - unparam
+      - wastedassign
+      - gocritic
+      - nolintlint
+    description: "Must enable unparam, wastedassign, gocritic, nolintlint"
+
+  # FR-004: nolintlint settings
+  - field: linters.settings.nolintlint.require-explanation
+    expected: true
+    description: "nolintlint must require explanation"
+
+  - field: linters.settings.nolintlint.require-specific
+    expected: true
+    description: "nolintlint must require specific linter name"
+
+  # FR-013: Exclusion presets
+  - field: exclusions.presets
+    contains:
+      - std-error-handling
+      - comments
+    description: "Must include std-error-handling and comments exclusion presets"
+
+  # FR-014: revive must NOT be enabled
+  - field: linters.enable
+    not_contains:
+      - revive
+    description: "revive must not be enabled (overlaps with unparam, govet, staticcheck)"

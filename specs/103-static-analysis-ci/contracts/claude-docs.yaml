@@ -1,0 +1,18 @@
+# Contract: CLAUDE.md Documentation Validation
+#
+# Validates that CLAUDE.md documents lint commands per FR-011.
+
+name: claude-docs
+type: behavioral
+description: Validates CLAUDE.md updates meet FR-011 and SC-008
+
+checks:
+  # FR-011 / SC-008: Lint command documented
+  - command: "grep 'golangci-lint run' CLAUDE.md"
+    min_matches: 1
+    description: "CLAUDE.md must document golangci-lint run command"
+
+  # FR-011 / SC-008: Auto-fix command documented
+  - command: "grep 'golangci-lint run --fix' CLAUDE.md"
+    min_matches: 1
+    description: "CLAUDE.md must document golangci-lint auto-fix command"

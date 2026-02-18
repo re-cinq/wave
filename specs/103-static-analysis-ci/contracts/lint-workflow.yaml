@@ -1,0 +1,38 @@
+# Contract: CI Lint Workflow Validation
+#
+# Validates that .github/workflows/lint.yml meets spec requirements.
+# This contract verifies the GitHub Actions workflow structure.
+
+name: lint-workflow
+type: structural
+description: Validates lint.yml against spec requirements FR-005 through FR-012
+
+checks:
+  # FR-005: Trigger on PRs to main and pushes to main
+  - field: "on.pull_request.branches"
+    contains: [main]
+    description: "Must trigger on PRs targeting main"
+
+  - field: "on.push.branches"
+    contains: [main]
+    description: "Must trigger on pushes to main"
+
+  # FR-008: Go version from go.mod
+  - field: "jobs.lint.steps[setup-go].with.go-version-file"
+    expected: "go.mod"
+    description: "Must use go-version-file: go.mod"
+
+  # FR-006: Incremental mode
+  - field: "jobs.lint.steps[golangci-lint].with.only-new-issues"
+    expected: true
+    description: "Must use only-new-issues: true for incremental mode"
+
+  # FR-007: Pinned version (not empty, not 'latest', not range)
+  - field: "jobs.lint.steps[golangci-lint].with.version"
+    pattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+    description: "Must pin to specific semver version"
+
+  # FR-012: Separate file
+  - field: _file_path
+    expected: ".github/workflows/lint.yml"
+    description: "Must be a separate workflow file from release.yml"
