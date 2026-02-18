@@ -2,42 +2,36 @@ You are creating a pull request for the implemented feature and requesting a rev
 
 Feature context: {{ input }}
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any scripts or accessing project files, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by a
+previous step and is already checked out.
 
 A status report from the specify step is available at `artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
 ## Instructions
 
-1. Navigate to the project root (see above)
-2. Read `artifacts/spec_info` and check out the feature branch
+1. Read `artifacts/spec_info` to find the branch name and feature directory
 
-3. **Verify implementation**: Run `go test -race ./...` one final time to confirm
+2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
 
-4. **Stage changes**: Review all modified and new files with `git status` and `git diff`.
+3. **Stage changes**: Review all modified and new files with `git status` and `git diff`.
    Stage relevant files — exclude any sensitive files (.env, credentials).
 
-5. **Commit**: Create a well-structured commit (or multiple commits if logical):
+4. **Commit**: Create a well-structured commit (or multiple commits if logical):
    - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
    - Write concise commit messages focused on the "why"
    - Do NOT include Co-Authored-By or AI attribution lines
 
-6. **Push**: Push the branch to the remote repository:
+5. **Push**: Push the branch to the remote repository:
    ```bash
    git push -u origin HEAD
    ```
 
-7. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
+6. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
    ```bash
    gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
    ```
@@ -48,7 +42,7 @@ Read it to find the branch name, spec file, and feature directory.
    - Test plan describing how changes were validated
    - Any known limitations or follow-up work needed
 
-8. **Request Copilot Review**: After the PR is created, request a review from Copilot:
+7. **Request Copilot Review**: After the PR is created, request a review from Copilot:
    ```bash
    gh pr edit --add-reviewer "copilot"
    ```

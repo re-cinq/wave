@@ -15,7 +15,8 @@ steps:
   - id: scan-issues
     persona: github-analyst
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -63,7 +64,8 @@ steps:
           artifact: issue_analysis
           as: analysis
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -107,7 +109,8 @@ steps:
           artifact: enhancement_plan
           as: plan
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -153,7 +156,8 @@ steps:
           artifact: issue_analysis
           as: original_analysis
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |

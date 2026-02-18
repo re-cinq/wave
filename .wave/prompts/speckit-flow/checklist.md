@@ -18,13 +18,13 @@ Follow the `/speckit.checklist` workflow:
 
 1. Read `artifacts/spec_info` to find the feature directory and spec file path
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
-4. Load feature context: spec.md, plan.md, tasks.md
-5. Generate focused checklists as "unit tests for requirements":
+3. Load feature context: spec.md, plan.md, tasks.md
+4. Generate focused checklists as "unit tests for requirements":
    - Each item tests the QUALITY of requirements, not the implementation
    - Use format: `- [ ] CHK### - Question about requirement quality [Dimension]`
    - Group by quality dimensions: Completeness, Clarity, Consistency, Coverage
 
-6. Create the following checklist files in `FEATURE_DIR/checklists/`:
+5. Create the following checklist files in `FEATURE_DIR/checklists/`:
    - `review.md` — overall requirements quality validation
    - Additional domain-specific checklists as warranted by the feature
 

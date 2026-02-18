@@ -4,16 +4,10 @@ Input: {{ input }}
 
 The input format is `owner/repo number` (e.g. `re-cinq/wave 42`).
 
-## IMPORTANT: Working Directory
+## Working Directory
 
-Your current working directory is a Wave workspace, NOT the project root.
-Before running any commands, navigate to the project root:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-```
-
-Run this FIRST before any other bash commands.
+You are running in an isolated Wave workspace. The `gh` CLI works from any
+directory when using the `--repo` flag, so no directory change is needed.
 
 ## Instructions
 

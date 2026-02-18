@@ -12,10 +12,8 @@ steps:
   - id: analyze-commits
     persona: navigator
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -65,7 +63,8 @@ steps:
           artifact: commits
           as: raw_commits
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -108,6 +107,9 @@ steps:
         - step: categorize
           artifact: categorized
           as: changes
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |

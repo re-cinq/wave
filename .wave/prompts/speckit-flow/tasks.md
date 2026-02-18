@@ -18,20 +18,20 @@ Follow the `/speckit.tasks` workflow:
 1. Read `artifacts/spec_info` to find the feature directory and spec file path
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
    and AVAILABLE_DOCS
-4. Load from FEATURE_DIR:
+3. Load from FEATURE_DIR:
    - **Required**: plan.md (tech stack, structure), spec.md (user stories, priorities)
    - **Optional**: data-model.md, contracts/, research.md, quickstart.md
-5. Execute task generation:
+4. Execute task generation:
    - Extract user stories with priorities (P1, P2, P3) from spec.md
    - Map entities and endpoints to user stories
    - Generate tasks organized by user story
 
-6. Write `tasks.md` following the strict checklist format:
+5. Write `tasks.md` following the strict checklist format:
    ```
    - [ ] [TaskID] [P?] [Story?] Description with file path
    ```
 
-7. Organize into phases:
+6. Organize into phases:
    - Phase 1: Setup (project initialization)
    - Phase 2: Foundational (blocking prerequisites)
    - Phase 3+: One phase per user story (priority order)
