@@ -64,6 +64,7 @@ func TestMatrixExecutor_ReadItemsSource(t *testing.T) {
 
 	execution := &PipelineExecution{
 		WorkspacePaths: map[string]string{},
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		ArtifactPaths:  map[string]string{},
 	}
 
@@ -108,6 +109,7 @@ func TestMatrixExecutor_ReadItemsSource_WithItemKey(t *testing.T) {
 
 	execution := &PipelineExecution{
 		WorkspacePaths: map[string]string{},
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		ArtifactPaths:  map[string]string{},
 	}
 
@@ -149,6 +151,7 @@ func TestMatrixExecutor_ReadItemsSource_FromPreviousStep(t *testing.T) {
 		WorkspacePaths: map[string]string{
 			"analyze": prevStepWS,
 		},
+		WorktreePaths: make(map[string]*WorktreeInfo),
 		ArtifactPaths: map[string]string{},
 	}
 
@@ -328,6 +331,7 @@ func TestMatrixExecutor_AggregateResults(t *testing.T) {
 	execution := &PipelineExecution{
 		Results:        make(map[string]map[string]interface{}),
 		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 	}
 
 	step := &Step{ID: "matrix_step"}
@@ -380,8 +384,9 @@ func TestMatrixExecutor_Execute_NoStrategy(t *testing.T) {
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
-		Status:   &PipelineStatus{ID: "test", PipelineName: "test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
+		Status:        &PipelineStatus{ID: "test", PipelineName: "test"},
+		WorktreePaths: make(map[string]*WorktreeInfo),
 	}
 
 	step := &Step{ID: "test_step"}
@@ -413,6 +418,7 @@ func TestMatrixExecutor_Execute_EmptyItems(t *testing.T) {
 			},
 		},
 		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
 		ArtifactPaths:  make(map[string]string),
 		Results:        make(map[string]map[string]interface{}),
 		Status:         &PipelineStatus{ID: "test", PipelineName: "test"},
@@ -449,7 +455,8 @@ func TestMatrixExecutor_CreateWorkerWorkspace(t *testing.T) {
 				WorkspaceRoot: tmpDir,
 			},
 		},
-		Status: &PipelineStatus{ID: "test-pipeline", PipelineName: "test-pipeline"},
+		Status:        &PipelineStatus{ID: "test-pipeline", PipelineName: "test-pipeline"},
+		WorktreePaths: make(map[string]*WorktreeInfo),
 	}
 
 	step := &Step{ID: "matrix_step"}
@@ -550,6 +557,7 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				WorktreePaths:  make(map[string]*WorktreeInfo),
 				Context:        NewPipelineContext("worker-count-test", "worker-count-test", "matrix_step"), // Fix: Add missing context
 				Status:         &PipelineStatus{ID: "worker-count-test", PipelineName: "worker-count-test"},
 			}
@@ -694,6 +702,7 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				WorktreePaths:  make(map[string]*WorktreeInfo),
 				Context:        NewPipelineContext("concurrency-test", "concurrency-test", "matrix_step"), // Fix: Add missing context
 				Status:         &PipelineStatus{ID: "concurrency-test", PipelineName: "concurrency-test"},
 			}
@@ -850,6 +859,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				WorktreePaths:  make(map[string]*WorktreeInfo),
 				Status:         &PipelineStatus{ID: "partial-failure-test", PipelineName: "partial-failure-test"},
 			}
 
@@ -983,6 +993,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 				Results:  make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
+				WorktreePaths:  make(map[string]*WorktreeInfo),
 				Status:         &PipelineStatus{ID: "zero-tasks-test", PipelineName: "zero-tasks-test"},
 			}
 
@@ -1065,6 +1076,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
 			},
 			WorkspacePaths: make(map[string]string),
+			WorktreePaths:  make(map[string]*WorktreeInfo),
 			ArtifactPaths:  make(map[string]string),
 			Status:         &PipelineStatus{ID: "missing-file-test", PipelineName: "missing-file-test"},
 		}
@@ -1096,6 +1108,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
 			},
 			WorkspacePaths: make(map[string]string),
+			WorktreePaths:  make(map[string]*WorktreeInfo),
 			ArtifactPaths:  make(map[string]string),
 			Status:         &PipelineStatus{ID: "invalid-json-test", PipelineName: "invalid-json-test"},
 		}
@@ -1127,6 +1140,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 				Runtime: manifest.Runtime{WorkspaceRoot: tmpDir},
 			},
 			WorkspacePaths: make(map[string]string),
+			WorktreePaths:  make(map[string]*WorktreeInfo),
 			ArtifactPaths:  make(map[string]string),
 			Status:         &PipelineStatus{ID: "object-json-test", PipelineName: "object-json-test"},
 		}

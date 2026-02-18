@@ -15,23 +15,23 @@ Read it to find the branch name, spec file, and feature directory.
 
 1. Read `artifacts/spec_info` to find the branch name and feature directory
 
-3. **Verify implementation**: Run `go test -race ./...` one final time to confirm
+2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
 
-4. **Stage changes**: Review all modified and new files with `git status` and `git diff`.
+3. **Stage changes**: Review all modified and new files with `git status` and `git diff`.
    Stage relevant files — exclude any sensitive files (.env, credentials).
 
-5. **Commit**: Create a well-structured commit (or multiple commits if logical):
+4. **Commit**: Create a well-structured commit (or multiple commits if logical):
    - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
    - Write concise commit messages focused on the "why"
    - Do NOT include Co-Authored-By or AI attribution lines
 
-6. **Push**: Push the branch to the remote repository:
+5. **Push**: Push the branch to the remote repository:
    ```bash
    git push -u origin HEAD
    ```
 
-7. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
+6. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
    ```bash
    gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
    ```
@@ -42,7 +42,7 @@ Read it to find the branch name, spec file, and feature directory.
    - Test plan describing how changes were validated
    - Any known limitations or follow-up work needed
 
-8. **Request Copilot Review**: After the PR is created, request a review from Copilot:
+7. **Request Copilot Review**: After the PR is created, request a review from Copilot:
    ```bash
    gh pr edit --add-reviewer "copilot"
    ```

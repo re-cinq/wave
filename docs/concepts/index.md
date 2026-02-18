@@ -30,7 +30,7 @@ const conceptCards = [
   },
   {
     title: 'Workspaces',
-    description: 'Isolated execution environments for each pipeline step',
+    description: 'Git-native worktrees that give every pipeline a real checkout on a dedicated branch',
     link: '/concepts/workspaces',
     icon: '📁'
   },

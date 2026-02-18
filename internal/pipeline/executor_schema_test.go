@@ -46,11 +46,12 @@ func TestSchemaInjection_ValidFileSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
-		Manifest: m,
-		Input:    "test input",
-		Context:  NewPipelineContext("test", "test", "step1"),
-		Status:   &PipelineStatus{ID: "test", PipelineName: "test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "test input",
+		Context:       NewPipelineContext("test", "test", "step1"),
+		Status:        &PipelineStatus{ID: "test", PipelineName: "test"},
 	}
 
 	step := &Step{
@@ -90,11 +91,12 @@ func TestSchemaInjection_InlineSchema(t *testing.T) {
 	inlineSchema := `{"type":"object","properties":{"status":{"type":"string"}}}`
 
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "inline-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("inline-test", "inline-test", "step1"),
-		Status:   &PipelineStatus{ID: "inline-test", PipelineName: "inline-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "inline-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("inline-test", "inline-test", "step1"),
+		Status:        &PipelineStatus{ID: "inline-test", PipelineName: "inline-test"},
 	}
 
 	step := &Step{
@@ -135,11 +137,12 @@ func TestSchemaInjection_MissingSchemaFile(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "missing-schema-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("missing-schema-test", "missing-schema-test", "step1"),
-		Status:   &PipelineStatus{ID: "missing-schema-test", PipelineName: "missing-schema-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "missing-schema-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("missing-schema-test", "missing-schema-test", "step1"),
+		Status:        &PipelineStatus{ID: "missing-schema-test", PipelineName: "missing-schema-test"},
 	}
 
 	// Schema file that does not exist
@@ -184,11 +187,12 @@ func TestSchemaInjection_PathTraversalAttempt(t *testing.T) {
 			m := createTestManifest(tmpDir)
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "traversal-test"}},
-				Manifest: m,
-				Input:    "",
-				Context:  NewPipelineContext("traversal-test", "traversal-test", "step1"),
-				Status:   &PipelineStatus{ID: "traversal-test", PipelineName: "traversal-test"},
+				Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "traversal-test"}},
+				Manifest:      m,
+				WorktreePaths: make(map[string]*WorktreeInfo),
+				Input:         "",
+				Context:       NewPipelineContext("traversal-test", "traversal-test", "step1"),
+				Status:        &PipelineStatus{ID: "traversal-test", PipelineName: "traversal-test"},
 			}
 
 			step := &Step{
@@ -247,11 +251,12 @@ func TestSchemaInjection_PromptInjectionInSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "injection-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("injection-test", "injection-test", "step1"),
-		Status:   &PipelineStatus{ID: "injection-test", PipelineName: "injection-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "injection-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("injection-test", "injection-test", "step1"),
+		Status:        &PipelineStatus{ID: "injection-test", PipelineName: "injection-test"},
 	}
 
 	step := &Step{
@@ -300,11 +305,12 @@ func TestSchemaInjection_LargeSchemaFile(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "large-schema-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("large-schema-test", "large-schema-test", "step1"),
-		Status:   &PipelineStatus{ID: "large-schema-test", PipelineName: "large-schema-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "large-schema-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("large-schema-test", "large-schema-test", "step1"),
+		Status:        &PipelineStatus{ID: "large-schema-test", PipelineName: "large-schema-test"},
 	}
 
 	step := &Step{
@@ -351,11 +357,12 @@ func TestSchemaInjection_NonJsonSchemaContract(t *testing.T) {
 			m := createTestManifest(tmpDir)
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "non-json-test"}},
-				Manifest: m,
-				Input:    "",
-				Context:  NewPipelineContext("non-json-test", "non-json-test", "step1"),
-				Status:   &PipelineStatus{ID: "non-json-test", PipelineName: "non-json-test"},
+				Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "non-json-test"}},
+				Manifest:      m,
+				WorktreePaths: make(map[string]*WorktreeInfo),
+				Input:         "",
+				Context:       NewPipelineContext("non-json-test", "non-json-test", "step1"),
+				Status:        &PipelineStatus{ID: "non-json-test", PipelineName: "non-json-test"},
 			}
 
 			step := &Step{
@@ -402,11 +409,12 @@ func TestSchemaInjection_OutputRequirementsFormat(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "format-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("format-test", "format-test", "step1"),
-		Status:   &PipelineStatus{ID: "format-test", PipelineName: "format-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "format-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("format-test", "format-test", "step1"),
+		Status:        &PipelineStatus{ID: "format-test", PipelineName: "format-test"},
 	}
 
 	step := &Step{
@@ -464,11 +472,12 @@ func TestSchemaInjection_SchemaPathPrecedence(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "precedence-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("precedence-test", "precedence-test", "step1"),
-		Status:   &PipelineStatus{ID: "precedence-test", PipelineName: "precedence-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "precedence-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("precedence-test", "precedence-test", "step1"),
+		Status:        &PipelineStatus{ID: "precedence-test", PipelineName: "precedence-test"},
 	}
 
 	// Both SchemaPath and Schema are provided
@@ -501,11 +510,12 @@ func TestSchemaInjection_EmptySchema(t *testing.T) {
 	m := createTestManifest(tmpDir)
 
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "empty-schema-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("empty-schema-test", "empty-schema-test", "step1"),
-		Status:   &PipelineStatus{ID: "empty-schema-test", PipelineName: "empty-schema-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "empty-schema-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("empty-schema-test", "empty-schema-test", "step1"),
+		Status:        &PipelineStatus{ID: "empty-schema-test", PipelineName: "empty-schema-test"},
 	}
 
 	step := &Step{
@@ -564,11 +574,12 @@ func TestSchemaInjection_SpecialCharactersInSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "special-chars-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("special-chars-test", "special-chars-test", "step1"),
-		Status:   &PipelineStatus{ID: "special-chars-test", PipelineName: "special-chars-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "special-chars-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("special-chars-test", "special-chars-test", "step1"),
+		Status:        &PipelineStatus{ID: "special-chars-test", PipelineName: "special-chars-test"},
 	}
 
 	step := &Step{
@@ -613,11 +624,12 @@ func TestSchemaInjection_InputTemplateWithSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "template-test"}},
-		Manifest: m,
-		Input:    "my-task-description",
-		Context:  NewPipelineContext("template-test", "template-test", "step1"),
-		Status:   &PipelineStatus{ID: "template-test", PipelineName: "template-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "template-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "my-task-description",
+		Context:       NewPipelineContext("template-test", "template-test", "step1"),
+		Status:        &PipelineStatus{ID: "template-test", PipelineName: "template-test"},
 	}
 
 	step := &Step{
@@ -663,11 +675,12 @@ func TestSchemaInjection_SecurityLogging(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "logging-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("logging-test", "logging-test", "step1"),
-		Status:   &PipelineStatus{ID: "logging-test", PipelineName: "logging-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "logging-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("logging-test", "logging-test", "step1"),
+		Status:        &PipelineStatus{ID: "logging-test", PipelineName: "logging-test"},
 	}
 
 	step := &Step{
@@ -715,11 +728,12 @@ func TestSchemaInjection_StrictModePromptInjection(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "strict-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("strict-test", "strict-test", "step1"),
-		Status:   &PipelineStatus{ID: "strict-test", PipelineName: "strict-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "strict-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("strict-test", "strict-test", "step1"),
+		Status:        &PipelineStatus{ID: "strict-test", PipelineName: "strict-test"},
 	}
 
 	step := &Step{
@@ -837,11 +851,12 @@ func TestSchemaInjection_RelativeSchemaPath(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "relative-path-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("relative-path-test", "relative-path-test", "step1"),
-		Status:   &PipelineStatus{ID: "relative-path-test", PipelineName: "relative-path-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "relative-path-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("relative-path-test", "relative-path-test", "step1"),
+		Status:        &PipelineStatus{ID: "relative-path-test", PipelineName: "relative-path-test"},
 	}
 
 	step := &Step{
@@ -884,11 +899,12 @@ func TestSchemaInjection_InvalidJSONSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "invalid-json-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("invalid-json-test", "invalid-json-test", "step1"),
-		Status:   &PipelineStatus{ID: "invalid-json-test", PipelineName: "invalid-json-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "invalid-json-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("invalid-json-test", "invalid-json-test", "step1"),
+		Status:        &PipelineStatus{ID: "invalid-json-test", PipelineName: "invalid-json-test"},
 	}
 
 	step := &Step{
@@ -940,11 +956,12 @@ func TestSchemaInjection_UnicodeInSchema(t *testing.T) {
 
 	m := createTestManifest(tmpDir)
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "unicode-test"}},
-		Manifest: m,
-		Input:    "",
-		Context:  NewPipelineContext("unicode-test", "unicode-test", "step1"),
-		Status:   &PipelineStatus{ID: "unicode-test", PipelineName: "unicode-test"},
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "unicode-test"}},
+		Manifest:      m,
+		WorktreePaths: make(map[string]*WorktreeInfo),
+		Input:         "",
+		Context:       NewPipelineContext("unicode-test", "unicode-test", "step1"),
+		Status:        &PipelineStatus{ID: "unicode-test", PipelineName: "unicode-test"},
 	}
 
 	step := &Step{
