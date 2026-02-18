@@ -1,0 +1,17 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - unparam
+    - wastedassign
+    - gocritic
+    - nolintlint
+  exclusions:
+    presets:
+      - std-error-handling
+      - comments
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
