@@ -43,7 +43,8 @@ steps:
     memory:
       strategy: fresh
     workspace:
-      root: ./
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: "Analyze the codebase for: {{ input }}"
@@ -107,8 +108,9 @@ steps:
 | `dependencies` | no | `[]` | Step IDs that must complete first |
 | `memory.strategy` | no | `fresh` | Memory strategy (always `fresh`) |
 | `memory.inject_artifacts` | no | `[]` | Artifacts from prior steps |
-| `workspace.root` | no | auto | Workspace directory |
-| `workspace.mount` | no | `[]` | Source mounts |
+| `workspace.type` | no | - | `worktree` for git worktree workspaces |
+| `workspace.branch` | no | auto | Branch name for worktree (supports templates) |
+| `workspace.mount` | no | `[]` | Source mounts (alternative to worktree) |
 | `output_artifacts` | no | `[]` | Files produced by this step |
 | `handover.contract` | no | - | Output validation |
 | `handover.compaction` | no | - | Context relay settings |
@@ -249,9 +251,29 @@ Artifacts are copied to `artifacts/<as>/` in the step workspace.
 
 ## Workspace Configuration
 
+### Worktree Workspace (Recommended)
+
+<div v-pre>
+
 ```yaml
 workspace:
-  root: ./
+  type: worktree
+  branch: "{{ pipeline_id }}"
+```
+
+</div>
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `type` | no | - | `worktree` for git worktree workspaces |
+| `branch` | no | auto | Branch name for the worktree. Supports template variables. Steps sharing the same branch share the same worktree. |
+
+When `type` is `worktree`, Wave creates a git worktree via `git worktree add` on the specified branch. If the branch doesn't exist, it's created from HEAD. Multiple steps with the same resolved branch reuse the same worktree directory.
+
+### Mount Workspace
+
+```yaml
+workspace:
   mount:
     - source: ./src
       target: /code
@@ -263,9 +285,8 @@ workspace:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `root` | no | auto | Workspace root |
 | `mount[].source` | **yes** | - | Source directory |
-| `mount[].target` | **yes** | - | Mount point |
+| `mount[].target` | **yes** | - | Mount point in workspace |
 | `mount[].mode` | no | `readonly` | `readonly` or `readwrite` |
 
 ---
