@@ -226,6 +226,9 @@ type PipelineContext struct {
 	// Step durations in milliseconds
 	StepDurations map[string]int64 // stepID -> duration in ms
 
+	// Step persona mapping
+	StepPersonas map[string]string // stepID -> persona name
+
 	// Deliverables by step
 	DeliverablesByStep map[string][]string // stepID -> deliverable strings
 

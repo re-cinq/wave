@@ -301,3 +301,70 @@ func TestFormatStepDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestBubbleTeaToPipelineContext_StepPersonas(t *testing.T) {
+	// We can't easily test BubbleTeaProgressDisplay.toPipelineContext() directly
+	// because it requires a TTY. Instead, test that ProgressDisplay.toPipelineContext()
+	// populates StepPersonas correctly.
+	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 2)
+	pd.AddStep("s1", "step-1", "navigator")
+	pd.AddStep("s2", "step-2", "implementer")
+
+	pd.mu.Lock()
+	ctx := pd.toPipelineContext()
+	pd.mu.Unlock()
+
+	if ctx.StepPersonas == nil {
+		t.Fatal("StepPersonas should not be nil")
+	}
+	if ctx.StepPersonas["s1"] != "navigator" {
+		t.Errorf("StepPersonas[s1] = %q, want %q", ctx.StepPersonas["s1"], "navigator")
+	}
+	if ctx.StepPersonas["s2"] != "implementer" {
+		t.Errorf("StepPersonas[s2] = %q, want %q", ctx.StepPersonas["s2"], "implementer")
+	}
+}
+
+func TestProgressDisplay_ToPipelineContext_StepOrder(t *testing.T) {
+	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 3)
+	pd.AddStep("alpha", "Alpha Step", "p1")
+	pd.AddStep("beta", "Beta Step", "p2")
+	pd.AddStep("gamma", "Gamma Step", "p3")
+
+	pd.mu.Lock()
+	ctx := pd.toPipelineContext()
+	pd.mu.Unlock()
+
+	if len(ctx.StepOrder) != 3 {
+		t.Fatalf("StepOrder length = %d, want 3", len(ctx.StepOrder))
+	}
+	if ctx.StepOrder[0] != "alpha" || ctx.StepOrder[1] != "beta" || ctx.StepOrder[2] != "gamma" {
+		t.Errorf("StepOrder = %v, want [alpha, beta, gamma]", ctx.StepOrder)
+	}
+}
+
+func TestCreatePipelineContext_WithPersonas(t *testing.T) {
+	personas := map[string]string{
+		"step-1": "navigator",
+		"step-2": "implementer",
+	}
+	ctx := CreatePipelineContext("wave.yaml", "test", "/tmp", 2, []string{"step-1", "step-2"}, personas)
+
+	if ctx.StepPersonas == nil {
+		t.Fatal("StepPersonas should not be nil")
+	}
+	if ctx.StepPersonas["step-1"] != "navigator" {
+		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
+	}
+	if ctx.StepPersonas["step-2"] != "implementer" {
+		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "implementer")
+	}
+
+	// Also verify StepOrder is populated
+	if len(ctx.StepOrder) != 2 {
+		t.Fatalf("StepOrder length = %d, want 2", len(ctx.StepOrder))
+	}
+	if ctx.StepOrder[0] != "step-1" || ctx.StepOrder[1] != "step-2" {
+		t.Errorf("StepOrder = %v, want [step-1, step-2]", ctx.StepOrder)
+	}
+}

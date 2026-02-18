@@ -474,6 +474,14 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		stepStatuses[stepID] = step.State
 	}
 
+	// Build step personas mapping
+	stepPersonas := make(map[string]string)
+	for stepID, step := range pd.steps {
+		if step.Persona != "" {
+			stepPersonas[stepID] = step.Persona
+		}
+	}
+
 	return &PipelineContext{
 		PipelineName:      pd.pipelineName,
 		PipelineID:        pd.pipelineID,
@@ -486,6 +494,8 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		FailedSteps:       failed,
 		SkippedSteps:      skipped,
 		StepStatuses:      stepStatuses,
+		StepOrder:         pd.stepOrder,
+		StepPersonas:      stepPersonas,
 		ElapsedTimeMs:     elapsedMs,
 		EstimatedTimeMs:   0, // Not calculated in ProgressDisplay
 		ManifestPath:      "wave.yaml",
@@ -641,6 +651,7 @@ func CreatePipelineContext(
 	workspacePath string,
 	totalSteps int,
 	stepIDs []string,
+	stepPersonas map[string]string,
 ) *PipelineContext {
 	ctx := &PipelineContext{
 		ManifestPath:      manifestPath,
@@ -655,6 +666,8 @@ func CreatePipelineContext(
 		EstimatedTimeMs:   0,
 		PipelineStartTime: time.Now().UnixNano(),
 		StepStatuses:      make(map[string]ProgressState),
+		StepOrder:         stepIDs,
+		StepPersonas:      stepPersonas,
 	}
 
 	// Initialize step statuses
