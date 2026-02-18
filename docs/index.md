@@ -122,7 +122,7 @@ const heroProps = computed(() => ({
   valuePills: [
     { label: 'Declarative', link: '/concepts/pipelines', tooltip: 'YAML-based configuration' },
     { label: 'Contracts', link: '/concepts/contracts', tooltip: 'Output validation' },
-    { label: 'Isolation', link: '/concepts/workspaces', tooltip: 'Fresh memory each step' },
+    { label: 'Git Worktrees', link: '/concepts/workspaces', tooltip: 'Native git worktree isolation' },
     { label: 'Auditable', link: '/trust-center/', tooltip: 'Full execution traces' }
   ],
   showBackground: true
@@ -148,9 +148,9 @@ const features = [
     link: '/concepts/contracts'
   },
   {
-    icon: 'isolation',
-    title: 'Step Isolation',
-    description: 'Each step runs with fresh memory in an ephemeral workspace. No context bleed between steps.',
+    icon: 'worktree',
+    title: 'Git-Native Workspaces',
+    description: 'Steps execute in real git worktrees right inside your repo. No detached folders, no mount hacks — just native git.',
     link: '/concepts/workspaces'
   },
   {

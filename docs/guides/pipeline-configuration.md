@@ -63,9 +63,31 @@ steps:
 
 </div>
 
-### Step with Workspace
+### Step with Worktree Workspace
 
-Mount directories to give the step access to files:
+Give the step a full git checkout on a dedicated branch:
+
+<div v-pre>
+
+```yaml
+steps:
+  - id: review
+    persona: navigator
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: "Review the codebase"
+```
+
+</div>
+
+Steps sharing the same branch share the same worktree — changes from one step are visible to the next.
+
+### Step with Mount Workspace
+
+For fine-grained access control, mount specific directories:
 
 ```yaml
 steps:
