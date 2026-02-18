@@ -1,50 +1,110 @@
 # Workspaces
 
-Every pipeline step executes in an **ephemeral workspace** — an isolated directory that contains only what the step needs. Workspaces enforce the principle that steps cannot accidentally share state.
+Every pipeline step needs somewhere to run. Wave gives each pipeline a **workspace** — the directory where AI agents read code, write files, and produce artifacts.
 
-## Workspace Structure
+## Git Worktrees: The Default
+
+Wave uses **native git worktrees** as the default workspace strategy. Instead of copying your repository or mounting directories, Wave creates a real git checkout on a dedicated branch.
+
+<div v-pre>
+
+```yaml
+steps:
+  - id: analyze
+    persona: navigator
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: "Analyze the codebase"
+```
+
+</div>
+
+That's it. No mount configurations, no path mapping, no `cd` hacks. The step runs in your actual repository with full git capabilities.
+
+### Workspaces Live Where Your Code Lives
+
+The worktree is created inside your project at `.wave/workspaces/` — not in some detached `/tmp` folder or a central orchestration directory somewhere else on your machine. Your pipeline workspaces are part of your repo's directory tree, right next to the code they operate on. One `ls` and you see everything.
+
+### One Branch, One Worktree
+
+When multiple steps specify the same branch, they **share the same worktree**. Changes made by one step are immediately visible to the next.
 
 ```
-/tmp/wave/<pipeline-id>/<step-id>/
-├── src/              # Mounted from repository (readonly by default)
-├── artifacts/        # Injected artifacts from dependency steps
-├── output/           # Step's output artifacts
-├── .claude/          # Adapter configuration
-└── CLAUDE.md         # Persona system prompt
+.wave/workspaces/my-pipeline/__wt_my-pipeline/
+├── .git              ← pointer to main repo's .git/worktrees/
+├── src/              ← your full source tree
+├── go.mod
+├── output/           ← step artifacts accumulate here
+└── ...               ← everything, just like your repo
 ```
 
-## Lifecycle
+This means a `plan` step can write analysis files that the `implement` step picks up directly — no artifact copying needed for files within the same worktree.
+
+### Why Worktrees
+
+| | Worktree | Mount | Detached Directory |
+|---|---|---|---|
+| Lives inside your repo | Yes | Yes | No |
+| Full git history | Yes | Read-only | No |
+| Branch & commit | Yes | No | No |
+| Steps share filesystem | Yes | No | No |
+| Zero copy overhead | Yes | No | No |
+| Works with any git tool | Yes | Partial | No |
+| Automatic cleanup | Yes | Manual | Manual |
+
+### Lifecycle
 
 ```mermaid
 graph TD
-    C[Create] --> M[Mount Sources]
-    M --> I[Inject Artifacts]
+    B[Resolve Branch] --> C{Worktree exists?}
+    C -->|No| D[git worktree add]
+    C -->|Yes| R[Reuse existing]
+    D --> I[Inject Artifacts]
+    R --> I
     I --> E[Execute Step]
     E --> P[Persist Output]
-    P --> W[Wait for Cleanup]
+    P --> N{More steps on this branch?}
+    N -->|Yes| I
+    N -->|No| W[Pipeline completes]
+    W --> X[git worktree remove]
 ```
 
-1. **Create** — Wave creates the workspace directory under `runtime.workspace_root`.
-2. **Mount** — Source repository is mounted with the configured access mode.
+1. **Resolve** — The branch name is resolved from template variables (typically `{{ pipeline_id }}`).
+2. **Create or Reuse** — If no worktree exists for this branch, `git worktree add` creates one. Otherwise, the existing worktree is reused.
 3. **Inject** — Artifacts from completed dependency steps are copied in.
-4. **Execute** — The adapter subprocess runs within this workspace.
+4. **Execute** — The adapter subprocess runs with the worktree as its working directory.
 5. **Persist** — Output artifacts are stored for downstream steps.
-6. **Wait** — Workspace persists until `wave clean` is run. Never auto-deleted.
+6. **Cleanup** — When the pipeline completes (or fails), the worktree is removed automatically.
 
-## Mount Configuration
+### Verification
+
+While a pipeline is running, you can confirm worktree usage:
+
+```bash
+# List active worktrees
+git worktree list
+
+# Check the workspace — .git should be a file, not a directory
+cat .wave/workspaces/<pipeline-id>/__wt_<branch>/.git
+# → gitdir: /your/repo/.git/worktrees/...
+```
+
+## Mount Workspaces
+
+For read-only analysis or when you need fine-grained access control, mount workspaces give you explicit control over which directories a step can see.
 
 ```yaml
 workspace:
   mount:
-    - source: ./                # Project root
-      target: /src
-      mode: readonly            # Step cannot modify source
-    - source: ./test-fixtures
-      target: /fixtures
+    - source: ./src
+      target: /code
       mode: readonly
     - source: ./output
       target: /out
-      mode: readwrite           # Step can write here
+      mode: readwrite
 ```
 
 ### Access Modes
@@ -54,64 +114,63 @@ workspace:
 | `readonly` | Step can read but not modify. Default for source code mounts. |
 | `readwrite` | Step can read and modify. Use for output directories. |
 
-Navigator and auditor personas typically use `readonly` mounts. Craftsman personas need `readwrite` access to implementation directories.
+Mount workspaces create an isolated directory structure under `.wave/workspaces/<pipeline-id>/<step-id>/` with symlinks or copies of the specified sources.
 
-## Workspace Isolation Guarantees
+## Choosing a Strategy
 
-- **No shared state** — steps cannot see each other's workspaces.
-- **Fresh on retry** — when a step retries, it gets a clean workspace.
-- **Artifacts are copies** — injected artifacts are copied, not linked. Modifying an artifact in one step doesn't affect the original.
-- **Persona-scoped config** — each workspace gets its own `CLAUDE.md` based on the bound persona.
+**Use worktrees** (the default) when your pipeline needs to:
+- Read and modify source code
+- Create branches, commits, or pull requests
+- Share file changes between steps
+- Run build tools that expect a git repository
 
-## Workspace Root Configuration
+**Use mounts** when your pipeline needs to:
+- Enforce strict read-only access to source code
+- Expose only specific subdirectories to a step
+- Run analysis without risk of modifying the repo
+
+## Workspace Root
+
+<div v-pre>
 
 ```yaml
 # In wave.yaml
 runtime:
-  workspace_root: /tmp/wave          # Default
-
-# Override with CLI flag
-# wave run --workspace /data/wave
+  workspace_root: .wave/workspaces    # Default
 ```
 
-### Disk Usage
+</div>
 
-Workspaces accumulate until explicitly cleaned:
+All workspaces are created under this root. The directory structure is:
 
-```bash
-# Check disk usage
-du -sh /tmp/wave/
-
-# Clean specific pipeline
-wave clean --pipeline-id a1b2c3d4
-
-# Clean everything
-wave clean --all
-
-# Clean old workspaces
-wave clean --older-than 7d
+```
+.wave/workspaces/
+└── <pipeline-id>/
+    ├── __wt_<branch>/       ← worktree workspace (shared across steps)
+    ├── <step-id>/           ← mount workspace (per step)
+    └── ...
 ```
 
-## Debugging with Workspaces
+## Debugging
 
-Since workspaces persist, they're useful for debugging failed steps:
+Worktree workspaces are cleaned up when a pipeline completes. To inspect them, pause or catch a failure:
 
 ```bash
-# Find the failed step's workspace
-ls /tmp/wave/<pipeline-id>/
+# Find the workspace while pipeline is running
+ls .wave/workspaces/<pipeline-id>/
 
-# Inspect artifacts
-cat /tmp/wave/<pipeline-id>/navigate/output/analysis.json
+# Inspect what the agent saw
+cat .wave/workspaces/<pipeline-id>/__wt_*/CLAUDE.md
 
-# Check what the agent saw
-cat /tmp/wave/<pipeline-id>/implement/CLAUDE.md
+# Check injected artifacts
+ls .wave/workspaces/<pipeline-id>/__wt_*/artifacts/
 
-# Review injected artifacts
-ls /tmp/wave/<pipeline-id>/implement/artifacts/
+# Look at step output
+ls .wave/workspaces/<pipeline-id>/__wt_*/output/
 ```
 
 ## Further Reading
 
-- [Pipeline Schema — WorkspaceConfig](/reference/pipeline-schema#workspaceconfig) — field reference
+- [Pipeline Schema — WorkspaceConfig](/reference/pipeline-schema#workspace-configuration) — field reference
 - [Pipelines](/concepts/pipelines) — how workspaces fit into the execution model
 - [State & Resumption](/guides/state-resumption) — workspace persistence across resumes
