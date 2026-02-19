@@ -1330,6 +1330,12 @@ func TestParseOutputSubtype(t *testing.T) {
 			wantTokens:  1500,
 		},
 		{
+			name:        "result excludes cache_read_input_tokens from total",
+			data:        `{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":5000,"output_tokens":2000,"cache_read_input_tokens":1500000,"cache_creation_input_tokens":50000}}` + "\n",
+			wantSubtype: "success",
+			wantTokens:  57000, // 5000 + 2000 + 50000 (cache_read excluded)
+		},
+		{
 			name:        "no result event falls back to assistant tokens",
 			data:        `{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":100,"output_tokens":50}}}` + "\n",
 			wantSubtype: "",
