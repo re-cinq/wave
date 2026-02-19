@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Issue Update Draft",
+  "description": "Schema for a drafted update to a GitHub issue",
+  "type": "object",
+  "required": ["issue_number", "original_title", "updated_title", "title_changed", "original_body", "updated_body", "staleness_assessment", "changes_made"],
+  "properties": {
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "original_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title_changed": {
+      "type": "boolean"
+    },
+    "original_body": {
+      "type": "string"
+    },
+    "updated_body": {
+      "type": "string",
+      "minLength": 1
+    },
+    "staleness_assessment": {
+      "type": "object",
+      "required": ["overall_staleness", "sections"],
+      "properties": {
+        "overall_staleness": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "status", "reason"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["STILL_VALID", "OUTDATED", "INCOMPLETE", "WRONG"]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "changes_made": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "criticism_addressed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
