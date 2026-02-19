@@ -1,0 +1,233 @@
+kind: WavePipeline
+metadata:
+  name: recinq
+  description: "Rethink and simplify code using divergent-convergent thinking (Double Diamond)"
+
+input:
+  source: cli
+  example: "internal/pipeline"
+
+steps:
+  - id: diverge
+    persona: provocateur
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        DIVERGENT THINKING — cast the widest net to find simplification opportunities.
+
+        Target: {{ input }}
+
+        If input is empty or "." — analyze the whole project.
+        If input is a path — focus on that module/directory but consider its connections.
+
+        ## Your Mission
+
+        Challenge EVERYTHING. Question every assumption. Hunt complexity.
+
+        ## What to Look For
+
+        1. **Premature abstractions**: Interfaces with one implementation. Generic code used once.
+           "What if we just inlined this?"
+
+        2. **Unnecessary indirection**: Layers that pass-through without adding value.
+           Wrappers around wrappers. "How many hops to get to the actual logic?"
+
+        3. **Overengineering**: Configuration for things that never change. Plugins with one plugin.
+           Feature flags for features that are always on. "Is this complexity earning its keep?"
+
+        4. **YAGNI violations**: Code written for hypothetical future needs that never arrived.
+           "When was this last changed? Does anyone actually use this path?"
+
+        5. **Accidental complexity**: Things that are hard because of how they're built, not because
+           the problem is hard. "Could this be 10x simpler if we started over?"
+
+        6. **Copy-paste drift**: Similar-but-slightly-different code that should be unified or
+           intentionally differentiated. "Are these differences meaningful or accidental?"
+
+        7. **Dead weight**: Unused exports, unreachable code, obsolete comments, stale TODOs.
+           `grep -r` for references. If nothing uses it, flag it.
+
+        8. **Naming lies**: Names that don't match what the code actually does.
+           "Does this 'manager' actually manage anything?"
+
+        9. **Dependency gravity**: Modules that pull in everything. Import graphs that are too dense.
+           "What's the blast radius of changing this?"
+
+        ## Evidence Requirements
+
+        For EVERY finding, gather concrete metrics:
+        - `wc -l` for line counts
+        - `grep -r` for usage/reference counts
+        - `git log --oneline <file> | wc -l` for change frequency
+        - List the actual files involved
+
+        ## Output
+
+        Write findings as JSON to output/divergent-findings.json matching the contract schema.
+        Each finding gets a unique ID: DVG-001, DVG-002, etc.
+
+        Be AGGRESSIVE — flag everything suspicious. The convergent phase will filter.
+        It's better to have 30 findings with 10 false positives than 5 findings that miss
+        the big opportunities.
+
+        Include a metrics_summary with totals by category and severity, plus hotspot files
+        that appear in multiple findings.
+    output_artifacts:
+      - name: findings
+        path: output/divergent-findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/divergent-findings.json
+        schema_path: .wave/contracts/divergent-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: distill
+    persona: planner
+    dependencies: [diverge]
+    memory:
+      inject_artifacts:
+        - step: diverge
+          artifact: findings
+          as: divergent_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        THE PIVOT STEP — oscillate between convergent and divergent thinking
+        to distill findings into actionable simplification proposals.
+
+        Read the divergent findings: cat artifacts/divergent_findings
+
+        Target: {{ input }}
+
+        ## Phase 1: CONVERGE — Validate Each Finding
+
+        For every DVG-xxx finding:
+        1. Read the actual code cited as evidence
+        2. Verify the metrics (re-run grep counts, check line counts)
+        3. Assess: Is this a real problem or a false positive?
+        4. Classify: CONFIRMED / PARTIALLY_CONFIRMED / REJECTED
+        5. For rejections: explain why (the code is justified, the "complexity" is essential, etc.)
+
+        ## Phase 2: DIVERGE AGAIN — Probe Deeper
+
+        For CONFIRMED and PARTIALLY_CONFIRMED findings:
+        1. What connects to this? Trace the dependency graph outward
+        2. Are there second-order effects? If we simplify X, does Y also get simpler?
+        3. Do patterns emerge across multiple findings? (e.g., "three findings all stem from the same over-abstraction")
+        4. What did the provocateur MISS? With the validated findings as context, look for related opportunities
+
+        ## Phase 3: CONVERGE AGAIN — Synthesize Proposals
+
+        Transform validated findings into prioritized proposals:
+        1. Group related findings into coherent proposals (one proposal may address multiple DVGs)
+        2. For each proposal:
+           - Unique ID: SMP-001, SMP-002, etc.
+           - Impact: high/medium/low (how much complexity does this remove?)
+           - Effort: small/medium/large (how much work to implement?)
+           - Risk: low/medium/high (what could go wrong?)
+           - Tier: 1 (do now), 2 (do next), 3 (consider later)
+           - Files affected
+           - Dependencies on other proposals
+           - Estimated lines removed
+        3. 80/20 analysis: which 20% of proposals yield 80% of the simplification?
+        4. Dependency ordering: what must be done first?
+
+        ## Output
+
+        Write proposals as JSON to output/convergent-proposals.json matching the contract schema.
+        Include the full validation summary and the 80/20 analysis narrative.
+    output_artifacts:
+      - name: proposals
+        path: output/convergent-proposals.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/convergent-proposals.json
+        schema_path: .wave/contracts/convergent-proposals.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: simplify
+    persona: craftsman
+    dependencies: [distill]
+    memory:
+      inject_artifacts:
+        - step: diverge
+          artifact: findings
+          as: divergent_findings
+        - step: distill
+          artifact: proposals
+          as: proposals
+    workspace:
+      type: worktree
+      branch: "refactor/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        FINAL CONVERGENCE — apply the best simplification proposals.
+
+        Read the proposals: cat artifacts/proposals
+        Read the original findings for context: cat artifacts/divergent_findings
+
+        ## Process
+
+        Apply ONLY tier-1 proposals, in dependency order.
+
+        For each proposal (SMP-xxx):
+
+        1. **Announce**: Print which proposal you're applying and what it does
+        2. **Apply**: Make the code changes
+        3. **Build**: `go build ./...` — must succeed
+        4. **Test**: `go test ./...` — must pass
+        5. **Commit**: If build and tests pass:
+           ```bash
+           git add <specific-files>
+           git commit -m "refactor: <proposal title>
+
+           Applies SMP-xxx: <brief description>
+           Source findings: <DVG-xxx list>"
+           ```
+        6. **Revert if failing**: If tests fail after applying, revert:
+           ```bash
+           git checkout -- .
+           ```
+           Log the failure and move to the next proposal.
+
+        ## Final Verification
+
+        After all tier-1 proposals are applied (or attempted):
+        1. Run the full test suite: `go test -race ./...`
+        2. Run the build: `go build ./...`
+        3. Summarize what was applied, what was skipped, and net lines changed
+
+        ## Important
+
+        - Each proposal gets its own atomic commit
+        - Never combine proposals in a single commit
+        - If a proposal depends on a failed proposal, skip it too
+        - Do NOT push — just commit to the worktree branch
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+    output_artifacts:
+      - name: result
+        path: output/result.md
+        type: markdown
