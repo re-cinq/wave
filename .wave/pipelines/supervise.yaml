@@ -1,0 +1,170 @@
+kind: WavePipeline
+metadata:
+  name: supervise
+  description: "Review work quality and process quality, including claudit session transcripts"
+
+input:
+  source: cli
+  example: "last pipeline run"
+
+steps:
+  - id: gather
+    persona: supervisor
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Gather evidence for supervision of: {{ input }}
+
+        ## Smart Input Detection
+
+        Determine what to inspect based on the input:
+        - **Empty or "last pipeline run"**: Find the most recent pipeline run via `.wave/workspaces/` timestamps and recent git activity
+        - **"current pr" or "PR #N"**: Inspect the current or specified pull request (`git log`, `gh pr view`)
+        - **Branch name**: Inspect all commits on that branch vs main
+        - **Free-form description**: Use grep/git log to find relevant recent work
+
+        ## Evidence Collection
+
+        1. **Git history**: Recent commits with diffs (`git log --stat`, `git diff`)
+        2. **Session transcripts**: Check for claudit git notes (`git notes show <commit>` for each relevant commit). Summarize what happened in each session — tool calls, approach taken, detours, errors
+        3. **Pipeline artifacts**: Scan `.wave/workspaces/` for the relevant pipeline run. List all output artifacts and their contents
+        4. **Test state**: Run `go test ./...` to capture current test status
+        5. **Branch/PR context**: Branch name, ahead/behind status, PR state if applicable
+
+        ## Output
+
+        Write a comprehensive evidence bundle as JSON to output/supervision-evidence.json
+        matching the contract schema. Include all raw evidence — the evaluation step
+        will interpret it.
+
+        Be thorough in transcript analysis — the process quality evaluation depends
+        heavily on understanding what the agent actually did vs what it should have done.
+    output_artifacts:
+      - name: evidence
+        path: output/supervision-evidence.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/supervision-evidence.json
+        schema_path: .wave/contracts/supervision-evidence.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: evaluate
+    persona: supervisor
+    dependencies: [gather]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: evidence
+          as: evidence
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Evaluate the work quality based on gathered evidence.
+
+        Read the evidence: cat artifacts/evidence
+
+        ## Output Quality Assessment
+
+        For each dimension, score as excellent/good/adequate/poor with specific findings:
+
+        1. **Correctness**: Does the code do what was intended? Check logic, edge cases, error handling
+        2. **Completeness**: Are all requirements addressed? Any gaps or TODOs left?
+        3. **Test coverage**: Are changes adequately tested? Run targeted tests if needed
+        4. **Code quality**: Does it follow project conventions? Clean abstractions? Good naming?
+
+        ## Process Quality Assessment
+
+        Using the session transcripts from the evidence:
+
+        1. **Efficiency**: Was the approach direct? Count unnecessary file reads, repeated searches, abandoned approaches visible in transcripts
+        2. **Scope discipline**: Did the agent stay on task? Flag any scope creep — changes unrelated to the original goal
+        3. **Tool usage**: Were the right tools used? (e.g., Read vs Bash cat, Glob vs find)
+        4. **Token economy**: Was the work concise or bloated? Excessive context gathering? Redundant operations?
+
+        ## Synthesis
+
+        - Overall score (excellent/good/adequate/poor)
+        - Key strengths (what went well)
+        - Key concerns (what needs attention)
+
+        Write the evaluation as JSON to output/supervision-evaluation.json matching the contract schema.
+    output_artifacts:
+      - name: evaluation
+        path: output/supervision-evaluation.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: output/supervision-evaluation.json
+        schema_path: .wave/contracts/supervision-evaluation.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: verdict
+    persona: reviewer
+    dependencies: [evaluate]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: evidence
+          as: evidence
+        - step: evaluate
+          artifact: evaluation
+          as: evaluation
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Synthesize a final supervision verdict.
+
+        Read the evidence and evaluation:
+          cat artifacts/evidence
+          cat artifacts/evaluation
+
+        ## Independent Verification
+
+        1. Run the test suite: `go test ./...`
+        2. Cross-check evaluation claims against actual code
+        3. Verify any specific concerns raised in the evaluation
+
+        ## Verdict
+
+        Issue one of:
+        - **APPROVE**: Work is good quality, process was efficient. Ship it.
+        - **PARTIAL_APPROVE**: Output is acceptable but process had issues worth noting for improvement.
+        - **REWORK**: Significant issues found that need to be addressed before the work is acceptable.
+
+        ## Action Items (if REWORK or PARTIAL_APPROVE)
+
+        For each issue requiring action:
+        - Specific file and line references
+        - What needs to change and why
+        - Priority (must-fix vs should-fix)
+
+        ## Lessons Learned
+
+        What should be done differently next time? Process improvements, common pitfalls observed.
+
+        Write the verdict as markdown to output/supervision-verdict.md with clear sections:
+        ## Verdict, ## Output Quality, ## Process Quality, ## Action Items, ## Lessons Learned
+    output_artifacts:
+      - name: verdict
+        path: output/supervision-verdict.md
+        type: markdown
