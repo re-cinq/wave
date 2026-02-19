@@ -175,7 +175,7 @@ steps:
 
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
-    persona: navigator
+    persona: validator
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -197,7 +197,7 @@ steps:
 
         ## Read Input
 
-        Read the divergent findings: `cat artifacts/divergent_findings`
+        Use the Read tool to read `artifacts/divergent_findings`.
 
         Target: {{ input }}
 
@@ -281,8 +281,8 @@ steps:
 
         ## Read Inputs
 
-        Read the validated findings: `cat artifacts/validated_findings`
-        Read the original findings for context: `cat artifacts/divergent_findings`
+        Read the validated findings: the Read tool on `artifacts/validated_findings`
+        Read the original findings for context: the Read tool on `artifacts/divergent_findings`
 
         Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
 
@@ -367,7 +367,7 @@ steps:
 
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
-    persona: planner
+    persona: synthesizer
     dependencies: [probe]
     memory:
       inject_artifacts:
@@ -399,10 +399,10 @@ steps:
 
         ## CRITICAL: Read Inputs First
 
-        1. Read the validated findings: `cat artifacts/validated_findings`
-        2. Read the probed findings: `cat artifacts/probed_findings`
-        3. Read the required output schema: `cat .wave/contracts/convergent-proposals.schema.json`
-        4. Read the input context: `cat artifacts/context`
+        1. Read the validated findings: the Read tool on `artifacts/validated_findings`
+        2. Read the probed findings: the Read tool on `artifacts/probed_findings`
+        3. Read the required output schema: the Read tool on `project/.wave/contracts/convergent-proposals.schema.json`
+        4. Read the input context: the Read tool on `artifacts/context`
 
         You MUST produce valid JSON matching that schema exactly.
 
@@ -485,8 +485,8 @@ steps:
       source: |
         IMPLEMENTATION — apply the best simplification proposals.
 
-        Read the proposals: cat artifacts/proposals
-        Read the validated findings for context: cat artifacts/validated_findings
+        Read the proposals: `cat artifacts/proposals`
+        Read the validated findings for context: `cat artifacts/validated_findings`
 
         ## Process
 
