@@ -227,6 +227,51 @@ personas:
                 - Bash(gh pr*)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-commenter.md
+    supervisor:
+        adapter: claude
+        description: Work quality and process quality evaluation
+        model: opus
+        temperature: 0.2
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - Bash(git *)
+                - Bash(ls *)
+                - Bash(find *)
+                - Bash(go test*)
+                - Bash(cat *)
+                - Bash(wc *)
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(git push*)
+                - Bash(git commit*)
+                - Bash(rm*)
+        system_prompt_file: .wave/personas/supervisor.md
+    provocateur:
+        adapter: claude
+        description: Creative challenger for divergent thinking and complexity hunting
+        model: opus
+        temperature: 0.8
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - Bash(wc *)
+                - Bash(git log*)
+                - Bash(git diff*)
+                - Bash(find*)
+                - Bash(ls*)
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(git commit*)
+                - Bash(git push*)
+                - Bash(rm*)
+        system_prompt_file: .wave/personas/provocateur.md
 runtime:
     audit:
         log_all_file_operations: false
