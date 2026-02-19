@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -91,9 +92,40 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		return fmt.Errorf("failed to load resume state: %w", err)
 	}
 
+	// Emit resume state summary so the user knows what was recovered
+	pipelineName := p.Metadata.Name
+	if r.executor.emitter != nil {
+		if len(resumeState.CompletedSteps) > 0 {
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     fromStep,
+				State:      "resuming",
+				Message:    fmt.Sprintf("Resume: found %d completed step(s): %s", len(resumeState.CompletedSteps), strings.Join(resumeState.CompletedSteps, ", ")),
+			})
+		}
+		for key, path := range resumeState.ArtifactPaths {
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     fromStep,
+				State:      "resuming",
+				Message:    fmt.Sprintf("Resume: recovered artifact %s → %s", key, path),
+			})
+		}
+		if len(resumeState.CompletedSteps) == 0 {
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     fromStep,
+				State:      "resuming",
+				Message:    "Resume: no prior state found — starting fresh",
+			})
+		}
+	}
+
 	// Generate a new runtime ID for this resumed execution.
 	// Prefer CreateRun() so resumed runs appear in the dashboard.
-	pipelineName := p.Metadata.Name
 	hashLength := m.Runtime.PipelineIDHashLength
 	pipelineID := r.executor.createRunID(pipelineName, hashLength, input)
 
@@ -146,7 +178,16 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 		CompletedSteps: []string{},
 	}
 
-	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
+	wsRoot := ".wave/workspaces"
+
+	// Find the most recent run directory for this pipeline.
+	// Run dirs are named <pipelineName>-<timestamp>-<hash> and sorted
+	// lexicographically so the last match is the most recent.
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
+	// Also check for an exact-name dir (no hash suffix, legacy)
+	if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
+		runDirs = append([]string{filepath.Join(wsRoot, p.Metadata.Name)}, runDirs...)
+	}
 
 	// Load completed steps state from workspace
 	for _, step := range p.Steps {
@@ -155,36 +196,80 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 		}
 
 		// Resolve workspace path for this step
-		stepWorkspace := filepath.Join(workspaceRoot, step.ID)
+		stepWorkspace := ""
 		if step.Workspace.Ref != "" {
 			// Ref steps share the referenced step's workspace
 			if refPath, ok := state.WorkspacePaths[step.Workspace.Ref]; ok {
 				stepWorkspace = refPath
 			}
 		}
-		// For worktree steps, try branch-keyed worktree path first
-		if step.Workspace.Type == "worktree" {
-			entries, _ := filepath.Glob(filepath.Join(workspaceRoot, "__wt_*"))
-			if len(entries) > 0 {
-				stepWorkspace = entries[0] // shared worktree
+
+		if stepWorkspace == "" {
+			// Search across all run dirs (most recent first) for this step's workspace
+			for i := len(runDirs) - 1; i >= 0; i-- {
+				runDir := runDirs[i]
+
+				// For worktree steps, look for __wt_* dirs
+				if step.Workspace.Type == "worktree" {
+					entries, _ := filepath.Glob(filepath.Join(runDir, "__wt_*"))
+					for _, entry := range entries {
+						// Check if this worktree has the step's output artifacts
+						if hasStepArtifacts(entry, step) {
+							stepWorkspace = entry
+							break
+						}
+					}
+					if stepWorkspace != "" {
+						break
+					}
+					// Also check old-style step-named dirs
+					candidate := filepath.Join(runDir, step.ID)
+					if _, err := os.Stat(candidate); err == nil {
+						stepWorkspace = candidate
+						break
+					}
+				} else {
+					candidate := filepath.Join(runDir, step.ID)
+					if _, err := os.Stat(candidate); err == nil {
+						stepWorkspace = candidate
+						break
+					}
+				}
 			}
 		}
-		if _, err := os.Stat(stepWorkspace); err == nil {
-			// Step workspace exists, mark as completed
-			state.States[step.ID] = StateCompleted
-			state.CompletedSteps = append(state.CompletedSteps, step.ID)
-			state.WorkspacePaths[step.ID] = stepWorkspace
 
-			// Load artifact paths for this step
-			for _, artifact := range step.OutputArtifacts {
-				artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
-				artifactPath := filepath.Join(stepWorkspace, artifact.Path)
-				state.ArtifactPaths[artifactKey] = artifactPath
+		if stepWorkspace != "" {
+			if _, err := os.Stat(stepWorkspace); err == nil {
+				// Step workspace exists, mark as completed
+				state.States[step.ID] = StateCompleted
+				state.CompletedSteps = append(state.CompletedSteps, step.ID)
+				state.WorkspacePaths[step.ID] = stepWorkspace
+
+				// Load artifact paths for this step
+				for _, artifact := range step.OutputArtifacts {
+					artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
+					artifactPath := filepath.Join(stepWorkspace, artifact.Path)
+					state.ArtifactPaths[artifactKey] = artifactPath
+				}
 			}
 		}
 	}
 
 	return state, nil
+}
+
+// hasStepArtifacts checks if a workspace directory contains the output artifacts for a step.
+func hasStepArtifacts(wsPath string, step Step) bool {
+	if len(step.OutputArtifacts) == 0 {
+		// No artifacts to check — the dir existing is enough
+		return true
+	}
+	for _, art := range step.OutputArtifacts {
+		if _, err := os.Stat(filepath.Join(wsPath, art.Path)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // createResumeSubpipeline creates a new pipeline starting from the specified step.
