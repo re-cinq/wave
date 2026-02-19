@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Divergent Findings",
+  "description": "Broad-net findings from divergent thinking phase of the recinq pipeline",
+  "type": "object",
+  "required": ["scope", "findings", "metrics_summary", "timestamp"],
+  "properties": {
+    "scope": {
+      "type": "object",
+      "required": ["target", "files_scanned", "total_lines"],
+      "properties": {
+        "target": { "type": "string", "description": "What was analyzed (path, module, or 'whole-project')" },
+        "files_scanned": { "type": "integer" },
+        "total_lines": { "type": "integer" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "title", "description", "evidence", "severity"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^DVG-\\d{3}$" },
+          "category": {
+            "type": "string",
+            "enum": [
+              "premature_abstraction",
+              "unnecessary_indirection",
+              "overengineering",
+              "yagni_violation",
+              "accidental_complexity",
+              "copy_paste_drift",
+              "dead_weight",
+              "naming_lie",
+              "dependency_gravity",
+              "missing_abstraction",
+              "other"
+            ]
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence": {
+            "type": "object",
+            "required": ["files"],
+            "properties": {
+              "files": { "type": "array", "items": { "type": "string" } },
+              "line_count": { "type": "integer" },
+              "reference_count": { "type": "integer" },
+              "change_frequency": { "type": "integer" },
+              "metrics": { "type": "string" }
+            }
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "How confident the provocateur is in this finding"
+          }
+        }
+      }
+    },
+    "metrics_summary": {
+      "type": "object",
+      "required": ["total_findings"],
+      "properties": {
+        "total_findings": { "type": "integer" },
+        "by_category": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "by_severity": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "hotspot_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Files appearing in multiple findings"
+        }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

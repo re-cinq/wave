@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Convergent Proposals",
+  "description": "Prioritized simplification proposals from convergent thinking phase",
+  "type": "object",
+  "required": ["source_findings", "validation_summary", "proposals", "timestamp"],
+  "properties": {
+    "source_findings": {
+      "type": "object",
+      "required": ["total_reviewed", "confirmed", "partially_confirmed", "rejected"],
+      "properties": {
+        "total_reviewed": { "type": "integer" },
+        "confirmed": { "type": "integer" },
+        "partially_confirmed": { "type": "integer" },
+        "rejected": { "type": "integer" },
+        "rejection_reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["finding_id", "reason"],
+            "properties": {
+              "finding_id": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "validation_summary": {
+      "type": "string",
+      "description": "Narrative summary of the converge→diverge→converge validation process"
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "source_findings", "impact", "effort", "risk", "tier", "files"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^SMP-\\d{3}$" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "source_findings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "DVG-xxx IDs this proposal addresses"
+          },
+          "impact": { "type": "string", "enum": ["high", "medium", "low"] },
+          "effort": { "type": "string", "enum": ["small", "medium", "large"] },
+          "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+          "tier": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Priority tier: 1=do now, 2=do next, 3=consider later"
+          },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Files that would be modified"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "SMP-xxx IDs that must be applied first"
+          },
+          "lines_removed_estimate": { "type": "integer" },
+          "second_order_effects": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Insights discovered during deeper probing"
+          }
+        }
+      }
+    },
+    "eighty_twenty_analysis": {
+      "type": "string",
+      "description": "Which 20% of proposals yield 80% of the simplification benefit"
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
