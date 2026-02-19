@@ -86,6 +86,7 @@ steps:
         type: json_schema
         source: output/divergent-findings.json
         schema_path: .wave/contracts/divergent-findings.schema.json
+        must_pass: true
         on_failure: retry
         max_retries: 2
 
@@ -108,7 +109,13 @@ steps:
         THE PIVOT STEP — oscillate between convergent and divergent thinking
         to distill findings into actionable simplification proposals.
 
-        Read the divergent findings: cat artifacts/divergent_findings
+        ## CRITICAL: Read Inputs First
+
+        1. Read the divergent findings: `cat artifacts/divergent_findings`
+        2. Read the required output schema: `cat .wave/contracts/convergent-proposals.schema.json`
+
+        You MUST produce valid JSON matching that schema exactly. Not markdown. Not a summary.
+        Structured JSON with every required field populated.
 
         Target: {{ input }}
 
@@ -133,22 +140,29 @@ steps:
 
         Transform validated findings into prioritized proposals:
         1. Group related findings into coherent proposals (one proposal may address multiple DVGs)
-        2. For each proposal:
-           - Unique ID: SMP-001, SMP-002, etc.
-           - Impact: high/medium/low (how much complexity does this remove?)
-           - Effort: small/medium/large (how much work to implement?)
-           - Risk: low/medium/high (what could go wrong?)
-           - Tier: 1 (do now), 2 (do next), 3 (consider later)
-           - Files affected
-           - Dependencies on other proposals
-           - Estimated lines removed
+        2. For each proposal, include ALL required schema fields:
+           - `id`: SMP-001, SMP-002, etc.
+           - `title`: concise name
+           - `description`: detailed explanation of what to change and why
+           - `source_findings`: array of DVG-xxx IDs this addresses
+           - `impact`: "high" / "medium" / "low"
+           - `effort`: "small" / "medium" / "large"
+           - `risk`: "low" / "medium" / "high"
+           - `tier`: 1 (do now), 2 (do next), 3 (consider later)
+           - `files`: array of file paths that would be modified
+           - `dependencies`: array of SMP-xxx IDs that must be applied first
+           - `lines_removed_estimate`: integer
+           - `second_order_effects`: array of insights from deeper probing
         3. 80/20 analysis: which 20% of proposals yield 80% of the simplification?
         4. Dependency ordering: what must be done first?
 
         ## Output
 
-        Write proposals as JSON to output/convergent-proposals.json matching the contract schema.
-        Include the full validation summary and the 80/20 analysis narrative.
+        Write the FULL structured JSON to `output/convergent-proposals.json`.
+        The file must be valid JSON matching the schema in `.wave/contracts/convergent-proposals.schema.json`.
+        Include `source_findings`, `validation_summary`, `proposals`, `eighty_twenty_analysis`, and `timestamp`.
+
+        Do NOT write a markdown summary. Write the complete JSON object with every proposal fully populated.
     output_artifacts:
       - name: proposals
         path: output/convergent-proposals.json
@@ -158,6 +172,7 @@ steps:
         type: json_schema
         source: output/convergent-proposals.json
         schema_path: .wave/contracts/convergent-proposals.schema.json
+        must_pass: true
         on_failure: retry
         max_retries: 2
 
