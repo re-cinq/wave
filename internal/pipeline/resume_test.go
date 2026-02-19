@@ -268,6 +268,175 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 	}
 }
 
+func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	pipeline := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gh-issue-update"},
+		Steps: []Step{
+			{
+				ID: "gather-context",
+				Workspace: WorkspaceConfig{Type: "worktree"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "issue_context", Path: "artifact.json"},
+				},
+			},
+			{
+				ID:           "draft-update",
+				Dependencies: []string{"gather-context"},
+				Workspace:    WorkspaceConfig{Type: "worktree"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "update_draft", Path: "artifact.json"},
+				},
+			},
+			{
+				ID:           "apply-update",
+				Dependencies: []string{"draft-update"},
+				Workspace:    WorkspaceConfig{Type: "worktree"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		fromStep          string
+		setupWorkspace    func(t *testing.T, tempDir string)
+		expectedCompleted []string
+		expectedArtifacts int
+		checkArtifactKey  string // verify a specific artifact path is set
+	}{
+		{
+			name:     "finds artifacts in hash-suffixed __wt_ dir",
+			fromStep: "draft-update",
+			setupWorkspace: func(t *testing.T, tempDir string) {
+				// Simulate a previous run with hash-suffixed dir and __wt_ worktree
+				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/__wt_gh-issue-update-20260219-142150-deb8")
+				if err := os.MkdirAll(wtDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, "artifact.json"), []byte(`{"issue":{}}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"gather-context"},
+			expectedArtifacts: 1,
+			checkArtifactKey:  "gather-context:issue_context",
+		},
+		{
+			name:     "finds artifacts across multiple hash-suffixed runs (picks most recent)",
+			fromStep: "apply-update",
+			setupWorkspace: func(t *testing.T, tempDir string) {
+				// Old run with gather-context
+				oldWt := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-100000-aaaa/__wt_some-branch")
+				if err := os.MkdirAll(oldWt, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(oldWt, "artifact.json"), []byte(`{"old":true}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+
+				// Newer run with both gather-context and draft-update artifacts
+				newWt := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-200000-bbbb/__wt_other-branch")
+				if err := os.MkdirAll(newWt, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(newWt, "artifact.json"), []byte(`{"new":true}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"gather-context", "draft-update"},
+			expectedArtifacts: 2,
+			checkArtifactKey:  "draft-update:update_draft",
+		},
+		{
+			name:     "finds artifacts in old-style step-named dirs under hash-suffixed run",
+			fromStep: "draft-update",
+			setupWorkspace: func(t *testing.T, tempDir string) {
+				// Old-style: step ID as directory name
+				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/gather-context")
+				if err := os.MkdirAll(stepDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(stepDir, "artifact.json"), []byte(`{}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"gather-context"},
+			expectedArtifacts: 1,
+			checkArtifactKey:  "gather-context:issue_context",
+		},
+		{
+			name:     "mount-type steps found in hash-suffixed run dirs",
+			fromStep: "apply-update",
+			setupWorkspace: func(t *testing.T, tempDir string) {
+				// gather-context in a __wt_ dir
+				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/__wt_some-branch")
+				if err := os.MkdirAll(wtDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, "artifact.json"), []byte(`{}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+				// draft-update in an old-style step dir from a different run
+				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-144614-3336/draft-update")
+				if err := os.MkdirAll(stepDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(stepDir, "artifact.json"), []byte(`{}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"gather-context", "draft-update"},
+			expectedArtifacts: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			originalWd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chdir(originalWd)
+
+			if err := os.Chdir(tempDir); err != nil {
+				t.Fatal(err)
+			}
+
+			tt.setupWorkspace(t, tempDir)
+
+			state, err := manager.loadResumeState(pipeline, tt.fromStep)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(state.CompletedSteps) != len(tt.expectedCompleted) {
+				t.Errorf("Expected %d completed steps, got %d: %v", len(tt.expectedCompleted), len(state.CompletedSteps), state.CompletedSteps)
+			}
+
+			for i, expected := range tt.expectedCompleted {
+				if i < len(state.CompletedSteps) && state.CompletedSteps[i] != expected {
+					t.Errorf("Expected completed step %d to be %s, got %s", i, expected, state.CompletedSteps[i])
+				}
+			}
+
+			if len(state.ArtifactPaths) != tt.expectedArtifacts {
+				t.Errorf("Expected %d artifact paths, got %d: %v", tt.expectedArtifacts, len(state.ArtifactPaths), state.ArtifactPaths)
+			}
+
+			if tt.checkArtifactKey != "" {
+				if path, ok := state.ArtifactPaths[tt.checkArtifactKey]; !ok {
+					t.Errorf("Expected artifact key %q to be set, but it wasn't. Keys: %v", tt.checkArtifactKey, state.ArtifactPaths)
+				} else if _, err := os.Stat(path); err != nil {
+					t.Errorf("Artifact path %q for key %q does not exist: %v", path, tt.checkArtifactKey, err)
+				}
+			}
+		})
+	}
+}
+
 func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
 	manager := NewResumeManager(executor)
