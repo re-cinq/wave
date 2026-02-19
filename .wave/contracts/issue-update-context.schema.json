@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Issue Update Context",
+  "description": "Schema for gathered context about a GitHub issue and recent codebase changes",
+  "type": "object",
+  "required": ["repository", "issue", "changes_since_creation", "referenced_files"],
+  "properties": {
+    "repository": {
+      "type": "object",
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "required": ["number", "title", "body", "url", "created_at"],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "author": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "changes_since_creation": {
+      "type": "object",
+      "required": ["commits", "commit_count"],
+      "properties": {
+        "commits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "commit_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "referenced_files": {
+      "type": "object",
+      "required": ["found", "missing"],
+      "properties": {
+        "found": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "criticism": {
+      "type": "string"
+    },
+    "project_context": {
+      "type": "string"
+    }
+  }
+}
