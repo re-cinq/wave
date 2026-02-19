@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Supervision Evidence",
+  "description": "Evidence gathered for supervising completed work",
+  "type": "object",
+  "required": ["scope", "commits", "artifacts", "test_results", "timestamp"],
+  "properties": {
+    "scope": {
+      "type": "object",
+      "description": "What was inspected and how it was identified",
+      "required": ["description", "detection_method"],
+      "properties": {
+        "description": { "type": "string", "minLength": 5 },
+        "detection_method": {
+          "type": "string",
+          "enum": ["auto_detect", "pipeline_run", "branch", "pr", "freeform"]
+        },
+        "pipeline_name": { "type": "string" },
+        "branch_name": { "type": "string" },
+        "pr_number": { "type": "integer" }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hash", "message", "files_changed"],
+        "properties": {
+          "hash": { "type": "string" },
+          "message": { "type": "string" },
+          "author": { "type": "string" },
+          "files_changed": { "type": "integer" },
+          "insertions": { "type": "integer" },
+          "deletions": { "type": "integer" },
+          "has_session_transcript": { "type": "boolean" },
+          "transcript_summary": { "type": "string" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Pipeline workspace artifacts found",
+      "items": {
+        "type": "object",
+        "required": ["path", "type"],
+        "properties": {
+          "path": { "type": "string" },
+          "type": { "type": "string" },
+          "size_bytes": { "type": "integer" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "test_results": {
+      "type": "object",
+      "required": ["ran", "passed"],
+      "properties": {
+        "ran": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "total_tests": { "type": "integer" },
+        "failed_tests": { "type": "integer" },
+        "coverage_percent": { "type": "number" },
+        "details": { "type": "string" }
+      }
+    },
+    "session_transcripts": {
+      "type": "array",
+      "description": "Claudit session transcripts from git notes",
+      "items": {
+        "type": "object",
+        "required": ["commit_hash", "summary"],
+        "properties": {
+          "commit_hash": { "type": "string" },
+          "summary": { "type": "string" },
+          "tool_calls_count": { "type": "integer" },
+          "notable_detours": { "type": "array", "items": { "type": "string" } },
+          "errors_encountered": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

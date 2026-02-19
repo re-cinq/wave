@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Supervision Evaluation",
+  "description": "Quality evaluation of both output and process",
+  "type": "object",
+  "required": ["output_quality", "process_quality", "overall_score", "timestamp"],
+  "properties": {
+    "output_quality": {
+      "type": "object",
+      "required": ["correctness", "completeness", "test_coverage", "code_quality"],
+      "properties": {
+        "correctness": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "completeness": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "test_coverage": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "code_quality": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "process_quality": {
+      "type": "object",
+      "required": ["efficiency", "scope_discipline", "tool_usage"],
+      "properties": {
+        "efficiency": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "scope_discipline": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "tool_usage": {
+          "type": "object",
+          "required": ["score", "findings"],
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "token_economy": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "string", "enum": ["excellent", "good", "adequate", "poor"] },
+            "findings": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "overall_score": {
+      "type": "string",
+      "enum": ["excellent", "good", "adequate", "poor"]
+    },
+    "key_strengths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "key_concerns": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
