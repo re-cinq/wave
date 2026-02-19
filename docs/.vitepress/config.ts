@@ -78,7 +78,9 @@ export default withMermaid(
               { text: 'Issue Enhancement', link: '/use-cases/github-issue-enhancer' },
               { text: 'Issue Research', link: '/use-cases/issue-research' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },
-              { text: 'Refactoring', link: '/use-cases/refactoring' }
+              { text: 'Refactoring', link: '/use-cases/refactoring' },
+              { text: 'Work Supervision', link: '/use-cases/supervise' },
+              { text: 'Recinq', link: '/use-cases/recinq' }
             ]
           }
         ],

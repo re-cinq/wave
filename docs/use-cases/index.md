@@ -73,6 +73,26 @@ const useCases = [
     tags: ['code quality', 'maintainability'],
     link: '/use-cases/refactoring'
   },
+  {
+    id: 'supervise',
+    title: 'Work Supervision',
+    description: 'Review output quality and process quality of completed work, including AI session transcripts.',
+    category: 'code-quality',
+    complexity: 'intermediate',
+    personas: ['supervisor', 'reviewer'],
+    tags: ['quality', 'process review', 'claudit'],
+    link: '/use-cases/supervise'
+  },
+  {
+    id: 'recinq',
+    title: 'Recinq',
+    description: 'Rethink and simplify code using divergent-convergent thinking (Double Diamond model).',
+    category: 'code-quality',
+    complexity: 'advanced',
+    personas: ['provocateur', 'planner', 'craftsman'],
+    tags: ['simplification', 'complexity', 'refactoring'],
+    link: '/use-cases/recinq'
+  },
 ]
 </script>
 
