@@ -250,6 +250,40 @@ personas:
                 - Bash(git commit*)
                 - Bash(rm*)
         system_prompt_file: .wave/personas/supervisor.md
+    validator:
+        adapter: claude
+        description: Skeptical analysis and verification of findings against source code
+        model: sonnet
+        temperature: 0.1
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+                - Bash(wc *)
+                - Bash(git log*)
+                - Bash(git diff*)
+            deny:
+                - Write(*)
+                - Edit(*)
+                - Bash(git commit*)
+                - Bash(git push*)
+                - Bash(rm*)
+        system_prompt_file: .wave/personas/validator.md
+    synthesizer:
+        adapter: claude
+        description: Structured synthesis of analysis findings into actionable JSON proposals
+        model: sonnet
+        temperature: 0.2
+        permissions:
+            allowed_tools:
+                - Read
+                - Glob
+                - Grep
+            deny:
+                - Edit(*)
+                - Bash(*)
+        system_prompt_file: .wave/personas/synthesizer.md
     provocateur:
         adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
