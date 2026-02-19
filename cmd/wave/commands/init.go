@@ -746,6 +746,39 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 					"deny":          []string{},
 				},
 			},
+			"provocateur": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Creative challenger for divergent thinking and complexity hunting",
+				"model":              "opus",
+				"system_prompt_file": ".wave/personas/provocateur.md",
+				"temperature":        0.8,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(wc *)", "Bash(git log*)", "Bash(git diff*)", "Bash(find*)", "Bash(ls*)"},
+					"deny":          []string{"Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)", "Bash(rm*)"},
+				},
+			},
+			"validator": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Skeptical analysis and verification of findings against source code",
+				"model":              "sonnet",
+				"system_prompt_file": ".wave/personas/validator.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(wc *)", "Bash(git log*)", "Bash(git diff*)"},
+					"deny":          []string{"Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)", "Bash(rm*)"},
+				},
+			},
+			"synthesizer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Structured synthesis of analysis findings into actionable JSON proposals",
+				"model":              "sonnet",
+				"system_prompt_file": ".wave/personas/synthesizer.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep"},
+					"deny":          []string{"Edit(*)", "Bash(*)"},
+				},
+			},
 		},
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
