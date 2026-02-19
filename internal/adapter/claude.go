@@ -418,7 +418,11 @@ func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 		// Parse stream-json NDJSON format
 		// Note: Claude API usage includes cache_read_input_tokens and
 		// cache_creation_input_tokens which represent cached prompt tokens.
-		// Without counting these, token counts appear artificially low.
+		// For result events (cumulative across all turns), we exclude
+		// cache_read_input_tokens because it represents the same cached
+		// context being re-read on each turn — that content is already
+		// counted once via cache_creation_input_tokens. Including it
+		// inflates totals enormously for multi-turn conversations.
 		var obj struct {
 			Type    string `json:"type"`
 			Subtype string `json:"subtype"`
@@ -445,9 +449,11 @@ func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 
 		switch obj.Type {
 		case "result":
-			// "result" type carries the final output and cumulative usage
+			// "result" type carries cumulative usage across all conversation turns.
+			// Exclude cache_read_input_tokens: it's the same cached context re-read
+			// on each turn (already counted once in cache_creation_input_tokens).
 			resultTokens = obj.Usage.InputTokens + obj.Usage.OutputTokens +
-				obj.Usage.CacheReadInputTokens + obj.Usage.CacheCreationInputTokens
+				obj.Usage.CacheCreationInputTokens
 			resultContent = obj.Result
 			subtype = obj.Subtype
 		case "assistant":
