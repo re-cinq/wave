@@ -1,0 +1,238 @@
+kind: WavePipeline
+metadata:
+  name: gh-issue-update
+  description: "Refresh a stale GitHub issue by comparing it against recent codebase changes"
+  release: true
+
+input:
+  source: cli
+  example: "re-cinq/wave 45 -- acceptance criteria are outdated after the worktree refactor"
+  schema:
+    type: string
+    description: "owner/repo number [-- optional criticism or direction]"
+
+steps:
+  - id: gather-context
+    persona: github-analyst
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        MANDATORY: You MUST call the Bash tool. NEVER say "gh CLI not installed" without trying.
+
+        Input: {{ input }}
+
+        Parse the input:
+        - Split on " -- " to separate the repo+number from optional criticism.
+        - The first part is "<owner/repo> <number>". Extract REPO (first token) and NUMBER (second token).
+        - If there is text after " -- ", that is the user's CRITICISM about what's wrong with the issue.
+        - If there is no " -- ", criticism is empty.
+
+        Execute these commands using the Bash tool:
+
+        1. gh --version
+
+        2. Fetch the full issue:
+           gh issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+
+        3. Get commits since the issue was created (cap at 100):
+           git log --since="<createdAt>" --oneline -100
+
+        4. Get releases since the issue was created:
+           gh release list --repo REPO --limit 20
+           Then filter to only releases after the issue's createdAt date.
+
+        5. Scan the issue body for file path references (anything matching patterns like
+           `internal/...`, `cmd/...`, `.wave/...`, or backtick-quoted paths).
+           For each referenced file, check if it still exists using `ls -la <path>`.
+
+        6. Read CLAUDE.md for current project context:
+           Read the file CLAUDE.md from the repository root.
+
+        After gathering ALL data, save to artifact.json with this structure:
+        {
+          "repository": {"owner": "...", "name": "..."},
+          "issue": {
+            "number": N,
+            "title": "...",
+            "body": "...",
+            "labels": [...],
+            "url": "...",
+            "created_at": "...",
+            "comments": [...]
+          },
+          "changes_since_creation": {
+            "commits": ["<oneline entries>"],
+            "commit_count": N,
+            "releases": ["<release tags>"]
+          },
+          "referenced_files": {
+            "found": ["paths that still exist"],
+            "missing": ["paths that no longer exist"]
+          },
+          "criticism": "user criticism text or empty string",
+          "project_context": "summary of CLAUDE.md contents"
+        }
+    output_artifacts:
+      - name: issue_context
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/issue-update-context.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
+
+  - id: draft-update
+    persona: github-analyst
+    dependencies: [gather-context]
+    memory:
+      inject_artifacts:
+        - step: gather-context
+          artifact: issue_context
+          as: context
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        MANDATORY: You MUST call the Bash tool for any commands. NEVER generate fake output.
+
+        Read artifacts/context.json which contains the gathered issue context.
+
+        Your task: Compare the original issue against the codebase changes and draft an updated version.
+
+        Step 1: Analyze each section of the issue body. Classify each as:
+        - STILL_VALID: Content is accurate and up-to-date
+        - OUTDATED: Content references old behavior, removed files, or superseded patterns
+        - INCOMPLETE: Content is partially correct but missing recent developments
+        - WRONG: Content is factually incorrect given current codebase state
+
+        Step 2: If there is user criticism (non-empty "criticism" field), address EVERY point raised.
+        The criticism takes priority — it represents what the issue author thinks is wrong.
+
+        Step 3: Draft the updated issue:
+        - Preserve sections classified as STILL_VALID (do not rewrite what works)
+        - Rewrite OUTDATED and WRONG sections to reflect current reality
+        - Expand INCOMPLETE sections with missing information
+        - If the title needs updating, draft a new title
+        - Append a "---\n**Changes since original**" section at the bottom listing what changed and why
+
+        Step 4: If file paths in the issue body are now missing (from referenced_files.missing),
+        update or remove those references.
+
+        Save to artifact.json with this structure:
+        {
+          "issue_number": N,
+          "original_title": "...",
+          "updated_title": "...",
+          "title_changed": true/false,
+          "original_body": "...",
+          "updated_body": "...",
+          "staleness_assessment": {
+            "overall_staleness": "low|medium|high|critical",
+            "sections": [
+              {
+                "name": "section name",
+                "status": "STILL_VALID|OUTDATED|INCOMPLETE|WRONG",
+                "reason": "why this classification"
+              }
+            ]
+          },
+          "changes_made": ["list of specific changes applied to the issue"],
+          "criticism_addressed": ["how each criticism point was addressed, or empty array"]
+        }
+    output_artifacts:
+      - name: update_draft
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/issue-update-draft.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
+
+  - id: apply-update
+    persona: github-enhancer
+    dependencies: [draft-update]
+    memory:
+      inject_artifacts:
+        - step: draft-update
+          artifact: update_draft
+          as: draft
+        - step: gather-context
+          artifact: issue_context
+          as: context
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
+
+        Step 1: Use Bash tool to verify gh works:
+        gh --version
+
+        Step 2: Read artifacts/draft.json for the update draft and artifacts/context.json for the repository info.
+        Extract the repo as "<owner>/<name>" and the issue number.
+
+        Step 3: Apply the update:
+        - If title_changed is true:
+          gh issue edit <NUMBER> --repo <REPO> --title "<updated_title>"
+        - Write the updated_body to a temp file, then apply it:
+          Write updated_body to /tmp/issue-body.md
+          gh issue edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md
+        - Clean up /tmp/issue-body.md after applying.
+
+        Step 4: Verify the update was applied:
+        gh issue view <NUMBER> --repo <REPO> --json number,title,body,url
+
+        Compare the returned title and body against what was intended. Flag any discrepancies.
+
+        Step 5: Save results to artifact.json:
+        {
+          "issue_number": N,
+          "url": "...",
+          "success": true/false,
+          "title_updated": true/false,
+          "body_updated": true/false,
+          "changes_applied": ["list of changes that were applied"],
+          "verification": {
+            "title_matches": true/false,
+            "body_matches": true/false,
+            "discrepancies": ["any discrepancies found, or empty"]
+          },
+          "staleness_assessment": "low|medium|high|critical",
+          "error": null
+        }
+    output_artifacts:
+      - name: update_result
+        path: artifact.json
+        type: json
+        required: true
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/issue-update-result.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
