@@ -116,7 +116,7 @@ steps:
            ..."
            ```
 
-        Do NOT push or create a PR — just commit to this worktree branch.
+        Do NOT push — the next step will create a PR.
 
         If ANY test fails after a removal, revert that specific removal
         and continue with the next item.
@@ -160,3 +160,105 @@ steps:
       - name: verification
         path: output/verification.md
         type: markdown
+
+  - id: create-pr
+    persona: craftsman
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: findings
+        - step: verify
+          artifact: verification
+          as: verification_report
+    workspace:
+      type: worktree
+      branch: "chore/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Create a pull request for the dead code removal.
+
+        ## Working Directory
+
+        You are running in an **isolated git worktree** shared with previous pipeline steps.
+        Your working directory IS the project root. The branch already exists from the
+        clean step — just push it and create the PR.
+
+        ## SAFETY: Do NOT Modify the Working Tree
+
+        This step MUST NOT run `git checkout`, `git stash`, or any command that changes
+        the current branch or working tree state.
+
+        ## Instructions
+
+        ### Step 1: Load Context
+
+        Read `artifacts/findings` to get the scan results (what was found).
+        Read `artifacts/verification_report` to get the verification outcome.
+
+        ### Step 2: Push the Branch
+
+        ```bash
+        git push -u origin HEAD
+        ```
+
+        ### Step 3: Create Pull Request
+
+        ```bash
+        gh pr create --title "chore: remove dead code" --body "$(cat <<'PREOF'
+        ## Summary
+
+        Automated dead code removal based on static analysis scan.
+
+        <summarize what was removed: N items, types, estimated lines saved>
+
+        ## Verification
+
+        <summarize verification report: CLEAN or NEEDS_REVIEW, test status>
+
+        ## Removed Items
+
+        <list each removed item with its ID, type, and location>
+
+        ## Test Plan
+
+        - Full test suite passed after each removal
+        - Build verified clean after all removals
+        - Auditor persona verified no false positives
+        PREOF
+        )"
+        ```
+
+        ### Step 4: Request Copilot Review (Best-Effort)
+
+        ```bash
+        gh pr edit --add-reviewer "copilot" 2>/dev/null || true
+        ```
+
+        ## CONSTRAINTS
+
+        - Do NOT spawn Task subagents — work directly in the main context
+        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
+        - Do NOT include Co-Authored-By or AI attribution in commits
+
+        ## Output
+
+        Write a JSON status report to `output/pr-result.json`:
+
+        ```json
+        {
+          "pr_url": "https://github.com/owner/repo/pull/123",
+          "pr_number": 123,
+          "branch": "chore/<pipeline_id>",
+          "copilot_review_requested": true,
+          "items_removed": 5,
+          "lines_removed": 120,
+          "summary": "Brief description of the PR"
+        }
+        ```
+    output_artifacts:
+      - name: pr-result
+        path: output/pr-result.json
+        type: json
