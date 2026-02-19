@@ -7,9 +7,83 @@ input:
   source: cli
   example: "internal/pipeline"
 
+# Pipeline structure implements the Double Diamond:
+#
+#   gather → diverge → converge → probe → distill → simplify → report
+#             ╰─ Diamond 1 ─╯   ╰─ Diamond 2 ─╯   ╰implement╯
+#             (discover)  (define) (develop) (deliver)
+#
+# Each step gets its own context window and cognitive mode.
+# Fresh memory at every boundary — no mode-switching within a step.
+
 steps:
+  - id: gather
+    persona: github-analyst
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        CONTEXT GATHERING — parse input and fetch GitHub context if applicable.
+
+        Input: {{ input }}
+
+        ## Instructions
+
+        Determine what kind of input this is:
+
+        1. **GitHub Issue URL**: Contains `github.com` and `/issues/`
+           - Extract owner/repo and issue number from the URL
+           - Run: `gh issue view <number> --repo <owner/repo> --json title,body,labels`
+           - Extract a `focus_hint` summarizing what should be simplified
+
+        2. **GitHub PR URL**: Contains `github.com` and `/pull/`
+           - Extract owner/repo and PR number from the URL
+           - Run: `gh pr view <number> --repo <owner/repo> --json title,body,labels,files`
+           - Extract a `focus_hint` summarizing what the PR is about
+
+        3. **Local path or description**: Anything else
+           - Set `input_type` to `"local"`
+           - Pass through the original input as-is
+
+        ## Output
+
+        Write a JSON file to `output/context.json` with this structure:
+
+        ```json
+        {
+          "input_type": "issue|pr|local",
+          "url": "https://github.com/...",
+          "repo": "owner/name",
+          "number": 42,
+          "title": "Issue or PR title",
+          "body": "Full issue/PR body text",
+          "original_input": "the raw input string exactly as given",
+          "focus_hint": "extracted guidance for what to simplify"
+        }
+        ```
+
+        For `local` input type, set `url`, `repo`, `title`, `body` to empty strings,
+        `number` to 0, and `focus_hint` to the original input itself.
+
+        IMPORTANT: The output MUST be valid JSON. Do NOT include markdown fencing.
+    output_artifacts:
+      - name: context
+        path: output/context.json
+        type: json
+
+  # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
   - id: diverge
     persona: provocateur
+    dependencies: [gather]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: context
+          as: context
     workspace:
       mount:
         - source: ./
@@ -21,6 +95,15 @@ steps:
         DIVERGENT THINKING — cast the widest net to find simplification opportunities.
 
         Target: {{ input }}
+
+        ## Starting Point
+
+        Read `artifacts/context` for input context.
+        If `input_type` is `"issue"` or `"pr"`, the `focus_hint` tells you WHERE to start looking —
+        but do NOT limit yourself to what the issue describes. Use it as a seed, then expand outward.
+        Follow dependency chains, trace callers, explore adjacent modules. The issue author doesn't
+        know what they don't know — that's YOUR job.
+        If `input_type` is `"local"`, use the `original_input` field as the target path.
 
         If input is empty or "." — analyze the whole project.
         If input is a path — focus on that module/directory but consider its connections.
@@ -90,8 +173,9 @@ steps:
         on_failure: retry
         max_retries: 2
 
-  - id: distill
-    persona: planner
+  # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
+  - id: converge
+    persona: navigator
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -106,41 +190,244 @@ steps:
     exec:
       type: prompt
       source: |
-        THE PIVOT STEP — oscillate between convergent and divergent thinking
-        to distill findings into actionable simplification proposals.
+        CONVERGENT VALIDATION — separate signal from noise.
 
-        ## CRITICAL: Read Inputs First
+        This is a purely CONVERGENT step. Your job is analytical, not creative.
+        Judge every finding on technical merit alone. No speculation, no new ideas.
 
-        1. Read the divergent findings: `cat artifacts/divergent_findings`
-        2. Read the required output schema: `cat .wave/contracts/convergent-proposals.schema.json`
+        ## Read Input
 
-        You MUST produce valid JSON matching that schema exactly. Not markdown. Not a summary.
-        Structured JSON with every required field populated.
+        Read the divergent findings: `cat artifacts/divergent_findings`
 
         Target: {{ input }}
 
-        ## Phase 1: CONVERGE — Validate Each Finding
+        ## For Every DVG-xxx Finding
 
-        For every DVG-xxx finding:
-        1. Read the actual code cited as evidence
-        2. Verify the metrics (re-run grep counts, check line counts)
-        3. Assess: Is this a real problem or a false positive?
-        4. Classify: CONFIRMED / PARTIALLY_CONFIRMED / REJECTED
-        5. For rejections: explain why (the code is justified, the "complexity" is essential, etc.)
+        1. **Read the actual code** cited as evidence — don't trust the provocateur's summary
+        2. **Verify the metrics** — check reference counts, line counts, change frequency
+        3. **Assess**: Is this a real problem or a false positive?
+           - Does the "premature abstraction" actually have a second implementation planned?
+           - Is the "dead weight" actually used via reflection or codegen?
+           - Is the "unnecessary indirection" actually providing error handling or logging?
+        4. **Classify**:
+           - `CONFIRMED` — real problem, metrics check out, code supports the claim
+           - `PARTIALLY_CONFIRMED` — real concern but overstated, or scope is narrower than claimed
+           - `REJECTED` — false positive, justified complexity, or incorrect metrics
+        5. **Explain**: For every classification, write WHY. For rejections, explain what
+           the provocateur got wrong.
 
-        ## Phase 2: DIVERGE AGAIN — Probe Deeper
+        ## Output
 
-        For CONFIRMED and PARTIALLY_CONFIRMED findings:
-        1. What connects to this? Trace the dependency graph outward
-        2. Are there second-order effects? If we simplify X, does Y also get simpler?
-        3. Do patterns emerge across multiple findings? (e.g., "three findings all stem from the same over-abstraction")
-        4. What did the provocateur MISS? With the validated findings as context, look for related opportunities
+        Write the validated findings to `output/validated-findings.json` as a JSON object:
 
-        ## Phase 3: CONVERGE AGAIN — Synthesize Proposals
+        ```json
+        {
+          "target": "the input target",
+          "timestamp": "ISO 8601",
+          "total_findings": 30,
+          "confirmed": 15,
+          "partially_confirmed": 8,
+          "rejected": 7,
+          "findings": [
+            {
+              "id": "DVG-001",
+              "status": "CONFIRMED|PARTIALLY_CONFIRMED|REJECTED",
+              "original_category": "premature_abstraction",
+              "original_severity": "high",
+              "rationale": "Why this classification...",
+              "verified_metrics": {
+                "line_count": 142,
+                "reference_count": 3,
+                "change_frequency": 12
+              },
+              "files": ["path/to/file.go"]
+            }
+          ]
+        }
+        ```
 
-        Transform validated findings into prioritized proposals:
-        1. Group related findings into coherent proposals (one proposal may address multiple DVGs)
-        2. For each proposal, include ALL required schema fields:
+        Be RIGOROUS. The provocateur was told to be aggressive — your job is to be skeptical.
+        A finding that survives your scrutiny is genuinely worth addressing.
+    output_artifacts:
+      - name: validated_findings
+        path: output/validated-findings.json
+        type: json
+
+  # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
+  - id: probe
+    persona: provocateur
+    dependencies: [converge]
+    memory:
+      inject_artifacts:
+        - step: diverge
+          artifact: findings
+          as: divergent_findings
+        - step: converge
+          artifact: validated_findings
+          as: validated_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        SECOND DIVERGENCE — probe deeper into confirmed findings.
+
+        The first pass cast a wide net. The validator filtered it down.
+        Now YOU go deeper on what survived. This is DIVERGENT thinking again —
+        expand, connect, discover what the first pass missed.
+
+        ## Read Inputs
+
+        Read the validated findings: `cat artifacts/validated_findings`
+        Read the original findings for context: `cat artifacts/divergent_findings`
+
+        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
+
+        Target: {{ input }}
+
+        ## Your Mission
+
+        For each confirmed finding, probe OUTWARD:
+
+        1. **Trace the dependency graph**: What calls this code? What does it call?
+           If we simplify X, what happens to its callers and callees?
+
+        2. **Find second-order effects**: If we remove abstraction A, does layer B
+           also become unnecessary? Do test helpers simplify? Do error paths collapse?
+
+        3. **Spot patterns across findings**: Do three findings all stem from the same
+           over-abstraction? Is there a root cause that would address multiple DVGs at once?
+
+        4. **Discover what was MISSED**: With the validated findings as context, look for
+           related opportunities the first pass didn't see. The confirmed findings reveal
+           the codebase's real pressure points — what else lurks nearby?
+
+        5. **Challenge the rejections**: Were any findings rejected too hastily?
+           Read the validator's rationale — do you disagree?
+
+        ## Evidence Requirements
+
+        Same standard as the first diverge pass:
+        - `wc -l` for line counts
+        - `grep -r` for usage/reference counts
+        - `git log --oneline <file> | wc -l` for change frequency
+        - Concrete file paths and code references
+
+        ## Output
+
+        Write to `output/probed-findings.json`:
+
+        ```json
+        {
+          "target": "the input target",
+          "timestamp": "ISO 8601",
+          "connections": [
+            {
+              "source_finding": "DVG-001",
+              "connected_files": ["path/to/related.go"],
+              "relationship": "caller depends on abstraction",
+              "second_order_effect": "Removing interface also eliminates mock in tests"
+            }
+          ],
+          "patterns": [
+            {
+              "id": "PAT-001",
+              "description": "Three findings stem from the same over-abstraction",
+              "related_findings": ["DVG-001", "DVG-005", "DVG-012"],
+              "root_cause": "The adapter interface was designed for 5 backends, only 1 exists"
+            }
+          ],
+          "new_findings": [
+            {
+              "id": "DVG-NEW-001",
+              "category": "...",
+              "severity": "high|medium|low",
+              "description": "...",
+              "evidence": { "files": [], "metrics": {} },
+              "discovered_via": "DVG-003 led to examining adjacent module"
+            }
+          ],
+          "contested_rejections": [
+            {
+              "finding_id": "DVG-007",
+              "counter_argument": "The validator said X, but actually..."
+            }
+          ]
+        }
+        ```
+
+        Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
+    output_artifacts:
+      - name: probed_findings
+        path: output/probed-findings.json
+        type: json
+
+  # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
+  - id: distill
+    persona: planner
+    dependencies: [probe]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: context
+          as: context
+        - step: converge
+          artifact: validated_findings
+          as: validated_findings
+        - step: probe
+          artifact: probed_findings
+          as: probed_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        FINAL CONVERGENCE — synthesize all findings into actionable proposals.
+
+        This is the last convergent step before implementation. You have:
+        - Validated findings (what survived scrutiny)
+        - Probed findings (deeper connections, patterns, new discoveries)
+        - Optional issue/PR context (from the gather step)
+
+        Your job: synthesize everything into prioritized, implementable proposals.
+
+        ## CRITICAL: Read Inputs First
+
+        1. Read the validated findings: `cat artifacts/validated_findings`
+        2. Read the probed findings: `cat artifacts/probed_findings`
+        3. Read the required output schema: `cat .wave/contracts/convergent-proposals.schema.json`
+        4. Read the input context: `cat artifacts/context`
+
+        You MUST produce valid JSON matching that schema exactly.
+
+        Target: {{ input }}
+
+        ## Synthesis
+
+        Transform the validated and probed findings into prioritized proposals:
+
+        1. **Group by pattern**: Use the `patterns` from the probe step. Findings that share
+           a root cause become a single proposal addressing the root cause.
+
+        2. **Incorporate second-order effects**: The probe step found connections and cascading
+           simplifications. Factor these into impact estimates.
+
+        3. **Include new discoveries**: The probe step may have found new findings (DVG-NEW-xxx).
+           These are pre-validated by the provocateur's second pass — include them.
+
+        4. **Apply issue/PR context (if present)**: If `artifacts/context` shows
+           `input_type` is `"issue"` or `"pr"`, use the `focus_hint` as ONE input
+           when assigning tiers. But do not discard strong proposals just because they
+           fall outside the issue's scope. The best simplifications are often the ones
+           the issue author didn't think to ask for.
+
+        5. For each proposal, include ALL required schema fields:
            - `id`: SMP-001, SMP-002, etc.
            - `title`: concise name
            - `description`: detailed explanation of what to change and why
@@ -152,9 +439,11 @@ steps:
            - `files`: array of file paths that would be modified
            - `dependencies`: array of SMP-xxx IDs that must be applied first
            - `lines_removed_estimate`: integer
-           - `second_order_effects`: array of insights from deeper probing
-        3. 80/20 analysis: which 20% of proposals yield 80% of the simplification?
-        4. Dependency ordering: what must be done first?
+           - `second_order_effects`: array of insights from the probe step
+
+        6. **80/20 analysis**: which 20% of proposals yield 80% of the simplification?
+
+        7. **Dependency ordering**: what must be done first?
 
         ## Output
 
@@ -176,14 +465,15 @@ steps:
         on_failure: retry
         max_retries: 2
 
+  # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
     persona: craftsman
     dependencies: [distill]
     memory:
       inject_artifacts:
-        - step: diverge
-          artifact: findings
-          as: divergent_findings
+        - step: converge
+          artifact: validated_findings
+          as: validated_findings
         - step: distill
           artifact: proposals
           as: proposals
@@ -193,10 +483,10 @@ steps:
     exec:
       type: prompt
       source: |
-        FINAL CONVERGENCE — apply the best simplification proposals.
+        IMPLEMENTATION — apply the best simplification proposals.
 
         Read the proposals: cat artifacts/proposals
-        Read the original findings for context: cat artifacts/divergent_findings
+        Read the validated findings for context: cat artifacts/validated_findings
 
         ## Process
 
@@ -245,4 +535,72 @@ steps:
     output_artifacts:
       - name: result
         path: output/result.md
+        type: markdown
+
+  # ── Reporting ────────────────────────────────────────────────────────
+  - id: report
+    persona: github-enhancer
+    dependencies: [simplify, gather]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: context
+          as: context
+        - step: distill
+          artifact: proposals
+          as: proposals
+        - step: simplify
+          artifact: result
+          as: result
+    workspace:
+      type: worktree
+      branch: "refactor/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        REPORT — summarize results and optionally post to GitHub.
+
+        ## Read Artifacts
+
+        1. Read `artifacts/context` to determine if this run was triggered from a GitHub URL.
+        2. Read `artifacts/proposals` for the proposals summary.
+        3. Read `artifacts/result` for what was actually applied.
+
+        ## Compose the Report
+
+        Write a markdown report to `output/report.md` containing:
+        - **Summary**: One-paragraph overview of what recinq found and applied
+        - **Proposals**: List of all proposals with their tier, impact, and status (applied/skipped/failed)
+        - **Changes Applied**: Summary of commits made, files changed, net lines removed
+        - **Remaining Opportunities**: Tier-2 and tier-3 proposals for future consideration
+
+        ## Post to GitHub (conditional)
+
+        After writing `output/report.md`, check the context:
+
+        **If `input_type` is `"issue"`**:
+        - Post the report as a comment on the issue:
+          ```bash
+          gh issue comment <number> --repo <repo> --body-file output/report.md
+          ```
+
+        **If `input_type` is `"pr"`**:
+        - Post the report as a comment on the PR:
+          ```bash
+          gh pr comment <number> --repo <repo> --body-file output/report.md
+          ```
+
+        **If `input_type` is `"local"`**:
+        - Do NOT run any `gh` commands. The local report file is sufficient.
+
+        Read the `repo` and `number` fields from the context artifact for the gh commands.
+
+        ## Important
+
+        - Always write `output/report.md` regardless of input type
+        - Do NOT push any branches — just report
+        - If a `gh` command fails, log the error but do not retry — the local report is the fallback
+    output_artifacts:
+      - name: report
+        path: output/report.md
         type: markdown
