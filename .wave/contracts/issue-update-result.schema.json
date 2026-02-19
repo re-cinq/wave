@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Issue Update Result",
+  "description": "Schema for the result of applying an issue update",
+  "type": "object",
+  "required": ["issue_number", "success", "changes_applied", "verification"],
+  "properties": {
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "title_updated": {
+      "type": "boolean"
+    },
+    "body_updated": {
+      "type": "boolean"
+    },
+    "changes_applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["title_matches", "body_matches"],
+      "properties": {
+        "title_matches": {
+          "type": "boolean"
+        },
+        "body_matches": {
+          "type": "boolean"
+        },
+        "discrepancies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "staleness_assessment": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "error": {
+      "type": ["string", "null"]
+    }
+  }
+}
