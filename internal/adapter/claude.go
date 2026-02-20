@@ -257,11 +257,20 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write settings.json: %w", err)
 	}
 
-	// Build CLAUDE.md: persona prompt + manifest-derived restrictions
+	// Build CLAUDE.md: base protocol + persona prompt + manifest-derived restrictions
 	claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
 	var claudeMd strings.Builder
 
-	// 1. Persona system prompt
+	// 1. Base protocol preamble (shared Wave operational context)
+	baseProtocolPath := filepath.Join(".wave", "personas", "base-protocol.md")
+	baseProtocol, err := os.ReadFile(baseProtocolPath)
+	if err != nil {
+		return fmt.Errorf("failed to read base protocol %s: %w", baseProtocolPath, err)
+	}
+	claudeMd.Write(baseProtocol)
+	claudeMd.WriteString("\n\n---\n\n")
+
+	// 2. Persona system prompt
 	if cfg.SystemPrompt != "" {
 		claudeMd.WriteString(cfg.SystemPrompt)
 	} else {

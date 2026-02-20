@@ -8,6 +8,27 @@ import (
 	"testing"
 )
 
+const testBaseProtocol = `# Wave Agent Protocol
+
+You are executing a single step in a multi-agent pipeline.
+`
+
+// setupBaseProtocol creates the .wave/personas/base-protocol.md file required
+// by prepareWorkspace. It uses t.Chdir to switch to a temp directory containing
+// the necessary structure, so the relative path resolves correctly.
+func setupBaseProtocol(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	personasDir := filepath.Join(dir, ".wave", "personas")
+	if err := os.MkdirAll(personasDir, 0755); err != nil {
+		t.Fatalf("failed to create personas dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(personasDir, "base-protocol.md"), []byte(testBaseProtocol), 0644); err != nil {
+		t.Fatalf("failed to write base-protocol.md: %v", err)
+	}
+	t.Chdir(dir)
+}
+
 func TestNormalizeAllowedTools(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -67,6 +88,7 @@ func TestNormalizeAllowedTools(t *testing.T) {
 }
 
 func TestSettingsJSONFormat(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	tmpDir := t.TempDir()
 
@@ -157,6 +179,7 @@ func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
 // --- Phase 2 tests: deny rules, sandbox settings, CLAUDE.md restrictions, env hygiene ---
 
 func TestSettingsJSONDenyRules(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name     string
 		deny     []string
@@ -224,6 +247,7 @@ func TestSettingsJSONDenyRules(t *testing.T) {
 }
 
 func TestSettingsJSONSandboxSettings(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name           string
 		sandboxEnabled bool
@@ -326,6 +350,7 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 }
 
 func TestCLAUDEMDRestrictionSection(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name         string
 		cfg          AdapterRunConfig
@@ -333,7 +358,7 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 		wantAbsent   []string
 	}{
 		{
-			name: "deny rules appear in CLAUDE.md",
+			name: "deny rules appear in CLAUDE.md with base protocol",
 			cfg: AdapterRunConfig{
 				Persona:      "navigator",
 				Model:        "sonnet",
@@ -342,6 +367,8 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 				DenyTools:    []string{"Write(*)", "Edit(*)"},
 			},
 			wantContains: []string{
+				"# Wave Agent Protocol",
+				"---",
 				"## Restrictions",
 				"### Denied Tools",
 				"- `Write(*)`",
@@ -410,6 +437,103 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBaseProtocolPrepended(t *testing.T) {
+	setupBaseProtocol(t)
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		SystemPrompt: "# Test Persona\n\nYou are the test persona.",
+	}
+
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	content := string(data)
+
+	// Base protocol should appear before persona content
+	protoIdx := strings.Index(content, "# Wave Agent Protocol")
+	personaIdx := strings.Index(content, "# Test Persona")
+	if protoIdx < 0 {
+		t.Fatal("CLAUDE.md missing base protocol heading")
+	}
+	if personaIdx < 0 {
+		t.Fatal("CLAUDE.md missing persona heading")
+	}
+	if protoIdx >= personaIdx {
+		t.Error("base protocol should appear before persona content")
+	}
+
+	// Separator should exist between them
+	sepIdx := strings.Index(content, "\n\n---\n\n")
+	if sepIdx < 0 {
+		t.Fatal("CLAUDE.md missing --- separator between base protocol and persona")
+	}
+	if sepIdx <= protoIdx || sepIdx >= personaIdx {
+		t.Error("separator should be between base protocol and persona content")
+	}
+}
+
+func TestBaseProtocolMissingReturnsError(t *testing.T) {
+	// Use a temp dir that does NOT have .wave/personas/base-protocol.md
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		SystemPrompt: "# Test",
+	}
+
+	err := a.prepareWorkspace(tmpDir, cfg)
+	if err == nil {
+		t.Fatal("expected error when base-protocol.md is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "base protocol") {
+		t.Errorf("error should mention base protocol, got: %v", err)
+	}
+}
+
+func TestBaseProtocolWithInlinePrompt(t *testing.T) {
+	setupBaseProtocol(t)
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	// Inline SystemPrompt (not from file)
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		SystemPrompt: "# Custom Inline Prompt\n\nDo something specific.",
+	}
+
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "# Wave Agent Protocol") {
+		t.Error("base protocol should be present even with inline prompt")
+	}
+	if !strings.Contains(content, "# Custom Inline Prompt") {
+		t.Error("inline prompt content should be present")
 	}
 }
 
@@ -572,6 +696,7 @@ func TestBuildEnvironmentMissingPassthroughVar(t *testing.T) {
 }
 
 func TestSettingsJSONPerPersona(t *testing.T) {
+	setupBaseProtocol(t)
 	// Table-driven test: verify settings.json for different persona profiles
 	tests := []struct {
 		name           string
@@ -1205,6 +1330,7 @@ func TestMidStreamTermination(t *testing.T) {
 }
 
 func TestSkillCommandsCopied(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
@@ -1258,6 +1384,7 @@ func TestSkillCommandsCopied(t *testing.T) {
 }
 
 func TestSkillCommandsDir_Empty(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
@@ -1279,6 +1406,7 @@ func TestSkillCommandsDir_Empty(t *testing.T) {
 }
 
 func TestSkillCommandsDir_NonExistent(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
