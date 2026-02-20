@@ -147,7 +147,7 @@ steps:
            ..."
            ```
 
-        Do NOT push or create a PR — just commit to this worktree branch.
+        Commit changes to the worktree branch.
     handover:
       contract:
         type: test_suite
@@ -159,3 +159,32 @@ steps:
       - name: result
         path: output/result.md
         type: markdown
+
+  # ── Publish ─────────────────────────────────────────────────────────
+  - id: publish
+    persona: craftsman
+    dependencies: [implement]
+    memory:
+      inject_artifacts:
+        - step: implement
+          artifact: result
+          as: result
+    workspace:
+      type: worktree
+      branch: "feat/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        PUBLISH — push the branch and create a pull request.
+
+        ## Steps
+
+        1. Push the branch:
+           ```bash
+           git push -u origin HEAD
+           ```
+
+        2. Create a pull request using the implementation result as context:
+           ```bash
+           gh pr create --title "feat: $(git log --format=%s -1)" --body-file artifacts/result
+           ```
