@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Innovation Loop: When to Diverge, When to Converge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --text-primary: #e8e6e3;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-cyan: #22d3ee;
+            --accent-purple: #a855f7;
+            --accent-orange: #f97316;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --border-color: #2a2a3a;
+            --code-bg: #0d1117;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Source Serif 4', Georgia, serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.75;
+            font-size: 18px;
+        }
+
+        .container {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        header {
+            padding: 60px 0 40px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .series-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-orange);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .series-badge::before {
+            content: '';
+            width: 24px;
+            height: 1px;
+            background: var(--accent-orange);
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-orange) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .meta {
+            display: flex;
+            gap: 24px;
+            margin-top: 24px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .toc {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px 32px;
+            margin: 48px 0;
+        }
+
+        .toc-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-orange);
+            margin-bottom: 16px;
+        }
+
+        .toc ol {
+            list-style: none;
+            counter-reset: toc-counter;
+        }
+
+        .toc li {
+            counter-increment: toc-counter;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+        }
+
+        .toc li:last-child { border-bottom: none; }
+
+        .toc li::before {
+            content: counter(toc-counter, decimal-leading-zero);
+            color: var(--accent-orange);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            margin-right: 12px;
+        }
+
+        .toc a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .toc a:hover { color: var(--accent-orange); }
+
+        article { padding: 48px 0; }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin: 56px 0 24px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h2 .section-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-orange);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 40px 0 16px;
+            color: var(--accent-cyan);
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        strong { color: var(--text-primary); font-weight: 600; }
+
+        .hook {
+            font-size: 1.35rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            margin-bottom: 32px;
+            padding-left: 24px;
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            margin: 24px 0;
+            position: relative;
+        }
+
+        pre::before {
+            content: attr(data-lang);
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .code-comment { color: #6a737d; }
+        .code-keyword { color: #ff7b72; }
+        .code-string { color: #a5d6ff; }
+        .code-number { color: #79c0ff; }
+        .code-function { color: #d2a8ff; }
+        .code-variable { color: #ffa657; }
+
+        p code, li code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--accent-cyan);
+        }
+
+        /* Double Diamond Visualization */
+        .diamond-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            margin: 32px 0;
+        }
+
+        .diamond-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .diamond-visual {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        /* Mode Cards */
+        .mode-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 32px 0;
+        }
+
+        .mode-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .mode-card.divergent {
+            border-top: 3px solid var(--accent-purple);
+        }
+
+        .mode-card.convergent {
+            border-top: 3px solid var(--accent-cyan);
+        }
+
+        .mode-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .mode-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .mode-card.divergent .mode-title { color: var(--accent-purple); }
+        .mode-card.convergent .mode-title { color: var(--accent-cyan); }
+
+        .mode-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .mode-examples {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+        }
+
+        .mode-examples li {
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        /* Loop Diagram */
+        .loop-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            margin: 32px 0;
+        }
+
+        .loop-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .loop-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .loop-step {
+            display: flex;
+            align-items: stretch;
+            min-height: 80px;
+        }
+
+        .loop-step-marker {
+            width: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .loop-step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1;
+        }
+
+        .loop-step.divergent .loop-step-number {
+            background: var(--accent-purple);
+            color: var(--bg-primary);
+        }
+
+        .loop-step.convergent .loop-step-number {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+
+        .loop-step-line {
+            flex: 1;
+            width: 2px;
+            background: var(--border-color);
+        }
+
+        .loop-step:last-child .loop-step-line {
+            background: linear-gradient(to bottom, var(--border-color), transparent);
+        }
+
+        .loop-step-content {
+            flex: 1;
+            padding: 0 0 24px 20px;
+        }
+
+        .loop-step-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .loop-step.divergent .loop-step-title { color: var(--accent-purple); }
+        .loop-step.convergent .loop-step-title { color: var(--accent-cyan); }
+
+        .loop-step-desc {
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .loop-step-hint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Quote box */
+        .quote-box {
+            background: rgba(249, 115, 22, 0.1);
+            border-left: 4px solid var(--accent-orange);
+            padding: 24px 28px;
+            margin: 32px 0;
+            border-radius: 0 12px 12px 0;
+        }
+
+        .quote-text {
+            font-size: 1.15rem;
+            font-style: italic;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .quote-author {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: var(--accent-orange);
+        }
+
+        /* Decision matrix */
+        .decision-matrix {
+            overflow-x: auto;
+            margin: 32px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent-orange);
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        tr:hover td { background: var(--bg-secondary); }
+
+        /* Takeaway box */
+        .takeaway {
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+            border: 1px solid var(--accent-orange);
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin: 40px 0;
+        }
+
+        .takeaway-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .takeaway-icon { font-size: 24px; }
+
+        .takeaway-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-orange);
+        }
+
+        .takeaway p {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        /* Info box */
+        .insight-box {
+            background: rgba(168, 85, 247, 0.1);
+            border-left: 4px solid var(--accent-purple);
+            padding: 20px 24px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .insight-box-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 8px;
+        }
+
+        ul, ol {
+            margin: 20px 0;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Navigation */
+        .article-nav {
+            display: flex;
+            gap: 16px;
+            margin: 56px 0 32px;
+        }
+
+        .nav-card {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            text-decoration: none;
+            transition: border-color 0.2s;
+        }
+
+        .nav-card:hover { border-color: var(--accent-orange); }
+
+        .nav-card.prev { text-align: left; }
+
+        .nav-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-orange);
+            margin-bottom: 8px;
+        }
+
+        .nav-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* Series recap */
+        .series-recap {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            margin: 48px 0;
+        }
+
+        .series-recap-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-cyan);
+            margin-bottom: 20px;
+        }
+
+        .series-recap-items {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .series-recap-item {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .series-recap-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .series-recap-item.current .series-recap-number {
+            background: var(--accent-orange);
+            border-color: var(--accent-orange);
+            color: var(--bg-primary);
+        }
+
+        .series-recap-content h4 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .series-recap-item.current h4 { color: var(--accent-orange); }
+
+        .series-recap-content p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        footer {
+            border-top: 1px solid var(--border-color);
+            padding: 40px 0;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .series-nav {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .series-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-color);
+        }
+
+        .series-dot.active { background: var(--accent-orange); }
+
+        @media (max-width: 640px) {
+            body { font-size: 16px; }
+            .container { padding: 0 16px; }
+            header { padding: 40px 0 32px; }
+            h1 { font-size: 1.75rem; }
+            .hook { font-size: 1.1rem; padding-left: 16px; }
+            pre { padding: 16px; }
+            code { font-size: 13px; }
+            .mode-grid { grid-template-columns: 1fr; }
+            .article-nav { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="series-badge">Part 3 of 3 — The Architecture of AI-Assisted Coding</div>
+            <h1>The Innovation Loop: When to Diverge, When to Converge</h1>
+            <p class="subtitle">Spec-driven development promises predictability. Natural language promises speed. Both are wrong—and both are right.</p>
+            <div class="meta">
+                <span class="meta-item">📖 12 min read</span>
+                <span class="meta-item">🗓 January 2026</span>
+                <span class="meta-item">🏷️ Development Methodology, Cognitive Modes, Multi-Agent</span>
+            </div>
+        </header>
+
+        <nav class="toc">
+            <div class="toc-title">In This Article</div>
+            <ol>
+                <li><a href="#guilford">Guilford's Insight: Two Modes of Thinking</a></li>
+                <li><a href="#double-diamond">The Double Diamond in Code</a></li>
+                <li><a href="#cursor-lessons">Cursor's Multi-Agent Lessons</a></li>
+                <li><a href="#sdd-reality">When SDD Works (and When It Fails)</a></li>
+                <li><a href="#innovation-loop">The Innovation Loop: A Framework</a></li>
+                <li><a href="#graph-modes">Graph Navigation Serves Both Modes</a></li>
+                <li><a href="#conclusion">No Silver Bullet—Better Architecture</a></li>
+            </ol>
+        </nav>
+
+        <article>
+            <p class="hook">The spec-driven development crowd says: "Comprehensive upfront specifications reduce hallucinations and improve quality." The natural language crowd says: "Just talk to the AI—specs are overhead that slows you down." After months in production, we've learned they're both right. The trick is knowing when to use which.</p>
+
+            <p>In the <a href="#">previous articles</a>, we explored context window economics and temporal graph navigation. Those are the <em>infrastructure</em> of AI-assisted development—the foundation that makes everything else work.</p>
+
+            <p>This final article addresses the <em>methodology</em>: how do you actually work with AI coding assistants? When do you write detailed specs, and when do you just talk? When do you let the agent explore, and when do you constrain it?</p>
+
+            <p>The answer comes from psychology, surprisingly. And it maps cleanly onto what Cursor discovered running hundreds of agents for weeks.</p>
+
+            <h2 id="guilford"><span class="section-number">01</span> Guilford's Insight: Two Modes of Thinking</h2>
+
+            <p>In 1956, psychologist J.P. Guilford made a distinction that would reshape creativity research: <strong>convergent</strong> vs. <strong>divergent</strong> thinking.</p>
+
+            <div class="mode-grid">
+                <div class="mode-card divergent">
+                    <div class="mode-icon">🌊</div>
+                    <div class="mode-title">Divergent Thinking</div>
+                    <div class="mode-description">Generate multiple novel ideas by exploring many possible solutions. Spontaneous, free-flowing, non-linear.</div>
+                    <ul class="mode-examples">
+                        <li>Brainstorming sessions</li>
+                        <li>Exploring alternative approaches</li>
+                        <li>Challenging assumptions</li>
+                        <li>"What if we tried...?"</li>
+                    </ul>
+                </div>
+                <div class="mode-card convergent">
+                    <div class="mode-icon">🎯</div>
+                    <div class="mode-title">Convergent Thinking</div>
+                    <div class="mode-description">Find the single best solution by applying logic, rules, and established knowledge. Systematic, structured, linear.</div>
+                    <ul class="mode-examples">
+                        <li>Implementing known patterns</li>
+                        <li>Following specifications</li>
+                        <li>Optimizing existing solutions</li>
+                        <li>"This is how we do it"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="quote-box">
+                <p class="quote-text">"Divergent thinking involves more creativity. Convergent thinking is the opposite—it organizes and structures ideas, following logical steps to arrive at one solution."</p>
+                <p class="quote-author">— Wikipedia, synthesizing Guilford's research</p>
+            </div>
+
+            <p>The key insight: <strong>these aren't personality types—they're cognitive modes</strong>. Everyone uses both. Effective problem-solving requires oscillating between them.</p>
+
+            <p>In software development, this maps to:</p>
+
+            <ul>
+                <li><strong>Divergent</strong>: Prototyping, architecture exploration, research spikes, brainstorming solutions</li>
+                <li><strong>Convergent</strong>: Bug fixes, refactoring, implementing well-understood features, optimization</li>
+            </ul>
+
+            <p>Most AI coding methodologies optimize for one mode. TDD, BDD, spec-driven development—all convergent. "Just vibe with the AI" is divergent. Neither alone is sufficient.</p>
+
+            <h2 id="double-diamond"><span class="section-number">02</span> The Double Diamond in Code</h2>
+
+            <p>The British Design Council's "Double Diamond" visualizes how divergent and convergent thinking alternate in creative work. Applied to software:</p>
+
+            <div class="diamond-container">
+                <div class="diamond-title">The Double Diamond in Software Development</div>
+                <div class="diamond-visual">
+                    <svg viewBox="0 0 700 200" width="700" height="200">
+                        <!-- Background -->
+                        <rect fill="#12121a" width="700" height="200" rx="8"/>
+                        
+                        <!-- First Diamond -->
+                        <polygon points="50,100 175,30 300,100 175,170" fill="none" stroke="#a855f7" stroke-width="2"/>
+                        <text x="175" y="85" fill="#a855f7" font-family="JetBrains Mono" font-size="11" text-anchor="middle">DISCOVER</text>
+                        <text x="175" y="100" fill="#9ca3af" font-family="Inter" font-size="10" text-anchor="middle">Diverge</text>
+                        <text x="175" y="130" fill="#22d3ee" font-family="JetBrains Mono" font-size="11" text-anchor="middle">DEFINE</text>
+                        <text x="175" y="145" fill="#9ca3af" font-family="Inter" font-size="10" text-anchor="middle">Converge</text>
+                        
+                        <!-- Arrow between diamonds -->
+                        <line x1="310" y1="100" x2="380" y2="100" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+                        <defs>
+                            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L0,6 L9,3 z" fill="#6b7280"/>
+                            </marker>
+                        </defs>
+                        
+                        <!-- Second Diamond -->
+                        <polygon points="400,100 525,30 650,100 525,170" fill="none" stroke="#f97316" stroke-width="2"/>
+                        <text x="525" y="85" fill="#a855f7" font-family="JetBrains Mono" font-size="11" text-anchor="middle">DEVELOP</text>
+                        <text x="525" y="100" fill="#9ca3af" font-family="Inter" font-size="10" text-anchor="middle">Diverge</text>
+                        <text x="525" y="130" fill="#22d3ee" font-family="JetBrains Mono" font-size="11" text-anchor="middle">DELIVER</text>
+                        <text x="525" y="145" fill="#9ca3af" font-family="Inter" font-size="10" text-anchor="middle">Converge</text>
+                        
+                        <!-- Labels -->
+                        <text x="50" y="100" fill="#6b7280" font-family="Inter" font-size="10" text-anchor="end">Problem</text>
+                        <text x="350" y="90" fill="#6b7280" font-family="Inter" font-size="10" text-anchor="middle">Problem</text>
+                        <text x="350" y="110" fill="#6b7280" font-family="Inter" font-size="10" text-anchor="middle">defined</text>
+                        <text x="660" y="100" fill="#10b981" font-family="Inter" font-size="10">Solution</text>
+                    </svg>
+                </div>
+            </div>
+
+            <p><strong>Diamond 1 (Problem Space)</strong>: First diverge to discover all aspects of the problem. Then converge on a clear problem definition. "What are we actually solving?"</p>
+
+            <p><strong>Diamond 2 (Solution Space)</strong>: Diverge again to explore potential solutions. Then converge to implement the chosen approach. "How do we solve it?"</p>
+
+            <p>Notice the rhythm: <strong>expand → narrow → expand → narrow</strong>. Each phase has different cognitive demands—and different tool requirements.</p>
+
+            <h2 id="cursor-lessons"><span class="section-number">03</span> Cursor's Multi-Agent Lessons</h2>
+
+            <p>Cursor's recent research on long-running autonomous coding provides empirical validation. Running hundreds of agents for weeks, they discovered that role separation maps directly to cognitive modes.</p>
+
+            <div class="insight-box">
+                <div class="insight-box-title">🔬 From Cursor's Research</div>
+                <p>"With no hierarchy, agents became risk-averse. They avoided difficult tasks and made small, safe changes instead. No agent took responsibility for hard problems or end-to-end implementation."</p>
+            </div>
+
+            <p>Their solution: <strong>separate Planners from Workers</strong>.</p>
+
+            <ul>
+                <li><strong>Planners</strong> (divergent mode): Continuously explore the codebase, create tasks, spawn sub-planners for specific areas. They ask "what could we do?"</li>
+                <li><strong>Workers</strong> (convergent mode): Pick up tasks, focus entirely on completing them, don't coordinate with other workers. They ask "how do we do this specific thing?"</li>
+            </ul>
+
+            <p>This solved coordination problems and let them scale to very large projects. The key insight:</p>
+
+            <div class="quote-box">
+                <p class="quote-text">"The right amount of structure is somewhere in the middle. Too little structure and agents conflict, duplicate work, and drift. Too much structure creates fragility."</p>
+                <p class="quote-author">— Cursor Blog, "Scaling Long-Running Autonomous Coding"</p>
+            </div>
+
+            <p>Translated: divergent phases need freedom; convergent phases need constraints. Mixing them creates chaos.</p>
+
+            <h2 id="sdd-reality"><span class="section-number">04</span> When SDD Works (and When It Fails)</h2>
+
+            <p>Spec-driven development (SDD) emerged as a way to constrain AI agents. The hypothesis: comprehensive upfront specifications reduce hallucinations and improve quality.</p>
+
+            <p>In production, patterns emerge:</p>
+
+            <div class="decision-matrix">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Use SDD?</th>
+                            <th>Why</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Greenfield with clear requirements</td>
+                            <td style="color: var(--accent-green)">✓ Yes</td>
+                            <td>Specs provide structure; requirements stable</td>
+                        </tr>
+                        <tr>
+                            <td>Regulated domains (finance, healthcare)</td>
+                            <td style="color: var(--accent-green)">✓ Yes</td>
+                            <td>Documentation is deliverable, not overhead</td>
+                        </tr>
+                        <tr>
+                            <td>Large teams, cross-boundary coordination</td>
+                            <td style="color: var(--accent-green)">✓ Yes</td>
+                            <td>Specs create alignment across groups</td>
+                        </tr>
+                        <tr>
+                            <td>Large existing codebase</td>
+                            <td style="color: var(--accent-red)">✗ No</td>
+                            <td>Context blindness; can't spec what you don't know</td>
+                        </tr>
+                        <tr>
+                            <td>Exploratory development / prototypes</td>
+                            <td style="color: var(--accent-red)">✗ No</td>
+                            <td>Premature specification; requirements emerging</td>
+                        </tr>
+                        <tr>
+                            <td>Small bug fixes (1-3 files)</td>
+                            <td style="color: var(--accent-red)">✗ No</td>
+                            <td>Overhead exceeds benefit; sledgehammer for nut</td>
+                        </tr>
+                        <tr>
+                            <td>Rapidly evolving requirements</td>
+                            <td style="color: var(--accent-red)">✗ No</td>
+                            <td>Spec maintenance burden exceeds value</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p>The fundamental issue: <strong>SDD front-loads everything</strong>. It assumes you know what you need upfront and that agents will follow comprehensive instructions. Production shows both assumptions are fragile.</p>
+
+            <h3>The Double Review Problem</h3>
+
+            <p>Specs often contain code snippets as examples. These require review before implementation. Then the generated code requires review again—agents inevitably deviate or encounter edge cases not covered.</p>
+
+            <p>Review time doubles rather than decreasing. The spec becomes a second codebase requiring maintenance.</p>
+
+            <h2 id="innovation-loop"><span class="section-number">05</span> The Innovation Loop: A Framework</h2>
+
+            <p>Instead of choosing one methodology, oscillate deliberately:</p>
+
+            <div class="loop-container">
+                <div class="loop-title">The Innovation Loop</div>
+                <div class="loop-steps">
+                    <div class="loop-step divergent">
+                        <div class="loop-step-marker">
+                            <div class="loop-step-number">1</div>
+                            <div class="loop-step-line"></div>
+                        </div>
+                        <div class="loop-step-content">
+                            <div class="loop-step-title">Diverge: Explore Problem Space</div>
+                            <div class="loop-step-desc">Generate multiple prototype approaches. Use graph to discover unexpected connections. Challenge assumptions.</div>
+                            <div class="loop-step-hint">→ "What if we tried...?" / Graph reveals: "Files X,Y,Z change together—why?"</div>
+                        </div>
+                    </div>
+                    <div class="loop-step convergent">
+                        <div class="loop-step-marker">
+                            <div class="loop-step-number">2</div>
+                            <div class="loop-step-line"></div>
+                        </div>
+                        <div class="loop-step-content">
+                            <div class="loop-step-title">Converge: Exploit Best Approach</div>
+                            <div class="loop-step-desc">Formalize specification (if needed). Implement with tests. Use graph to follow established patterns.</div>
+                            <div class="loop-step-hint">→ Optimize for correctness / Graph shows: "This is how we always handle auth"</div>
+                        </div>
+                    </div>
+                    <div class="loop-step divergent">
+                        <div class="loop-step-marker">
+                            <div class="loop-step-number">3</div>
+                            <div class="loop-step-line"></div>
+                        </div>
+                        <div class="loop-step-content">
+                            <div class="loop-step-title">Diverge: Explore Edge Cases</div>
+                            <div class="loop-step-desc">What breaks this? What's missing? Let the agent probe boundaries.</div>
+                            <div class="loop-step-hint">→ Graph surfaces: "Hotspot file changed 89 times—investigate?"</div>
+                        </div>
+                    </div>
+                    <div class="loop-step convergent">
+                        <div class="loop-step-marker">
+                            <div class="loop-step-number">4</div>
+                            <div class="loop-step-line"></div>
+                        </div>
+                        <div class="loop-step-content">
+                            <div class="loop-step-title">Converge: Refine and Stabilize</div>
+                            <div class="loop-step-desc">Address edge cases. Refactor for clarity. Verify alignment with collaboration patterns.</div>
+                            <div class="loop-step-hint">→ Graph confirms: "Changes align with existing collaboration units"</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <p>The loop repeats. Each iteration refines understanding and implementation. The key is <strong>recognizing which phase you're in</strong> and using appropriate tools.</p>
+
+            <h3>Practical Workflow</h3>
+
+            <pre data-lang="workflow"><code><span class="code-comment"># Phase 1 (Divergent): Natural language exploration</span>
+<span class="code-string">"Help me understand how authentication works in our system"</span>
+<span class="code-variable">→</span> Graph navigation surfaces collaboration patterns
+<span class="code-variable">→</span> Agent explores, you learn, assumptions challenged
+
+<span class="code-comment"># Phase 2 (Convergent): Spec creation (if warranted)</span>
+<span class="code-variable">→</span> For complex features: formalize learnings into spec
+<span class="code-variable">→</span> For simple changes: skip directly to implementation
+<span class="code-variable">→</span> Spec-kit's research phase benefits from graph-discovered patterns
+
+<span class="code-comment"># Phase 3 (Divergent): Implementation with iteration</span>
+<span class="code-string">"Implement 2FA following these patterns, but explore alternatives for SMS delivery"</span>
+<span class="code-variable">→</span> Natural language instructions for each sub-task
+<span class="code-variable">→</span> Graph keeps context relevant
+<span class="code-variable">→</span> Quick feedback, willingness to backtrack
+
+<span class="code-comment"># Phase 4 (Convergent): Refinement and documentation</span>
+<span class="code-variable">→</span> Test coverage
+<span class="code-variable">→</span> Performance optimization
+<span class="code-variable">→</span> Update specs if maintained long-term</code></pre>
+
+            <h2 id="graph-modes"><span class="section-number">06</span> Graph Navigation Serves Both Modes</h2>
+
+            <p>The temporal graphs from <a href="#">Article 2</a> support both cognitive modes—they're infrastructure, not methodology.</p>
+
+            <h3>For Convergent Work</h3>
+
+            <p>When implementing "add 2FA following our existing auth patterns," temporal graphs reveal those patterns immediately. The agent sees that <code>auth-middleware.ts</code> and <code>session-manager.ts</code> are modified together 47 times. It loads both, recognizes the established pattern, and implements consistently.</p>
+
+            <p>This is <strong>efficient convergence</strong>—following known paths to known solutions.</p>
+
+            <h3>For Divergent Work</h3>
+
+            <p>When exploring "how could we improve our auth system?", the temporal graph surfaces unexpected connections. Co-modification analysis shows <code>rate-limiter.ts</code> is frequently changed with <code>auth-middleware.ts</code> (28 times).</p>
+
+            <p>You weren't thinking about rate limiting. But the graph reveals it as a related concern, triggering questions:</p>
+
+            <ul>
+                <li>Why are these coupled?</li>
+                <li>Should 2FA integrate with rate limiting?</li>
+                <li>What other security features cluster with auth?</li>
+                <li>Are there patterns we're missing?</li>
+            </ul>
+
+            <p>The graph doesn't answer these—it <strong>surfaces them</strong>. Divergent mode means following these leads to discover insights.</p>
+
+            <h2 id="conclusion"><span class="section-number">07</span> No Silver Bullet—Better Architecture</h2>
+
+            <p>Fred Brooks was right in 1986. There is no silver bullet for software complexity. LLMs don't change this fundamental nature—they're powerful tools for managing <em>accidental</em> complexity, not eliminating <em>essential</em> complexity.</p>
+
+            <p>But they introduce new accidental complexities:</p>
+            <ul>
+                <li>Context window limitations and autocompact pressure</li>
+                <li>Hallucinations and non-deterministic behavior</li>
+                <li>Token economics and cost management</li>
+                <li>Security boundaries in autonomous systems</li>
+            </ul>
+
+            <p>These aren't essential difficulties—they're artifacts of our current tools. They can be addressed through better architecture.</p>
+
+            <div class="series-recap">
+                <div class="series-recap-title">Series Recap: The Architecture of AI-Assisted Coding</div>
+                <div class="series-recap-items">
+                    <div class="series-recap-item">
+                        <div class="series-recap-number">1</div>
+                        <div class="series-recap-content">
+                            <h4>The Autocompact Cliff</h4>
+                            <p>Token economics are the new constraint. Track your context usage, stay under 60%, use Skills for progressive disclosure.</p>
+                        </div>
+                    </div>
+                    <div class="series-recap-item">
+                        <div class="series-recap-number">2</div>
+                        <div class="series-recap-content">
+                            <h4>Temporal Code Graphs</h4>
+                            <p>Git history encodes collaboration patterns. Co-modification frequency reveals which files belong together. Build graphs that combine structural, semantic, and temporal relationships.</p>
+                        </div>
+                    </div>
+                    <div class="series-recap-item current">
+                        <div class="series-recap-number">3</div>
+                        <div class="series-recap-content">
+                            <h4>The Innovation Loop</h4>
+                            <p>Oscillate deliberately between divergent (exploration) and convergent (exploitation) modes. SDD for stable requirements, natural language for discovery. Graphs serve both.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <p>The real innovation isn't any single technique. It's recognizing that <strong>AI-assisted development requires rethinking our information architecture</strong>:</p>
+
+            <ul>
+                <li><strong>From</strong>: Tools designed for human navigation patterns → <strong>To</strong>: Tools designed for probabilistic relevance ranking</li>
+                <li><strong>From</strong>: Documentation written for human reference → <strong>To</strong>: Context structured for progressive disclosure</li>
+                <li><strong>From</strong>: Permissions designed for human actors → <strong>To</strong>: Permissions designed for autonomous workspace isolation</li>
+                <li><strong>From</strong>: One methodology for all problems → <strong>To</strong>: Deliberate oscillation between cognitive modes</li>
+            </ul>
+
+            <p>Graph-augmented navigation is one piece. Skills are another. Permission boundaries are a third. The innovation loop is a fourth.</p>
+
+            <p>We're in the middle innings. Tools evolving rapidly, methodologies still being discovered, best practices emerging through production experience.</p>
+
+            <p>But the direction is clear: <strong>selective context loading informed by how developers actually work, not just how code is currently structured</strong>. And deliberate switching between exploration and exploitation, not defaulting to one mode.</p>
+
+            <div class="takeaway">
+                <div class="takeaway-header">
+                    <span class="takeaway-icon">🔄</span>
+                    <span class="takeaway-title">Key Takeaway</span>
+                </div>
+                <p>Lead with divergence, follow with convergence. Use graphs to reveal when to switch. No silver bullet—but better architecture makes everything else work.</p>
+            </div>
+
+            <div class="article-nav">
+                <a href="#" class="nav-card prev">
+                    <div class="nav-label">← Previous</div>
+                    <div class="nav-title">Temporal Code Graphs: Navigate Like Developers, Not Search Engines</div>
+                </a>
+            </div>
+        </article>
+
+        <footer>
+            <div class="series-nav">
+                <span class="series-dot"></span>
+                <span class="series-dot"></span>
+                <span class="series-dot active"></span>
+            </div>
+            <p>Part 3 of "The Architecture of AI-Assisted Coding in 2026"</p>
+            <p style="margin-top: 12px; font-size: 12px;">References: Brooks (1986), Guilford (1956), Cursor Research (2026), British Design Council</p>
+        </footer>
+    </div>
+</body>
+</html>
