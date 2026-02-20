@@ -8,12 +8,12 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available at `artifacts/spec_info`.
+A status report from the specify step is available at `.wave/artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
 ## Instructions
 
-1. Read `artifacts/spec_info` to find the branch name and feature directory
+1. Read `.wave/artifacts/spec_info` to find the branch name and feature directory
 
 2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
@@ -53,7 +53,7 @@ Read it to find the branch name, spec file, and feature directory.
 
 ## Output
 
-Write a JSON status report to output/pr-result.json with:
+Write a JSON status report to .wave/output/pr-result.json with:
 ```json
 {
   "pr_url": "https://github.com/...",

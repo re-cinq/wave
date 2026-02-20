@@ -117,12 +117,12 @@ steps:
         Output a valid WavePipeline YAML definition.
     output_artifacts:
       - name: pipeline
-        path: output/pipeline.yaml
+        path: .wave/output/pipeline.yaml
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/pipeline.schema.json
-        source: output/pipeline.yaml
+        source: .wave/output/pipeline.yaml
         on_failure: retry
         max_retries: 2
 
@@ -181,13 +181,13 @@ Generated pipeline definitions are preserved for inspection:
 
 ```bash
 # Find the generated pipeline
-ls /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
+ls /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
 
 # Inspect it
-cat /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
+cat /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
 
 # Validate it standalone
-wave validate --pipeline /tmp/wave/<pipeline-id>/analyze/output/pipeline.yaml
+wave validate --pipeline /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
 ```
 
 ## Best Practices

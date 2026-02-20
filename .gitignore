@@ -8,6 +8,11 @@
 .wave/workspaces/
 .wave/state.db*
 .wave/traces/
+.wave/artifacts/
+.wave/output/
+
+# Claude Code local config (persona-generated, not committed)
+.claude/
 
 # Wave config (committed)
 # .wave/personas/    — committed

@@ -24,12 +24,12 @@ steps:
         Provide your analysis. Create artifact.json with your results matching the contract schema.
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/analysis.json
+        source: .wave/output/analysis.json
         schema_path: .wave/contracts/smoke-test.schema.json
         on_failure: retry
         max_retries: 2
@@ -45,15 +45,15 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the analysis from artifacts/analysis_data and write a brief markdown summary.
+        Read the analysis from .wave/artifacts/analysis_data and write a brief markdown summary.
 
         Include:
         - What was analyzed
         - Key findings
         - Recommended next steps
 
-        The analysis file is located at: artifacts/analysis_data
+        The analysis file is located at: .wave/artifacts/analysis_data
     output_artifacts:
       - name: summary
-        path: output/summary.md
+        path: .wave/output/summary.md
         type: markdown

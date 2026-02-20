@@ -238,7 +238,7 @@ steps:
         }
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 ```
 
@@ -260,11 +260,11 @@ steps:
     exec:
       type: prompt
       source: |
-        The analysis is available at: artifacts/context
+        The analysis is available at: .wave/artifacts/context
         Implement based on these findings.
 ```
 
-The artifact is copied to the step's workspace at `artifacts/<as-name>`.
+The artifact is copied to the step's workspace at `.wave/artifacts/<as-name>`.
 
 ### Artifact Types
 
@@ -302,7 +302,7 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: output/diff.json
+        path: .wave/output/diff.json
         type: json
 
   - id: security-review
@@ -317,13 +317,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Review the changes at artifacts/changes for:
+        Review the changes at .wave/artifacts/changes for:
         - SQL injection
         - XSS vulnerabilities
         - Hardcoded secrets
     output_artifacts:
       - name: security
-        path: output/security.md
+        path: .wave/output/security.md
         type: markdown
 
   - id: final-report
@@ -345,7 +345,7 @@ steps:
         a final review report.
     output_artifacts:
       - name: report
-        path: output/final-report.md
+        path: .wave/output/final-report.md
         type: markdown
 ```
 
@@ -364,13 +364,13 @@ steps:
       source: "Output analysis as JSON"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/analysis.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
         on_failure: retry
         max_retries: 2
 ```
@@ -508,7 +508,7 @@ Name artifacts descriptively and specify types:
 ```yaml
 output_artifacts:
   - name: security-findings  # Clear purpose
-    path: output/security.json
+    path: .wave/output/security.json
     type: json  # Explicit type
 ```
 

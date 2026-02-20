@@ -110,7 +110,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/analysis.schema.json
-    source: output/analysis.json
+    source: .wave/output/analysis.json
 ```
 
 **Use when:** Ensuring structured output with specific fields and types.
@@ -122,7 +122,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/analysis.schema.json
-    source: output/analysis.json
+    source: .wave/output/analysis.json
     must_pass: true
     on_failure: retry
     max_retries: 2
@@ -212,7 +212,7 @@ Validate that generated TypeScript compiles successfully.
 handover:
   contract:
     type: typescript_interface
-    source: output/types.ts
+    source: .wave/output/types.ts
 ```
 
 **Use when:** Ensuring generated TypeScript definitions are valid.
@@ -223,7 +223,7 @@ handover:
 handover:
   contract:
     type: typescript_interface
-    source: output/types.ts
+    source: .wave/output/types.ts
     validate: true
     must_pass: true
     on_failure: retry
@@ -258,11 +258,11 @@ steps:
       source: "Generate TypeScript interfaces for the API"
     output_artifacts:
       - name: types
-        path: output/api.types.ts
+        path: .wave/output/api.types.ts
     handover:
       contract:
         type: typescript_interface
-        source: output/api.types.ts
+        source: .wave/output/api.types.ts
 ```
 
 ---
@@ -275,7 +275,7 @@ Validate Markdown document structure.
 handover:
   contract:
     type: markdown_spec
-    source: output/spec.md
+    source: .wave/output/spec.md
 ```
 
 **Use when:** Ensuring documentation follows required format.
@@ -286,7 +286,7 @@ handover:
 handover:
   contract:
     type: markdown_spec
-    source: output/spec.md
+    source: .wave/output/spec.md
     must_pass: true
     on_failure: retry
     max_retries: 2
@@ -319,11 +319,11 @@ steps:
       source: "Create a feature specification"
     output_artifacts:
       - name: spec
-        path: output/spec.md
+        path: .wave/output/spec.md
     handover:
       contract:
         type: markdown_spec
-        source: output/spec.md
+        source: .wave/output/spec.md
 ```
 
 ---
@@ -336,7 +336,7 @@ Validate structured templates with required fields and constraints. Supports JSO
 handover:
   contract:
     type: template
-    source: output/template.json
+    source: .wave/output/template.json
 ```
 
 **Use when:** Ensuring generated templates contain required fields and meet format constraints.
@@ -353,7 +353,7 @@ Production-ready format validation for domain-specific outputs like GitHub issue
 handover:
   contract:
     type: format
-    source: output/issue.md
+    source: .wave/output/issue.md
 ```
 
 **Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
@@ -379,7 +379,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/output.schema.json
-    source: output/data.json
+    source: .wave/output/data.json
     on_failure: retry
     max_retries: 3
 ```
@@ -433,13 +433,13 @@ handover:
 set -e
 
 echo "Validating JSON schema..."
-npx ajv validate -s .wave/contracts/output.schema.json -d output/data.json
+npx ajv validate -s .wave/contracts/output.schema.json -d .wave/output/data.json
 
 echo "Running tests..."
 npm test
 
 echo "Checking TypeScript..."
-npx tsc --noEmit output/types.ts
+npx tsc --noEmit .wave/output/types.ts
 
 echo "All validations passed"
 ```
@@ -477,7 +477,7 @@ wave logs run-abc123 --errors
 ```
 [14:32:15] contract_failure  analyze  json_schema
   Error: Missing required property 'summary'
-  File: output/analysis.json
+  File: .wave/output/analysis.json
   Schema: .wave/contracts/analysis.schema.json
 ```
 

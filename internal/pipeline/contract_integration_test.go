@@ -89,7 +89,10 @@ func (a *contractTestArtifactWritingAdapter) Run(ctx context.Context, cfg adapte
 
 	// Write artifact if configured for this step
 	if content, ok := a.artifacts[stepID]; ok {
-		artifactPath := filepath.Join(cfg.WorkspacePath, "artifact.json")
+		artifactPath := filepath.Join(cfg.WorkspacePath, ".wave", "artifact.json")
+		if err := os.MkdirAll(filepath.Join(cfg.WorkspacePath, ".wave"), 0755); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(artifactPath, []byte(content), 0644); err != nil {
 			return nil, err
 		}
@@ -100,7 +103,7 @@ func (a *contractTestArtifactWritingAdapter) Run(ctx context.Context, cfg adapte
 		ExitCode:      0,
 		Stdout:        strings.NewReader(`{"status": "success"}`),
 		TokensUsed:    1000,
-		Artifacts:     []string{"artifact.json"},
+		Artifacts:     []string{".wave/artifact.json"},
 		ResultContent: a.artifacts[stepID],
 	}, nil
 }
@@ -183,7 +186,7 @@ func TestContractIntegration_JSONSchemaProducesValidJSON(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Generate project metadata"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "metadata", Path: "artifact.json"},
+					{Name: "metadata", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -216,7 +219,7 @@ func TestContractIntegration_JSONSchemaProducesValidJSON(t *testing.T) {
 	// Verify the artifact file was created
 	runtimeID := collector.GetPipelineID()
 	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
-	artifactPath := filepath.Join(tmpDir, runtimeID, "step1", "artifact.json")
+	artifactPath := filepath.Join(tmpDir, runtimeID, "step1", ".wave", "artifact.json")
 	_, err = os.Stat(artifactPath)
 	assert.NoError(t, err, "Artifact file should exist")
 }
@@ -265,7 +268,7 @@ func TestContractIntegration_JSONSchemaValidationFailure(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Generate metadata"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "metadata", Path: "artifact.json"},
+					{Name: "metadata", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -351,7 +354,7 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Analyze the codebase"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "analysis", Path: "artifact.json"},
+					{Name: "analysis", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -369,8 +372,8 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	// Write artifact manually since we're using capturing adapter
 	stepWorkspace := filepath.Join(tmpDir, "schema-injection-test", "analyze")
-	os.MkdirAll(stepWorkspace, 0755)
-	os.WriteFile(filepath.Join(stepWorkspace, "artifact.json"), []byte(validArtifact), 0644)
+	os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
+	os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(validArtifact), 0644)
 
 	_ = executor.Execute(ctx, p, m, "test")
 
@@ -380,7 +383,7 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	prompt := prompts[0]
 	assert.Contains(t, prompt, "OUTPUT REQUIREMENTS", "Prompt should contain OUTPUT REQUIREMENTS section")
-	assert.Contains(t, prompt, "artifact.json", "Prompt should mention artifact.json")
+	assert.Contains(t, prompt, ".wave/artifact.json", "Prompt should mention .wave/artifact.json")
 	assert.Contains(t, prompt, "result", "Prompt should contain schema field 'result'")
 	assert.Contains(t, prompt, "confidence", "Prompt should contain schema field 'confidence'")
 	assert.Contains(t, prompt, "JSON", "Prompt should mention JSON format")
@@ -423,8 +426,8 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 
 	// Write artifact
 	stepWorkspace := filepath.Join(tmpDir, "inline-schema-test", "check")
-	os.MkdirAll(stepWorkspace, 0755)
-	os.WriteFile(filepath.Join(stepWorkspace, "artifact.json"), []byte(`{"status": "complete"}`), 0644)
+	os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
+	os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(`{"status": "complete"}`), 0644)
 
 	_ = executor.Execute(ctx, p, m, "test")
 
@@ -586,7 +589,7 @@ func TestContractIntegration_ValidatorChecksOutput(t *testing.T) {
 						Persona: "navigator",
 						Exec:    ExecConfig{Source: "Generate output"},
 						OutputArtifacts: []ArtifactDef{
-							{Name: "output", Path: "artifact.json"},
+							{Name: "output", Path: ".wave/artifact.json"},
 						},
 						Handover: HandoverConfig{
 							Contract: ContractConfig{
@@ -680,7 +683,7 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Analyze the codebase"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "analysis-result", Path: "artifact.json"},
+					{Name: "analysis-result", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -706,7 +709,7 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Implement based on analysis"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "impl-result", Path: "artifact.json"},
+					{Name: "impl-result", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -739,7 +742,7 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 	// Verify artifacts directory was created in step2's workspace
 	runtimeID := collector.GetPipelineID()
 	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
-	step2ArtifactsDir := filepath.Join(tmpDir, runtimeID, "implement", "artifacts")
+	step2ArtifactsDir := filepath.Join(tmpDir, runtimeID, "implement", ".wave", "artifacts")
 	_, err = os.Stat(step2ArtifactsDir)
 	assert.NoError(t, err, "Artifacts directory should exist in step2's workspace")
 
@@ -791,7 +794,7 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Step A"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-a", Path: "artifact.json"},
+					{Name: "output-a", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -812,7 +815,7 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Step B"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-b", Path: "artifact.json"},
+					{Name: "output-b", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -834,7 +837,7 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Step C"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-c", Path: "artifact.json"},
+					{Name: "output-c", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -860,7 +863,7 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 	// Verify step C has artifacts from both A and B
 	runtimeID := collector.GetPipelineID()
 	require.NotEmpty(t, runtimeID, "should have a pipeline ID from events")
-	stepCArtifactsDir := filepath.Join(tmpDir, runtimeID, "step-c", "artifacts")
+	stepCArtifactsDir := filepath.Join(tmpDir, runtimeID, "step-c", ".wave", "artifacts")
 	_, err = os.Stat(filepath.Join(stepCArtifactsDir, "from-a.json"))
 	assert.NoError(t, err, "Step C should have artifact from step A")
 	_, err = os.Stat(filepath.Join(stepCArtifactsDir, "from-b.json"))
@@ -902,7 +905,7 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Generate output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output", Path: "artifact.json"},
+					{Name: "output", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -1013,7 +1016,7 @@ func TestContractIntegration_RetryOnContractFailure(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Generate status"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output", Path: "artifact.json"},
+					{Name: "output", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					MaxRetries: 3,
@@ -1069,7 +1072,11 @@ func (a *contractTestRetryingArtifactAdapter) Run(ctx context.Context, cfg adapt
 	}
 
 	// Write artifact
-	artifactPath := filepath.Join(cfg.WorkspacePath, "artifact.json")
+	waveDir := filepath.Join(cfg.WorkspacePath, ".wave")
+	if err := os.MkdirAll(waveDir, 0755); err != nil {
+		return nil, err
+	}
+	artifactPath := filepath.Join(waveDir, "artifact.json")
 	if err := os.WriteFile(artifactPath, []byte(content), 0644); err != nil {
 		return nil, err
 	}
@@ -1078,7 +1085,7 @@ func (a *contractTestRetryingArtifactAdapter) Run(ctx context.Context, cfg adapt
 		ExitCode:      0,
 		Stdout:        strings.NewReader(`{"status": "executed"}`),
 		TokensUsed:    1000,
-		Artifacts:     []string{"artifact.json"},
+		Artifacts:     []string{".wave/artifact.json"},
 		ResultContent: content,
 	}, nil
 }
@@ -1153,7 +1160,7 @@ func TestContractIntegration_PersonaContractSeparation(t *testing.T) {
 				Persona: "navigator", // Navigator persona
 				Exec:    ExecConfig{Source: "Analyze codebase"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "analysis", Path: "artifact.json"},
+					{Name: "analysis", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -1169,7 +1176,7 @@ func TestContractIntegration_PersonaContractSeparation(t *testing.T) {
 				Dependencies: []string{"analyze"},
 				Exec:         ExecConfig{Source: "Implement feature"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "implementation", Path: "artifact.json"},
+					{Name: "implementation", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -1331,7 +1338,7 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Step A"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-a", Path: "artifact.json"},
+					{Name: "output-a", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{Type: "json_schema", SchemaPath: schemaPath, MustPass: true},
@@ -1348,7 +1355,7 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Step B"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-b", Path: "artifact.json"},
+					{Name: "output-b", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{Type: "json_schema", SchemaPath: schemaPath, MustPass: true},
@@ -1365,7 +1372,7 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Step C"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-c", Path: "artifact.json"},
+					{Name: "output-c", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{Type: "json_schema", SchemaPath: schemaPath, MustPass: true},
@@ -1383,7 +1390,7 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 				},
 				Exec: ExecConfig{Source: "Step D"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output-d", Path: "artifact.json"},
+					{Name: "output-d", Path: ".wave/artifact.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{Type: "json_schema", SchemaPath: schemaPath, MustPass: true},

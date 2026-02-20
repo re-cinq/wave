@@ -150,8 +150,8 @@ memory:
 Flow:
 1. Step writes output artifacts to its workspace (e.g., `artifact.json`)
 2. Artifact path registered: `execution.ArtifactPaths["step-id:artifact-name"]` → filesystem path
-3. Dependent step's memory config injects artifacts to `artifacts/` subdirectory in its workspace
-4. Step reads from `artifacts/injected-name`
+3. Dependent step's memory config injects artifacts to `.wave/artifacts/` subdirectory in its workspace
+4. Step reads from `.wave/artifacts/injected-name`
 
 ### Step Execution Mechanics
 
@@ -391,7 +391,7 @@ Success or All Retries Exhausted
 .wave/workspaces/
 ├── <pipeline_id>/
 │   ├── <step_id>/
-│   │   ├── artifacts/          (injected artifacts)
+│   │   ├── .wave/artifacts/    (injected artifacts)
 │   │   ├── <mount_target>/     (mounted source directories)
 │   │   └── (other step outputs)
 ```
@@ -429,7 +429,7 @@ Success or All Retries Exhausted
    │
    ├── Step B (docs phase, depends on A)
    │   └── Injects artifacts from step A
-   │       Result: artifacts/spec_input-spec.md in workspace B
+   │       Result: .wave/artifacts/spec_input-spec.md in workspace B
    ```
 
 ### File Copying and Optimization
@@ -552,7 +552,7 @@ PERSISTENCE LAYER
 ├─ Filesystem State
 │  └─ .wave/workspaces/{pipeline}/{step}/
 │     ├─ src/ (injected sources)
-│     ├─ artifacts/ (outputs)
+│     ├─ .wave/artifacts/ (outputs)
 │     └─ workspace files
 │
 └─ In-Memory State (DefaultPipelineExecutor)

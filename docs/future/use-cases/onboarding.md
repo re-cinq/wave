@@ -33,7 +33,7 @@ Expected output:
 [10:01:25] completed document        (philosopher)  46s   6.8k Documentation complete
 
 Pipeline onboarding completed in 83s
-Artifacts: output/onboarding-guide.md
+Artifacts: .wave/output/onboarding-guide.md
 ```
 
 ## Complete Pipeline
@@ -90,7 +90,7 @@ steps:
         }
     output_artifacts:
       - name: exploration
-        path: output/codebase-exploration.json
+        path: .wave/output/codebase-exploration.json
         type: json
 
   - id: document
@@ -123,7 +123,7 @@ steps:
         experienced in the technology stack.
     output_artifacts:
       - name: guide
-        path: output/onboarding-guide.md
+        path: .wave/output/onboarding-guide.md
         type: markdown
 ```
 
@@ -135,12 +135,12 @@ The pipeline produces two artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `exploration` | `output/codebase-exploration.json` | Structured codebase analysis |
-| `guide` | `output/onboarding-guide.md` | Complete onboarding guide |
+| `exploration` | `.wave/output/codebase-exploration.json` | Structured codebase analysis |
+| `guide` | `.wave/output/onboarding-guide.md` | Complete onboarding guide |
 
 ### Example Output
 
-The pipeline produces `output/onboarding-guide.md`:
+The pipeline produces `.wave/output/onboarding-guide.md`:
 
 ```markdown
 # Wave Developer Onboarding Guide
@@ -282,7 +282,7 @@ wave status
 A: Use `wave run --debug` for detailed logging, or check `.wave/traces/`.
 
 **Q: Where are pipeline outputs stored?**
-A: In the `output/` directory by default.
+A: In the `.wave/output/` directory by default.
 
 **Q: How do I add a new persona?**
 A: Create a YAML file in `.wave/personas/` following the existing format.
@@ -383,7 +383,7 @@ steps:
         - Data model documentation
     output_artifacts:
       - name: architecture
-        path: output/architecture.md
+        path: .wave/output/architecture.md
         type: markdown
 
   - id: setup-guide
@@ -397,7 +397,7 @@ steps:
         - IDE configuration tips
     output_artifacts:
       - name: setup
-        path: output/setup-guide.md
+        path: .wave/output/setup-guide.md
         type: markdown
 
   - id: exercises
@@ -411,7 +411,7 @@ steps:
         - Month 1: Feature development
     output_artifacts:
       - name: exercises
-        path: output/exercises.md
+        path: .wave/output/exercises.md
         type: markdown
 
   - id: compile
@@ -423,7 +423,7 @@ steps:
         with table of contents and cross-references.
     output_artifacts:
       - name: package
-        path: output/onboarding-package.md
+        path: .wave/output/onboarding-package.md
         type: markdown
 ```
 
