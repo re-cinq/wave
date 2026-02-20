@@ -236,7 +236,7 @@ func (e *DefaultPipelineExecutor) GetPipelineErrors(pipelineID string) ([]string
 		// In a real implementation, we would store the actual errors
 		// For now, provide generic failure information
 		err := errorProvider.FormatPhaseFailureError(failedStep,
-			fmt.Errorf("step failed during execution"), pipelineID)
+			fmt.Errorf("step failed during execution"), execution.Pipeline.Metadata.Name)
 		errors = append(errors, err.Error())
 	}
 
