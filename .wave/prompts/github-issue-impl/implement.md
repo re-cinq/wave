@@ -67,7 +67,7 @@ After all tasks are complete:
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 
-Do NOT push or create a PR — just commit to this worktree branch.
+Commit changes to the worktree branch.
 
 ## Agent Usage — USE UP TO 6 AGENTS
 

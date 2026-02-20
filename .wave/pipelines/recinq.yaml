@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: recinq
   description: "Rethink and simplify code using divergent-convergent thinking (Double Diamond)"
+  release: true
 
 input:
   source: cli
@@ -524,7 +525,7 @@ steps:
         - Each proposal gets its own atomic commit
         - Never combine proposals in a single commit
         - If a proposal depends on a failed proposal, skip it too
-        - Do NOT push — just commit to the worktree branch
+        - Commit each proposal as a separate atomic commit
     handover:
       contract:
         type: test_suite
@@ -539,13 +540,10 @@ steps:
 
   # ── Reporting ────────────────────────────────────────────────────────
   - id: report
-    persona: github-enhancer
-    dependencies: [simplify, gather]
+    persona: navigator
+    dependencies: [simplify]
     memory:
       inject_artifacts:
-        - step: gather
-          artifact: context
-          as: context
         - step: distill
           artifact: proposals
           as: proposals
@@ -558,13 +556,13 @@ steps:
     exec:
       type: prompt
       source: |
-        REPORT — summarize results and optionally post to GitHub.
+        REPORT — compose a summary of what recinq found and applied.
 
         ## Read Artifacts
 
-        1. Read `artifacts/context` to determine if this run was triggered from a GitHub URL.
-        2. Read `artifacts/proposals` for the proposals summary.
-        3. Read `artifacts/result` for what was actually applied.
+        1. Read `artifacts/proposals` for the proposals summary.
+        2. Read `artifacts/result` for what was actually applied.
+        3. Run `git log --oneline` to see the commits on this branch.
 
         ## Compose the Report
 
@@ -573,34 +571,51 @@ steps:
         - **Proposals**: List of all proposals with their tier, impact, and status (applied/skipped/failed)
         - **Changes Applied**: Summary of commits made, files changed, net lines removed
         - **Remaining Opportunities**: Tier-2 and tier-3 proposals for future consideration
-
-        ## Post to GitHub (conditional)
-
-        After writing `output/report.md`, check the context:
-
-        **If `input_type` is `"issue"`**:
-        - Post the report as a comment on the issue:
-          ```bash
-          gh issue comment <number> --repo <repo> --body-file output/report.md
-          ```
-
-        **If `input_type` is `"pr"`**:
-        - Post the report as a comment on the PR:
-          ```bash
-          gh pr comment <number> --repo <repo> --body-file output/report.md
-          ```
-
-        **If `input_type` is `"local"`**:
-        - Do NOT run any `gh` commands. The local report file is sufficient.
-
-        Read the `repo` and `number` fields from the context artifact for the gh commands.
-
-        ## Important
-
-        - Always write `output/report.md` regardless of input type
-        - Do NOT push any branches — just report
-        - If a `gh` command fails, log the error but do not retry — the local report is the fallback
     output_artifacts:
       - name: report
         path: output/report.md
         type: markdown
+
+  # ── Publish ─────────────────────────────────────────────────────────
+  - id: publish
+    persona: craftsman
+    dependencies: [report, gather]
+    memory:
+      inject_artifacts:
+        - step: gather
+          artifact: context
+          as: context
+        - step: report
+          artifact: report
+          as: report
+    workspace:
+      type: worktree
+      branch: "refactor/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        PUBLISH — push the branch and create a pull request.
+
+        ## Steps
+
+        1. Push the branch:
+           ```bash
+           git push -u origin HEAD
+           ```
+
+        2. Create a pull request using the report as the body:
+           ```bash
+           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file artifacts/report
+           ```
+
+        3. Read `artifacts/context` — if `input_type` is `"issue"` or `"pr"`,
+           post the PR URL as a comment on the source:
+           ```bash
+           gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
+           ```
+           or for PRs:
+           ```bash
+           gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
+           ```
+
+        If any `gh` command fails, log the error and continue.

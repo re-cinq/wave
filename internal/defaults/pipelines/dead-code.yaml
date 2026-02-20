@@ -116,8 +116,6 @@ steps:
            ..."
            ```
 
-        Do NOT push — the next step will create a PR.
-
         If ANY test fails after a removal, revert that specific removal
         and continue with the next item.
     handover:
