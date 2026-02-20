@@ -136,8 +136,6 @@ steps:
            ..."
            ```
 
-        Do NOT push — the next step will create a PR.
-
         Write a summary to output/result.md:
         - Branch name
         - List of files modified
