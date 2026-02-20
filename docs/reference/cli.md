@@ -11,7 +11,6 @@ Wave CLI commands for pipeline orchestration.
 | `wave do` | Run an ad-hoc task |
 | `wave status` | Check pipeline status |
 | `wave logs` | View execution logs |
-| `wave resume` | Resume interrupted pipeline |
 | `wave cancel` | Cancel running pipeline |
 | `wave artifacts` | List and export artifacts |
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
@@ -83,8 +82,9 @@ wave run code-review --input "Review auth module"
 
 ```bash
 wave run hotfix --dry-run                      # Preview without executing
-wave run speckit-flow --from-step implement    # Start from step
+wave run speckit-flow --from-step implement    # Start from step (auto-recovers input)
 wave run speckit-flow --from-step implement --force  # Skip validation for --from-step
+wave run recinq --from-step report --run recinq-20260219-fa19  # Recover input from specific run
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
 wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
@@ -229,52 +229,6 @@ wave logs --since 10m            # Last 10 minutes
 wave logs --level error          # Log level filter (all, info, error)
 wave logs --format json          # Output as JSON for scripting
 ```
-
----
-
-## wave resume
-
-Show state of a previous pipeline execution and identify resumption points.
-
-```bash
-wave resume --pipeline run-abc123
-```
-
-**Output:**
-```
-Resuming pipeline: run-abc123
-
-  Loading state from .wave/state.db...
-  [OK] Pipeline state loaded
-       Status: paused
-       Last updated: 5 minutes ago
-
-  Step states:
-       analyze              [OK]
-       review               [FAILED] (retries: 2)
-              Error: contract validation failed
-
-  Starting from step: review
-
-  [OK] Pipeline state loaded
-  [OK] Resuming execution
-```
-
-### Options
-
-```bash
-wave resume                                         # List resumable runs
-wave resume --pipeline run-abc123                    # Show state and resume
-wave resume --pipeline run-abc123 --from-step review # Override resume point
-```
-
-::: tip Prefer `wave run --from-step`
-For actually re-executing a pipeline from a specific step, use:
-```bash
-wave run code-review --from-step review
-```
-The `wave resume` command currently shows pipeline state but does not re-execute.
-:::
 
 ---
 

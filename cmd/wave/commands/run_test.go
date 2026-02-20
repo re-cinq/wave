@@ -571,4 +571,7 @@ func TestNewRunCmdFlags(t *testing.T) {
 
 	mockFlag := flags.Lookup("mock")
 	assert.NotNil(t, mockFlag, "mock flag should exist")
+
+	runFlag := flags.Lookup("run")
+	assert.NotNil(t, runFlag, "run flag should exist")
 }

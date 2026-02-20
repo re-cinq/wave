@@ -41,7 +41,6 @@ func init() {
 	rootCmd.AddCommand(commands.NewRunCmd())
 	rootCmd.AddCommand(commands.NewDoCmd())
 	rootCmd.AddCommand(commands.NewMetaCmd())
-	rootCmd.AddCommand(commands.NewResumeCmd())
 	rootCmd.AddCommand(commands.NewCleanCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewStatusCmd())
