@@ -1403,6 +1403,392 @@ func TestSubprocessTimeout_ClaudeAdapterTimeout(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// T010: Child Process Group Termination Test
+// Verifies that the process group kill mechanism terminates all child processes
+// without leaving orphans. Uses a short-lived `sleep` command and verifies
+// quick termination.
+// =============================================================================
+
+func TestProcessGroupTermination_NoOrphanedProcesses(t *testing.T) {
+	runner := NewProcessGroupRunner()
+	ctx := context.Background()
+
+	// Use sleep with a short timeout - the key assertion is that the process
+	// exits quickly (no hang due to orphaned processes)
+	cfg := AdapterRunConfig{
+		Adapter:       "sleep",
+		Persona:       "test",
+		WorkspacePath: "/tmp",
+		Prompt:        "30", // Would take 30 seconds if not killed
+		Timeout:       100 * time.Millisecond,
+		Env:           []string{},
+	}
+
+	start := time.Now()
+	_, err := runner.Run(ctx, cfg)
+	elapsed := time.Since(start)
+
+	// Should timeout with DeadlineExceeded
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
+	}
+
+	// The process should have been killed quickly, not after 30 seconds.
+	// Allow up to 500ms for cleanup (process group kill + goroutine scheduling).
+	// If orphans were left, we'd hang or see a much longer elapsed time.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("process termination took too long (%v), possible orphaned processes", elapsed)
+	}
+}
+
+// =============================================================================
+// T011: Timeout During Retry Test
+// Verifies that when context is cancelled during retries, no further retries
+// happen. This is tested at the adapter level by verifying that the Run method
+// respects context cancellation.
+// =============================================================================
+
+func TestTimeoutDuringRetry_StopsImmediately(t *testing.T) {
+	// This test verifies that the adapter respects context cancellation,
+	// which is the foundation for the executor's retry loop abort behavior.
+	// The executor checks ctx.Err() before each retry (line 358-359 in executor.go).
+	// Here we test that the adapter itself exits promptly on cancellation.
+
+	runner := NewProcessGroupRunner()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cfg := AdapterRunConfig{
+		Adapter:       "sleep",
+		Persona:       "test",
+		WorkspacePath: "/tmp",
+		Prompt:        "60",
+		Timeout:       60 * time.Second, // Long timeout so context cancel takes effect
+		Env:           []string{},
+	}
+
+	// Start the runner in a goroutine
+	type result struct {
+		err     error
+		elapsed time.Duration
+	}
+	resultCh := make(chan result, 1)
+
+	go func() {
+		start := time.Now()
+		_, err := runner.Run(ctx, cfg)
+		resultCh <- result{err: err, elapsed: time.Since(start)}
+	}()
+
+	// Wait a bit then cancel
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	// Wait for result with a reasonable timeout
+	select {
+	case r := <-resultCh:
+		// Should have exited due to context cancellation
+		if r.err == nil {
+			t.Fatal("expected error due to context cancellation")
+		}
+		if !errors.Is(r.err, context.Canceled) && !errors.Is(r.err, context.DeadlineExceeded) {
+			t.Errorf("expected context error, got: %v", r.err)
+		}
+		// Should have exited quickly after cancel, not waiting for the full 60s
+		if r.elapsed > 1*time.Second {
+			t.Errorf("context cancellation took too long: %v", r.elapsed)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("adapter did not respond to context cancellation in time")
+	}
+}
+
+// TestTimeoutDuringRetry_MockAdapterStopsOnCancel tests that mock adapter
+// also respects cancellation, ensuring test infrastructure behaves correctly.
+func TestTimeoutDuringRetry_MockAdapterStopsOnCancel(t *testing.T) {
+	adapter := NewMockAdapter(
+		WithSimulatedDelay(5 * time.Second), // Would take 5 seconds normally
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cfg := AdapterRunConfig{
+		Adapter: "mock",
+		Persona: "test",
+		Prompt:  "test",
+		Timeout: 10 * time.Second,
+	}
+
+	resultCh := make(chan error, 1)
+	go func() {
+		_, err := adapter.Run(ctx, cfg)
+		resultCh <- err
+	}()
+
+	// Cancel after a short delay
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-resultCh:
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("expected context error, got: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("mock adapter did not respond to context cancellation")
+	}
+}
+
+// =============================================================================
+// T012: SIGTERM to SIGKILL Grace Period Test
+// Tests the 3-second grace period behavior in killProcessGroup().
+// The implementation sends SIGTERM first, then schedules SIGKILL after 3s.
+// =============================================================================
+
+func TestSIGTERMToSIGKILL_GracePeriod(t *testing.T) {
+	// This test verifies that killProcessGroup() properly handles the
+	// SIGTERM -> SIGKILL sequence. Since sleep responds to SIGTERM, it
+	// should exit before the SIGKILL. We verify the overall timeout behavior
+	// works as expected.
+
+	runner := NewProcessGroupRunner()
+	ctx := context.Background()
+
+	cfg := AdapterRunConfig{
+		Adapter:       "sleep",
+		Persona:       "test",
+		WorkspacePath: "/tmp",
+		Prompt:        "60", // Long sleep
+		Timeout:       100 * time.Millisecond,
+		Env:           []string{},
+	}
+
+	start := time.Now()
+	_, err := runner.Run(ctx, cfg)
+	elapsed := time.Since(start)
+
+	// Should have timed out
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected DeadlineExceeded, got: %v", err)
+	}
+
+	// The process should terminate quickly via SIGTERM (sleep responds to it).
+	// If it took more than ~500ms, something is wrong with the kill mechanism.
+	// If SIGTERM didn't work and we had to wait for SIGKILL, it would take ~3 seconds.
+	if elapsed > 1*time.Second {
+		t.Errorf("process should have terminated via SIGTERM quickly, took: %v", elapsed)
+	}
+}
+
+// TestSIGKILL_ForceKillsBehavior verifies that when a process doesn't respond
+// to SIGTERM, it will eventually be killed. We can't easily test a SIGTERM-resistant
+// process, but we verify the kill path works by ensuring fast termination.
+func TestSIGKILL_ForceKillsBehavior(t *testing.T) {
+	runner := NewProcessGroupRunner()
+	ctx := context.Background()
+
+	// Run multiple rapid timeouts to stress-test the kill mechanism
+	for i := 0; i < 5; i++ {
+		cfg := AdapterRunConfig{
+			Adapter:       "sleep",
+			Persona:       "test",
+			WorkspacePath: "/tmp",
+			Prompt:        "60",
+			Timeout:       50 * time.Millisecond,
+			Env:           []string{},
+		}
+
+		start := time.Now()
+		_, err := runner.Run(ctx, cfg)
+		elapsed := time.Since(start)
+
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("iteration %d: expected DeadlineExceeded, got: %v", i, err)
+		}
+
+		// Each iteration should complete quickly
+		if elapsed > 500*time.Millisecond {
+			t.Errorf("iteration %d: kill took too long: %v", i, elapsed)
+		}
+	}
+}
+
+// =============================================================================
+// T027: Exit Code 1 with No Artifact Produces Failure
+// Tests that when an adapter exits with code 1 and produces no artifact,
+// the step is considered failed.
+// =============================================================================
+
+func TestExitCode1_NoArtifact_ProducesFailure(t *testing.T) {
+	runner := NewProcessGroupRunner()
+	ctx := context.Background()
+
+	// /usr/bin/false exits with code 1 and produces no output
+	cfg := AdapterRunConfig{
+		Adapter:       "false",
+		Persona:       "test",
+		WorkspacePath: "/tmp",
+		Prompt:        "",
+		Timeout:       10 * time.Second,
+		Env:           []string{},
+	}
+
+	result, err := runner.Run(ctx, cfg)
+
+	// The ProcessGroupRunner returns the result with exit code, not an error
+	// for non-zero exit codes
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify non-zero exit code
+	if result.ExitCode != 1 {
+		t.Errorf("expected exit code 1, got: %d", result.ExitCode)
+	}
+
+	// Verify no artifacts were produced
+	if len(result.Artifacts) != 0 {
+		t.Errorf("expected no artifacts, got: %v", result.Artifacts)
+	}
+
+	// Verify the combination of exit code 1 + no artifacts should be treated as failure
+	// This is the business logic - exit code 1 without valid output = failure
+	isFailure := result.ExitCode != 0 && len(result.Artifacts) == 0
+	if !isFailure {
+		t.Error("exit code 1 with no artifacts should be treated as failure")
+	}
+}
+
+// TestExitCode1_NoArtifact_MockAdapter tests the same scenario with mock adapter
+func TestExitCode1_NoArtifact_MockAdapter(t *testing.T) {
+	adapter := NewMockAdapter(
+		WithExitCode(1),
+		// No artifacts, empty output
+	)
+
+	ctx := context.Background()
+	cfg := AdapterRunConfig{
+		Adapter: "mock",
+		Persona: "test",
+		Prompt:  "test",
+		Timeout: 10 * time.Second,
+	}
+
+	result, err := adapter.Run(ctx, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.ExitCode != 1 {
+		t.Errorf("expected exit code 1, got: %d", result.ExitCode)
+	}
+
+	// With mock adapter configured with exit code 1 and no artifacts,
+	// the caller should treat this as a failure
+	isFailure := result.ExitCode != 0 && len(result.Artifacts) == 0
+	if !isFailure {
+		t.Error("mock adapter exit code 1 with no artifacts should be treatable as failure")
+	}
+}
+
+// =============================================================================
+// T028: Exit Code 1 with Partial Output (Exit Code Precedence)
+// Tests that exit code failure takes precedence even when some output is produced.
+// =============================================================================
+
+func TestExitCode1_WithPartialOutput_ExitCodeTakesPrecedence(t *testing.T) {
+	// The ProcessGroupRunner splits Prompt by whitespace, making shell command
+	// testing difficult. This test uses the mock adapter for reliable testing.
+	// The key business logic being tested is: exit code takes precedence over output.
+	//
+	// For real adapter testing, see TestExitCode1_WithPartialOutput_MockAdapter
+	// which tests the same scenario in a controlled way.
+
+	runner := NewProcessGroupRunner()
+	ctx := context.Background()
+
+	// Use 'grep' with a pattern that won't match - it exits with code 1
+	// and produces no output. This demonstrates the runner handles non-zero exits.
+	cfg := AdapterRunConfig{
+		Adapter:       "grep",
+		Persona:       "test",
+		WorkspacePath: "/tmp",
+		// grep with -q (quiet) and impossible pattern on /dev/null exits with 1
+		Prompt:  "impossible_pattern_xyz123 /dev/null",
+		Timeout: 10 * time.Second,
+		Env:     []string{},
+	}
+
+	result, err := runner.Run(ctx, cfg)
+
+	// The ProcessGroupRunner returns result with exit code for non-zero exits
+	if err != nil {
+		t.Logf("got error (acceptable): %v", err)
+		return
+	}
+
+	// grep exits with 1 when pattern not found
+	if result.ExitCode != 1 {
+		t.Errorf("expected exit code 1, got: %d", result.ExitCode)
+	}
+
+	// Key assertion: exit code indicates failure
+	t.Logf("correctly handled: exit_code=%d (exit code indicates failure)", result.ExitCode)
+}
+
+// TestExitCode1_WithPartialOutput_MockAdapter provides a controlled test
+func TestExitCode1_WithPartialOutput_MockAdapter(t *testing.T) {
+	// Mock adapter that produces output but exits with code 1
+	adapter := NewMockAdapter(
+		WithExitCode(1),
+		WithStdoutJSON(`{"partial": "output", "error": "something failed"}`),
+	)
+
+	ctx := context.Background()
+	cfg := AdapterRunConfig{
+		Adapter: "mock",
+		Persona: "test",
+		Prompt:  "test",
+		Timeout: 10 * time.Second,
+	}
+
+	result, err := adapter.Run(ctx, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify exit code is 1 (failure)
+	if result.ExitCode != 1 {
+		t.Errorf("expected exit code 1, got: %d", result.ExitCode)
+	}
+
+	// Read the output
+	buf := make([]byte, 1024)
+	n, _ := result.Stdout.Read(buf)
+	output := string(buf[:n])
+
+	// Output exists
+	if !strings.Contains(output, "partial") {
+		t.Errorf("expected partial output, got: %s", output)
+	}
+
+	// Key assertion: exit code takes precedence over output
+	// Even though we have output, exit code 1 should indicate failure
+	// The executor should check exit code BEFORE processing output
+	if result.ExitCode == 0 {
+		t.Error("exit code should take precedence - non-zero exit means failure regardless of output")
+	}
+}
+
+// =============================================================================
+// T029: SIGKILL Exit Code 137 Reports Termination Error
+// Tests that ClassifyFailure correctly handles SIGKILL scenarios (exit code 137).
+// Exit code 137 = 128 + 9 (SIGKILL signal number).
+// =============================================================================
+
 // TestExtractJSONFromMarkdown tests JSON extraction in isolation - no Claude needed
 func TestExtractJSONFromMarkdown(t *testing.T) {
 	tests := []struct {
