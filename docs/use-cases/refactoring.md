@@ -88,7 +88,7 @@ steps:
         }
     output_artifacts:
       - name: analysis
-        path: output/refactor-analysis.json
+        path: .wave/output/refactor-analysis.json
         type: json
 
   - id: plan
@@ -118,7 +118,7 @@ steps:
         - Smaller, safer changes before larger ones
     output_artifacts:
       - name: plan
-        path: output/refactor-plan.md
+        path: .wave/output/refactor-plan.md
         type: markdown
 
   - id: implement
@@ -160,7 +160,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: changes
-        path: output/refactor-changes.md
+        path: .wave/output/refactor-changes.md
         type: markdown
 
   - id: verify
@@ -189,7 +189,7 @@ steps:
         Output: verification report with pass/fail status
     output_artifacts:
       - name: report
-        path: output/refactoring-report.md
+        path: .wave/output/refactoring-report.md
         type: markdown
 ```
 
@@ -201,14 +201,14 @@ The pipeline produces four artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `analysis` | `output/refactor-analysis.json` | Analysis of refactoring targets |
-| `plan` | `output/refactor-plan.md` | Detailed refactoring plan |
-| `changes` | `output/refactor-changes.md` | Log of implemented changes |
-| `report` | `output/refactoring-report.md` | Verification report |
+| `analysis` | `.wave/output/refactor-analysis.json` | Analysis of refactoring targets |
+| `plan` | `.wave/output/refactor-plan.md` | Detailed refactoring plan |
+| `changes` | `.wave/output/refactor-changes.md` | Log of implemented changes |
+| `report` | `.wave/output/refactoring-report.md` | Verification report |
 
 ### Example Output
 
-The pipeline produces `output/refactoring-report.md`:
+The pipeline produces `.wave/output/refactoring-report.md`:
 
 ```markdown
 # Refactoring Report

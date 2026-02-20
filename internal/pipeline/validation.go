@@ -214,7 +214,7 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 		guidance.WriteString("  • Validate that artifact.json follows the contract schema\n")
 	case "docs":
 		guidance.WriteString("  • Verify spec phase completed successfully\n")
-		guidance.WriteString("  • Check that artifacts/input-spec.md is accessible\n")
+		guidance.WriteString("  • Check that .wave/artifacts/input-spec.md is accessible\n")
 		guidance.WriteString("  • Ensure feature-docs.md and stakeholder-summary.md are created\n")
 		guidance.WriteString("  • Validate documentation quality meets contract requirements\n")
 	case "dummy":

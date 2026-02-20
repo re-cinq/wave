@@ -59,12 +59,12 @@ steps:
         outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: exploration
-        path: output/exploration.json
+        path: .wave/output/exploration.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/exploration.json
+        source: .wave/output/exploration.json
         schema_path: .wave/contracts/plan-exploration.schema.json
         on_failure: retry
         max_retries: 2
@@ -91,7 +91,7 @@ steps:
 
         Codebase exploration has already been done. Read the exploration results FIRST:
 
-          cat artifacts/context
+          cat .wave/artifacts/context
 
         This file contains structured JSON with: related files, codebase patterns,
         affected modules, testing landscape, and identified risks. Use ALL of this
@@ -137,12 +137,12 @@ steps:
         outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: tasks
-        path: output/tasks.json
+        path: .wave/output/tasks.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/tasks.json
+        source: .wave/output/tasks.json
         schema_path: .wave/contracts/plan-tasks.schema.json
         on_failure: retry
         max_retries: 2
@@ -172,8 +172,8 @@ steps:
 
         Two artifacts have been injected into your workspace. Read them BOTH first:
 
-          cat artifacts/context      # Codebase exploration (JSON)
-          cat artifacts/task_list    # Task breakdown plan (JSON)
+          cat .wave/artifacts/context      # Codebase exploration (JSON)
+          cat .wave/artifacts/task_list    # Task breakdown plan (JSON)
 
         The exploration contains: related files, patterns, affected modules, testing
         landscape, and risks. The task list contains: feature summary, tasks with
@@ -226,12 +226,12 @@ steps:
         outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: review
-        path: output/plan-review.json
+        path: .wave/output/plan-review.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/plan-review.json
+        source: .wave/output/plan-review.json
         schema_path: .wave/contracts/plan-review.schema.json
         on_failure: retry
         max_retries: 2

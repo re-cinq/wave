@@ -56,7 +56,7 @@ steps:
         }
     output_artifacts:
       - name: findings
-        path: output/findings.json
+        path: .wave/output/findings.json
         type: json
     handover:
       contract:
@@ -71,7 +71,7 @@ steps:
               "fix_approach": {"type": "string", "minLength": 10}
             }
           }
-        source: output/findings.json
+        source: .wave/output/findings.json
         on_failure: retry
         max_retries: 2
 
@@ -143,7 +143,7 @@ steps:
         Output a go/no-go recommendation with reasoning.
     output_artifacts:
       - name: verdict
-        path: output/verdict.md
+        path: .wave/output/verdict.md
         type: markdown
 ```
 

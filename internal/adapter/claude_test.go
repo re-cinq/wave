@@ -8,6 +8,36 @@ import (
 	"testing"
 )
 
+const testBaseProtocol = `# Wave Agent Protocol
+
+You are operating within a Wave pipeline step.
+
+## Operational Context
+
+- **Fresh context**: You have no memory of prior steps. Each step starts clean.
+- **Artifact I/O**: Read inputs from injected artifacts. Write outputs to artifact files.
+- **Workspace isolation**: You are in an ephemeral worktree. Changes here do not affect the source repository directly.
+- **Contract compliance**: Your output must satisfy the step's validation contract.
+- **Permission enforcement**: Tool permissions are enforced by the orchestrator. Do not attempt to bypass restrictions listed below.
+`
+
+// setupBaseProtocol creates .wave/personas/base-protocol.md relative to the
+// current working directory so that prepareWorkspace can find it. Returns a
+// cleanup function that removes the created directory structure.
+func setupBaseProtocol(t *testing.T) {
+	t.Helper()
+	dir := filepath.Join(".wave", "personas")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("failed to create .wave/personas: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base-protocol.md"), []byte(testBaseProtocol), 0644); err != nil {
+		t.Fatalf("failed to write base-protocol.md: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(".wave")
+	})
+}
+
 func TestNormalizeAllowedTools(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -21,12 +51,12 @@ func TestNormalizeAllowedTools(t *testing.T) {
 		},
 		{
 			name:  "Write scoped entries normalized to bare Write",
-			input: []string{"Read", "Write(output/*)", "Write(artifact.json)"},
+			input: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
 			want:  []string{"Read", "Write"},
 		},
 		{
 			name:  "deduplicates after normalization",
-			input: []string{"Write(output/*)", "Write(artifact.json)", "Read"},
+			input: []string{"Write(.wave/output/*)", "Write(.wave/artifact.json)", "Read"},
 			want:  []string{"Write", "Read"},
 		},
 		{
@@ -36,7 +66,7 @@ func TestNormalizeAllowedTools(t *testing.T) {
 		},
 		{
 			name:  "mixed scoped and bare",
-			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(output/*)", "Write"},
+			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
 			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write"},
 		},
 		{
@@ -67,6 +97,7 @@ func TestNormalizeAllowedTools(t *testing.T) {
 }
 
 func TestSettingsJSONFormat(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	tmpDir := t.TempDir()
 
@@ -75,7 +106,7 @@ func TestSettingsJSONFormat(t *testing.T) {
 		WorkspacePath: tmpDir,
 		Model:         "sonnet",
 		Temperature:   0.5,
-		AllowedTools:  []string{"Read", "Write(output/*)", "Glob"},
+		AllowedTools:  []string{"Read", "Write(.wave/output/*)", "Glob"},
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
@@ -109,7 +140,7 @@ func TestSettingsJSONFormat(t *testing.T) {
 		t.Fatal("settings.json missing 'permissions.allow' array")
 	}
 
-	// Verify Write(output/*) was normalized to Write
+	// Verify Write(.wave/output/*) was normalized to Write
 	allowStrs := make([]string, len(allow))
 	for i, v := range allow {
 		allowStrs[i] = v.(string)
@@ -129,7 +160,7 @@ func TestSettingsJSONFormat(t *testing.T) {
 func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
 	adapter := NewClaudeAdapter()
 	cfg := AdapterRunConfig{
-		AllowedTools: []string{"Read", "Write(output/*)", "Write(artifact.json)", "Glob"},
+		AllowedTools: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)", "Glob"},
 		Prompt:       "test",
 	}
 
@@ -157,6 +188,7 @@ func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
 // --- Phase 2 tests: deny rules, sandbox settings, CLAUDE.md restrictions, env hygiene ---
 
 func TestSettingsJSONDenyRules(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name     string
 		deny     []string
@@ -224,6 +256,7 @@ func TestSettingsJSONDenyRules(t *testing.T) {
 }
 
 func TestSettingsJSONSandboxSettings(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name           string
 		sandboxEnabled bool
@@ -326,6 +359,7 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 }
 
 func TestCLAUDEMDRestrictionSection(t *testing.T) {
+	setupBaseProtocol(t)
 	tests := []struct {
 		name         string
 		cfg          AdapterRunConfig
@@ -572,6 +606,7 @@ func TestBuildEnvironmentMissingPassthroughVar(t *testing.T) {
 }
 
 func TestSettingsJSONPerPersona(t *testing.T) {
+	setupBaseProtocol(t)
 	// Table-driven test: verify settings.json for different persona profiles
 	tests := []struct {
 		name           string
@@ -1205,6 +1240,7 @@ func TestMidStreamTermination(t *testing.T) {
 }
 
 func TestSkillCommandsCopied(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
@@ -1258,6 +1294,7 @@ func TestSkillCommandsCopied(t *testing.T) {
 }
 
 func TestSkillCommandsDir_Empty(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
@@ -1279,6 +1316,7 @@ func TestSkillCommandsDir_Empty(t *testing.T) {
 }
 
 func TestSkillCommandsDir_NonExistent(t *testing.T) {
+	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
@@ -1353,5 +1391,121 @@ func TestParseOutputSubtype(t *testing.T) {
 				t.Errorf("Tokens = %d, want %d", parsed.Tokens, tt.wantTokens)
 			}
 		})
+	}
+}
+
+// T004: Base protocol is prepended before persona content in CLAUDE.md
+func TestBaseProtocolPrepended(t *testing.T) {
+	setupBaseProtocol(t)
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test-persona",
+		Model:        "sonnet",
+		SystemPrompt: "# Test Persona\n\nYou are a test persona.",
+		AllowedTools: []string{"Read"},
+	}
+
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	content := string(data)
+
+	// Base protocol heading must appear before persona content
+	protocolIdx := strings.Index(content, "# Wave Agent Protocol")
+	personaIdx := strings.Index(content, "# Test Persona")
+	separatorIdx := strings.Index(content, "\n\n---\n\n")
+
+	if protocolIdx == -1 {
+		t.Fatal("CLAUDE.md missing base protocol heading '# Wave Agent Protocol'")
+	}
+	if personaIdx == -1 {
+		t.Fatal("CLAUDE.md missing persona heading '# Test Persona'")
+	}
+	if separatorIdx == -1 {
+		t.Fatal("CLAUDE.md missing '---' separator between base protocol and persona")
+	}
+	if protocolIdx >= separatorIdx {
+		t.Error("base protocol heading should appear before the separator")
+	}
+	if separatorIdx >= personaIdx {
+		t.Error("separator should appear before persona content")
+	}
+
+	// Verify key base protocol content is present
+	for _, want := range []string{
+		"Fresh context",
+		"Artifact I/O",
+		"Workspace isolation",
+		"Contract compliance",
+		"Permission enforcement",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("CLAUDE.md missing base protocol element %q", want)
+		}
+	}
+}
+
+// T005: prepareWorkspace returns error when base-protocol.md is missing
+func TestBaseProtocolMissingError(t *testing.T) {
+	// Do NOT call setupBaseProtocol — intentionally missing
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		SystemPrompt: "# Test",
+		AllowedTools: []string{"Read"},
+	}
+
+	err := a.prepareWorkspace(tmpDir, cfg)
+	if err == nil {
+		t.Fatal("expected error when base-protocol.md is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "base protocol") {
+		t.Errorf("error should mention 'base protocol', got: %v", err)
+	}
+}
+
+// T006: Base protocol is prepended even when SystemPrompt is set directly
+func TestBaseProtocolWithInlinePrompt(t *testing.T) {
+	setupBaseProtocol(t)
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "inline-test",
+		Model:        "sonnet",
+		SystemPrompt: "# Inline Persona\n\nDo something specific.",
+		AllowedTools: []string{"Read", "Write"},
+	}
+
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	content := string(data)
+
+	// Base protocol must still be present even with inline prompt
+	if !strings.Contains(content, "# Wave Agent Protocol") {
+		t.Error("CLAUDE.md missing base protocol when using SystemPrompt")
+	}
+	if !strings.Contains(content, "# Inline Persona") {
+		t.Error("CLAUDE.md missing inline persona content")
+	}
+	// Verify ordering
+	if strings.Index(content, "# Wave Agent Protocol") > strings.Index(content, "# Inline Persona") {
+		t.Error("base protocol should appear before inline persona content")
 	}
 }

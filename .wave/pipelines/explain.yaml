@@ -50,12 +50,12 @@ steps:
         depended_by, external), test_files, config_points, file_count, and timestamp.
     output_artifacts:
       - name: exploration
-        path: output/exploration.json
+        path: .wave/output/exploration.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/exploration.json
+        source: .wave/output/exploration.json
         schema_path: .wave/contracts/explain-exploration.schema.json
         on_failure: retry
         max_retries: 2
@@ -78,7 +78,7 @@ steps:
       source: |
         Analyze the architecture and design of the explored code.
 
-        Read the exploration first: cat artifacts/codebase_map
+        Read the exploration first: cat .wave/artifacts/codebase_map
 
         Then read the key source files identified. Focus on:
 
@@ -95,12 +95,12 @@ steps:
         and timestamp.
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/analysis.json
+        source: .wave/output/analysis.json
         schema_path: .wave/contracts/explain-analysis.schema.json
         on_failure: retry
         max_retries: 2
@@ -122,8 +122,8 @@ steps:
         Write a comprehensive explanation document.
 
         Read both artifacts:
-          cat artifacts/codebase_map
-          cat artifacts/architecture
+          cat .wave/artifacts/codebase_map
+          cat .wave/artifacts/architecture
 
         Write a markdown document to output/explanation.md with:
 
@@ -140,5 +140,5 @@ steps:
         Use real file paths, function names, and type names.
     output_artifacts:
       - name: explanation
-        path: output/explanation.md
+        path: .wave/output/explanation.md
         type: markdown

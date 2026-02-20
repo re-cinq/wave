@@ -47,12 +47,12 @@ steps:
         and timestamp.
     output_artifacts:
       - name: scan_results
-        path: output/doc-scan.json
+        path: .wave/output/doc-scan.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/doc-scan.json
+        source: .wave/output/doc-scan.json
         schema_path: .wave/contracts/doc-sync-scan.schema.json
         on_failure: retry
         max_retries: 2
@@ -75,7 +75,7 @@ steps:
       source: |
         Review the doc scan findings and prioritize fixes.
 
-        Read the scan results: cat artifacts/scan
+        Read the scan results: cat .wave/artifacts/scan
 
         For each finding:
         1. Verify it's a real inconsistency (not a false positive)
@@ -89,7 +89,7 @@ steps:
         - Estimated scope of changes
     output_artifacts:
       - name: fix_plan
-        path: output/fix-plan.md
+        path: .wave/output/fix-plan.md
         type: markdown
 
   - id: fix-docs
@@ -112,8 +112,8 @@ steps:
         Fix the documentation inconsistencies on this isolated worktree branch.
 
         Read the scan results and fix plan:
-          cat artifacts/scan
-          cat artifacts/plan
+          cat .wave/artifacts/scan
+          cat .wave/artifacts/plan
 
         ## Process
 
@@ -150,7 +150,7 @@ steps:
         max_retries: 2
     output_artifacts:
       - name: result
-        path: output/result.md
+        path: .wave/output/result.md
         type: markdown
 
   - id: create-pr
@@ -187,8 +187,8 @@ steps:
 
         ### Step 1: Load Context
 
-        Read `artifacts/scan` for the original scan findings.
-        Read `artifacts/fix_result` for the fix summary (files modified, findings fixed/skipped).
+        Read `.wave/artifacts/scan` for the original scan findings.
+        Read `.wave/artifacts/fix_result` for the fix summary (files modified, findings fixed/skipped).
 
         ### Step 2: Push the Branch
 
@@ -250,5 +250,5 @@ steps:
         ```
     output_artifacts:
       - name: pr-result
-        path: output/pr-result.json
+        path: .wave/output/pr-result.json
         type: json

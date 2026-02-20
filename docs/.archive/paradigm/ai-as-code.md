@@ -50,7 +50,7 @@ steps:
         3. Test coverage gaps
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: review
@@ -70,7 +70,7 @@ steps:
         Context: {{ artifacts.context }}
     output_artifacts:
       - name: review
-        path: output/review.md
+        path: .wave/output/review.md
         type: markdown
 ```
 

@@ -35,12 +35,12 @@ steps:
         Write the result to output/issue-content.json
     output_artifacts:
       - name: issue-content
-        path: output/issue-content.json
+        path: .wave/output/issue-content.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/issue-content.json
+        source: .wave/output/issue-content.json
         schema_path: .wave/contracts/issue-content.schema.json
         on_failure: retry
         max_retries: 3
@@ -61,7 +61,7 @@ steps:
       source: |
         Analyze the GitHub issue and extract research topics.
 
-        Read the issue content from: artifacts/issue
+        Read the issue content from: .wave/artifacts/issue
 
         Identify:
         1. Key technical questions that need external research
@@ -83,12 +83,12 @@ steps:
         Write the result to output/research-topics.json
     output_artifacts:
       - name: topics
-        path: output/research-topics.json
+        path: .wave/output/research-topics.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/research-topics.json
+        source: .wave/output/research-topics.json
         schema_path: .wave/contracts/research-topics.schema.json
         on_failure: retry
         max_retries: 2
@@ -112,8 +112,8 @@ steps:
       source: |
         Research the topics identified in the research plan.
 
-        Original issue: artifacts/issue
-        Research plan: artifacts/research_plan
+        Original issue: .wave/artifacts/issue
+        Research plan: .wave/artifacts/research_plan
 
         For each topic in the research plan:
         1. Execute web searches using the provided keywords
@@ -136,12 +136,12 @@ steps:
         Write the result to output/research-findings.json
     output_artifacts:
       - name: findings
-        path: output/research-findings.json
+        path: .wave/output/research-findings.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/research-findings.json
+        source: .wave/output/research-findings.json
         schema_path: .wave/contracts/research-findings.schema.json
         on_failure: retry
         max_retries: 2
@@ -165,8 +165,8 @@ steps:
       source: |
         Synthesize the research findings into a coherent report for the GitHub issue.
 
-        Original issue: artifacts/original_issue
-        Research findings: artifacts/research
+        Original issue: .wave/artifacts/original_issue
+        Research findings: .wave/artifacts/research
 
         Create a well-structured research report that includes:
 
@@ -199,12 +199,12 @@ steps:
         Write the result to output/research-report.json
     output_artifacts:
       - name: report
-        path: output/research-report.json
+        path: .wave/output/research-report.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/research-report.json
+        source: .wave/output/research-report.json
         schema_path: .wave/contracts/research-report.schema.json
         on_failure: retry
         max_retries: 2
@@ -228,8 +228,8 @@ steps:
       source: |
         Post the research report as a comment on the GitHub issue.
 
-        Issue details: artifacts/issue
-        Report: artifacts/report
+        Issue details: .wave/artifacts/issue
+        Report: .wave/artifacts/report
 
         Steps:
         1. Read the issue details to get the repository and issue number
@@ -258,12 +258,12 @@ steps:
         - timestamp: current time
     output_artifacts:
       - name: comment-result
-        path: output/comment-result.json
+        path: .wave/output/comment-result.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/comment-result.json
+        source: .wave/output/comment-result.json
         schema_path: .wave/contracts/comment-result.schema.json
         on_failure: retry
         max_retries: 3
