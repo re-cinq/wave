@@ -1,0 +1,16 @@
+{
+  "model": "opus",
+  "temperature": 0.3,
+  "output_format": "stream-json",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)"
+    ]
+  }
+}

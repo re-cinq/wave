@@ -1,0 +1,24 @@
+{
+  "implementable": true,
+  "issue": {
+    "number": 66,
+    "title": "cleanup: Remove or wire non-functional DisplayConfig fields (consolidate with #61)",
+    "body": "## Summary\n\nMultiple fields in `DisplayConfig` (`internal/display/types.go`) are defined and validated but never consulted during rendering. Users/callers who set these fields get no effect. This issue should be addressed alongside #61 (dead ETA/metrics code in the display package) as a single cleanup effort.\n\n## Relationship to #61\n\nIssue #61 covers dead *functions* in the display package (ETA calculation, performance metrics panel, performance comparison). This issue covers dead *config fields* in the same package. Both stem from the #56 audit and affect the same code area. **These should be tackled together as one cleanup PR** to avoid partial cleanup and duplicate review cycles.\n\n## Unused Fields\n\n| Field | Location | Notes |\n|-------|----------|-------|\n| `ShowDetails` | `types.go:93` | Never checked in display rendering |\n| `ShowArtifacts` | `types.go:94` | Default true but not wired into dashboard rendering |\n| `CompactMode` | `types.go:95` | `ShouldUseCompactMode()` exists but is never called |\n| `MaxHistoryLines` | `types.go:99` | Defined but never referenced in display code |\n| `EnableTimestamps` | `types.go:100` | Defined but never enables timestamp rendering |\n| `AnimationType` | `types.go:92` | Validated but animation selection is hardcoded in `bubbletea_model.go` |\n| `ShowLogo` | `types.go:103` | Logo is always shown; config is ignored |\n| `ShowMetrics` | `types.go:104` | Dashboard method exists but is never called |\n\n## Recommendation: Remove\n\nGiven that these fields have never been wired in since their introduction, and no downstream consumers depend on them, the cleanest path is **removal**. If any of these features are needed later, they can be re-added with proper rendering integration from the start.\n\n## Acceptance Criteria\n\n- [ ] Remove unused `DisplayConfig` fields listed above from `internal/display/types.go`\n- [ ] Remove associated constants (`AnimationType` variants) and helper methods (`ShouldUseCompactMode()`, `getAnimationFrames()`)\n- [ ] Remove dead functions from #61 in the same PR (ETA calculation, performance metrics panel, performance comparison)\n- [ ] Ensure all display tests pass after removal\n- [ ] Verify dashboard rendering is unaffected (these fields were never consulted)",
+    "repository": "re-cinq/wave",
+    "url": "https://github.com/re-cinq/wave/issues/66",
+    "labels": ["good first issue", "cleanup", "priority: low"],
+    "state": "OPEN",
+    "author": "nextlevelshit",
+    "comments": []
+  },
+  "assessment": {
+    "quality_score": 92,
+    "complexity": "simple",
+    "skip_steps": ["specify", "clarify", "checklist", "analyze"],
+    "branch_name": "066-displayconfig-cleanup",
+    "missing_info": [
+      "Issue #61 body not included inline — the implementer will need to fetch #61 to identify the dead functions (ETA calculation, performance metrics panel, performance comparison) to remove in the same PR"
+    ],
+    "summary": "Exceptionally well-specified cleanup issue. Provides an exact table of 8 unused DisplayConfig fields with file locations and line numbers, explicit acceptance criteria, and a clear recommendation to remove rather than wire. The issue also references #61 for consolidation. Complexity is simple: deletion of dead code from a single package (internal/display) with no new logic required. All speckit steps can be skipped since the issue itself serves as a complete specification."
+  }
+}

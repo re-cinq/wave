@@ -497,7 +497,6 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		StepOrder:         pd.stepOrder,
 		StepPersonas:      stepPersonas,
 		ElapsedTimeMs:     elapsedMs,
-		EstimatedTimeMs:   0, // Not calculated in ProgressDisplay
 		ManifestPath:      "wave.yaml",
 		WorkspacePath:     ".wave/workspaces",
 		CurrentAction:     "", // Not tracked in ProgressDisplay
@@ -663,7 +662,6 @@ func CreatePipelineContext(
 		FailedSteps:       0,
 		SkippedSteps:      0,
 		OverallProgress:   0,
-		EstimatedTimeMs:   0,
 		PipelineStartTime: time.Now().UnixNano(),
 		StepStatuses:      make(map[string]ProgressState),
 		StepOrder:         stepIDs,

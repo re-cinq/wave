@@ -216,8 +216,6 @@ func TestPipelineContextTracking(t *testing.T) {
 
 	steps := []string{"navigate", "analyze", "implement", "validate", "document"}
 
-	startTime := time.Now()
-
 	for i, stepID := range steps {
 		// Start step
 		ctx.CurrentStepNum = i + 1
@@ -234,20 +232,8 @@ func TestPipelineContextTracking(t *testing.T) {
 		ctx.StepStatuses[stepID] = display.StateCompleted
 		ctx.CompletedSteps++
 
-		// Update average step time
-		elapsed := time.Since(startTime).Milliseconds()
-		if ctx.CompletedSteps > 0 {
-			ctx.AverageStepTimeMs = elapsed / int64(ctx.CompletedSteps)
-		}
-
 		// Calculate overall progress
 		ctx.OverallProgress = (ctx.CompletedSteps * 100) / ctx.TotalSteps
-
-		// Calculate ETA
-		if ctx.CompletedSteps > 0 && ctx.CompletedSteps < ctx.TotalSteps {
-			remainingSteps := ctx.TotalSteps - ctx.CompletedSteps
-			ctx.EstimatedTimeMs = ctx.AverageStepTimeMs * int64(remainingSteps)
-		}
 
 		// Verify progress
 		expectedProgress := ((i + 1) * 100) / len(steps)
@@ -263,11 +249,6 @@ func TestPipelineContextTracking(t *testing.T) {
 
 	if ctx.OverallProgress != 100 {
 		t.Errorf("expected 100%% progress, got %d%%", ctx.OverallProgress)
-	}
-
-	// Allow small timing variance (up to 10ms) due to system scheduling
-	if ctx.EstimatedTimeMs > 10 {
-		t.Errorf("expected near-zero ETA after completion, got %dms", ctx.EstimatedTimeMs)
 	}
 
 	// Verify all steps are tracked

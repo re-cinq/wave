@@ -249,20 +249,6 @@ func TestGetOptimalDisplayConfig(t *testing.T) {
 	if config.ColorMode != "auto" && config.ColorMode != "off" {
 		t.Errorf("expected ColorMode 'auto' or 'off', got %q", config.ColorMode)
 	}
-
-	// Animation type should be valid
-	validTypes := map[display.AnimationType]bool{
-		display.AnimationDots:        true,
-		display.AnimationLine:        true,
-		display.AnimationBars:        true,
-		display.AnimationSpinner:     true,
-		display.AnimationClock:       true,
-		display.AnimationBouncingBar: true,
-	}
-
-	if !validTypes[config.AnimationType] {
-		t.Errorf("expected valid animation type, got %v", config.AnimationType)
-	}
 }
 
 // TestANSICodecControlCodes tests ANSI control codes.
@@ -304,11 +290,6 @@ func TestResponsiveLayout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test that configuration can adapt to different sizes
 			config := display.DefaultDisplayConfig()
-
-			// For very small terminals, compact mode might be preferred
-			if tt.width < 60 || tt.height < 15 {
-				config.CompactMode = true
-			}
 
 			// Validate configuration works for any size
 			config.Validate()

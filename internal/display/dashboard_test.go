@@ -20,14 +20,12 @@ func TestDashboard_Render(t *testing.T) {
 		FailedSteps:       0,
 		SkippedSteps:      0,
 		OverallProgress:   50,
-		EstimatedTimeMs:   30000,
 		CurrentStepID:     "step2",
 		CurrentPersona:    "developer",
 		CurrentAction:     "Writing code",
 		CurrentStepName:   "Implementation",
 		PipelineStartTime: time.Now().Add(-1 * time.Minute).UnixNano(),
 		CurrentStepStart:  time.Now().Add(-30 * time.Second).UnixNano(),
-		AverageStepTimeMs: 60000,
 		ElapsedTimeMs:     60000,
 		StepStatuses: map[string]ProgressState{
 			"step1": StateCompleted,
@@ -101,14 +99,6 @@ func TestDashboard_StatusIcon(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestDashboard_ShouldUseCompactMode(t *testing.T) {
-	dashboard := NewDashboard()
-
-	// Just verify it doesn't panic
-	compactMode := dashboard.ShouldUseCompactMode()
-	_ = compactMode // Use the variable
 }
 
 func TestFormatDashboardDuration(t *testing.T) {
