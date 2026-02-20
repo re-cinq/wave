@@ -385,17 +385,6 @@ wave artifacts --format json
 --format    Output format: table, json
 ```
 
-#### `wave resume`
-Resume a paused or failed pipeline.
-```
-wave resume                              # list resumable pipelines
-wave resume --pipeline <id>              # resume specific pipeline
-wave resume --pipeline <id> --from-step <step>
-
---pipeline    Pipeline ID to resume
---from-step   Resume from specific step
-```
-
 #### `wave cancel [run-id]`
 Cancel a running pipeline.
 ```

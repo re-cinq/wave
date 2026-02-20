@@ -103,7 +103,6 @@ Use "wave [command] --help" for more information about a command.
 | `wave run --pipeline <name>` | Execute a pipeline |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
 | `wave meta "<task>"` | Generate custom multi-step pipeline with schemas |
-| `wave resume` | Resume interrupted pipeline |
 | `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
 
 ### Monitoring & Inspection

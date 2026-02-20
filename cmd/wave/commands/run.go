@@ -34,6 +34,7 @@ type RunOptions struct {
 	Timeout  int
 	Manifest string
 	Mock     bool
+	RunID    string
 	Output   OutputConfig
 }
 
@@ -99,6 +100,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
+	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 
 	return cmd
 }
@@ -176,6 +178,25 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if store != nil {
 		defer store.Close()
+	}
+
+	// Auto-recover input when resuming without explicit --input
+	if opts.FromStep != "" && opts.Input == "" && store != nil {
+		if opts.RunID != "" {
+			if run, err := store.GetRun(opts.RunID); err == nil && run.Input != "" {
+				opts.Input = run.Input
+				fmt.Fprintf(os.Stderr, "  Resuming with input from run %s: %s\n", opts.RunID, truncateString(opts.Input, 80))
+			}
+		} else {
+			runs, err := store.ListRuns(state.ListRunsOptions{
+				PipelineName: p.Metadata.Name,
+				Limit:        1,
+			})
+			if err == nil && len(runs) > 0 && runs[0].Input != "" {
+				opts.Input = runs[0].Input
+				fmt.Fprintf(os.Stderr, "  Resuming with input from previous run: %s\n", truncateString(opts.Input, 80))
+			}
+		}
 	}
 
 	// Generate run ID — prefer CreateRun() so CLI runs appear in the dashboard.
