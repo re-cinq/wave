@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,8 @@ import (
 	"github.com/recinq/wave/internal/worktree"
 	"github.com/recinq/wave/internal/workspace"
 )
+
+var issueURLPattern = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/issues/\d+`)
 
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
@@ -799,6 +802,9 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 		// Register for reuse and cleanup
 		execution.WorktreePaths[branch] = &WorktreeInfo{AbsPath: absPath, RepoRoot: mgr.RepoRoot()}
+
+		// Record branch creation as a deliverable for outcome tracking
+		e.deliverableTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
 		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
 		return absPath, nil
@@ -1310,9 +1316,26 @@ func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath 
 			e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Generated pull request")
 		}
 
+		// Look for issue URLs in results
+		if issueURL, ok := results["issue_url"].(string); ok && issueURL != "" {
+			e.deliverableTracker.AddIssue(stepID, "Issue", issueURL, "Created issue")
+		}
+
 		// Look for deployment URLs in results
 		if deployURL, ok := results["deploy_url"].(string); ok && deployURL != "" {
 			e.deliverableTracker.AddDeployment(stepID, "Deployment", deployURL, "Deployed application")
+		}
+
+		// Check for push status in results (from publish steps)
+		if pushed, ok := results["pushed"].(bool); ok && pushed {
+			// Find the branch name from execution worktree paths
+			for branchName := range execution.WorktreePaths {
+				e.deliverableTracker.UpdateMetadata(deliverable.TypeBranch, branchName, "pushed", true)
+				if remoteRef, ok := results["remote_ref"].(string); ok {
+					e.deliverableTracker.UpdateMetadata(deliverable.TypeBranch, branchName, "remote_ref", remoteRef)
+				}
+				break
+			}
 		}
 
 		// Look for any URLs in results
@@ -1320,6 +1343,12 @@ func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath 
 			if strValue, ok := value.(string); ok {
 				if strings.HasPrefix(strValue, "http://") || strings.HasPrefix(strValue, "https://") {
 					e.deliverableTracker.AddURL(stepID, key, strValue, fmt.Sprintf("URL from %s", key))
+				}
+				// Check for GitHub issue URLs in result values
+				if matches := issueURLPattern.FindAllString(strValue, -1); len(matches) > 0 {
+					for _, match := range matches {
+						e.deliverableTracker.AddIssue(stepID, fmt.Sprintf("Issue from %s", key), match, "Detected GitHub issue")
+					}
 				}
 			}
 		}

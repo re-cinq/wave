@@ -42,6 +42,9 @@ type Event struct {
 
 	// Recovery hints (populated on failure events only)
 	RecoveryHints []RecoveryHintJSON `json:"recovery_hints,omitempty"`
+
+	// Structured outcomes (populated on final completion event only)
+	Outcomes *OutcomesJSON `json:"outcomes,omitempty"`
 }
 
 // RecoveryHintJSON is the JSON-serializable representation of a recovery hint.
@@ -49,6 +52,33 @@ type RecoveryHintJSON struct {
 	Label   string `json:"label"`
 	Command string `json:"command"`
 	Type    string `json:"type"`
+}
+
+// OutcomesJSON is the structured outcome data included in the final JSON completion event.
+type OutcomesJSON struct {
+	Branch       string            `json:"branch,omitempty"`
+	Pushed       bool              `json:"pushed"`
+	RemoteRef    string            `json:"remote_ref,omitempty"`
+	PushError    string            `json:"push_error,omitempty"`
+	PullRequests []OutcomeLinkJSON `json:"pull_requests"`
+	Issues       []OutcomeLinkJSON `json:"issues"`
+	Deployments  []OutcomeLinkJSON `json:"deployments"`
+	Deliverables []DeliverableJSON `json:"deliverables"`
+}
+
+// OutcomeLinkJSON represents a URL outcome in JSON format.
+type OutcomeLinkJSON struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
+// DeliverableJSON represents a deliverable in JSON format.
+type DeliverableJSON struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Description string `json:"description,omitempty"`
+	StepID      string `json:"step_id"`
 }
 
 // Event state constants for pipeline and step lifecycle

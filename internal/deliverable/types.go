@@ -19,6 +19,8 @@ const (
 	TypeLog        DeliverableType = "log"
 	TypeContract   DeliverableType = "contract"
 	TypeArtifact   DeliverableType = "artifact"
+	TypeBranch     DeliverableType = "branch"
+	TypeIssue      DeliverableType = "issue"
 	TypeOther      DeliverableType = "other"
 )
 
@@ -75,6 +77,10 @@ func (d *Deliverable) String() string {
 			icon = "📋" // nf-fa-file_code
 		case TypeArtifact:
 			icon = "📦" // nf-fa-archive
+		case TypeBranch:
+			icon = "🌿"
+		case TypeIssue:
+			icon = "📌"
 		default:
 			icon = "📄"
 		}
@@ -95,6 +101,10 @@ func (d *Deliverable) String() string {
 			icon = "="
 		case TypeArtifact:
 			icon = "+"
+		case TypeBranch:
+			icon = "⎇"
+		case TypeIssue:
+			icon = "!"
 		default:
 			icon = "•"
 		}
@@ -184,6 +194,32 @@ func NewContractDeliverable(stepID, name, contractPath, description string) *Del
 		Type:        TypeContract,
 		Name:        name,
 		Path:        contractPath,
+		Description: description,
+		StepID:      stepID,
+		CreatedAt:   time.Now(),
+	}
+}
+// NewBranchDeliverable creates a branch deliverable for tracking git branch creation
+func NewBranchDeliverable(stepID, branchName, worktreePath, description string) *Deliverable {
+	return &Deliverable{
+		Type:        TypeBranch,
+		Name:        branchName,
+		Path:        worktreePath,
+		Description: description,
+		StepID:      stepID,
+		CreatedAt:   time.Now(),
+		Metadata: map[string]any{
+			"pushed": false,
+		},
+	}
+}
+
+// NewIssueDeliverable creates an issue deliverable for tracking GitHub issues
+func NewIssueDeliverable(stepID, name, issueURL, description string) *Deliverable {
+	return &Deliverable{
+		Type:        TypeIssue,
+		Name:        name,
+		Path:        issueURL,
 		Description: description,
 		StepID:      stepID,
 		CreatedAt:   time.Now(),

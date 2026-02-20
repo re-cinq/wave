@@ -350,10 +350,13 @@ func runRun(opts RunOptions, debug bool) error {
 			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n",
 				p.Metadata.Name, elapsed.Seconds())
 		}
-
-		if deliverables := executor.GetDeliverables(); deliverables != "" {
+		// Build structured outcome summary from deliverable tracker
+		tracker := executor.GetDeliverableTracker()
+		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, totalTokens, "", nil)
+		summary := display.RenderOutcomeSummary(outcome, opts.Output.Verbose, display.NewFormatter())
+		if summary != "" {
 			fmt.Fprint(os.Stderr, "\n")
-			lines := strings.Split(deliverables, "\n")
+			lines := strings.Split(summary, "\n")
 			for _, line := range lines {
 				if line != "" {
 					fmt.Fprintf(os.Stderr, "  %s\n", line)
@@ -361,6 +364,21 @@ func runRun(opts RunOptions, debug bool) error {
 			}
 			fmt.Fprint(os.Stderr, "\n")
 		}
+	}
+
+	// For JSON output mode, emit structured outcomes in the final completion event
+	if opts.Output.Format == OutputFormatJSON {
+		tracker := executor.GetDeliverableTracker()
+		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, executor.GetTotalTokens(), "", nil)
+		outJSON := outcome.ToOutcomesJSON()
+		emitter.Emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: runID,
+			State:      "completed",
+			DurationMs: elapsed.Milliseconds(),
+			Message:    fmt.Sprintf("Pipeline '%s' completed", p.Metadata.Name),
+			Outcomes:   outJSON,
+		})
 	}
 
 	return nil
