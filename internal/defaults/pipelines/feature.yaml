@@ -43,12 +43,12 @@ steps:
         patterns_to_follow, affected_modules, test_files, risks, and timestamp.
     output_artifacts:
       - name: exploration
-        path: output/exploration.json
+        path: .wave/output/exploration.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/exploration.json
+        source: .wave/output/exploration.json
         schema_path: .wave/contracts/feature-exploration.schema.json
         on_failure: retry
         max_retries: 2
@@ -73,7 +73,7 @@ steps:
 
         Feature: {{ input }}
 
-        Read the exploration: cat artifacts/context
+        Read the exploration: cat .wave/artifacts/context
 
         Break the feature into ordered implementation steps:
 
@@ -88,12 +88,12 @@ steps:
         branch_name_suggestion, commit_message_suggestion, and timestamp.
     output_artifacts:
       - name: plan
-        path: output/plan.json
+        path: .wave/output/plan.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/plan.json
+        source: .wave/output/plan.json
         schema_path: .wave/contracts/feature-plan.schema.json
         on_failure: retry
         max_retries: 2
@@ -118,8 +118,8 @@ steps:
         Implement the feature on this isolated worktree branch.
 
         Read the exploration and plan:
-          cat artifacts/context
-          cat artifacts/plan
+          cat .wave/artifacts/context
+          cat .wave/artifacts/plan
 
         Feature: {{ input }}
 
@@ -157,7 +157,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: result
-        path: output/result.md
+        path: .wave/output/result.md
         type: markdown
 
   # ── Publish ─────────────────────────────────────────────────────────
@@ -186,5 +186,5 @@ steps:
 
         2. Create a pull request using the implementation result as context:
            ```bash
-           gh pr create --title "feat: $(git log --format=%s -1)" --body-file artifacts/result
+           gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
            ```

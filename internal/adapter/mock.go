@@ -244,7 +244,7 @@ func generateDocsPhaseOutput(cfg AdapterRunConfig) string {
 		},
 		"metadata": map[string]interface{}{
 			"timestamp":        time.Now().Format(time.RFC3339),
-			"source_spec_path": "artifacts/input-spec.md",
+			"source_spec_path": ".wave/artifacts/input-spec.md",
 			"duration_seconds": 3.0,
 		},
 	}
@@ -274,7 +274,7 @@ func generateDummyPhaseOutput(cfg AdapterRunConfig) string {
 		},
 		"metadata": map[string]interface{}{
 			"timestamp":        time.Now().Format(time.RFC3339),
-			"source_docs_path": "artifacts/feature-docs.md",
+			"source_docs_path": ".wave/artifacts/feature-docs.md",
 			"duration_seconds": 4.0,
 		},
 	}

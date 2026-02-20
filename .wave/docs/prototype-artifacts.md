@@ -34,20 +34,20 @@ Each phase executes in an isolated workspace following this pattern:
 .wave/workspaces/
 └── prototype/              # Pipeline-specific workspace root
     ├── spec/               # Spec phase workspace
-    │   ├── artifacts/      # Injected artifacts from previous steps
+    │   ├── .wave/artifacts/ # Injected artifacts from previous steps
     │   ├── spec.md         # Phase output files
     │   └── workspace/      # Working directory
     ├── docs/               # Docs phase workspace
-    │   ├── artifacts/      # Injected artifacts (spec.md)
+    │   ├── .wave/artifacts/ # Injected artifacts (spec.md)
     │   ├── feature-docs.md # Phase output files
     │   └── workspace/      # Working directory
     ├── dummy/              # Dummy phase workspace
-    │   ├── artifacts/      # Injected artifacts (docs + spec)
+    │   ├── .wave/artifacts/ # Injected artifacts (docs + spec)
     │   ├── prototype/      # Generated prototype code
     │   ├── interfaces.md   # Phase output files
     │   └── workspace/      # Working directory
     └── implement/          # Implement phase workspace
-        ├── artifacts/      # Injected artifacts from dummy phase
+        ├── .wave/artifacts/ # Injected artifacts from dummy phase
         ├── implementation-plan.md
         └── workspace/      # Working directory
 ```
@@ -55,19 +55,19 @@ Each phase executes in an isolated workspace following this pattern:
 ## Artifact Injection Mapping
 
 **Docs Phase receives:**
-- `artifacts/input-spec.md` ← `spec.md` from spec phase
+- `.wave/artifacts/input-spec.md` ← `spec.md` from spec phase
 
 **Dummy Phase receives:**
-- `artifacts/feature-docs.md` ← `feature-docs.md` from docs phase
-- `artifacts/spec.md` ← `spec.md` from spec phase
+- `.wave/artifacts/feature-docs.md` ← `feature-docs.md` from docs phase
+- `.wave/artifacts/spec.md` ← `spec.md` from spec phase
 
 **Implement Phase receives:**
-- `artifacts/spec.md` ← `spec.md` from spec phase
-- `artifacts/feature-docs.md` ← `feature-docs.md` from docs phase
-- `artifacts/prototype/` ← `prototype/` from dummy phase
+- `.wave/artifacts/spec.md` ← `spec.md` from spec phase
+- `.wave/artifacts/feature-docs.md` ← `feature-docs.md` from docs phase
+- `.wave/artifacts/prototype/` ← `prototype/` from dummy phase
 
 **PR Phases receive:**
-- `artifacts/implementation-plan.md` ← `implementation-plan.md` from implement phase
+- `.wave/artifacts/implementation-plan.md` ← `implementation-plan.md` from implement phase
 - Additional artifacts as needed for specific PR operations
 
 ## File Type Classifications

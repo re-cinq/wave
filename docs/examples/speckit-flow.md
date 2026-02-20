@@ -52,13 +52,13 @@ steps:
         files, patterns, dependencies, impact_areas
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/navigation.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
         on_failure: retry
         max_retries: 2
 
@@ -84,13 +84,13 @@ steps:
         5. Testing strategy
     output_artifacts:
       - name: spec
-        path: output/spec.md
+        path: .wave/output/spec.md
         type: markdown
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/specification.schema.json
-        source: output/spec.json
+        source: .wave/output/spec.json
         on_failure: retry
         max_retries: 2
 
@@ -118,7 +118,7 @@ steps:
         4. Risk assessment
     output_artifacts:
       - name: plan
-        path: output/plan.md
+        path: .wave/output/plan.md
         type: markdown
 
   - id: implement
@@ -183,7 +183,7 @@ steps:
         Output a structured review report with severity ratings.
     output_artifacts:
       - name: review
-        path: output/review.md
+        path: .wave/output/review.md
         type: markdown
 ```
 
@@ -274,9 +274,9 @@ With `-o text`:
 
 ```
 /tmp/wave/<pipeline-id>/
-├── navigate/output/analysis.json     # Codebase analysis
-├── specify/output/spec.md            # Feature specification
-├── plan/output/plan.md               # Implementation plan
-├── implement/                        # Source code changes
-└── review/output/review.md           # Security & quality review
+├── navigate/.wave/output/analysis.json     # Codebase analysis
+├── specify/.wave/output/spec.md            # Feature specification
+├── plan/.wave/output/plan.md               # Implementation plan
+├── implement/                              # Source code changes
+└── review/.wave/output/review.md           # Security & quality review
 ```

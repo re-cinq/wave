@@ -36,7 +36,7 @@ steps:
       source: "Review for security issues: {{ input }}"
     output_artifacts:
       - name: security-report
-        path: output/security.md
+        path: .wave/output/security.md
         type: markdown
 
   - id: coverage
@@ -145,7 +145,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: review
@@ -184,7 +184,7 @@ wave validate
 wave run code-review "Review auth changes"
 
 # Check output
-cat .wave/workspaces/*/output/
+cat .wave/workspaces/*/.wave/output/
 ```
 
 ## Common Migrations
@@ -210,7 +210,7 @@ steps:
       source: "Analyze for performance issues: {{ input }}"
     output_artifacts:
       - name: report
-        path: output/performance.md
+        path: .wave/output/performance.md
         type: markdown
 ```
 
@@ -233,7 +233,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: suggest
@@ -249,7 +249,7 @@ steps:
       source: "Suggest improvements for: {{ artifacts.context }}"
     output_artifacts:
       - name: suggestions
-        path: output/suggestions.json
+        path: .wave/output/suggestions.json
         type: json
 
   - id: plan

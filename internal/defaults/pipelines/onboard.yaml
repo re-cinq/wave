@@ -55,12 +55,12 @@ steps:
         run_command, coverage_command), workflow, documentation, and timestamp.
     output_artifacts:
       - name: survey
-        path: output/project-survey.json
+        path: .wave/output/project-survey.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/project-survey.json
+        source: .wave/output/project-survey.json
         schema_path: .wave/contracts/project-survey.schema.json
         on_failure: retry
         max_retries: 2
@@ -78,7 +78,7 @@ steps:
       source: |
         Write a comprehensive onboarding guide for new contributors.
 
-        Read the project survey: cat artifacts/project_info
+        Read the project survey: cat .wave/artifacts/project_info
 
         Write to output/onboarding-guide.md with these sections:
 
@@ -124,5 +124,5 @@ steps:
         Be specific — use real paths, real commands, real examples.
     output_artifacts:
       - name: guide
-        path: output/onboarding-guide.md
+        path: .wave/output/onboarding-guide.md
         type: markdown

@@ -5,7 +5,7 @@ An artifact is a file or directory produced by a pipeline step and passed to dep
 ```yaml
 output_artifacts:
   - name: analysis
-    path: output/analysis.json
+    path: .wave/output/analysis.json
     type: json
 ```
 
@@ -24,10 +24,10 @@ steps:
       source: "Analyze the codebase"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
       - name: files
-        path: output/files.md
+        path: .wave/output/files.md
         type: markdown
 ```
 
@@ -51,7 +51,7 @@ steps:
       source: "Implement based on the analysis"
 ```
 
-The artifact is copied into the step's workspace at `artifacts/context`.
+The artifact is copied into the step's workspace at `.wave/artifacts/context`.
 
 ## Artifact Types
 
@@ -78,7 +78,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: report
-        path: output/report.json
+        path: .wave/output/report.json
 
   - id: implement
     persona: craftsman
@@ -105,7 +105,7 @@ wave artifacts run-abc123
 **Output:**
 ```
 STEP      ARTIFACT      TYPE    PATH
-analyze   report        json    .wave/workspaces/.../output/report.json
+analyze   report        json    .wave/workspaces/.../.wave/output/report.json
 ```
 
 ## Next Steps

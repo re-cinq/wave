@@ -35,15 +35,15 @@ func TestPersonaPermission_ImplementerCanCreateArtifact(t *testing.T) {
 	)
 
 	// Test 1: Implementer should be able to write artifact.json
-	err := checker.CheckPermission("Write", "artifact.json")
+	err := checker.CheckPermission("Write", ".wave/artifact.json")
 	if err != nil {
 		t.Errorf("implementer should be able to create artifact.json, got error: %v", err)
 	}
 
 	// Test 2: Implementer should be able to write to artifacts directory
-	err = checker.CheckPermission("Write", "artifacts/result.json")
+	err = checker.CheckPermission("Write", ".wave/artifacts/result.json")
 	if err != nil {
-		t.Errorf("implementer should be able to write to artifacts/, got error: %v", err)
+		t.Errorf("implementer should be able to write to .wave/artifacts/, got error: %v", err)
 	}
 
 	// Test 3: Implementer should have Write in allowed tools
@@ -82,27 +82,27 @@ func TestPersonaPermission_ReviewerCanCreateArtifact(t *testing.T) {
 	)
 
 	// Test 1: Reviewer should be able to write artifact.json
-	err := checker.CheckPermission("Write", "artifact.json")
+	err := checker.CheckPermission("Write", ".wave/artifact.json")
 	if err != nil {
 		t.Errorf("reviewer should be able to create artifact.json, got error: %v", err)
 	}
 
 	// Test 2: Reviewer should be able to write to artifacts directory
-	err = checker.CheckPermission("Write", "artifacts/review-result.json")
+	err = checker.CheckPermission("Write", ".wave/artifacts/review-result.json")
 	if err != nil {
-		t.Errorf("reviewer should be able to write to artifacts/, got error: %v", err)
+		t.Errorf("reviewer should be able to write to .wave/artifacts/, got error: %v", err)
 	}
 
 	// Test 3: Verify reviewer has specific Write patterns in allowed tools
 	hasArtifactWrite := false
 	for _, tool := range reviewer.Permissions.AllowedTools {
-		if tool == "Write(artifact.json)" || tool == "Write(artifacts/*)" {
+		if tool == "Write(.wave/artifact.json)" || tool == "Write(.wave/artifacts/*)" {
 			hasArtifactWrite = true
 			break
 		}
 	}
 	if !hasArtifactWrite {
-		t.Errorf("reviewer should have Write(artifact.json) or Write(artifacts/*) in allowed_tools, got: %v", reviewer.Permissions.AllowedTools)
+		t.Errorf("reviewer should have Write(.wave/artifact.json) or Write(.wave/artifacts/*) in allowed_tools, got: %v", reviewer.Permissions.AllowedTools)
 	}
 }
 
@@ -170,7 +170,7 @@ func TestPersonaPermission_NavigatorCannotWrite(t *testing.T) {
 	)
 
 	// Test 1: Navigator should NOT be able to write any files
-	err := checker.CheckPermission("Write", "artifact.json")
+	err := checker.CheckPermission("Write", ".wave/artifact.json")
 	if err == nil {
 		t.Error("navigator should NOT be able to write artifact.json")
 	}
@@ -217,7 +217,7 @@ func TestPersonaPermission_AuditorCannotWrite(t *testing.T) {
 	)
 
 	// Test 1: Auditor should NOT be able to write any files
-	err := checker.CheckPermission("Write", "artifact.json")
+	err := checker.CheckPermission("Write", ".wave/artifact.json")
 	if err == nil {
 		t.Error("auditor should NOT be able to write artifact.json")
 	}
@@ -353,26 +353,26 @@ func TestPersonaPermission_ArtifactCreationScenarios(t *testing.T) {
 		description     string
 	}{
 		// Implementer scenarios
-		{"implementer", "artifact.json", true, "implementer can create artifact.json"},
-		{"implementer", "artifacts/step-result.json", true, "implementer can create files in artifacts/"},
+		{"implementer", ".wave/artifact.json", true, "implementer can create artifact.json"},
+		{"implementer", ".wave/artifacts/step-result.json", true, "implementer can create files in .wave/artifacts/"},
 		{"implementer", "src/generated.go", true, "implementer can create source files"},
 
 		// Reviewer scenarios
-		{"reviewer", "artifact.json", true, "reviewer can create artifact.json"},
-		{"reviewer", "artifacts/review.json", true, "reviewer can create files in artifacts/"},
+		{"reviewer", ".wave/artifact.json", true, "reviewer can create artifact.json"},
+		{"reviewer", ".wave/artifacts/review.json", true, "reviewer can create files in .wave/artifacts/"},
 		{"reviewer", "src/main.go", false, "reviewer cannot create .go source files"},
 		{"reviewer", "src/app.ts", false, "reviewer cannot create .ts source files"},
 
 		// Navigator scenarios (read-only)
-		{"navigator", "artifact.json", false, "navigator cannot create artifact.json"},
+		{"navigator", ".wave/artifact.json", false, "navigator cannot create artifact.json"},
 		{"navigator", "any-file.txt", false, "navigator cannot create any files"},
 
 		// Auditor scenarios (read-only)
-		{"auditor", "artifact.json", false, "auditor cannot create artifact.json"},
+		{"auditor", ".wave/artifact.json", false, "auditor cannot create artifact.json"},
 		{"auditor", "report.json", false, "auditor cannot create any files"},
 
 		// Planner scenarios (read-only)
-		{"planner", "artifact.json", false, "planner cannot create artifact.json"},
+		{"planner", ".wave/artifact.json", false, "planner cannot create artifact.json"},
 		{"planner", "plan.md", false, "planner cannot create any files"},
 	}
 
@@ -420,8 +420,8 @@ func TestPersonaPermission_ToolPatternParsing(t *testing.T) {
 		"Read":                true,
 		"Glob":                true,
 		"Grep":                true,
-		"Write(artifact.json)": true,
-		"Write(artifacts/*)":   true,
+		"Write(.wave/artifact.json)": true,
+		"Write(.wave/artifacts/*)":   true,
 		"Bash(go test*)":       true,
 		"Bash(npm test*)":      true,
 	}
@@ -437,10 +437,10 @@ func TestPersonaPermission_ToolPatternParsing(t *testing.T) {
 	foundArtifactJson := false
 	foundArtifactsDir := false
 	for _, tool := range reviewer.Permissions.AllowedTools {
-		if tool == "Write(artifact.json)" {
+		if tool == "Write(.wave/artifact.json)" {
 			foundArtifactJson = true
 		}
-		if tool == "Write(artifacts/*)" {
+		if tool == "Write(.wave/artifacts/*)" {
 			foundArtifactsDir = true
 		}
 	}
@@ -449,7 +449,7 @@ func TestPersonaPermission_ToolPatternParsing(t *testing.T) {
 		t.Error("reviewer should have Write(artifact.json) pattern")
 	}
 	if !foundArtifactsDir {
-		t.Error("reviewer should have Write(artifacts/*) pattern")
+		t.Error("reviewer should have Write(.wave/artifacts/*) pattern")
 	}
 }
 
@@ -478,8 +478,8 @@ func TestPersonaPermission_CraftsmanFullAccess(t *testing.T) {
 		{"Write", "src/main.go"},
 		{"Edit", "src/main.go"},
 		{"Bash", "go test ./..."},
-		{"Write", "artifact.json"},
-		{"Write", "artifacts/result.json"},
+		{"Write", ".wave/artifact.json"},
+		{"Write", ".wave/artifacts/result.json"},
 	}
 
 	for _, op := range allowedOperations {
@@ -590,13 +590,13 @@ func TestLoadWaveYAML_PersonaPermissions(t *testing.T) {
 	if reviewer != nil {
 		hasArtifactWrite := false
 		for _, tool := range reviewer.Permissions.AllowedTools {
-			if tool == "Write(artifact.json)" || tool == "Write(artifacts/*)" {
+			if tool == "Write(.wave/artifact.json)" || tool == "Write(.wave/artifacts/*)" {
 				hasArtifactWrite = true
 				break
 			}
 		}
 		if !hasArtifactWrite {
-			t.Error("reviewer in wave.yaml should have Write(artifact.json) or Write(artifacts/*) permission")
+			t.Error("reviewer in wave.yaml should have Write(.wave/artifact.json) or Write(.wave/artifacts/*) permission")
 		}
 
 		// Verify reviewer denies source file writes
@@ -667,8 +667,8 @@ func createTestManifestWithPersonas(t *testing.T) *Manifest {
 						"Read",
 						"Glob",
 						"Grep",
-						"Write(artifact.json)",
-						"Write(artifacts/*)",
+						"Write(.wave/artifact.json)",
+						"Write(.wave/artifacts/*)",
 						"Bash(go test*)",
 						"Bash(npm test*)",
 					},

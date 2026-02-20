@@ -433,7 +433,7 @@ Generate a valid WavePipeline YAML that follows these STRICT requirements:
 8. Navigator steps should have limited scope and clear deliverables
 9. Keep prompts SIMPLE - do NOT embed schema details or JSON output instructions (the executor injects these automatically from the contract schema)
 10. Steps that depend on previous steps MUST use inject_artifacts in their memory config to receive artifacts
-11. When a step has inject_artifacts, the prompt should mention where to find them (e.g., "Read the analysis from artifacts/analysis")
+11. When a step has inject_artifacts, the prompt should mention where to find them (e.g., "Read the analysis from .wave/artifacts/analysis")
 
 CRITICAL: Output your response in the following format:
 
@@ -475,7 +475,7 @@ steps:
       source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas relevant to the task."
     output_artifacts:
       - name: analysis
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
     handover:
       contract:
@@ -495,10 +495,10 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Read artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
+      source: "Read .wave/artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
     output_artifacts:
       - name: result
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
     handover:
       contract:

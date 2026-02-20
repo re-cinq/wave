@@ -51,13 +51,13 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: output/diff-analysis.json
+        path: .wave/output/diff-analysis.json
         type: json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/diff-analysis.schema.json
-        source: output/diff-analysis.json
+        source: .wave/output/diff-analysis.json
         on_failure: retry
         max_retries: 2
 
@@ -81,7 +81,7 @@ steps:
       source: |
         Security review of the code changes.
 
-        The diff analysis is available at: artifacts/changes
+        The diff analysis is available at: .wave/artifacts/changes
 
         Check for:
         1. SQL injection vulnerabilities
@@ -103,7 +103,7 @@ steps:
         Format as markdown with clear sections.
     output_artifacts:
       - name: security
-        path: output/security-review.md
+        path: .wave/output/security-review.md
         type: markdown
 
   # Step 2b: Quality review (runs in parallel with security review)
@@ -126,7 +126,7 @@ steps:
       source: |
         Code quality review of the changes.
 
-        The diff analysis is available at: artifacts/changes
+        The diff analysis is available at: .wave/artifacts/changes
 
         Check for:
         1. Error handling completeness
@@ -149,7 +149,7 @@ steps:
         Format as markdown with clear sections.
     output_artifacts:
       - name: quality
-        path: output/quality-review.md
+        path: .wave/output/quality-review.md
         type: markdown
 
   # Step 3: Synthesize all findings into a final verdict
@@ -174,9 +174,9 @@ steps:
         Synthesize the review findings into a final PR review.
 
         Available artifacts:
-        - artifacts/changes: The diff analysis
-        - artifacts/security_findings: Security review results
-        - artifacts/quality_findings: Quality review results
+        - .wave/artifacts/changes: The diff analysis
+        - .wave/artifacts/security_findings: Security review results
+        - .wave/artifacts/quality_findings: Quality review results
 
         Create a final review with:
 
@@ -205,5 +205,5 @@ steps:
         Format as a GitHub PR review comment.
     output_artifacts:
       - name: verdict
-        path: output/review-summary.md
+        path: .wave/output/review-summary.md
         type: markdown

@@ -1496,7 +1496,7 @@ func TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern(t *testing.T) {
 	// Working pipelines have these characteristics:
 	// 1. Simple, task-focused prompts
 	// 2. Use inject_artifacts for step communication
-	// 3. Reference artifacts by path (e.g., "Read artifacts/analysis")
+	// 3. Reference artifacts by path (e.g., "Read .wave/artifacts/analysis")
 	// 4. Don't embed schema details in prompts
 
 	// Check for inject_artifacts pattern
@@ -1505,7 +1505,7 @@ func TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern(t *testing.T) {
 	}
 
 	// Check for artifact reference pattern (like in hotfix.yaml)
-	if !strings.Contains(prompt, "artifacts/") {
+	if !strings.Contains(prompt, ".wave/artifacts/") {
 		t.Error("prompt should show how to reference injected artifacts")
 	}
 
@@ -1568,7 +1568,7 @@ func TestBuildPhilosopherPrompt_RequiredInstructionsPresent(t *testing.T) {
 		{"8.", "limited scope", "navigator limited scope"},
 		{"9.", "do NOT embed schema", "don't embed schema in prompts"},
 		{"10.", "inject_artifacts", "use inject_artifacts"},
-		{"11.", "artifacts/", "mention artifact paths"},
+		{"11.", ".wave/artifacts/", "mention artifact paths"},
 	}
 
 	for _, ri := range requiredInstructions {

@@ -42,7 +42,7 @@ Expected output:
 [10:01:32] completed synthesis           (summarizer)  26s   2.1k Synthesis complete
 
 Pipeline multi-review completed in 91s
-Artifacts: output/multi-review-verdict.md
+Artifacts: .wave/output/multi-review-verdict.md
 ```
 
 ## Complete Pipeline
@@ -93,7 +93,7 @@ steps:
         }
     output_artifacts:
       - name: scope
-        path: output/scope-analysis.json
+        path: .wave/output/scope-analysis.json
         type: json
 
   - id: security-review
@@ -129,7 +129,7 @@ steps:
         - Remediation
     output_artifacts:
       - name: security
-        path: output/security-findings.md
+        path: .wave/output/security-findings.md
         type: markdown
 
   - id: performance-review
@@ -163,7 +163,7 @@ steps:
         - Expected improvement
     output_artifacts:
       - name: performance
-        path: output/performance-findings.md
+        path: .wave/output/performance-findings.md
         type: markdown
 
   - id: architecture-review
@@ -196,7 +196,7 @@ steps:
         - Recommendation if applicable
     output_artifacts:
       - name: architecture
-        path: output/architecture-findings.md
+        path: .wave/output/architecture-findings.md
         type: markdown
 
   - id: maintainability
@@ -229,7 +229,7 @@ steps:
         - Suggested improvement
     output_artifacts:
       - name: maintainability
-        path: output/maintainability-findings.md
+        path: .wave/output/maintainability-findings.md
         type: markdown
 
   - id: synthesis
@@ -268,7 +268,7 @@ steps:
         Prioritize issues by impact and effort to fix.
     output_artifacts:
       - name: verdict
-        path: output/multi-review-verdict.md
+        path: .wave/output/multi-review-verdict.md
         type: markdown
 ```
 
@@ -280,16 +280,16 @@ The pipeline produces six artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `scope` | `output/scope-analysis.json` | Review scope and critical paths |
-| `security` | `output/security-findings.md` | Security analysis findings |
-| `performance` | `output/performance-findings.md` | Performance analysis findings |
-| `architecture` | `output/architecture-findings.md` | Architecture analysis |
-| `maintainability` | `output/maintainability-findings.md` | Maintainability findings |
-| `verdict` | `output/multi-review-verdict.md` | Synthesized review verdict |
+| `scope` | `.wave/output/scope-analysis.json` | Review scope and critical paths |
+| `security` | `.wave/output/security-findings.md` | Security analysis findings |
+| `performance` | `.wave/output/performance-findings.md` | Performance analysis findings |
+| `architecture` | `.wave/output/architecture-findings.md` | Architecture analysis |
+| `maintainability` | `.wave/output/maintainability-findings.md` | Maintainability findings |
+| `verdict` | `.wave/output/multi-review-verdict.md` | Synthesized review verdict |
 
 ### Example Output
 
-The pipeline produces `output/multi-review-verdict.md`:
+The pipeline produces `.wave/output/multi-review-verdict.md`:
 
 ```markdown
 # Multi-Agent Code Review: Payment Processing Module

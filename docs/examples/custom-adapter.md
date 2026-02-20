@@ -73,7 +73,7 @@ steps:
       source: "Analyze the codebase structure for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
 
   - id: implement
     persona: craftsman          # Uses Claude — higher quality

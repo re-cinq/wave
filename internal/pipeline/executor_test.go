@@ -1195,7 +1195,7 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "generate output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "issue-content", Path: "output/issue-content.json"},
+					{Name: "issue-content", Path: ".wave/output/issue-content.json"},
 				},
 			},
 		},
@@ -1267,7 +1267,7 @@ func TestOutputArtifactPermissionGrants(t *testing.T) {
 				Persona: "restricted",
 				Exec:    ExecConfig{Source: "analyze and write output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "topics", Path: "output/research-topics.json"},
+					{Name: "topics", Path: ".wave/output/research-topics.json"},
 					{Name: "summary", Path: "results.json"},
 				},
 			},
@@ -1286,8 +1286,8 @@ func TestOutputArtifactPermissionGrants(t *testing.T) {
 	assert.Contains(t, cfg.AllowedTools, "Read")
 	assert.Contains(t, cfg.AllowedTools, "Glob")
 	assert.Contains(t, cfg.AllowedTools, "Grep")
-	assert.Contains(t, cfg.AllowedTools, "Write(output/*)",
-		"Should auto-grant Write for output/ directory artifacts")
+	assert.Contains(t, cfg.AllowedTools, "Write(.wave/output/*)",
+		"Should auto-grant Write for .wave/output/ directory artifacts")
 	assert.Contains(t, cfg.AllowedTools, "Write(results.json)",
 		"Should auto-grant Write for root-level artifacts")
 }

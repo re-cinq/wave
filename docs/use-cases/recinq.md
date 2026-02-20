@@ -93,9 +93,9 @@ Final convergence on a worktree branch `refactor/<pipeline-id>`:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `findings` | `output/divergent-findings.json` | DVG-xxx findings with evidence and metrics |
-| `proposals` | `output/convergent-proposals.json` | SMP-xxx prioritized proposals with 80/20 analysis |
-| `result` | `output/result.md` | Summary of applied changes on worktree branch |
+| `findings` | `.wave/output/divergent-findings.json` | DVG-xxx findings with evidence and metrics |
+| `proposals` | `.wave/output/convergent-proposals.json` | SMP-xxx prioritized proposals with 80/20 analysis |
+| `result` | `.wave/output/result.md` | Summary of applied changes on worktree branch |
 
 Plus: **committed changes** on branch `refactor/<pipeline-id>` with atomic commits per proposal.
 
@@ -154,7 +154,7 @@ wave run recinq "internal/pipeline" --to-step distill
 wave run recinq "internal/pipeline" --to-step distill
 
 # Review the proposals
-cat .wave/workspaces/recinq/*/output/convergent-proposals.json | jq .
+cat .wave/workspaces/recinq/*/.wave/output/convergent-proposals.json | jq .
 
 # If satisfied, resume from simplify
 wave run recinq --from-step simplify

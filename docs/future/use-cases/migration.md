@@ -41,7 +41,7 @@ Expected output:
 [10:04:18] completed document          (summarizer)  25s   2.8k Documentation complete
 
 Pipeline migrate completed in 257s
-Artifacts: output/migration-report.md
+Artifacts: .wave/output/migration-report.md
 ```
 
 ## Complete Pipeline
@@ -97,7 +97,7 @@ steps:
         }
     output_artifacts:
       - name: analysis
-        path: output/migration-analysis.json
+        path: .wave/output/migration-analysis.json
         type: json
 
   - id: plan
@@ -133,7 +133,7 @@ steps:
         - Tests before changes
     output_artifacts:
       - name: plan
-        path: output/migration-plan.md
+        path: .wave/output/migration-plan.md
         type: markdown
 
   - id: implement
@@ -179,7 +179,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: changes
-        path: output/migration-changes.md
+        path: .wave/output/migration-changes.md
         type: markdown
 
   - id: verify
@@ -224,7 +224,7 @@ steps:
         Output: verification report with pass/fail status
     output_artifacts:
       - name: verification
-        path: output/migration-verification.md
+        path: .wave/output/migration-verification.md
         type: markdown
 
   - id: document
@@ -263,7 +263,7 @@ steps:
         Write for both developers and operators.
     output_artifacts:
       - name: report
-        path: output/migration-report.md
+        path: .wave/output/migration-report.md
         type: markdown
 ```
 
@@ -275,15 +275,15 @@ The pipeline produces five artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `analysis` | `output/migration-analysis.json` | Current state and migration scope |
-| `plan` | `output/migration-plan.md` | Phased migration plan |
-| `changes` | `output/migration-changes.md` | Log of implemented changes |
-| `verification` | `output/migration-verification.md` | Verification results |
-| `report` | `output/migration-report.md` | Complete migration documentation |
+| `analysis` | `.wave/output/migration-analysis.json` | Current state and migration scope |
+| `plan` | `.wave/output/migration-plan.md` | Phased migration plan |
+| `changes` | `.wave/output/migration-changes.md` | Log of implemented changes |
+| `verification` | `.wave/output/migration-verification.md` | Verification results |
+| `report` | `.wave/output/migration-report.md` | Complete migration documentation |
 
 ### Example Output
 
-The pipeline produces `output/migration-report.md`:
+The pipeline produces `.wave/output/migration-report.md`:
 
 ```markdown
 # Migration Report: Go 1.21 to Go 1.25

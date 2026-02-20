@@ -73,7 +73,7 @@ steps:
         IMPORTANT: The output MUST be valid JSON. Do NOT include markdown fencing.
     output_artifacts:
       - name: context
-        path: output/context.json
+        path: .wave/output/context.json
         type: json
 
   # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
@@ -99,7 +99,7 @@ steps:
 
         ## Starting Point
 
-        Read `artifacts/context` for input context.
+        Read `.wave/artifacts/context` for input context.
         If `input_type` is `"issue"` or `"pr"`, the `focus_hint` tells you WHERE to start looking —
         but do NOT limit yourself to what the issue describes. Use it as a seed, then expand outward.
         Follow dependency chains, trace callers, explore adjacent modules. The issue author doesn't
@@ -163,12 +163,12 @@ steps:
         that appear in multiple findings.
     output_artifacts:
       - name: findings
-        path: output/divergent-findings.json
+        path: .wave/output/divergent-findings.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/divergent-findings.json
+        source: .wave/output/divergent-findings.json
         schema_path: .wave/contracts/divergent-findings.schema.json
         must_pass: true
         on_failure: retry
@@ -198,7 +198,7 @@ steps:
 
         ## Read Input
 
-        Use the Read tool to read `artifacts/divergent_findings`.
+        Use the Read tool to read `.wave/artifacts/divergent_findings`.
 
         Target: {{ input }}
 
@@ -251,7 +251,7 @@ steps:
         A finding that survives your scrutiny is genuinely worth addressing.
     output_artifacts:
       - name: validated_findings
-        path: output/validated-findings.json
+        path: .wave/output/validated-findings.json
         type: json
 
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
@@ -282,8 +282,8 @@ steps:
 
         ## Read Inputs
 
-        Read the validated findings: the Read tool on `artifacts/validated_findings`
-        Read the original findings for context: the Read tool on `artifacts/divergent_findings`
+        Read the validated findings: the Read tool on `.wave/artifacts/validated_findings`
+        Read the original findings for context: the Read tool on `.wave/artifacts/divergent_findings`
 
         Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
 
@@ -363,7 +363,7 @@ steps:
         Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
     output_artifacts:
       - name: probed_findings
-        path: output/probed-findings.json
+        path: .wave/output/probed-findings.json
         type: json
 
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
@@ -400,10 +400,10 @@ steps:
 
         ## CRITICAL: Read Inputs First
 
-        1. Read the validated findings: the Read tool on `artifacts/validated_findings`
-        2. Read the probed findings: the Read tool on `artifacts/probed_findings`
+        1. Read the validated findings: the Read tool on `.wave/artifacts/validated_findings`
+        2. Read the probed findings: the Read tool on `.wave/artifacts/probed_findings`
         3. Read the required output schema: the Read tool on `project/.wave/contracts/convergent-proposals.schema.json`
-        4. Read the input context: the Read tool on `artifacts/context`
+        4. Read the input context: the Read tool on `.wave/artifacts/context`
 
         You MUST produce valid JSON matching that schema exactly.
 
@@ -422,7 +422,7 @@ steps:
         3. **Include new discoveries**: The probe step may have found new findings (DVG-NEW-xxx).
            These are pre-validated by the provocateur's second pass — include them.
 
-        4. **Apply issue/PR context (if present)**: If `artifacts/context` shows
+        4. **Apply issue/PR context (if present)**: If `.wave/artifacts/context` shows
            `input_type` is `"issue"` or `"pr"`, use the `focus_hint` as ONE input
            when assigning tiers. But do not discard strong proposals just because they
            fall outside the issue's scope. The best simplifications are often the ones
@@ -455,12 +455,12 @@ steps:
         Do NOT write a markdown summary. Write the complete JSON object with every proposal fully populated.
     output_artifacts:
       - name: proposals
-        path: output/convergent-proposals.json
+        path: .wave/output/convergent-proposals.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/convergent-proposals.json
+        source: .wave/output/convergent-proposals.json
         schema_path: .wave/contracts/convergent-proposals.schema.json
         must_pass: true
         on_failure: retry
@@ -486,8 +486,8 @@ steps:
       source: |
         IMPLEMENTATION — apply the best simplification proposals.
 
-        Read the proposals: `cat artifacts/proposals`
-        Read the validated findings for context: `cat artifacts/validated_findings`
+        Read the proposals: `cat .wave/artifacts/proposals`
+        Read the validated findings for context: `cat .wave/artifacts/validated_findings`
 
         ## Process
 
@@ -535,7 +535,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: result
-        path: output/result.md
+        path: .wave/output/result.md
         type: markdown
 
   # ── Reporting ────────────────────────────────────────────────────────
@@ -560,8 +560,8 @@ steps:
 
         ## Read Artifacts
 
-        1. Read `artifacts/proposals` for the proposals summary.
-        2. Read `artifacts/result` for what was actually applied.
+        1. Read `.wave/artifacts/proposals` for the proposals summary.
+        2. Read `.wave/artifacts/result` for what was actually applied.
         3. Run `git log --oneline` to see the commits on this branch.
 
         ## Compose the Report
@@ -573,7 +573,7 @@ steps:
         - **Remaining Opportunities**: Tier-2 and tier-3 proposals for future consideration
     output_artifacts:
       - name: report
-        path: output/report.md
+        path: .wave/output/report.md
         type: markdown
 
   # ── Publish ─────────────────────────────────────────────────────────
@@ -605,10 +605,10 @@ steps:
 
         2. Create a pull request using the report as the body:
            ```bash
-           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file artifacts/report
+           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file .wave/artifacts/report
            ```
 
-        3. Read `artifacts/context` — if `input_type` is `"issue"` or `"pr"`,
+        3. Read `.wave/artifacts/context` — if `input_type` is `"issue"` or `"pr"`,
            post the PR URL as a comment on the source:
            ```bash
            gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"

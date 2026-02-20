@@ -10,14 +10,14 @@ from the main working tree and will not affect it.
 
 Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
-The issue assessment is available at `artifacts/issue_assessment`.
+The issue assessment is available at `.wave/artifacts/issue_assessment`.
 Read it to get the issue details, branch name, complexity, and assessment.
 
 ## Instructions
 
 ### Step 1: Read Assessment
 
-Read `artifacts/issue_assessment` to extract:
+Read `.wave/artifacts/issue_assessment` to extract:
 - Issue number, title, body, and repository
 - Branch name from the assessment
 - Complexity estimate
@@ -90,7 +90,7 @@ Mark parallelizable tasks with `[P]`.
 
 ## Output
 
-Write a JSON status report to `output/impl-plan.json`:
+Write a JSON status report to `.wave/output/impl-plan.json`:
 
 ```json
 {

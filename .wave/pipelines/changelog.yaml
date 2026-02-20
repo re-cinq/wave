@@ -44,12 +44,12 @@ steps:
         most_changed_scopes), and timestamp.
     output_artifacts:
       - name: commits
-        path: output/commit-analysis.json
+        path: .wave/output/commit-analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/commit-analysis.json
+        source: .wave/output/commit-analysis.json
         schema_path: .wave/contracts/commit-analysis.schema.json
         on_failure: retry
         max_retries: 2
@@ -70,7 +70,7 @@ steps:
       source: |
         Categorize and describe changes for a changelog.
 
-        Read the commit analysis: cat artifacts/raw_commits
+        Read the commit analysis: cat .wave/artifacts/raw_commits
 
         ## Rules
 
@@ -86,12 +86,12 @@ steps:
         sections (title, type, entries), contributors, stats, and timestamp.
     output_artifacts:
       - name: categorized
-        path: output/categorized-changes.json
+        path: .wave/output/categorized-changes.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/categorized-changes.json
+        source: .wave/output/categorized-changes.json
         schema_path: .wave/contracts/categorized-changes.schema.json
         on_failure: retry
         max_retries: 2
@@ -115,7 +115,7 @@ steps:
       source: |
         Format categorized changes into a polished changelog.
 
-        Read: cat artifacts/raw_commits && cat artifacts/changes
+        Read: cat .wave/artifacts/raw_commits && cat .wave/artifacts/changes
 
         Write to output/CHANGELOG.md in Keep a Changelog format:
 
@@ -146,5 +146,5 @@ steps:
         - Contributors list at bottom
     output_artifacts:
       - name: changelog
-        path: output/CHANGELOG.md
+        path: .wave/output/CHANGELOG.md
         type: markdown

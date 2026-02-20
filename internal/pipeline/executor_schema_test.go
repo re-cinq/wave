@@ -434,13 +434,13 @@ func TestSchemaInjection_OutputRequirementsFormat(t *testing.T) {
 	// Verify the exact structure of the OUTPUT REQUIREMENTS section
 	expectedParts := []string{
 		"\n\nOUTPUT REQUIREMENTS:\n",
-		"After completing all required tool calls (Bash, Read, Write, etc.), save your final output to artifact.json.\n",
-		"The artifact.json must be valid JSON matching this schema:\n```json\n",
+		"After completing all required tool calls (Bash, Read, Write, etc.), save your final output to .wave/artifact.json.\n",
+		"The .wave/artifact.json must be valid JSON matching this schema:\n```json\n",
 		schemaContent,
 		"\n```\n\n",
 		"IMPORTANT:\n",
 		"- First, execute any tool calls needed to gather data\n",
-		"- Then, use the Write tool to save valid JSON to artifact.json\n",
+		"- Then, use the Write tool to save valid JSON to .wave/artifact.json\n",
 		"- The JSON must match every required field in the schema\n",
 	}
 

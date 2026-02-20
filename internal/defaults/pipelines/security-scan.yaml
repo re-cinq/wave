@@ -64,12 +64,12 @@ steps:
         by_severity, risk_assessment), and timestamp.
     output_artifacts:
       - name: scan_results
-        path: output/security-scan.json
+        path: .wave/output/security-scan.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/security-scan.json
+        source: .wave/output/security-scan.json
         schema_path: .wave/contracts/security-scan.schema.json
         on_failure: retry
         max_retries: 2
@@ -94,7 +94,7 @@ steps:
 
         Read the scan findings first:
 
-          cat artifacts/scan_findings
+          cat .wave/artifacts/scan_findings
 
         For each finding with severity HIGH or CRITICAL:
 
@@ -124,7 +124,7 @@ steps:
         - Related Patterns Found
     output_artifacts:
       - name: deep_dive
-        path: output/security-deep-dive.md
+        path: .wave/output/security-deep-dive.md
         type: markdown
 
   - id: report
@@ -145,8 +145,8 @@ steps:
 
         Read both artifacts:
 
-          cat artifacts/scan_findings
-          cat artifacts/analysis
+          cat .wave/artifacts/scan_findings
+          cat .wave/artifacts/analysis
 
         Create a concise, actionable security report:
 
@@ -159,5 +159,5 @@ steps:
         Format as a clean markdown report suitable for sharing with the team.
     output_artifacts:
       - name: report
-        path: output/security-report.md
+        path: .wave/output/security-report.md
         type: markdown

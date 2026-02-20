@@ -34,12 +34,12 @@ steps:
         and risk_assessment (low/medium/high).
     output_artifacts:
       - name: analysis
-        path: output/refactor-analysis.json
+        path: .wave/output/refactor-analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/refactor-analysis.json
+        source: .wave/output/refactor-analysis.json
         schema_path: .wave/contracts/refactor-analysis.schema.json
         on_failure: retry
         max_retries: 2
@@ -78,7 +78,7 @@ steps:
         max_retries: 2
     output_artifacts:
       - name: baseline
-        path: output/test-baseline.md
+        path: .wave/output/test-baseline.md
         type: markdown
 
   - id: refactor
@@ -136,5 +136,5 @@ steps:
         Output: PASS (safe to merge) or FAIL (issues found)
     output_artifacts:
       - name: verification
-        path: output/verification.md
+        path: .wave/output/verification.md
         type: markdown

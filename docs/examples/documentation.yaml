@@ -77,7 +77,7 @@ steps:
         }
     output_artifacts:
       - name: analysis
-        path: output/code-analysis.json
+        path: .wave/output/code-analysis.json
         type: json
 
   # Step 2a: Generate API reference documentation
@@ -100,7 +100,7 @@ steps:
       source: |
         Generate API reference documentation.
 
-        Code analysis available at: artifacts/analysis
+        Code analysis available at: .wave/artifacts/analysis
 
         For each public API element, document:
 
@@ -145,7 +145,7 @@ steps:
         Organize by package/module.
     output_artifacts:
       - name: api-docs
-        path: output/api-reference.md
+        path: .wave/output/api-reference.md
         type: markdown
 
   # Step 2b: Generate getting started guide
@@ -168,7 +168,7 @@ steps:
       source: |
         Generate a getting started guide.
 
-        Code analysis available at: artifacts/analysis
+        Code analysis available at: .wave/artifacts/analysis
 
         Create a guide that includes:
 
@@ -205,7 +205,7 @@ steps:
         Make it beginner-friendly with clear explanations.
     output_artifacts:
       - name: guide
-        path: output/getting-started.md
+        path: .wave/output/getting-started.md
         type: markdown
 
   # Step 2c: Generate usage examples
@@ -228,7 +228,7 @@ steps:
       source: |
         Generate comprehensive usage examples.
 
-        Code analysis available at: artifacts/analysis
+        Code analysis available at: .wave/artifacts/analysis
 
         Create examples for:
 
@@ -262,7 +262,7 @@ steps:
         Format as markdown with language-specific code blocks.
     output_artifacts:
       - name: examples
-        path: output/examples.md
+        path: .wave/output/examples.md
         type: markdown
 
   # Step 2d: Generate architecture documentation
@@ -285,7 +285,7 @@ steps:
       source: |
         Generate architecture documentation.
 
-        Code analysis available at: artifacts/analysis
+        Code analysis available at: .wave/artifacts/analysis
 
         Document:
 
@@ -322,7 +322,7 @@ steps:
         Include mermaid diagrams where helpful.
     output_artifacts:
       - name: architecture
-        path: output/architecture.md
+        path: .wave/output/architecture.md
         type: markdown
 
   # Step 3: Compile all documentation into final output
@@ -353,11 +353,11 @@ steps:
         Compile all documentation into a cohesive package.
 
         Available documentation:
-        - artifacts/analysis: Original code analysis
-        - artifacts/api: API reference
-        - artifacts/guide: Getting started guide
-        - artifacts/examples: Usage examples
-        - artifacts/architecture: Architecture docs
+        - .wave/artifacts/analysis: Original code analysis
+        - .wave/artifacts/api: API reference
+        - .wave/artifacts/guide: Getting started guide
+        - .wave/artifacts/examples: Usage examples
+        - .wave/artifacts/architecture: Architecture docs
 
         Create:
 
@@ -384,8 +384,8 @@ steps:
         from all sections, properly organized and cross-linked.
     output_artifacts:
       - name: final-docs
-        path: output/documentation.md
+        path: .wave/output/documentation.md
         type: markdown
       - name: index
-        path: output/index.md
+        path: .wave/output/index.md
         type: markdown

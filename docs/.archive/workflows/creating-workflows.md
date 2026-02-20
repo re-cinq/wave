@@ -25,7 +25,7 @@ steps:
       source: "Say hello to: {{ input }}"
     output_artifacts:
       - name: greeting
-        path: output/greeting.txt
+        path: .wave/output/greeting.txt
         type: text
 ```
 
@@ -96,7 +96,7 @@ steps:
       source: "Analyze the codebase: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 ```
 
@@ -126,7 +126,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: implement
@@ -233,11 +233,11 @@ Declare files the step produces:
 ```yaml
 output_artifacts:
   - name: analysis
-    path: output/analysis.json
+    path: .wave/output/analysis.json
     type: json
     required: true
   - name: report
-    path: output/report.md
+    path: .wave/output/report.md
     type: markdown
 ```
 
@@ -274,7 +274,7 @@ handover:
 handover:
   contract:
     type: typescript
-    source: output/types.ts
+    source: .wave/output/types.ts
     validate: true
 ```
 
@@ -292,7 +292,7 @@ handover:
 handover:
   contract:
     type: markdownspec
-    source: output/docs.md
+    source: .wave/output/docs.md
 ```
 
 ### Failure Handling
@@ -348,7 +348,7 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: output/diff-analysis.json
+        path: .wave/output/diff-analysis.json
         type: json
     handover:
       contract:
@@ -382,7 +382,7 @@ steps:
         Output findings with severity.
     output_artifacts:
       - name: security
-        path: output/security-review.md
+        path: .wave/output/security-review.md
         type: markdown
 
   - id: quality-review
@@ -410,7 +410,7 @@ steps:
         Output findings with suggestions.
     output_artifacts:
       - name: quality
-        path: output/quality-review.md
+        path: .wave/output/quality-review.md
         type: markdown
 
   - id: summary
@@ -442,7 +442,7 @@ steps:
         Format as PR review comment.
     output_artifacts:
       - name: verdict
-        path: output/review-summary.md
+        path: .wave/output/review-summary.md
         type: markdown
 ```
 

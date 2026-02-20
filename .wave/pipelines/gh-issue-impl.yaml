@@ -21,12 +21,12 @@ steps:
       source_path: .wave/prompts/github-issue-impl/fetch-assess.md
     output_artifacts:
       - name: assessment
-        path: output/issue-assessment.json
+        path: .wave/output/issue-assessment.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/issue-assessment.json
+        source: .wave/output/issue-assessment.json
         schema_path: .wave/contracts/issue-assessment.schema.json
         must_pass: true
         on_failure: retry
@@ -49,12 +49,12 @@ steps:
       source_path: .wave/prompts/github-issue-impl/plan.md
     output_artifacts:
       - name: impl-plan
-        path: output/impl-plan.json
+        path: .wave/output/impl-plan.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/impl-plan.json
+        source: .wave/output/impl-plan.json
         schema_path: .wave/contracts/issue-impl-plan.schema.json
         must_pass: true
         on_failure: retry
@@ -104,5 +104,5 @@ steps:
       source_path: .wave/prompts/github-issue-impl/create-pr.md
     output_artifacts:
       - name: pr-result
-        path: output/pr-result.json
+        path: .wave/output/pr-result.json
         type: json

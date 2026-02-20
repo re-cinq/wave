@@ -41,12 +41,12 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/analysis.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
 ```
 
 Example schema file (`.wave/contracts/analysis.schema.json`):
@@ -72,7 +72,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/spec.schema.json
-    source: output/spec.json
+    source: .wave/output/spec.json
     on_failure: retry
     max_retries: 3
 ```

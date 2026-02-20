@@ -41,7 +41,7 @@ steps:
       source: "Analyze the codebase structure for {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: review
@@ -134,7 +134,7 @@ steps:
       source: "Implement the feature: {{ input }}"
     output_artifacts:
       - name: implementation
-        path: output/code.patch
+        path: .wave/output/code.patch
         type: patch
     handover:
       contract:
@@ -201,7 +201,7 @@ steps:
     persona: navigator
     output_artifacts:
       - name: api-spec
-        path: output/api.json
+        path: .wave/output/api.json
         type: json
 
   - id: generate-docs
@@ -214,7 +214,7 @@ steps:
           as: spec
     output_artifacts:
       - name: documentation
-        path: output/docs.md
+        path: .wave/output/docs.md
         type: markdown
 
 # Wave tracks:

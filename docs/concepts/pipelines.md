@@ -47,7 +47,7 @@ steps:
       source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
 
   - id: implement
     persona: craftsman
@@ -80,7 +80,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: security
@@ -97,7 +97,7 @@ steps:
       source: "Security review"
     output_artifacts:
       - name: findings
-        path: output/security.md
+        path: .wave/output/security.md
         type: markdown
 
   - id: quality
@@ -114,7 +114,7 @@ steps:
       source: "Quality review"
     output_artifacts:
       - name: findings
-        path: output/quality.md
+        path: .wave/output/quality.md
         type: markdown
 ```
 
@@ -185,7 +185,7 @@ Declare what a step outputs:
 ```yaml
 output_artifacts:
   - name: analysis        # Artifact identifier
-    path: output/data.json  # Where the step writes it
+    path: .wave/output/data.json  # Where the step writes it
     type: json             # Type hint for consumers
 ```
 
@@ -202,7 +202,7 @@ memory:
       as: context         # Mount name in workspace
 ```
 
-The artifact appears at `artifacts/<as-name>` in the step's workspace.
+The artifact appears at `.wave/artifacts/<as-name>` in the step's workspace.
 
 ### Artifact Types
 
@@ -232,10 +232,10 @@ memory:
       as: quality
 ```
 
-All artifacts are available under `artifacts/`:
-- `artifacts/code`
-- `artifacts/security`
-- `artifacts/quality`
+All artifacts are available under `.wave/artifacts/`:
+- `.wave/artifacts/code`
+- `.wave/artifacts/security`
+- `.wave/artifacts/quality`
 
 ## Memory Strategies
 
@@ -298,7 +298,7 @@ steps:
         Output as JSON with files, modules, and breaking changes.
     output_artifacts:
       - name: diff
-        path: output/diff.json
+        path: .wave/output/diff.json
         type: json
 
   - id: security-review
@@ -312,10 +312,10 @@ steps:
           as: changes
     exec:
       type: prompt
-      source: "Review artifacts/changes for security vulnerabilities"
+      source: "Review .wave/artifacts/changes for security vulnerabilities"
     output_artifacts:
       - name: security
-        path: output/security.md
+        path: .wave/output/security.md
         type: markdown
 
   - id: quality-review
@@ -329,10 +329,10 @@ steps:
           as: changes
     exec:
       type: prompt
-      source: "Review artifacts/changes for code quality issues"
+      source: "Review .wave/artifacts/changes for code quality issues"
     output_artifacts:
       - name: quality
-        path: output/quality.md
+        path: .wave/output/quality.md
         type: markdown
 
   - id: final-verdict
@@ -353,7 +353,7 @@ steps:
         Synthesize findings into: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
     output_artifacts:
       - name: verdict
-        path: output/verdict.md
+        path: .wave/output/verdict.md
         type: markdown
 ```
 

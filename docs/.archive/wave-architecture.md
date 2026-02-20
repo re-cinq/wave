@@ -415,7 +415,7 @@ stateDiagram-v2
     end note
 
     note right of Injected
-        artifacts/
+        .wave/artifacts/
         {step}_{artifact}
     end note
 ```
@@ -437,9 +437,9 @@ flowchart LR
         S3IN[inject_artifacts:<br/>- step: spec<br/>- step: docs]
     end
 
-    S1OUT -->|"artifacts/spec_spec.md"| S2IN
-    S1OUT -->|"artifacts/spec_spec.md"| S3IN
-    S2OUT -->|"artifacts/docs_docs.md"| S3IN
+    S1OUT -->|".wave/artifacts/spec_spec.md"| S2IN
+    S1OUT -->|".wave/artifacts/spec_spec.md"| S3IN
+    S2OUT -->|".wave/artifacts/docs_docs.md"| S3IN
 ```
 
 ## Matrix Strategy Execution

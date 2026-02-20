@@ -38,7 +38,7 @@ steps:
         3. Suggestions for improvement
     output_artifacts:
       - name: review
-        path: output/review.md
+        path: .wave/output/review.md
         type: markdown
 ```
 
@@ -63,7 +63,7 @@ steps:
       source: "Analyze changes: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 
   - id: security
@@ -83,7 +83,7 @@ steps:
         Check for OWASP Top 10 vulnerabilities.
     output_artifacts:
       - name: security
-        path: output/security.md
+        path: .wave/output/security.md
         type: markdown
 ```
 
@@ -118,7 +118,7 @@ steps:
         Output as JSON with endpoint details.
     output_artifacts:
       - name: endpoints
-        path: output/endpoints.json
+        path: .wave/output/endpoints.json
         type: json
     handover:
       contract:
@@ -142,7 +142,7 @@ steps:
         Include examples and error responses.
     output_artifacts:
       - name: docs
-        path: output/api-docs.md
+        path: .wave/output/api-docs.md
         type: markdown
 ```
 
@@ -174,7 +174,7 @@ steps:
         Focus on: {{ input }}
     output_artifacts:
       - name: structure
-        path: output/structure.json
+        path: .wave/output/structure.json
         type: json
 
   - id: generate-readme
@@ -194,7 +194,7 @@ steps:
         Include: installation, usage, examples.
     output_artifacts:
       - name: readme
-        path: output/README.md
+        path: .wave/output/README.md
         type: markdown
 ```
 
@@ -228,7 +228,7 @@ steps:
         Identify edge cases and test scenarios.
     output_artifacts:
       - name: analysis
-        path: output/test-analysis.json
+        path: .wave/output/test-analysis.json
         type: json
 
   - id: generate
@@ -248,12 +248,12 @@ steps:
         Use the project's existing test framework.
     output_artifacts:
       - name: tests
-        path: output/tests.generated.ts
+        path: .wave/output/tests.generated.ts
         type: typescript
     handover:
       contract:
         type: typescript
-        source: output/tests.generated.ts
+        source: .wave/output/tests.generated.ts
         validate: true
 ```
 
@@ -291,7 +291,7 @@ steps:
         - Recent changes
     output_artifacts:
       - name: context
-        path: output/debug-context.json
+        path: .wave/output/debug-context.json
         type: json
 
   - id: analyze
@@ -313,7 +313,7 @@ steps:
         3. Suggested fix
     output_artifacts:
       - name: analysis
-        path: output/root-cause.md
+        path: .wave/output/root-cause.md
         type: markdown
 ```
 

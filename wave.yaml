@@ -29,7 +29,7 @@ personas:
         adapter: claude
         description: Security review and quality assurance
         model: opus
-        temperature: 0.1
+        #temperature: 0.1
         permissions:
             allowed_tools:
                 - Read
@@ -44,7 +44,7 @@ personas:
         adapter: claude
         description: Code implementation and testing
         model: opus
-        temperature: 0.3
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -58,7 +58,7 @@ personas:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
         model: opus
-        temperature: 0.2
+        #temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -75,8 +75,8 @@ personas:
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
-        model: sonnet
-        temperature: 0.3
+        model: opus
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -94,7 +94,7 @@ personas:
         adapter: claude
         description: Architecture design and specification
         model: opus
-        temperature: 0.7
+        #temperature: 0.7
         permissions:
             allowed_tools:
                 - Read
@@ -105,8 +105,8 @@ personas:
     planner:
         adapter: claude
         description: Task breakdown and project planning
-        model: sonnet
-        temperature: 0.3
+        model: opus
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -120,8 +120,8 @@ personas:
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
-        model: sonnet
-        temperature: 0.2
+        model: opus
+        #temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -132,8 +132,8 @@ personas:
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
-        model: sonnet
-        temperature: 0.3
+        model: opus
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -143,8 +143,8 @@ personas:
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
-        model: sonnet
-        temperature: 0.5
+        model: opus
+        #temperature: 0.5
         permissions:
             allowed_tools:
                 - Read
@@ -157,7 +157,7 @@ personas:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
         model: opus
-        temperature: 0.3
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
@@ -173,15 +173,15 @@ personas:
     reviewer:
         adapter: claude
         description: Quality review, validation, and assessment
-        model: sonnet
-        temperature: 0.3
+        model: opus
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
                 - Glob
                 - Grep
-                - Write(artifact.json)
-                - Write(artifacts/*)
+                - Write(.wave/artifact.json)
+                - Write(.wave/artifacts/*)
                 - Bash(go test*)
                 - Bash(npm test*)
             deny:
@@ -192,8 +192,8 @@ personas:
     researcher:
         adapter: claude
         description: Web research and information synthesis
-        model: sonnet
-        temperature: 0.5
+        model: opus
+        #temperature: 0.5
         permissions:
             allowed_tools:
                 - Read
@@ -212,13 +212,13 @@ personas:
     github-commenter:
         adapter: claude
         description: Post comments on GitHub issues
-        model: sonnet
-        temperature: 0.3
+        model: opus
+        #temperature: 0.3
         permissions:
             allowed_tools:
                 - Read
-                - Write(artifact.json)
-                - Write(output/*)
+                - Write(.wave/artifact.json)
+                - Write(.wave/output/*)
                 - Bash(gh issue comment*)
                 - Bash(gh --version)
             deny:
@@ -231,7 +231,7 @@ personas:
         adapter: claude
         description: Work quality and process quality evaluation
         model: opus
-        temperature: 0.2
+        #temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -253,8 +253,8 @@ personas:
     validator:
         adapter: claude
         description: Skeptical analysis and verification of findings against source code
-        model: sonnet
-        temperature: 0.1
+        model: opus
+        #temperature: 0.1
         permissions:
             allowed_tools:
                 - Read
@@ -273,8 +273,8 @@ personas:
     synthesizer:
         adapter: claude
         description: Structured synthesis of analysis findings into actionable JSON proposals
-        model: sonnet
-        temperature: 0.2
+        model: opus
+        #temperature: 0.2
         permissions:
             allowed_tools:
                 - Read
@@ -288,7 +288,7 @@ personas:
         adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
         model: opus
-        temperature: 0.8
+        #temperature: 0.8
         permissions:
             allowed_tools:
                 - Read

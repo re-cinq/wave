@@ -84,7 +84,7 @@ steps:
         }
     output_artifacts:
       - name: coverage
-        path: output/coverage-analysis.json
+        path: .wave/output/coverage-analysis.json
         type: json
 
   - id: generate-tests
@@ -123,7 +123,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: tests
-        path: output/generated-tests.md
+        path: .wave/output/generated-tests.md
         type: markdown
 
   - id: verify-coverage
@@ -145,7 +145,7 @@ steps:
         Output: coverage delta and quality assessment
     output_artifacts:
       - name: verification
-        path: output/coverage-verification.md
+        path: .wave/output/coverage-verification.md
         type: markdown
 ```
 
@@ -157,13 +157,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `coverage` | `output/coverage-analysis.json` | Coverage analysis with gaps identified |
-| `tests` | `output/generated-tests.md` | Generated test code and explanations |
-| `verification` | `output/coverage-verification.md` | Coverage improvement verification |
+| `coverage` | `.wave/output/coverage-analysis.json` | Coverage analysis with gaps identified |
+| `tests` | `.wave/output/generated-tests.md` | Generated test code and explanations |
+| `verification` | `.wave/output/coverage-verification.md` | Coverage improvement verification |
 
 ### Example Output
 
-The pipeline produces `output/generated-tests.md`:
+The pipeline produces `.wave/output/generated-tests.md`:
 
 ```markdown
 # Generated Tests for pipeline Package
@@ -319,7 +319,7 @@ steps:
         Output test scenarios for each integration.
     output_artifacts:
       - name: integrations
-        path: output/integrations.json
+        path: .wave/output/integrations.json
         type: json
 
   - id: generate
@@ -344,7 +344,7 @@ steps:
         max_retries: 2
     output_artifacts:
       - name: tests
-        path: output/integration-tests.md
+        path: .wave/output/integration-tests.md
         type: markdown
 ```
 

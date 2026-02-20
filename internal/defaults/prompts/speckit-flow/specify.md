@@ -47,7 +47,7 @@ Use 1-3 Task agents to parallelize independent work:
 
 ## Output
 
-Write a JSON status report to output/specify-status.json with:
+Write a JSON status report to .wave/output/specify-status.json with:
 ```json
 {
   "branch_name": "the created branch name",

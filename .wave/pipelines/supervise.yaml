@@ -46,12 +46,12 @@ steps:
         heavily on understanding what the agent actually did vs what it should have done.
     output_artifacts:
       - name: evidence
-        path: output/supervision-evidence.json
+        path: .wave/output/supervision-evidence.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/supervision-evidence.json
+        source: .wave/output/supervision-evidence.json
         schema_path: .wave/contracts/supervision-evidence.schema.json
         on_failure: retry
         max_retries: 2
@@ -74,7 +74,7 @@ steps:
       source: |
         Evaluate the work quality based on gathered evidence.
 
-        Read the evidence: cat artifacts/evidence
+        Read the evidence: cat .wave/artifacts/evidence
 
         ## Output Quality Assessment
 
@@ -103,12 +103,12 @@ steps:
         Write the evaluation as JSON to output/supervision-evaluation.json matching the contract schema.
     output_artifacts:
       - name: evaluation
-        path: output/supervision-evaluation.json
+        path: .wave/output/supervision-evaluation.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/supervision-evaluation.json
+        source: .wave/output/supervision-evaluation.json
         schema_path: .wave/contracts/supervision-evaluation.schema.json
         on_failure: retry
         max_retries: 2
@@ -135,8 +135,8 @@ steps:
         Synthesize a final supervision verdict.
 
         Read the evidence and evaluation:
-          cat artifacts/evidence
-          cat artifacts/evaluation
+          cat .wave/artifacts/evidence
+          cat .wave/artifacts/evaluation
 
         ## Independent Verification
 
@@ -166,5 +166,5 @@ steps:
         ## Verdict, ## Output Quality, ## Process Quality, ## Action Items, ## Lessons Learned
     output_artifacts:
       - name: verdict
-        path: output/supervision-verdict.md
+        path: .wave/output/supervision-verdict.md
         type: markdown

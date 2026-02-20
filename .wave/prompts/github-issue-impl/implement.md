@@ -9,15 +9,15 @@ Your working directory IS the project root. The feature branch was created by th
 plan step and is already checked out. All git operations here are isolated from
 the main working tree.
 
-The issue assessment is available at `artifacts/issue_assessment`.
-The implementation plan is available at `artifacts/plan`.
+The issue assessment is available at `.wave/artifacts/issue_assessment`.
+The implementation plan is available at `.wave/artifacts/plan`.
 
 ## Instructions
 
 ### Step 1: Load Context
 
-1. Read `artifacts/issue_assessment` for the issue details and branch name
-2. Read `artifacts/plan` for the task breakdown, file changes, and feature directory
+1. Read `.wave/artifacts/issue_assessment` for the issue details and branch name
+2. Read `.wave/artifacts/plan` for the task breakdown, file changes, and feature directory
 
 ### Step 2: Read Plan Files
 
@@ -64,6 +64,7 @@ After all tasks are complete:
 3. Stage and commit all changes:
    ```bash
    git add -A
+   git reset HEAD -- .wave/artifacts .wave/output .claude CLAUDE.md 2>/dev/null || true
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 

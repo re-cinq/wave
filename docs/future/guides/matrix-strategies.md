@@ -50,7 +50,7 @@ steps:
         Output as JSON: {"tasks": [{"task": "description"}, ...]}
     output_artifacts:
       - name: tasks
-        path: output/tasks.json
+        path: .wave/output/tasks.json
         type: json
 
   - id: execute
@@ -123,7 +123,7 @@ Pipeline halted. Resolve conflicts and re-run.
 ### Avoiding Conflicts
 
 - **Design tasks to be independent** — each worker should touch different files.
-- **Use naming conventions** — e.g., each worker writes to `output/<task-name>/`.
+- **Use naming conventions** — e.g., each worker writes to `.wave/output/<task-name>/`.
 - **Add a merge step** — downstream step resolves conflicts programmatically.
 
 ## Matrix Events
@@ -158,7 +158,7 @@ steps:
         Output as JSON: {"tasks": [{"task": "service description"}, ...]}
     output_artifacts:
       - name: tasks
-        path: output/tasks.json
+        path: .wave/output/tasks.json
 
   - id: migrate
     persona: craftsman

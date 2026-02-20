@@ -78,13 +78,13 @@ func generateNavigateStep(persona, input string) Step {
 			Source: fmt.Sprintf("Analyze the codebase for: {{ input }}\nInput: %s\n\nProvide a structured analysis including relevant files, patterns, and dependencies.", input),
 		},
 		OutputArtifacts: []ArtifactDef{
-			{Name: "analysis", Path: "output/analysis.json", Type: "json"},
+			{Name: "analysis", Path: ".wave/output/analysis.json", Type: "json"},
 		},
 		Handover: HandoverConfig{
 			Contract: ContractConfig{
 				Type:       "json_schema",
 				SchemaPath: ".wave/contracts/navigation.schema.json",
-				Source:     "output/analysis.json",
+				Source:     ".wave/output/analysis.json",
 				OnFailure:  "retry",
 				MaxRetries: 2,
 			},

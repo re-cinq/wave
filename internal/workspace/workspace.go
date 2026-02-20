@@ -114,7 +114,7 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 		return errors.New("workspacePath cannot be empty")
 	}
 
-	artifactsDir := filepath.Join(workspacePath, "artifacts")
+	artifactsDir := filepath.Join(workspacePath, ".wave", "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts directory: %w", err)
 	}

@@ -42,12 +42,12 @@ steps:
         constraints, precedents, stakeholders, and timestamp.
     output_artifacts:
       - name: context
-        path: output/adr-context.json
+        path: .wave/output/adr-context.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/adr-context.json
+        source: .wave/output/adr-context.json
         schema_path: .wave/contracts/adr-context.schema.json
         on_failure: retry
         max_retries: 2
@@ -70,7 +70,7 @@ steps:
       source: |
         Analyze the options for this architectural decision.
 
-        Read the context: cat artifacts/decision_context
+        Read the context: cat .wave/artifacts/decision_context
 
         Original decision: {{ input }}
 
@@ -91,12 +91,12 @@ steps:
         reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
     output_artifacts:
       - name: options
-        path: output/adr-options.json
+        path: .wave/output/adr-options.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/adr-options.json
+        source: .wave/output/adr-options.json
         schema_path: .wave/contracts/adr-options.schema.json
         on_failure: retry
         max_retries: 2
@@ -118,8 +118,8 @@ steps:
         Draft the Architecture Decision Record.
 
         Read both artifacts:
-          cat artifacts/decision_context
-          cat artifacts/analysis
+          cat .wave/artifacts/decision_context
+          cat .wave/artifacts/analysis
 
         Write the ADR to output/adr.md using this standard format:
 
@@ -171,5 +171,5 @@ steps:
         someone who wasn't part of the original discussion.
     output_artifacts:
       - name: adr
-        path: output/adr.md
+        path: .wave/output/adr.md
         type: markdown

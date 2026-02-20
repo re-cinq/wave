@@ -31,12 +31,12 @@ steps:
         and environmental_factors.
     output_artifacts:
       - name: reproduction
-        path: output/reproduction.json
+        path: .wave/output/reproduction.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/reproduction.json
+        source: .wave/output/reproduction.json
         schema_path: .wave/contracts/debug-reproduction.schema.json
         on_failure: retry
         max_retries: 2
@@ -54,7 +54,7 @@ steps:
       source: |
         Form hypotheses about the root cause.
 
-        First, read the issue details from artifacts/issue to understand the problem.
+        First, read the issue details from .wave/artifacts/issue to understand the problem.
 
         For each hypothesis:
         1. What could cause this behavior?
@@ -68,12 +68,12 @@ steps:
         and expected_result_if_true.
     output_artifacts:
       - name: hypotheses
-        path: output/hypotheses.json
+        path: .wave/output/hypotheses.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/hypotheses.json
+        source: .wave/output/hypotheses.json
         schema_path: .wave/contracts/debug-hypotheses.schema.json
         on_failure: retry
         max_retries: 2
@@ -100,8 +100,8 @@ steps:
         Test each hypothesis systematically.
 
         First, read the context from the injected artifacts:
-        - Read artifacts/issue for the issue reproduction details
-        - Read artifacts/hypotheses for the hypotheses to test
+        - Read .wave/artifacts/issue for the issue reproduction details
+        - Read .wave/artifacts/hypotheses for the hypotheses to test
 
         Then:
         1. Start with most likely / easiest to test
@@ -113,7 +113,7 @@ steps:
         Continue until root cause is identified.
     output_artifacts:
       - name: findings
-        path: output/investigation.md
+        path: .wave/output/investigation.md
         type: markdown
 
   - id: fix
@@ -134,7 +134,7 @@ steps:
       source: |
         Fix the root cause identified in the investigation.
 
-        First, read artifacts/root_cause to understand the investigation findings and root cause.
+        First, read .wave/artifacts/root_cause to understand the investigation findings and root cause.
 
         Then:
         1. Implement the minimal fix
@@ -152,5 +152,5 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: fix
-        path: output/fix-summary.md
+        path: .wave/output/fix-summary.md
         type: markdown

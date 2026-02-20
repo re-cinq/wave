@@ -181,10 +181,10 @@ func TestPipelineContext_ResolveArtifactPath(t *testing.T) {
 			name: "json_file_no_speckit_transformation",
 			artifact: ArtifactDef{
 				Name: "analysis",
-				Path: "output/analysis.json",
+				Path: ".wave/output/analysis.json",
 				Type: "json",
 			},
-			expected: "output/analysis.json",
+			expected: ".wave/output/analysis.json",
 		},
 		{
 			name: "absolute_path_unchanged",

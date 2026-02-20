@@ -64,7 +64,7 @@ Every step validates its output against a schema before the next step begins. Ma
 ```yaml
 output_artifacts:
   - name: analysis
-    path: output/analysis.json
+    path: .wave/output/analysis.json
     type: json
     contract: contracts/analysis-schema.json
 ```

@@ -9,14 +9,14 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available at `artifacts/spec_info`.
+A status report from the specify step is available at `.wave/artifacts/spec_info`.
 Read it to find the branch name, spec file, and feature directory.
 
 ## Instructions
 
 Follow the `/speckit.analyze` workflow:
 
-1. Read `artifacts/spec_info` to find the feature directory and spec file path
+1. Read `.wave/artifacts/spec_info` to find the feature directory and spec file path
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR and locate spec.md, plan.md, tasks.md
 3. Load all three artifacts and build semantic models:
@@ -44,7 +44,7 @@ Follow the `/speckit.analyze` workflow:
 
 ## Output
 
-Write a JSON status report to output/analysis-report.json with:
+Write a JSON status report to .wave/output/analysis-report.json with:
 ```json
 {
   "total_requirements": 8,

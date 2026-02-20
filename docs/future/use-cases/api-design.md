@@ -36,7 +36,7 @@ Expected output:
 [10:01:42] completed validate          (auditor)     26s   2.1k Validation complete
 
 Pipeline api-design completed in 101s
-Artifacts: output/api-spec.yaml
+Artifacts: .wave/output/api-spec.yaml
 ```
 
 ## Complete Pipeline
@@ -87,7 +87,7 @@ steps:
         }
     output_artifacts:
       - name: requirements
-        path: output/api-requirements.json
+        path: .wave/output/api-requirements.json
         type: json
 
   - id: design
@@ -121,7 +121,7 @@ steps:
         - HATEOAS links where appropriate
     output_artifacts:
       - name: spec
-        path: output/api-spec.yaml
+        path: .wave/output/api-spec.yaml
         type: yaml
 
   - id: validate
@@ -154,7 +154,7 @@ steps:
         Output: list of issues or "APPROVED"
     output_artifacts:
       - name: validation
-        path: output/api-validation.md
+        path: .wave/output/api-validation.md
         type: markdown
 ```
 
@@ -166,13 +166,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `requirements` | `output/api-requirements.json` | Structured API requirements |
-| `spec` | `output/api-spec.yaml` | OpenAPI 3.0 specification |
-| `validation` | `output/api-validation.md` | Design review and validation |
+| `requirements` | `.wave/output/api-requirements.json` | Structured API requirements |
+| `spec` | `.wave/output/api-spec.yaml` | OpenAPI 3.0 specification |
+| `validation` | `.wave/output/api-validation.md` | Design review and validation |
 
 ### Example Output
 
-The pipeline produces `output/api-spec.yaml`:
+The pipeline produces `.wave/output/api-spec.yaml`:
 
 <div v-pre>
 
@@ -486,7 +486,7 @@ Add a code generation step:
       - Router configuration
   output_artifacts:
     - name: handlers
-      path: output/handlers.go
+      path: .wave/output/handlers.go
       type: code
 ```
 
@@ -520,7 +520,7 @@ Add a code generation step:
       must_pass: true
   output_artifacts:
     - name: tests
-      path: output/api_test.go
+      path: .wave/output/api_test.go
       type: code
 ```
 

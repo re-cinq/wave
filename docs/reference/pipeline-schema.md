@@ -50,13 +50,13 @@ steps:
       source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/analysis.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
 
   - id: review
     persona: auditor
@@ -72,7 +72,7 @@ steps:
       source: "Review the code for security issues."
     output_artifacts:
       - name: findings
-        path: output/findings.md
+        path: .wave/output/findings.md
         type: markdown
     handover:
       contract:
@@ -208,10 +208,10 @@ Declare files produced by a step:
 ```yaml
 output_artifacts:
   - name: analysis
-    path: output/analysis.json
+    path: .wave/output/analysis.json
     type: json
   - name: report
-    path: output/report.md
+    path: .wave/output/report.md
     type: markdown
 ```
 
@@ -245,7 +245,7 @@ memory:
 | `artifact` | **yes** | Artifact name from source step |
 | `as` | **yes** | Name in current workspace |
 
-Artifacts are copied to `artifacts/<as>/` in the step workspace.
+Artifacts are copied to `.wave/artifacts/<as>/` in the step workspace.
 
 ---
 
@@ -311,7 +311,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/analysis.schema.json
-    source: output/analysis.json
+    source: .wave/output/analysis.json
     on_failure: retry
     max_retries: 2
 ```
@@ -322,7 +322,7 @@ handover:
 handover:
   contract:
     type: typescript
-    source: output/types.ts
+    source: .wave/output/types.ts
     validate: true
 ```
 
@@ -371,7 +371,7 @@ steps:
       source: "Break down into tasks. Output: {\"tasks\": [...]}"
     output_artifacts:
       - name: tasks
-        path: output/tasks.json
+        path: .wave/output/tasks.json
 
   - id: execute
     persona: craftsman

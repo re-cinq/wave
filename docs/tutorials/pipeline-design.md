@@ -37,12 +37,12 @@ steps:
       source: Analyze the codebase for: {{ input }}
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/navigation.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
 
   - id: specify
     persona: philosopher
@@ -58,7 +58,7 @@ steps:
       source: Create a specification for: {{ input }}
     output_artifacts:
       - name: spec
-        path: output/spec.md
+        path: .wave/output/spec.md
 
   - id: implement
     persona: craftsman

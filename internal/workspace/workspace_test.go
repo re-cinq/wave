@@ -241,7 +241,7 @@ func TestWorkspaceManager_InjectArtifacts(t *testing.T) {
 		t.Errorf("InjectArtifacts() error = %v", err)
 	}
 
-	expectedArtifact := filepath.Join(workspacePath, "artifacts", "step-1_output")
+	expectedArtifact := filepath.Join(workspacePath, ".wave", "artifacts", "step-1_output")
 	if _, err := os.Stat(expectedArtifact); os.IsNotExist(err) {
 		t.Errorf("InjectArtifacts() did not create expected artifact")
 	}
@@ -824,13 +824,13 @@ func TestWorkspaceIsolation_ArtifactInjectionIsolation(t *testing.T) {
 	}
 
 	// Pipeline B should NOT have the artifact
-	artifactPathB := filepath.Join(wsB, "artifacts", "step-1_secret")
+	artifactPathB := filepath.Join(wsB, ".wave", "artifacts", "step-1_secret")
 	if _, err := os.Stat(artifactPathB); !os.IsNotExist(err) {
 		t.Error("Pipeline B has artifact that was only injected into pipeline A")
 	}
 
 	// Pipeline A should have the artifact
-	artifactPathA := filepath.Join(wsA, "artifacts", "step-1_secret")
+	artifactPathA := filepath.Join(wsA, ".wave", "artifacts", "step-1_secret")
 	if _, err := os.Stat(artifactPathA); os.IsNotExist(err) {
 		t.Error("Pipeline A missing injected artifact")
 	}

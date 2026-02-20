@@ -30,7 +30,7 @@ steps:
       source: "Generate OpenAPI schema for the endpoints in {{ input }}"
     output_artifacts:
       - name: schema
-        path: output/api.json
+        path: .wave/output/api.json
         type: json
     handover:
       contract:
@@ -41,7 +41,7 @@ steps:
 ```
 
 **Execution flow:**
-1. Step completes, producing `output/api.json`
+1. Step completes, producing `.wave/output/api.json`
 2. Wave validates output against the JSON Schema
 3. **Pass**: Step marked complete, artifact available to dependent steps
 4. **Fail**: Fresh workspace created, step re-executes (up to `max_retries`)
@@ -90,7 +90,7 @@ Validates that generated TypeScript code compiles without errors.
 handover:
   contract:
     type: typescript
-    source: output/types.ts
+    source: .wave/output/types.ts
     validate: true
 ```
 
@@ -118,7 +118,7 @@ Validates markdown structure and content requirements.
 handover:
   contract:
     type: markdownspec
-    source: output/documentation.md
+    source: .wave/output/documentation.md
 ```
 
 **Use for:** Documentation outputs, README files, structured reports.
@@ -190,7 +190,7 @@ steps:
         - test_coverage: percentage as number
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
     handover:
       contract:
@@ -250,12 +250,12 @@ steps:
       source: "Generate TypeScript API client from {{ input }}"
     output_artifacts:
       - name: client
-        path: output/client.ts
+        path: .wave/output/client.ts
         type: typescript
     handover:
       contract:
         type: typescript
-        source: output/client.ts
+        source: .wave/output/client.ts
         validate: true
 
   - id: test
