@@ -41,12 +41,12 @@ steps:
         high_impact, overall_quality), and timestamp.
     output_artifacts:
       - name: assessment
-        path: output/assessment.json
+        path: .wave/output/assessment.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/assessment.json
+        source: .wave/output/assessment.json
         schema_path: .wave/contracts/improvement-assessment.schema.json
         on_failure: retry
         max_retries: 2
@@ -69,7 +69,7 @@ steps:
       source: |
         Apply the recommended improvements to the codebase.
 
-        Read the assessment: cat artifacts/findings
+        Read the assessment: cat .wave/artifacts/findings
 
         ## Rules
 
@@ -105,7 +105,7 @@ steps:
       source: |
         Verify the improvements were applied correctly.
 
-        Read the original assessment: cat artifacts/original_findings
+        Read the original assessment: cat .wave/artifacts/original_findings
 
         For each improvement that was applied:
         1. Is the fix correct and complete?
@@ -122,5 +122,5 @@ steps:
         - Overall quality delta assessment
     output_artifacts:
       - name: verification
-        path: output/verification.md
+        path: .wave/output/verification.md
         type: markdown

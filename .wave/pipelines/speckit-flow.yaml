@@ -23,7 +23,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/specify.md
     output_artifacts:
       - name: spec-status
-        path: output/specify-status.json
+        path: .wave/output/specify-status.json
         type: json
 
   - id: clarify
@@ -42,7 +42,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/clarify.md
     output_artifacts:
       - name: clarify-status
-        path: output/clarify-status.json
+        path: .wave/output/clarify-status.json
         type: json
 
   - id: plan
@@ -61,7 +61,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/plan.md
     output_artifacts:
       - name: plan-status
-        path: output/plan-status.json
+        path: .wave/output/plan-status.json
         type: json
 
   - id: tasks
@@ -80,7 +80,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/tasks.md
     output_artifacts:
       - name: tasks-status
-        path: output/tasks-status.json
+        path: .wave/output/tasks-status.json
         type: json
 
   - id: checklist
@@ -99,7 +99,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/checklist.md
     output_artifacts:
       - name: checklist-status
-        path: output/checklist-status.json
+        path: .wave/output/checklist-status.json
         type: json
 
   - id: analyze
@@ -118,7 +118,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/analyze.md
     output_artifacts:
       - name: analysis-report
-        path: output/analysis-report.json
+        path: .wave/output/analysis-report.json
         type: json
 
   - id: implement
@@ -162,5 +162,5 @@ steps:
       source_path: .wave/prompts/speckit-flow/create-pr.md
     output_artifacts:
       - name: pr-result
-        path: output/pr-result.json
+        path: .wave/output/pr-result.json
         type: json

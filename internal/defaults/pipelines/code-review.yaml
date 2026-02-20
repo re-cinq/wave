@@ -31,12 +31,12 @@ steps:
         related_tests, and breaking_changes.
     output_artifacts:
       - name: diff
-        path: output/diff-analysis.json
+        path: .wave/output/diff-analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/diff-analysis.json
+        source: .wave/output/diff-analysis.json
         schema_path: .wave/contracts/diff-analysis.schema.json
         on_failure: retry
         max_retries: 2
@@ -65,7 +65,7 @@ steps:
         Output findings with severity (CRITICAL/HIGH/MEDIUM/LOW).
     output_artifacts:
       - name: security
-        path: output/security-review.md
+        path: .wave/output/security-review.md
         type: markdown
 
   - id: quality-review
@@ -93,7 +93,7 @@ steps:
         Output findings with severity and suggestions.
     output_artifacts:
       - name: quality
-        path: output/quality-review.md
+        path: .wave/output/quality-review.md
         type: markdown
 
   - id: summary
@@ -120,5 +120,5 @@ steps:
         Format as a PR review comment.
     output_artifacts:
       - name: verdict
-        path: output/review-summary.md
+        path: .wave/output/review-summary.md
         type: markdown

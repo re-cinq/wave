@@ -336,7 +336,7 @@ func TestErrorMessageProvider(t *testing.T) {
 			originalError: fmt.Errorf("artifact injection failed"),
 			expectedContains: []string{
 				"Phase 'docs' failed",
-				"artifacts/input-spec.md is accessible",
+				".wave/artifacts/input-spec.md is accessible",
 				"wave run prototype --from-step docs",
 			},
 		},

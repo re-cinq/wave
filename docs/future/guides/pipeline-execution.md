@@ -41,7 +41,7 @@ steps:
       source: "Analyze: {​{ input }}"
     output_artifacts:
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
         type: json
 ```
 
@@ -100,7 +100,7 @@ Each step executes in an isolated workspace:
 .wave/workspaces/<run-id>/<step-id>/
 ├── input/          # Injected artifacts from dependencies
 ├── workspace/      # Working directory for the persona
-└── output/         # Step outputs for contract validation
+└── .wave/output/   # Step outputs for contract validation
 ```
 
 **Workspace guarantees:**
@@ -257,7 +257,7 @@ A complete code review execution:
    → Persona: navigator
    → Mount: ./src → /code (readonly)
    → Execute prompt
-   → Output: output/analysis.json
+   → Output: .wave/output/analysis.json
    → Contract: jsonschema validation ✓
    → Artifacts available: [analysis]
 

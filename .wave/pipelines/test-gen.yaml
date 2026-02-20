@@ -31,12 +31,12 @@ steps:
         and mock_requirements.
     output_artifacts:
       - name: coverage
-        path: output/coverage-analysis.json
+        path: .wave/output/coverage-analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/coverage-analysis.json
+        source: .wave/output/coverage-analysis.json
         schema_path: .wave/contracts/coverage-analysis.schema.json
         on_failure: retry
         max_retries: 2
@@ -77,7 +77,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: tests
-        path: output/generated-tests.md
+        path: .wave/output/generated-tests.md
         type: markdown
 
   - id: verify-coverage
@@ -97,5 +97,5 @@ steps:
         Output: coverage delta and quality assessment
     output_artifacts:
       - name: verification
-        path: output/coverage-verification.md
+        path: .wave/output/coverage-verification.md
         type: markdown

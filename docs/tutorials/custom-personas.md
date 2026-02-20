@@ -106,7 +106,7 @@ steps:
       source: Perform a security audit focusing on: {{ input }}
     output_artifacts:
       - name: report
-        path: output/security-report.json
+        path: .wave/output/security-report.json
 ```
 
 ## Step 6: Validate and Test
