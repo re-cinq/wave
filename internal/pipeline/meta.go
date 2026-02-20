@@ -96,12 +96,7 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 		return nil, err
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "meta_generate_started",
-		Message:    fmt.Sprintf("depth=%d task=%q", e.currentDepth, truncate(task, 100)),
-	})
+	e.emitEvent("meta_generate_started", fmt.Sprintf("depth=%d task=%q", e.currentDepth, truncate(task, 100)))
 
 	// Invoke philosopher to generate pipeline YAML
 	generatedYAML, tokensUsed, err := e.invokePhilosopher(ctx, task, m)
@@ -118,12 +113,7 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 	pipeline, err := e.loader.Unmarshal([]byte(generatedYAML))
 	if err != nil {
 		// Emit debug event with the raw YAML for troubleshooting
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: e.getPipelineID(),
-			State:      "meta_generate_failed",
-			Message:    fmt.Sprintf("YAML parse error: %v", err),
-		})
+		e.emitEvent("meta_generate_failed", fmt.Sprintf("YAML parse error: %v", err))
 		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
@@ -132,12 +122,7 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 		return nil, fmt.Errorf("generated pipeline validation failed: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "meta_generate_completed",
-		Message:    fmt.Sprintf("generated %d steps, tokens_used=%d", len(pipeline.Steps), tokensUsed),
-	})
+	e.emitEvent("meta_generate_completed", fmt.Sprintf("generated %d steps, tokens_used=%d", len(pipeline.Steps), tokensUsed))
 
 	return pipeline, nil
 }
@@ -152,12 +137,7 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 		return nil, err
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "meta_started",
-		Message:    fmt.Sprintf("depth=%d task=%q", e.currentDepth, truncate(task, 100)),
-	})
+	e.emitEvent("meta_started", fmt.Sprintf("depth=%d task=%q", e.currentDepth, truncate(task, 100)))
 
 	// Invoke philosopher to generate pipeline YAML
 	generatedYAML, tokensUsed, err := e.invokePhilosopher(ctx, task, m)
@@ -173,12 +153,7 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 	// Parse and validate the generated pipeline
 	pipeline, err := e.loader.Unmarshal([]byte(generatedYAML))
 	if err != nil {
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: e.getPipelineID(),
-			State:      "meta_generate_failed",
-			Message:    fmt.Sprintf("YAML parse error: %v", err),
-		})
+		e.emitEvent("meta_generate_failed", fmt.Sprintf("YAML parse error: %v", err))
 		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
@@ -193,12 +168,7 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 		return nil, err
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "meta_pipeline_generated",
-		Message:    fmt.Sprintf("generated %d steps, tokens_used=%d", len(pipeline.Steps), tokensUsed),
-	})
+	e.emitEvent("meta_pipeline_generated", fmt.Sprintf("generated %d steps, tokens_used=%d", len(pipeline.Steps), tokensUsed))
 
 	// Execute the generated pipeline
 	result := &MetaExecutionResult{
@@ -215,12 +185,7 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 	result.TotalSteps = e.totalStepsUsed
 	result.TotalTokens = e.totalTokensUsed
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "meta_completed",
-		Message:    fmt.Sprintf("total_steps=%d total_tokens=%d", e.totalStepsUsed, e.totalTokensUsed),
-	})
+	e.emitEvent("meta_completed", fmt.Sprintf("total_steps=%d total_tokens=%d", e.totalStepsUsed, e.totalTokensUsed))
 
 	return result, nil
 }
@@ -267,12 +232,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 		OutputFormat:  "yaml",
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "philosopher_invoking",
-		Message:    fmt.Sprintf("adapter=%s timeout=%v", cfg.Adapter, cfg.Timeout),
-	})
+	e.emitEvent("philosopher_invoking", fmt.Sprintf("adapter=%s timeout=%v", cfg.Adapter, cfg.Timeout))
 
 	result, err := e.runner.Run(ctx, cfg)
 	if err != nil {
@@ -295,12 +255,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 		return nil, result.TokensUsed, fmt.Errorf("failed to save schema files: %w", err)
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: e.getPipelineID(),
-		State:      "philosopher_completed",
-		Message:    fmt.Sprintf("tokens_used=%d schemas_generated=%d", result.TokensUsed, len(genResult.Schemas)),
-	})
+	e.emitEvent("philosopher_completed", fmt.Sprintf("tokens_used=%d schemas_generated=%d", result.TokensUsed, len(genResult.Schemas)))
 
 	return genResult, result.TokensUsed, nil
 }
@@ -325,12 +280,7 @@ func (e *MetaPipelineExecutor) saveSchemaFiles(schemas map[string]string) error 
 			return fmt.Errorf("failed to write schema file %s: %w", schemaPath, err)
 		}
 
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: e.getPipelineID(),
-			State:      "schema_saved",
-			Message:    fmt.Sprintf("schema_path=%s formatted=%t", schemaPath, true),
-		})
+		e.emitEvent("schema_saved", fmt.Sprintf("schema_path=%s formatted=%t", schemaPath, true))
 	}
 	return nil
 }
@@ -357,12 +307,7 @@ func (e *MetaPipelineExecutor) lintAndFormatJSON(content, schemaPath string) ([]
 		}
 		content = fixedContent
 
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: e.getPipelineID(),
-			State:      "schema_fixed",
-			Message:    fmt.Sprintf("schema_path=%s fixed_json_syntax=true", schemaPath),
-		})
+		e.emitEvent("schema_fixed", fmt.Sprintf("schema_path=%s fixed_json_syntax=true", schemaPath))
 	}
 
 	// Format the JSON with proper indentation
@@ -878,6 +823,16 @@ func (e *MetaPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// emitEvent emits a simple event with only pipeline ID, state, and message.
+func (e *MetaPipelineExecutor) emitEvent(state, message string) {
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: e.getPipelineID(),
+		State:      state,
+		Message:    message,
+	})
 }
 
 // truncate shortens a string to the specified length.

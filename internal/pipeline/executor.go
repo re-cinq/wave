@@ -175,11 +175,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if len(tools) > 0 || len(skills) > 0 {
 			results, err := checker.Run(tools, skills)
 			for _, r := range results {
-				e.emit(event.Event{
-					Timestamp: time.Now(),
-					State:     "preflight",
-					Message:   r.Message,
-				})
+				e.emitPipelineEvent("", "preflight", r.Message)
 			}
 			if err != nil {
 				return fmt.Errorf("preflight check failed: %w", err)
@@ -252,23 +248,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	// Clean previous run artifacts to ensure fresh state
 	if err := os.RemoveAll(pipelineWsPath); err != nil {
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			State:      "warning",
-			Message:    fmt.Sprintf("failed to clean workspace: %v", err),
-		})
+		e.emitPipelineEvent(pipelineID, "warning", fmt.Sprintf("failed to clean workspace: %v", err))
 	}
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		State:      "started",
-		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
-	})
+	e.emitPipelineEvent(pipelineID, "started", fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID))
 
 	for stepIdx, step := range sortedSteps {
 		if err := e.executeStep(ctx, execution, step); err != nil {
@@ -277,13 +263,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			if e.store != nil {
 				e.store.SavePipelineState(pipelineID, StateFailed, input)
 			}
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "failed",
-				Message:    err.Error(),
-			})
+			e.emitStepEvent(pipelineID, step.ID, "failed", err.Error())
 			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
 			return &StepError{StepID: step.ID, Err: err}
@@ -360,13 +340,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			if e.store != nil {
 				e.store.SaveStepState(pipelineID, step.ID, state.StateRetrying, "")
 			}
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "retrying",
-				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxRetries),
-			})
+			e.emitStepEvent(pipelineID, step.ID, "retrying", fmt.Sprintf("attempt %d/%d", attempt, maxRetries))
 			time.Sleep(time.Second * time.Duration(attempt))
 		}
 
@@ -518,13 +492,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if len(commands) > 0 {
 			tmpDir := filepath.Join(workspacePath, ".wave-skill-commands")
 			if err := provisioner.Provision(tmpDir, execution.Pipeline.Requires.Skills); err != nil {
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "warning",
-					Message:    fmt.Sprintf("skill provisioning failed: %v", err),
-				})
+				e.emitStepEvent(pipelineID, step.ID, "warning", fmt.Sprintf("skill provisioning failed: %v", err))
 			} else {
 				skillCommandsDir = filepath.Join(tmpDir, ".claude", "commands")
 			}
@@ -587,13 +555,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// work may still have been completed (e.g. Claude Code JS error after
 	// tool calls finished). Let contract validation decide the outcome.
 	if result.ExitCode != 0 {
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "warning",
-			Message:    fmt.Sprintf("adapter exited with code %d (process may have crashed)", result.ExitCode),
-		})
+		e.emitStepEvent(pipelineID, step.ID, "warning", fmt.Sprintf("adapter exited with code %d (process may have crashed)", result.ExitCode))
 	}
 
 	// Fail immediately on rate limit — the result content is an error message,
@@ -644,13 +606,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Check relay/compaction threshold (FR-009)
 	if err := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, workspacePath, string(stdoutData)); err != nil {
 		// Log the error but don't fail the step - compaction is best-effort
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "warning",
-			Message:    fmt.Sprintf("relay compaction failed: %v", err),
-		})
+		e.emitStepEvent(pipelineID, step.ID, "warning", fmt.Sprintf("relay compaction failed: %v", err))
 	}
 
 	// Validate handover contract if configured
@@ -687,36 +643,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		})
 
 		if err := contract.Validate(contractCfg, workspacePath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "contract_failed",
-				Message:    err.Error(),
-			})
+			e.emitStepEvent(pipelineID, step.ID, "contract_failed", err.Error())
 
 			// Check if we should fail the step or allow soft failure
 			if contractCfg.StrictMode {
 				return fmt.Errorf("contract validation failed: %w", err)
 			} else {
 				// Soft failure: log the validation error but continue execution
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "contract_soft_failure",
-					Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
-				})
+				e.emitStepEvent(pipelineID, step.ID, "contract_soft_failure", fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()))
 			}
 		}
 
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "contract_passed",
-			Message:    fmt.Sprintf("%s contract validated", step.Handover.Contract.Type),
-		})
+		e.emitStepEvent(pipelineID, step.ID, "contract_passed", fmt.Sprintf("%s contract validated", step.Handover.Contract.Type))
 	}
 
 	e.emit(event.Event{
@@ -1053,13 +991,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		if artifactPath, ok := execution.ArtifactPaths[key]; ok {
 			if srcData, err := os.ReadFile(artifactPath); err == nil {
 				os.WriteFile(destPath, srcData, 0644)
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "running",
-					Message:    fmt.Sprintf("injected artifact %s from %s (%s)", artName, ref.Step, artifactPath),
-				})
+				e.emitStepEvent(pipelineID, step.ID, "running", fmt.Sprintf("injected artifact %s from %s (%s)", artName, ref.Step, artifactPath))
 				continue
 			}
 		}
@@ -1068,13 +1000,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		if result, exists := execution.Results[ref.Step]; exists {
 			if stdout, ok := result["stdout"].(string); ok {
 				os.WriteFile(destPath, []byte(stdout), 0644)
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "running",
-					Message:    fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step),
-				})
+				e.emitStepEvent(pipelineID, step.ID, "running", fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step))
 			}
 		}
 	}
@@ -1117,6 +1043,27 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// emitPipelineEvent emits a simple pipeline-level event with only state and message.
+func (e *DefaultPipelineExecutor) emitPipelineEvent(pipelineID, state, message string) {
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		State:      state,
+		Message:    message,
+	})
+}
+
+// emitStepEvent emits a simple step-level event with only state and message.
+func (e *DefaultPipelineExecutor) emitStepEvent(pipelineID, stepID, state, message string) {
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     stepID,
+		State:      state,
+		Message:    message,
+	})
 }
 
 // startProgressTicker starts a background ticker to emit periodic progress events
@@ -1217,13 +1164,7 @@ func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, exec
 		return fmt.Errorf("compaction failed: %w", err)
 	}
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      "compacted",
-		Message:    fmt.Sprintf("Checkpoint written to %s/checkpoint.md (%d chars)", workspacePath, len(summary)),
-	})
+	e.emitStepEvent(pipelineID, step.ID, "compacted", fmt.Sprintf("Checkpoint written to %s/checkpoint.md (%d chars)", workspacePath, len(summary)))
 
 	if e.logger != nil {
 		e.logger.LogToolCall(pipelineID, step.ID, "relay.Compact", fmt.Sprintf("tokens=%d summary_len=%d persona=%s", tokensUsed, len(summary), summarizerName))
@@ -1446,23 +1387,11 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 		cleaned[wsPath] = true
 		mgr, err := worktree.NewManager(repoRoot)
 		if err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
-			})
+			e.emitStepEvent(pipelineID, stepID, "warning", fmt.Sprintf("worktree cleanup skipped: %v", err))
 			continue
 		}
 		if err := mgr.Remove(wsPath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
-			})
+			e.emitStepEvent(pipelineID, stepID, "warning", fmt.Sprintf("worktree cleanup failed: %v", err))
 		}
 	}
 }
