@@ -4,6 +4,10 @@ metadata:
   description: "Specification-driven feature development using the full speckit workflow"
   release: false
 
+requires:
+  skills:
+    - speckit
+
 input:
   source: cli
   example: "add user authentication with JWT tokens"
