@@ -64,7 +64,6 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		SkippedSteps:      0,
 		StepStatuses:      make(map[string]ProgressState),
 		ElapsedTimeMs:     0,
-		EstimatedTimeMs:   0,
 		ManifestPath:      "wave.yaml",
 		WorkspacePath:     ".wave/workspaces",
 		CurrentAction:     "",
@@ -368,7 +367,6 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
-		EstimatedTimeMs:    0, // Not calculated
 		ManifestPath:       "wave.yaml",
 		WorkspacePath:      ".wave/workspaces",
 		CurrentAction:      "",

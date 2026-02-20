@@ -55,20 +55,8 @@ func TestDefaultDisplayConfig(t *testing.T) {
 	if !config.Enabled {
 		t.Error("Default Enabled should be true")
 	}
-	if config.AnimationType != AnimationSpinner {
-		t.Errorf("Default AnimationType = %q, want %q", config.AnimationType, AnimationSpinner)
-	}
 	if config.RefreshRate != 10 {
 		t.Errorf("Default RefreshRate = %d, want 10", config.RefreshRate)
-	}
-	if !config.ShowDetails {
-		t.Error("Default ShowDetails should be true")
-	}
-	if !config.ShowArtifacts {
-		t.Error("Default ShowArtifacts should be true")
-	}
-	if config.CompactMode {
-		t.Error("Default CompactMode should be false")
 	}
 	if config.ColorMode != "auto" {
 		t.Errorf("Default ColorMode = %q, want %q", config.ColorMode, "auto")
@@ -79,23 +67,11 @@ func TestDefaultDisplayConfig(t *testing.T) {
 	if config.AsciiOnly {
 		t.Error("Default AsciiOnly should be false")
 	}
-	if config.MaxHistoryLines != 100 {
-		t.Errorf("Default MaxHistoryLines = %d, want 100", config.MaxHistoryLines)
-	}
-	if !config.EnableTimestamps {
-		t.Error("Default EnableTimestamps should be true")
-	}
 	if config.VerboseOutput {
 		t.Error("Default VerboseOutput should be false")
 	}
 	if !config.AnimationEnabled {
 		t.Error("Default AnimationEnabled should be true")
-	}
-	if !config.ShowLogo {
-		t.Error("Default ShowLogo should be true")
-	}
-	if !config.ShowMetrics {
-		t.Error("Default ShowMetrics should be true")
 	}
 }
 
@@ -124,29 +100,6 @@ func TestDisplayConfig_Validate_RefreshRate(t *testing.T) {
 	}
 }
 
-func TestDisplayConfig_Validate_MaxHistoryLines(t *testing.T) {
-	tests := []struct {
-		name            string
-		maxHistoryLines int
-		want            int
-	}{
-		{"zero", 0, 100},
-		{"negative", -10, 100},
-		{"valid", 50, 50},
-		{"large", 1000, 1000},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := DisplayConfig{MaxHistoryLines: tt.maxHistoryLines, RefreshRate: 10}
-			config.Validate()
-			if config.MaxHistoryLines != tt.want {
-				t.Errorf("After Validate, MaxHistoryLines = %d, want %d", config.MaxHistoryLines, tt.want)
-			}
-		})
-	}
-}
-
 func TestDisplayConfig_Validate_ColorMode(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -162,7 +115,7 @@ func TestDisplayConfig_Validate_ColorMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := DisplayConfig{ColorMode: tt.colorMode, RefreshRate: 10, MaxHistoryLines: 100}
+			config := DisplayConfig{ColorMode: tt.colorMode, RefreshRate: 10}
 			config.Validate()
 			if config.ColorMode != tt.want {
 				t.Errorf("After Validate, ColorMode = %q, want %q", config.ColorMode, tt.want)
@@ -187,63 +140,12 @@ func TestDisplayConfig_Validate_ColorTheme(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := DisplayConfig{ColorTheme: tt.colorTheme, RefreshRate: 10, MaxHistoryLines: 100, ColorMode: "auto"}
+			config := DisplayConfig{ColorTheme: tt.colorTheme, RefreshRate: 10, ColorMode: "auto"}
 			config.Validate()
 			if config.ColorTheme != tt.want {
 				t.Errorf("After Validate, ColorTheme = %q, want %q", config.ColorTheme, tt.want)
 			}
 		})
-	}
-}
-
-func TestDisplayConfig_Validate_AnimationType(t *testing.T) {
-	tests := []struct {
-		name          string
-		animationType AnimationType
-		want          AnimationType
-	}{
-		{"dots", AnimationDots, AnimationDots},
-		{"spinner", AnimationSpinner, AnimationSpinner},
-		{"line", AnimationLine, AnimationLine},
-		{"bars", AnimationBars, AnimationBars},
-		{"clock", AnimationClock, AnimationClock},
-		{"bouncing_bar", AnimationBouncingBar, AnimationBouncingBar},
-		{"invalid", AnimationType("invalid"), AnimationSpinner},
-		{"empty", AnimationType(""), AnimationSpinner},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := DisplayConfig{
-				AnimationType:    tt.animationType,
-				RefreshRate:      10,
-				MaxHistoryLines:  100,
-				ColorMode:        "auto",
-				ColorTheme:       "default",
-				AnimationEnabled: true,
-			}
-			config.Validate()
-			if config.AnimationType != tt.want {
-				t.Errorf("After Validate, AnimationType = %q, want %q", config.AnimationType, tt.want)
-			}
-		})
-	}
-}
-
-func TestDisplayConfig_Validate_AnimationDisabled(t *testing.T) {
-	config := DisplayConfig{
-		AnimationType:    AnimationSpinner,
-		AnimationEnabled: false,
-		RefreshRate:      10,
-		MaxHistoryLines:  100,
-		ColorMode:        "auto",
-		ColorTheme:       "default",
-	}
-	config.Validate()
-
-	if config.AnimationType != AnimationDots {
-		t.Errorf("When AnimationEnabled=false, AnimationType should be %q, got %q",
-			AnimationDots, config.AnimationType)
 	}
 }
 
@@ -348,14 +250,12 @@ func TestPipelineContext_Structure(t *testing.T) {
 		FailedSteps:       0,
 		SkippedSteps:      0,
 		OverallProgress:   50,
-		EstimatedTimeMs:   30000,
 		CurrentStepID:     "step-2",
 		CurrentPersona:    "developer",
 		CurrentAction:     "Coding",
 		CurrentStepName:   "Implementation",
 		PipelineStartTime: 1234567890,
 		CurrentStepStart:  1234567900,
-		AverageStepTimeMs: 60000,
 		ElapsedTimeMs:     120000,
 		StepStatuses:      map[string]ProgressState{"step-1": StateCompleted},
 		StepOrder:         []string{"step-1", "step-2", "step-3"},

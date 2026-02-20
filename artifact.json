@@ -1,0 +1,187 @@
+{
+  "issue_number": 66,
+  "branch_name": "066-displayconfig-cleanup",
+  "feature_dir": "specs/066-displayconfig-cleanup",
+  "spec_file": "specs/066-displayconfig-cleanup/spec.md",
+  "plan_file": "specs/066-displayconfig-cleanup/plan.md",
+  "tasks_file": "specs/066-displayconfig-cleanup/tasks.md",
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Remove dead fields from DisplayConfig struct",
+      "description": "Remove ShowDetails, ShowArtifacts, CompactMode, MaxHistoryLines, EnableTimestamps, ShowLogo, ShowMetrics, and AnimationType field from DisplayConfig in types.go. Keep the AnimationType type and constants since they are used by Spinner infrastructure.",
+      "file_changes": [
+        {"path": "internal/display/types.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "Remove EstimatedTimeMs and AverageStepTimeMs from PipelineContext",
+      "description": "Remove EstimatedTimeMs and AverageStepTimeMs fields from the PipelineContext struct in types.go. These are always set to 0 in all context creation paths and never displayed.",
+      "file_changes": [
+        {"path": "internal/display/types.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "1.3",
+      "title": "Update DefaultDisplayConfig()",
+      "description": "Remove defaults for deleted fields (ShowDetails, ShowArtifacts, CompactMode, MaxHistoryLines, EnableTimestamps, ShowLogo, ShowMetrics, AnimationType) from DefaultDisplayConfig().",
+      "file_changes": [
+        {"path": "internal/display/types.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "1.4",
+      "title": "Simplify Validate() method",
+      "description": "Remove validation logic for MaxHistoryLines, AnimationType, and the AnimationEnabled->AnimationType override from the Validate() method.",
+      "file_changes": [
+        {"path": "internal/display/types.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "Remove RenderPerformanceMetricsPanel()",
+      "description": "Remove the RenderPerformanceMetricsPanel() method from dashboard.go. It is never called from anywhere in the codebase.",
+      "file_changes": [
+        {"path": "internal/display/dashboard.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "Remove RenderPerformanceComparison()",
+      "description": "Remove the RenderPerformanceComparison() method from dashboard.go. It is never called from anywhere in the codebase.",
+      "file_changes": [
+        {"path": "internal/display/dashboard.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "2.3",
+      "title": "Remove ShouldUseCompactMode()",
+      "description": "Remove the ShouldUseCompactMode() method from dashboard.go. It exists but is never called from production code.",
+      "file_changes": [
+        {"path": "internal/display/dashboard.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "2.4",
+      "title": "Remove dead ETA conditional from RenderCompact()",
+      "description": "Remove the ETA conditional block in RenderCompact() that checks ctx.EstimatedTimeMs > 0. This never triggers because EstimatedTimeMs is always 0.",
+      "file_changes": [
+        {"path": "internal/display/dashboard.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "Update GetOptimalDisplayConfig() in capability.go",
+      "description": "Remove assignments to deleted fields (ShowDetails, ShowArtifacts, CompactMode, MaxHistoryLines, EnableTimestamps) from GetOptimalDisplayConfig().",
+      "file_changes": [
+        {"path": "internal/display/capability.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "3.2",
+      "title": "Remove EstimatedTimeMs from bubbletea_progress.go",
+      "description": "Remove EstimatedTimeMs: 0 assignments from context creation in BubbleTeaProgressDisplay.",
+      "file_changes": [
+        {"path": "internal/display/bubbletea_progress.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "3.3",
+      "title": "Remove EstimatedTimeMs from progress.go",
+      "description": "Remove EstimatedTimeMs: 0 assignments from toPipelineContext() and CreatePipelineContext() in progress.go.",
+      "file_changes": [
+        {"path": "internal/display/progress.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "4.1",
+      "title": "Update types_test.go",
+      "description": "Remove assertions on deleted fields from TestDefaultDisplayConfig, TestDisplayConfig_Validate_MaxHistoryLines, TestDisplayConfig_Validate_AnimationType, TestDisplayConfig_Validate_AnimationDisabled, TestPipelineContext_Structure.",
+      "file_changes": [
+        {"path": "internal/display/types_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "4.2",
+      "title": "Update dashboard_test.go",
+      "description": "Remove TestDashboard_ShouldUseCompactMode test. Remove EstimatedTimeMs/AverageStepTimeMs from test pipeline contexts.",
+      "file_changes": [
+        {"path": "internal/display/dashboard_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "4.3",
+      "title": "Update capability_test.go",
+      "description": "Remove MaxHistoryLines assertion from GetOptimalDisplayConfig test.",
+      "file_changes": [
+        {"path": "internal/display/capability_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "4.4",
+      "title": "Update helpers_test.go",
+      "description": "Remove MaxHistoryLines and AnimationType fields from BenchmarkDisplayConfig_Validate.",
+      "file_changes": [
+        {"path": "internal/display/helpers_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "4.5",
+      "title": "Update progress_test.go (internal)",
+      "description": "Remove EstimatedTimeMs and AverageStepTimeMs from test pipeline contexts in internal display progress tests.",
+      "file_changes": [
+        {"path": "internal/display/progress_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "5.1",
+      "title": "Update tests/unit/display/progress_test.go",
+      "description": "Remove assertions on ShowDetails, ShowArtifacts, CompactMode, MaxHistoryLines, EnableTimestamps, ShowLogo, ShowMetrics, AnimationType config field. Remove EstimatedTimeMs/AverageStepTimeMs from PipelineContext references.",
+      "file_changes": [
+        {"path": "tests/unit/display/progress_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "5.2",
+      "title": "Update tests/unit/display/dashboard_test.go",
+      "description": "Remove CompactMode reference from dashboard test. Adjust AnimationType config field usage.",
+      "file_changes": [
+        {"path": "tests/unit/display/dashboard_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "5.3",
+      "title": "Update tests/integration/progress_test.go",
+      "description": "Remove AverageStepTimeMs/EstimatedTimeMs usage from integration progress tests.",
+      "file_changes": [
+        {"path": "tests/integration/progress_test.go", "action": "modify"}
+      ]
+    },
+    {
+      "id": "6.1",
+      "title": "Run go build",
+      "description": "Run go build ./... to verify compilation after all changes.",
+      "file_changes": []
+    },
+    {
+      "id": "6.2",
+      "title": "Run display package tests",
+      "description": "Run go test ./internal/display/... to verify display package tests pass.",
+      "file_changes": []
+    },
+    {
+      "id": "6.3",
+      "title": "Run full test suite",
+      "description": "Run go test ./... to verify no cross-package regressions.",
+      "file_changes": []
+    },
+    {
+      "id": "6.4",
+      "title": "Run race detector tests",
+      "description": "Run go test -race ./internal/display/... to verify concurrent safety.",
+      "file_changes": []
+    }
+  ],
+  "summary": "Remove 8 unused DisplayConfig fields (ShowDetails, ShowArtifacts, CompactMode, MaxHistoryLines, EnableTimestamps, AnimationType config field, ShowLogo, ShowMetrics), 2 dead PipelineContext fields (EstimatedTimeMs, AverageStepTimeMs), and 3 dead Dashboard methods (RenderPerformanceMetricsPanel, RenderPerformanceComparison, ShouldUseCompactMode). Consolidates issues #66 and #61 into a single cleanup. AnimationType type and constants are kept as they are actively used by Spinner infrastructure."
+}

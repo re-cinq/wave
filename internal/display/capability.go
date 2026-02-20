@@ -121,12 +121,6 @@ func GetOptimalDisplayConfig() DisplayConfig {
 	// ASCII-only mode for non-Unicode terminals
 	asciiOnly := !ti.SupportsUnicode()
 
-	// Select animation based on capabilities
-	animation := AnimationSpinner
-	if asciiOnly {
-		animation = AnimationDots
-	}
-
 	// Refresh rate: smooth animations for modern CLI feel
 	refreshRate := 30 // 30 FPS for smooth animations like btop+/opencode
 	if !ti.IsTTY() {
@@ -135,15 +129,9 @@ func GetOptimalDisplayConfig() DisplayConfig {
 
 	return DisplayConfig{
 		Enabled:          ti.IsTTY() && ti.SupportsANSI(),
-		AnimationType:    animation,
 		RefreshRate:      refreshRate,
-		ShowDetails:      true,
-		ShowArtifacts:    true,
-		CompactMode:      false,
 		ColorMode:        colorMode,
 		AsciiOnly:        asciiOnly,
-		MaxHistoryLines:  100,
-		EnableTimestamps: true,
 		VerboseOutput:    false,
 	}
 }
