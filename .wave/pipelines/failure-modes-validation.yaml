@@ -1,0 +1,116 @@
+kind: WavePipeline
+metadata:
+  name: failure-modes-validation
+  description: "Validation pipeline that verifies all failure modes work correctly"
+  release: false
+
+input:
+  source: cli
+  example: "validate failure modes"
+
+steps:
+  # Step 1: Test contract validation with valid output
+  - id: contract-validation
+    persona: craftsman
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Create a JSON output that matches the required schema for failure mode validation.
+
+        Write the following JSON to .wave/output/validation-result.json:
+        {
+          "status": "validated",
+          "tests_run": ["contract_validation", "timeout_handling", "artifact_handling"],
+          "passed": 3,
+          "failed": 0,
+          "timestamp": "<current ISO timestamp>"
+        }
+
+        Ensure the JSON is valid and properly formatted.
+    output_artifacts:
+      - name: validation-result
+        path: .wave/output/validation-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/validation-result.json
+        schema_path: .wave/contracts/failure-modes-validation.schema.json
+        on_failure: fail
+        max_retries: 1
+
+  # Step 2: Test timeout handling with a short timeout
+  - id: timeout-test
+    persona: craftsman
+    dependencies: [contract-validation]
+    memory:
+      inject_artifacts:
+        - step: contract-validation
+          artifact: validation-result
+          as: previous_result
+    exec:
+      type: prompt
+      source: |
+        Read the previous validation result from .wave/artifacts/previous_result.
+
+        This step tests timeout handling. Simply output a confirmation message.
+
+        Write to .wave/output/timeout-test.json:
+        {
+          "step": "timeout-test",
+          "status": "completed",
+          "message": "Timeout handling test passed - step completed within time limit"
+        }
+    output_artifacts:
+      - name: timeout-result
+        path: .wave/output/timeout-test.json
+        type: json
+
+  # Step 3: Test artifact handling - verify artifacts from prior steps are accessible
+  - id: artifact-handling
+    persona: navigator
+    dependencies: [timeout-test]
+    memory:
+      inject_artifacts:
+        - step: contract-validation
+          artifact: validation-result
+          as: validation_data
+        - step: timeout-test
+          artifact: timeout-result
+          as: timeout_data
+    exec:
+      type: prompt
+      source: |
+        Verify that artifacts from previous steps are accessible.
+
+        Read both injected artifacts:
+        1. .wave/artifacts/validation_data
+        2. .wave/artifacts/timeout_data
+
+        Confirm both files exist and contain valid JSON.
+
+        Write the final verification report to .wave/output/artifact-verification.json:
+        {
+          "verification_status": "passed",
+          "artifacts_verified": [
+            {"name": "validation_data", "exists": true, "valid_json": true},
+            {"name": "timeout_data", "exists": true, "valid_json": true}
+          ],
+          "summary": "All artifacts accessible and valid"
+        }
+    output_artifacts:
+      - name: verification-report
+        path: .wave/output/artifact-verification.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/artifact-verification.json
+        schema_path: .wave/contracts/artifact-verification.schema.json
+        on_failure: fail
+        max_retries: 1

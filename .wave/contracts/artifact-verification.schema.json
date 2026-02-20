@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artifact Verification Report",
+  "type": "object",
+  "required": [
+    "verification_status",
+    "artifacts_verified",
+    "summary"
+  ],
+  "properties": {
+    "verification_status": {
+      "type": "string",
+      "enum": ["passed", "failed"],
+      "description": "Overall verification status"
+    },
+    "artifacts_verified": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "exists", "valid_json"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Artifact name"
+          },
+          "exists": {
+            "type": "boolean",
+            "description": "Whether the artifact file exists"
+          },
+          "valid_json": {
+            "type": "boolean",
+            "description": "Whether the artifact contains valid JSON"
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "description": "List of artifacts that were verified"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Summary of the verification"
+    }
+  },
+  "additionalProperties": false
+}

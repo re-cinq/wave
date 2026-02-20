@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Failure Modes Validation Result",
+  "type": "object",
+  "required": [
+    "status",
+    "tests_run",
+    "passed",
+    "failed",
+    "timestamp"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["validated", "failed"],
+      "description": "Overall validation status"
+    },
+    "tests_run": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "List of tests that were executed"
+    },
+    "passed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tests that passed"
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tests that failed"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO timestamp of validation"
+    }
+  },
+  "additionalProperties": false
+}
