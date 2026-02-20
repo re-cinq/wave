@@ -1701,6 +1701,327 @@ func TestCleanupWorktrees_Dedup(t *testing.T) {
 	}, "Cleanup should not panic with shared worktree paths")
 }
 
+// ---------- Optional Pipeline Steps (Issue #118) ----------
+
+// TestOptionalStepFailureContinuesPipeline verifies that when an optional step
+// fails, the pipeline continues executing subsequent steps instead of halting.
+func TestOptionalStepFailureContinuesPipeline(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Use step-specific adapter so only step-b fails
+	stepAdapter := &stepSpecificAdapter{
+		stepResults: map[string]*adapter.MockAdapter{
+			"step-a": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+			"step-b": adapter.NewMockAdapter(
+				adapter.WithFailure(errors.New("optional step failed")),
+			),
+			"step-c": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(stepAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline: A -> B (optional, will fail) -> C
+	// C does NOT depend on B, so it should still execute
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "optional-fail-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Optional: true, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "Pipeline should succeed despite optional step failure")
+
+	// Verify that step-b emitted a failed_optional event
+	events := collector.GetEvents()
+	hasFailedOptional := false
+	for _, e := range events {
+		if e.StepID == "step-b" && e.State == "failed_optional" {
+			hasFailedOptional = true
+			assert.True(t, e.Optional, "failed_optional event should have Optional=true")
+		}
+	}
+	assert.True(t, hasFailedOptional, "step-b should have emitted a failed_optional event")
+
+	// Verify step-c was executed (step-a and step-c both succeeded)
+	hasStepCCompleted := false
+	for _, e := range events {
+		if e.StepID == "step-c" && e.State == "completed" {
+			hasStepCCompleted = true
+		}
+	}
+	assert.True(t, hasStepCCompleted, "step-c should have completed despite step-b failure")
+}
+
+// TestOptionalStepDependencySkipping verifies that when an optional step fails,
+// steps that depend on it are also skipped.
+func TestOptionalStepDependencySkipping(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Adapter that fails on step-b (the optional step)
+	stepAdapter := &stepSpecificAdapter{
+		stepResults: map[string]*adapter.MockAdapter{
+			"step-a": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+			"step-b": adapter.NewMockAdapter(
+				adapter.WithFailure(errors.New("optional step failed")),
+			),
+			"step-c": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+			"step-d": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(stepAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline:
+	//   A -> B (optional) -> C (depends on B, should be skipped)
+	//   A -> D (does NOT depend on B, should succeed)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "dep-skip-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Optional: true, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-b"}, Exec: ExecConfig{Source: "C"}},
+			{ID: "step-d", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "D"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "Pipeline should succeed")
+
+	events := collector.GetEvents()
+
+	// step-c should have been skipped due to step-b failure
+	hasStepCSkipped := false
+	for _, e := range events {
+		if e.StepID == "step-c" && e.State == "skipped" {
+			hasStepCSkipped = true
+			assert.Contains(t, e.Message, "step-b", "skip message should reference failed dependency")
+		}
+	}
+	assert.True(t, hasStepCSkipped, "step-c should be skipped because its dependency step-b failed")
+
+	// step-d should have completed
+	hasStepDCompleted := false
+	for _, e := range events {
+		if e.StepID == "step-d" && e.State == "completed" {
+			hasStepDCompleted = true
+		}
+	}
+	assert.True(t, hasStepDCompleted, "step-d should have completed (no dependency on step-b)")
+}
+
+// TestNonOptionalStepFailureHaltsPipeline verifies backward compatibility:
+// non-optional steps still halt the pipeline on failure.
+func TestNonOptionalStepFailureHaltsPipeline(t *testing.T) {
+	collector := newTestEventCollector()
+	failingAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("step failure")),
+	)
+
+	executor := NewDefaultPipelineExecutor(failingAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "non-optional-fail-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	assert.Error(t, err, "Pipeline should fail when non-optional step fails")
+	assert.Contains(t, err.Error(), "step-a")
+}
+
+// TestOptionalStepDefaultsFalse verifies that the Optional field defaults to false
+// when not specified, preserving backward compatibility.
+func TestOptionalStepDefaultsFalse(t *testing.T) {
+	step := Step{
+		ID:      "test-step",
+		Persona: "navigator",
+	}
+	assert.False(t, step.Optional, "Optional should default to false")
+}
+
+// TestPipelineCompletionWithOptionalFailures verifies that the pipeline completion
+// message includes information about optional step failures.
+func TestPipelineCompletionWithOptionalFailures(t *testing.T) {
+	collector := newTestEventCollector()
+
+	stepAdapter := &stepSpecificAdapter{
+		stepResults: map[string]*adapter.MockAdapter{
+			"step-a": adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(500),
+			),
+			"step-b": adapter.NewMockAdapter(
+				adapter.WithFailure(errors.New("optional failure")),
+			),
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(stepAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "completion-msg-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Optional: true, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Find the pipeline completion event
+	events := collector.GetEvents()
+	var completionEvent *event.Event
+	for i := range events {
+		if events[i].State == "completed" && events[i].StepID == "" {
+			completionEvent = &events[i]
+			break
+		}
+	}
+	require.NotNil(t, completionEvent, "should have pipeline completion event")
+	assert.Contains(t, completionEvent.Message, "optional steps failed",
+		"completion message should mention optional failures")
+}
+
+// TestStateFailedOptionalConstant verifies the new state constant.
+func TestStateFailedOptionalConstant(t *testing.T) {
+	assert.Equal(t, "failed_optional", StateFailedOptional)
+}
+
+// TestShouldSkipDueToOptionalDep verifies the dependency skipping logic.
+func TestShouldSkipDueToOptionalDep(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	tests := []struct {
+		name               string
+		step               *Step
+		failedOptionalSteps map[string]bool
+		wantSkip           string
+	}{
+		{
+			name:                "no dependencies",
+			step:                &Step{ID: "step-a"},
+			failedOptionalSteps: map[string]bool{"step-b": true},
+			wantSkip:            "",
+		},
+		{
+			name:                "dependency not failed",
+			step:                &Step{ID: "step-c", Dependencies: []string{"step-a"}},
+			failedOptionalSteps: map[string]bool{"step-b": true},
+			wantSkip:            "",
+		},
+		{
+			name:                "dependency is failed optional",
+			step:                &Step{ID: "step-c", Dependencies: []string{"step-b"}},
+			failedOptionalSteps: map[string]bool{"step-b": true},
+			wantSkip:            "step-b",
+		},
+		{
+			name:                "one of multiple deps is failed optional",
+			step:                &Step{ID: "step-d", Dependencies: []string{"step-a", "step-b"}},
+			failedOptionalSteps: map[string]bool{"step-b": true},
+			wantSkip:            "step-b",
+		},
+		{
+			name:                "empty failed set",
+			step:                &Step{ID: "step-c", Dependencies: []string{"step-b"}},
+			failedOptionalSteps: map[string]bool{},
+			wantSkip:            "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := executor.shouldSkipDueToOptionalDep(tt.step, tt.failedOptionalSteps)
+			assert.Equal(t, tt.wantSkip, result)
+		})
+	}
+}
+
+// stepSpecificAdapter is a test adapter that returns different results for different step IDs.
+// It tracks which step is currently being executed via workspace path naming.
+type stepSpecificAdapter struct {
+	mu          sync.Mutex
+	stepResults map[string]*adapter.MockAdapter
+	callOrder   []string
+}
+
+func (a *stepSpecificAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	// Determine step ID from workspace path (last path component or second-to-last for worktree)
+	parts := strings.Split(cfg.WorkspacePath, "/")
+	stepID := ""
+	if len(parts) > 0 {
+		stepID = parts[len(parts)-1]
+	}
+	a.callOrder = append(a.callOrder, stepID)
+	mock, ok := a.stepResults[stepID]
+	a.mu.Unlock()
+
+	if !ok {
+		// Default: success
+		return adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		).Run(ctx, cfg)
+	}
+	return mock.Run(ctx, cfg)
+}
+
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {

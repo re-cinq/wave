@@ -40,6 +40,9 @@ type Event struct {
 	Model   string `json:"model,omitempty"`   // Model name (e.g., "opus", "sonnet")
 	Adapter string `json:"adapter,omitempty"` // Adapter type (e.g., "claude")
 
+	// Optional step tracking (FR-006)
+	Optional bool `json:"optional,omitempty"` // true for events related to optional steps
+
 	// Recovery hints (populated on failure events only)
 	RecoveryHints []RecoveryHintJSON `json:"recovery_hints,omitempty"`
 }
@@ -59,6 +62,9 @@ const (
 	StateCompleted = "completed"
 	StateFailed    = "failed"
 	StateRetrying  = "retrying"
+
+	// Optional step states (FR-006)
+	StateFailedOptional = "failed_optional" // Optional step failed (non-blocking)
 
 	// New progress tracking states
 	StateStepProgress       = "step_progress"       // Step is making progress (with percentage)

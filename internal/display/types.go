@@ -11,8 +11,9 @@ const (
 	StateRunning    ProgressState = "running"
 	StateCompleted  ProgressState = "completed"
 	StateFailed     ProgressState = "failed"
-	StateSkipped    ProgressState = "skipped"
-	StateCancelled  ProgressState = "cancelled"
+	StateSkipped        ProgressState = "skipped"
+	StateCancelled      ProgressState = "cancelled"
+	StateFailedOptional ProgressState = "failed_optional"
 )
 
 // AnimationType defines the animation style for progress indicators.

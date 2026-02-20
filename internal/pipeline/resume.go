@@ -141,12 +141,13 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		Input:          input,
 		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
-			ID:             pipelineID,
-			PipelineName:   pipelineName,
-			State:          StateRunning,
-			CurrentStep:    fromStep,
-			CompletedSteps: resumeState.CompletedSteps,
-			StartedAt:      time.Now(),
+			ID:                  pipelineID,
+			PipelineName:        pipelineName,
+			State:               StateRunning,
+			CurrentStep:         fromStep,
+			CompletedSteps:      resumeState.CompletedSteps,
+			FailedOptionalSteps: []string{},
+			StartedAt:           time.Now(),
 		},
 	}
 
@@ -334,6 +335,9 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), pipelineName)
 	}
 
+	// Track failed optional steps for dependency skipping
+	failedOptionalSteps := make(map[string]bool)
+
 	// Execute each step in order
 	for _, step := range sortedSteps {
 		select {
@@ -341,6 +345,24 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			return fmt.Errorf("pipeline execution cancelled: %w", ctx.Err())
 
 		default:
+			// Check if this step should be skipped due to a failed optional dependency
+			if skipReason := r.executor.shouldSkipDueToOptionalDep(step, failedOptionalSteps); skipReason != "" {
+				execution.States[step.ID] = StateFailedOptional
+				execution.Status.FailedOptionalSteps = append(execution.Status.FailedOptionalSteps, step.ID)
+				failedOptionalSteps[step.ID] = true
+				if r.executor.emitter != nil {
+					r.executor.emitter.Emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "skipped",
+						Message:    fmt.Sprintf("Skipped: dependency %s failed (optional)", skipReason),
+						Optional:   step.Optional,
+					})
+				}
+				continue
+			}
+
 			execution.Status.CurrentStep = step.ID
 
 			if r.executor.emitter != nil {
@@ -355,6 +377,22 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 
 			// Execute the step (reuse existing step execution logic)
 			if err := r.executeStep(ctx, execution, step); err != nil {
+				if step.Optional {
+					execution.States[step.ID] = StateFailedOptional
+					execution.Status.FailedOptionalSteps = append(execution.Status.FailedOptionalSteps, step.ID)
+					failedOptionalSteps[step.ID] = true
+					if r.executor.emitter != nil {
+						r.executor.emitter.Emit(event.Event{
+							Timestamp:  time.Now(),
+							PipelineID: pipelineID,
+							StepID:     step.ID,
+							State:      event.StateFailedOptional,
+							Message:    fmt.Sprintf("Optional step failed (continuing pipeline): %s", err.Error()),
+							Optional:   true,
+						})
+					}
+					continue
+				}
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 				return r.errors.FormatPhaseFailureError(step.ID, err, pipelineName)
 			}

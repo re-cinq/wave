@@ -33,14 +33,15 @@ type PipelineExecutor interface {
 }
 
 type PipelineStatus struct {
-	ID             string // Runtime ID with hash suffix (e.g., "my-pipeline-a3b2c1d4")
-	PipelineName   string // Logical pipeline name from Metadata.Name
-	State          string
-	CurrentStep    string
-	CompletedSteps []string
-	FailedSteps    []string
-	StartedAt      time.Time
-	CompletedAt    *time.Time
+	ID                  string // Runtime ID with hash suffix (e.g., "my-pipeline-a3b2c1d4")
+	PipelineName        string // Logical pipeline name from Metadata.Name
+	State               string
+	CurrentStep         string
+	CompletedSteps      []string
+	FailedSteps         []string
+	FailedOptionalSteps []string // Steps that failed but were marked optional
+	StartedAt           time.Time
+	CompletedAt         *time.Time
 }
 
 type DefaultPipelineExecutor struct {
@@ -214,12 +215,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Input:          input,
 		Context:        pipelineContext,
 		Status: &PipelineStatus{
-			ID:             pipelineID,
-			PipelineName:   pipelineName,
-			State:          StatePending,
-			CompletedSteps: []string{},
-			FailedSteps:    []string{},
-			StartedAt:      time.Now(),
+			ID:                  pipelineID,
+			PipelineName:        pipelineName,
+			State:               StatePending,
+			CompletedSteps:      []string{},
+			FailedSteps:         []string{},
+			FailedOptionalSteps: []string{},
+			StartedAt:           time.Now(),
 		},
 	}
 
@@ -272,8 +274,68 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
+	// Track failed optional steps for dependency skipping
+	failedOptionalSteps := make(map[string]bool)
+
 	for stepIdx, step := range sortedSteps {
+		// Check if this step should be skipped due to a failed optional dependency
+		if skipReason := e.shouldSkipDueToOptionalDep(step, failedOptionalSteps); skipReason != "" {
+			execution.States[step.ID] = StateFailedOptional
+			execution.Status.FailedOptionalSteps = append(execution.Status.FailedOptionalSteps, step.ID)
+			failedOptionalSteps[step.ID] = true
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "skipped",
+				Message:    fmt.Sprintf("Skipped: dependency %s failed (optional)", skipReason),
+				Optional:   step.Optional,
+			})
+			// Still count toward progress
+			completedCount := stepIdx + 1
+			e.emit(event.Event{
+				Timestamp:      time.Now(),
+				PipelineID:     pipelineID,
+				State:          "running",
+				TotalSteps:     len(p.Steps),
+				CompletedSteps: completedCount,
+				Progress:       (completedCount * 100) / len(p.Steps),
+				Message:        fmt.Sprintf("%d/%d steps processed", completedCount, len(p.Steps)),
+			})
+			continue
+		}
+
 		if err := e.executeStep(ctx, execution, step); err != nil {
+			// If the step is optional, record failure but continue pipeline execution
+			if step.Optional {
+				execution.States[step.ID] = StateFailedOptional
+				execution.Status.FailedOptionalSteps = append(execution.Status.FailedOptionalSteps, step.ID)
+				failedOptionalSteps[step.ID] = true
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateFailedOptional, err.Error())
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateFailedOptional,
+					Message:    fmt.Sprintf("Optional step failed (continuing pipeline): %s", err.Error()),
+					Optional:   true,
+				})
+				// Still count toward progress
+				completedCount := stepIdx + 1
+				e.emit(event.Event{
+					Timestamp:      time.Now(),
+					PipelineID:     pipelineID,
+					State:          "running",
+					TotalSteps:     len(p.Steps),
+					CompletedSteps: completedCount,
+					Progress:       (completedCount * 100) / len(p.Steps),
+					Message:        fmt.Sprintf("%d/%d steps processed", completedCount, len(p.Steps)),
+				})
+				continue
+			}
+
 			execution.Status.State = StateFailed
 			execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 			if e.store != nil {
@@ -314,12 +376,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
+	completionMsg := fmt.Sprintf("%d steps completed", len(execution.Status.CompletedSteps))
+	if len(execution.Status.FailedOptionalSteps) > 0 {
+		completionMsg += fmt.Sprintf(" (%d optional steps failed)", len(execution.Status.FailedOptionalSteps))
+	}
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		State:      "completed",
 		DurationMs: elapsed,
-		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
+		Message:    completionMsg,
 	})
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
@@ -1123,6 +1189,18 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// shouldSkipDueToOptionalDep checks if a step should be skipped because one of
+// its dependencies was an optional step that failed. Returns the ID of the failed
+// dependency, or empty string if the step should not be skipped.
+func (e *DefaultPipelineExecutor) shouldSkipDueToOptionalDep(step *Step, failedOptionalSteps map[string]bool) string {
+	for _, dep := range step.Dependencies {
+		if failedOptionalSteps[dep] {
+			return dep
+		}
+	}
+	return ""
 }
 
 // startProgressTicker starts a background ticker to emit periodic progress events

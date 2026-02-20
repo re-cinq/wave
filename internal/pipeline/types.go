@@ -1,11 +1,12 @@
 package pipeline
 
 const (
-	StatePending   = "pending"
-	StateRunning   = "running"
-	StateCompleted = "completed"
-	StateFailed    = "failed"
-	StateRetrying  = "retrying"
+	StatePending        = "pending"
+	StateRunning        = "running"
+	StateCompleted      = "completed"
+	StateFailed         = "failed"
+	StateRetrying       = "retrying"
+	StateFailedOptional = "failed_optional"
 )
 
 type Pipeline struct {
@@ -51,6 +52,7 @@ type Step struct {
 	ID              string           `yaml:"id"`
 	Persona         string           `yaml:"persona"`
 	Dependencies    []string         `yaml:"dependencies,omitempty"`
+	Optional        bool             `yaml:"optional,omitempty"`
 	Memory          MemoryConfig     `yaml:"memory"`
 	Workspace       WorkspaceConfig  `yaml:"workspace"`
 	Exec            ExecConfig       `yaml:"exec"`

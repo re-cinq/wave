@@ -6,6 +6,43 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestStep_OptionalYAMLParsing(t *testing.T) {
+	tests := []struct {
+		name         string
+		yaml         string
+		wantOptional bool
+	}{
+		{
+			name:         "optional true parses correctly",
+			yaml:         "id: test\npersona: nav\noptional: true\n",
+			wantOptional: true,
+		},
+		{
+			name:         "optional false parses correctly",
+			yaml:         "id: test\npersona: nav\noptional: false\n",
+			wantOptional: false,
+		},
+		{
+			name:         "absent optional defaults to false",
+			yaml:         "id: test\npersona: nav\n",
+			wantOptional: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var step Step
+			err := yaml.Unmarshal([]byte(tt.yaml), &step)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+			if step.Optional != tt.wantOptional {
+				t.Errorf("Optional = %v, want %v", step.Optional, tt.wantOptional)
+			}
+		})
+	}
+}
+
 func TestPipelineMetadata_YAMLParsing(t *testing.T) {
 	tests := []struct {
 		name         string

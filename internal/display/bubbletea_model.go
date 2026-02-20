@@ -343,6 +343,22 @@ func (m *ProgressModel) renderCurrentStep() string {
 			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(stepLine)
 			steps = append(steps, stepLine)
 
+		case StateFailedOptional:
+			// Failed optional: warning icon stepID (persona) [optional]
+			stepLine := fmt.Sprintf("⚠ %s", stepID)
+			if persona != "" {
+				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			stepLine += " [optional]"
+			if m.ctx.StepDurations != nil {
+				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+					durationText := fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
+					stepLine += fmt.Sprintf(" (%s)", durationText)
+				}
+			}
+			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			steps = append(steps, stepLine)
+
 		case StateSkipped:
 			// Skipped: dash stepID (persona)
 			stepLine := fmt.Sprintf("— %s", stepID)

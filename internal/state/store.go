@@ -21,11 +21,12 @@ var (
 type StepState string
 
 const (
-	StatePending   StepState = "pending"
-	StateRunning   StepState = "running"
-	StateCompleted StepState = "completed"
-	StateFailed    StepState = "failed"
-	StateRetrying  StepState = "retrying"
+	StatePending        StepState = "pending"
+	StateRunning        StepState = "running"
+	StateCompleted      StepState = "completed"
+	StateFailed         StepState = "failed"
+	StateRetrying       StepState = "retrying"
+	StateFailedOptional StepState = "failed_optional"
 )
 
 // PipelineStateRecord holds persisted pipeline state.
