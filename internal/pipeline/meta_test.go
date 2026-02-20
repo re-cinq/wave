@@ -412,44 +412,6 @@ func TestMetaPipelineExecutor_SyncFromChild(t *testing.T) {
 	}
 }
 
-func TestExtractYAML(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  string
-		expect string
-	}{
-		{
-			name:   "plain yaml",
-			input:  "kind: WavePipeline\nmetadata:\n  name: test",
-			expect: "kind: WavePipeline\nmetadata:\n  name: test",
-		},
-		{
-			name:   "yaml in code block",
-			input:  "Here's the pipeline:\n```yaml\nkind: WavePipeline\nmetadata:\n  name: test\n```\nDone.",
-			expect: "kind: WavePipeline\nmetadata:\n  name: test",
-		},
-		{
-			name:   "yaml in generic code block",
-			input:  "```\nkind: WavePipeline\nmetadata:\n  name: test\n```",
-			expect: "kind: WavePipeline\nmetadata:\n  name: test",
-		},
-		{
-			name:   "yaml preceded by text",
-			input:  "Here is the generated pipeline:\n\nkind: WavePipeline\nmetadata:\n  name: test",
-			expect: "kind: WavePipeline\nmetadata:\n  name: test",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := extractYAMLLegacy(tt.input)
-			if got != tt.expect {
-				t.Errorf("extractYAMLLegacy() = %q, want %q", got, tt.expect)
-			}
-		})
-	}
-}
-
 func TestMetaPipelineExecutor_GetTimeout(t *testing.T) {
 	runner := &mockMetaRunner{}
 	executor := NewMetaPipelineExecutor(runner)
@@ -947,8 +909,9 @@ func TestMetaPipelineValidation(t *testing.T) {
 
 // TestMetaPipelineValidationBeforeExecution tests that validation happens before execution
 func TestMetaPipelineValidationBeforeExecution(t *testing.T) {
-	// Create a mock that returns invalid pipeline YAML
-	invalidYAML := `kind: WavePipeline
+	// Create a mock that returns invalid pipeline YAML (first step not navigator)
+	invalidYAML := `--- PIPELINE ---
+kind: WavePipeline
 metadata:
   name: invalid-pipeline
 steps:
@@ -959,6 +922,7 @@ steps:
     handover:
       contract:
         type: test_suite
+--- SCHEMAS ---
 `
 	runner := &mockMetaRunner{
 		response:   invalidYAML,
@@ -1033,7 +997,7 @@ func TestMetaPipelineFailureTracePreservation(t *testing.T) {
 			name: "validation error includes generated pipeline info",
 			setupExecutor: func() (*MetaPipelineExecutor, *testMetaEventCollector) {
 				// Returns invalid pipeline (first step not navigator)
-				invalidYAML := `kind: WavePipeline
+				invalidYAML := "--- PIPELINE ---\n" + `kind: WavePipeline
 metadata:
   name: invalid
 steps:
@@ -1043,7 +1007,7 @@ steps:
       strategy: fresh
     handover:
       contract:
-        type: test`
+        type: test` + "\n--- SCHEMAS ---\n"
 				runner := &mockMetaRunner{response: invalidYAML, tokensUsed: 500}
 				collector := newTestMetaEventCollector()
 				executor := NewMetaPipelineExecutor(runner, WithMetaEmitter(collector))
@@ -1123,7 +1087,8 @@ steps:
 
 // TestMetaPipelinePreservesGeneratedPipelineOnFailure tests T101
 func TestMetaPipelinePreservesGeneratedPipelineOnFailure(t *testing.T) {
-	validYAML := `kind: WavePipeline
+	validYAML := `--- PIPELINE ---
+kind: WavePipeline
 metadata:
   name: test-pipeline
 steps:
@@ -1141,7 +1106,9 @@ steps:
       strategy: fresh
     handover:
       contract:
-        type: test_suite`
+        type: test_suite
+--- SCHEMAS ---
+`
 
 	tests := []struct {
 		name                    string

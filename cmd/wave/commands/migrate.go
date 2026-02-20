@@ -73,11 +73,10 @@ func newMigrateDownCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "down <target_version>",
 		Short: "Rollback migrations to target version",
-		Long: `Rollback migrations down to the specified target version.
+		Long: `Rollback is not supported during the prototype phase.
 
-This will undo all migrations above the target version. Use with caution
-as this may result in data loss. Always backup your database before
-rolling back migrations.`,
+All migration Down paths have been removed. If you need to reset
+the database, delete the state file and let migrations re-apply.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetVersion, err := strconv.Atoi(args[0])
@@ -92,16 +91,6 @@ rolling back migrations.`,
 				return fmt.Errorf("failed to create migration runner: %w", err)
 			}
 			defer migrationRunner.Close()
-
-			fmt.Printf("WARNING: Rolling back to version %d. This may result in data loss.\n", targetVersion)
-			fmt.Print("Continue? (y/N): ")
-
-			var response string
-			fmt.Scanln(&response)
-			if response != "y" && response != "Y" {
-				fmt.Println("Rollback cancelled")
-				return nil
-			}
 
 			err = migrationRunner.MigrateDown(targetVersion)
 			if err != nil {

@@ -217,7 +217,7 @@ func TestTypeScriptValidator_MissingFile(t *testing.T) {
 	cfg := ContractConfig{
 		Type:       "typescript_interface",
 		SchemaPath: "/nonexistent/file.ts",
-		StrictMode: true, // Enable strict mode to get error for missing file even if tsc unavailable
+		MustPass: true, // Enable must_pass to get error for missing file even if tsc unavailable
 	}
 	workspacePath := t.TempDir()
 
@@ -249,13 +249,13 @@ func TestTypeScriptValidator_GracefulDegradation(t *testing.T) {
 	cfg := ContractConfig{
 		Type:       "typescript_interface",
 		SchemaPath: "/nonexistent/file.ts",
-		StrictMode: false,
+		MustPass: false,
 	}
 	workspacePath := t.TempDir()
 
 	// This test would only pass if tsc is not available
 	// In a CI environment with tsc, this would still fail due to file not found
-	if !IsTypeScriptAvailable() {
+	if available, _ := CheckTypeScriptAvailability(); !available {
 		err := v.Validate(cfg, workspacePath)
 		if err != nil {
 			t.Errorf("expected graceful degradation when tsc not available, got error: %v", err)
@@ -263,7 +263,7 @@ func TestTypeScriptValidator_GracefulDegradation(t *testing.T) {
 	}
 }
 
-func TestTypeScriptValidator_StrictMode(t *testing.T) {
+func TestTypeScriptValidator_MustPass(t *testing.T) {
 	// Reset cache before test
 	ResetTypeScriptAvailabilityCache()
 	defer ResetTypeScriptAvailabilityCache()
@@ -272,14 +272,14 @@ func TestTypeScriptValidator_StrictMode(t *testing.T) {
 	cfg := ContractConfig{
 		Type:       "typescript_interface",
 		SchemaPath: "/nonexistent/file.ts",
-		StrictMode: true,
+		MustPass: true,
 	}
 	workspacePath := t.TempDir()
 
-	if !IsTypeScriptAvailable() {
+	if available, _ := CheckTypeScriptAvailability(); !available {
 		err := v.Validate(cfg, workspacePath)
 		if err == nil {
-			t.Error("expected error when tsc not available and strict mode is enabled")
+			t.Error("expected error when tsc not available and must_pass is enabled")
 		}
 		// Verify the error message mentions installation instructions
 		if validErr, ok := err.(*ValidationError); ok {

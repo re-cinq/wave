@@ -505,7 +505,8 @@ func TestMigrationDefinitions(t *testing.T) {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
 		assert.NotEmpty(t, migration.Up)
-		assert.NotEmpty(t, migration.Down)
+		// Down paths have been removed (prototype phase — rollback unsupported)
+		assert.Empty(t, migration.Down)
 	}
 
 	// Test that each migration can be applied and rolled back
@@ -522,10 +523,11 @@ func TestMigrationDefinitions(t *testing.T) {
 		assert.NoError(t, err, "Failed to apply migration %d: %s", migration.Version, migration.Description)
 	}
 
-	// Rollback all migrations in reverse order
+	// Rollback should fail because Down paths have been removed
 	for i := len(migrations) - 1; i >= 0; i-- {
 		err := manager.RollbackMigration(migrations[i])
-		assert.NoError(t, err, "Failed to rollback migration %d: %s", migrations[i].Version, migrations[i].Description)
+		assert.Error(t, err, "Rollback of migration %d should fail with empty Down path", migrations[i].Version)
+		assert.Contains(t, err.Error(), "no rollback script")
 	}
 }
 
@@ -604,23 +606,8 @@ func TestMigration6_Rollback(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, `["prod", "deploy"]`, tagsJSON)
 
-	// Rollback migration 6
+	// Rollback should fail because Down paths have been removed
 	err = manager.RollbackMigration(migrations[5])
-	assert.NoError(t, err)
-
-	// Verify tags_json column no longer exists
-	_, err = db.Exec("SELECT tags_json FROM pipeline_run WHERE run_id = 'test-run-1'")
-	assert.Error(t, err, "tags_json column should not exist after rollback")
-
-	// Verify basic data is preserved
-	var runID, status string
-	err = db.QueryRow("SELECT run_id, status FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&runID, &status)
-	assert.NoError(t, err)
-	assert.Equal(t, "test-run-1", runID)
-	assert.Equal(t, "completed", status)
-
-	// Verify index was dropped
-	var indexExists bool
-	err = db.QueryRow("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_run_tags'").Scan(&indexExists)
-	assert.Error(t, err) // Should not find the index
+	assert.Error(t, err, "rollback should fail with empty Down path")
+	assert.Contains(t, err.Error(), "no rollback script")
 }

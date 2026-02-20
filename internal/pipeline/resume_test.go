@@ -163,8 +163,8 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			name:     "resume from docs - spec completed",
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
-				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				// Create completed spec workspace using hash-suffixed run dir
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-abc123/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -185,7 +185,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			name:     "resume from dummy - spec and docs completed",
 			fromStep: "dummy",
 			setupWorkspace: func(t *testing.T, tempDir string) {
-				// Create completed spec and docs workspaces
+				// Create completed spec and docs workspaces using hash-suffixed run dir
 				phases := []struct {
 					phase string
 					files []string
@@ -195,7 +195,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-abc123", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)

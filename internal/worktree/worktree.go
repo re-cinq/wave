@@ -89,7 +89,7 @@ func (m *Manager) Create(worktreePath, branch, base string) error {
 		// New branch from specific base
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath, base)
 	} else {
-		// New branch from HEAD (legacy behavior)
+		// New branch from HEAD (default)
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath)
 	}
 
