@@ -21,7 +21,7 @@ steps:
       contract:
         type: json_schema
         schema_path: .wave/contracts/navigation.schema.json
-        source: output/analysis.json
+        source: .wave/output/analysis.json
         on_failure: retry
         max_retries: 2
 ```
@@ -48,7 +48,7 @@ handover:
   contract:
     type: json_schema
     schema_path: .wave/contracts/navigation.schema.json
-    source: output/analysis.json
+    source: .wave/output/analysis.json
 ```
 
 Example schema:
@@ -82,7 +82,7 @@ Validates generated TypeScript compiles:
 handover:
   contract:
     type: typescript_interface
-    source: output/types.ts
+    source: .wave/output/types.ts
     validate: true
 ```
 
@@ -141,12 +141,12 @@ handover:
 - id: navigate
   output_artifacts:
     - name: analysis
-      path: output/analysis.json
+      path: .wave/output/analysis.json
   handover:
     contract:
       type: json_schema
       schema_path: .wave/contracts/navigation.schema.json
-      source: output/analysis.json
+      source: .wave/output/analysis.json
 ```
 
 ### Implementation Contract

@@ -19,7 +19,7 @@ Expected output:
 [10:01:35] completed review     (auditor)     19s   1.5k Review complete
 
 Pipeline docs completed in 94s
-Artifacts: output/generated-docs.md
+Artifacts: .wave/output/generated-docs.md
 ```
 
 ## Complete Pipeline
@@ -66,7 +66,7 @@ steps:
         }
     output_artifacts:
       - name: discovery
-        path: output/discovery.json
+        path: .wave/output/discovery.json
         type: json
 
   - id: generate
@@ -98,7 +98,7 @@ steps:
         Write clear, concise documentation. Use code blocks for examples.
     output_artifacts:
       - name: docs
-        path: output/generated-docs.md
+        path: .wave/output/generated-docs.md
         type: markdown
 
   - id: review
@@ -124,7 +124,7 @@ steps:
         Output: list of issues or "APPROVED"
     output_artifacts:
       - name: review
-        path: output/doc-review.md
+        path: .wave/output/doc-review.md
         type: markdown
 ```
 
@@ -132,7 +132,7 @@ steps:
 
 ## Example Output
 
-The pipeline produces `output/generated-docs.md`:
+The pipeline produces `.wave/output/generated-docs.md`:
 
 ```markdown
 # Pipeline Package
@@ -267,7 +267,7 @@ steps:
         Output structured inventory with signatures and comments.
     output_artifacts:
       - name: api-inventory
-        path: output/api-inventory.json
+        path: .wave/output/api-inventory.json
         type: json
 
   - id: document
@@ -285,7 +285,7 @@ steps:
         Use godoc style formatting.
     output_artifacts:
       - name: api-reference
-        path: output/api-reference.md
+        path: .wave/output/api-reference.md
         type: markdown
 ```
 

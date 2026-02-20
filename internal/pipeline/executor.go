@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -801,6 +802,10 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		execution.WorktreePaths[branch] = &WorktreeInfo{AbsPath: absPath, RepoRoot: mgr.RepoRoot()}
 		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
+		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
+		// don't get staged by git add -A in implement steps
+		exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "CLAUDE.md").Run()
+
 		return absPath, nil
 	}
 
@@ -999,13 +1004,13 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		// Inject schema guidance if available and safe
 		if schemaContent != "" && err == nil {
 			prompt += "\n\nOUTPUT REQUIREMENTS:\n"
-			prompt += "After completing all required tool calls (Bash, Read, Write, etc.), save your final output to artifact.json.\n"
-			prompt += "The artifact.json must be valid JSON matching this schema:\n```json\n"
+			prompt += "After completing all required tool calls (Bash, Read, Write, etc.), save your final output to .wave/artifact.json.\n"
+			prompt += "The .wave/artifact.json must be valid JSON matching this schema:\n```json\n"
 			prompt += schemaContent
 			prompt += "\n```\n\n"
 			prompt += "IMPORTANT:\n"
 			prompt += "- First, execute any tool calls needed to gather data\n"
-			prompt += "- Then, use the Write tool to save valid JSON to artifact.json\n"
+			prompt += "- Then, use the Write tool to save valid JSON to .wave/artifact.json\n"
 			prompt += "- The JSON must match every required field in the schema\n"
 		}
 	}
@@ -1033,9 +1038,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 	}
 
 	// Always inject into the workspace (agent's working directory) so the
-	// agent can find artifacts at relative paths like "artifacts/<name>".
+	// agent can find artifacts at relative paths like ".wave/artifacts/<name>".
 	// Do NOT redirect to the sidecar — the agent runs in workspacePath.
-	artifactsDir := filepath.Join(workspacePath, "artifacts")
+	artifactsDir := filepath.Join(workspacePath, ".wave", "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
 	}

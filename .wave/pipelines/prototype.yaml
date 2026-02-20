@@ -81,7 +81,7 @@ steps:
 
         Your goal is to create comprehensive, runnable documentation from the specification.
 
-        Input specification is available in artifacts/input-spec.md
+        Input specification is available in .wave/artifacts/input-spec.md
 
         Create feature documentation that includes:
         - User-friendly explanation of the feature
@@ -140,8 +140,8 @@ steps:
         Your goal is to create a working prototype with authentic I/O handling but stub business logic.
 
         Available context:
-        - artifacts/feature-docs.md - Feature documentation
-        - artifacts/spec.md - Original specification
+        - .wave/artifacts/feature-docs.md - Feature documentation
+        - .wave/artifacts/spec.md - Original specification
 
         Create a functional prototype that:
         - Handles real input and output properly
@@ -202,9 +202,9 @@ steps:
         You are in the implementation phase - transitioning from prototype to production code.
 
         Available context:
-        - artifacts/spec.md - Original specification
-        - artifacts/feature-docs.md - Feature documentation
-        - artifacts/prototype/ - Working prototype with interfaces
+        - .wave/artifacts/spec.md - Original specification
+        - .wave/artifacts/feature-docs.md - Feature documentation
+        - .wave/artifacts/prototype/ - Working prototype with interfaces
 
         Your goal is to provide implementation guidance and begin real implementation:
         - Review all previous artifacts for implementation readiness
@@ -259,7 +259,7 @@ steps:
         You are creating a pull request for the implemented feature.
 
         Available context:
-        - artifacts/implementation-plan.md - Implementation details
+        - .wave/artifacts/implementation-plan.md - Implementation details
 
         Create a comprehensive pull request:
         - Clear PR title and description

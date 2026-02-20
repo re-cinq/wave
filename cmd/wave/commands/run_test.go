@@ -164,7 +164,7 @@ func TestRunDryRunOutput(t *testing.T) {
 					Source: "Implement the feature",
 				},
 				OutputArtifacts: []pipeline.ArtifactDef{
-					{Name: "code", Path: "output/code.go", Type: "file"},
+					{Name: "code", Path: ".wave/output/code.go", Type: "file"},
 				},
 				Handover: pipeline.HandoverConfig{
 					Contract: pipeline.ContractConfig{

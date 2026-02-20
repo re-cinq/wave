@@ -2,9 +2,18 @@ package contract
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// writeTestArtifact creates .wave/artifact.json in the workspace for tests
+func writeTestArtifact(t *testing.T, workspacePath string, data []byte) {
+	t.Helper()
+	waveDir := filepath.Join(workspacePath, ".wave")
+	os.MkdirAll(waveDir, 0755)
+	os.WriteFile(filepath.Join(waveDir, "artifact.json"), data, 0644)
+}
 
 func TestJSONSchemaValidator_Valid(t *testing.T) {
 	v := &jsonSchemaValidator{}
@@ -14,8 +23,7 @@ func TestJSONSchemaValidator_Valid(t *testing.T) {
 	}
 
 	workspacePath := t.TempDir()
-	artifactPath := workspacePath + "/artifact.json"
-	os.WriteFile(artifactPath, []byte(`{"name": "test"}`), 0644)
+	writeTestArtifact(t, workspacePath, []byte(`{"name": "test"}`))
 
 	err := v.Validate(cfg, workspacePath)
 	if err != nil {
@@ -31,8 +39,7 @@ func TestJSONSchemaValidator_Invalid(t *testing.T) {
 	}
 
 	workspacePath := t.TempDir()
-	artifactPath := workspacePath + "/artifact.json"
-	os.WriteFile(artifactPath, []byte(`{"name": 123}`), 0644)
+	writeTestArtifact(t, workspacePath, []byte(`{"name": 123}`))
 
 	err := v.Validate(cfg, workspacePath)
 	if err == nil {
@@ -127,8 +134,7 @@ func TestJSONSchemaValidator_ValidationFailure_TableDriven(t *testing.T) {
 			}
 
 			workspacePath := t.TempDir()
-			artifactPath := workspacePath + "/artifact.json"
-			os.WriteFile(artifactPath, []byte(tt.artifact), 0644)
+			writeTestArtifact(t, workspacePath, []byte(tt.artifact))
 
 			err := v.Validate(cfg, workspacePath)
 
@@ -355,8 +361,7 @@ func TestValidateWithRetries_MaxRetriesExhausted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create an invalid artifact that will always fail validation
 			workspacePath := t.TempDir()
-			artifactPath := workspacePath + "/artifact.json"
-			os.WriteFile(artifactPath, []byte(`{"name": 123}`), 0644) // Invalid: name should be string
+			writeTestArtifact(t, workspacePath, []byte(`{"name": 123}`)) // Invalid: name should be string
 
 			cfg := ContractConfig{
 				Type:       "json_schema",
@@ -396,8 +401,7 @@ func TestValidateWithRetries_MaxRetriesExhausted(t *testing.T) {
 // T075: Test ValidateWithRetries succeeds on first try
 func TestValidateWithRetries_SuccessFirstTry(t *testing.T) {
 	workspacePath := t.TempDir()
-	artifactPath := workspacePath + "/artifact.json"
-	os.WriteFile(artifactPath, []byte(`{"name": "valid"}`), 0644)
+	writeTestArtifact(t, workspacePath, []byte(`{"name": "valid"}`))
 
 	cfg := ContractConfig{
 		Type:       "json_schema",
@@ -457,8 +461,7 @@ func TestValidate_Function(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			if tt.config.Type == "json_schema" && tt.config.Schema != "" {
-				artifactPath := workspacePath + "/artifact.json"
-				os.WriteFile(artifactPath, []byte(`{}`), 0644)
+				writeTestArtifact(t, workspacePath, []byte(`{}`))
 			}
 
 			err := Validate(tt.config, workspacePath)
@@ -521,7 +524,9 @@ func TestValidate_AllTypes(t *testing.T) {
 				Schema: `{"type": "object", "properties": {"value": {"type": "number"}}}`,
 			},
 			setupArtifact: func(workspacePath string) {
-				os.WriteFile(workspacePath+"/artifact.json", []byte(`{"value": 42}`), 0644)
+				waveDir := filepath.Join(workspacePath, ".wave")
+				os.MkdirAll(waveDir, 0755)
+				os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": 42}`), 0644)
 			},
 			expectError: false,
 		},
@@ -532,7 +537,9 @@ func TestValidate_AllTypes(t *testing.T) {
 				Schema: `{"type": "object", "properties": {"value": {"type": "number"}}}`,
 			},
 			setupArtifact: func(workspacePath string) {
-				os.WriteFile(workspacePath+"/artifact.json", []byte(`{"value": "not a number"}`), 0644)
+				waveDir := filepath.Join(workspacePath, ".wave")
+				os.MkdirAll(waveDir, 0755)
+				os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": "not a number"}`), 0644)
 			},
 			expectError: true,
 		},

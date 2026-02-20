@@ -76,7 +76,7 @@ If the issue IS implementable:
 
 ## Output
 
-Write a JSON assessment to `output/issue-assessment.json`:
+Write a JSON assessment to `.wave/output/issue-assessment.json`:
 
 ```json
 {

@@ -63,12 +63,12 @@ steps:
         - timestamp: current ISO 8601 timestamp
     output_artifacts:
       - name: scan-results
-        path: output/scan-results.json
+        path: .wave/output/scan-results.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/scan-results.json
+        source: .wave/output/scan-results.json
         schema_path: .wave/contracts/doc-scan-results.schema.json
         on_failure: retry
         max_retries: 2
@@ -89,7 +89,7 @@ steps:
       source: |
         Analyze documentation consistency by cross-referencing code changes with documentation.
 
-        Read the scan results from: artifacts/scan
+        Read the scan results from: .wave/artifacts/scan
 
         ## Cross-Reference Checks
 
@@ -133,12 +133,12 @@ steps:
         If no inconsistencies are found, output an empty array with clean=true.
     output_artifacts:
       - name: consistency-report
-        path: output/consistency-report.json
+        path: .wave/output/consistency-report.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: output/consistency-report.json
+        source: .wave/output/consistency-report.json
         schema_path: .wave/contracts/doc-consistency-report.schema.json
         on_failure: retry
         max_retries: 2
@@ -159,7 +159,7 @@ steps:
       source: |
         Compose a documentation consistency report as a GitHub-ready markdown file.
 
-        Read the consistency report from: artifacts/report
+        Read the consistency report from: .wave/artifacts/report
 
         ## Check for Inconsistencies
 
@@ -196,7 +196,7 @@ steps:
         ```
     output_artifacts:
       - name: report
-        path: output/report.md
+        path: .wave/output/report.md
         type: markdown
 
   - id: publish
@@ -215,7 +215,7 @@ steps:
       source: |
         PUBLISH — create a GitHub issue from the documentation report.
 
-        Read `artifacts/report`.
+        Read `.wave/artifacts/report`.
 
         If the report says "No inconsistencies found", skip issue creation and exit.
 
@@ -228,7 +228,7 @@ steps:
         ```bash
         gh issue create \
           --title "docs: documentation consistency report" \
-          --body-file artifacts/report \
+          --body-file .wave/artifacts/report \
           --label "documentation"
         ```
 

@@ -1027,7 +1027,7 @@ func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, en
 // hasStepOutput checks if a step directory contains output files
 func hasStepOutput(stepPath string) bool {
 	// Check for common output locations
-	outputDirs := []string{"", "output", "artifacts"}
+	outputDirs := []string{"", ".wave/output", ".wave/artifacts"}
 	for _, subdir := range outputDirs {
 		checkPath := stepPath
 		if subdir != "" {

@@ -97,7 +97,7 @@ steps:
         Check against team standards.
     output_artifacts:
       - name: review
-        path: output/review.md
+        path: .wave/output/review.md
         type: markdown
 ```
 
@@ -150,7 +150,7 @@ steps:
       source: "Review: {{ input }}"
     output_artifacts:
       - name: review
-        path: output/review.md
+        path: .wave/output/review.md
 ```
 
 ### Documentation
@@ -173,7 +173,7 @@ steps:
       source: "Document: {{ input }}"
     output_artifacts:
       - name: docs
-        path: output/docs.md
+        path: .wave/output/docs.md
 ```
 
 ## Tips
@@ -202,7 +202,7 @@ metadata:
   name: code-review
   description: |
     Usage: wave run code-review "description of changes"
-    Output: output/review.md
+    Output: .wave/output/review.md
 ```
 
 ### Version Control Everything

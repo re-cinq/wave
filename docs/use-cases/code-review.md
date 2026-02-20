@@ -84,7 +84,7 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: output/diff-analysis.json
+        path: .wave/output/diff-analysis.json
         type: json
 
   - id: security-review
@@ -112,7 +112,7 @@ steps:
         Output findings with severity (CRITICAL/HIGH/MEDIUM/LOW).
     output_artifacts:
       - name: security
-        path: output/security-review.md
+        path: .wave/output/security-review.md
         type: markdown
 
   - id: quality-review
@@ -141,7 +141,7 @@ steps:
         Output findings with severity and suggestions.
     output_artifacts:
       - name: quality
-        path: output/quality-review.md
+        path: .wave/output/quality-review.md
         type: markdown
 
   - id: summary
@@ -169,7 +169,7 @@ steps:
         Format as a PR review comment.
     output_artifacts:
       - name: verdict
-        path: output/review-summary.md
+        path: .wave/output/review-summary.md
         type: markdown
 ```
 
@@ -181,13 +181,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `diff` | `output/diff-analysis.json` | JSON analysis of changed files and scope |
-| `security` | `output/security-review.md` | Security findings with severity levels |
-| `verdict` | `output/review-summary.md` | Final review summary and recommendation |
+| `diff` | `.wave/output/diff-analysis.json` | JSON analysis of changed files and scope |
+| `security` | `.wave/output/security-review.md` | Security findings with severity levels |
+| `verdict` | `.wave/output/review-summary.md` | Final review summary and recommendation |
 
 ### Example Output
 
-The pipeline produces `output/review-summary.md`:
+The pipeline produces `.wave/output/review-summary.md`:
 
 ```markdown
 ## Code Review: Authentication Module
@@ -245,7 +245,7 @@ Add a JSON schema to ensure structured output:
     contract:
       type: json_schema
       schema_path: .wave/contracts/diff-analysis.schema.json
-      source: output/diff-analysis.json
+      source: .wave/output/diff-analysis.json
       on_failure: retry
       max_retries: 2
 ```

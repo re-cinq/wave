@@ -59,7 +59,7 @@ steps:
       source: "Analyze the codebase"
     output_artifacts:        # Produces artifacts
       - name: analysis
-        path: output/analysis.json
+        path: .wave/output/analysis.json
     handover:
       contract:              # Validates output
         type: json_schema
