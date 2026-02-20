@@ -66,9 +66,12 @@ type MemoryConfig struct {
 }
 
 type ArtifactRef struct {
-	Step     string `yaml:"step"`
-	Artifact string `yaml:"artifact"`
-	As       string `yaml:"as"`
+	Step       string `yaml:"step"`
+	Artifact   string `yaml:"artifact"`
+	As         string `yaml:"as"`
+	Type       string `yaml:"type,omitempty"`        // Expected artifact type for validation
+	SchemaPath string `yaml:"schema_path,omitempty"` // JSON schema path for input validation
+	Optional   bool   `yaml:"optional,omitempty"`    // If true, missing artifact doesn't fail
 }
 
 type WorkspaceConfig struct {
@@ -96,9 +99,23 @@ type ExecConfig struct {
 
 type ArtifactDef struct {
 	Name     string `yaml:"name"`
-	Path     string `yaml:"path"`
-	Type     string `yaml:"type,omitempty"`
+	Path     string `yaml:"path,omitempty"`           // Optional when Source is "stdout"
+	Type     string `yaml:"type,omitempty"`           // "json", "text", "markdown", "binary"
 	Required bool   `yaml:"required,omitempty"`
+	Source   string `yaml:"source,omitempty"`         // "file" (default) or "stdout"
+}
+
+// IsStdoutArtifact returns true if this artifact is captured from stdout.
+func (a *ArtifactDef) IsStdoutArtifact() bool {
+	return a.Source == "stdout"
+}
+
+// GetEffectiveSource returns the effective source, defaulting to "file".
+func (a *ArtifactDef) GetEffectiveSource() string {
+	if a.Source == "" {
+		return "file"
+	}
+	return a.Source
 }
 
 type HandoverConfig struct {
