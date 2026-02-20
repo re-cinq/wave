@@ -27,7 +27,6 @@ import (
 
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
-	Resume(ctx context.Context, pipelineID string, fromStep string) error
 	GetStatus(pipelineID string) (*PipelineStatus, error)
 }
 
@@ -1373,61 +1372,6 @@ func (e *DefaultPipelineExecutor) GetTotalTokens() int {
 		}
 	}
 	return total
-}
-
-func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {
-	e.mu.RLock()
-	execution, exists := e.pipelines[pipelineID]
-	e.mu.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("pipeline %q not found", pipelineID)
-	}
-
-	validator := &DAGValidator{}
-	sortedSteps, err := validator.TopologicalSort(execution.Pipeline)
-	if err != nil {
-		return fmt.Errorf("failed to topologically sort steps: %w", err)
-	}
-
-	found := false
-	for _, step := range sortedSteps {
-		if step.ID == fromStep {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("step %q not found in pipeline", fromStep)
-	}
-
-	execution.Status.State = StateRunning
-
-	resuming := false
-	for _, step := range sortedSteps {
-		if !resuming && step.ID == fromStep {
-			resuming = true
-		}
-		if resuming && execution.States[step.ID] != StateCompleted {
-			if err := e.executeStep(ctx, execution, step); err != nil {
-				execution.Status.State = StateFailed
-				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				// Clean up failed pipeline from in-memory storage to prevent memory leak
-				e.cleanupCompletedPipeline(execution.Status.ID)
-				return &StepError{StepID: step.ID, Err: err}
-			}
-			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
-		}
-	}
-
-	now := time.Now()
-	execution.Status.CompletedAt = &now
-	execution.Status.State = StateCompleted
-
-	// Clean up completed pipeline from in-memory storage to prevent memory leak
-	e.cleanupCompletedPipeline(execution.Status.ID)
-
-	return nil
 }
 
 func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus, error) {

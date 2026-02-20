@@ -376,11 +376,6 @@ func TestRunFromStepValidation(t *testing.T) {
 	err := executor.ResumeWithValidation(ctx, p, m, "test input", "nonexistent-step", false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in pipeline")
-
-	// Test resume with non-existent pipeline via Resume
-	err = executor.Resume(ctx, "nonexistent-pipeline", "step1")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "pipeline \"nonexistent-pipeline\" not found")
 }
 
 // TestDryRunShowsAllStepDetails tests that dry-run shows comprehensive step information

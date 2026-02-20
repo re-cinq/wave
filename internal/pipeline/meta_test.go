@@ -1278,10 +1278,6 @@ func (m *mockPipelineExecutor) Execute(ctx context.Context, p *Pipeline, man *ma
 	return nil
 }
 
-func (m *mockPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {
-	return nil
-}
-
 func (m *mockPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus, error) {
 	return nil, nil
 }
