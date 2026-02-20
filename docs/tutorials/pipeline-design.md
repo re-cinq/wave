@@ -143,7 +143,7 @@ wave run feature-flow "Add user profile"
 1. **Start with navigation** - provides context for downstream steps
 2. **Use contracts liberally** - catch errors early
 3. **Keep steps focused** - one task per step
-4. **Design for resumability** - `wave resume --from-step implement`
+4. **Design for resumability** - `wave run <pipeline> --from-step implement`
 
 ## Next Steps
 

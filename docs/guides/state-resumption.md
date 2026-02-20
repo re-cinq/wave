@@ -44,8 +44,8 @@ Every step state transition is written to a local SQLite database:
 # Find the pipeline ID from previous output or list runs
 wave list runs
 
-# Resume from last checkpoint
-wave resume --pipeline-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+# Resume from last checkpoint (auto-recovers input from previous run)
+wave run <pipeline-name> --from-step <step>
 ```
 
 ### Resume Behavior
@@ -74,10 +74,13 @@ graph TD
 
 ```bash
 # Skip ahead to a specific step
-wave resume --pipeline-id a1b2c3d4 --from-step implement
+wave run <pipeline-name> --from-step implement
+
+# Resume from a specific previous run
+wave run <pipeline-name> --from-step implement --run <run-id>
 ```
 
-This marks all steps before `implement` as completed (their workspace artifacts must exist) and starts execution from `implement`.
+This marks all steps before `implement` as completed (their workspace artifacts must exist) and starts execution from `implement`. Input is auto-recovered from the most recent run unless `--input` or `--run` is specified.
 
 ## Interruption Safety
 
@@ -87,7 +90,7 @@ When Wave receives SIGINT (Ctrl+C):
 2. Adapter subprocess is killed (entire process group).
 3. Workspace is preserved.
 4. Exit code 130 is returned.
-5. Pipeline can be resumed with `wave resume`.
+5. Pipeline can be resumed with `wave run <pipeline> --from-step <step>`.
 
 ### What's Preserved
 
