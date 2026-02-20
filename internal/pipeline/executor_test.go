@@ -1711,3 +1711,350 @@ func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*Pipelin
 	}
 	return nil, false
 }
+
+// TestStdoutArtifactCapture tests that stdout artifacts are correctly captured and available to downstream steps
+func TestStdoutArtifactCapture(t *testing.T) {
+	collector := newTestEventCollector()
+	stdoutContent := `{"analysis": "test analysis data", "score": 42}`
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(stdoutContent),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline with stdout artifact
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "stdout-artifact-test"},
+		Steps: []Step{
+			{
+				ID:      "analyze",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "analyze data"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "analysis-report", Source: "stdout", Type: "json"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify artifact was written to correct location
+	// Workspace path is: wsRoot/pipelineID/stepID
+	// Artifact path is: workspace/.wave/artifacts/stepID/artifactName
+	pipelineID := collector.GetPipelineID()
+	artifactPath := filepath.Join(tmpDir, pipelineID, "analyze", ".wave", "artifacts", "analyze", "analysis-report")
+
+	// Check artifact exists
+	_, err = os.Stat(artifactPath)
+	assert.NoError(t, err, "stdout artifact should be written to filesystem")
+
+	// Read content and verify
+	content, err := os.ReadFile(artifactPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "analysis")
+}
+
+// TestStdoutArtifactSizeLimitEnforced tests that size limit is enforced for stdout artifacts
+func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
+	collector := newTestEventCollector()
+	// Create a large stdout (over 10MB would be too slow, so we'll configure a smaller limit)
+	largeContent := strings.Repeat("x", 1000)
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(largeContent),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	// Set a very small limit to test the enforcement
+	m.Runtime.Artifacts.MaxStdoutSize = 100 // 100 bytes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "size-limit-test"},
+		Steps: []Step{
+			{
+				ID:      "produce",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "produce output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "large-output", Source: "stdout", Type: "text"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	// Should fail due to size limit
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds limit")
+}
+
+// TestStdoutArtifactWrittenToCorrectLocation tests that stdout artifact paths follow the expected convention
+func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
+	collector := newTestEventCollector()
+	expectedContent := "test content for stdout artifact"
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(expectedContent),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "stdout-path-test"},
+		Steps: []Step{
+			{
+				ID:      "produce",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "produce content"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "my-artifact", Source: "stdout", Type: "text"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify artifact exists at the correct path
+	// Workspace path is: wsRoot/pipelineID/stepID
+	// Artifact path is: workspace/.wave/artifacts/stepID/artifactName
+	pipelineID := collector.GetPipelineID()
+	artifactPath := filepath.Join(tmpDir, pipelineID, "produce", ".wave", "artifacts", "produce", "my-artifact")
+
+	info, err := os.Stat(artifactPath)
+	require.NoError(t, err, "stdout artifact should exist at expected path")
+	assert.True(t, info.Size() > 0, "stdout artifact should have content")
+}
+
+// TestMissingRequiredArtifactFailsBeforeStep tests that missing required artifacts fail before step execution
+func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline where step2 references a non-existent artifact from a step that doesn't exist
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "missing-artifact-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+			},
+			{
+				ID:           "step2",
+				Persona:      "navigator",
+				Dependencies: []string{"step1"},
+				Exec:         ExecConfig{Source: "consume artifact"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						// Reference a step that doesn't exist - this should fail clearly
+						{Step: "nonexistent-step", Artifact: "missing-artifact", As: "data"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required artifact")
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// TestOptionalMissingArtifactProceeds tests that optional missing artifacts don't fail the step
+func TestOptionalMissingArtifactProceeds(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline where step2 references an optional non-existent artifact
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "optional-artifact-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+			},
+			{
+				ID:           "step2",
+				Persona:      "navigator",
+				Dependencies: []string{"step1"},
+				Exec:         ExecConfig{Source: "consume artifact"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{Step: "step1", Artifact: "optional-artifact", As: "data", Optional: true},
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	// Should succeed despite missing optional artifact
+	require.NoError(t, err)
+
+	// Verify step2 completed
+	events := collector.GetEventsByStep("step2")
+	hasCompleted := false
+	for _, e := range events {
+		if e.State == "completed" {
+			hasCompleted = true
+			break
+		}
+	}
+	assert.True(t, hasCompleted, "step2 should have completed despite optional artifact missing")
+}
+
+// TestTypeMismatchFailsWithClearError tests that type mismatch produces a clear error
+func TestTypeMismatchFailsWithClearError(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline where step2 expects json but step1 produces markdown
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "type-mismatch-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "produce markdown"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "output", Path: ".wave/output.md", Type: "markdown"},
+				},
+			},
+			{
+				ID:           "step2",
+				Persona:      "navigator",
+				Dependencies: []string{"step1"},
+				Exec:         ExecConfig{Source: "consume as json"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{Step: "step1", Artifact: "output", As: "data", Type: "json"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "type mismatch")
+	assert.Contains(t, err.Error(), "expected json")
+	assert.Contains(t, err.Error(), "got markdown")
+}
+
+// TestTypeNotDeclaredSkipsValidation tests that missing type declaration skips validation
+func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline where neither side declares a type - should pass
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "no-type-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "produce output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "output", Path: ".wave/output.txt"}, // No type
+				},
+			},
+			{
+				ID:           "step2",
+				Persona:      "navigator",
+				Dependencies: []string{"step1"},
+				Exec:         ExecConfig{Source: "consume output"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{Step: "step1", Artifact: "output", As: "data"}, // No type
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	// Should succeed since no type validation is performed
+	require.NoError(t, err)
+}

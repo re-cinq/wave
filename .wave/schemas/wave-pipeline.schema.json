@@ -198,6 +198,20 @@
         "as": {
           "type": "string",
           "description": "Name to mount the artifact under artifacts/ directory"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["json", "text", "markdown", "binary"],
+          "description": "Expected artifact type for validation"
+        },
+        "schema_path": {
+          "type": "string",
+          "description": "Path to JSON schema file for input content validation"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, missing artifact doesn't fail the step"
         }
       }
     },
@@ -278,7 +292,7 @@
     },
     "ArtifactDef": {
       "type": "object",
-      "required": ["name", "path"],
+      "required": ["name"],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -287,17 +301,23 @@
         },
         "path": {
           "type": "string",
-          "description": "File path relative to workspace root"
+          "description": "File path relative to workspace root (optional when source is stdout)"
         },
         "type": {
           "type": "string",
-          "enum": ["json", "text", "markdown"],
+          "enum": ["json", "text", "markdown", "binary"],
           "description": "Artifact content type"
         },
         "required": {
           "type": "boolean",
           "default": false,
           "description": "Whether this artifact must exist after step completion"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["file", "stdout"],
+          "default": "file",
+          "description": "Artifact source: 'file' (persona writes file) or 'stdout' (captured from process output)"
         }
       }
     },

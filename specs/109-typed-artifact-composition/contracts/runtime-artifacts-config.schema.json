@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.re-cinq.com/schemas/runtime-artifacts-config.schema.json",
+  "title": "RuntimeArtifactsConfig",
+  "description": "Global configuration for artifact handling in wave.yaml runtime section",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "max_stdout_size": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 104857600,
+      "default": 10485760,
+      "description": "Maximum bytes to capture from stdout for artifacts. Default 10MB (10485760 bytes). Min 1KB, Max 100MB"
+    },
+    "default_artifact_dir": {
+      "type": "string",
+      "default": ".wave/artifacts",
+      "pattern": "^[^/].*[^/]$|^[^/]$",
+      "description": "Base directory for stdout artifacts relative to workspace. Must not start or end with '/'"
+    }
+  },
+  "examples": [
+    {
+      "max_stdout_size": 5242880,
+      "default_artifact_dir": ".wave/artifacts"
+    },
+    {
+      "max_stdout_size": 20971520
+    }
+  ]
+}
