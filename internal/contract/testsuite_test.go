@@ -669,3 +669,179 @@ func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 		t.Errorf("command should have access to environment variables: %v", err)
 	}
 }
+
+// =============================================================================
+// T020: User Story 7 - Test suite exit code test
+// =============================================================================
+
+// T020: Test that non-zero exit codes cause contract validation to fail
+// This ensures that when a test command returns non-zero exit code, the contract fails.
+func TestTestSuiteValidator_ExitCodeFailure(t *testing.T) {
+	tests := []struct {
+		name           string
+		command        string
+		commandArgs    []string
+		expectError    bool
+		expectedExitCode int
+		errorContains  string
+	}{
+		{
+			name:             "false command exits with 1",
+			command:          "false",
+			commandArgs:      nil,
+			expectError:      true,
+			expectedExitCode: 1,
+			errorContains:    "test suite failed",
+		},
+		{
+			name:             "explicit exit 1",
+			command:          "sh",
+			commandArgs:      []string{"-c", "exit 1"},
+			expectError:      true,
+			expectedExitCode: 1,
+			errorContains:    "exit code 1",
+		},
+		{
+			name:             "explicit exit 2",
+			command:          "sh",
+			commandArgs:      []string{"-c", "exit 2"},
+			expectError:      true,
+			expectedExitCode: 2,
+			errorContains:    "exit code 2",
+		},
+		{
+			name:             "explicit exit 42",
+			command:          "sh",
+			commandArgs:      []string{"-c", "exit 42"},
+			expectError:      true,
+			expectedExitCode: 42,
+			errorContains:    "exit code 42",
+		},
+		{
+			name:             "explicit exit 127 (command not found convention)",
+			command:          "sh",
+			commandArgs:      []string{"-c", "exit 127"},
+			expectError:      true,
+			expectedExitCode: 127,
+			errorContains:    "exit code 127",
+		},
+		{
+			name:             "explicit exit 255",
+			command:          "sh",
+			commandArgs:      []string{"-c", "exit 255"},
+			expectError:      true,
+			expectedExitCode: 255,
+			errorContains:    "exit code 255",
+		},
+		{
+			name:        "true command exits with 0 (success)",
+			command:     "true",
+			commandArgs: nil,
+			expectError: false,
+		},
+		{
+			name:        "explicit exit 0 (success)",
+			command:     "sh",
+			commandArgs: []string{"-c", "exit 0"},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &testSuiteValidator{}
+			workspacePath := t.TempDir()
+
+			cfg := ContractConfig{
+				Type:        "test_suite",
+				Command:     tt.command,
+				CommandArgs: tt.commandArgs,
+				Dir:         workspacePath,
+			}
+
+			err := v.Validate(cfg, workspacePath)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error for exit code %d, but validation passed", tt.expectedExitCode)
+					return
+				}
+
+				// Verify it's a ValidationError
+				validErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Errorf("expected ValidationError, got %T", err)
+					return
+				}
+
+				// Verify contract type
+				if validErr.ContractType != "test_suite" {
+					t.Errorf("expected contract type test_suite, got %s", validErr.ContractType)
+				}
+
+				// Verify error message contains expected text
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("error should contain %q, got: %v", tt.errorContains, err)
+				}
+
+				// Verify the error is marked as retryable (test failures can be fixed)
+				if !validErr.Retryable {
+					t.Error("test suite exit code failures should be retryable")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error for exit code 0, but got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestTestSuiteValidator_ExitCodeWithOutput verifies that exit codes take precedence
+// over output content - a failing command with "successful" looking output should still fail.
+func TestTestSuiteValidator_ExitCodeWithOutput(t *testing.T) {
+	v := &testSuiteValidator{}
+	workspacePath := t.TempDir()
+
+	// Command that prints "success" but exits with non-zero
+	cfg := ContractConfig{
+		Type:        "test_suite",
+		Command:     "sh",
+		CommandArgs: []string{"-c", "echo 'All tests passed!'; exit 1"},
+		Dir:         workspacePath,
+	}
+
+	err := v.Validate(cfg, workspacePath)
+	if err == nil {
+		t.Error("expected error despite 'success' message in output")
+	}
+
+	validErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("expected ValidationError, got %T", err)
+	}
+
+	if !strings.Contains(validErr.Error(), "exit code 1") {
+		t.Errorf("error should mention exit code, got: %v", validErr)
+	}
+}
+
+// TestTestSuiteValidator_ExitCodeZeroWithErrorOutput verifies that exit code 0 succeeds
+// even when stderr has content - some tools write to stderr for non-error output.
+func TestTestSuiteValidator_ExitCodeZeroWithErrorOutput(t *testing.T) {
+	v := &testSuiteValidator{}
+	workspacePath := t.TempDir()
+
+	// Command that writes to stderr but exits with 0
+	cfg := ContractConfig{
+		Type:        "test_suite",
+		Command:     "sh",
+		CommandArgs: []string{"-c", "echo 'Warning: deprecated feature' >&2; exit 0"},
+		Dir:         workspacePath,
+	}
+
+	err := v.Validate(cfg, workspacePath)
+	if err != nil {
+		t.Errorf("exit code 0 should succeed even with stderr output: %v", err)
+	}
+}
