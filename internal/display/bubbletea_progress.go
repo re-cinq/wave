@@ -246,6 +246,12 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		if btpd.currentStepID == evt.StepID {
 			btpd.currentStepID = ""
 		}
+	case "failed_optional":
+		step.State = StateFailedOptional
+		// Clear current step when failed optional
+		if btpd.currentStepID == evt.StepID {
+			btpd.currentStepID = ""
+		}
 	case "retrying":
 		step.State = StateRunning // Treat retrying as running
 	case "warning":
@@ -284,6 +290,8 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 				completed++
 			case StateFailed:
 				failed++
+			case StateFailedOptional:
+				failed++ // Count toward failed for display purposes
 			case StateSkipped:
 				skipped++
 			case StateRunning:

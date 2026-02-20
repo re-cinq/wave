@@ -362,6 +362,8 @@ func (tcc *TerminalColorContext) FormatState(state ProgressState) string {
 		return tcc.codec.Success(string(state))
 	case StateFailed:
 		return tcc.codec.Error(string(state))
+	case StateFailedOptional:
+		return tcc.codec.Warning(string(state))
 	case StateRunning:
 		return tcc.codec.Primary(string(state))
 	case StateSkipped:
@@ -380,6 +382,8 @@ func (tcc *TerminalColorContext) GetStateIcon(state ProgressState) string {
 		return tcc.codec.Success(tcc.charSet.CheckMark)
 	case StateFailed:
 		return tcc.codec.Error(tcc.charSet.CrossMark)
+	case StateFailedOptional:
+		return tcc.codec.Warning("⚠")
 	case StateRunning:
 		return tcc.codec.Primary("⟳") // Fallback for spinner
 	case StateSkipped:
