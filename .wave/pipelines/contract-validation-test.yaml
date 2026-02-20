@@ -1,0 +1,47 @@
+kind: WavePipeline
+metadata:
+  name: contract-validation-test
+  description: "Pipeline that outputs invalid JSON to test contract validation failure"
+  release: false
+
+input:
+  source: cli
+  example: "test contract validation failure"
+
+steps:
+  # Step that intentionally outputs invalid JSON to trigger ValidationError
+  - id: produce-invalid-json
+    persona: craftsman
+    exec:
+      type: prompt
+      source: |
+        IMPORTANT: This is a TEST pipeline designed to verify contract validation failure handling.
+
+        You MUST output INVALID JSON that will fail schema validation.
+
+        Write the following INVALID output to .wave/output/invalid-output.json:
+
+        {
+          "wrong_field": "This field is not in the schema",
+          "missing_required": true,
+          "extra_data": 12345
+        }
+
+        This JSON is intentionally wrong because:
+        1. It has "wrong_field" instead of required "status"
+        2. It has "missing_required" instead of required "message"
+        3. It lacks the required "error_code" field
+        4. The additionalProperties constraint will reject "extra_data"
+
+        DO NOT fix the JSON. Output it exactly as shown above.
+    output_artifacts:
+      - name: invalid-output
+        path: .wave/output/invalid-output.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/invalid-output.json
+        schema_path: .wave/contracts/contract-validation-test.schema.json
+        on_failure: fail
+        max_retries: 0

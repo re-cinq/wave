@@ -1047,6 +1047,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 	pipelineID := execution.Status.ID
 
+	// Track missing artifacts to report all at once
+	var missingArtifacts []string
+
 	for _, ref := range step.Memory.InjectArtifacts {
 		artName := ref.As
 		if artName == "" {
@@ -1081,8 +1084,17 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 					State:      "running",
 					Message:    fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step),
 				})
+				continue
 			}
 		}
+
+		// Artifact not found from any source - track it
+		missingArtifacts = append(missingArtifacts, ref.Artifact+" from "+ref.Step)
+	}
+
+	// Report all missing artifacts in a single error
+	if len(missingArtifacts) > 0 {
+		return fmt.Errorf("missing artifacts: %s", strings.Join(missingArtifacts, ", "))
 	}
 
 	return nil
