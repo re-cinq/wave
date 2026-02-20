@@ -71,15 +71,38 @@ type HookRule struct {
 }
 
 type Runtime struct {
-	WorkspaceRoot        string         `yaml:"workspace_root"`
-	MaxConcurrentWorkers int            `yaml:"max_concurrent_workers,omitempty"`
-	DefaultTimeoutMin    int            `yaml:"default_timeout_minutes,omitempty"`
-	PipelineIDHashLength int            `yaml:"pipeline_id_hash_length,omitempty"`
-	Relay                RelayConfig    `yaml:"relay,omitempty"`
-	Audit                AuditConfig    `yaml:"audit,omitempty"`
-	MetaPipeline         MetaConfig     `yaml:"meta_pipeline,omitempty"`
-	Routing              RoutingConfig  `yaml:"routing,omitempty"`
-	Sandbox              RuntimeSandbox `yaml:"sandbox,omitempty"`
+	WorkspaceRoot        string                 `yaml:"workspace_root"`
+	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
+	DefaultTimeoutMin    int                    `yaml:"default_timeout_minutes,omitempty"`
+	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`
+	Relay                RelayConfig            `yaml:"relay,omitempty"`
+	Audit                AuditConfig            `yaml:"audit,omitempty"`
+	MetaPipeline         MetaConfig             `yaml:"meta_pipeline,omitempty"`
+	Routing              RoutingConfig          `yaml:"routing,omitempty"`
+	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
+	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+}
+
+// RuntimeArtifactsConfig holds global configuration for artifact handling.
+type RuntimeArtifactsConfig struct {
+	MaxStdoutSize      int64  `yaml:"max_stdout_size,omitempty"`      // Max bytes to capture from stdout (default: 10MB)
+	DefaultArtifactDir string `yaml:"default_artifact_dir,omitempty"` // Base directory for artifacts (default: ".wave/artifacts")
+}
+
+// GetMaxStdoutSize returns the configured max stdout size or the default (10MB).
+func (c *RuntimeArtifactsConfig) GetMaxStdoutSize() int64 {
+	if c.MaxStdoutSize > 0 {
+		return c.MaxStdoutSize
+	}
+	return 10 * 1024 * 1024 // 10MB default
+}
+
+// GetDefaultArtifactDir returns the configured artifact directory or the default.
+func (c *RuntimeArtifactsConfig) GetDefaultArtifactDir() string {
+	if c.DefaultArtifactDir != "" {
+		return c.DefaultArtifactDir
+	}
+	return ".wave/artifacts"
 }
 
 type RuntimeSandbox struct {
