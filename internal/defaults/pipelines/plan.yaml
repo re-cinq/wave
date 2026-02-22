@@ -91,7 +91,7 @@ steps:
 
         Codebase exploration has already been done. Read the exploration results FIRST:
 
-          cat .wave/.wave/artifacts/context
+          cat .wave/artifacts/context
 
         This file contains structured JSON with: related files, codebase patterns,
         affected modules, testing landscape, and identified risks. Use ALL of this
@@ -172,8 +172,8 @@ steps:
 
         Two artifacts have been injected into your workspace. Read them BOTH first:
 
-          cat .wave/.wave/artifacts/context      # Codebase exploration (JSON)
-          cat .wave/.wave/artifacts/task_list    # Task breakdown plan (JSON)
+          cat .wave/artifacts/context      # Codebase exploration (JSON)
+          cat .wave/artifacts/task_list    # Task breakdown plan (JSON)
 
         The exploration contains: related files, patterns, affected modules, testing
         landscape, and risks. The task list contains: feature summary, tasks with
