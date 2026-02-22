@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -26,10 +25,6 @@ import (
 	"github.com/recinq/wave/internal/workspace"
 )
 
-var (
-	issueURLPattern = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/issues/\d+`)
-	prURLPattern    = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/pull/\d+`)
-)
 
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
@@ -1290,38 +1285,6 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 	}
 
-	// Check for common deliverable patterns
-	e.trackCommonDeliverables(step.ID, workspacePath, execution)
-}
-
-// trackCommonDeliverables scans step stdout for PR/issue URLs and other outcome signals.
-func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath string, execution *PipelineExecution) {
-	results, exists := execution.Results[stepID]
-	if !exists {
-		return
-	}
-
-	stdout, _ := results["stdout"].(string)
-
-	// Scan stdout for GitHub PR URLs
-	for _, prURL := range prURLPattern.FindAllString(stdout, -1) {
-		e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Created pull request")
-	}
-
-	// Scan stdout for GitHub issue URLs
-	for _, issueURL := range issueURLPattern.FindAllString(stdout, -1) {
-		e.deliverableTracker.AddIssue(stepID, "Issue", issueURL, "Created issue")
-	}
-
-	// Check for contract artifacts
-	contractFiles := []string{"contract.json", "schema.json", "api-spec.yaml", "openapi.yaml"}
-	for _, contractFile := range contractFiles {
-		contractPath := filepath.Join(workspacePath, contractFile)
-		if _, err := os.Stat(contractPath); err == nil {
-			absPath, _ := filepath.Abs(contractPath)
-			e.deliverableTracker.AddContract(stepID, contractFile, absPath, "Contract artifact")
-		}
-	}
 }
 
 // GetDeliverables returns the deliverables summary for the completed pipeline
