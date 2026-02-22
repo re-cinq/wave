@@ -226,6 +226,11 @@ steps:
         path: artifact.json
         type: json
         required: true
+    outcomes:
+      - type: issue
+        extract_from: artifact.json
+        json_path: .url
+        label: "Updated Issue"
     handover:
       max_retries: 1
       contract:
