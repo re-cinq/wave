@@ -26,7 +26,10 @@ import (
 	"github.com/recinq/wave/internal/workspace"
 )
 
-var issueURLPattern = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/issues/\d+`)
+var (
+	issueURLPattern = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/issues/\d+`)
+	prURLPattern    = regexp.MustCompile(`https://github\.com/[^/]+/[^/]+/pull/\d+`)
+)
 
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
@@ -1264,23 +1267,7 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		return
 	}
 
-	// Only auto-scan workspace files for non-worktree workspaces.
-	// Worktrees contain the full repo checkout; scanning would list repo files as deliverables.
-	isWorktree := step.Workspace.Type == "worktree"
-	if !isWorktree && step.Workspace.Ref != "" {
-		// Check if the referenced step is a worktree
-		for _, s := range execution.Pipeline.Steps {
-			if s.ID == step.Workspace.Ref && s.Workspace.Type == "worktree" {
-				isWorktree = true
-				break
-			}
-		}
-	}
-	if !isWorktree {
-		e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
-	}
-
-	// Track explicit output artifacts
+	// Track explicit output artifacts (declared in pipeline YAML only)
 	for _, artifact := range step.OutputArtifacts {
 		resolvedPath := execution.Context.ResolveArtifactPath(artifact)
 		artifactPath := filepath.Join(workspacePath, resolvedPath)
@@ -1307,61 +1294,23 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 	e.trackCommonDeliverables(step.ID, workspacePath, execution)
 }
 
-// trackCommonDeliverables looks for common deliverable patterns like PR links, deployment URLs, etc.
+// trackCommonDeliverables scans step stdout for PR/issue URLs and other outcome signals.
 func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath string, execution *PipelineExecution) {
-	// Check step results for URLs, PRs, deployments
-	if results, exists := execution.Results[stepID]; exists {
-		// Look for PR URLs in results
-		if prURL, ok := results["pr_url"].(string); ok && prURL != "" {
-			e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Generated pull request")
-		}
-
-		// Look for issue URLs in results
-		if issueURL, ok := results["issue_url"].(string); ok && issueURL != "" {
-			e.deliverableTracker.AddIssue(stepID, "Issue", issueURL, "Created issue")
-		}
-
-		// Look for deployment URLs in results
-		if deployURL, ok := results["deploy_url"].(string); ok && deployURL != "" {
-			e.deliverableTracker.AddDeployment(stepID, "Deployment", deployURL, "Deployed application")
-		}
-
-		// Check for push status in results (from publish steps)
-		if pushed, ok := results["pushed"].(bool); ok && pushed {
-			// Find the branch name from execution worktree paths
-			for branchName := range execution.WorktreePaths {
-				e.deliverableTracker.UpdateMetadata(deliverable.TypeBranch, branchName, "pushed", true)
-				if remoteRef, ok := results["remote_ref"].(string); ok {
-					e.deliverableTracker.UpdateMetadata(deliverable.TypeBranch, branchName, "remote_ref", remoteRef)
-				}
-				break
-			}
-		}
-
-		// Look for any URLs in results
-		for key, value := range results {
-			if strValue, ok := value.(string); ok {
-				if strings.HasPrefix(strValue, "http://") || strings.HasPrefix(strValue, "https://") {
-					e.deliverableTracker.AddURL(stepID, key, strValue, fmt.Sprintf("URL from %s", key))
-				}
-				// Check for GitHub issue URLs in result values
-				if matches := issueURLPattern.FindAllString(strValue, -1); len(matches) > 0 {
-					for _, match := range matches {
-						e.deliverableTracker.AddIssue(stepID, fmt.Sprintf("Issue from %s", key), match, "Detected GitHub issue")
-					}
-				}
-			}
-		}
+	results, exists := execution.Results[stepID]
+	if !exists {
+		return
 	}
 
-	// Check for log files
-	logFiles := []string{"step.log", "execution.log", "debug.log", "output.log"}
-	for _, logFile := range logFiles {
-		logPath := filepath.Join(workspacePath, logFile)
-		if _, err := os.Stat(logPath); err == nil {
-			absPath, _ := filepath.Abs(logPath)
-			e.deliverableTracker.AddLog(stepID, logFile, absPath, "Step execution log")
-		}
+	stdout, _ := results["stdout"].(string)
+
+	// Scan stdout for GitHub PR URLs
+	for _, prURL := range prURLPattern.FindAllString(stdout, -1) {
+		e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Created pull request")
+	}
+
+	// Scan stdout for GitHub issue URLs
+	for _, issueURL := range issueURLPattern.FindAllString(stdout, -1) {
+		e.deliverableTracker.AddIssue(stepID, "Issue", issueURL, "Created issue")
 	}
 
 	// Check for contract artifacts
