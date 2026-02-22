@@ -240,3 +240,28 @@ func (t *Tracker) AddWorkspaceFiles(stepID, workspacePath string) {
 		}
 	}
 }
+// AddBranch is a convenience method to add a branch deliverable
+func (t *Tracker) AddBranch(stepID, branchName, worktreePath, description string) {
+	t.Add(NewBranchDeliverable(stepID, branchName, worktreePath, description))
+}
+
+// AddIssue is a convenience method to add an issue deliverable
+func (t *Tracker) AddIssue(stepID, name, issueURL, description string) {
+	t.Add(NewIssueDeliverable(stepID, name, issueURL, description))
+}
+
+// UpdateMetadata updates a metadata field on the first deliverable matching the given type and name.
+// Thread-safe. No-op if no matching deliverable is found.
+func (t *Tracker) UpdateMetadata(deliverableType DeliverableType, name string, key string, value any) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, d := range t.deliverables {
+		if d.Type == deliverableType && d.Name == name {
+			if d.Metadata == nil {
+				d.Metadata = make(map[string]any)
+			}
+			d.Metadata[key] = value
+			return
+		}
+	}
+}
