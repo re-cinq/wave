@@ -6,12 +6,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/recinq/wave/internal/manifest"
 )
 
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
+	mu              sync.Mutex        `json:"-"` // protects map access during concurrent steps
 	BranchName      string            `json:"branch_name"`
 	FeatureNum      string            `json:"feature_num"`
 	SpeckitMode     bool              `json:"speckit_mode"`
@@ -61,6 +63,18 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 		return s
 	}
 
+	// Take a snapshot of maps under lock to avoid holding the lock during string ops
+	ctx.mu.Lock()
+	artifactPathsCopy := make(map[string]string, len(ctx.ArtifactPaths))
+	for k, v := range ctx.ArtifactPaths {
+		artifactPathsCopy[k] = v
+	}
+	customVarsCopy := make(map[string]string, len(ctx.CustomVariables))
+	for k, v := range ctx.CustomVariables {
+		customVarsCopy[k] = v
+	}
+	ctx.mu.Unlock()
+
 	// Replace pipeline context variables (both spaced and unspaced)
 	result = replaceBoth(result, "pipeline_context.branch_name", ctx.BranchName)
 	result = replaceBoth(result, "pipeline_context.feature_num", ctx.FeatureNum)
@@ -69,12 +83,12 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = replaceBoth(result, "pipeline_context.step_id", ctx.StepID)
 
 	// Replace artifact path references ({{ artifacts.<name> }})
-	for name, path := range ctx.ArtifactPaths {
+	for name, path := range artifactPathsCopy {
 		result = replaceBoth(result, "artifacts."+name, path)
 	}
 
 	// Replace custom variables (support both {{key}} and {{ key }} formats)
-	for key, value := range ctx.CustomVariables {
+	for key, value := range customVarsCopy {
 		result = replaceBoth(result, key, value)
 	}
 
@@ -99,6 +113,8 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 
 // SetCustomVariable adds a custom template variable
 func (ctx *PipelineContext) SetCustomVariable(key, value string) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	if ctx.CustomVariables == nil {
 		ctx.CustomVariables = make(map[string]string)
 	}
@@ -108,6 +124,8 @@ func (ctx *PipelineContext) SetCustomVariable(key, value string) {
 // SetArtifactPath registers an artifact path for template resolution.
 // The artifact will be accessible via {{ artifacts.<name> }} or {{ artifacts.<name> }} syntax.
 func (ctx *PipelineContext) SetArtifactPath(name, path string) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	if ctx.ArtifactPaths == nil {
 		ctx.ArtifactPaths = make(map[string]string)
 	}
@@ -116,6 +134,8 @@ func (ctx *PipelineContext) SetArtifactPath(name, path string) {
 
 // GetArtifactPath returns the registered path for an artifact, or empty string if not found.
 func (ctx *PipelineContext) GetArtifactPath(name string) string {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	if ctx.ArtifactPaths == nil {
 		return ""
 	}
@@ -176,15 +196,15 @@ func (ctx *PipelineContext) ToTemplateVars() map[string]string {
 		"pipeline_context.step_id":        ctx.StepID,
 	}
 
-	// Add custom variables
+	// Snapshot maps under lock
+	ctx.mu.Lock()
 	for key, value := range ctx.CustomVariables {
 		vars[key] = value
 	}
-
-	// Add artifact paths ({{ artifacts.<name> }})
 	for name, path := range ctx.ArtifactPaths {
 		vars["artifacts."+name] = path
 	}
+	ctx.mu.Unlock()
 
 	return vars
 }
