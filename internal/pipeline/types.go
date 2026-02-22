@@ -55,6 +55,7 @@ type Step struct {
 	Workspace       WorkspaceConfig  `yaml:"workspace"`
 	Exec            ExecConfig       `yaml:"exec"`
 	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
+	Outcomes        []OutcomeDef     `yaml:"outcomes,omitempty"`
 	Handover        HandoverConfig   `yaml:"handover,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
@@ -157,4 +158,14 @@ type ValidationRule struct {
 	Schema     string `yaml:"schema,omitempty"`
 	OnFailure  string `yaml:"on_failure,omitempty"`
 	MaxRetries int    `yaml:"max_retries,omitempty"`
+}
+
+// OutcomeDef declares a structured outcome to extract from step artifacts.
+// Outcomes are extracted from JSON artifacts and registered with the deliverable
+// tracker, making them appear in the pipeline output summary.
+type OutcomeDef struct {
+	Type        string `yaml:"type"`         // "pr", "issue", "url", "deployment"
+	ExtractFrom string `yaml:"extract_from"` // Artifact path relative to workspace (e.g., "output/publish-result.json")
+	JSONPath    string `yaml:"json_path"`    // Dot notation path (e.g., ".comment_url")
+	Label       string `yaml:"label,omitempty"`
 }

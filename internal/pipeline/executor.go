@@ -400,6 +400,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Track deliverables from completed step
 		e.trackStepDeliverables(execution, step)
 
+		// Extract declared outcomes from step artifacts
+		e.processStepOutcomes(execution, step)
+
 		return nil
 	}
 
@@ -428,6 +431,9 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 
 	// Track deliverables from completed matrix step
 	e.trackStepDeliverables(execution, step)
+
+	// Extract declared outcomes from matrix step artifacts
+	e.processStepOutcomes(execution, step)
 
 	return nil
 }
@@ -1410,6 +1416,73 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 	}
 
+}
+
+// processStepOutcomes extracts declared outcomes from step artifacts and registers
+// them with the deliverable tracker for display in the pipeline output summary.
+// Errors are logged as warnings — outcome extraction never fails a step.
+func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecution, step *Step) {
+	if e.deliverableTracker == nil || len(step.Outcomes) == 0 {
+		return
+	}
+
+	pipelineID := execution.Status.ID
+	workspacePath := execution.WorkspacePaths[step.ID]
+	if workspacePath == "" {
+		return
+	}
+
+	for _, outcome := range step.Outcomes {
+		artifactPath := filepath.Join(workspacePath, outcome.ExtractFrom)
+		data, err := os.ReadFile(artifactPath)
+		if err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("outcome extraction: cannot read %s: %v", outcome.ExtractFrom, err),
+			})
+			continue
+		}
+
+		value, err := ExtractJSONPath(data, outcome.JSONPath)
+		if err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("outcome extraction: %s at %s: %v", outcome.JSONPath, outcome.ExtractFrom, err),
+			})
+			continue
+		}
+
+		label := outcome.Label
+		if label == "" {
+			label = outcome.Type
+		}
+
+		switch outcome.Type {
+		case "pr":
+			e.deliverableTracker.AddPR(step.ID, label, value, label)
+		case "issue":
+			e.deliverableTracker.AddIssue(step.ID, label, value, label)
+		case "deployment":
+			e.deliverableTracker.AddDeployment(step.ID, label, value, label)
+		default:
+			// "url", "comment", or any other type → generic URL
+			e.deliverableTracker.AddURL(step.ID, label, value, label)
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "running",
+			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
+		})
+	}
 }
 
 // GetDeliverables returns the deliverables summary for the completed pipeline
