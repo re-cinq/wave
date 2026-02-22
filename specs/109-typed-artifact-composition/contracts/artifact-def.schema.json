@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.re-cinq.com/schemas/artifact-def.schema.json",
+  "title": "ArtifactDef",
+  "description": "Extended artifact definition supporting stdout capture",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+      "description": "Artifact identifier, referenced by downstream inject_artifacts"
+    },
+    "path": {
+      "type": "string",
+      "description": "File path relative to workspace root. Required when source is 'file', ignored when source is 'stdout'"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["json", "text", "markdown", "binary"],
+      "description": "Content type for validation and handling"
+    },
+    "required": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, step fails when artifact is missing after execution"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["file", "stdout"],
+      "default": "file",
+      "description": "Where artifact content comes from: 'file' (persona writes file) or 'stdout' (captured from process output)"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": { "const": "file" }
+        }
+      },
+      "then": {
+        "required": ["path"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source": { "const": "stdout" }
+        }
+      },
+      "then": {
+        "properties": {
+          "path": {
+            "description": "Ignored for stdout artifacts; path is auto-generated"
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "name": "analysis-report",
+      "source": "stdout",
+      "type": "json"
+    },
+    {
+      "name": "summary",
+      "path": ".wave/output/summary.md",
+      "type": "markdown",
+      "required": true
+    },
+    {
+      "name": "data-export",
+      "path": "export.csv",
+      "type": "text"
+    }
+  ]
+}
