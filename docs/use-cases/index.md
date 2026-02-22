@@ -84,14 +84,14 @@ const useCases = [
     link: '/use-cases/supervise'
   },
   {
-    id: 'simplify',
-    title: 'Simplify',
+    id: 'recinq',
+    title: 'Recinq',
     description: 'Rethink and simplify code using divergent-convergent thinking (Double Diamond model).',
     category: 'code-quality',
     complexity: 'advanced',
     personas: ['provocateur', 'planner', 'craftsman'],
     tags: ['simplification', 'complexity', 'refactoring'],
-    link: '/use-cases/simplify'
+    link: '/use-cases/recinq'
   },
 ]
 </script>

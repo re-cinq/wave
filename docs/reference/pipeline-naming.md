@@ -35,9 +35,9 @@ This document defines the naming conventions for Wave pipelines. All new pipelin
 | `prototype` | Rapidly prototype a feature or concept |
 | `refactor` | Refactor code for better structure and maintainability |
 | `security-scan` | Scan the codebase for security vulnerabilities |
-| `simplify` | Rethink and simplify code using divergent-convergent analysis |
+| `recinq` | Rethink and simplify code using divergent-convergent analysis |
 | `smoke-test` | Run smoke tests to verify basic functionality |
-| `spec-develop` | Specification-driven feature development using the speckit workflow |
+| `speckit-flow` | Specification-driven feature development using the speckit workflow |
 | `supervise` | Supervise and coordinate multi-agent pipeline execution |
 | `test-gen` | Generate tests for existing code |
 
@@ -61,4 +61,4 @@ Good names:
 Bad names:
 - `gh-issue-impl` — abbreviation (`impl`), verbose prefix (`gh-issue-`)
 - `doc-loop` — unclear what "loop" means in context
-- `speckit-flow` — references an external tool name, not the action
+- `speckit-flow` — trademark pipeline name (exception to naming rules)

@@ -291,7 +291,7 @@ Creates: `wave.yaml`, `.wave/personas/`, `.wave/pipelines/`, `.wave/contracts/`,
 Execute a pipeline.
 ```
 wave run code-review "Review auth module"
-wave run --pipeline spec-develop --input "add user auth"
+wave run --pipeline speckit-flow --input "add user auth"
 wave run hotfix --dry-run
 wave run migrate --from-step validate --force
 

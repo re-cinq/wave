@@ -40,11 +40,11 @@ The following 26 pipelines exist in `.wave/pipelines/`:
 | `onboard` | `onboard` | Already clear |
 | `plan` | `plan` | Already clear |
 | `prototype` | `prototype` | Already clear |
-| `recinq` | `simplify` | Describes what it does -- systematic code simplification |
+| `recinq` | `recinq` | Trademark — not renamed |
 | `refactor` | `refactor` | Already clear |
 | `security-scan` | `security-scan` | Already clear |
 | `smoke-test` | `smoke-test` | Already clear |
-| `speckit-flow` | `spec-develop` | Specification-driven development workflow |
+| `speckit-flow` | `speckit-flow` | Trademark — not renamed |
 | `supervise` | `supervise` | Already clear |
 | `test-gen` | `test-gen` | Already clear |
 

@@ -80,7 +80,7 @@ export default withMermaid(
               { text: 'Test Generation', link: '/use-cases/test-generation' },
               { text: 'Refactoring', link: '/use-cases/refactoring' },
               { text: 'Work Supervision', link: '/use-cases/supervise' },
-              { text: 'Simplify', link: '/use-cases/simplify' }
+              { text: 'Recinq', link: '/use-cases/recinq' }
             ]
           }
         ],

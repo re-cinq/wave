@@ -60,13 +60,13 @@ Expected output:
 ## 4. Run First Pipeline
 
 ```bash
-wave run spec-develop "add user authentication"
+wave run speckit-flow "add user authentication"
 ```
 
 The default TUI shows a progress bar and spinners. For text output, use `-o text`:
 
 ```bash
-wave run spec-develop "add user authentication" -o text
+wave run speckit-flow "add user authentication" -o text
 ```
 
 ```
@@ -88,7 +88,7 @@ Artifacts are saved in `/tmp/wave/<pipeline-id>/<step-id>/`. Each step produces 
 wave do "fix typo in README"
 
 # Resume from a specific step
-wave run spec-develop --from-step implement
+wave run speckit-flow --from-step implement
 
 # Clean up workspaces
 wave clean

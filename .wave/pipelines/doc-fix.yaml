@@ -53,7 +53,7 @@ steps:
       contract:
         type: json_schema
         source: .wave/output/doc-scan.json
-        schema_path: .wave/contracts/doc-sync-scan.schema.json
+        schema_path: .wave/contracts/doc-fix-scan.schema.json
         on_failure: retry
         max_retries: 2
 

@@ -165,7 +165,7 @@ wave do "fix the login 500 error for emails with + character"
 | Scenario | Pipeline |
 |----------|----------|
 | Production bug, needs fast fix | **hotfix** |
-| New feature development | spec-develop |
+| New feature development | speckit-flow |
 | Security vulnerability | **hotfix** (with auditor persona) |
-| Refactoring | spec-develop |
+| Refactoring | speckit-flow |
 | Quick typo/config fix | `wave do` (ad-hoc) |

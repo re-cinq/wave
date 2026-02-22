@@ -2,19 +2,19 @@
 
 ## Phase 1: File Renames
 
-- [X] Task 1.1: Rename pipeline YAMLs in `.wave/pipelines/` (8 files: doc-loop->doc-audit, doc-sync->doc-fix, gh-issue-impl->gh-implement, gh-issue-research->gh-research, gh-issue-rewrite->gh-rewrite, gh-issue-update->gh-refresh, recinq->simplify, speckit-flow->spec-develop) [P]
-- [X] Task 1.2: Rename pipeline YAMLs in `internal/defaults/pipelines/` (same 8 renames) [P]
+- [X] Task 1.1: Rename pipeline YAMLs in `.wave/pipelines/` (6 files: doc-loop->doc-audit, doc-sync->doc-fix, gh-issue-impl->gh-implement, gh-issue-research->gh-research, gh-issue-rewrite->gh-rewrite, gh-issue-update->gh-refresh) [P]
+- [X] Task 1.2: Rename pipeline YAMLs in `internal/defaults/pipelines/` (same 6 renames) [P]
 - [X] Task 1.3: Rename prompt directory `.wave/prompts/github-issue-impl/` -> `.wave/prompts/gh-implement/`
 - [X] Task 1.4: Rename prompt directory `internal/defaults/prompts/github-issue-impl/` -> `internal/defaults/prompts/gh-implement/`
-- [X] Task 1.5: Rename prompt directory `.wave/prompts/speckit-flow/` -> `.wave/prompts/spec-develop/` [P]
-- [X] Task 1.6: Rename prompt directory `internal/defaults/prompts/speckit-flow/` -> `internal/defaults/prompts/spec-develop/` [P]
-- [X] Task 1.7: Rename doc files: `docs/use-cases/doc-loop.md` -> `docs/use-cases/doc-audit.md`, `docs/use-cases/recinq.md` -> `docs/use-cases/simplify.md`, `docs/examples/speckit-flow.md` -> `docs/examples/spec-develop.md`
+- [ ] Task 1.5: SKIPPED — `speckit-flow` is a trademark, not renamed
+- [ ] Task 1.6: SKIPPED — `speckit-flow` is a trademark, not renamed
+- [X] Task 1.7: Rename doc files: `docs/use-cases/doc-loop.md` -> `docs/use-cases/doc-audit.md`
 
 ## Phase 2: YAML Internal Updates
 
 - [X] Task 2.1: Update `metadata.name` in all 8 renamed pipeline YAMLs (both `.wave/` and `internal/defaults/` copies) [P]
 - [X] Task 2.2: Update `source_path` references in gh-implement YAMLs: `github-issue-impl/` -> `gh-implement/` (both copies) [P]
-- [X] Task 2.3: Update `source_path` references in spec-develop YAMLs: `speckit-flow/` -> `spec-develop/` (both copies) [P]
+- [ ] Task 2.3: SKIPPED — `speckit-flow` is a trademark, not renamed
 - [X] Task 2.4: Ensure all 26 pipeline YAMLs have `metadata.description` populated (both copies) [P]
 - [X] Task 2.5: Ensure all 26 pipeline YAMLs have `input.example` populated (both copies) [P]
 - [X] Task 2.6: Update internal prompt references in doc-audit YAML (footer references `doc-loop pipeline` -> `doc-audit pipeline`) [P]
@@ -27,14 +27,14 @@
 - [X] Task 3.4: Update all Go source files referencing `gh-issue-research` -> `gh-research` [P]
 - [X] Task 3.5: Update all Go source files referencing `gh-issue-rewrite` -> `gh-rewrite` [P]
 - [X] Task 3.6: Update all Go source files referencing `gh-issue-update` -> `gh-refresh` [P]
-- [X] Task 3.7: Update all Go source files referencing `recinq` pipeline -> `simplify` (careful: `recinq` is also the org name) [P]
-- [X] Task 3.8: Update all Go source files referencing `speckit-flow` -> `spec-develop` [P]
+- [ ] Task 3.7: SKIPPED — `recinq` is a trademark, not renamed
+- [ ] Task 3.8: SKIPPED — `speckit-flow` is a trademark, not renamed
 
 ## Phase 4: Documentation Updates
 
 - [X] Task 4.1: Update `README.md` with new pipeline names [P]
 - [X] Task 4.2: Update `docs/use-cases/index.md` (VueJS gallery component pipeline IDs, links) [P]
-- [X] Task 4.3: Update content in renamed doc files (`doc-audit.md`, `simplify.md`, `spec-develop.md`) [P]
+- [X] Task 4.3: Update content in renamed doc files (`doc-audit.md`) [P]
 - [X] Task 4.4: Update `docs/.vitepress/config.ts` sidebar/nav references [P]
 - [X] Task 4.5: Update `docs/guide/quick-start.md` and `docs/guide/pipelines.md` [P]
 - [X] Task 4.6: Update `docs/reference/*.md` files [P]

@@ -19,7 +19,7 @@ Audit logs are written as NDJSON files, one per pipeline execution:
 
 ```
 .wave/traces/
-├── a1b2c3d4-spec-develop-2026-02-01T10:00:00.ndjson
+├── a1b2c3d4-speckit-flow-2026-02-01T10:00:00.ndjson
 ├── e5f6a7b8-bug-fix-2026-01-30T14:30:00.ndjson
 └── ...
 ```
