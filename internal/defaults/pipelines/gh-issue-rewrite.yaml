@@ -126,8 +126,11 @@ steps:
         - If body_template is provided: gh issue edit <N> --repo {{ input }} --body "body_template"
         - If suggested_labels: gh issue edit <N> --repo {{ input }} --add-label "label1,label2"
 
-        Step 4: Save actual results to artifact.json matching the contract schema,
-        with fields: enhanced_issues, total_attempted, total_successful, total_failed.
+        Step 4: For each issue, capture the URL: gh issue view <N> --repo {{ input }} --json url --jq .url
+
+        Step 5: Save actual results to artifact.json matching the contract schema,
+        with fields: enhanced_issues (each with issue_number, success, changes_made, url), total_attempted, total_successful, total_failed.
+        IMPORTANT: Each enhanced_issues entry MUST include "url" with the full GitHub issue URL.
     output_artifacts:
       - name: enhancement_results
         path: artifact.json
