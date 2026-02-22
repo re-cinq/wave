@@ -964,7 +964,7 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 }
 
 // extractPipelineName strips the run ID suffix from a workspace directory name.
-// e.g. "adr-0718471d" → "adr", "gh-issue-impl-27186beb" → "gh-issue-impl"
+// e.g. "adr-0718471d" → "adr", "gh-implement-27186beb" → "gh-implement"
 func extractPipelineName(wsName string) string {
 	// Run IDs are 8-char hex suffixes appended with a dash.
 	// Try progressively shorter prefixes until we find a matching pipeline file.

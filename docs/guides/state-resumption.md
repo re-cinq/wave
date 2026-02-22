@@ -111,7 +111,7 @@ When Wave receives SIGINT (Ctrl+C):
 ```bash
 $ wave list runs
 PIPELINE-ID   NAME           STATUS      STARTED              STEPS
-a1b2c3d4      speckit-flow   completed   2026-02-01 10:00:00  5/5
+a1b2c3d4      spec-develop   completed   2026-02-01 10:00:00  5/5
 e5f6a7b8      bug-fix        failed      2026-01-30 14:30:00  2/4
 f9g0h1i2      ad-hoc-1234    running     2026-02-01 15:00:00  1/2
 ```
@@ -121,7 +121,7 @@ $ wave list runs --output json
 [
   {
     "pipeline_id": "a1b2c3d4",
-    "pipeline_name": "speckit-flow",
+    "pipeline_name": "spec-develop",
     "status": "completed",
     "created_at": "2026-02-01T10:00:00Z",
     "steps_completed": 5,

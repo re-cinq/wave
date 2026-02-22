@@ -6,7 +6,7 @@ metadata:
 
 input:
   source: cli
-  example: "internal/pipeline"
+  example: "generate tests for internal/pipeline to improve coverage"
 
 steps:
   - id: analyze-coverage

@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: doc-sync
+  name: doc-fix
   description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
   release: true
 
@@ -124,7 +124,7 @@ steps:
            git add <changed-doc-files>
            git commit -m "docs: sync documentation with implementation
 
-           Fix N documentation inconsistencies found by doc-sync pipeline:
+           Fix N documentation inconsistencies found by doc-fix pipeline:
            - DOC-001: <title>
            - DOC-002: <title>
            ..."

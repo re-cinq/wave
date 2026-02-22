@@ -40,7 +40,7 @@ Benefits:
 Example:
 
 ```
-.wave/traces/a1b2c3d4-speckit-flow-2026-02-01T10:00:00.ndjson
+.wave/traces/a1b2c3d4-spec-develop-2026-02-01T10:00:00.ndjson
 ```
 
 ## Log Entry Schema
@@ -66,7 +66,7 @@ All log entries contain these common fields:
   "timestamp": "2026-02-01T10:00:00.000Z",
   "pipeline_id": "a1b2c3d4",
   "type": "pipeline_start",
-  "pipeline_name": "speckit-flow",
+  "pipeline_name": "spec-develop",
   "task": "Implement user authentication",
   "manifest_path": "wave.yaml"
 }

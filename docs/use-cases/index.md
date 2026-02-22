@@ -24,14 +24,14 @@ const useCases = [
     link: '/use-cases/code-review'
   },
   {
-    id: 'doc-loop',
+    id: 'doc-audit',
     title: 'Documentation Consistency',
     description: 'Pre-PR gate that scans code changes, cross-references docs, and creates a GitHub issue for inconsistencies.',
     category: 'documentation',
     complexity: 'intermediate',
     personas: ['navigator', 'reviewer', 'github-analyst'],
     tags: ['docs', 'consistency', 'gh'],
-    link: '/use-cases/doc-loop'
+    link: '/use-cases/doc-audit'
   },
   {
     id: 'github-issue-enhancer',
@@ -84,14 +84,14 @@ const useCases = [
     link: '/use-cases/supervise'
   },
   {
-    id: 'recinq',
-    title: 'Recinq',
+    id: 'simplify',
+    title: 'Simplify',
     description: 'Rethink and simplify code using divergent-convergent thinking (Double Diamond model).',
     category: 'code-quality',
     complexity: 'advanced',
     personas: ['provocateur', 'planner', 'craftsman'],
     tags: ['simplification', 'complexity', 'refactoring'],
-    link: '/use-cases/recinq'
+    link: '/use-cases/simplify'
   },
 ]
 </script>

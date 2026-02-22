@@ -10,7 +10,7 @@ Wave ships with 18 pipelines organized by use case:
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `speckit-flow` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
+| `spec-develop` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
 | `hotfix` | investigate → fix → verify | Production bugs |
 | `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
 | `prototype` | spec → docs → dummy → implement → pr | Prototype-driven development |
@@ -31,7 +31,7 @@ Wave ships with 18 pipelines organized by use case:
 | `plan` | explore → breakdown → review | Task planning |
 | `docs` | discover → generate → review | Documentation |
 | `migrate` | impact → plan → implement → review | Migrations |
-| `doc-loop` | analyze → report | Documentation impact analysis |
+| `doc-audit` | analyze → report | Documentation impact analysis |
 
 ### GitHub Automation
 
@@ -53,13 +53,13 @@ Wave ships with 18 pipelines organized by use case:
 
 ```bash
 # Run with input
-wave run speckit-flow "add user authentication"
+wave run spec-develop "add user authentication"
 
 # Preview execution plan
 wave run hotfix --dry-run
 
 # Start from specific step
-wave run speckit-flow --from-step implement
+wave run spec-develop --from-step implement
 
 # Custom timeout
 wave run migrate --timeout 120
@@ -227,7 +227,7 @@ Spawn parallel instances from a task list:
 
 ## Pipeline Examples
 
-### speckit-flow
+### spec-develop
 
 Full feature development workflow (8 steps):
 

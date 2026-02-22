@@ -1,10 +1,10 @@
-# Example: Speckit Flow Pipeline
+# Example: Spec Develop Pipeline
 
 A complete specification-driven development pipeline that takes a feature request through navigation, specification, planning, implementation, and review.
 
 ## Overview
 
-The speckit flow is Wave's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
+The spec-develop pipeline is Wave's flagship pipeline pattern. It embodies the principle that **understanding precedes implementation** — every feature goes through structured analysis before code is written.
 
 ```mermaid
 graph TD
@@ -21,7 +21,7 @@ graph TD
 ```yaml
 kind: WavePipeline
 metadata:
-  name: speckit-flow
+  name: spec-develop
   description: "Specification-driven feature development"
 
 input:
@@ -236,14 +236,14 @@ steps:
 
 ```bash
 # Full run
-wave run speckit-flow \
+wave run spec-develop \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-wave run speckit-flow --dry-run
+wave run spec-develop --dry-run
 
 # Resume after interruption
-wave run speckit-flow --from-step implement
+wave run spec-develop --from-step implement
 ```
 
 ## Expected Output
@@ -267,7 +267,7 @@ With `-o text`:
 [10:10:46]   review: Executing agent
 [10:11:51] ✓ review completed (65.0s, 2.1k tokens)
 
-  ✓ Pipeline 'speckit-flow' completed successfully (11m 50s)
+  ✓ Pipeline 'spec-develop' completed successfully (11m 50s)
 ```
 
 ## Artifacts Produced

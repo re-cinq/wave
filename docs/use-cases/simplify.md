@@ -1,9 +1,9 @@
 ---
-title: Recinq
+title: Simplify
 description: Rethink and simplify code using divergent-convergent thinking (Double Diamond)
 ---
 
-# Recinq
+# Simplify
 
 <div class="use-case-meta">
   <span class="complexity-badge advanced">Advanced</span>
@@ -22,13 +22,13 @@ Rethink and simplify code by systematically challenging assumptions and reducing
 
 ```bash
 # Analyze the whole project
-wave run recinq
+wave run simplify
 
 # Target a specific module
-wave run recinq "internal/pipeline"
+wave run simplify "internal/pipeline"
 
 # Target a specific concern
-wave run recinq "internal/adapter internal/manifest"
+wave run simplify "internal/adapter internal/manifest"
 ```
 
 With `-o text`:
@@ -42,7 +42,7 @@ With `-o text`:
 [10:14:42] -> simplify (craftsman)
 [10:19:22] + simplify completed (280s, 6.2k tokens)
 
-  + Pipeline 'recinq' completed successfully (1161s)
+  + Pipeline 'simplify' completed successfully (1161s)
 ```
 
 ## The Double Diamond
@@ -144,20 +144,20 @@ Plus: **committed changes** on branch `refactor/<pipeline-id>` with atomic commi
 Run just the first two steps to get proposals without applying them:
 
 ```bash
-wave run recinq "internal/pipeline" --to-step distill
+wave run simplify "internal/pipeline" --to-step distill
 ```
 
 ### Review proposals before applying
 
 ```bash
 # Run diverge + distill
-wave run recinq "internal/pipeline" --to-step distill
+wave run simplify "internal/pipeline" --to-step distill
 
 # Review the proposals
-cat .wave/workspaces/recinq/*/.wave/output/convergent-proposals.json | jq .
+cat .wave/workspaces/simplify/*/.wave/output/convergent-proposals.json | jq .
 
 # If satisfied, resume from simplify
-wave run recinq --from-step simplify
+wave run simplify --from-step simplify
 ```
 
 ## Related Use Cases
