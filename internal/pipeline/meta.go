@@ -951,6 +951,11 @@ func ValidatePipelineYAML(data []byte) (*Pipeline, error) {
 		if step.Exec.Type == "" {
 			return nil, fmt.Errorf("step[%d] (%s) missing required field: exec.type", i, step.ID)
 		}
+		for j, outcome := range step.Outcomes {
+			if err := outcome.Validate(step.ID, j); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return &pipeline, nil

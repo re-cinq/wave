@@ -102,6 +102,36 @@ func TestExtractJSONPath(t *testing.T) {
 			path: ".items",
 			want: "[1,2,3]",
 		},
+		{
+			name: "array index first element",
+			data: `{"enhanced_issues": [{"url": "https://github.com/re-cinq/wave/issues/42"}, {"url": "https://github.com/re-cinq/wave/issues/43"}]}`,
+			path: ".enhanced_issues[0].url",
+			want: "https://github.com/re-cinq/wave/issues/42",
+		},
+		{
+			name: "array index second element",
+			data: `{"items": [{"name": "a"}, {"name": "b"}]}`,
+			path: ".items[1].name",
+			want: "b",
+		},
+		{
+			name:    "array index out of bounds",
+			data:    `{"items": [{"name": "a"}]}`,
+			path:    ".items[5].name",
+			wantErr: true,
+		},
+		{
+			name:    "array index on non-array",
+			data:    `{"items": "not an array"}`,
+			path:    ".items[0]",
+			wantErr: true,
+		},
+		{
+			name:    "invalid array index",
+			data:    `{"items": [1, 2]}`,
+			path:    ".items[abc]",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

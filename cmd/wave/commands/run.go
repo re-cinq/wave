@@ -360,6 +360,8 @@ func runRun(opts RunOptions, debug bool) error {
 			for _, line := range lines {
 				if line != "" {
 					fmt.Fprintf(os.Stderr, "  %s\n", line)
+				} else {
+					fmt.Fprint(os.Stderr, "\n")
 				}
 			}
 			fmt.Fprint(os.Stderr, "\n")
