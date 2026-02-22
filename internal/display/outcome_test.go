@@ -389,6 +389,32 @@ func TestToOutcomesJSON_EmptySlices(t *testing.T) {
 	}
 }
 
+func TestFilterArtifacts_DeduplicatesByPath(t *testing.T) {
+	tracker := deliverable.NewTracker("test-pipeline")
+	// Simulate 4 steps in a shared worktree all producing artifact.json
+	tracker.AddFile("step-1", "issue_analysis", "/ws/shared/artifact.json", "json")
+	tracker.AddFile("step-2", "enhancement_plan", "/ws/shared/artifact.json", "json")
+	tracker.AddFile("step-3", "enhancement_results", "/ws/shared/artifact.json", "json")
+	tracker.AddFile("step-4", "verification_report", "/ws/shared/artifact.json", "json")
+
+	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 30*time.Second, 5000, "", nil)
+
+	if outcome.ArtifactCount != 1 {
+		t.Errorf("expected 1 deduplicated artifact, got %d", outcome.ArtifactCount)
+	}
+
+	formatter := NewFormatterWithConfig("off", true)
+	result := RenderOutcomeSummary(outcome, false, formatter)
+
+	if strings.Contains(result, "4 artifacts produced") {
+		t.Errorf("expected deduplicated artifact count, got:\n%s", result)
+	}
+	// Should show exactly 1
+	if !strings.Contains(result, "1 artifacts produced") {
+		t.Errorf("expected '1 artifacts produced' in output, got:\n%s", result)
+	}
+}
+
 // Verify the Event struct has the Outcomes field (compilation test)
 func TestEventOutcomesField(t *testing.T) {
 	e := event.Event{

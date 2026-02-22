@@ -9,7 +9,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["issue_number", "success", "changes_made"],
+        "required": ["issue_number", "success", "changes_made", "url"],
         "properties": {
           "issue_number": {
             "type": "integer",
