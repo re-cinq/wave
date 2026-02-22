@@ -119,6 +119,18 @@ func isOutcomeWorthy(t deliverable.DeliverableType) bool {
 	}
 }
 
+// filterArtifacts returns only the detail-level deliverables (not outcome-worthy ones
+// like PRs, branches, issues which are shown in the Outcomes section).
+func filterArtifacts(all []*deliverable.Deliverable) []*deliverable.Deliverable {
+	var result []*deliverable.Deliverable
+	for _, d := range all {
+		if !isOutcomeWorthy(d.Type) {
+			result = append(result, d)
+		}
+	}
+	return result
+}
+
 // BuildOutcome constructs a PipelineOutcome from tracker data.
 func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, success bool, duration time.Duration, tokens int, workspacePath string, failedStepIDs []string) *PipelineOutcome {
 	outcome := &PipelineOutcome{
@@ -334,9 +346,45 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 		b.WriteString("\n")
 	}
 
-	// --- Artifact summary ---
-	if outcome.ArtifactCount > 0 {
-		b.WriteString(fmt.Sprintf("  %s\n", formatter.Muted(fmt.Sprintf("%d artifacts produced", outcome.ArtifactCount))))
+	// --- Artifacts ---
+	artifacts := filterArtifacts(outcome.AllDeliverables)
+	if len(artifacts) > 0 {
+		// Sort by type priority, then by creation time (newest first)
+		sort.Slice(artifacts, func(i, j int) bool {
+			pi := deliverableTypePriority(artifacts[i].Type)
+			pj := deliverableTypePriority(artifacts[j].Type)
+			if pi != pj {
+				return pi < pj
+			}
+			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+		})
+
+		if verbose || len(artifacts) <= maxDefaultDeliverables {
+			// Show all artifacts inline
+			b.WriteString(fmt.Sprintf("  %s\n", formatter.Muted(fmt.Sprintf("%d artifacts produced", len(artifacts)))))
+			for _, d := range artifacts {
+				prefix := ""
+				if failedSet[d.StepID] {
+					prefix = formatter.Warning("[FAILED] ")
+				}
+				b.WriteString(fmt.Sprintf("    %s%s\n", prefix, d.String()))
+			}
+		} else {
+			// Show top N by priority
+			shown := maxDefaultDeliverables
+			b.WriteString(fmt.Sprintf("  %s\n", formatter.Muted(fmt.Sprintf("%d artifacts produced", len(artifacts)))))
+			for _, d := range artifacts[:shown] {
+				prefix := ""
+				if failedSet[d.StepID] {
+					prefix = formatter.Warning("[FAILED] ")
+				}
+				b.WriteString(fmt.Sprintf("    %s%s\n", prefix, d.String()))
+			}
+			remaining := len(artifacts) - shown
+			if remaining > 0 {
+				b.WriteString(fmt.Sprintf("    %s\n", formatter.Muted(fmt.Sprintf("... and %d more", remaining))))
+			}
+		}
 	}
 
 	// --- Contract summary ---
@@ -358,68 +406,6 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 		} else {
 			b.WriteString(fmt.Sprintf("  %s\n",
 				formatter.Success(fmt.Sprintf("%d/%d contracts passed", outcome.ContractsPassed, outcome.ContractsTotal))))
-		}
-	}
-
-	// --- Verbose: full deliverable list ---
-	if verbose && len(outcome.AllDeliverables) > 0 {
-		b.WriteString("\n")
-		b.WriteString(formatter.Muted("  Deliverables:"))
-		b.WriteString("\n")
-
-		// Sort by type priority, then by creation time (newest first)
-		sorted := make([]*deliverable.Deliverable, len(outcome.AllDeliverables))
-		copy(sorted, outcome.AllDeliverables)
-		sort.Slice(sorted, func(i, j int) bool {
-			pi := deliverableTypePriority(sorted[i].Type)
-			pj := deliverableTypePriority(sorted[j].Type)
-			if pi != pj {
-				return pi < pj
-			}
-			return sorted[i].CreatedAt.After(sorted[j].CreatedAt)
-		})
-
-		for _, d := range sorted {
-			prefix := ""
-			if failedSet[d.StepID] {
-				prefix = formatter.Warning("[FAILED] ")
-			}
-			b.WriteString(fmt.Sprintf("    %s%s\n", prefix, d.String()))
-		}
-	} else if !verbose && outcome.ArtifactCount > maxDefaultDeliverables {
-		// Show top N by priority
-		sorted := make([]*deliverable.Deliverable, 0)
-		for _, d := range outcome.AllDeliverables {
-			if !isOutcomeWorthy(d.Type) {
-				sorted = append(sorted, d)
-			}
-		}
-		sort.Slice(sorted, func(i, j int) bool {
-			pi := deliverableTypePriority(sorted[i].Type)
-			pj := deliverableTypePriority(sorted[j].Type)
-			if pi != pj {
-				return pi < pj
-			}
-			return sorted[i].CreatedAt.After(sorted[j].CreatedAt)
-		})
-
-		shown := maxDefaultDeliverables
-		if shown > len(sorted) {
-			shown = len(sorted)
-		}
-		if shown > 0 {
-			b.WriteString("\n")
-			for _, d := range sorted[:shown] {
-				prefix := ""
-				if failedSet[d.StepID] {
-					prefix = formatter.Warning("[FAILED] ")
-				}
-				b.WriteString(fmt.Sprintf("    %s%s\n", prefix, d.String()))
-			}
-			remaining := len(sorted) - shown
-			if remaining > 0 {
-				b.WriteString(fmt.Sprintf("    %s\n", formatter.Muted(fmt.Sprintf("... and %d more", remaining))))
-			}
 		}
 	}
 

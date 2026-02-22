@@ -245,8 +245,11 @@ func TestRenderOutcomeSummary_VerboseMode(t *testing.T) {
 	formatter := NewFormatterWithConfig("off", true)
 	result := RenderOutcomeSummary(outcome, true, formatter)
 
-	if !strings.Contains(result, "Deliverables:") {
-		t.Error("expected 'Deliverables:' section in verbose output")
+	if !strings.Contains(result, "artifacts produced") {
+		t.Error("expected artifacts section in verbose output")
+	}
+	if !strings.Contains(result, "output.json") {
+		t.Error("expected artifact paths listed in verbose output")
 	}
 }
 
