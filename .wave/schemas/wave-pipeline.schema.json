@@ -245,6 +245,10 @@
         "branch": {
           "type": "string",
           "description": "Branch name for worktree workspaces (supports {{ pipeline_id }} template)"
+        },
+        "base": {
+          "type": "string",
+          "description": "Base branch for worktree creation (e.g., 'main'). Defaults to repository default branch."
         }
       }
     },
@@ -461,7 +465,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["pr", "issue", "url", "deployment", "comment"],
+          "enum": ["pr", "issue", "url", "deployment"],
           "description": "Outcome type, determines how it is displayed in the summary"
         },
         "extract_from": {

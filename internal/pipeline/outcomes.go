@@ -3,11 +3,12 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 // ExtractJSONPath extracts a value from JSON data using simple dot-notation path.
-// Supported syntax: ".field", ".field.nested", ".field.nested.deep"
+// Supported syntax: ".field", ".field.nested", ".field.nested.deep", ".items[0].url"
 // Returns the extracted value as a string, or an error if the path is invalid or not found.
 func ExtractJSONPath(data []byte, path string) (string, error) {
 	if path == "" {
@@ -30,6 +31,37 @@ func ExtractJSONPath(data []byte, path string) (string, error) {
 	}
 
 	for _, part := range parts {
+		// Check for array index syntax: "field[N]"
+		if idx := strings.Index(part, "["); idx != -1 {
+			field := part[:idx]
+			indexStr := strings.TrimSuffix(part[idx+1:], "]")
+			arrayIdx, err := strconv.Atoi(indexStr)
+			if err != nil {
+				return "", fmt.Errorf("invalid array index %q in %q", indexStr, part)
+			}
+
+			// Navigate to the field first
+			obj, ok := current.(map[string]any)
+			if !ok {
+				return "", fmt.Errorf("cannot navigate into non-object at %q", field)
+			}
+			val, exists := obj[field]
+			if !exists {
+				return "", fmt.Errorf("key %q not found", field)
+			}
+
+			// Index into the array
+			arr, ok := val.([]any)
+			if !ok {
+				return "", fmt.Errorf("value at %q is not an array", field)
+			}
+			if arrayIdx < 0 || arrayIdx >= len(arr) {
+				return "", fmt.Errorf("array index %d out of bounds (length %d) at %q", arrayIdx, len(arr), field)
+			}
+			current = arr[arrayIdx]
+			continue
+		}
+
 		obj, ok := current.(map[string]any)
 		if !ok {
 			return "", fmt.Errorf("cannot navigate into non-object at %q", part)

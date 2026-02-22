@@ -188,3 +188,22 @@ steps:
            ```bash
            gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
            ```
+
+        3. Write a JSON status report to `output/pr-result.json`:
+
+           ```json
+           {
+             "pr_url": "https://github.com/owner/repo/pull/123",
+             "pr_number": 123,
+             "branch": "feat/<pipeline_id>"
+           }
+           ```
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"

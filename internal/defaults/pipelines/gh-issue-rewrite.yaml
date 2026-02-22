@@ -133,6 +133,11 @@ steps:
         path: artifact.json
         type: json
         required: true
+    outcomes:
+      - type: issue
+        extract_from: artifact.json
+        json_path: .enhanced_issues[0].url
+        label: "Enhanced Issue"
     handover:
       max_retries: 1
       contract:
