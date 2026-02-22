@@ -18,7 +18,7 @@ Centralize personas and contracts for consistency:
 org-wave-config/
 ├── personas/
 │   ├── navigator.md
-│   ├── auditor.md
+│   ├── reviewer.md
 │   └── craftsman.md
 ├── contracts/
 │   ├── code-review.schema.json
@@ -181,11 +181,11 @@ personas:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
 
-  auditor:
+  reviewer:
     adapter: claude
-    system_prompt_file: .wave/shared/personas/auditor.md
+    system_prompt_file: .wave/shared/personas/reviewer.md
     permissions:
-      allowed_tools: [Read, Grep]
+      allowed_tools: [Read, Grep, Glob]
       deny: [Write, Edit, Bash]
 
   craftsman:

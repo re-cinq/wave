@@ -42,7 +42,7 @@ steps:
         max_retries: 2
 
   - id: security-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -69,7 +69,7 @@ steps:
         type: markdown
 
   - id: quality-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:

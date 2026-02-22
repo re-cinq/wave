@@ -105,9 +105,7 @@ steps:
            - navigator: architecture decisions, exploration, planning
            - craftsman: implementation, coding, file creation
            - philosopher: review, analysis, quality assessment
-           - auditor: security review, compliance checking
-           - implementer: focused implementation tasks
-           - reviewer: code review tasks
+           - reviewer: security review, quality and compliance checking
 
         3. **Dependencies**: Express as task IDs (e.g., ["T01", "T02"]).
            A task with no dependencies gets an empty array [].

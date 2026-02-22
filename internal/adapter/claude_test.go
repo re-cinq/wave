@@ -298,7 +298,7 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			cfg := AdapterRunConfig{
-				Persona:        "implementer",
+				Persona:        "craftsman",
 				Model:          "opus",
 				AllowedTools:   []string{"Read", "Write", "Edit", "Bash"},
 				SandboxEnabled: tt.sandboxEnabled,
@@ -390,9 +390,9 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 		{
 			name: "network domains appear in CLAUDE.md",
 			cfg: AdapterRunConfig{
-				Persona:        "implementer",
+				Persona:        "craftsman",
 				Model:          "opus",
-				SystemPrompt:   "# Implementer",
+				SystemPrompt:   "# Craftsman",
 				AllowedTools:   []string{"Read", "Write"},
 				AllowedDomains: []string{"api.anthropic.com", "github.com"},
 			},
@@ -629,8 +629,8 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			wantSandbox:  false,
 		},
 		{
-			name:           "implementer: full access with sandbox",
-			persona:        "implementer",
+			name:           "craftsman: full access with sandbox",
+			persona:        "craftsman",
 			allowedTools:   []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			allowedDomains: []string{"api.anthropic.com", "github.com", "proxy.golang.org"},
 			wantAllow:      []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
@@ -1251,7 +1251,7 @@ func TestSkillCommandsCopied(t *testing.T) {
 	os.WriteFile(filepath.Join(srcDir, "not-markdown.txt"), []byte("ignored"), 0644)
 
 	cfg := AdapterRunConfig{
-		Persona:          "implementer",
+		Persona:          "craftsman",
 		AllowedTools:     []string{"Read", "Write"},
 		SkillCommandsDir: srcDir,
 	}
@@ -1300,7 +1300,7 @@ func TestSkillCommandsDir_Empty(t *testing.T) {
 
 	// No SkillCommandsDir set - should work fine
 	cfg := AdapterRunConfig{
-		Persona:      "implementer",
+		Persona:      "craftsman",
 		AllowedTools: []string{"Read", "Write"},
 	}
 
@@ -1321,7 +1321,7 @@ func TestSkillCommandsDir_NonExistent(t *testing.T) {
 	workspace := t.TempDir()
 
 	cfg := AdapterRunConfig{
-		Persona:          "implementer",
+		Persona:          "craftsman",
 		AllowedTools:     []string{"Read", "Write"},
 		SkillCommandsDir: "/nonexistent/path",
 	}

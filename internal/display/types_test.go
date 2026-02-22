@@ -407,7 +407,7 @@ func TestPipelineContext_StepPersonas(t *testing.T) {
 		},
 		StepPersonas: map[string]string{
 			"step-1": "navigator",
-			"step-2": "implementer",
+			"step-2": "craftsman",
 			"step-3": "reviewer",
 		},
 	}
@@ -416,8 +416,8 @@ func TestPipelineContext_StepPersonas(t *testing.T) {
 	if ctx.StepPersonas["step-1"] != "navigator" {
 		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
 	}
-	if ctx.StepPersonas["step-2"] != "implementer" {
-		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "implementer")
+	if ctx.StepPersonas["step-2"] != "craftsman" {
+		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "craftsman")
 	}
 	if ctx.StepPersonas["step-3"] != "reviewer" {
 		t.Errorf("StepPersonas[step-3] = %q, want %q", ctx.StepPersonas["step-3"], "reviewer")
@@ -442,7 +442,7 @@ func TestPipelineContext_StepPersonasInStructLiteral(t *testing.T) {
 		SkippedSteps:      0,
 		OverallProgress:   50,
 		CurrentStepID:     "step-2",
-		CurrentPersona:    "implementer",
+		CurrentPersona:    "craftsman",
 		PipelineStartTime: 1234567890,
 		CurrentStepStart:  1234567900,
 		StepStatuses:      map[string]ProgressState{"step-1": StateCompleted},
@@ -450,7 +450,7 @@ func TestPipelineContext_StepPersonasInStructLiteral(t *testing.T) {
 		StepDurations:     map[string]int64{"step-1": 60000},
 		StepPersonas: map[string]string{
 			"step-1": "navigator",
-			"step-2": "implementer",
+			"step-2": "craftsman",
 			"step-3": "reviewer",
 		},
 		DeliverablesByStep: map[string][]string{

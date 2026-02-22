@@ -13,7 +13,7 @@ input:
 
 steps:
   - id: specify
-    persona: implementer
+    persona: craftsman
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -27,7 +27,7 @@ steps:
         type: json
 
   - id: clarify
-    persona: implementer
+    persona: craftsman
     dependencies: [specify]
     memory:
       inject_artifacts:
@@ -46,7 +46,7 @@ steps:
         type: json
 
   - id: plan
-    persona: implementer
+    persona: craftsman
     dependencies: [clarify]
     memory:
       inject_artifacts:
@@ -65,7 +65,7 @@ steps:
         type: json
 
   - id: tasks
-    persona: implementer
+    persona: craftsman
     dependencies: [plan]
     memory:
       inject_artifacts:
@@ -84,7 +84,7 @@ steps:
         type: json
 
   - id: checklist
-    persona: implementer
+    persona: craftsman
     dependencies: [tasks]
     memory:
       inject_artifacts:
@@ -103,7 +103,7 @@ steps:
         type: json
 
   - id: analyze
-    persona: implementer
+    persona: craftsman
     dependencies: [checklist]
     memory:
       inject_artifacts:

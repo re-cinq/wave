@@ -401,7 +401,8 @@ Keep persona definitions in version control:
 .wave/
   personas/
     navigator.md
-    implementer.md
+    craftsman.md
+    reviewer.md
     db-migrator.md      # Custom
     api-generator.md    # Custom
     security-scanner.md # Custom

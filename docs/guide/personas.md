@@ -4,7 +4,7 @@ Personas define how agents behave in Wave. Each persona binds an adapter to a sp
 
 ## Built-in Personas
 
-Wave ships with 14 built-in personas:
+Wave ships with 13 built-in personas:
 
 | Persona | Purpose | Permissions |
 |---------|---------|-------------|
@@ -12,10 +12,8 @@ Wave ships with 14 built-in personas:
 | `philosopher` | Architecture & specs | Read, Write(.wave/specs/*) |
 | `planner` | Task breakdown | Read, Glob, Grep |
 | `craftsman` | Implementation | Read, Write, Edit, Bash |
-| `implementer` | Code implementation | Read, Write, Edit, Bash |
 | `debugger` | Issue diagnosis | Read, Grep, git bisect, go test |
-| `auditor` | Security review | Read, Grep, go vet, npm audit |
-| `reviewer` | Code review | Read, Grep, Glob |
+| `reviewer` | Security & code review | Read, Grep, Glob, go vet, npm audit |
 | `researcher` | Research & analysis | Read, Grep, Glob, WebSearch |
 | `summarizer` | Context compaction | Read only |
 | `github-analyst` | GitHub issue analysis | Read, Grep, Bash(gh *) |
@@ -131,20 +129,21 @@ debugger:
       - "Edit(*)"
 ```
 
-### Auditor
+### Reviewer
 
-Security review and quality assurance. Read-only with analysis tools.
+Security and code review. Read-only with analysis tools.
 
 ```yaml
-auditor:
+reviewer:
   adapter: claude
-  description: "Security review and quality assurance"
-  system_prompt_file: .wave/personas/auditor.md
+  description: "Security and code review"
+  system_prompt_file: .wave/personas/reviewer.md
   temperature: 0.1
   permissions:
     allowed_tools:
       - Read
       - Grep
+      - Glob
       - "Bash(go vet*)"
       - "Bash(npm audit*)"
     deny:
@@ -169,14 +168,6 @@ summarizer:
       - "Write(*)"
       - "Bash(*)"
 ```
-
-### Implementer
-
-Code implementation with full read/write access. Similar to craftsman but focused on spec-driven implementation.
-
-### Reviewer
-
-Code review specialist. Read-only analysis with detailed feedback on quality, patterns, and improvements.
 
 ### Researcher
 
@@ -227,7 +218,7 @@ personas:
 
 | Range | Use Case |
 |-------|----------|
-| `0.0-0.2` | Deterministic: summarization, auditing, analysis |
+| `0.0-0.2` | Deterministic: summarization, review, analysis |
 | `0.3-0.5` | Balanced: specification, planning |
 | `0.6-0.8` | Creative: implementation, generation |
 

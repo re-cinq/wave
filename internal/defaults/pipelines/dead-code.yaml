@@ -127,7 +127,7 @@ steps:
         max_retries: 3
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [clean]
     memory:
       inject_artifacts:

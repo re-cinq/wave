@@ -75,7 +75,7 @@ steps:
         max_retries: 2
 
   - id: deep-dive
-    persona: auditor
+    persona: reviewer
     dependencies: [scan]
     memory:
       inject_artifacts:

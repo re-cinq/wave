@@ -144,14 +144,14 @@ personas:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: ["Bash(rm -rf /*)"]
 
-  # Security and quality review
-  auditor:
+  # Security and code review
+  reviewer:
     adapter: claude
-    description: "Security review and quality assurance"
-    system_prompt_file: .wave/personas/auditor.md
+    description: "Security and code review"
+    system_prompt_file: .wave/personas/reviewer.md
     temperature: 0.1
     permissions:
-      allowed_tools: ["Read", "Grep", "Bash(npm audit*)", "Bash(go vet*)"]
+      allowed_tools: ["Read", "Grep", "Glob", "Bash(npm audit*)", "Bash(go vet*)"]
       deny: ["Write(*)", "Edit(*)"]
 
   # Context relay summarizer
@@ -449,7 +449,7 @@ Steps can invoke skill slash commands instead of inline prompts via `exec.type: 
 ```yaml
 steps:
   - id: specify
-    persona: implementer
+    persona: craftsman
     exec:
       type: slash_command
       command: speckit.specify
@@ -533,13 +533,13 @@ personas:
         - matcher: "Write(src/**)"
           command: "go test ./..."
 
-  auditor:
+  reviewer:
     adapter: claude
-    description: "Security and quality review"
-    system_prompt_file: .wave/personas/auditor.md
+    description: "Security and code review"
+    system_prompt_file: .wave/personas/reviewer.md
     temperature: 0.1
     permissions:
-      allowed_tools: ["Read", "Grep", "Bash(go vet*)"]
+      allowed_tools: ["Read", "Grep", "Glob", "Bash(go vet*)"]
       deny: ["Write(*)", "Edit(*)"]
 
   summarizer:

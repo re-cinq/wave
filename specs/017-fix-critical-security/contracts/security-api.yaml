@@ -153,13 +153,13 @@ paths:
                   items:
                     type: string
                   description: Persona names referenced in pipeline
-                  example: ["navigator", "philosopher", "implementer"]
+                  example: ["navigator", "philosopher", "craftsman"]
                 available_personas:
                   type: array
                   items:
                     type: string
                   description: Available personas from manifest
-                  example: ["navigator", "philosopher", "craftsman", "auditor"]
+                  example: ["navigator", "philosopher", "craftsman", "reviewer"]
       responses:
         '200':
           description: Persona validation completed

@@ -12,7 +12,7 @@ input:
 
 steps:
   - id: fetch-assess
-    persona: implementer
+    persona: craftsman
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -33,7 +33,7 @@ steps:
         max_retries: 2
 
   - id: plan
-    persona: implementer
+    persona: craftsman
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:

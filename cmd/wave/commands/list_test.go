@@ -131,10 +131,10 @@ personas:
         - Bash
       deny:
         - Bash(rm -rf /*)
-  auditor:
+  reviewer:
     adapter: opencode
     description: Reviews code for security
-    system_prompt_file: personas/auditor.md
+    system_prompt_file: personas/reviewer.md
     temperature: 0.1
     permissions:
       allowed_tools:
@@ -179,7 +179,7 @@ func TestListCmd_Pipelines_TableFormat(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Create some pipelines
 	h.writeFile(".wave/pipelines/feature.yaml", samplePipeline("feature", "Feature development pipeline", 3))
@@ -203,7 +203,7 @@ func TestListCmd_Pipelines_ShowsStepCount(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Create pipeline with 3 steps
 	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 3))
@@ -222,7 +222,7 @@ func TestListCmd_Pipelines_ShowsStepIDs(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
 metadata:
@@ -240,7 +240,7 @@ steps:
       type: prompt
       source: "Implement"
   - id: review
-    persona: auditor
+    persona: reviewer
     exec:
       type: prompt
       source: "Review"
@@ -263,7 +263,7 @@ func TestListCmd_Pipelines_NoPipelinesDirectory(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Don't create .wave/pipelines directory
 	stdout, _, err := executeListCmd("pipelines")
@@ -281,7 +281,7 @@ func TestListCmd_Pipelines_InvalidYAML(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Create invalid pipeline file
 	h.writeFile(".wave/pipelines/broken.yaml", "{ invalid: yaml: content")
@@ -301,7 +301,7 @@ func TestListCmd_Pipelines_SortedAlphabetically(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Create pipelines in non-alphabetical order
 	h.writeFile(".wave/pipelines/zebra.yaml", samplePipeline("zebra", "Z pipeline", 1))
@@ -330,7 +330,7 @@ func TestListCmd_Personas_TableFormat(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
@@ -338,7 +338,7 @@ func TestListCmd_Personas_TableFormat(t *testing.T) {
 	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "navigator")
 	assert.Contains(t, stdout, "craftsman")
-	assert.Contains(t, stdout, "auditor")
+	assert.Contains(t, stdout, "reviewer")
 }
 
 func TestListCmd_Personas_ShowsAdapter(t *testing.T) {
@@ -349,7 +349,7 @@ func TestListCmd_Personas_ShowsAdapter(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
@@ -366,7 +366,7 @@ func TestListCmd_Personas_ShowsTemperature(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
@@ -383,7 +383,7 @@ func TestListCmd_Personas_ShowsDescription(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
@@ -401,7 +401,7 @@ func TestListCmd_Personas_ShowsPermissionSummary(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
@@ -445,18 +445,18 @@ func TestListCmd_Personas_SortedAlphabetically(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("personas")
 
 	require.NoError(t, err)
 	// Check that personas are sorted alphabetically
-	auditorIdx := strings.Index(stdout, "auditor")
 	craftsmanIdx := strings.Index(stdout, "craftsman")
 	navigatorIdx := strings.Index(stdout, "navigator")
+	reviewerIdx := strings.Index(stdout, "reviewer")
 
-	assert.True(t, auditorIdx < craftsmanIdx, "auditor should appear before craftsman")
 	assert.True(t, craftsmanIdx < navigatorIdx, "craftsman should appear before navigator")
+	assert.True(t, navigatorIdx < reviewerIdx, "navigator should appear before reviewer")
 }
 
 // T087: Test for list adapters with binary availability check
@@ -469,7 +469,7 @@ func TestListCmd_Adapters_TableFormat(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("adapters")
 
@@ -487,7 +487,7 @@ func TestListCmd_Adapters_ShowsBinary(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("adapters")
 
@@ -504,7 +504,7 @@ func TestListCmd_Adapters_ShowsMode(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("adapters")
 
@@ -520,7 +520,7 @@ func TestListCmd_Adapters_ShowsOutputFormat(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("adapters")
 
@@ -705,7 +705,7 @@ func TestListCmd_All_ShowsEverything(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
 	h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
 
@@ -740,7 +740,7 @@ func TestListCmd_CustomManifestPath(t *testing.T) {
 	h.writeFile("config/custom-wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	stdout, _, err := executeListCmd("--manifest", "config/custom-wave.yaml", "personas")
 
@@ -767,7 +767,7 @@ func TestListCmd_Pipelines_WithTestdataFixtures(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
-	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile("personas/reviewer.md", "# Reviewer")
 
 	// Read and copy simple.yaml
 	simpleContent, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "pipelines", "simple.yaml"))
@@ -836,7 +836,7 @@ func TestListCmd_FilterOptions(t *testing.T) {
 			h.writeFile("wave.yaml", sampleManifest())
 			h.writeFile("personas/navigator.md", "# Navigator")
 			h.writeFile("personas/craftsman.md", "# Craftsman")
-			h.writeFile("personas/auditor.md", "# Auditor")
+			h.writeFile("personas/reviewer.md", "# Reviewer")
 			h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test", 1))
 			h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
 

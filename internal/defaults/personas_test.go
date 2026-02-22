@@ -39,7 +39,7 @@ func TestPersonaFilesNoLanguageReferences(t *testing.T) {
 	}
 }
 
-// TestPersonaFilesTokenRange verifies all 17 persona files (excluding base-protocol.md)
+// TestPersonaFilesTokenRange verifies all 15 persona files (excluding base-protocol.md)
 // are within the 100-400 token range using word count heuristic (SC-001).
 func TestPersonaFilesTokenRange(t *testing.T) {
 	personas, err := GetPersonas()
@@ -64,7 +64,7 @@ func TestPersonaFilesTokenRange(t *testing.T) {
 	}
 }
 
-// TestPersonaFilesMandatorySections verifies all 17 persona files contain the
+// TestPersonaFilesMandatorySections verifies all 15 persona files contain the
 // three mandatory structural elements (SC-007):
 // 1. H1 identity heading
 // 2. Responsibilities section
@@ -96,7 +96,7 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 	}
 }
 
-// TestAllPersonasCovered verifies exactly 17 persona files exist (excluding
+// TestAllPersonasCovered verifies exactly 15 persona files exist (excluding
 // base-protocol.md) with the expected names (SC-004).
 func TestAllPersonasCovered(t *testing.T) {
 	personas, err := GetPersonas()
@@ -106,12 +106,10 @@ func TestAllPersonasCovered(t *testing.T) {
 
 	expected := map[string]bool{
 		"navigator.md":        true,
-		"implementer.md":      true,
 		"reviewer.md":         true,
 		"planner.md":          true,
 		"researcher.md":       true,
 		"debugger.md":         true,
-		"auditor.md":          true,
 		"craftsman.md":        true,
 		"summarizer.md":       true,
 		"github-analyst.md":   true,
@@ -137,7 +135,7 @@ func TestAllPersonasCovered(t *testing.T) {
 			count++
 		}
 	}
-	if count != 17 {
-		t.Errorf("expected 17 persona files, got %d", count)
+	if count != 15 {
+		t.Errorf("expected 15 persona files, got %d", count)
 	}
 }

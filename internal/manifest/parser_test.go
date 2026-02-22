@@ -297,7 +297,7 @@ personas:
     sandbox:
       allowed_domains:
         - api.anthropic.com
-  implementer:
+  craftsman:
     adapter: claude
     system_prompt_file: prompts/impl.md
     permissions:
@@ -369,16 +369,16 @@ runtime:
 		t.Errorf("expected 2 navigator deny rules, got %d", len(nav.Permissions.Deny))
 	}
 
-	// Implementer persona sandbox
-	impl := m.GetPersona("implementer")
+	// Craftsman persona sandbox
+	impl := m.GetPersona("craftsman")
 	if impl == nil {
-		t.Fatal("implementer persona not found")
+		t.Fatal("craftsman persona not found")
 	}
 	if impl.Sandbox == nil {
-		t.Fatal("implementer sandbox config not found")
+		t.Fatal("craftsman sandbox config not found")
 	}
 	if len(impl.Sandbox.AllowedDomains) != 4 {
-		t.Errorf("expected 4 implementer domains, got %d", len(impl.Sandbox.AllowedDomains))
+		t.Errorf("expected 4 craftsman domains, got %d", len(impl.Sandbox.AllowedDomains))
 	}
 }
 

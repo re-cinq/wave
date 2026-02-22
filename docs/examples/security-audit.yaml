@@ -77,7 +77,7 @@ steps:
 
   # Step 2a: Static analysis for code vulnerabilities
   - id: static-analysis
-    persona: auditor
+    persona: reviewer
     dependencies: [reconnaissance]
     memory:
       strategy: fresh
@@ -145,7 +145,7 @@ steps:
 
   # Step 2b: Configuration and secrets audit
   - id: config-audit
-    persona: auditor
+    persona: reviewer
     dependencies: [reconnaissance]
     memory:
       strategy: fresh
@@ -207,7 +207,7 @@ steps:
 
   # Step 2c: Dependency vulnerability scan
   - id: dependency-scan
-    persona: auditor
+    persona: reviewer
     dependencies: [reconnaissance]
     memory:
       strategy: fresh

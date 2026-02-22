@@ -282,7 +282,7 @@ steps:
         type: metadata
 
   - id: pr-review
-    persona: auditor
+    persona: reviewer
     dependencies: [pr-create]
 
     exec:

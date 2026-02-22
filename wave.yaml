@@ -25,21 +25,6 @@ adapters:
             - CLAUDE.md
             - .claude/settings.json
 personas:
-    auditor:
-        adapter: claude
-        description: Security review and quality assurance
-        model: opus
-        #temperature: 0.1
-        permissions:
-            allowed_tools:
-                - Read
-                - Grep
-                - Bash(go vet*)
-                - Bash(npm audit*)
-            deny:
-                - Write(*)
-                - Edit(*)
-        system_prompt_file: .wave/personas/auditor.md
     craftsman:
         adapter: claude
         description: Code implementation and testing
@@ -51,8 +36,11 @@ personas:
                 - Write
                 - Edit
                 - Bash
+                - Glob
+                - Grep
             deny:
                 - Bash(rm -rf /*)
+                - Bash(sudo *)
         system_prompt_file: .wave/personas/craftsman.md
     debugger:
         adapter: claude
@@ -153,26 +141,9 @@ personas:
             deny:
                 - Bash(rm *)
         system_prompt_file: .wave/personas/github-enhancer.md
-    implementer:
-        adapter: claude
-        description: Code execution and artifact generation for pipeline steps
-        model: opus
-        #temperature: 0.3
-        permissions:
-            allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
-            deny:
-                - Bash(rm -rf /*)
-                - Bash(sudo *)
-        system_prompt_file: .wave/personas/implementer.md
     reviewer:
         adapter: claude
-        description: Quality review, validation, and assessment
+        description: Quality and security review, validation, and assessment
         model: opus
         #temperature: 0.3
         permissions:
@@ -182,8 +153,11 @@ personas:
                 - Grep
                 - Write(.wave/artifact.json)
                 - Write(.wave/artifacts/*)
+                - Write(.wave/output/*)
                 - Bash(go test*)
                 - Bash(npm test*)
+                - Bash(go vet*)
+                - Bash(npm audit*)
             deny:
                 - Write(*.go)
                 - Write(*.ts)

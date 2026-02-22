@@ -120,7 +120,7 @@ steps:
         max_retries: 3
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [refactor]
     exec:
       type: prompt

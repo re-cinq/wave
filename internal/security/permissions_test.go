@@ -56,11 +56,9 @@ func TestSecurityConfig_PathValidationForArtifacts(t *testing.T) {
 // for valid persona names.
 func TestPersonaReference_ValidPersona(t *testing.T) {
 	availablePersonas := []string{
-		"implementer",
+		"craftsman",
 		"reviewer",
 		"navigator",
-		"auditor",
-		"craftsman",
 		"philosopher",
 		"planner",
 	}
@@ -70,12 +68,12 @@ func TestPersonaReference_ValidPersona(t *testing.T) {
 		personaName string
 		shouldValid bool
 	}{
-		{"step-1", "implementer", true},
+		{"step-1", "craftsman", true},
 		{"step-2", "reviewer", true},
 		{"step-3", "navigator", true},
 		{"step-4", "unknown-persona", false},
 		{"step-5", "", false},
-		{"step-6", "IMPLEMENTER", false}, // Case sensitive
+		{"step-6", "CRAFTSMAN", false}, // Case sensitive
 	}
 
 	for _, tc := range testCases {
@@ -101,7 +99,7 @@ func TestPersonaReference_ValidPersona(t *testing.T) {
 // TestPersonaReference_SuggestsAlternative tests that invalid persona references
 // suggest valid alternatives.
 func TestPersonaReference_SuggestsAlternative(t *testing.T) {
-	availablePersonas := []string{"implementer", "reviewer", "navigator"}
+	availablePersonas := []string{"craftsman", "reviewer", "navigator"}
 
 	ref := NewPersonaReference("step-1", "unknown", availablePersonas)
 
@@ -128,7 +126,7 @@ func TestPersonaReference_SuggestsAlternative(t *testing.T) {
 
 // TestInvalidPersonaError_Format tests the format of invalid persona errors.
 func TestInvalidPersonaError_Format(t *testing.T) {
-	available := []string{"implementer", "reviewer", "navigator"}
+	available := []string{"craftsman", "reviewer", "navigator"}
 	err := NewInvalidPersonaError("unknown-persona", available)
 
 	// Verify error type
@@ -340,7 +338,7 @@ func TestInputSanitizer_PersonaNameValidation(t *testing.T) {
 	}{
 		{
 			name:          "valid persona name",
-			personaName:   "implementer",
+			personaName:   "craftsman",
 			expectChanges: false,
 			expectError:   false,
 		},

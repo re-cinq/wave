@@ -63,7 +63,7 @@ steps:
 
   # Step 2a: Security review (runs in parallel with quality review)
   - id: security-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       strategy: fresh
@@ -108,7 +108,7 @@ steps:
 
   # Step 2b: Quality review (runs in parallel with security review)
   - id: quality-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       strategy: fresh

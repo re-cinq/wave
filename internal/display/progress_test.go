@@ -308,7 +308,7 @@ func TestBubbleTeaToPipelineContext_StepPersonas(t *testing.T) {
 	// populates StepPersonas correctly.
 	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 2)
 	pd.AddStep("s1", "step-1", "navigator")
-	pd.AddStep("s2", "step-2", "implementer")
+	pd.AddStep("s2", "step-2", "craftsman")
 
 	pd.mu.Lock()
 	ctx := pd.toPipelineContext()
@@ -320,8 +320,8 @@ func TestBubbleTeaToPipelineContext_StepPersonas(t *testing.T) {
 	if ctx.StepPersonas["s1"] != "navigator" {
 		t.Errorf("StepPersonas[s1] = %q, want %q", ctx.StepPersonas["s1"], "navigator")
 	}
-	if ctx.StepPersonas["s2"] != "implementer" {
-		t.Errorf("StepPersonas[s2] = %q, want %q", ctx.StepPersonas["s2"], "implementer")
+	if ctx.StepPersonas["s2"] != "craftsman" {
+		t.Errorf("StepPersonas[s2] = %q, want %q", ctx.StepPersonas["s2"], "craftsman")
 	}
 }
 
@@ -346,7 +346,7 @@ func TestProgressDisplay_ToPipelineContext_StepOrder(t *testing.T) {
 func TestCreatePipelineContext_WithPersonas(t *testing.T) {
 	personas := map[string]string{
 		"step-1": "navigator",
-		"step-2": "implementer",
+		"step-2": "craftsman",
 	}
 	ctx := CreatePipelineContext("wave.yaml", "test", "/tmp", 2, []string{"step-1", "step-2"}, personas)
 
@@ -356,8 +356,8 @@ func TestCreatePipelineContext_WithPersonas(t *testing.T) {
 	if ctx.StepPersonas["step-1"] != "navigator" {
 		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
 	}
-	if ctx.StepPersonas["step-2"] != "implementer" {
-		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "implementer")
+	if ctx.StepPersonas["step-2"] != "craftsman" {
+		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "craftsman")
 	}
 
 	// Also verify StepOrder is populated

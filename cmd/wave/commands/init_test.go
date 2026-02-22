@@ -261,7 +261,7 @@ func TestInitCreatesAllPersonaPromptFiles(t *testing.T) {
 		"navigator.md",
 		"philosopher.md",
 		"craftsman.md",
-		"auditor.md",
+		"reviewer.md",
 		"summarizer.md",
 	}
 
@@ -705,8 +705,8 @@ func TestInitPersonaPromptContent(t *testing.T) {
 			[]string{"Craftsman", "implement", "test"},
 		},
 		{
-			"auditor.md",
-			[]string{"Auditor", "security", "review"},
+			"reviewer.md",
+			[]string{"Reviewer", "security", "review"},
 		},
 		{
 			"summarizer.md",

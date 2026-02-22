@@ -148,7 +148,7 @@ func generateRealisticOutput(cfg AdapterRunConfig) string {
 		return generateDocsPhaseOutput(cfg)
 	case "craftsman":
 		return generateSpecPhaseOutput(cfg)
-	case "auditor":
+	case "reviewer":
 		return generateAuditorOutput(cfg)
 	case "summarizer":
 		return generateSummarizerOutput(cfg)

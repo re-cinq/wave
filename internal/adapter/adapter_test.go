@@ -436,7 +436,7 @@ func TestAdapterResult_Fields(t *testing.T) {
 // T053: Add test for deny pattern blocks Write
 func TestPermissionChecker_DenyPatternBlocksWrite(t *testing.T) {
 	checker := NewPermissionChecker(
-		"auditor",
+		"reviewer",
 		[]string{"Read", "Grep", "Glob"},
 		[]string{"Write(*)", "Edit(*)"},
 	)
@@ -456,8 +456,8 @@ func TestPermissionChecker_DenyPatternBlocksWrite(t *testing.T) {
 		t.Errorf("expected tool 'Write', got: %s", permErr.Tool)
 	}
 
-	if permErr.PersonaName != "auditor" {
-		t.Errorf("expected persona 'auditor', got: %s", permErr.PersonaName)
+	if permErr.PersonaName != "reviewer" {
+		t.Errorf("expected persona 'reviewer', got: %s", permErr.PersonaName)
 	}
 
 	// Edit should also be denied
@@ -587,7 +587,7 @@ func TestPermissionChecker_ErrorMessageFormat(t *testing.T) {
 
 	// Test error for not-allowed tool (no deny match, but not in allow list)
 	checker2 := NewPermissionChecker(
-		"auditor",
+		"reviewer",
 		[]string{"Read", "Grep"},
 		[]string{},
 	)
@@ -598,7 +598,7 @@ func TestPermissionChecker_ErrorMessageFormat(t *testing.T) {
 	}
 
 	errMsg2 := err2.Error()
-	if !strings.Contains(errMsg2, "auditor") {
+	if !strings.Contains(errMsg2, "reviewer") {
 		t.Errorf("expected error to contain persona name, got: %s", errMsg2)
 	}
 	if !strings.Contains(errMsg2, "not in allowed tools list") {
@@ -690,7 +690,7 @@ func TestPermissionChecker_CheckOrder_DenyFirst(t *testing.T) {
 
 // T058: Improve permission denied error message with persona name
 func TestPermissionError_ContainsPersonaName(t *testing.T) {
-	personas := []string{"navigator", "philosopher", "craftsman", "auditor", "reviewer"}
+	personas := []string{"navigator", "philosopher", "craftsman", "reviewer"}
 
 	for _, persona := range personas {
 		checker := NewPermissionChecker(persona, []string{"Read"}, []string{"Write(*)"})

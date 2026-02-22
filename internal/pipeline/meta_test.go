@@ -67,7 +67,7 @@ func TestValidateGeneratedPipeline(t *testing.T) {
 				Steps: []Step{
 					{
 						ID:       "impl",
-						Persona:  "implementer",
+						Persona:  "craftsman",
 						Memory:   MemoryConfig{Strategy: "fresh"},
 						Handover: HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
 					},
@@ -124,7 +124,7 @@ func TestValidateGeneratedPipeline(t *testing.T) {
 					},
 					{
 						ID:           "impl",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"nav"},
 						Memory:       MemoryConfig{Strategy: "fresh"},
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -147,7 +147,7 @@ func TestValidateGeneratedPipeline(t *testing.T) {
 					},
 					{
 						ID:           "impl",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"nav"},
 						Memory:       MemoryConfig{Strategy: "fresh"},
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -770,7 +770,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 				Steps: []Step{
 					{
 						ID:       "impl",
-						Persona:  "implementer",
+						Persona:  "craftsman",
 						Memory:   MemoryConfig{Strategy: "fresh"},
 						Handover: HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
 					},
@@ -793,7 +793,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 					},
 					{
 						ID:       "impl",
-						Persona:  "implementer",
+						Persona:  "craftsman",
 						Memory:   MemoryConfig{Strategy: "fresh"},
 						Handover: HandoverConfig{}, // Missing contract
 					},
@@ -816,7 +816,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 					},
 					{
 						ID:           "impl",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"nav"},
 						Memory:       MemoryConfig{Strategy: "persistent"}, // Wrong strategy
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -841,7 +841,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 					},
 					{
 						ID:           "impl",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"nav"},
 						Memory:       MemoryConfig{Strategy: "fresh"},
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -882,7 +882,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 					},
 					{
 						ID:           "implement",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"navigate"},
 						Memory:       MemoryConfig{Strategy: "fresh"},
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -912,7 +912,7 @@ func TestMetaPipelineValidation(t *testing.T) {
 					},
 					{
 						ID:           "impl",
-						Persona:      "implementer",
+						Persona:      "craftsman",
 						Dependencies: []string{"nonexistent"},
 						Memory:       MemoryConfig{Strategy: "fresh"},
 						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
@@ -953,7 +953,7 @@ metadata:
   name: invalid-pipeline
 steps:
   - id: impl
-    persona: implementer
+    persona: craftsman
     memory:
       strategy: fresh
     handover:
@@ -1038,7 +1038,7 @@ metadata:
   name: invalid
 steps:
   - id: impl
-    persona: implementer
+    persona: craftsman
     memory:
       strategy: fresh
     handover:
@@ -1135,7 +1135,7 @@ steps:
       contract:
         type: json_schema
   - id: impl
-    persona: implementer
+    persona: craftsman
     dependencies: [nav]
     memory:
       strategy: fresh
@@ -1330,7 +1330,7 @@ func createTestMetaManifest() *manifest.Manifest {
 				Adapter:     "claude",
 				Temperature: 0.1,
 			},
-			"implementer": {
+			"craftsman": {
 				Adapter:     "claude",
 				Temperature: 0.3,
 			},

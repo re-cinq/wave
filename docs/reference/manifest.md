@@ -65,13 +65,13 @@ personas:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: ["Bash(rm -rf /*)"]
 
-  auditor:
+  reviewer:
     adapter: claude
-    description: "Security and quality review"
-    system_prompt_file: .wave/personas/auditor.md
+    description: "Security and code review"
+    system_prompt_file: .wave/personas/reviewer.md
     temperature: 0.1
     permissions:
-      allowed_tools: ["Read", "Grep", "Bash(npm audit*)"]
+      allowed_tools: ["Read", "Grep", "Glob", "Bash(npm audit*)"]
       deny: ["Write(*)", "Edit(*)"]
 
 runtime:
@@ -194,7 +194,7 @@ personas:
 
 | Range | Use Case |
 |-------|----------|
-| 0.0-0.2 | Deterministic: analysis, auditing |
+| 0.0-0.2 | Deterministic: analysis, review |
 | 0.3-0.5 | Balanced: specification, planning |
 | 0.6-0.8 | Creative: implementation |
 

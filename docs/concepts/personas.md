@@ -23,7 +23,7 @@ personas:
 
 ## Built-in Personas
 
-Wave includes **14 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
+Wave includes **13 built-in personas** designed for secure, specialized execution. The following table highlights three core personas commonly used in pipelines:
 
 <script setup>
 const builtInPersonas = [
@@ -33,14 +33,9 @@ const builtInPersonas = [
     permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
   },
   {
-    persona: 'auditor',
+    persona: 'reviewer',
     description: 'Security and code review, read-only analysis with detailed reporting',
     permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
-  },
-  {
-    persona: 'implementer',
-    description: 'Code generation and modification with scoped write access',
-    permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
   },
   {
     persona: 'craftsman',
@@ -73,15 +68,15 @@ personas:
 - Finding relevant code for implementation tasks
 - Creating navigation context for downstream steps
 
-### Auditor
+### Reviewer
 
-The Auditor performs security and code review analysis. It has read-only access to analyze code quality and security issues.
+The Reviewer performs security and code review analysis. It has read-only access to analyze code quality and security issues.
 
 ```yaml
 personas:
-  auditor:
+  reviewer:
     adapter: claude
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .wave/personas/reviewer.md
     temperature: 0.2
     permissions:
       allowed_tools: ["Read", "Glob", "Grep"]
@@ -93,36 +88,6 @@ personas:
 - Code quality assessment
 - Compliance checking
 - Review of proposed changes
-
-### Implementer
-
-The Implementer handles code generation and modification with scoped write access.
-
-```yaml
-personas:
-  implementer:
-    adapter: claude
-    system_prompt_file: .wave/personas/implementer.md
-    temperature: 0.3
-    permissions:
-      allowed_tools:
-        - "Read"
-        - "Glob"
-        - "Grep"
-        - "Write(src/*)"
-        - "Edit(src/*)"
-        - "Bash(go build*)"
-        - "Bash(go fmt*)"
-      deny:
-        - "Write(*.env)"
-        - "Bash(rm -rf *)"
-```
-
-**Use cases:**
-- Feature implementation
-- Bug fixes
-- Code refactoring
-- Applying reviewer suggestions
 
 ### Craftsman
 
@@ -220,7 +185,7 @@ flowchart TD
 
     C1 -->|"Artifacts (no chat history)"| A2
 
-    subgraph Step2["Step 2: Implementer"]
+    subgraph Step2["Step 2: Craftsman"]
         A2[Fresh Context] --> B2[Execution]
         B2 --> C2[Artifacts Only]
     end
@@ -260,7 +225,7 @@ flowchart TB
         end
 
         subgraph WS2["Ephemeral Workspace 2"]
-            I[Implementer Persona]
+            I[Craftsman Persona]
             F2[Cloned Codebase]
             A1[Injected Artifacts]
         end
@@ -315,7 +280,7 @@ pipelines:
           - analysis.md
 
       - id: review
-        persona: auditor
+        persona: reviewer
         dependencies: [analyze]
         inputs:
           - from: analyze
@@ -325,7 +290,7 @@ pipelines:
           source: "Review the analysis and identify security concerns"
 
       - id: implement
-        persona: implementer
+        persona: craftsman
         dependencies: [review]
         exec:
           type: prompt

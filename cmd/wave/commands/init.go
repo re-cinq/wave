@@ -642,18 +642,8 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 				"system_prompt_file": ".wave/personas/craftsman.md",
 				"temperature":        0.7,
 				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
-					"deny":          []string{"Bash(rm -rf /*)"},
-				},
-			},
-			"auditor": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Security review and quality assurance",
-				"system_prompt_file": ".wave/personas/auditor.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Grep", "Bash(git log*)", "Bash(git status*)"},
-					"deny":          []string{"Write(*)", "Edit(*)"},
+					"allowed_tools": []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
+					"deny":          []string{"Bash(rm -rf /*)", "Bash(sudo *)"},
 				},
 			},
 			"summarizer": map[string]interface{}{
@@ -706,16 +696,6 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 					"deny":          []string{},
 				},
 			},
-			"implementer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Execution specialist for code changes and structured output",
-				"system_prompt_file": ".wave/personas/implementer.md",
-				"temperature":        0.3,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
-					"deny":          []string{"Bash(rm -rf /*)"},
-				},
-			},
 			"researcher": map[string]interface{}{
 				"adapter":            adapter,
 				"description":        "Deep codebase research and analysis",
@@ -728,7 +708,7 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 			},
 			"reviewer": map[string]interface{}{
 				"adapter":            adapter,
-				"description":        "Code review and quality checks",
+				"description":        "Quality and security review, validation, and assessment",
 				"system_prompt_file": ".wave/personas/reviewer.md",
 				"temperature":        0.1,
 				"permissions": map[string]interface{}{

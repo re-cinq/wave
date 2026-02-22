@@ -81,7 +81,7 @@ steps:
         type: markdown
 
   - id: verify-coverage
-    persona: auditor
+    persona: reviewer
     dependencies: [generate-tests]
     exec:
       type: prompt
