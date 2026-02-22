@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -2058,3 +2059,211 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 	// Should succeed since no type validation is performed
 	require.NoError(t, err)
 }
+
+// TestOutcomeExtractionRegistersDeliverables verifies that step outcomes declared in
+// pipeline YAML are extracted from JSON artifacts and registered with the deliverable tracker.
+func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"comment_url": "https://github.com/re-cinq/wave/pull/42#issuecomment-999", "pr": "42"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-test"},
+		Steps: []Step{
+			{
+				ID:      "publish",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "post review"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "publish-result", Path: "output/publish-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "url",
+						ExtractFrom: "output/publish-result.json",
+						JSONPath:    ".comment_url",
+						Label:       "Review Comment",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// The outcome extraction should have registered a URL deliverable
+	tracker := executor.GetDeliverableTracker()
+	require.NotNil(t, tracker)
+
+	urls := tracker.GetByType(deliverable.TypeURL)
+	require.Len(t, urls, 1, "should have 1 URL outcome registered")
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/42#issuecomment-999", urls[0].Path)
+	assert.Equal(t, "Review Comment", urls[0].Name)
+
+	// Verify outcome event was emitted
+	pipelineID := collector.GetPipelineID()
+	events := collector.GetEvents()
+	var hasOutcomeEvent bool
+	for _, e := range events {
+		if e.PipelineID == pipelineID && strings.Contains(e.Message, "outcome:") {
+			hasOutcomeEvent = true
+			break
+		}
+	}
+	assert.True(t, hasOutcomeEvent, "should emit outcome extraction event")
+}
+
+// TestOutcomeExtractionMissingFileWarns verifies that missing artifact files produce
+// warnings but don't fail the step.
+func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-missing-test"},
+		Steps: []Step{
+			{
+				ID:      "publish",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "post review"},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "pr",
+						ExtractFrom: "output/nonexistent.json",
+						JSONPath:    ".pr_url",
+						Label:       "Pull Request",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Should complete successfully despite missing artifact
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Should have a warning event about the missing file
+	events := collector.GetEvents()
+	var hasWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "outcome extraction") {
+			hasWarning = true
+			break
+		}
+	}
+	assert.True(t, hasWarning, "should emit warning for missing outcome artifact")
+}
+
+// TestOutcomeExtractionPRType verifies PR outcomes are registered as PR deliverables
+func TestOutcomeExtractionPRType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	prJSON := `{"pr_url": "https://github.com/re-cinq/wave/pull/99", "title": "feat: add feature"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: prJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-pr-test"},
+		Steps: []Step{
+			{
+				ID:      "create-pr",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "create pr"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "pr",
+						ExtractFrom: ".wave/output/pr-result.json",
+						JSONPath:    ".pr_url",
+						Label:       "Pull Request",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	tracker := executor.GetDeliverableTracker()
+	prs := tracker.GetByType(deliverable.TypePR)
+	require.Len(t, prs, 1, "should have 1 PR outcome")
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/99", prs[0].Path)
+	assert.Equal(t, "Pull Request", prs[0].Name)
+}
+
+// outcomeTestAdapter wraps MockAdapter and writes an artifact JSON file during execution
+// so that outcome extraction can find it afterward.
+type outcomeTestAdapter struct {
+	*adapter.MockAdapter
+	artifactJSON string
+}
+
+func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	// Write the artifact file to the workspace so outcome extraction can read it
+	// We need to find and write all output artifact paths
+	if a.artifactJSON != "" && cfg.WorkspacePath != "" {
+		// Write to common output locations
+		for _, dir := range []string{"output", ".wave/output"} {
+			outDir := filepath.Join(cfg.WorkspacePath, dir)
+			os.MkdirAll(outDir, 0755)
+			// Write all JSON files in this directory
+			entries, _ := filepath.Glob(filepath.Join(outDir, "*.json"))
+			if len(entries) == 0 {
+				// Pre-create common artifact files
+				os.WriteFile(filepath.Join(outDir, "publish-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "pr-result.json"), []byte(a.artifactJSON), 0644)
+			}
+		}
+	}
+	return a.MockAdapter.Run(ctx, cfg)
+}
+

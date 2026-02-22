@@ -149,6 +149,13 @@
           },
           "description": "Files produced by this step for downstream consumption"
         },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OutcomeDef"
+          },
+          "description": "Structured outcomes to extract from step artifacts for display in the pipeline summary"
+        },
         "handover": {
           "$ref": "#/definitions/HandoverConfig"
         },
@@ -160,6 +167,13 @@
           "items": {
             "$ref": "#/definitions/ValidationRule"
           }
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OutcomeDef"
+          },
+          "description": "Structured outcomes to extract from step artifacts for the pipeline summary"
         }
       }
     },
@@ -444,6 +458,54 @@
           "type": "integer",
           "minimum": 1,
           "description": "Maximum parallel executions"
+        }
+      }
+    },
+    "OutcomeDef": {
+      "type": "object",
+      "required": ["type", "extract_from", "json_path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["pr", "issue", "url", "deployment"],
+          "description": "Outcome type for display categorization"
+        },
+        "extract_from": {
+          "type": "string",
+          "description": "Path to artifact file relative to workspace (e.g., 'output/publish-result.json')"
+        },
+        "json_path": {
+          "type": "string",
+          "description": "Dot-notation path to extract value (e.g., '.comment_url')"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for the outcome"
+        }
+      }
+    },
+    "OutcomeDef": {
+      "type": "object",
+      "required": ["type", "extract_from", "json_path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["pr", "issue", "url", "deployment", "comment"],
+          "description": "Outcome type, determines how it is displayed in the summary"
+        },
+        "extract_from": {
+          "type": "string",
+          "description": "Path to JSON artifact relative to workspace (e.g., 'output/publish-result.json')"
+        },
+        "json_path": {
+          "type": "string",
+          "description": "Dot-notation path to extract value from JSON (e.g., '.comment_url')"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for display in the outcome summary"
         }
       }
     },
