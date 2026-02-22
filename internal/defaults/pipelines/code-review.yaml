@@ -155,3 +155,8 @@ steps:
       - name: publish-result
         path: output/publish-result.json
         type: json
+    outcomes:
+      - type: url
+        extract_from: output/publish-result.json
+        json_path: .comment_url
+        label: "Review Comment"
