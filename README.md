@@ -35,7 +35,7 @@ cd /path/to/your/project
 wave init
 
 # Run your first pipeline
-wave run speckit-flow "add user authentication"
+wave run spec-develop "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
@@ -129,7 +129,7 @@ Use "wave [command] --help" for more information about a command.
 
 ```bash
 # Feature development
-wave run speckit-flow "add OAuth2 with Google"
+wave run spec-develop "add OAuth2 with Google"
 
 # Fix production bug
 wave run hotfix "500 errors on /api/users"
@@ -302,7 +302,7 @@ A selection of the 23 built-in pipelines:
 
 | Pipeline | Description |
 |----------|-------------|
-| `speckit-flow` | Specification-driven feature development |
+| `spec-develop` | Specification-driven feature development |
 | `hotfix` | Quick investigation and fix for production issues |
 | `refactor` | Safe refactoring with comprehensive test coverage |
 | `prototype` | Prototype-driven development (spec → docs → dummy → implement → pr) |
@@ -320,14 +320,14 @@ A selection of the 23 built-in pipelines:
 | Pipeline | Description |
 |----------|-------------|
 | `plan` | Break down a feature into actionable tasks |
-| `doc-sync` | Generate or update documentation |
+| `doc-fix` | Generate or update documentation |
 
 ### GitHub Automation
 
 | Pipeline | Description |
 |----------|-------------|
 | `github-issue-enhancer` | Analyze and enhance poorly documented issues |
-| `doc-loop` | Documentation impact analysis before merge |
+| `doc-audit` | Documentation impact analysis before merge |
 
 > **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`
 >
@@ -365,7 +365,7 @@ wave.yaml                    # Project manifest
 │   ├── craftsman.md
 │   └── ...
 ├── pipelines/               # Pipeline definitions
-│   ├── speckit-flow.yaml
+│   ├── spec-develop.yaml
 │   ├── hotfix.yaml
 │   └── ...
 ├── contracts/               # JSON schemas
