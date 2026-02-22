@@ -1,5 +1,7 @@
 package pipeline
 
+import "fmt"
+
 const (
 	StatePending   = "pending"
 	StateRunning   = "running"
@@ -168,4 +170,26 @@ type OutcomeDef struct {
 	ExtractFrom string `yaml:"extract_from"` // Artifact path relative to workspace (e.g., "output/publish-result.json")
 	JSONPath    string `yaml:"json_path"`    // Dot notation path (e.g., ".comment_url")
 	Label       string `yaml:"label,omitempty"`
+}
+
+// validOutcomeTypes enumerates the accepted outcome types.
+var validOutcomeTypes = map[string]bool{
+	"pr": true, "issue": true, "url": true, "deployment": true,
+}
+
+// Validate checks that required fields are set and the type is recognized.
+func (o OutcomeDef) Validate(stepID string, idx int) error {
+	if o.Type == "" {
+		return fmt.Errorf("step %q outcome[%d]: type is required", stepID, idx)
+	}
+	if !validOutcomeTypes[o.Type] {
+		return fmt.Errorf("step %q outcome[%d]: unknown type %q (valid: pr, issue, url, deployment)", stepID, idx, o.Type)
+	}
+	if o.ExtractFrom == "" {
+		return fmt.Errorf("step %q outcome[%d]: extract_from is required", stepID, idx)
+	}
+	if o.JSONPath == "" {
+		return fmt.Errorf("step %q outcome[%d]: json_path is required", stepID, idx)
+	}
+	return nil
 }
