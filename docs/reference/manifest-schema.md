@@ -371,7 +371,7 @@ Pipelines can declare tool and skill dependencies via a `requires` block. These 
 ```yaml
 kind: WavePipeline
 metadata:
-  name: speckit-flow
+  name: spec-develop
 requires:
   skills: [speckit]
   tools: [git, go]

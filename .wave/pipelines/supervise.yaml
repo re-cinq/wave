@@ -5,7 +5,7 @@ metadata:
 
 input:
   source: cli
-  example: "last pipeline run"
+  example: "review the last pipeline run for quality and process issues"
 
 steps:
   - id: gather

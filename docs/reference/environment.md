@@ -109,7 +109,7 @@ Wave itself requires no environment variables. However, adapters typically need 
 |---------|-------------------|-------------|
 | Claude Code | `ANTHROPIC_API_KEY` | Anthropic API key for Claude. |
 | OpenCode | varies | Depends on configured LLM provider. |
-| GitHub | `GITHUB_TOKEN` or `GH_TOKEN` | GitHub personal access token for the GitHub adapter. Required for GitHub-related pipelines (`gh-issue-research`, `gh-issue-rewrite`, `gh-issue-impl`). |
+| GitHub | `GITHUB_TOKEN` or `GH_TOKEN` | GitHub personal access token for the GitHub adapter. Required for GitHub-related pipelines (`gh-research`, `gh-rewrite`, `gh-implement`). |
 
 **Note:** For the Claude adapter, `ANTHROPIC_API_KEY` must be included in `runtime.sandbox.env_passthrough` in your `wave.yaml` manifest. Without this entry, the key will not reach the adapter subprocess even if it is set in your shell environment.
 
