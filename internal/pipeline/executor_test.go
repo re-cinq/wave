@@ -2818,3 +2818,139 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 	return a.MockAdapter.Run(ctx, cfg)
 }
 
+// TestBuildArtifactPreamble verifies the preamble generation for injected artifacts.
+func TestBuildArtifactPreamble(t *testing.T) {
+	t.Run("no artifacts returns empty", func(t *testing.T) {
+		result := buildArtifactPreamble(nil)
+		assert.Equal(t, "", result)
+
+		result = buildArtifactPreamble([]ArtifactRef{})
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("single artifact with alias", func(t *testing.T) {
+		refs := []ArtifactRef{
+			{Step: "explore", Artifact: "exploration", As: "context"},
+		}
+		result := buildArtifactPreamble(refs)
+		assert.Contains(t, result, ".wave/artifacts/context")
+		assert.Contains(t, result, "step: explore")
+		assert.Contains(t, result, "artifact: exploration")
+		assert.Contains(t, result, "Read them")
+	})
+
+	t.Run("single artifact without alias uses artifact name", func(t *testing.T) {
+		refs := []ArtifactRef{
+			{Step: "scan", Artifact: "results"},
+		}
+		result := buildArtifactPreamble(refs)
+		assert.Contains(t, result, ".wave/artifacts/results")
+		assert.Contains(t, result, "step: scan")
+	})
+
+	t.Run("multiple artifacts", func(t *testing.T) {
+		refs := []ArtifactRef{
+			{Step: "explore", Artifact: "exploration", As: "context"},
+			{Step: "plan", Artifact: "task_list", As: "tasks"},
+		}
+		result := buildArtifactPreamble(refs)
+		assert.Contains(t, result, ".wave/artifacts/context")
+		assert.Contains(t, result, ".wave/artifacts/tasks")
+		assert.Contains(t, result, "step: explore")
+		assert.Contains(t, result, "step: plan")
+	})
+}
+
+// TestArtifactPreamblePrependedToPrompt verifies that when a step declares
+// inject_artifacts, the prompt sent to the adapter is prepended with artifact references.
+func TestArtifactPreamblePrependedToPrompt(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "done"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithEmitter(collector))
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "preamble-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Type: "prompt", Source: "produce output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "report", Path: ".wave/output/report.json", Type: "json"},
+				},
+			},
+			{
+				ID:           "step2",
+				Persona:      "navigator",
+				Dependencies: []string{"step1"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{Step: "step1", Artifact: "report", As: "findings"},
+					},
+				},
+				Exec: ExecConfig{Type: "prompt", Source: "Do analysis based on findings."},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	require.NoError(t, err)
+
+	// The captured prompt for step2 should start with the artifact preamble
+	cfg := capturingAdapter.getLastConfig()
+	assert.Contains(t, cfg.Prompt, ".wave/artifacts/findings")
+	assert.Contains(t, cfg.Prompt, "step: step1")
+	assert.Contains(t, cfg.Prompt, "artifact: report")
+	// The original prompt content should still be present
+	assert.Contains(t, cfg.Prompt, "Do analysis based on findings.")
+}
+
+// TestArtifactPreambleNotAddedWithoutArtifacts verifies that steps without
+// inject_artifacts do not get a preamble prepended.
+func TestArtifactPreambleNotAddedWithoutArtifacts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "done"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithEmitter(collector))
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "no-preamble-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Type: "prompt", Source: "Do something."},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.False(t, strings.HasPrefix(cfg.Prompt, "The following artifacts"), "prompt should NOT start with preamble")
+	assert.Contains(t, cfg.Prompt, "Do something.")
+}

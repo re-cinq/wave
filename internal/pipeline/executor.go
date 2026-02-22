@@ -563,6 +563,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	prompt := e.buildStepPrompt(execution, step)
 
+	// Auto-prepend artifact references so the persona knows where to find them
+	if preamble := buildArtifactPreamble(step.Memory.InjectArtifacts); preamble != "" {
+		prompt = preamble + prompt
+	}
+
 	if e.logger != nil {
 		e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", step.Persona, len(prompt)))
 	}
@@ -1069,6 +1074,26 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 	}
 
 	return prompt
+}
+
+// buildArtifactPreamble generates a prompt preamble listing injected artifact
+// locations so the persona knows where to find them without manual hints.
+// Returns an empty string when no artifacts are injected.
+func buildArtifactPreamble(refs []ArtifactRef) string {
+	if len(refs) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("The following artifacts from previous steps are available in your workspace:\n")
+	for _, ref := range refs {
+		alias := ref.As
+		if alias == "" {
+			alias = ref.Artifact
+		}
+		b.WriteString(fmt.Sprintf("  - .wave/artifacts/%s (from step: %s, artifact: %s)\n", alias, ref.Step, ref.Artifact))
+	}
+	b.WriteString("Read them to understand the context before proceeding.\n\n")
+	return b.String()
 }
 
 func indexOf(s, sub string) int {
