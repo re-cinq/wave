@@ -232,7 +232,13 @@ type PipelineContext struct {
 	// Deliverables by step
 	DeliverablesByStep map[string][]string // stepID -> deliverable strings
 
-	// Tool activity (verbose mode)
+	// Per-step timing (for concurrent step display)
+	StepStartTimes map[string]int64 // stepID -> Unix nanoseconds when step started
+
+	// Per-step tool activity (verbose mode, for concurrent step display)
+	StepToolActivity map[string][2]string // stepID -> [toolName, toolTarget]
+
+	// Tool activity (verbose mode) — global fallback for backward compat
 	LastToolName   string // Most recent tool being used (Read, Write, Bash, etc.)
 	LastToolTarget string // Most recent tool target (file path, command, pattern)
 

@@ -2,9 +2,6 @@ kind: WavePipeline
 metadata:
   name: prototype
   description: "Prototype-driven development pipeline with 5 phases (9 steps): spec, docs, dummy, implement, pr-cycle"
-  version: "1.0.0"
-  created: "2026-02-03"
-  author: Michael W. Czechowski
   release: false
 
 input:
@@ -16,6 +13,7 @@ steps:
   - id: spec
     persona: craftsman
     exec:
+      type: prompt
       source: |
         You are beginning the specification phase of a prototype-driven development pipeline.
 
@@ -49,10 +47,10 @@ steps:
     output_artifacts:
       - name: spec
         path: spec.md
-        type: specification
+        type: markdown
       - name: requirements
         path: requirements.md
-        type: specification
+        type: markdown
       - name: contract_data
         path: artifact.json
         type: json
@@ -76,6 +74,7 @@ steps:
           as: input-spec.md
 
     exec:
+      type: prompt
       source: |
         You are in the documentation phase of prototype-driven development.
 
@@ -104,10 +103,10 @@ steps:
     output_artifacts:
       - name: feature-docs
         path: feature-docs.md
-        type: documentation
+        type: markdown
       - name: stakeholder-summary
         path: stakeholder-summary.md
-        type: documentation
+        type: markdown
       - name: contract_data
         path: artifact.json
         type: json
@@ -134,6 +133,7 @@ steps:
           as: spec.md
 
     exec:
+      type: prompt
       source: |
         You are in the dummy/prototype phase of development.
 
@@ -165,10 +165,10 @@ steps:
     output_artifacts:
       - name: prototype
         path: prototype/
-        type: code
+        type: binary
       - name: interface-definitions
         path: interfaces.md
-        type: documentation
+        type: markdown
       - name: contract_data
         path: artifact.json
         type: json
@@ -198,6 +198,7 @@ steps:
           as: prototype/
 
     exec:
+      type: prompt
       source: |
         You are in the implementation phase - transitioning from prototype to production code.
 
@@ -228,10 +229,10 @@ steps:
     output_artifacts:
       - name: implementation-plan
         path: implementation-plan.md
-        type: documentation
+        type: markdown
       - name: progress-checklist
         path: implementation-checklist.md
-        type: checklist
+        type: markdown
       - name: contract_data
         path: artifact.json
         type: json
@@ -255,6 +256,7 @@ steps:
           as: implementation-plan.md
 
     exec:
+      type: prompt
       source: |
         You are creating a pull request for the implemented feature.
 
@@ -279,13 +281,14 @@ steps:
     output_artifacts:
       - name: pr-info
         path: pr-info.json
-        type: metadata
+        type: json
 
   - id: pr-review
     persona: auditor
     dependencies: [pr-create]
 
     exec:
+      type: prompt
       source: |
         Monitor and manage the PR review process.
 
@@ -303,6 +306,7 @@ steps:
     dependencies: [pr-review]
 
     exec:
+      type: prompt
       source: |
         Analyze review comments and prepare thoughtful responses.
 
@@ -322,6 +326,7 @@ steps:
     dependencies: [pr-respond]
 
     exec:
+      type: prompt
       source: |
         Implement small fixes based on review feedback.
 
@@ -339,6 +344,7 @@ steps:
     dependencies: [pr-fix]
 
     exec:
+      type: prompt
       source: |
         Complete the PR lifecycle with merge.
 

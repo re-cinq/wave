@@ -2,9 +2,6 @@ kind: WavePipeline
 metadata:
   name: refactor
   description: "Safe refactoring with comprehensive test coverage"
-  version: "1.0.0"
-  created: "2026-02-03"
-  author: "Michael W. Czechowski"
   release: true
 
 input:

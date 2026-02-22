@@ -173,3 +173,59 @@ steps:
       - name: adr
         path: .wave/output/adr.md
         type: markdown
+
+  - id: publish
+    persona: craftsman
+    dependencies: [draft-record]
+    memory:
+      inject_artifacts:
+        - step: draft-record
+          artifact: adr
+          as: adr
+    workspace:
+      type: worktree
+      branch: "docs/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        PUBLISH — commit the ADR and create a pull request.
+
+        ## Steps
+
+        1. Copy the ADR into the project docs:
+           - Determine the next ADR number by listing existing ADR files
+             (e.g., `ls docs/adr/` or similar convention)
+           - Copy `.wave/artifacts/adr` to the appropriate location
+             (e.g., `docs/adr/NNN-title.md`)
+
+        2. Commit:
+           ```bash
+           git add docs/adr/
+           git commit -m "docs: add ADR for <decision topic>"
+           ```
+
+        3. Push and create PR:
+           ```bash
+           git push -u origin HEAD
+           gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
+           ```
+
+        4. Write a JSON status report to `output/pr-result.json`:
+
+           ```json
+           {
+             "pr_url": "https://github.com/owner/repo/pull/123",
+             "pr_number": 123,
+             "branch": "docs/<pipeline_id>",
+             "adr_path": "docs/adr/NNN-title.md"
+           }
+           ```
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"

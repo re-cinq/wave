@@ -618,4 +618,23 @@ steps:
            gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
            ```
 
+        4. Write a JSON status report to `output/pr-result.json`:
+
+           ```json
+           {
+             "pr_url": "https://github.com/owner/repo/pull/123",
+             "pr_number": 123,
+             "branch": "refactor/<pipeline_id>"
+           }
+           ```
+
         If any `gh` command fails, log the error and continue.
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"

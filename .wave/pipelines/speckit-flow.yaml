@@ -164,3 +164,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"

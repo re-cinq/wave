@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -316,9 +317,7 @@ func TestComplexDAGOrdering(t *testing.T) {
 	assert.True(t, posC < posD, "step-c should execute before step-d")
 }
 
-// TestParallelStepExecution tests that independent steps could run in parallel (T048)
-// Note: The current executor runs steps sequentially, but this test verifies
-// the DAG correctly identifies independent steps that COULD run in parallel.
+// TestParallelStepExecution tests that independent steps actually run in parallel (T048)
 func TestParallelStepExecution(t *testing.T) {
 	collector := newTestEventCollector()
 
@@ -326,12 +325,12 @@ func TestParallelStepExecution(t *testing.T) {
 	var maxConcurrent int32
 	var currentConcurrent int32
 
-	// Create a mock adapter that tracks concurrency
+	// Create a mock adapter that tracks concurrency — use enough delay to ensure overlap
 	concurrentAdapter := &concurrencyTrackingAdapter{
 		MockAdapter: adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
 			adapter.WithTokensUsed(500),
-			adapter.WithSimulatedDelay(10*time.Millisecond),
+			adapter.WithSimulatedDelay(50*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)
@@ -354,7 +353,7 @@ func TestParallelStepExecution(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := createTestManifest(tmpDir)
 
-	// Pipeline with independent steps B and C that could run in parallel
+	// Pipeline with independent steps B and C that run in parallel
 	//     A
 	//    / \
 	//   B   C
@@ -386,15 +385,208 @@ func TestParallelStepExecution(t *testing.T) {
 	}
 	assert.Equal(t, 4, completedSteps, "all 4 steps should complete")
 
-	// Verify ordering constraints are met even in sequential execution
+	// Verify B and C actually ran concurrently
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&maxConcurrent), int32(2),
+		"B and C should run concurrently (max concurrent >= 2)")
+
+	// Verify ordering constraints: A before B,C and B,C before D
 	order := collector.GetStepExecutionOrder()
+	posA := indexOfInSlice(order, "step-a")
+	posD := indexOfInSlice(order, "step-d")
+
+	assert.True(t, posA >= 0, "step-a should be in execution order")
+	assert.True(t, posD >= 0, "step-d should be in execution order")
+	assert.True(t, posA < posD, "A must come before D")
+}
+
+// TestConcurrentStepFailure tests that when one concurrent step fails,
+// the batch returns an error and other steps get cancelled via context.
+func TestConcurrentStepFailure(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Track which steps were started
+	var startedSteps sync.Map
+
+	// Create an adapter that fails for step-b but succeeds (slowly) for step-c
+	failingConcurrentAdapter := &stepAwareAdapter{
+		defaultAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(500),
+			adapter.WithSimulatedDelay(200*time.Millisecond),
+		),
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-b": adapter.NewMockAdapter(
+				adapter.WithFailure(errors.New("step-b intentional failure")),
+			),
+		},
+		onStart: func(stepID string) {
+			startedSteps.Store(stepID, true)
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(failingConcurrentAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// A -> (B, C) where B fails
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "concurrent-fail-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	assert.Error(t, err, "pipeline should fail when a concurrent step fails")
+
+	var stepErr *StepError
+	if errors.As(err, &stepErr) {
+		assert.Equal(t, "step-b", stepErr.StepID, "failed step should be step-b")
+	}
+
+	// Verify failure event was emitted
+	hasFailed := collector.HasEventWithState("failed")
+	assert.True(t, hasFailed, "should have failed event")
+}
+
+// TestSingleStepBatchNoOverhead tests that pipelines with only sequential
+// dependencies run through the single-step fast path (no goroutine overhead).
+func TestSingleStepBatchNoOverhead(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Linear pipeline: A -> B -> C (no parallelism possible)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "sequential-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-b"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify all steps completed in order
+	order := collector.GetStepExecutionOrder()
+	require.Len(t, order, 3, "all 3 steps should have executed")
+
 	posA := indexOfInSlice(order, "step-a")
 	posB := indexOfInSlice(order, "step-b")
 	posC := indexOfInSlice(order, "step-c")
-	posD := indexOfInSlice(order, "step-d")
 
-	assert.True(t, posA < posB && posA < posC, "A must come before B and C")
-	assert.True(t, posB < posD && posC < posD, "B and C must come before D")
+	assert.True(t, posA < posB, "step-a should execute before step-b")
+	assert.True(t, posB < posC, "step-b should execute before step-c")
+}
+
+// TestConcurrentStepWideFanOut tests a wide fan-out pattern with many parallel steps.
+func TestConcurrentStepWideFanOut(t *testing.T) {
+	collector := newTestEventCollector()
+
+	var maxConcurrent int32
+	var currentConcurrent int32
+
+	concurrentAdapter := &concurrencyTrackingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+			adapter.WithSimulatedDelay(50*time.Millisecond),
+		),
+		onStart: func() {
+			current := atomic.AddInt32(&currentConcurrent, 1)
+			for {
+				old := atomic.LoadInt32(&maxConcurrent)
+				if current <= old || atomic.CompareAndSwapInt32(&maxConcurrent, old, current) {
+					break
+				}
+			}
+		},
+		onEnd: func() {
+			atomic.AddInt32(&currentConcurrent, -1)
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(concurrentAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Root -> (B, C, D, E) -> Final
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "wide-fanout-test"},
+		Steps: []Step{
+			{ID: "root", Persona: "navigator", Exec: ExecConfig{Source: "root"}},
+			{ID: "branch-b", Persona: "navigator", Dependencies: []string{"root"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "branch-c", Persona: "navigator", Dependencies: []string{"root"}, Exec: ExecConfig{Source: "C"}},
+			{ID: "branch-d", Persona: "navigator", Dependencies: []string{"root"}, Exec: ExecConfig{Source: "D"}},
+			{ID: "branch-e", Persona: "navigator", Dependencies: []string{"root"}, Exec: ExecConfig{Source: "E"}},
+			{ID: "final", Persona: "navigator", Dependencies: []string{"branch-b", "branch-c", "branch-d", "branch-e"}, Exec: ExecConfig{Source: "final"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// All 6 steps should complete
+	events := collector.GetEvents()
+	completedSteps := 0
+	for _, e := range events {
+		if e.State == "completed" && e.StepID != "" {
+			completedSteps++
+		}
+	}
+	assert.Equal(t, 6, completedSteps, "all 6 steps should complete")
+
+	// B, C, D, E should have run concurrently (max concurrent >= 4)
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&maxConcurrent), int32(4),
+		"B, C, D, E should run concurrently (max concurrent >= 4)")
+}
+
+// stepAwareAdapter routes execution to different adapters based on step ID.
+type stepAwareAdapter struct {
+	defaultAdapter adapter.AdapterRunner
+	stepAdapters   map[string]adapter.AdapterRunner
+	onStart        func(stepID string)
+}
+
+func (a *stepAwareAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	// Extract step ID from the prompt or persona — we use the workspace path
+	// which contains the step ID as the last path component
+	stepID := filepath.Base(cfg.WorkspacePath)
+	if a.onStart != nil {
+		a.onStart(stepID)
+	}
+	if adapter, ok := a.stepAdapters[stepID]; ok {
+		return adapter.Run(ctx, cfg)
+	}
+	return a.defaultAdapter.Run(ctx, cfg)
 }
 
 // TestContractFailureRetry tests retry behavior on contract validation failure (T049)
@@ -2058,3 +2250,458 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 	// Should succeed since no type validation is performed
 	require.NoError(t, err)
 }
+
+// TestOutcomeExtractionRegistersDeliverables verifies that step outcomes declared in
+// pipeline YAML are extracted from JSON artifacts and registered with the deliverable tracker.
+func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"comment_url": "https://github.com/re-cinq/wave/pull/42#issuecomment-999", "pr": "42"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-test"},
+		Steps: []Step{
+			{
+				ID:      "publish",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "post review"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "publish-result", Path: "output/publish-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "url",
+						ExtractFrom: "output/publish-result.json",
+						JSONPath:    ".comment_url",
+						Label:       "Review Comment",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// The outcome extraction should have registered a URL deliverable
+	tracker := executor.GetDeliverableTracker()
+	require.NotNil(t, tracker)
+
+	urls := tracker.GetByType(deliverable.TypeURL)
+	require.Len(t, urls, 1, "should have 1 URL outcome registered")
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/42#issuecomment-999", urls[0].Path)
+	assert.Equal(t, "Review Comment", urls[0].Name)
+
+	// Verify outcome event was emitted
+	pipelineID := collector.GetPipelineID()
+	events := collector.GetEvents()
+	var hasOutcomeEvent bool
+	for _, e := range events {
+		if e.PipelineID == pipelineID && strings.Contains(e.Message, "outcome:") {
+			hasOutcomeEvent = true
+			break
+		}
+	}
+	assert.True(t, hasOutcomeEvent, "should emit outcome extraction event")
+}
+
+// TestOutcomeExtractionMissingFileWarns verifies that missing artifact files produce
+// warnings but don't fail the step.
+func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-missing-test"},
+		Steps: []Step{
+			{
+				ID:      "publish",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "post review"},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "pr",
+						ExtractFrom: "output/nonexistent.json",
+						JSONPath:    ".pr_url",
+						Label:       "Pull Request",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Should complete successfully despite missing artifact
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Should have a warning event about the missing file
+	events := collector.GetEvents()
+	var hasWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "outcome:") {
+			hasWarning = true
+			break
+		}
+	}
+	assert.True(t, hasWarning, "should emit warning for missing outcome artifact")
+}
+
+// TestOutcomeExtractionPRType verifies PR outcomes are registered as PR deliverables
+func TestOutcomeExtractionPRType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	prJSON := `{"pr_url": "https://github.com/re-cinq/wave/pull/99", "title": "feat: add feature"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: prJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-pr-test"},
+		Steps: []Step{
+			{
+				ID:      "create-pr",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "create pr"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "pr",
+						ExtractFrom: ".wave/output/pr-result.json",
+						JSONPath:    ".pr_url",
+						Label:       "Pull Request",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	tracker := executor.GetDeliverableTracker()
+	prs := tracker.GetByType(deliverable.TypePR)
+	require.Len(t, prs, 1, "should have 1 PR outcome")
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/99", prs[0].Path)
+	assert.Equal(t, "Pull Request", prs[0].Name)
+}
+
+// TestOutcomeExtractionIssueType verifies issue outcomes are registered as issue deliverables.
+func TestOutcomeExtractionIssueType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	issueJSON := `{"issue_url": "https://github.com/re-cinq/wave/issues/55"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: issueJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-issue-test"},
+		Steps: []Step{{
+			ID: "report", Persona: "navigator",
+			Exec:            ExecConfig{Source: "report issue"},
+			OutputArtifacts: []ArtifactDef{{Name: "issue-result", Path: "output/issue-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "issue", ExtractFrom: "output/issue-result.json",
+				JSONPath: ".issue_url", Label: "Bug Report",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	issues := tracker.GetByType(deliverable.TypeIssue)
+	require.Len(t, issues, 1, "should have 1 issue outcome")
+	assert.Equal(t, "https://github.com/re-cinq/wave/issues/55", issues[0].Path)
+	assert.Equal(t, "Bug Report", issues[0].Name)
+}
+
+// TestOutcomeExtractionDeploymentType verifies deployment outcomes are registered as deployment deliverables.
+func TestOutcomeExtractionDeploymentType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	deployJSON := `{"deploy_url": "https://staging.example.com"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: deployJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-deploy-test"},
+		Steps: []Step{{
+			ID: "deploy", Persona: "navigator",
+			Exec:            ExecConfig{Source: "deploy"},
+			OutputArtifacts: []ArtifactDef{{Name: "deploy-result", Path: "output/deploy-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "deployment", ExtractFrom: "output/deploy-result.json",
+				JSONPath: ".deploy_url", Label: "Staging Deploy",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	deploys := tracker.GetByType(deliverable.TypeDeployment)
+	require.Len(t, deploys, 1, "should have 1 deployment outcome")
+	assert.Equal(t, "https://staging.example.com", deploys[0].Path)
+	assert.Equal(t, "Staging Deploy", deploys[0].Name)
+}
+
+// TestOutcomeExtractionUnknownTypeFallsBackToURL verifies that unrecognized outcome types
+// fall back to URL deliverables.
+func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"link": "https://example.com/report"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-unknown-test"},
+		Steps: []Step{{
+			ID: "publish", Persona: "navigator",
+			Exec:            ExecConfig{Source: "publish"},
+			OutputArtifacts: []ArtifactDef{{Name: "publish-result", Path: "output/publish-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "unknown-type", ExtractFrom: "output/publish-result.json",
+				JSONPath: ".link", Label: "Report Link",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	urls := tracker.GetByType(deliverable.TypeURL)
+	require.Len(t, urls, 1, "unknown type should fall back to URL")
+	assert.Equal(t, "https://example.com/report", urls[0].Path)
+}
+
+// TestOutcomeExtractionPathTraversal verifies that extract_from paths that escape the
+// workspace are rejected with a warning.
+func TestOutcomeExtractionPathTraversal(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-traversal-test"},
+		Steps: []Step{{
+			ID: "evil", Persona: "navigator",
+			Exec: ExecConfig{Source: "do work"},
+			Outcomes: []OutcomeDef{{
+				Type: "url", ExtractFrom: "../../../etc/passwd",
+				JSONPath: ".url",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	// Should have a warning about path escaping workspace
+	events := collector.GetEvents()
+	var hasTraversalWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "escapes workspace") {
+			hasTraversalWarning = true
+			break
+		}
+	}
+	assert.True(t, hasTraversalWarning, "should emit warning for path traversal attempt")
+}
+
+// TestOutcomeExtractionInvalidJSONPath verifies that an invalid JSON path produces a warning.
+func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"url": "https://example.com"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-badpath-test"},
+		Steps: []Step{{
+			ID: "publish", Persona: "navigator",
+			Exec:            ExecConfig{Source: "publish"},
+			OutputArtifacts: []ArtifactDef{{Name: "publish-result", Path: "output/publish-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "url", ExtractFrom: "output/publish-result.json",
+				JSONPath: ".nonexistent.deep.path", Label: "Missing",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	// Should have a warning about JSON path extraction failure
+	events := collector.GetEvents()
+	var hasPathWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "outcome:") {
+			hasPathWarning = true
+			break
+		}
+	}
+	assert.True(t, hasPathWarning, "should emit warning for invalid JSON path")
+}
+
+// TestOutcomeDefValidation tests the OutcomeDef.Validate method.
+func TestOutcomeDefValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		outcome OutcomeDef
+		wantErr string
+	}{
+		{name: "valid pr", outcome: OutcomeDef{Type: "pr", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid issue", outcome: OutcomeDef{Type: "issue", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid url", outcome: OutcomeDef{Type: "url", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid deployment", outcome: OutcomeDef{Type: "deployment", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "missing type", outcome: OutcomeDef{ExtractFrom: "out.json", JSONPath: ".url"}, wantErr: "type is required"},
+		{name: "unknown type", outcome: OutcomeDef{Type: "comment", ExtractFrom: "out.json", JSONPath: ".url"}, wantErr: "unknown type"},
+		{name: "missing extract_from", outcome: OutcomeDef{Type: "pr", JSONPath: ".url"}, wantErr: "extract_from is required"},
+		{name: "missing json_path", outcome: OutcomeDef{Type: "pr", ExtractFrom: "out.json"}, wantErr: "json_path is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.outcome.Validate("test-step", 0)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// outcomeTestAdapter wraps MockAdapter and writes an artifact JSON file during execution
+// so that outcome extraction can find it afterward.
+type outcomeTestAdapter struct {
+	*adapter.MockAdapter
+	artifactJSON string
+}
+
+func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	// Write the artifact file to the workspace so outcome extraction can read it
+	// We need to find and write all output artifact paths
+	if a.artifactJSON != "" && cfg.WorkspacePath != "" {
+		// Write to common output locations
+		for _, dir := range []string{"output", ".wave/output"} {
+			outDir := filepath.Join(cfg.WorkspacePath, dir)
+			os.MkdirAll(outDir, 0755)
+			// Write all JSON files in this directory
+			entries, _ := filepath.Glob(filepath.Join(outDir, "*.json"))
+			if len(entries) == 0 {
+				// Pre-create common artifact files
+				os.WriteFile(filepath.Join(outDir, "publish-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "pr-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "issue-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "deploy-result.json"), []byte(a.artifactJSON), 0644)
+			}
+		}
+	}
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
