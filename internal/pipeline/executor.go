@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/worktree"
 	"github.com/recinq/wave/internal/workspace"
+	"golang.org/x/sync/errgroup"
 )
 
 
@@ -121,6 +122,7 @@ type WorktreeInfo struct {
 }
 
 type PipelineExecution struct {
+	mu             sync.Mutex                 // protects map writes during concurrent steps
 	Pipeline       *Pipeline
 	Manifest       *manifest.Manifest
 	States         map[string]string
@@ -273,28 +275,51 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
-	for stepIdx, step := range sortedSteps {
-		if err := e.executeStep(ctx, execution, step); err != nil {
+	completed := make(map[string]bool, len(sortedSteps))
+	completedCount := 0
+
+	for completedCount < len(sortedSteps) {
+		ready := e.findReadySteps(sortedSteps, completed)
+		if len(ready) == 0 {
+			e.cleanupCompletedPipeline(pipelineID)
+			return fmt.Errorf("deadlock: no steps ready but %d remain", len(sortedSteps)-completedCount)
+		}
+
+		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
 			execution.Status.State = StateFailed
-			execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
+			// Identify which step(s) failed from the batch
+			var failedStepID string
+			for _, step := range ready {
+				execution.mu.Lock()
+				stepState := execution.States[step.ID]
+				execution.mu.Unlock()
+				if stepState == StateFailed || stepState == StateRunning {
+					execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
+					if failedStepID == "" {
+						failedStepID = step.ID
+					}
+				}
+			}
 			if e.store != nil {
 				e.store.SavePipelineState(pipelineID, StateFailed, input)
 			}
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
-				StepID:     step.ID,
+				StepID:     failedStepID,
 				State:      "failed",
 				Message:    err.Error(),
 			})
-			// Clean up failed pipeline from in-memory storage to prevent memory leak
 			e.cleanupCompletedPipeline(pipelineID)
-			return &StepError{StepID: step.ID, Err: err}
+			return &StepError{StepID: failedStepID, Err: err}
 		}
-		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
 
-		// Emit overall pipeline progress after each step
-		completedCount := stepIdx + 1
+		for _, step := range ready {
+			completed[step.ID] = true
+			completedCount++
+			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		}
+
 		e.emit(event.Event{
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
@@ -329,10 +354,51 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	return nil
 }
 
+// findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
+func (e *DefaultPipelineExecutor) findReadySteps(steps []*Step, completed map[string]bool) []*Step {
+	var ready []*Step
+	for _, step := range steps {
+		if completed[step.ID] {
+			continue
+		}
+		allDepsReady := true
+		for _, dep := range step.Dependencies {
+			if !completed[dep] {
+				allDepsReady = false
+				break
+			}
+		}
+		if allDepsReady {
+			ready = append(ready, step)
+		}
+	}
+	return ready
+}
+
+// executeStepBatch runs a batch of ready steps. If the batch has a single step,
+// it runs directly to avoid goroutine overhead. Otherwise, it launches concurrent
+// goroutines via errgroup and returns the first error (cancelling remaining steps).
+func (e *DefaultPipelineExecutor) executeStepBatch(ctx context.Context, execution *PipelineExecution, steps []*Step) error {
+	if len(steps) == 1 {
+		return e.executeStep(ctx, execution, steps[0])
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	for _, step := range steps {
+		step := step
+		g.Go(func() error {
+			return e.executeStep(gctx, execution, step)
+		})
+	}
+	return g.Wait()
+}
+
 func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
+	execution.mu.Lock()
 	execution.States[step.ID] = StateRunning
 	execution.Status.CurrentStep = step.ID
+	execution.mu.Unlock()
 
 	if e.store != nil {
 		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
@@ -359,7 +425,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			if ctx.Err() != nil {
 				return fmt.Errorf("context cancelled, skipping retry: %w", lastErr)
 			}
+			execution.mu.Lock()
 			execution.States[step.ID] = StateRetrying
+			execution.mu.Unlock()
 			if e.store != nil {
 				e.store.SaveStepState(pipelineID, step.ID, state.StateRetrying, "")
 			}
@@ -392,7 +460,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			return lastErr
 		}
 
+		execution.mu.Lock()
 		execution.States[step.ID] = StateCompleted
+		execution.mu.Unlock()
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 		}
@@ -417,14 +487,18 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 	err := matrixExecutor.Execute(ctx, execution, step)
 
 	if err != nil {
+		execution.mu.Lock()
 		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
 		return err
 	}
 
+	execution.mu.Lock()
 	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
 	if e.store != nil {
 		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
@@ -456,7 +530,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
+	execution.mu.Lock()
 	execution.WorkspacePaths[step.ID] = workspacePath
+	execution.mu.Unlock()
 
 	e.emit(event.Event{
 		Timestamp:     time.Now(),
@@ -634,7 +710,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	output["tokens_used"] = result.TokensUsed
 	output["workspace"] = workspacePath
 
+	execution.mu.Lock()
 	execution.Results[step.ID] = output
+	execution.mu.Unlock()
 
 	// Check for stdout artifacts and validate size limits
 	hasStdoutArtifacts := false
@@ -772,7 +850,9 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 	// Handle workspace ref — share another step's workspace
 	if step.Workspace.Ref != "" {
+		execution.mu.Lock()
 		refPath, ok := execution.WorkspacePaths[step.Workspace.Ref]
+		execution.mu.Unlock()
 		if !ok {
 			return "", fmt.Errorf("referenced workspace step %q has not been executed yet", step.Workspace.Ref)
 		}
@@ -802,8 +882,13 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		}
 
 		// Reuse existing worktree for the same branch
-		if info, ok := execution.WorktreePaths[branch]; ok {
+		execution.mu.Lock()
+		info, ok := execution.WorktreePaths[branch]
+		if ok {
 			execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = info.RepoRoot
+		}
+		execution.mu.Unlock()
+		if ok {
 			return info.AbsPath, nil
 		}
 
@@ -827,11 +912,13 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		}
 
 		// Register for reuse and cleanup
+		execution.mu.Lock()
 		execution.WorktreePaths[branch] = &WorktreeInfo{AbsPath: absPath, RepoRoot: mgr.RepoRoot()}
+		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
+		execution.mu.Unlock()
 
 		// Record branch creation as a deliverable for outcome tracking
 		e.deliverableTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
-		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
 		// don't get staged by git add -A in implement steps
@@ -1090,12 +1177,17 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 		// Try registered artifact path first
 		key := ref.Step + ":" + ref.Artifact
+		execution.mu.Lock()
 		artifactPath, ok := execution.ArtifactPaths[key]
+		execution.mu.Unlock()
 
 		// Existence validation
 		if !ok {
 			// Try fallback: check if we have stdout results from the step
-			if result, exists := execution.Results[ref.Step]; exists {
+			execution.mu.Lock()
+			result, exists := execution.Results[ref.Step]
+			execution.mu.Unlock()
+			if exists {
 				if stdout, ok := result["stdout"].(string); ok {
 					// Type validation (if specified)
 					if ref.Type != "" {
@@ -1214,7 +1306,9 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			if err := os.WriteFile(artPath, stdout, 0644); err != nil && e.debug {
 				fmt.Printf("[DEBUG] Failed to write stdout artifact %s: %v\n", art.Name, err)
 			}
+			execution.mu.Lock()
 			execution.ArtifactPaths[key] = artPath
+			execution.mu.Unlock()
 
 			if e.debug {
 				fmt.Printf("[DEBUG] Wrote stdout artifact %s to %s (%d bytes)\n", art.Name, artPath, len(stdout))
@@ -1226,7 +1320,9 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 
 			// If the persona already wrote the file, trust it and don't overwrite
 			if _, err := os.Stat(artPath); err == nil {
+				execution.mu.Lock()
 				execution.ArtifactPaths[key] = artPath
+				execution.mu.Unlock()
 				if e.debug {
 					fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
 				}
@@ -1234,7 +1330,9 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 				// Fall back to writing ResultContent
 				os.MkdirAll(filepath.Dir(artPath), 0755)
 				os.WriteFile(artPath, stdout, 0644)
+				execution.mu.Lock()
 				execution.ArtifactPaths[key] = artPath
+				execution.mu.Unlock()
 			}
 		}
 
@@ -1388,7 +1486,9 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 	}
 
 	// Get workspace path for this step
+	execution.mu.Lock()
 	workspacePath, exists := execution.WorkspacePaths[step.ID]
+	execution.mu.Unlock()
 	if !exists {
 		return
 	}
@@ -1427,7 +1527,9 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 	}
 
 	pipelineID := execution.Status.ID
+	execution.mu.Lock()
 	workspacePath := execution.WorkspacePaths[step.ID]
+	execution.mu.Unlock()
 	if workspacePath == "" {
 		return
 	}
