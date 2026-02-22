@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.re-cinq.com/schemas/artifact-ref.schema.json",
+  "title": "ArtifactRef",
+  "description": "Extended artifact reference with typed consumption and schema validation",
+  "type": "object",
+  "required": ["step", "artifact", "as"],
+  "additionalProperties": false,
+  "properties": {
+    "step": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "ID of the step that produced the artifact"
+    },
+    "artifact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the artifact (matches ArtifactDef.name)"
+    },
+    "as": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name to mount under .wave/artifacts/ in workspace and for template substitution"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["json", "text", "markdown", "binary"],
+      "description": "Expected artifact type. If specified, validation fails on type mismatch"
+    },
+    "schema_path": {
+      "type": "string",
+      "description": "Path to JSON Schema file for content validation. Relative to workspace or absolute path"
+    },
+    "optional": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, missing artifact does not fail the step. Template substitution returns empty string"
+    }
+  },
+  "dependencies": {
+    "schema_path": {
+      "properties": {
+        "type": {
+          "const": "json",
+          "description": "Schema validation only applies to JSON artifacts"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "step": "analyze",
+      "artifact": "analysis-report",
+      "as": "report",
+      "type": "json",
+      "schema_path": "./schemas/analysis-report.json"
+    },
+    {
+      "step": "scan",
+      "artifact": "scan-results",
+      "as": "scan_data",
+      "type": "json",
+      "optional": false
+    },
+    {
+      "step": "generate",
+      "artifact": "optional-metadata",
+      "as": "metadata",
+      "type": "json",
+      "optional": true
+    }
+  ]
+}

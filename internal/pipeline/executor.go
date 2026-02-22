@@ -630,13 +630,34 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	execution.Results[step.ID] = output
 
-	// Write output artifacts to workspace
+	// Check for stdout artifacts and validate size limits
+	hasStdoutArtifacts := false
+	for _, art := range step.OutputArtifacts {
+		if art.IsStdoutArtifact() {
+			hasStdoutArtifacts = true
+			break
+		}
+	}
+
+	if hasStdoutArtifacts {
+		// Validate stdout size limit
+		maxSize := execution.Manifest.Runtime.Artifacts.GetMaxStdoutSize()
+		if int64(len(stdoutData)) > maxSize {
+			return fmt.Errorf("stdout artifact size (%d bytes) exceeds limit (%d bytes); consider reducing output or increasing runtime.artifacts.max_stdout_size",
+				len(stdoutData), maxSize)
+		}
+
+		// Write stdout artifacts using raw stdout data
+		e.writeOutputArtifacts(execution, step, workspacePath, stdoutData)
+	}
+
+	// Write file-based output artifacts to workspace
 	// Use ResultContent if available (extracted from adapter response)
 	// Don't fall back to raw stdout as it contains JSON wrapper, not actual content
-	if result.ResultContent != "" {
+	if result.ResultContent != "" && !hasStdoutArtifacts {
 		artifactContent := []byte(result.ResultContent)
 		e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
-	} else {
+	} else if !hasStdoutArtifacts {
 		// Skip writing artifacts when ResultContent is empty to avoid overwriting
 		// existing artifacts with empty content during relay compaction or parsing failures
 		if e.debug {
@@ -1051,6 +1072,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 	pipelineID := execution.Status.ID
 
+	// Build artifact type map for validation
+	artifactTypes := e.buildArtifactTypeMap(execution)
+
 	for _, ref := range step.Memory.InjectArtifacts {
 		artName := ref.As
 		if artName == "" {
@@ -1060,56 +1084,152 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 		// Try registered artifact path first
 		key := ref.Step + ":" + ref.Artifact
-		if artifactPath, ok := execution.ArtifactPaths[key]; ok {
-			if srcData, err := os.ReadFile(artifactPath); err == nil {
-				os.WriteFile(destPath, srcData, 0644)
+		artifactPath, ok := execution.ArtifactPaths[key]
+
+		// Existence validation
+		if !ok {
+			// Try fallback: check if we have stdout results from the step
+			if result, exists := execution.Results[ref.Step]; exists {
+				if stdout, ok := result["stdout"].(string); ok {
+					// Type validation (if specified)
+					if ref.Type != "" {
+						declaredType := artifactTypes[key]
+						if declaredType != "" && declaredType != ref.Type {
+							return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
+						}
+					}
+					os.WriteFile(destPath, []byte(stdout), 0644)
+					// Register artifact path in context for template resolution
+					execution.Context.SetArtifactPath(artName, destPath)
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "running",
+						Message:    fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step),
+					})
+					continue
+				}
+			}
+
+			// Artifact not found - check if optional
+			if ref.Optional {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
 					State:      "running",
-					Message:    fmt.Sprintf("injected artifact %s from %s (%s)", artName, ref.Step, artifactPath),
+					Message:    fmt.Sprintf("optional artifact '%s' from step '%s' not found, skipping", ref.Artifact, ref.Step),
 				})
 				continue
 			}
+			return fmt.Errorf("required artifact '%s' from step '%s' not found", ref.Artifact, ref.Step)
 		}
 
-		// Fallback: use stdout from previous step
-		if result, exists := execution.Results[ref.Step]; exists {
-			if stdout, ok := result["stdout"].(string); ok {
-				os.WriteFile(destPath, []byte(stdout), 0644)
+		// Type validation (if specified)
+		if ref.Type != "" {
+			declaredType := artifactTypes[key]
+			if declaredType != "" && declaredType != ref.Type {
+				return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
+			}
+		}
+
+		srcData, err := os.ReadFile(artifactPath)
+		if err != nil {
+			if ref.Optional {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
 					State:      "running",
-					Message:    fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step),
+					Message:    fmt.Sprintf("optional artifact '%s' could not be read, skipping: %v", ref.Artifact, err),
 				})
+				continue
 			}
+			return fmt.Errorf("failed to read required artifact '%s': %w", ref.Artifact, err)
+		}
+
+		os.WriteFile(destPath, srcData, 0644)
+		// Register artifact path in context for template resolution
+		execution.Context.SetArtifactPath(artName, destPath)
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "running",
+			Message:    fmt.Sprintf("injected artifact %s from %s (%s)", artName, ref.Step, artifactPath),
+		})
+
+		// Schema validation for input artifacts (if schema_path is specified)
+		if ref.SchemaPath != "" {
+			if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+				return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
+			}
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "running",
+				Message:    fmt.Sprintf("validated artifact %s against schema %s", artName, ref.SchemaPath),
+			})
 		}
 	}
 
 	return nil
 }
 
-func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecution, step *Step, workspacePath string, stdout []byte) {
-	for _, art := range step.OutputArtifacts {
-		// Resolve artifact path using pipeline context
-		resolvedPath := execution.Context.ResolveArtifactPath(art)
-		artPath := filepath.Join(workspacePath, resolvedPath)
-		key := step.ID + ":" + art.Name
+// buildArtifactTypeMap builds a map of artifact keys to their declared types
+func (e *DefaultPipelineExecutor) buildArtifactTypeMap(execution *PipelineExecution) map[string]string {
+	types := make(map[string]string)
+	for _, step := range execution.Pipeline.Steps {
+		for _, art := range step.OutputArtifacts {
+			key := step.ID + ":" + art.Name
+			types[key] = art.Type
+		}
+	}
+	return types
+}
 
-		// If the persona already wrote the file, trust it and don't overwrite
-		if _, err := os.Stat(artPath); err == nil {
+func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecution, step *Step, workspacePath string, stdout []byte) {
+	// Get artifact directory for stdout artifacts
+	artifactDir := execution.Manifest.Runtime.Artifacts.GetDefaultArtifactDir()
+
+	for _, art := range step.OutputArtifacts {
+		key := step.ID + ":" + art.Name
+		var artPath string
+
+		// Handle stdout artifacts differently
+		if art.IsStdoutArtifact() {
+			// Stdout artifacts go to .wave/artifacts/<step-id>/<name>
+			artPath = filepath.Join(workspacePath, artifactDir, step.ID, art.Name)
+			os.MkdirAll(filepath.Dir(artPath), 0755)
+
+			// Write stdout content to artifact
+			if err := os.WriteFile(artPath, stdout, 0644); err != nil && e.debug {
+				fmt.Printf("[DEBUG] Failed to write stdout artifact %s: %v\n", art.Name, err)
+			}
 			execution.ArtifactPaths[key] = artPath
+
 			if e.debug {
-				fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
+				fmt.Printf("[DEBUG] Wrote stdout artifact %s to %s (%d bytes)\n", art.Name, artPath, len(stdout))
 			}
 		} else {
-			// Fall back to writing ResultContent
-			os.MkdirAll(filepath.Dir(artPath), 0755)
-			os.WriteFile(artPath, stdout, 0644)
-			execution.ArtifactPaths[key] = artPath
+			// File-based artifacts: resolve path using pipeline context
+			resolvedPath := execution.Context.ResolveArtifactPath(art)
+			artPath = filepath.Join(workspacePath, resolvedPath)
+
+			// If the persona already wrote the file, trust it and don't overwrite
+			if _, err := os.Stat(artPath); err == nil {
+				execution.ArtifactPaths[key] = artPath
+				if e.debug {
+					fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
+				}
+			} else {
+				// Fall back to writing ResultContent
+				os.MkdirAll(filepath.Dir(artPath), 0755)
+				os.WriteFile(artPath, stdout, 0644)
+				execution.ArtifactPaths[key] = artPath
+			}
 		}
 
 		// Register artifact in DB for web dashboard visibility

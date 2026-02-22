@@ -19,6 +19,7 @@ type PipelineContext struct {
 	PipelineName    string            `json:"pipeline_name"`    // Logical pipeline name
 	StepID          string            `json:"step_id"`
 	CustomVariables map[string]string `json:"custom_variables,omitempty"`
+	ArtifactPaths   map[string]string `json:"artifact_paths,omitempty"` // Artifact name -> path for template resolution
 }
 
 // NewPipelineContext creates a new pipeline context with auto-detected values.
@@ -67,6 +68,11 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = replaceBoth(result, "pipeline_context.pipeline_name", ctx.PipelineName)
 	result = replaceBoth(result, "pipeline_context.step_id", ctx.StepID)
 
+	// Replace artifact path references ({{ artifacts.<name> }})
+	for name, path := range ctx.ArtifactPaths {
+		result = replaceBoth(result, "artifacts."+name, path)
+	}
+
 	// Replace custom variables (support both {{key}} and {{ key }} formats)
 	for key, value := range ctx.CustomVariables {
 		result = replaceBoth(result, key, value)
@@ -97,6 +103,23 @@ func (ctx *PipelineContext) SetCustomVariable(key, value string) {
 		ctx.CustomVariables = make(map[string]string)
 	}
 	ctx.CustomVariables[key] = value
+}
+
+// SetArtifactPath registers an artifact path for template resolution.
+// The artifact will be accessible via {{ artifacts.<name> }} or {{ artifacts.<name> }} syntax.
+func (ctx *PipelineContext) SetArtifactPath(name, path string) {
+	if ctx.ArtifactPaths == nil {
+		ctx.ArtifactPaths = make(map[string]string)
+	}
+	ctx.ArtifactPaths[name] = path
+}
+
+// GetArtifactPath returns the registered path for an artifact, or empty string if not found.
+func (ctx *PipelineContext) GetArtifactPath(name string) string {
+	if ctx.ArtifactPaths == nil {
+		return ""
+	}
+	return ctx.ArtifactPaths[name]
 }
 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows
@@ -156,6 +179,11 @@ func (ctx *PipelineContext) ToTemplateVars() map[string]string {
 	// Add custom variables
 	for key, value := range ctx.CustomVariables {
 		vars[key] = value
+	}
+
+	// Add artifact paths ({{ artifacts.<name> }})
+	for name, path := range ctx.ArtifactPaths {
+		vars["artifacts."+name] = path
 	}
 
 	return vars
