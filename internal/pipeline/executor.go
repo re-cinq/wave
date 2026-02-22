@@ -26,6 +26,7 @@ import (
 	"github.com/recinq/wave/internal/workspace"
 )
 
+
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
 	Resume(ctx context.Context, pipelineID string, fromStep string) error
@@ -800,6 +801,9 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 		// Register for reuse and cleanup
 		execution.WorktreePaths[branch] = &WorktreeInfo{AbsPath: absPath, RepoRoot: mgr.RepoRoot()}
+
+		// Record branch creation as a deliverable for outcome tracking
+		e.deliverableTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
 		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
@@ -1263,23 +1267,7 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		return
 	}
 
-	// Only auto-scan workspace files for non-worktree workspaces.
-	// Worktrees contain the full repo checkout; scanning would list repo files as deliverables.
-	isWorktree := step.Workspace.Type == "worktree"
-	if !isWorktree && step.Workspace.Ref != "" {
-		// Check if the referenced step is a worktree
-		for _, s := range execution.Pipeline.Steps {
-			if s.ID == step.Workspace.Ref && s.Workspace.Type == "worktree" {
-				isWorktree = true
-				break
-			}
-		}
-	}
-	if !isWorktree {
-		e.deliverableTracker.AddWorkspaceFiles(step.ID, workspacePath)
-	}
-
-	// Track explicit output artifacts
+	// Track explicit output artifacts (declared in pipeline YAML only)
 	for _, artifact := range step.OutputArtifacts {
 		resolvedPath := execution.Context.ResolveArtifactPath(artifact)
 		artifactPath := filepath.Join(workspacePath, resolvedPath)
@@ -1302,53 +1290,6 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 	}
 
-	// Check for common deliverable patterns
-	e.trackCommonDeliverables(step.ID, workspacePath, execution)
-}
-
-// trackCommonDeliverables looks for common deliverable patterns like PR links, deployment URLs, etc.
-func (e *DefaultPipelineExecutor) trackCommonDeliverables(stepID, workspacePath string, execution *PipelineExecution) {
-	// Check step results for URLs, PRs, deployments
-	if results, exists := execution.Results[stepID]; exists {
-		// Look for PR URLs in results
-		if prURL, ok := results["pr_url"].(string); ok && prURL != "" {
-			e.deliverableTracker.AddPR(stepID, "Pull Request", prURL, "Generated pull request")
-		}
-
-		// Look for deployment URLs in results
-		if deployURL, ok := results["deploy_url"].(string); ok && deployURL != "" {
-			e.deliverableTracker.AddDeployment(stepID, "Deployment", deployURL, "Deployed application")
-		}
-
-		// Look for any URLs in results
-		for key, value := range results {
-			if strValue, ok := value.(string); ok {
-				if strings.HasPrefix(strValue, "http://") || strings.HasPrefix(strValue, "https://") {
-					e.deliverableTracker.AddURL(stepID, key, strValue, fmt.Sprintf("URL from %s", key))
-				}
-			}
-		}
-	}
-
-	// Check for log files
-	logFiles := []string{"step.log", "execution.log", "debug.log", "output.log"}
-	for _, logFile := range logFiles {
-		logPath := filepath.Join(workspacePath, logFile)
-		if _, err := os.Stat(logPath); err == nil {
-			absPath, _ := filepath.Abs(logPath)
-			e.deliverableTracker.AddLog(stepID, logFile, absPath, "Step execution log")
-		}
-	}
-
-	// Check for contract artifacts
-	contractFiles := []string{"contract.json", "schema.json", "api-spec.yaml", "openapi.yaml"}
-	for _, contractFile := range contractFiles {
-		contractPath := filepath.Join(workspacePath, contractFile)
-		if _, err := os.Stat(contractPath); err == nil {
-			absPath, _ := filepath.Abs(contractPath)
-			e.deliverableTracker.AddContract(stepID, contractFile, absPath, "Contract artifact")
-		}
-	}
 }
 
 // GetDeliverables returns the deliverables summary for the completed pipeline
