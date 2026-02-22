@@ -2,7 +2,7 @@
 
 ## Objective
 
-Rename 7 pipeline identifiers for clarity and consistency, update all references across the codebase, and ensure every pipeline YAML has a `description` and `input.example` populated.
+Rename 6 pipeline identifiers for clarity and consistency, update all references across the codebase, and ensure every pipeline YAML has a `description` and `input.example` populated. Note: `recinq` and `speckit-flow` are trademarks and are NOT renamed.
 
 ## Approach
 
@@ -18,8 +18,8 @@ Work in waves: rename files first (git mv for history preservation), then update
 | `gh-issue-research` | `gh-research` | `gh-issue-research.yaml` -> `gh-research.yaml` |
 | `gh-issue-rewrite` | `gh-rewrite` | `gh-issue-rewrite.yaml` -> `gh-rewrite.yaml` |
 | `gh-issue-update` | `gh-refresh` | `gh-issue-update.yaml` -> `gh-refresh.yaml` |
-| `recinq` | `simplify` | `recinq.yaml` -> `simplify.yaml` |
-| `speckit-flow` | `spec-develop` | `speckit-flow.yaml` -> `spec-develop.yaml` |
+| `recinq` | `recinq` | Trademark — not renamed |
+| `speckit-flow` | `speckit-flow` | Trademark — not renamed |
 
 ## File Mapping
 
@@ -34,19 +34,14 @@ Each renamed pipeline has files in two locations:
 **Prompt directories (only for pipelines using `source_path`):**
 - `.wave/prompts/github-issue-impl/` -> `.wave/prompts/gh-implement/` (4 files)
 - `internal/defaults/prompts/github-issue-impl/` -> `internal/defaults/prompts/gh-implement/` (4 files)
-- `.wave/prompts/speckit-flow/` -> `.wave/prompts/spec-develop/` (8 files)
-- `internal/defaults/prompts/speckit-flow/` -> `internal/defaults/prompts/spec-develop/` (8 files)
-
 **Documentation files:**
 - `docs/use-cases/doc-loop.md` -> `docs/use-cases/doc-audit.md`
-- `docs/use-cases/recinq.md` -> `docs/use-cases/simplify.md`
-- `docs/examples/speckit-flow.md` -> `docs/examples/spec-develop.md`
 
 ### Files to Modify (content updates)
 
 **Inside each renamed YAML:** Update `metadata.name` field to the new name.
 
-**source_path references in YAMLs:** Update directory paths for `gh-issue-impl` -> `gh-implement` and `speckit-flow` -> `spec-develop`.
+**source_path references in YAMLs:** Update directory paths for `gh-issue-impl` -> `gh-implement`.
 
 **Go source files (string literals, comments):**
 - `internal/defaults/embed.go` and `embed_test.go`
