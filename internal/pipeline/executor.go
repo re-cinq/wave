@@ -763,8 +763,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Validate handover contract if configured
 	if step.Handover.Contract.Type != "" {
-		// Resolve contract source path using pipeline context
+		// Resolve contract source path using pipeline context.
+		// If no explicit source is set, infer from the step's first output artifact
+		// so the contract validates the file the persona actually writes to.
 		resolvedSource := execution.Context.ResolveContractSource(step.Handover.Contract)
+		if resolvedSource == "" && len(step.OutputArtifacts) > 0 {
+			resolvedSource = execution.Context.ResolveArtifactPath(step.OutputArtifacts[0])
+		}
 
 		// Resolve {{ project.* }} placeholders in contract command
 		resolvedCommand := step.Handover.Contract.Command
@@ -1538,35 +1543,41 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		artifactPath := filepath.Clean(filepath.Join(workspacePath, outcome.ExtractFrom))
 		cleanWorkspace := filepath.Clean(workspacePath) + string(filepath.Separator)
 		if !strings.HasPrefix(artifactPath, cleanWorkspace) {
+			msg := fmt.Sprintf("[%s] outcome: path %q escapes workspace, skipping", step.ID, outcome.ExtractFrom)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: path %q escapes workspace, skipping", outcome.ExtractFrom),
+				Message:    msg,
 			})
 			continue
 		}
 		data, err := os.ReadFile(artifactPath)
 		if err != nil {
+			msg := fmt.Sprintf("[%s] outcome: cannot read %s: %v", step.ID, outcome.ExtractFrom, err)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: cannot read %s: %v", outcome.ExtractFrom, err),
+				Message:    msg,
 			})
 			continue
 		}
 
 		value, err := ExtractJSONPath(data, outcome.JSONPath)
 		if err != nil {
+			msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: %s at %s: %v", outcome.JSONPath, outcome.ExtractFrom, err),
+				Message:    msg,
 			})
 			continue
 		}
