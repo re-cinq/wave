@@ -111,8 +111,3 @@ steps:
         extract_from: .wave/output/pr-result.json
         json_path: .pr_url
         label: "Pull Request"
-    outcomes:
-      - type: pr
-        extract_from: .wave/output/pr-result.json
-        json_path: .pr_url
-        label: "Pull Request"
