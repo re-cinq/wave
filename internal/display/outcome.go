@@ -349,14 +349,9 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 	// --- Artifacts ---
 	artifacts := filterArtifacts(outcome.AllDeliverables)
 	if len(artifacts) > 0 {
-		// Sort by type priority, then by creation time (newest first)
+		// Sort by creation time (step execution order)
 		sort.Slice(artifacts, func(i, j int) bool {
-			pi := deliverableTypePriority(artifacts[i].Type)
-			pj := deliverableTypePriority(artifacts[j].Type)
-			if pi != pj {
-				return pi < pj
-			}
-			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+			return artifacts[i].CreatedAt.Before(artifacts[j].CreatedAt)
 		})
 
 		if verbose || len(artifacts) <= maxDefaultDeliverables {
