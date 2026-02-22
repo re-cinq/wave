@@ -26,9 +26,9 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run speckit-flow',
+    command: 'wave run spec-develop',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: speckit-flow' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: spec-develop' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  26m 27s' },
       { text: ' ' },
@@ -43,9 +43,9 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run doc-sync',
+    command: 'wave run doc-fix',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: doc-sync' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: doc-fix' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  4m 38s' },
       { text: ' ' },

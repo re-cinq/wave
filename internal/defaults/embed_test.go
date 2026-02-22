@@ -8,15 +8,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestGhIssueRewritePipeline_NoHardcodedRepo(t *testing.T) {
+func TestGhRewritePipeline_NoHardcodedRepo(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-issue-rewrite.yaml"]
+	content, ok := pipelines["gh-rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Every gh command should use {{ input }} for the repo, not a hardcoded value
@@ -35,15 +35,15 @@ func TestGhIssueRewritePipeline_NoHardcodedRepo(t *testing.T) {
 	}
 }
 
-func TestGhIssueRewritePipeline_UsesInputTemplate(t *testing.T) {
+func TestGhRewritePipeline_UsesInputTemplate(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-issue-rewrite.yaml"]
+	content, ok := pipelines["gh-rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// The pipeline must contain {{ input }} template variables for interpolation
@@ -60,15 +60,15 @@ func TestGhIssueRewritePipeline_UsesInputTemplate(t *testing.T) {
 	}
 }
 
-func TestGhIssueRewritePipeline_InputSchemaIsString(t *testing.T) {
+func TestGhRewritePipeline_InputSchemaIsString(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-issue-rewrite.yaml"]
+	content, ok := pipelines["gh-rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-issue-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Input schema should be a simple string type, not a structured object
@@ -180,10 +180,10 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 		"code-review.yaml",
 		"dead-code.yaml",
 		"debug.yaml",
-		"doc-sync.yaml",
+		"doc-fix.yaml",
 		"explain.yaml",
-		"gh-issue-research.yaml",
-		"gh-issue-rewrite.yaml",
+		"gh-research.yaml",
+		"gh-rewrite.yaml",
 		"improve.yaml",
 		"onboard.yaml",
 		"plan.yaml",

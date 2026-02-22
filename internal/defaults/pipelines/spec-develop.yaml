@@ -1,15 +1,8 @@
 kind: WavePipeline
 metadata:
-  name: speckit-flow
+  name: spec-develop
   description: "Specification-driven feature development using the full speckit workflow"
-  release: true
-
-requires: 
-  skills:
-    - speckit
-  tools:
-    - git
-    - gh
+  release: false
 
 input:
   source: cli
@@ -27,7 +20,7 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/specify.md
+      source_path: .wave/prompts/spec-develop/specify.md
     output_artifacts:
       - name: spec-status
         path: .wave/output/specify-status.json
@@ -54,7 +47,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/clarify.md
+      source_path: .wave/prompts/spec-develop/clarify.md
     output_artifacts:
       - name: clarify-status
         path: .wave/output/clarify-status.json
@@ -81,7 +74,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/plan.md
+      source_path: .wave/prompts/spec-develop/plan.md
     output_artifacts:
       - name: plan-status
         path: .wave/output/plan-status.json
@@ -108,7 +101,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/tasks.md
+      source_path: .wave/prompts/spec-develop/tasks.md
     output_artifacts:
       - name: tasks-status
         path: .wave/output/tasks-status.json
@@ -135,7 +128,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/checklist.md
+      source_path: .wave/prompts/spec-develop/checklist.md
     output_artifacts:
       - name: checklist-status
         path: .wave/output/checklist-status.json
@@ -162,7 +155,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/analyze.md
+      source_path: .wave/prompts/spec-develop/analyze.md
     output_artifacts:
       - name: analysis-report
         path: .wave/output/analysis-report.json
@@ -189,7 +182,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/implement.md
+      source_path: .wave/prompts/spec-develop/implement.md
     handover:
       contract:
         type: test_suite
@@ -214,7 +207,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/create-pr.md
+      source_path: .wave/prompts/spec-develop/create-pr.md
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

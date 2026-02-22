@@ -15,7 +15,7 @@ Wave provides defense-in-depth isolation for AI agent sessions through two compl
 nix develop
 
 # Everything you run inside is sandboxed:
-wave run speckit-flow "add user authentication"
+wave run spec-develop "add user authentication"
 ```
 
 ## Nix Dev Shell (Outer Sandbox)

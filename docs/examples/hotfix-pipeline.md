@@ -160,12 +160,12 @@ wave run hotfix \
 wave do "fix the login 500 error for emails with + character"
 ```
 
-## When to Use Hotfix vs Speckit Flow
+## When to Use Hotfix vs Spec Develop
 
 | Scenario | Pipeline |
 |----------|----------|
 | Production bug, needs fast fix | **hotfix** |
-| New feature development | speckit-flow |
+| New feature development | spec-develop |
 | Security vulnerability | **hotfix** (with auditor persona) |
-| Refactoring | speckit-flow |
+| Refactoring | spec-develop |
 | Quick typo/config fix | `wave do` (ad-hoc) |

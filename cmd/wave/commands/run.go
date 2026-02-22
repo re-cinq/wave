@@ -53,7 +53,7 @@ Arguments can be provided as positional args or flags:
   wave run --pipeline code-review --input "Review auth module"
   wave run code-review --input "Review auth module"`,
 		Example: `  wave run code-review "Review the authentication changes"
-  wave run --pipeline speckit-flow --input "add user auth"
+  wave run --pipeline spec-develop --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate`,
 		Args: cobra.MaximumNArgs(2),
