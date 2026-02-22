@@ -260,6 +260,11 @@ steps:
       - name: comment-result
         path: .wave/output/comment-result.json
         type: json
+    outcomes:
+      - type: url
+        extract_from: .wave/output/comment-result.json
+        json_path: .comment.url
+        label: "Research Comment"
     handover:
       contract:
         type: json_schema

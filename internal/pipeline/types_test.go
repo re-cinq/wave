@@ -181,6 +181,125 @@ func TestArtifactRef_YAMLParsing(t *testing.T) {
 	}
 }
 
+func TestOutcomeDef_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name            string
+		yaml            string
+		wantType        string
+		wantExtractFrom string
+		wantJSONPath    string
+		wantLabel       string
+		wantErr         bool
+	}{
+		{
+			name:            "PR outcome",
+			yaml:            "type: pr\nextract_from: .wave/output/pr-result.json\njson_path: .pr_url\nlabel: Pull Request\n",
+			wantType:        "pr",
+			wantExtractFrom: ".wave/output/pr-result.json",
+			wantJSONPath:    ".pr_url",
+			wantLabel:       "Pull Request",
+		},
+		{
+			name:            "URL outcome without label",
+			yaml:            "type: url\nextract_from: output/publish-result.json\njson_path: .comment_url\n",
+			wantType:        "url",
+			wantExtractFrom: "output/publish-result.json",
+			wantJSONPath:    ".comment_url",
+			wantLabel:       "",
+		},
+		{
+			name:            "deployment outcome",
+			yaml:            "type: deployment\nextract_from: output/deploy.json\njson_path: .deploy_url\nlabel: Staging\n",
+			wantType:        "deployment",
+			wantExtractFrom: "output/deploy.json",
+			wantJSONPath:    ".deploy_url",
+			wantLabel:       "Staging",
+		},
+		{
+			name:            "issue outcome with nested path",
+			yaml:            "type: issue\nextract_from: output/result.json\njson_path: .github.issue_url\nlabel: Created Issue\n",
+			wantType:        "issue",
+			wantExtractFrom: "output/result.json",
+			wantJSONPath:    ".github.issue_url",
+			wantLabel:       "Created Issue",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var def OutcomeDef
+			err := yaml.Unmarshal([]byte(tt.yaml), &def)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected unmarshal error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+
+			if def.Type != tt.wantType {
+				t.Errorf("Type = %q, want %q", def.Type, tt.wantType)
+			}
+			if def.ExtractFrom != tt.wantExtractFrom {
+				t.Errorf("ExtractFrom = %q, want %q", def.ExtractFrom, tt.wantExtractFrom)
+			}
+			if def.JSONPath != tt.wantJSONPath {
+				t.Errorf("JSONPath = %q, want %q", def.JSONPath, tt.wantJSONPath)
+			}
+			if def.Label != tt.wantLabel {
+				t.Errorf("Label = %q, want %q", def.Label, tt.wantLabel)
+			}
+		})
+	}
+}
+
+func TestStep_OutcomesYAMLParsing(t *testing.T) {
+	yamlContent := `
+id: publish
+persona: github-commenter
+exec:
+  type: prompt
+  source: "post review"
+output_artifacts:
+  - name: result
+    path: output/result.json
+    type: json
+outcomes:
+  - type: url
+    extract_from: output/result.json
+    json_path: .comment_url
+    label: "Review Comment"
+  - type: pr
+    extract_from: output/result.json
+    json_path: .pr_url
+`
+	var step Step
+	err := yaml.Unmarshal([]byte(yamlContent), &step)
+	if err != nil {
+		t.Fatalf("unexpected unmarshal error: %v", err)
+	}
+
+	if len(step.Outcomes) != 2 {
+		t.Fatalf("expected 2 outcomes, got %d", len(step.Outcomes))
+	}
+
+	if step.Outcomes[0].Type != "url" {
+		t.Errorf("Outcomes[0].Type = %q, want %q", step.Outcomes[0].Type, "url")
+	}
+	if step.Outcomes[0].Label != "Review Comment" {
+		t.Errorf("Outcomes[0].Label = %q, want %q", step.Outcomes[0].Label, "Review Comment")
+	}
+	if step.Outcomes[1].Type != "pr" {
+		t.Errorf("Outcomes[1].Type = %q, want %q", step.Outcomes[1].Type, "pr")
+	}
+	if step.Outcomes[1].Label != "" {
+		t.Errorf("Outcomes[1].Label = %q, want empty", step.Outcomes[1].Label)
+	}
+}
+
 func TestPipelineMetadata_YAMLParsing(t *testing.T) {
 	tests := []struct {
 		name         string

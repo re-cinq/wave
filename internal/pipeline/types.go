@@ -1,5 +1,7 @@
 package pipeline
 
+import "fmt"
+
 const (
 	StatePending   = "pending"
 	StateRunning   = "running"
@@ -55,6 +57,7 @@ type Step struct {
 	Workspace       WorkspaceConfig  `yaml:"workspace"`
 	Exec            ExecConfig       `yaml:"exec"`
 	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
+	Outcomes        []OutcomeDef     `yaml:"outcomes,omitempty"`
 	Handover        HandoverConfig   `yaml:"handover,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
@@ -157,4 +160,36 @@ type ValidationRule struct {
 	Schema     string `yaml:"schema,omitempty"`
 	OnFailure  string `yaml:"on_failure,omitempty"`
 	MaxRetries int    `yaml:"max_retries,omitempty"`
+}
+
+// OutcomeDef declares a structured outcome to extract from step artifacts.
+// Outcomes are extracted from JSON artifacts and registered with the deliverable
+// tracker, making them appear in the pipeline output summary.
+type OutcomeDef struct {
+	Type        string `yaml:"type"`         // "pr", "issue", "url", "deployment"
+	ExtractFrom string `yaml:"extract_from"` // Artifact path relative to workspace (e.g., "output/publish-result.json")
+	JSONPath    string `yaml:"json_path"`    // Dot notation path (e.g., ".comment_url")
+	Label       string `yaml:"label,omitempty"`
+}
+
+// validOutcomeTypes enumerates the accepted outcome types.
+var validOutcomeTypes = map[string]bool{
+	"pr": true, "issue": true, "url": true, "deployment": true,
+}
+
+// Validate checks that required fields are set and the type is recognized.
+func (o OutcomeDef) Validate(stepID string, idx int) error {
+	if o.Type == "" {
+		return fmt.Errorf("step %q outcome[%d]: type is required", stepID, idx)
+	}
+	if !validOutcomeTypes[o.Type] {
+		return fmt.Errorf("step %q outcome[%d]: unknown type %q (valid: pr, issue, url, deployment)", stepID, idx, o.Type)
+	}
+	if o.ExtractFrom == "" {
+		return fmt.Errorf("step %q outcome[%d]: extract_from is required", stepID, idx)
+	}
+	if o.JSONPath == "" {
+		return fmt.Errorf("step %q outcome[%d]: json_path is required", stepID, idx)
+	}
+	return nil
 }

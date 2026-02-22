@@ -24,15 +24,16 @@ type BubbleTeaProgressDisplay struct {
 	totalSteps         int
 	steps              map[string]*StepStatus
 	stepOrder          []string
-	stepDurations      map[string]int64  // Track step durations in milliseconds
+	stepDurations      map[string]int64      // Track step durations in milliseconds
 	stepStartTimes     map[string]time.Time  // Track when each step started
 	startTime          time.Time
 	enabled            bool
 	verbose            bool
 	deliverableTracker *deliverable.Tracker
-	currentStepID      string // Track current running step
-	lastToolName       string // Most recent tool name (verbose mode)
-	lastToolTarget     string // Most recent tool target (verbose mode)
+	currentStepID      string                   // Track primary running step (first in order)
+	stepToolActivity   map[string][2]string      // stepID -> [toolName, toolTarget] per-step
+	lastToolName       string                   // Most recent tool name (global fallback)
+	lastToolTarget     string                   // Most recent tool target (global fallback)
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
@@ -85,6 +86,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		stepOrder:          make([]string, 0, totalSteps),
 		stepDurations:      make(map[string]int64),
 		stepStartTimes:     make(map[string]time.Time),
+		stepToolActivity:   make(map[string][2]string),
 		startTime:          time.Now(),
 		enabled:            true,
 		verbose:            isVerbose,
@@ -220,32 +222,23 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		// Track when step starts if it wasn't already running
 		if step.State != StateRunning {
 			btpd.stepStartTimes[evt.StepID] = time.Now()
-			btpd.currentStepID = evt.StepID
 		}
 		step.State = StateRunning
 	case "completed":
 		step.State = StateCompleted
 		step.Progress = 100
-		// Clear current step when completed
-		if btpd.currentStepID == evt.StepID {
-			btpd.currentStepID = ""
-		}
+		// Clean up per-step tool activity
+		delete(btpd.stepToolActivity, evt.StepID)
 		// Capture step duration for display
 		if evt.DurationMs > 0 {
 			btpd.stepDurations[evt.StepID] = evt.DurationMs
 		}
 	case "failed":
 		step.State = StateFailed
-		// Clear current step when failed
-		if btpd.currentStepID == evt.StepID {
-			btpd.currentStepID = ""
-		}
+		delete(btpd.stepToolActivity, evt.StepID)
 	case "skipped":
 		step.State = StateSkipped
-		// Clear current step when skipped
-		if btpd.currentStepID == evt.StepID {
-			btpd.currentStepID = ""
-		}
+		delete(btpd.stepToolActivity, evt.StepID)
 	case "retrying":
 		step.State = StateRunning // Treat retrying as running
 	case "warning":
@@ -257,10 +250,20 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		step.Progress = evt.Progress
 	}
 
-	// Capture tool activity for verbose mode
+	// Capture tool activity for verbose mode (per-step)
 	if btpd.verbose && evt.State == "stream_activity" && evt.ToolName != "" {
+		btpd.stepToolActivity[evt.StepID] = [2]string{evt.ToolName, evt.ToolTarget}
 		btpd.lastToolName = evt.ToolName
 		btpd.lastToolTarget = evt.ToolTarget
+	}
+
+	// Recompute currentStepID: first running step in order
+	btpd.currentStepID = ""
+	for _, sid := range btpd.stepOrder {
+		if s, exists := btpd.steps[sid]; exists && s.State == StateRunning {
+			btpd.currentStepID = sid
+			break
+		}
 	}
 }
 
@@ -277,6 +280,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 	currentStepID := ""
 	currentPersona := ""
 
+	running := 0
 	for i, stepID := range btpd.stepOrder {
 		if step, exists := btpd.steps[stepID]; exists {
 			switch step.State {
@@ -287,9 +291,13 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 			case StateSkipped:
 				skipped++
 			case StateRunning:
-				currentStepID = stepID
-				currentPersona = step.Persona
-				currentStepIdx = i
+				running++
+				if currentStepID == "" {
+					// First running step is the "primary" for backward compat
+					currentStepID = stepID
+					currentPersona = step.Persona
+					currentStepIdx = i
+				}
 			}
 		}
 	}
@@ -297,17 +305,20 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 	// Calculate weighted overall progress using ProgressCalculator approach
 	overallProgress := 0
 	if btpd.totalSteps > 0 {
-		// Get current step progress if any step is running
-		currentStepProgress := 0
-		if currentStepID != "" {
-			if step, exists := btpd.steps[currentStepID]; exists {
-				currentStepProgress = step.Progress
+		// Sum progress across all running steps
+		runningProgressSum := 0
+		for _, stepID := range btpd.stepOrder {
+			if step, exists := btpd.steps[stepID]; exists && step.State == StateRunning {
+				runningProgressSum += step.Progress
 			}
 		}
 
-		// Use weighted calculation: completed steps + partial current step progress
+		// Use weighted calculation: completed steps + partial running step progress
 		completedWeight := float64(completed) / float64(btpd.totalSteps)
-		currentWeight := (float64(currentStepProgress) / 100.0) / float64(btpd.totalSteps)
+		currentWeight := 0.0
+		if running > 0 {
+			currentWeight = (float64(runningProgressSum) / 100.0) / float64(btpd.totalSteps)
+		}
 		weightedProgress := (completedWeight + currentWeight) * 100.0
 
 		// Clamp to [0, 100] range
@@ -351,6 +362,18 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		}
 	}
 
+	// Build per-step start times map (Unix nanoseconds)
+	stepStartTimesNano := make(map[string]int64, len(btpd.stepStartTimes))
+	for sid, t := range btpd.stepStartTimes {
+		stepStartTimesNano[sid] = t.UnixNano()
+	}
+
+	// Copy per-step tool activity
+	stepToolActivity := make(map[string][2]string, len(btpd.stepToolActivity))
+	for sid, ta := range btpd.stepToolActivity {
+		stepToolActivity[sid] = ta
+	}
+
 	return &PipelineContext{
 		PipelineName:       btpd.pipelineName,
 		PipelineID:         btpd.pipelineID,
@@ -375,6 +398,8 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		CurrentStepName:    currentStepID,
 		PipelineStartTime:  btpd.startTime.UnixNano(),
 		CurrentStepStart:   currentStepStart, // Now uses actual step start time
+		StepStartTimes:     stepStartTimesNano,
+		StepToolActivity:   stepToolActivity,
 		LastToolName:       btpd.lastToolName,
 		LastToolTarget:     btpd.lastToolTarget,
 	}
