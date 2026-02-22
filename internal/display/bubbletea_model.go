@@ -215,29 +215,43 @@ func (m *ProgressModel) renderProgress() string {
 
 	progressBar += "]"
 
-	stepInfo := fmt.Sprintf(" %d%% Step %d/%d",
-		m.ctx.OverallProgress, m.ctx.CurrentStepNum, m.ctx.TotalSteps)
+	// Count running steps for concurrent display
+	runningCount := 0
+	for _, stepID := range m.ctx.StepOrder {
+		if state, exists := m.ctx.StepStatuses[stepID]; exists && state == StateRunning {
+			runningCount++
+		}
+	}
+
+	stepInfo := fmt.Sprintf(" %d%%", m.ctx.OverallProgress)
+	if runningCount <= 1 {
+		stepInfo += fmt.Sprintf(" Step %d/%d", m.ctx.CurrentStepNum, m.ctx.TotalSteps)
+	} else {
+		stepInfo += fmt.Sprintf(" %d/%d steps", m.ctx.CompletedSteps, m.ctx.TotalSteps)
+	}
 
 	// Add completion counts
-	if m.ctx.CompletedSteps > 0 || m.ctx.FailedSteps > 0 || m.ctx.SkippedSteps > 0 {
-		counts := " ("
+	{
+		var parts []string
 		if m.ctx.CompletedSteps > 0 {
-			counts += fmt.Sprintf("%d ok", m.ctx.CompletedSteps)
+			parts = append(parts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
+		}
+		if runningCount > 1 {
+			parts = append(parts, fmt.Sprintf("%d running", runningCount))
 		}
 		if m.ctx.FailedSteps > 0 {
-			if m.ctx.CompletedSteps > 0 {
-				counts += ", "
-			}
-			counts += fmt.Sprintf("%d fail", m.ctx.FailedSteps)
+			parts = append(parts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
 		}
 		if m.ctx.SkippedSteps > 0 {
-			if m.ctx.CompletedSteps > 0 || m.ctx.FailedSteps > 0 {
-				counts += ", "
-			}
-			counts += fmt.Sprintf("%d skip", m.ctx.SkippedSteps)
+			parts = append(parts, fmt.Sprintf("%d skip", m.ctx.SkippedSteps))
 		}
-		counts += ")"
-		stepInfo += counts
+		if len(parts) > 0 {
+			stepInfo += " (" + parts[0]
+			for _, p := range parts[1:] {
+				stepInfo += ", " + p
+			}
+			stepInfo += ")"
+		}
 	}
 
 	return progressBar + stepInfo
@@ -299,31 +313,51 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			// Real-time step timing
-			stepStart := time.Unix(0, m.ctx.CurrentStepStart)
-			stepElapsed := time.Since(stepStart)
+			// Per-step timing: use StepStartTimes if available, fall back to CurrentStepStart
+			var stepElapsed time.Duration
+			if m.ctx.StepStartTimes != nil {
+				if startNano, ok := m.ctx.StepStartTimes[stepID]; ok {
+					stepElapsed = time.Since(time.Unix(0, startNano))
+				}
+			}
+			if stepElapsed == 0 {
+				stepStart := time.Unix(0, m.ctx.CurrentStepStart)
+				stepElapsed = time.Since(stepStart)
+			}
 			stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
 
-			if m.ctx.CurrentAction != "" {
+			if m.ctx.CurrentAction != "" && stepID == m.ctx.CurrentStepID {
 				stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
 			}
 
 			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
 			steps = append(steps, stepLine)
 
-			// Show tool activity line when verbose data is available
-			if m.ctx.LastToolName != "" {
-				overhead := 6 + len(m.ctx.LastToolName)
+			// Show per-step tool activity when available, fall back to global
+			toolName := ""
+			toolTarget := ""
+			if m.ctx.StepToolActivity != nil {
+				if ta, ok := m.ctx.StepToolActivity[stepID]; ok {
+					toolName = ta[0]
+					toolTarget = ta[1]
+				}
+			}
+			if toolName == "" && stepID == m.ctx.CurrentStepID {
+				toolName = m.ctx.LastToolName
+				toolTarget = m.ctx.LastToolTarget
+			}
+			if toolName != "" {
+				overhead := 6 + len(toolName)
 				termWidth := getTerminalWidth()
 				maxTarget := termWidth - overhead
 				if maxTarget < 20 {
 					maxTarget = 20
 				}
-				target := m.ctx.LastToolTarget
+				target := toolTarget
 				if len(target) > maxTarget {
 					target = target[:maxTarget-3] + "..."
 				}
-				toolLine := fmt.Sprintf("   %s → %s", m.ctx.LastToolName, target)
+				toolLine := fmt.Sprintf("   %s → %s", toolName, target)
 				toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine)
 				steps = append(steps, toolLine)
 			}
