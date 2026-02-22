@@ -160,8 +160,3 @@ steps:
         extract_from: output/publish-result.json
         json_path: .comment_url
         label: "Review Comment"
-    outcomes:
-      - type: url
-        extract_from: output/publish-result.json
-        json_path: .comment_url
-        label: "Review Comment"
