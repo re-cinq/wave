@@ -401,3 +401,89 @@ func TestPipelineContext_ToTemplateVars(t *testing.T) {
 		t.Errorf("Pipeline context values should match regular values")
 	}
 }
+
+func TestPipelineContext_ArtifactPathResolution(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:   "test-pipeline",
+		PipelineName: "test",
+		StepID:       "step1",
+	}
+
+	// Set artifact paths
+	ctx.SetArtifactPath("spec", "/workspace/.wave/artifacts/spec")
+	ctx.SetArtifactPath("plan", "/workspace/.wave/artifacts/plan")
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "single artifact reference",
+			template: "Read the spec at {{ artifacts.spec }}",
+			expected: "Read the spec at /workspace/.wave/artifacts/spec",
+		},
+		{
+			name:     "multiple artifact references",
+			template: "{{ artifacts.spec }} and {{ artifacts.plan }}",
+			expected: "/workspace/.wave/artifacts/spec and /workspace/.wave/artifacts/plan",
+		},
+		{
+			name:     "artifact reference with unspaced syntax",
+			template: "Path: {{artifacts.spec}}",
+			expected: "Path: /workspace/.wave/artifacts/spec",
+		},
+		{
+			name:     "mixed variables and artifacts",
+			template: "{{ pipeline_id }}: {{ artifacts.spec }}",
+			expected: "test-pipeline: /workspace/.wave/artifacts/spec",
+		},
+		{
+			name:     "unregistered artifact stays as-is",
+			template: "{{ artifacts.unknown }}",
+			expected: "{{ artifacts.unknown }}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("Expected %q but got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestPipelineContext_GetArtifactPath(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID: "test",
+	}
+
+	// Test empty initially
+	if path := ctx.GetArtifactPath("nonexistent"); path != "" {
+		t.Errorf("Expected empty string for nonexistent artifact, got %q", path)
+	}
+
+	// Set and get
+	ctx.SetArtifactPath("report", "/path/to/report.json")
+	if path := ctx.GetArtifactPath("report"); path != "/path/to/report.json" {
+		t.Errorf("Expected '/path/to/report.json', got %q", path)
+	}
+}
+
+func TestPipelineContext_ToTemplateVars_IncludesArtifacts(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:   "test",
+		PipelineName: "test-pipeline",
+		StepID:       "step1",
+	}
+	ctx.SetArtifactPath("data", "/artifacts/data.json")
+
+	vars := ctx.ToTemplateVars()
+
+	// Verify artifact path is included
+	if vars["artifacts.data"] != "/artifacts/data.json" {
+		t.Errorf("Expected artifact path to be included in template vars, got %q", vars["artifacts.data"])
+	}
+}

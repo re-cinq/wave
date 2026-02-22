@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wave.re-cinq.com/schemas/input-validation-result.schema.json",
+  "title": "InputValidationResult",
+  "description": "Result of input artifact validation before step execution",
+  "type": "object",
+  "required": ["passed", "artifact_name", "step_id"],
+  "additionalProperties": false,
+  "properties": {
+    "passed": {
+      "type": "boolean",
+      "description": "Overall validation result"
+    },
+    "artifact_name": {
+      "type": "string",
+      "description": "Name of the artifact being validated"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "Step ID of the producing step"
+    },
+    "type_match": {
+      "type": "boolean",
+      "description": "Whether declared type matched artifact's actual type"
+    },
+    "schema_valid": {
+      "type": "boolean",
+      "description": "Whether schema validation passed (if schema_path was specified)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Validation error message if failed"
+    },
+    "error_details": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Detailed validation error messages (e.g., schema violation specifics)"
+    },
+    "validation_time_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Time spent on validation in milliseconds"
+    }
+  },
+  "examples": [
+    {
+      "passed": true,
+      "artifact_name": "report",
+      "step_id": "analyze",
+      "type_match": true,
+      "schema_valid": true,
+      "validation_time_ms": 12
+    },
+    {
+      "passed": false,
+      "artifact_name": "data",
+      "step_id": "transform",
+      "type_match": true,
+      "schema_valid": false,
+      "error": "schema validation failed",
+      "error_details": [
+        "$.items[0].id: expected string, got number",
+        "$.metadata.version: required field missing"
+      ],
+      "validation_time_ms": 45
+    },
+    {
+      "passed": false,
+      "artifact_name": "config",
+      "step_id": "init",
+      "type_match": false,
+      "error": "artifact 'config' type mismatch: expected json, got text",
+      "validation_time_ms": 2
+    }
+  ]
+}
