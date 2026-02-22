@@ -26,9 +26,9 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run spec-develop',
+    command: 'wave run speckit-flow',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: spec-develop' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: speckit-flow' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  26m 27s' },
       { text: ' ' },
