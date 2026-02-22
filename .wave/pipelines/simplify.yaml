@@ -1,12 +1,12 @@
 kind: WavePipeline
 metadata:
-  name: recinq
+  name: simplify
   description: "Rethink and simplify code using divergent-convergent thinking (Double Diamond)"
   release: true
 
 input:
   source: cli
-  example: "internal/pipeline"
+  example: "simplify internal/pipeline by removing unnecessary abstractions"
 
 # Pipeline structure implements the Double Diamond:
 #
@@ -451,14 +451,14 @@ steps:
     exec:
       type: prompt
       source: |
-        REPORT — compose a summary of what recinq found and applied.
+        REPORT — compose a summary of what simplify found and applied.
 
         Run `git log --oneline` to see the commits on this branch.
 
         ## Compose the Report
 
         Write a markdown report containing:
-        - **Summary**: One-paragraph overview of what recinq found and applied
+        - **Summary**: One-paragraph overview of what simplify found and applied
         - **Proposals**: List of all proposals with their tier, impact, and status (applied/skipped/failed)
         - **Changes Applied**: Summary of commits made, files changed, net lines removed
         - **Remaining Opportunities**: Tier-2 and tier-3 proposals for future consideration

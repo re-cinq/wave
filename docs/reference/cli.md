@@ -82,9 +82,9 @@ wave run code-review --input "Review auth module"
 
 ```bash
 wave run hotfix --dry-run                      # Preview without executing
-wave run speckit-flow --from-step implement    # Start from step (auto-recovers input)
-wave run speckit-flow --from-step implement --force  # Skip validation for --from-step
-wave run recinq --from-step report --run recinq-20260219-fa19  # Recover input from specific run
+wave run spec-develop --from-step implement    # Start from step (auto-recovers input)
+wave run spec-develop --from-step implement --force  # Skip validation for --from-step
+wave run simplify --from-step report --run simplify-20260219-fa19  # Recover input from specific run
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
 wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
@@ -356,7 +356,7 @@ Pipelines
     Automated code review workflow
     ○ analyze → review → report → notify
 
-  speckit-flow [5 steps]
+  spec-develop [5 steps]
     Feature development pipeline
     ○ navigate → specify → plan → implement → validate
 ```
@@ -394,11 +394,11 @@ Contracts
 
   navigation [json-schema]
     used by:
-      • speckit-flow → navigate (navigator)
+      • spec-develop → navigate (navigator)
 
   specification [json-schema]
     used by:
-      • speckit-flow → specify (philosopher)
+      • spec-develop → specify (philosopher)
 
   validation-report [json-schema]
     (unused)

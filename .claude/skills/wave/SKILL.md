@@ -291,7 +291,7 @@ Creates: `wave.yaml`, `.wave/personas/`, `.wave/pipelines/`, `.wave/contracts/`,
 Execute a pipeline.
 ```
 wave run code-review "Review auth module"
-wave run --pipeline speckit-flow --input "add user auth"
+wave run --pipeline spec-develop --input "add user auth"
 wave run hotfix --dry-run
 wave run migrate --from-step validate --force
 
@@ -469,7 +469,7 @@ These pipelines are included by default with `wave init` (release-gated with `re
 |----------|-------|-------------|
 | `github-issue-enhancer` | scan-issues, plan-enhancements, apply-enhancements, verify-enhancements | Analyze and enhance poorly documented GitHub issues |
 | `issue-research` | fetch-issue, analyze-topics, research-topics, synthesize-report, post-comment | Research a GitHub issue and post findings as a comment |
-| `doc-loop` | scan-changes, analyze-consistency, create-issue | Pre-PR documentation consistency gate — creates GitHub issue with inconsistencies |
+| `doc-audit` | scan-changes, analyze-consistency, create-issue | Pre-PR documentation consistency gate — creates GitHub issue with inconsistencies |
 
 ## Key Patterns
 
