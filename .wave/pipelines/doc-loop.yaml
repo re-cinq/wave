@@ -234,3 +234,34 @@ steps:
 
         If the `documentation` label doesn't exist, create without labels.
         If any `gh` command fails, log the error and continue.
+
+        ## Capture Result
+
+        Write a JSON status report to `output/issue-result.json`:
+
+        If an issue was created:
+        ```json
+        {
+          "issue_url": "https://github.com/owner/repo/issues/123",
+          "issue_number": 123,
+          "skipped": false
+        }
+        ```
+
+        If issue creation was skipped (clean report):
+        ```json
+        {
+          "issue_url": "",
+          "issue_number": 0,
+          "skipped": true
+        }
+        ```
+    output_artifacts:
+      - name: issue-result
+        path: .wave/output/issue-result.json
+        type: json
+    outcomes:
+      - type: issue
+        extract_from: .wave/output/issue-result.json
+        json_path: .issue_url
+        label: "Documentation Issue"

@@ -1535,7 +1535,18 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 	}
 
 	for _, outcome := range step.Outcomes {
-		artifactPath := filepath.Join(workspacePath, outcome.ExtractFrom)
+		artifactPath := filepath.Clean(filepath.Join(workspacePath, outcome.ExtractFrom))
+		cleanWorkspace := filepath.Clean(workspacePath) + string(filepath.Separator)
+		if !strings.HasPrefix(artifactPath, cleanWorkspace) {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("outcome: path %q escapes workspace, skipping", outcome.ExtractFrom),
+			})
+			continue
+		}
 		data, err := os.ReadFile(artifactPath)
 		if err != nil {
 			e.emit(event.Event{
@@ -1543,7 +1554,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome extraction: cannot read %s: %v", outcome.ExtractFrom, err),
+				Message:    fmt.Sprintf("outcome: cannot read %s: %v", outcome.ExtractFrom, err),
 			})
 			continue
 		}
@@ -1555,7 +1566,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome extraction: %s at %s: %v", outcome.JSONPath, outcome.ExtractFrom, err),
+				Message:    fmt.Sprintf("outcome: %s at %s: %v", outcome.JSONPath, outcome.ExtractFrom, err),
 			})
 			continue
 		}
@@ -1564,17 +1575,18 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		if label == "" {
 			label = outcome.Type
 		}
+		desc := fmt.Sprintf("Extracted from %s at %s", outcome.ExtractFrom, outcome.JSONPath)
 
 		switch outcome.Type {
 		case "pr":
-			e.deliverableTracker.AddPR(step.ID, label, value, label)
+			e.deliverableTracker.AddPR(step.ID, label, value, desc)
 		case "issue":
-			e.deliverableTracker.AddIssue(step.ID, label, value, label)
+			e.deliverableTracker.AddIssue(step.ID, label, value, desc)
 		case "deployment":
-			e.deliverableTracker.AddDeployment(step.ID, label, value, label)
+			e.deliverableTracker.AddDeployment(step.ID, label, value, desc)
 		default:
-			// "url", "comment", or any other type → generic URL
-			e.deliverableTracker.AddURL(step.ID, label, value, label)
+			// "url" or any unknown type → generic URL
+			e.deliverableTracker.AddURL(step.ID, label, value, desc)
 		}
 
 		e.emit(event.Event{

@@ -2368,7 +2368,7 @@ func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
 	events := collector.GetEvents()
 	var hasWarning bool
 	for _, e := range events {
-		if e.State == "warning" && strings.Contains(e.Message, "outcome extraction") {
+		if e.State == "warning" && strings.Contains(e.Message, "outcome:") {
 			hasWarning = true
 			break
 		}
@@ -2431,6 +2431,251 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 	assert.Equal(t, "Pull Request", prs[0].Name)
 }
 
+// TestOutcomeExtractionIssueType verifies issue outcomes are registered as issue deliverables.
+func TestOutcomeExtractionIssueType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	issueJSON := `{"issue_url": "https://github.com/re-cinq/wave/issues/55"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: issueJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-issue-test"},
+		Steps: []Step{{
+			ID: "report", Persona: "navigator",
+			Exec:            ExecConfig{Source: "report issue"},
+			OutputArtifacts: []ArtifactDef{{Name: "issue-result", Path: "output/issue-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "issue", ExtractFrom: "output/issue-result.json",
+				JSONPath: ".issue_url", Label: "Bug Report",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	issues := tracker.GetByType(deliverable.TypeIssue)
+	require.Len(t, issues, 1, "should have 1 issue outcome")
+	assert.Equal(t, "https://github.com/re-cinq/wave/issues/55", issues[0].Path)
+	assert.Equal(t, "Bug Report", issues[0].Name)
+}
+
+// TestOutcomeExtractionDeploymentType verifies deployment outcomes are registered as deployment deliverables.
+func TestOutcomeExtractionDeploymentType(t *testing.T) {
+	collector := newTestEventCollector()
+
+	deployJSON := `{"deploy_url": "https://staging.example.com"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: deployJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-deploy-test"},
+		Steps: []Step{{
+			ID: "deploy", Persona: "navigator",
+			Exec:            ExecConfig{Source: "deploy"},
+			OutputArtifacts: []ArtifactDef{{Name: "deploy-result", Path: "output/deploy-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "deployment", ExtractFrom: "output/deploy-result.json",
+				JSONPath: ".deploy_url", Label: "Staging Deploy",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	deploys := tracker.GetByType(deliverable.TypeDeployment)
+	require.Len(t, deploys, 1, "should have 1 deployment outcome")
+	assert.Equal(t, "https://staging.example.com", deploys[0].Path)
+	assert.Equal(t, "Staging Deploy", deploys[0].Name)
+}
+
+// TestOutcomeExtractionUnknownTypeFallsBackToURL verifies that unrecognized outcome types
+// fall back to URL deliverables.
+func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"link": "https://example.com/report"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-unknown-test"},
+		Steps: []Step{{
+			ID: "publish", Persona: "navigator",
+			Exec:            ExecConfig{Source: "publish"},
+			OutputArtifacts: []ArtifactDef{{Name: "publish-result", Path: "output/publish-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "unknown-type", ExtractFrom: "output/publish-result.json",
+				JSONPath: ".link", Label: "Report Link",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	tracker := executor.GetDeliverableTracker()
+	urls := tracker.GetByType(deliverable.TypeURL)
+	require.Len(t, urls, 1, "unknown type should fall back to URL")
+	assert.Equal(t, "https://example.com/report", urls[0].Path)
+}
+
+// TestOutcomeExtractionPathTraversal verifies that extract_from paths that escape the
+// workspace are rejected with a warning.
+func TestOutcomeExtractionPathTraversal(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-traversal-test"},
+		Steps: []Step{{
+			ID: "evil", Persona: "navigator",
+			Exec: ExecConfig{Source: "do work"},
+			Outcomes: []OutcomeDef{{
+				Type: "url", ExtractFrom: "../../../etc/passwd",
+				JSONPath: ".url",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	// Should have a warning about path escaping workspace
+	events := collector.GetEvents()
+	var hasTraversalWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "escapes workspace") {
+			hasTraversalWarning = true
+			break
+		}
+	}
+	assert.True(t, hasTraversalWarning, "should emit warning for path traversal attempt")
+}
+
+// TestOutcomeExtractionInvalidJSONPath verifies that an invalid JSON path produces a warning.
+func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
+	collector := newTestEventCollector()
+
+	artifactJSON := `{"url": "https://example.com"}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-badpath-test"},
+		Steps: []Step{{
+			ID: "publish", Persona: "navigator",
+			Exec:            ExecConfig{Source: "publish"},
+			OutputArtifacts: []ArtifactDef{{Name: "publish-result", Path: "output/publish-result.json", Type: "json"}},
+			Outcomes: []OutcomeDef{{
+				Type: "url", ExtractFrom: "output/publish-result.json",
+				JSONPath: ".nonexistent.deep.path", Label: "Missing",
+			}},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"))
+
+	// Should have a warning about JSON path extraction failure
+	events := collector.GetEvents()
+	var hasPathWarning bool
+	for _, e := range events {
+		if e.State == "warning" && strings.Contains(e.Message, "outcome:") {
+			hasPathWarning = true
+			break
+		}
+	}
+	assert.True(t, hasPathWarning, "should emit warning for invalid JSON path")
+}
+
+// TestOutcomeDefValidation tests the OutcomeDef.Validate method.
+func TestOutcomeDefValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		outcome OutcomeDef
+		wantErr string
+	}{
+		{name: "valid pr", outcome: OutcomeDef{Type: "pr", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid issue", outcome: OutcomeDef{Type: "issue", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid url", outcome: OutcomeDef{Type: "url", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "valid deployment", outcome: OutcomeDef{Type: "deployment", ExtractFrom: "out.json", JSONPath: ".url"}},
+		{name: "missing type", outcome: OutcomeDef{ExtractFrom: "out.json", JSONPath: ".url"}, wantErr: "type is required"},
+		{name: "unknown type", outcome: OutcomeDef{Type: "comment", ExtractFrom: "out.json", JSONPath: ".url"}, wantErr: "unknown type"},
+		{name: "missing extract_from", outcome: OutcomeDef{Type: "pr", JSONPath: ".url"}, wantErr: "extract_from is required"},
+		{name: "missing json_path", outcome: OutcomeDef{Type: "pr", ExtractFrom: "out.json"}, wantErr: "json_path is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.outcome.Validate("test-step", 0)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
 // outcomeTestAdapter wraps MockAdapter and writes an artifact JSON file during execution
 // so that outcome extraction can find it afterward.
 type outcomeTestAdapter struct {
@@ -2452,6 +2697,8 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 				// Pre-create common artifact files
 				os.WriteFile(filepath.Join(outDir, "publish-result.json"), []byte(a.artifactJSON), 0644)
 				os.WriteFile(filepath.Join(outDir, "pr-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "issue-result.json"), []byte(a.artifactJSON), 0644)
+				os.WriteFile(filepath.Join(outDir, "deploy-result.json"), []byte(a.artifactJSON), 0644)
 			}
 		}
 	}
