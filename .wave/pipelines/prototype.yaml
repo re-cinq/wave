@@ -52,7 +52,7 @@ steps:
         path: requirements.md
         type: markdown
       - name: contract_data
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
 
     handover:
@@ -108,7 +108,7 @@ steps:
         path: stakeholder-summary.md
         type: markdown
       - name: contract_data
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
 
     handover:
@@ -170,7 +170,7 @@ steps:
         path: interfaces.md
         type: markdown
       - name: contract_data
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
 
     handover:
@@ -234,7 +234,7 @@ steps:
         path: implementation-checklist.md
         type: markdown
       - name: contract_data
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
 
     handover:
