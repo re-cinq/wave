@@ -1462,29 +1462,38 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 // This is the SINGLE source of truth for schema injection — it includes security
 // validation (path traversal, content sanitization) and the full schema content.
 func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineContext) string {
-	if step.Handover.Contract.Type == "" {
-		return ""
-	}
-
 	var b strings.Builder
-	b.WriteString("## Contract Compliance\n\n")
 
-	// Determine output file path
-	outputPath := ""
+	// ── Output artifact guidance ──────────────────────────────────────
+	// Always generated when the step has output_artifacts, regardless of
+	// whether a handover contract exists. This is the SINGLE source of
+	// truth for telling the persona what to write and where.
 	if len(step.OutputArtifacts) > 0 {
-		outputPath = step.OutputArtifacts[0].Path
-		if ctx != nil {
-			outputPath = ctx.ResolveArtifactPath(step.OutputArtifacts[0])
+		b.WriteString("## Output Requirements\n\n")
+		for _, artifact := range step.OutputArtifacts {
+			path := artifact.Path
+			if ctx != nil {
+				path = ctx.ResolveArtifactPath(artifact)
+			}
+
+			switch artifact.Type {
+			case "json":
+				b.WriteString(fmt.Sprintf("Write valid JSON to `%s` using the Write tool.\n", path))
+				b.WriteString("The file must contain ONLY a JSON object — no markdown, no explanatory text, no code fences.\n\n")
+			case "markdown":
+				b.WriteString(fmt.Sprintf("Write your output as Markdown to `%s` using the Write tool.\n\n", path))
+			default:
+				b.WriteString(fmt.Sprintf("Write your output to `%s` using the Write tool.\n\n", path))
+			}
 		}
 	}
 
+	// ── Contract compliance (formal schema validation) ────────────────
+	// Additional guidance when a handover contract is defined.
 	switch step.Handover.Contract.Type {
 	case "json_schema":
-		b.WriteString("**CRITICAL**: You MUST write valid JSON to the output file. This step will FAIL if the output is not valid JSON.\n\n")
-		if outputPath != "" {
-			b.WriteString(fmt.Sprintf("Write your output to `%s` using the Write tool.\n", outputPath))
-		}
-		b.WriteString("The file must contain ONLY a JSON object — no markdown, no explanatory text, no code fences.\n\n")
+		b.WriteString("### Contract Schema\n\n")
+		b.WriteString("**CRITICAL**: This step will FAIL validation if the output is not valid JSON conforming to the schema below.\n\n")
 
 		// Load and security-validate schema content
 		schemaContent := e.loadSecureSchemaContent(step)
@@ -1517,6 +1526,7 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		}
 
 	case "test_suite":
+		b.WriteString("### Test Validation\n\n")
 		cmd := step.Handover.Contract.Command
 		if cmd != "" {
 			b.WriteString(fmt.Sprintf("After you complete your work, the following command will be run to validate your output:\n```\n%s\n```\n", cmd))
@@ -1526,7 +1536,9 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		b.WriteString("If tests fail, the step fails.\n")
 	}
 
-	// Add injected artifact guidance (tells the persona where to read inputs)
+	// ── Injected artifact guidance ────────────────────────────────────
+	// Always generated when the step has inject_artifacts, regardless of
+	// whether a handover contract exists. Tells the persona where to read.
 	if len(step.Memory.InjectArtifacts) > 0 {
 		b.WriteString("\n## Available Artifacts\n\n")
 		b.WriteString("The following artifacts have been injected into your workspace:\n\n")
@@ -1540,6 +1552,9 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		b.WriteString("\nRead these files to access data from prior steps.\n")
 	}
 
+	if b.Len() == 0 {
+		return ""
+	}
 	return b.String()
 }
 
