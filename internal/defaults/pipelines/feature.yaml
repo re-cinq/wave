@@ -38,6 +38,7 @@ steps:
 
         6. **Assess risks**: Breaking changes, performance, security implications.
 
+        Write the result as JSON to output/exploration.json matching the contract schema.
         Include: feature, scope, related_files (path, relevance, reason, key_symbols),
         patterns_to_follow, affected_modules, test_files, risks, and timestamp.
     output_artifacts:
@@ -68,12 +69,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, test files, and risks).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Create an implementation plan for this feature.
 
         Feature: {{ input }}
+
+        Read the exploration: cat .wave/artifacts/context
 
         Break the feature into ordered implementation steps:
 
@@ -82,6 +82,7 @@ steps:
         3. What tests to write
         4. Complexity estimate per step (S/M/L)
 
+        Write the result as JSON to output/plan.json matching the contract schema.
         Include: feature, steps (id, title, description, files_to_modify, files_to_create,
         tests_to_write, acceptance_criteria, complexity, dependencies), total_complexity,
         branch_name_suggestion, commit_message_suggestion, and timestamp.
@@ -114,11 +115,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, test files, and risks).
-        Read the injected `plan` artifact for the implementation plan (ordered steps with files to modify, acceptance criteria, and complexity estimates).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Implement the feature on this isolated worktree branch.
+
+        Read the exploration and plan:
+          cat .wave/artifacts/context
+          cat .wave/artifacts/plan
 
         Feature: {{ input }}
 
@@ -174,8 +175,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `result` artifact for the implementation results (what was implemented, files changed, and test outcomes).
-
         PUBLISH — push the branch and create a pull request.
 
         ## Steps
@@ -185,11 +184,20 @@ steps:
            git push -u origin HEAD
            ```
 
-        2. Create a pull request using the implementation result as context.
-           Use `gh pr create` with a descriptive title based on the latest commit message
-           and the implementation result as the PR body.
+        2. Create a pull request using the implementation result as context:
+           ```bash
+           gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
+           ```
 
-        3. Capture the PR URL, PR number, and branch name in the result.
+        3. Write a JSON status report to `output/pr-result.json`:
+
+           ```json
+           {
+             "pr_url": "https://github.com/owner/repo/pull/123",
+             "pr_number": 123,
+             "branch": "feat/<pipeline_id>"
+           }
+           ```
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
