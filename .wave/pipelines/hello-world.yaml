@@ -34,7 +34,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected greeting artifact and verify it exists and contains content.
+        Read the injected `greeting_file` artifact for the greeting output from the greet step.
+
+        Verify it exists and contains content.
 
         Output a JSON object with fields: status, file_exists, and content_preview.
     output_artifacts:

@@ -59,6 +59,8 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `issue` artifact for the fetched GitHub issue content.
+
         Analyze the GitHub issue and extract research topics.
 
         Identify:
@@ -108,6 +110,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `issue` artifact for the original GitHub issue content.
+        Read the injected `research_plan` artifact for the identified research topics.
+
         Research the topics identified in the research plan.
 
         For each topic in the research plan:
@@ -158,6 +163,10 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `original_issue` artifact for the original GitHub issue content.
+        Read the injected `research` artifact for the compiled research findings.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         Synthesize the research findings into a coherent report for the GitHub issue.
 
         Create a well-structured research report that includes:
@@ -218,6 +227,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `issue` artifact for the repository and issue number.
+        Read the injected `report` artifact for the research report to post.
+
         Post the research report as a comment on the GitHub issue.
 
         Steps:
