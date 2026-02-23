@@ -294,12 +294,18 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				execution.mu.Lock()
 				stepState := execution.States[step.ID]
 				execution.mu.Unlock()
-				if stepState == StateFailed || stepState == StateRunning {
+				if stepState == StateFailed || stepState == StateRunning || stepState == StateRetrying {
 					execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 					if failedStepID == "" {
 						failedStepID = step.ID
 					}
 				}
+			}
+			// Fallback: if no step matched expected states, use the first step
+			// in the batch — an error was returned so at least one step failed.
+			if failedStepID == "" && len(ready) > 0 {
+				failedStepID = ready[0].ID
+				execution.Status.FailedSteps = append(execution.Status.FailedSteps, failedStepID)
 			}
 			if e.store != nil {
 				e.store.SavePipelineState(pipelineID, StateFailed, input)
@@ -455,6 +461,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			if attempt < maxRetries {
 				continue
 			}
+			execution.mu.Lock()
+			execution.States[step.ID] = StateFailed
+			execution.mu.Unlock()
 			if e.store != nil {
 				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 			}
