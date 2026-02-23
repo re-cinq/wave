@@ -69,9 +69,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `analysis` artifact for the issue analysis from the scan step.
-
-        The injected analysis contains poor_quality_issues from the scan step.
+        Read .wave/artifacts/analysis.json which contains poor_quality_issues from the scan step.
 
         For EACH issue in poor_quality_issues, use gh CLI to fetch the current body:
         gh issue view <NUMBER> --repo {{ input }} --json body
@@ -116,14 +114,12 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `plan` artifact for the enhancement plan.
-
         CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
 
         Step 1: Use Bash tool to verify gh works:
         gh --version
 
-        Step 2: Read the injected plan for issues to enhance.
+        Step 2: Read .wave/artifacts/plan.json for issues to enhance.
 
         Step 3: For EACH issue in the plan, use Bash tool to apply changes:
         - If suggested_title differs from current: gh issue edit <N> --repo {{ input }} --title "suggested_title"
@@ -172,11 +168,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `results` artifact for the enhancement results.
-        Read the injected `original_analysis` artifact for the original issue analysis.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
-        Review the injected enhancement results.
+        Read .wave/artifacts/results.json for enhancement results.
 
         For each issue, verify with: gh issue view <N> --repo {{ input }} --json title,labels
 

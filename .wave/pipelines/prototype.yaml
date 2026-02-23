@@ -74,9 +74,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `input-spec.md` artifact for the specification from the spec step.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         You are in the documentation phase of prototype-driven development.
 
         Your goal is to create comprehensive, runnable documentation from the specification.
@@ -132,10 +129,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `feature-docs.md` artifact for the feature documentation.
-        Read the injected `spec.md` artifact for the original specification.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         You are in the dummy/prototype phase of development.
 
         Your goal is to create a working prototype with authentic I/O handling but stub business logic.
@@ -195,11 +188,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `spec.md` artifact for the original specification.
-        Read the injected `feature-docs.md` artifact for the feature documentation.
-        Read the injected `prototype/` artifact for the working prototype with interfaces.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         You are in the implementation phase - transitioning from prototype to production code.
 
         Your goal is to provide implementation guidance and begin real implementation:
@@ -251,8 +239,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `implementation-plan.md` artifact for the implementation details.
-
         You are creating a pull request for the implemented feature.
 
         Create a comprehensive pull request:

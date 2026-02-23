@@ -66,9 +66,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `findings` artifact for the assessment of improvement opportunities.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Apply the recommended improvements to the codebase.
 
         ## Rules
@@ -103,9 +100,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `original_findings` artifact for the original assessment of improvement opportunities.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Verify the improvements were applied correctly.
 
         For each improvement that was applied:
