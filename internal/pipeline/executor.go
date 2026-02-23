@@ -1539,7 +1539,6 @@ func buildContractPrompt(step *Step, ctx *PipelineContext) string {
 
 	var b strings.Builder
 	b.WriteString("## Contract Compliance\n\n")
-	b.WriteString("This step has an output contract that will be validated after execution.\n\n")
 
 	// Determine output file path
 	outputPath := ""
@@ -1552,27 +1551,37 @@ func buildContractPrompt(step *Step, ctx *PipelineContext) string {
 
 	switch step.Handover.Contract.Type {
 	case "json_schema":
+		b.WriteString("**CRITICAL**: You MUST write valid JSON to the output file. This step will FAIL if the output is not valid JSON.\n\n")
 		if outputPath != "" {
-			b.WriteString(fmt.Sprintf("- **Output file**: `%s`\n", outputPath))
+			b.WriteString(fmt.Sprintf("Write your output to `%s` using the Write tool.\n", outputPath))
 		}
-		b.WriteString("- **Format**: Valid JSON only. Do NOT write markdown, plain text, or any non-JSON content to the output file.\n")
+		b.WriteString("The file must contain ONLY a JSON object — no markdown, no explanatory text, no code fences.\n\n")
 
-		// Try to extract required fields from the schema
+		// Try to extract required fields and build a skeleton example from the schema
 		schemaPath := step.Handover.Contract.SchemaPath
 		if schemaPath != "" {
-			b.WriteString(fmt.Sprintf("- **Schema**: `%s`\n", schemaPath))
-
 			if data, err := os.ReadFile(schemaPath); err == nil {
 				var schema struct {
-					Required []string `json:"required"`
+					Required   []string                       `json:"required"`
+					Properties map[string]map[string]any      `json:"properties"`
 				}
 				if json.Unmarshal(data, &schema) == nil && len(schema.Required) > 0 {
-					b.WriteString(fmt.Sprintf("- **Required fields**: `%s`\n", strings.Join(schema.Required, "`, `")))
+					b.WriteString(fmt.Sprintf("**Required fields**: `%s`\n\n", strings.Join(schema.Required, "`, `")))
+
+					// Build a concrete JSON skeleton from required fields
+					b.WriteString("**Example structure** (populate with real data):\n```json\n{\n")
+					for i, field := range schema.Required {
+						placeholder := schemaFieldPlaceholder(field, schema.Properties[field])
+						if i < len(schema.Required)-1 {
+							b.WriteString(fmt.Sprintf("  %q: %s,\n", field, placeholder))
+						} else {
+							b.WriteString(fmt.Sprintf("  %q: %s\n", field, placeholder))
+						}
+					}
+					b.WriteString("}\n```\n")
 				}
 			}
 		}
-
-		b.WriteString("\nYour output MUST be a valid JSON object written to the output file. If validation fails, the step fails.\n")
 
 	case "test_suite":
 		cmd := step.Handover.Contract.Command
@@ -1585,6 +1594,29 @@ func buildContractPrompt(step *Step, ctx *PipelineContext) string {
 	}
 
 	return b.String()
+}
+
+// schemaFieldPlaceholder returns a JSON placeholder value for a schema property,
+// used in the contract compliance example skeleton.
+func schemaFieldPlaceholder(field string, prop map[string]any) string {
+	if prop == nil {
+		return "\"...\""
+	}
+	t, _ := prop["type"].(string)
+	switch t {
+	case "string":
+		return "\"...\""
+	case "integer", "number":
+		return "0"
+	case "boolean":
+		return "false"
+	case "array":
+		return "[...]"
+	case "object":
+		return "{...}"
+	default:
+		return "\"...\""
+	}
 }
 
 // processStepOutcomes extracts declared outcomes from step artifacts and registers
