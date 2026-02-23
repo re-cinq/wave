@@ -96,6 +96,41 @@ func TestNormalizeAllowedTools(t *testing.T) {
 	}
 }
 
+func TestContractPromptInClaudeMD(t *testing.T) {
+	setupBaseProtocol(t)
+	adapter := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:        "test",
+		WorkspacePath:  tmpDir,
+		Model:          "sonnet",
+		AllowedTools:   []string{"Read", "Write", "Bash"},
+		ContractPrompt: "## Contract Compliance\n\n- **Output file**: `artifact.json`\n- **Format**: Valid JSON only.\n",
+	}
+
+	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	claudeMdPath := filepath.Join(tmpDir, "CLAUDE.md")
+	data, err := os.ReadFile(claudeMdPath)
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "Contract Compliance") {
+		t.Error("CLAUDE.md should contain 'Contract Compliance' section")
+	}
+	if !strings.Contains(content, "artifact.json") {
+		t.Error("CLAUDE.md should contain the output file path")
+	}
+	if !strings.Contains(content, "Valid JSON only") {
+		t.Error("CLAUDE.md should contain format instruction")
+	}
+}
+
 func TestSettingsJSONFormat(t *testing.T) {
 	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()

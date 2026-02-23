@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -616,6 +617,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Auto-generate contract compliance prompt for CLAUDE.md
+	contractPrompt := buildContractPrompt(step, execution.Context)
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
 		Persona:          step.Persona,
@@ -633,6 +637,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedDomains:   sandboxDomains,
 		EnvPassthrough:   envPassthrough,
 		SkillCommandsDir: skillCommandsDir,
+		ContractPrompt:   contractPrompt,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{
@@ -1521,6 +1526,65 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 	}
 
+}
+
+// buildContractPrompt generates a contract compliance section for CLAUDE.md
+// based on the step's contract definition and output artifacts. This tells the
+// persona exactly what format the output must be in, so pipeline authors don't
+// need to repeat format requirements in their prompts.
+func buildContractPrompt(step *Step, ctx *PipelineContext) string {
+	if step.Handover.Contract.Type == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("## Contract Compliance\n\n")
+	b.WriteString("This step has an output contract that will be validated after execution.\n\n")
+
+	// Determine output file path
+	outputPath := ""
+	if len(step.OutputArtifacts) > 0 {
+		outputPath = step.OutputArtifacts[0].Path
+		if ctx != nil {
+			outputPath = ctx.ResolveArtifactPath(step.OutputArtifacts[0])
+		}
+	}
+
+	switch step.Handover.Contract.Type {
+	case "json_schema":
+		if outputPath != "" {
+			b.WriteString(fmt.Sprintf("- **Output file**: `%s`\n", outputPath))
+		}
+		b.WriteString("- **Format**: Valid JSON only. Do NOT write markdown, plain text, or any non-JSON content to the output file.\n")
+
+		// Try to extract required fields from the schema
+		schemaPath := step.Handover.Contract.SchemaPath
+		if schemaPath != "" {
+			b.WriteString(fmt.Sprintf("- **Schema**: `%s`\n", schemaPath))
+
+			if data, err := os.ReadFile(schemaPath); err == nil {
+				var schema struct {
+					Required []string `json:"required"`
+				}
+				if json.Unmarshal(data, &schema) == nil && len(schema.Required) > 0 {
+					b.WriteString(fmt.Sprintf("- **Required fields**: `%s`\n", strings.Join(schema.Required, "`, `")))
+				}
+			}
+		}
+
+		b.WriteString("\nYour output MUST be a valid JSON object written to the output file. If validation fails, the step fails.\n")
+
+	case "test_suite":
+		cmd := step.Handover.Contract.Command
+		if cmd != "" {
+			b.WriteString(fmt.Sprintf("After you complete your work, the following command will be run to validate your output:\n```\n%s\n```\n", cmd))
+		} else {
+			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
+		}
+		b.WriteString("If tests fail, the step fails.\n")
+	}
+
+	return b.String()
 }
 
 // processStepOutcomes extracts declared outcomes from step artifacts and registers
