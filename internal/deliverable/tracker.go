@@ -10,9 +10,10 @@ import (
 
 // Tracker manages deliverables throughout pipeline execution
 type Tracker struct {
-	mu           sync.RWMutex
-	deliverables []*Deliverable
-	pipelineID   string
+	mu               sync.RWMutex
+	deliverables     []*Deliverable
+	pipelineID       string
+	outcomeWarnings  []string
 }
 
 // NewTracker creates a new deliverable tracker
@@ -248,6 +249,22 @@ func (t *Tracker) AddBranch(stepID, branchName, worktreePath, description string
 // AddIssue is a convenience method to add an issue deliverable
 func (t *Tracker) AddIssue(stepID, name, issueURL, description string) {
 	t.Add(NewIssueDeliverable(stepID, name, issueURL, description))
+}
+
+// AddOutcomeWarning records an outcome extraction warning for display in the summary.
+func (t *Tracker) AddOutcomeWarning(msg string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.outcomeWarnings = append(t.outcomeWarnings, msg)
+}
+
+// OutcomeWarnings returns all recorded outcome extraction warnings.
+func (t *Tracker) OutcomeWarnings() []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	result := make([]string, len(t.outcomeWarnings))
+	copy(result, t.outcomeWarnings)
+	return result
 }
 
 // UpdateMetadata updates a metadata field on the first deliverable matching the given type and name.

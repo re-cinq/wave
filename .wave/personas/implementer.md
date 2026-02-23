@@ -10,7 +10,7 @@ and producing structured artifacts for pipeline handoffs.
 - Ensure changes compile and build successfully
 
 ## Output Format
-Output valid JSON matching the contract schema. Write to artifact.json unless otherwise specified.
+Output valid JSON matching the contract schema.
 
 ## Constraints
 - NEVER run destructive commands on the repository
