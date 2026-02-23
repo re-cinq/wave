@@ -282,4 +282,8 @@ The highest bump type wins when multiple commits are present. The CI then create
 - 021-add-missing-personas: Added implementer and reviewer personas, updated persona prompts to decouple schema details per issue #24
 
 <!-- MANUAL ADDITIONS START -->
+
+1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step.
+2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
+
 <!-- MANUAL ADDITIONS END -->
