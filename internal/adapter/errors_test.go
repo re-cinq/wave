@@ -61,7 +61,7 @@ func TestClassifyFailure(t *testing.T) {
 			want:          FailureReasonRateLimit,
 		},
 		{
-			name:          "rate limit in content returns rate_limit",
+			name:          "rate limit exceeded in content returns rate_limit",
 			resultContent: "Error: rate limit exceeded, please retry later",
 			want:          FailureReasonRateLimit,
 		},
@@ -78,6 +78,11 @@ func TestClassifyFailure(t *testing.T) {
 		{
 			name:          "unrelated content returns general_error",
 			resultContent: "some other error message",
+			want:          FailureReasonGeneralError,
+		},
+		{
+			name:          "security review mentioning rate limiting is not rate_limit",
+			resultContent: "No rate limiting on chat endpoints (cost amplification risk)",
 			want:          FailureReasonGeneralError,
 		},
 		{
