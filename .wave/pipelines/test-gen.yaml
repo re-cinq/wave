@@ -26,7 +26,7 @@ steps:
         3. Find edge cases not tested
         4. Map dependencies that need mocking
 
-        Write the result as JSON to output/coverage-analysis.json with fields:
+        Produce structured output with fields:
         current_coverage, uncovered_functions, uncovered_branches, edge_cases,
         and mock_requirements.
     output_artifacts:

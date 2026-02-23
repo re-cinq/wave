@@ -10,14 +10,14 @@ from the main working tree and will not affect it.
 
 Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
-The issue assessment is available at `.wave/artifacts/issue_assessment`.
+The issue assessment is available as an injected artifact.
 Read it to get the issue details, branch name, complexity, and assessment.
 
 ## Instructions
 
 ### Step 1: Read Assessment
 
-Read `.wave/artifacts/issue_assessment` to extract:
+Read the injected issue_assessment artifact to extract:
 - Issue number, title, body, and repository
 - Branch name from the assessment
 - Complexity estimate
@@ -87,29 +87,3 @@ Mark parallelizable tasks with `[P]`.
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT start implementation — only planning in this step
 - Do NOT use WebSearch — all information is in the issue and codebase
-
-## Output
-
-Write a JSON status report to `.wave/output/impl-plan.json`:
-
-```json
-{
-  "issue_number": 42,
-  "branch_name": "042-short-name",
-  "feature_dir": "specs/042-short-name",
-  "spec_file": "specs/042-short-name/spec.md",
-  "plan_file": "specs/042-short-name/plan.md",
-  "tasks_file": "specs/042-short-name/tasks.md",
-  "tasks": [
-    {
-      "id": "1.1",
-      "title": "Task title",
-      "description": "What needs to be done",
-      "file_changes": [
-        {"path": "internal/foo/bar.go", "action": "modify"}
-      ]
-    }
-  ],
-  "summary": "Brief description of the plan"
-}
-```

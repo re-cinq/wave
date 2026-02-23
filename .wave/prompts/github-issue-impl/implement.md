@@ -9,15 +9,14 @@ Your working directory IS the project root. The feature branch was created by th
 plan step and is already checked out. All git operations here are isolated from
 the main working tree.
 
-The issue assessment is available at `.wave/artifacts/issue_assessment`.
-The implementation plan is available at `.wave/artifacts/plan`.
+The issue assessment and implementation plan are available as injected artifacts.
 
 ## Instructions
 
 ### Step 1: Load Context
 
-1. Read `.wave/artifacts/issue_assessment` for the issue details and branch name
-2. Read `.wave/artifacts/plan` for the task breakdown, file changes, and feature directory
+1. Read the injected issue_assessment artifact for the issue details and branch name
+2. Read the injected plan artifact for the task breakdown, file changes, and feature directory
 
 ### Step 2: Read Plan Files
 

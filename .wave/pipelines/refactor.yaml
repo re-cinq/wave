@@ -26,7 +26,7 @@ steps:
         3. Find existing test coverage
         4. Identify integration points
 
-        Write the result as JSON to output/refactor-analysis.json with fields:
+        Produce structured output with fields:
         target_files, affected_callers, existing_tests, integration_points,
         and risk_assessment (low/medium/high).
     output_artifacts:

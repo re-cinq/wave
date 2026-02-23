@@ -38,10 +38,9 @@ steps:
 
         5. **Extract scope**: Parse from prefix (e.g., `fix(pipeline):` → "pipeline")
 
-        Write the result as JSON to output/commit-analysis.json matching the contract schema.
-        Include: range (from, to, total_commits, date_range), commits (hash, author, date,
-        type, scope, subject, breaking), summary (by_type, breaking_changes, contributors,
-        most_changed_scopes), and timestamp.
+        Produce a structured result covering: range (from, to, total_commits, date_range),
+        commits (hash, author, date, type, scope, subject, breaking), summary (by_type,
+        breaking_changes, contributors, most_changed_scopes), and timestamp.
     output_artifacts:
       - name: commits
         path: .wave/output/commit-analysis.json
@@ -70,8 +69,6 @@ steps:
       source: |
         Categorize and describe changes for a changelog.
 
-        Read the commit analysis: cat .wave/artifacts/raw_commits
-
         ## Rules
 
         1. **Group by type** into sections
@@ -81,9 +78,9 @@ steps:
         4. **Deduplicate**: Combine commits for the same logical change
         5. **Add context** for significant features
 
-        Write the result as JSON to output/categorized-changes.json matching the contract schema.
-        Include: version_label, breaking_changes (description, migration, related_commits),
-        sections (title, type, entries), contributors, stats, and timestamp.
+        Produce a structured result covering: version_label, breaking_changes (description,
+        migration, related_commits), sections (title, type, entries), contributors, stats,
+        and timestamp.
     output_artifacts:
       - name: categorized
         path: .wave/output/categorized-changes.json
@@ -115,9 +112,7 @@ steps:
       source: |
         Format categorized changes into a polished changelog.
 
-        Read: cat .wave/artifacts/raw_commits && cat .wave/artifacts/changes
-
-        Write to output/CHANGELOG.md in Keep a Changelog format:
+        Format in Keep a Changelog style:
 
         # Changelog
 

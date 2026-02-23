@@ -32,7 +32,7 @@ steps:
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
 
-        Write the result to output/issue-content.json
+        Produce structured JSON with the issue content.
     output_artifacts:
       - name: issue-content
         path: .wave/output/issue-content.json
@@ -61,8 +61,6 @@ steps:
       source: |
         Analyze the GitHub issue and extract research topics.
 
-        Read the issue content from: .wave/artifacts/issue
-
         Identify:
         1. Key technical questions that need external research
         2. Domain concepts that require clarification
@@ -80,7 +78,7 @@ steps:
         Focus on topics that will provide actionable insights for the issue author.
         Limit to 10 most important topics.
 
-        Write the result to output/research-topics.json
+        Produce structured JSON with the research topics.
     output_artifacts:
       - name: topics
         path: .wave/output/research-topics.json
@@ -112,9 +110,6 @@ steps:
       source: |
         Research the topics identified in the research plan.
 
-        Original issue: .wave/artifacts/issue
-        Research plan: .wave/artifacts/research_plan
-
         For each topic in the research plan:
         1. Execute web searches using the provided keywords
         2. Evaluate source credibility (official docs > authoritative > community)
@@ -133,7 +128,7 @@ steps:
         If a topic yields no useful results, mark confidence as "inconclusive".
         Document any gaps in the research.
 
-        Write the result to output/research-findings.json
+        Produce structured JSON with the research findings.
     output_artifacts:
       - name: findings
         path: .wave/output/research-findings.json
@@ -165,9 +160,6 @@ steps:
       source: |
         Synthesize the research findings into a coherent report for the GitHub issue.
 
-        Original issue: .wave/artifacts/original_issue
-        Research findings: .wave/artifacts/research
-
         Create a well-structured research report that includes:
 
         1. Executive Summary:
@@ -196,7 +188,7 @@ steps:
            - Include a header: "## Research Findings (Wave Pipeline)"
            - End with sources section
 
-        Write the result to output/research-report.json
+        Produce structured JSON with the research report.
     output_artifacts:
       - name: report
         path: .wave/output/research-report.json
@@ -228,9 +220,6 @@ steps:
       source: |
         Post the research report as a comment on the GitHub issue.
 
-        Issue details: .wave/artifacts/issue
-        Report: .wave/artifacts/report
-
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
@@ -250,7 +239,7 @@ steps:
         5. Capture the result and verify success
         6. If successful, extract the comment URL from the output
 
-        Write the result to output/comment-result.json with:
+        Record the result with:
         - success: true/false
         - issue_reference: issue number and repository
         - comment: id, url, body_length (if successful)

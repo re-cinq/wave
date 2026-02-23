@@ -26,7 +26,7 @@ steps:
         3. Identify relevant code paths
         4. Note environmental factors (OS, versions, config)
 
-        Write the result as JSON to output/reproduction.json with fields:
+        Produce a structured result covering:
         expected_behavior, actual_behavior, reproduction_steps, relevant_files,
         and environmental_factors.
     output_artifacts:
@@ -54,8 +54,6 @@ steps:
       source: |
         Form hypotheses about the root cause.
 
-        First, read the issue details from .wave/artifacts/issue to understand the problem.
-
         For each hypothesis:
         1. What could cause this behavior?
         2. What evidence would confirm/refute it?
@@ -63,7 +61,7 @@ steps:
 
         Rank by likelihood and ease of testing.
 
-        Write the result as JSON to output/hypotheses.json with a hypotheses array,
+        Produce a structured result with a hypotheses array,
         each containing id, description, likelihood (high/medium/low), test_approach,
         and expected_result_if_true.
     output_artifacts:
@@ -99,11 +97,6 @@ steps:
       source: |
         Test each hypothesis systematically.
 
-        First, read the context from the injected artifacts:
-        - Read .wave/artifacts/issue for the issue reproduction details
-        - Read .wave/artifacts/hypotheses for the hypotheses to test
-
-        Then:
         1. Start with most likely / easiest to test
         2. Use git bisect if needed to find regression
         3. Add diagnostic logging to trace execution
@@ -134,9 +127,6 @@ steps:
       source: |
         Fix the root cause identified in the investigation.
 
-        First, read .wave/artifacts/root_cause to understand the investigation findings and root cause.
-
-        Then:
         1. Implement the minimal fix
         2. Add a regression test that would have caught this
         3. Remove any diagnostic code added during debugging
