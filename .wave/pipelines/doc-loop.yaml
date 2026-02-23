@@ -55,7 +55,6 @@ steps:
 
         ## Output
 
-        Write the result as JSON to `output/scan-results.json` matching the doc-scan-results schema.
         Include:
         - scan_scope: mode ("diff" or "full"), range used, base_ref
         - changed_files: total_count + categories object with arrays of file paths
@@ -88,8 +87,6 @@ steps:
       type: prompt
       source: |
         Analyze documentation consistency by cross-referencing code changes with documentation.
-
-        Read the scan results from: .wave/artifacts/scan
 
         ## Cross-Reference Checks
 
@@ -124,7 +121,6 @@ steps:
 
         ## Output
 
-        Write the result as JSON to `output/consistency-report.json` matching the doc-consistency-report schema.
         Include:
         - summary: total_count, by_severity counts, clean (true if zero inconsistencies)
         - inconsistencies: array of {id (DOC-001 format), severity, category, title, description, source_location, doc_location, fix_description}
@@ -159,17 +155,15 @@ steps:
       source: |
         Compose a documentation consistency report as a GitHub-ready markdown file.
 
-        Read the consistency report from: .wave/artifacts/report
-
         ## Check for Inconsistencies
 
         If the report has `summary.clean == true` (zero inconsistencies):
-        - Write `output/report.md` with a short "No inconsistencies found" message
-        - Write `output/issue-result.json` with `{"skipped": true, "reason": "clean"}`
+        - Produce a short "No inconsistencies found" message
+        - Mark the result as skipped with reason "clean"
 
         ## Compose the Report
 
-        Write `output/report.md` as markdown:
+        Produce a markdown report:
 
         ```
         ## Documentation Consistency Report
@@ -215,8 +209,6 @@ steps:
       source: |
         PUBLISH — create a GitHub issue from the documentation report.
 
-        Read `.wave/artifacts/report`.
-
         If the report says "No inconsistencies found", skip issue creation and exit.
 
         ## Detect Repository
@@ -225,37 +217,15 @@ steps:
 
         ## Create the Issue
 
-        ```bash
-        gh issue create \
-          --title "docs: documentation consistency report" \
-          --body-file .wave/artifacts/report \
-          --label "documentation"
-        ```
+        Use the `gh issue create` command with the report content as the body,
+        title "docs: documentation consistency report", and label "documentation".
 
         If the `documentation` label doesn't exist, create without labels.
         If any `gh` command fails, log the error and continue.
 
         ## Capture Result
 
-        Write a JSON status report to `output/issue-result.json`:
-
-        If an issue was created:
-        ```json
-        {
-          "issue_url": "https://github.com/owner/repo/issues/123",
-          "issue_number": 123,
-          "skipped": false
-        }
-        ```
-
-        If issue creation was skipped (clean report):
-        ```json
-        {
-          "issue_url": "",
-          "issue_number": 0,
-          "skipped": true
-        }
-        ```
+        Record the issue URL, issue number, and whether creation was skipped.
     output_artifacts:
       - name: issue-result
         path: .wave/output/issue-result.json
