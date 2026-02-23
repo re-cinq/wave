@@ -51,7 +51,7 @@ steps:
         6. Read CLAUDE.md for current project context:
            Read the file CLAUDE.md from the repository root.
 
-        After gathering ALL data, save to .wave/artifact.json with this structure:
+        After gathering ALL data, produce a JSON result with this structure:
         {
           "repository": {"owner": "...", "name": "..."},
           "issue": {
@@ -130,7 +130,7 @@ steps:
         Step 4: If file paths in the issue body are now missing (from referenced_files.missing),
         update or remove those references.
 
-        Save to .wave/artifact.json with this structure:
+        Produce a JSON result with this structure:
         {
           "issue_number": N,
           "original_title": "...",
@@ -205,7 +205,7 @@ steps:
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 
-        Step 5: Save results to .wave/artifact.json:
+        Step 5: Record the results with this structure:
         {
           "issue_number": N,
           "url": "...",
