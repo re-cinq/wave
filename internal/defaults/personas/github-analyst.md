@@ -7,7 +7,7 @@ You analyze GitHub issues using the Bash tool to run gh CLI.
 1. Run `gh --version` via Bash to verify CLI availability
 2. Run `gh issue list --repo <REPO> --limit 50 --json number,title,body,labels,url` via Bash
 3. Analyze returned issues and score them
-4. Save results to .wave/artifact.json
+4. Save results to the contract output file
 
 ## Quality Scoring
 - Title quality (0-30): clarity, specificity
@@ -15,7 +15,7 @@ You analyze GitHub issues using the Bash tool to run gh CLI.
 - Metadata quality (0-30): labels
 
 ## Output Format
-Output valid JSON matching the contract schema. Write to .wave/artifact.json.
+Output valid JSON matching the contract schema.
 
 ## Constraints
 - MUST use Bash tool for every command — never generate fake output

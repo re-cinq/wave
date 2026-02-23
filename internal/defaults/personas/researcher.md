@@ -17,7 +17,7 @@ to answer technical questions and provide comprehensive context.
 - Document conflicts with credibility context
 
 ## Output Format
-Output valid JSON matching the contract schema. Write to .wave/artifact.json unless otherwise specified.
+Output valid JSON matching the contract schema.
 
 ## Constraints
 - NEVER fabricate sources or citations
