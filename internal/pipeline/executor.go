@@ -618,7 +618,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Auto-generate contract compliance prompt for CLAUDE.md
-	contractPrompt := buildContractPrompt(step, execution.Context)
+	contractPrompt := e.buildContractPrompt(step, execution.Context)
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
@@ -1050,98 +1050,9 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		}
 	}
 
-
-	// Inject schema information for json_schema contracts with security validation
-	if step.Handover.Contract.Type == "json_schema" {
-		var schemaContent string
-		var err error
-
-		// Load schema from file or inline with security validation
-		if step.Handover.Contract.SchemaPath != "" {
-			// SECURITY FIX: Validate path for traversal attacks
-			validationResult, pathErr := e.pathValidator.ValidatePath(step.Handover.Contract.SchemaPath)
-			if pathErr != nil {
-				// Security violation detected - log and use safe fallback
-				e.securityLogger.LogViolation(
-					string(security.ViolationPathTraversal),
-					string(security.SourceSchemaPath),
-					fmt.Sprintf("Schema path validation failed for step %s", step.ID),
-					security.SeverityCritical,
-					true,
-				)
-				err = fmt.Errorf("schema path validation failed: %w", pathErr)
-			} else if validationResult.IsValid {
-				// Path is safe - read the file using validated path
-				data, readErr := os.ReadFile(validationResult.ValidatedPath)
-				if readErr == nil {
-					// SECURITY FIX: Sanitize schema content for prompt injection
-					sanitizedContent, sanitizationActions, sanitizeErr := e.inputSanitizer.SanitizeSchemaContent(string(data))
-					if sanitizeErr != nil {
-						e.securityLogger.LogViolation(
-							string(security.ViolationInputValidation),
-							string(security.SourceSchemaPath),
-							fmt.Sprintf("Schema content sanitization failed for step %s", step.ID),
-							security.SeverityHigh,
-							true,
-						)
-						err = fmt.Errorf("schema content sanitization failed: %w", sanitizeErr)
-					} else {
-						schemaContent = sanitizedContent
-						// Log sanitization actions if any were taken
-						if len(sanitizationActions) > 0 {
-							e.securityLogger.LogViolation(
-								string(security.ViolationPromptInjection),
-								string(security.SourceSchemaPath),
-								fmt.Sprintf("Schema content sanitized for step %s: %v", step.ID, sanitizationActions),
-								security.SeverityMedium,
-								false,
-							)
-						}
-					}
-				} else {
-					err = readErr
-				}
-			}
-		} else if step.Handover.Contract.Schema != "" {
-			// SECURITY FIX: Sanitize inline schema content
-			sanitizedContent, sanitizationActions, sanitizeErr := e.inputSanitizer.SanitizeSchemaContent(step.Handover.Contract.Schema)
-			if sanitizeErr != nil {
-				e.securityLogger.LogViolation(
-					string(security.ViolationInputValidation),
-					string(security.SourceSchemaPath),
-					fmt.Sprintf("Inline schema sanitization failed for step %s", step.ID),
-					security.SeverityHigh,
-					true,
-				)
-				err = fmt.Errorf("inline schema sanitization failed: %w", sanitizeErr)
-			} else {
-				schemaContent = sanitizedContent
-				// Log sanitization actions if any were taken
-				if len(sanitizationActions) > 0 {
-					e.securityLogger.LogViolation(
-						string(security.ViolationPromptInjection),
-						string(security.SourceSchemaPath),
-						fmt.Sprintf("Inline schema sanitized for step %s: %v", step.ID, sanitizationActions),
-						security.SeverityMedium,
-						false,
-					)
-				}
-			}
-		}
-
-		// Inject schema guidance if available and safe
-		if schemaContent != "" && err == nil {
-			prompt += "\n\nOUTPUT REQUIREMENTS:\n"
-			prompt += "After completing all required tool calls (Bash, Read, Write, etc.), save your final output to .wave/artifact.json.\n"
-			prompt += "The .wave/artifact.json must be valid JSON matching this schema:\n```json\n"
-			prompt += schemaContent
-			prompt += "\n```\n\n"
-			prompt += "IMPORTANT:\n"
-			prompt += "- First, execute any tool calls needed to gather data\n"
-			prompt += "- Then, use the Write tool to save valid JSON to .wave/artifact.json\n"
-			prompt += "- The JSON must match every required field in the schema\n"
-		}
-	}
+	// NOTE: Schema injection for json_schema contracts is handled exclusively by
+	// buildContractPrompt → ContractPrompt → CLAUDE.md. Do NOT duplicate it here.
+	// See: buildContractPrompt() which uses the correct output path from OutputArtifacts.
 
 	// Resolve remaining template variables using pipeline context
 	if execution.Context != nil {
@@ -1547,7 +1458,10 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 // based on the step's contract definition and output artifacts. This tells the
 // persona exactly what format the output must be in, so pipeline authors don't
 // need to repeat format requirements in their prompts.
-func buildContractPrompt(step *Step, ctx *PipelineContext) string {
+//
+// This is the SINGLE source of truth for schema injection — it includes security
+// validation (path traversal, content sanitization) and the full schema content.
+func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineContext) string {
 	if step.Handover.Contract.Type == "" {
 		return ""
 	}
@@ -1572,29 +1486,33 @@ func buildContractPrompt(step *Step, ctx *PipelineContext) string {
 		}
 		b.WriteString("The file must contain ONLY a JSON object — no markdown, no explanatory text, no code fences.\n\n")
 
-		// Try to extract required fields and build a skeleton example from the schema
-		schemaPath := step.Handover.Contract.SchemaPath
-		if schemaPath != "" {
-			if data, err := os.ReadFile(schemaPath); err == nil {
-				var schema struct {
-					Required   []string                       `json:"required"`
-					Properties map[string]map[string]any      `json:"properties"`
-				}
-				if json.Unmarshal(data, &schema) == nil && len(schema.Required) > 0 {
-					b.WriteString(fmt.Sprintf("**Required fields**: `%s`\n\n", strings.Join(schema.Required, "`, `")))
+		// Load and security-validate schema content
+		schemaContent := e.loadSecureSchemaContent(step)
+		if schemaContent != "" {
+			// Include the full schema for the persona to reference
+			b.WriteString("**Schema** (your output must conform to this):\n```json\n")
+			b.WriteString(schemaContent)
+			b.WriteString("\n```\n\n")
 
-					// Build a concrete JSON skeleton from required fields
-					b.WriteString("**Example structure** (populate with real data):\n```json\n{\n")
-					for i, field := range schema.Required {
-						placeholder := schemaFieldPlaceholder(field, schema.Properties[field])
-						if i < len(schema.Required)-1 {
-							b.WriteString(fmt.Sprintf("  %q: %s,\n", field, placeholder))
-						} else {
-							b.WriteString(fmt.Sprintf("  %q: %s\n", field, placeholder))
-						}
+			// Also extract required fields and build a skeleton example
+			var schema struct {
+				Required   []string                  `json:"required"`
+				Properties map[string]map[string]any `json:"properties"`
+			}
+			if json.Unmarshal([]byte(schemaContent), &schema) == nil && len(schema.Required) > 0 {
+				b.WriteString(fmt.Sprintf("**Required fields**: `%s`\n\n", strings.Join(schema.Required, "`, `")))
+
+				// Build a concrete JSON skeleton from required fields
+				b.WriteString("**Example structure** (populate with real data):\n```json\n{\n")
+				for i, field := range schema.Required {
+					placeholder := schemaFieldPlaceholder(field, schema.Properties[field])
+					if i < len(schema.Required)-1 {
+						b.WriteString(fmt.Sprintf("  %q: %s,\n", field, placeholder))
+					} else {
+						b.WriteString(fmt.Sprintf("  %q: %s\n", field, placeholder))
 					}
-					b.WriteString("}\n```\n")
 				}
+				b.WriteString("}\n```\n")
 			}
 		}
 
@@ -1608,7 +1526,92 @@ func buildContractPrompt(step *Step, ctx *PipelineContext) string {
 		b.WriteString("If tests fail, the step fails.\n")
 	}
 
+	// Add injected artifact guidance (tells the persona where to read inputs)
+	if len(step.Memory.InjectArtifacts) > 0 {
+		b.WriteString("\n## Available Artifacts\n\n")
+		b.WriteString("The following artifacts have been injected into your workspace:\n\n")
+		for _, ref := range step.Memory.InjectArtifacts {
+			name := ref.As
+			if name == "" {
+				name = ref.Artifact
+			}
+			b.WriteString(fmt.Sprintf("- `%s` → `.wave/artifacts/%s`\n", name, name))
+		}
+		b.WriteString("\nRead these files to access data from prior steps.\n")
+	}
+
 	return b.String()
+}
+
+// loadSecureSchemaContent loads schema content with security validation
+// (path traversal prevention, content sanitization). Returns empty string
+// if the schema is unavailable, invalid, or fails security checks.
+func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) string {
+	if step.Handover.Contract.SchemaPath != "" {
+		// Validate path for traversal attacks
+		if e.pathValidator != nil {
+			validationResult, pathErr := e.pathValidator.ValidatePath(step.Handover.Contract.SchemaPath)
+			if pathErr != nil {
+				e.securityLogger.LogViolation(
+					string(security.ViolationPathTraversal),
+					string(security.SourceSchemaPath),
+					fmt.Sprintf("Schema path validation failed for step %s", step.ID),
+					security.SeverityCritical,
+					true,
+				)
+				return ""
+			}
+			if !validationResult.IsValid {
+				return ""
+			}
+			data, readErr := os.ReadFile(validationResult.ValidatedPath)
+			if readErr != nil {
+				return ""
+			}
+			return e.sanitizeSchemaContent(step, string(data))
+		}
+		// No path validator (e.g. in tests) — read directly
+		data, err := os.ReadFile(step.Handover.Contract.SchemaPath)
+		if err != nil {
+			return ""
+		}
+		return string(data)
+	}
+
+	if step.Handover.Contract.Schema != "" {
+		return e.sanitizeSchemaContent(step, step.Handover.Contract.Schema)
+	}
+
+	return ""
+}
+
+// sanitizeSchemaContent applies prompt injection sanitization to schema content.
+// Returns the sanitized content, or empty string if sanitization fails.
+func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content string) string {
+	if e.inputSanitizer == nil {
+		return content
+	}
+	sanitized, sanitizationActions, err := e.inputSanitizer.SanitizeSchemaContent(content)
+	if err != nil {
+		e.securityLogger.LogViolation(
+			string(security.ViolationInputValidation),
+			string(security.SourceSchemaPath),
+			fmt.Sprintf("Schema content sanitization failed for step %s", step.ID),
+			security.SeverityHigh,
+			true,
+		)
+		return ""
+	}
+	if len(sanitizationActions) > 0 {
+		e.securityLogger.LogViolation(
+			string(security.ViolationPromptInjection),
+			string(security.SourceSchemaPath),
+			fmt.Sprintf("Schema content sanitized for step %s: %v", step.ID, sanitizationActions),
+			security.SeverityMedium,
+			false,
+		)
+	}
+	return sanitized
 }
 
 // schemaFieldPlaceholder returns a JSON placeholder value for a schema property,
