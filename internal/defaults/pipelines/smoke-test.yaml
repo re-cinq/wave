@@ -21,7 +21,7 @@ steps:
       source: |
         Analyze the codebase for: {{ input }}
 
-        Provide your analysis as structured JSON.
+        Provide your analysis. Create artifact.json with your results matching the contract schema.
     output_artifacts:
       - name: analysis
         path: .wave/output/analysis.json
@@ -45,14 +45,14 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `analysis_data` artifact for the analysis results.
-
-        Write a brief markdown summary.
+        Read the analysis from .wave/artifacts/analysis_data and write a brief markdown summary.
 
         Include:
         - What was analyzed
         - Key findings
         - Recommended next steps
+
+        The analysis file is located at: .wave/artifacts/analysis_data
     output_artifacts:
       - name: summary
         path: .wave/output/summary.md
