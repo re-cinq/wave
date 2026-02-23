@@ -37,7 +37,7 @@ steps:
             gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
         2b. BATCH mode: gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
-        After getting REAL results from Bash, analyze issues and save to .wave/artifact.json.
+        After getting REAL results from Bash, analyze issues and score them.
         In single issue mode, analyze the one issue. In batch mode, analyze all returned issues.
     output_artifacts:
       - name: issue_analysis
@@ -81,7 +81,7 @@ steps:
         - suggested_labels: appropriate labels
         - enhancements: list of changes being made
 
-        Save the result to .wave/artifact.json matching the contract schema, with fields:
+        Create an enhancement plan with fields:
         issues_to_enhance (array of issue_number, suggested_title, body_template,
         suggested_labels, enhancements) and total_to_enhance.
     output_artifacts:
@@ -128,9 +128,8 @@ steps:
 
         Step 4: For each issue, capture the URL: gh issue view <N> --repo {{ input }} --json url --jq .url
 
-        Step 5: Save actual results to .wave/artifact.json matching the contract schema,
-        with fields: enhanced_issues (each with issue_number, success, changes_made, url), total_attempted, total_successful, total_failed.
-        IMPORTANT: Each enhanced_issues entry MUST include "url" with the full GitHub issue URL.
+        Step 5: Record the results with fields: enhanced_issues (each with issue_number,
+        success, changes_made, url), total_attempted, total_successful, total_failed.
     output_artifacts:
       - name: enhancement_results
         path: .wave/artifact.json
@@ -173,7 +172,7 @@ steps:
 
         For each issue, verify with: gh issue view <N> --repo {{ input }} --json title,labels
 
-        Save verification to .wave/artifact.json matching the contract schema, with fields:
+        Compile a verification report with fields:
         total_enhanced, successful_enhancements, failed_enhancements, and summary.
     output_artifacts:
       - name: verification_report
