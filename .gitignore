@@ -10,6 +10,8 @@
 .wave/traces/
 .wave/artifacts/
 .wave/output/
+.wave/chat/
+.wave/wave.db*
 
 # Claude Code local config (persona-generated, not committed)
 .claude/
