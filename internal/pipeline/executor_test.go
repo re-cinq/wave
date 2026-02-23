@@ -692,7 +692,7 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 	// Create a temporary schema file with required fields
 	tmpDir := t.TempDir()
 	schemaPath := filepath.Join(tmpDir, "test.schema.json")
-	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"]}`), 0644)
+	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
 
 	step := &Step{
 		ID: "test-step",
@@ -711,9 +711,9 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 
 	assert.Contains(t, prompt, "Contract Compliance")
 	assert.Contains(t, prompt, "artifact.json")
-	assert.Contains(t, prompt, "Valid JSON only")
+	assert.Contains(t, prompt, "MUST write valid JSON")
 	assert.Contains(t, prompt, "`name`, `status`, `results`")
-	assert.Contains(t, prompt, "validation fails")
+	assert.Contains(t, prompt, "Example structure")
 }
 
 // TestBuildContractPrompt_TestSuite tests contract prompt for test_suite contracts.
