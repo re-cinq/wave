@@ -2,6 +2,7 @@ package display
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -47,6 +48,9 @@ type PipelineOutcome struct {
 
 	// Workspace info
 	WorkspacePath string
+
+	// Outcome extraction warnings (visible to user so silent failures don't hide broken pipes)
+	OutcomeWarnings []string
 
 	// Verbose data (full lists, only rendered in verbose mode)
 	AllDeliverables []*deliverable.Deliverable
@@ -121,12 +125,23 @@ func isOutcomeWorthy(t deliverable.DeliverableType) bool {
 
 // filterArtifacts returns only the detail-level deliverables (not outcome-worthy ones
 // like PRs, branches, issues which are shown in the Outcomes section).
+// Deduplicates by absolute path so shared-worktree steps don't produce duplicate entries.
 func filterArtifacts(all []*deliverable.Deliverable) []*deliverable.Deliverable {
 	var result []*deliverable.Deliverable
+	seen := make(map[string]bool)
 	for _, d := range all {
-		if !isOutcomeWorthy(d.Type) {
-			result = append(result, d)
+		if isOutcomeWorthy(d.Type) {
+			continue
 		}
+		absPath, err := filepath.Abs(d.Path)
+		if err != nil {
+			absPath = d.Path
+		}
+		if seen[absPath] {
+			continue
+		}
+		seen[absPath] = true
+		result = append(result, d)
 	}
 	return result
 }
@@ -149,6 +164,7 @@ func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, succ
 
 	all := tracker.GetAll()
 	outcome.AllDeliverables = all
+	outcome.OutcomeWarnings = tracker.OutcomeWarnings()
 
 	// Build a set of failed step IDs for quick lookup
 	failedSet := make(map[string]bool, len(failedStepIDs))
@@ -201,12 +217,8 @@ func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, succ
 		outcome.Deployments = append(outcome.Deployments, OutcomeLink{Label: label, URL: d.Path})
 	}
 
-	// Count detail-level deliverables (non-outcome-worthy)
-	for _, d := range all {
-		if !isOutcomeWorthy(d.Type) {
-			outcome.ArtifactCount++
-		}
-	}
+	// Count detail-level deliverables (deduplicated by path)
+	outcome.ArtifactCount = len(filterArtifacts(all))
 
 	// Count contracts
 	contracts := tracker.GetByType(deliverable.TypeContract)
@@ -343,6 +355,14 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 				formatter.Primary(dep.URL)))
 		}
 
+		b.WriteString("\n")
+	}
+
+	// --- Outcome warnings ---
+	if len(outcome.OutcomeWarnings) > 0 {
+		for _, w := range outcome.OutcomeWarnings {
+			b.WriteString(fmt.Sprintf("  %s %s\n", formatter.Warning("!"), formatter.Muted(w)))
+		}
 		b.WriteString("\n")
 	}
 

@@ -686,6 +686,63 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 	assert.True(t, hasFailed, "should have failed event")
 }
 
+// TestBuildContractPrompt_JSONSchema tests that contract compliance prompt is generated
+// for json_schema contracts with output artifacts and required fields.
+func TestBuildContractPrompt_JSONSchema(t *testing.T) {
+	// Create a temporary schema file with required fields
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "test.schema.json")
+	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
+
+	step := &Step{
+		ID: "test-step",
+		OutputArtifacts: []ArtifactDef{
+			{Name: "output", Path: "artifact.json"},
+		},
+		Handover: HandoverConfig{
+			Contract: ContractConfig{
+				Type:       "json_schema",
+				SchemaPath: schemaPath,
+			},
+		},
+	}
+
+	prompt := buildContractPrompt(step, nil)
+
+	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "artifact.json")
+	assert.Contains(t, prompt, "MUST write valid JSON")
+	assert.Contains(t, prompt, "`name`, `status`, `results`")
+	assert.Contains(t, prompt, "Example structure")
+}
+
+// TestBuildContractPrompt_TestSuite tests contract prompt for test_suite contracts.
+func TestBuildContractPrompt_TestSuite(t *testing.T) {
+	step := &Step{
+		ID: "test-step",
+		Handover: HandoverConfig{
+			Contract: ContractConfig{
+				Type:    "test_suite",
+				Command: "go test ./...",
+			},
+		},
+	}
+
+	prompt := buildContractPrompt(step, nil)
+
+	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "go test ./...")
+	assert.Contains(t, prompt, "tests fail")
+}
+
+// TestBuildContractPrompt_NoContract tests that no prompt is generated when no contract exists.
+func TestBuildContractPrompt_NoContract(t *testing.T) {
+	step := &Step{ID: "test-step"}
+
+	prompt := buildContractPrompt(step, nil)
+	assert.Empty(t, prompt)
+}
+
 // TestProgressEventEmission tests that progress events are emitted during execution (T052)
 func TestProgressEventEmission(t *testing.T) {
 	collector := newTestEventCollector()

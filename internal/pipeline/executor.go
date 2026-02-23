@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -616,6 +617,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Auto-generate contract compliance prompt for CLAUDE.md
+	contractPrompt := buildContractPrompt(step, execution.Context)
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
 		Persona:          step.Persona,
@@ -633,6 +637,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedDomains:   sandboxDomains,
 		EnvPassthrough:   envPassthrough,
 		SkillCommandsDir: skillCommandsDir,
+		ContractPrompt:   contractPrompt,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{
@@ -763,8 +768,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Validate handover contract if configured
 	if step.Handover.Contract.Type != "" {
-		// Resolve contract source path using pipeline context
+		// Resolve contract source path using pipeline context.
+		// If no explicit source is set, infer from the step's first output artifact
+		// so the contract validates the file the persona actually writes to.
 		resolvedSource := execution.Context.ResolveContractSource(step.Handover.Contract)
+		if resolvedSource == "" && len(step.OutputArtifacts) > 0 {
+			resolvedSource = execution.Context.ResolveArtifactPath(step.OutputArtifacts[0])
+		}
 
 		// Resolve {{ project.* }} placeholders in contract command
 		resolvedCommand := step.Handover.Contract.Command
@@ -1518,6 +1528,97 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 
 }
 
+// buildContractPrompt generates a contract compliance section for CLAUDE.md
+// based on the step's contract definition and output artifacts. This tells the
+// persona exactly what format the output must be in, so pipeline authors don't
+// need to repeat format requirements in their prompts.
+func buildContractPrompt(step *Step, ctx *PipelineContext) string {
+	if step.Handover.Contract.Type == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("## Contract Compliance\n\n")
+
+	// Determine output file path
+	outputPath := ""
+	if len(step.OutputArtifacts) > 0 {
+		outputPath = step.OutputArtifacts[0].Path
+		if ctx != nil {
+			outputPath = ctx.ResolveArtifactPath(step.OutputArtifacts[0])
+		}
+	}
+
+	switch step.Handover.Contract.Type {
+	case "json_schema":
+		b.WriteString("**CRITICAL**: You MUST write valid JSON to the output file. This step will FAIL if the output is not valid JSON.\n\n")
+		if outputPath != "" {
+			b.WriteString(fmt.Sprintf("Write your output to `%s` using the Write tool.\n", outputPath))
+		}
+		b.WriteString("The file must contain ONLY a JSON object — no markdown, no explanatory text, no code fences.\n\n")
+
+		// Try to extract required fields and build a skeleton example from the schema
+		schemaPath := step.Handover.Contract.SchemaPath
+		if schemaPath != "" {
+			if data, err := os.ReadFile(schemaPath); err == nil {
+				var schema struct {
+					Required   []string                       `json:"required"`
+					Properties map[string]map[string]any      `json:"properties"`
+				}
+				if json.Unmarshal(data, &schema) == nil && len(schema.Required) > 0 {
+					b.WriteString(fmt.Sprintf("**Required fields**: `%s`\n\n", strings.Join(schema.Required, "`, `")))
+
+					// Build a concrete JSON skeleton from required fields
+					b.WriteString("**Example structure** (populate with real data):\n```json\n{\n")
+					for i, field := range schema.Required {
+						placeholder := schemaFieldPlaceholder(field, schema.Properties[field])
+						if i < len(schema.Required)-1 {
+							b.WriteString(fmt.Sprintf("  %q: %s,\n", field, placeholder))
+						} else {
+							b.WriteString(fmt.Sprintf("  %q: %s\n", field, placeholder))
+						}
+					}
+					b.WriteString("}\n```\n")
+				}
+			}
+		}
+
+	case "test_suite":
+		cmd := step.Handover.Contract.Command
+		if cmd != "" {
+			b.WriteString(fmt.Sprintf("After you complete your work, the following command will be run to validate your output:\n```\n%s\n```\n", cmd))
+		} else {
+			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
+		}
+		b.WriteString("If tests fail, the step fails.\n")
+	}
+
+	return b.String()
+}
+
+// schemaFieldPlaceholder returns a JSON placeholder value for a schema property,
+// used in the contract compliance example skeleton.
+func schemaFieldPlaceholder(field string, prop map[string]any) string {
+	if prop == nil {
+		return "\"...\""
+	}
+	t, _ := prop["type"].(string)
+	switch t {
+	case "string":
+		return "\"...\""
+	case "integer", "number":
+		return "0"
+	case "boolean":
+		return "false"
+	case "array":
+		return "[...]"
+	case "object":
+		return "{...}"
+	default:
+		return "\"...\""
+	}
+}
+
 // processStepOutcomes extracts declared outcomes from step artifacts and registers
 // them with the deliverable tracker for display in the pipeline output summary.
 // Errors are logged as warnings — outcome extraction never fails a step.
@@ -1538,35 +1639,41 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		artifactPath := filepath.Clean(filepath.Join(workspacePath, outcome.ExtractFrom))
 		cleanWorkspace := filepath.Clean(workspacePath) + string(filepath.Separator)
 		if !strings.HasPrefix(artifactPath, cleanWorkspace) {
+			msg := fmt.Sprintf("[%s] outcome: path %q escapes workspace, skipping", step.ID, outcome.ExtractFrom)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: path %q escapes workspace, skipping", outcome.ExtractFrom),
+				Message:    msg,
 			})
 			continue
 		}
 		data, err := os.ReadFile(artifactPath)
 		if err != nil {
+			msg := fmt.Sprintf("[%s] outcome: cannot read %s: %v", step.ID, outcome.ExtractFrom, err)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: cannot read %s: %v", outcome.ExtractFrom, err),
+				Message:    msg,
 			})
 			continue
 		}
 
 		value, err := ExtractJSONPath(data, outcome.JSONPath)
 		if err != nil {
+			msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
+			e.deliverableTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "warning",
-				Message:    fmt.Sprintf("outcome: %s at %s: %v", outcome.JSONPath, outcome.ExtractFrom, err),
+				Message:    msg,
 			})
 			continue
 		}
