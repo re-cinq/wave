@@ -710,9 +710,10 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "Output Requirements")
 	assert.Contains(t, prompt, "artifact.json")
-	assert.Contains(t, prompt, "MUST write valid JSON")
+	assert.Contains(t, prompt, "valid JSON")
+	assert.Contains(t, prompt, "Contract Schema")
 	assert.Contains(t, prompt, "`name`, `status`, `results`")
 	assert.Contains(t, prompt, "Example structure")
 }
@@ -734,7 +735,7 @@ func TestBuildContractPrompt_TestSuite(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "Test Validation")
 	assert.Contains(t, prompt, "go test ./...")
 	assert.Contains(t, prompt, "tests fail")
 }

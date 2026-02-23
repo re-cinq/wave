@@ -48,9 +48,10 @@ func TestContractPrompt_ValidFileSchema(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	// Verify contract compliance section
-	assert.Contains(t, prompt, "Contract Compliance")
-	assert.Contains(t, prompt, "MUST write valid JSON")
+	// Verify output requirements and contract schema sections
+	assert.Contains(t, prompt, "Output Requirements")
+	assert.Contains(t, prompt, "Contract Schema")
+	assert.Contains(t, prompt, "FAIL validation")
 
 	// Verify correct output path (not .wave/artifact.json)
 	assert.Contains(t, prompt, ".wave/output/result.json")
@@ -88,7 +89,8 @@ func TestContractPrompt_InlineSchema(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "Output Requirements")
+	assert.Contains(t, prompt, "Contract Schema")
 	assert.Contains(t, prompt, `"type":"object"`, "Should contain inline schema")
 	assert.Contains(t, prompt, `"status"`, "Should contain status property")
 	assert.Contains(t, prompt, ".wave/output/status.json")
@@ -115,10 +117,10 @@ func TestContractPrompt_MissingSchemaFile(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	// Contract prompt is still generated (output instructions) but no schema content
-	assert.Contains(t, prompt, "Contract Compliance")
-	assert.Contains(t, prompt, "MUST write valid JSON")
-	assert.NotContains(t, prompt, "Schema")
+	// Contract prompt is still generated (CRITICAL warning) but no schema content
+	assert.Contains(t, prompt, "Contract Schema")
+	assert.Contains(t, prompt, "FAIL validation")
+	assert.NotContains(t, prompt, "```json")
 }
 
 // TestContractPrompt_PathTraversalAttempt tests that path traversal attacks are blocked.
@@ -153,7 +155,7 @@ func TestContractPrompt_PathTraversalAttempt(t *testing.T) {
 
 			// Path traversal should be blocked — no schema content injected
 			assert.NotContains(t, prompt, "etc/passwd")
-			assert.NotContains(t, prompt, "Schema")
+			assert.NotContains(t, prompt, "```json")
 		})
 	}
 }
@@ -325,9 +327,10 @@ func TestContractPrompt_EmptySchema(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	// Contract prompt is generated but without schema content
-	assert.Contains(t, prompt, "Contract Compliance")
-	assert.NotContains(t, prompt, "Schema")
+	// Contract Schema header appears (contract type is json_schema) but no actual schema content
+	assert.Contains(t, prompt, "Contract Schema")
+	assert.Contains(t, prompt, "FAIL validation")
+	assert.NotContains(t, prompt, "```json")
 }
 
 // TestContractPrompt_SpecialCharactersInSchema tests handling of special characters.
@@ -681,6 +684,120 @@ func TestContractPrompt_NoArtifactGuidanceWhenNoInjections(t *testing.T) {
 	prompt := executor.buildContractPrompt(step, nil)
 
 	assert.NotContains(t, prompt, "Available Artifacts")
+}
+
+// TestContractPrompt_JsonOutputWithoutContract tests that steps with JSON output
+// artifacts but no handover contract still get output guidance.
+func TestContractPrompt_JsonOutputWithoutContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "create-pr",
+		OutputArtifacts: []ArtifactDef{
+			{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+		},
+		Memory: MemoryConfig{
+			InjectArtifacts: []ArtifactRef{
+				{Step: "fetch-assess", Artifact: "assessment", As: "issue_assessment"},
+			},
+		},
+		// NOTE: No Handover.Contract at all
+	}
+
+	prompt := executor.buildContractPrompt(step, nil)
+
+	// Should still generate output requirements
+	assert.Contains(t, prompt, "Output Requirements")
+	assert.Contains(t, prompt, ".wave/output/pr-result.json")
+	assert.Contains(t, prompt, "valid JSON")
+	assert.Contains(t, prompt, "no markdown")
+
+	// Should NOT include contract schema section
+	assert.NotContains(t, prompt, "Contract Schema")
+
+	// Should include injected artifact guidance
+	assert.Contains(t, prompt, "Available Artifacts")
+	assert.Contains(t, prompt, "`issue_assessment` → `.wave/artifacts/issue_assessment`")
+}
+
+// TestContractPrompt_MarkdownOutputWithoutContract tests markdown output guidance.
+func TestContractPrompt_MarkdownOutputWithoutContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "report",
+		OutputArtifacts: []ArtifactDef{
+			{Name: "report", Path: ".wave/output/report.md", Type: "markdown"},
+		},
+	}
+
+	prompt := executor.buildContractPrompt(step, nil)
+
+	assert.Contains(t, prompt, "Output Requirements")
+	assert.Contains(t, prompt, ".wave/output/report.md")
+	assert.Contains(t, prompt, "Markdown")
+	assert.NotContains(t, prompt, "valid JSON")
+}
+
+// TestContractPrompt_MultipleOutputArtifacts tests guidance for steps with multiple outputs.
+func TestContractPrompt_MultipleOutputArtifacts(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "publish",
+		OutputArtifacts: []ArtifactDef{
+			{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+			{Name: "summary", Path: ".wave/output/summary.md", Type: "markdown"},
+		},
+	}
+
+	prompt := executor.buildContractPrompt(step, nil)
+
+	assert.Contains(t, prompt, ".wave/output/pr-result.json")
+	assert.Contains(t, prompt, ".wave/output/summary.md")
+	assert.Contains(t, prompt, "valid JSON")
+	assert.Contains(t, prompt, "Markdown")
+}
+
+// TestContractPrompt_NoOutputsNoContract tests that empty steps produce empty prompt.
+func TestContractPrompt_NoOutputsNoContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "step1",
+	}
+
+	prompt := executor.buildContractPrompt(step, nil)
+	assert.Empty(t, prompt)
+}
+
+// TestContractPrompt_InjectArtifactsOnly tests that steps with only inject artifacts
+// still get guidance (no outputs, no contract, but has artifacts to read).
+func TestContractPrompt_InjectArtifactsOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "implement",
+		Memory: MemoryConfig{
+			InjectArtifacts: []ArtifactRef{
+				{Step: "plan", Artifact: "plan", As: "plan"},
+				{Step: "assess", Artifact: "assessment", As: "assessment"},
+			},
+		},
+	}
+
+	prompt := executor.buildContractPrompt(step, nil)
+
+	assert.NotEmpty(t, prompt)
+	assert.Contains(t, prompt, "Available Artifacts")
+	assert.Contains(t, prompt, "`plan` → `.wave/artifacts/plan`")
+	assert.Contains(t, prompt, "`assessment` → `.wave/artifacts/assessment`")
+	assert.NotContains(t, prompt, "Output Requirements")
 }
 
 // TestBuildStepPrompt_NoSchemaInjection verifies that buildStepPrompt no longer
