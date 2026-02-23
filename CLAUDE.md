@@ -1,51 +1,55 @@
 # Wave Development Guidelines
 
-You are working on **Wave** - a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution.
+**Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and relay/compaction into a continuous development system.
 
-## Project Overview
+## Critical Constraints
 
-Wave composes personas, pipelines, contracts, and relay/compaction into a continuous development system. It executes multi-step workflows where each step is performed by a specialized AI persona with specific permissions and tools.
+1. **Single static binary** — no runtime dependencies except adapter binaries
+2. **Test ownership** — every failing test is YOUR concern. Fix or delete (with justification), never ignore. Changes to personas, pipelines, contracts, or meta-pipelines require `go test ./...`
+3. **Security first** — all inputs validated, paths sanitized, permissions enforced
+4. **Constitutional compliance** — navigator-first architecture, fresh memory at step boundaries, contract validation at handovers, ephemeral workspace isolation, observable progress events
+5. **Observable execution** — structured progress events for monitoring
+6. **No backward compatibility constraint** during prototype phase — move fast, let tests catch regressions
+7. **No `t.Skip()`** without a linked issue. Delete tests only with clear justification
 
-## Architecture Principles
+## How Wave Works at Runtime
+
+Each pipeline is a **topologically-sorted DAG** of steps. For every step:
+
+1. **Workspace creation** — an ephemeral worktree is created under `.wave/workspaces/<pipeline>/<step>/`. Steps can share workspaces via `workspace.ref`. Mounts support readonly/readwrite modes
+2. **Artifact injection** — outputs from prior steps are injected into `.wave/artifacts/` before execution begins. The system validates existence, enforces optional/required semantics, and checks schemas if `ref.SchemaPath` is specified
+3. **Runtime CLAUDE.md assembly** — a per-step CLAUDE.md is generated from four layers:
+   - Base protocol preamble (`.wave/personas/base-protocol.md`)
+   - Persona system prompt (role, responsibilities, constraints)
+   - Contract compliance section (auto-generated from step contract schema)
+   - Restriction section (denied/allowed tools, network domains from manifest permissions)
+4. **Adapter execution** — the persona runs in isolated context with fresh memory (no chat history inheritance)
+5. **Contract validation** — step output is validated against its contract (json_schema, test_suite, typescript, quality_gate) **before** marking the step successful. Hard failures block; soft failures log warnings
+
+Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`, `internal/contract/`, `internal/workspace/`
+
+## Architecture
 
 ### Active Technologies
-- Go 1.25+ + gopkg.in/yaml.v3, github.com/spf13/cobra (existing Wave dependencies)
+- Go 1.25+ with `gopkg.in/yaml.v3`, `github.com/spf13/cobra`
 - SQLite for pipeline state, filesystem for workspaces and artifacts
 
 ### Core Components
-- **Manifests** (`wave.yaml`) - Single source of truth for configuration
-- **Personas** - AI agents with specific roles, permissions, and system prompts
-- **Pipelines** - Multi-step workflows with dependency resolution
-- **Contracts** - Output validation (JSON schema, TypeScript, test suites)
-- **Workspaces** - Ephemeral isolated execution environments
-- **State Management** - SQLite-backed persistence and resumption
+- **Manifests** (`wave.yaml`) — single source of truth for configuration
+- **Personas** — AI agents with specific roles, permissions, and system prompts
+- **Pipelines** — multi-step workflows with dependency resolution
+- **Contracts** — output validation (JSON schema, TypeScript, test suites)
+- **Workspaces** — ephemeral isolated execution environments
+- **State Management** — SQLite-backed persistence and resumption
 
 ### Security Model
-- **Fresh memory** at every step boundary - no chat history inheritance
-- **Permission enforcement** with deny/allow patterns - strictly enforced
-- **Ephemeral workspaces** - isolated filesystem execution
-- **Contract validation** - all outputs validated before step completion
-- **Audit logging** - credential scrubbing and tool call tracking
+- Fresh memory at every step boundary — no chat history inheritance
+- Permission enforcement with deny/allow patterns — strictly enforced
+- Ephemeral workspaces — isolated filesystem execution
+- Contract validation — all outputs validated before step completion
+- Audit logging — credential scrubbing and tool call tracking
 
-## Development Guidelines
-
-### Code Standards
-- **Go conventions** - Follow effective Go practices and formatting
-- **Single responsibility** - Each package has a clear, focused purpose
-- **Interface design** - Use interfaces for testability and flexibility
-- **Error handling** - Comprehensive error types with structured details
-- **Testing** - Table-driven tests with comprehensive edge case coverage
-
-### Critical Constraints
-1. **Single static binary** - No runtime dependencies except adapter binaries
-2. **Constitutional compliance** - All changes must align with Wave constitution
-3. **Test ownership** - Every failing test is the concern of the worker who caused it. Fix or delete (with justification), never ignore. Changes to personas, pipelines, contracts, or meta-pipelines require running the full test suite.
-4. **Security first** - All inputs validated, paths sanitized, permissions enforced
-5. **Observable execution** - Structured progress events for monitoring
-
-**Note**: Backward compatibility is NOT a constraint during prototype phase. We move fast and let tests catch regressions.
-
-### File Structure
+## File Structure
 ```
 internal/
 ├── adapter/      # Subprocess execution and adapter management
@@ -66,193 +70,45 @@ internal/
 └── workspace/    # Ephemeral workspace management
 
 cmd/wave/         # CLI command structure
-tests/            # Comprehensive test coverage
+tests/            # Test coverage
 .wave/            # Default personas, pipelines, contracts
 ```
 
-### Key Implementation Patterns
+## Security
 
-#### Pipeline Execution
-- Each step runs in isolated workspace with persona-specific permissions
-- Fresh context at every boundary (no memory inheritance)
-- Artifact injection for inter-step communication
-- Contract validation before step completion
-
-#### Security Validation
-- Path traversal prevention with allowlisted directories
-- Input sanitization for prompt injection prevention
-- Schema content validation before AI processing
-- Security event logging for audit trails
-
-#### Error Handling
-- Structured error types with detailed context
-- Retry mechanisms based on error type and configuration
-- Graceful degradation when possible
-- Clear, actionable error messages
-
-### Testing Requirements
-- **Unit tests** for all public interfaces
-- **Integration tests** for pipeline execution flows
-- **Security tests** for validation and sanitization
-- **Race condition testing** with `-race` flag
-- **Performance tests** for critical paths
-
-### Test Ownership (Prototype Discipline)
-
-**Hypothesis**: Non-deterministic systems can act predictably with the right guardrails.
-
-Tests ARE those guardrails. When you change core primitives (personas, pipelines, contracts, meta-pipelines):
-
-1. Run `go test ./...` before committing
-2. If tests fail, YOU own fixing them — not "someone later"
-3. Delete tests only with clear justification (outdated, wrong assumption)
-4. No `t.Skip()` without a linked issue
-
-This lets us move fast while maintaining confidence that Wave actually works.
-
-### Constitutional Compliance
-All development must comply with the Wave Constitution:
-- Navigator-first architecture
-- Fresh memory at step boundaries
-- Contract validation at handovers
-- Ephemeral workspace isolation
-- Single binary deployment
-- Observable progress events
-
-## Security Considerations
-
-### Input Validation
-- All user input sanitized for prompt injection
-- File paths validated against approved directories
-- Schema content cleaned before AI processing
-- Length limits enforced on all inputs
-
-### Permission Enforcement
-- Persona permissions strictly enforced at runtime
-- Deny rules projected into `settings.json` AND `CLAUDE.md` restriction section
-- No escalation or bypass mechanisms
-- Audit trail for all permission decisions
-- Fail-secure on permission violations
-
-### Sandbox Isolation
+- All user input sanitized for prompt injection; file paths validated against approved directories
+- Persona permissions strictly enforced at runtime; deny rules projected into `settings.json` AND runtime `CLAUDE.md`
 - **Outer sandbox**: Nix dev shell with bubblewrap (read-only FS, hidden `$HOME`, curated env)
 - **Adapter sandbox**: `settings.json` sandbox settings with network domain allowlisting
-- **Prompt restrictions**: `CLAUDE.md` restriction section generated from manifest
-- **Environment hygiene**: Only `runtime.sandbox.env_passthrough` vars reach subprocesses
+- **Prompt restrictions**: runtime `CLAUDE.md` restriction section generated from manifest
+- **Environment hygiene**: only `runtime.sandbox.env_passthrough` vars reach subprocesses
+- No credentials on disk; sanitized logging; workspace isolation prevents data leakage
 
-### Data Protection
-- No credentials stored on disk
-- Curated environment passthrough (not full `os.Environ()`)
-- Sanitized logging (no sensitive data)
-- Workspace isolation prevents data leakage
+## Development
 
-## Common Tasks
+### Code Standards
+- Follow effective Go practices (`gofmt`, `go vet`), single responsibility per package
+- Use interfaces for testability and dependency injection
+- Comprehensive error types with structured details
+- Table-driven tests with edge case coverage
 
-### Adding New Commands
-1. Create command in `cmd/wave/commands/`
-2. Register in main command structure
-3. Add comprehensive help text and examples
-4. Implement with proper error handling
-5. Add unit tests for all code paths
-
-### Adding New Contract Types
-1. Implement validator interface in `internal/contract/`
-2. Add to validator registry
-3. Update configuration types
-4. Add comprehensive test coverage
-5. Document in user guides
-
-### Adding Security Features
-1. Implement in `internal/security/` package
-2. Integrate with existing validation flows
-3. Add security event logging
-4. Comprehensive attack vector testing
-5. Update security documentation
-
-## Performance Considerations
-- Pipeline execution should complete steps in reasonable time
-- State queries must be fast (< 100ms for status checks)
-- Memory usage should remain bounded during execution
-- Concurrent pipeline support without resource contention
-
-## Database Migrations
-
-Wave uses a comprehensive migration system for schema management:
-
-### Adding New Migrations
-1. Add migration definition in `internal/state/migration_definitions.go`
-2. Include both `Up` (forward) and `Down` (rollback) SQL
-3. Write comprehensive tests in `*_test.go` files
-4. Test rollback functionality thoroughly
-5. Update documentation for user-facing changes
-
-### Environment Configuration
-- `WAVE_MIGRATION_ENABLED=true` - Enable migration system (default: true)
-- `WAVE_AUTO_MIGRATE=true` - Auto-apply on startup (default: true)
-- `WAVE_MAX_MIGRATION_VERSION=N` - Limit migrations for gradual rollout
-- `WAVE_SKIP_MIGRATION_VALIDATION=true` - Skip checksums (dev only)
-
-### CLI Commands
+### Testing
 ```bash
-# Check migration status
-wave migrate status
-
-# Apply pending migrations
-wave migrate up
-
-# Rollback to specific version (with confirmation)
-wave migrate down 3
-
-# Validate migration integrity
-wave migrate validate
+go test ./...            # Run all tests
+go test -race ./...      # Run with race detector (required for PR)
 ```
 
-See `docs/migrations.md` for complete migration documentation.
-
-## Testing
-
-```bash
-# Run all tests
-go test ./...
-
-# Run with race detector (required for PR)
-go test -race ./...
-
-# Run specific package
-go test ./internal/pipeline/...
-
-# Test migration system specifically
-go test ./internal/state -v -run Migration
-
-# Run with verbose output
-go test -v ./...
-
-# Run with coverage
-go test -cover ./...
-```
-
-## Code Style
-
-Follow standard Go conventions:
-- Use `gofmt` for formatting
-- Run `go vet` for static analysis
-- Keep functions focused and testable
-- Use interfaces for dependency injection
+See `docs/migrations.md` for database migration documentation.
 
 ## Git Commits
 
-- **No Co-Authored-By** - Never include Co-Authored-By lines in commit messages
-- **No AI attribution** - Do not add "Generated with Claude Code" or similar attribution
-- Keep commit messages concise and focused on the change
+- **No Co-Authored-By** — never include Co-Authored-By lines in commit messages
+- **No AI attribution** — do not add "Generated with Claude Code" or similar
 - Use conventional commit prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 
 ## Versioning
 
-Wave uses **automated semantic versioning** derived from conventional commit messages.
-
-### How It Works
-
-On every push to `main`, the CI analyzes commit messages since the last tag and determines the version bump:
+Automated semantic versioning from conventional commits. Every merge to `main` produces a release.
 
 | Commit prefix | Bump | Example |
 |---------------|------|---------|
@@ -260,20 +116,10 @@ On every push to `main`, the CI analyzes commit messages since the last tag and 
 | `feat:` | **minor** (0.X.0) | v0.1.1 → v0.2.0 |
 | `BREAKING CHANGE:` or `!:` (e.g. `feat!:`) | **major** (X.0.0) | v0.2.0 → v1.0.0 |
 
-The highest bump type wins when multiple commits are present. The CI then creates and pushes the tag, which triggers GoReleaser to build binaries and create a GitHub Release.
-
-### Rules
-
-- Every merge to `main` produces a new release automatically
-- Commit prefixes determine bump level — choose them intentionally
-- Use `feat!:` or include `BREAKING CHANGE:` in the commit body for major bumps
-- Version starts at `v0.1.0` (first tag created by CI)
-
 ## Debugging
 - Use `--debug` flag for detailed execution logging
 - Check `.wave/traces/` for audit logs
 - Workspace contents preserved for post-mortem analysis
-- Structured events for programmatic monitoring
 
 ## Recent Changes
 - 086-pipeline-recovery-hints: Added Go 1.25+ + `github.com/spf13/cobra` (CLI), `gopkg.in/yaml.v3` (config) — no new dependencies
