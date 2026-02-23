@@ -282,7 +282,13 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		}
 	}
 
-	// 2. Restriction section from manifest
+	// 2. Contract compliance section (auto-generated from step contract)
+	if cfg.ContractPrompt != "" {
+		claudeMd.WriteString("\n\n---\n\n")
+		claudeMd.WriteString(cfg.ContractPrompt)
+	}
+
+	// 3. Restriction section from manifest
 	restrictions := buildRestrictionSection(cfg)
 	if restrictions != "" {
 		claudeMd.WriteString(restrictions)
