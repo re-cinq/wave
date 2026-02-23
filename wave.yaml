@@ -211,7 +211,7 @@ personas:
         system_prompt_file: .wave/personas/researcher.md
     github-commenter:
         adapter: claude
-        description: Post comments on GitHub issues
+        description: Post comments on GitHub issues and PRs
         model: opus
         #temperature: 0.3
         permissions:
@@ -220,11 +220,16 @@ personas:
                 - Write(.wave/artifact.json)
                 - Write(.wave/output/*)
                 - Bash(gh issue comment*)
+                - Bash(gh issue create*)
+                - Bash(gh pr comment*)
                 - Bash(gh --version)
             deny:
                 - Bash(gh issue edit*)
                 - Bash(gh issue close*)
-                - Bash(gh pr*)
+                - Bash(gh pr create*)
+                - Bash(gh pr merge*)
+                - Bash(gh pr close*)
+                - Bash(gh pr edit*)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-commenter.md
     supervisor:

@@ -1,0 +1,220 @@
+kind: WavePipeline
+metadata:
+  name: dead-code-heal
+  description: "Scan for dead code, remove findings, and create a PR"
+  release: true
+
+input:
+  source: cli
+  example: "heal dead code from scan results"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan for dead or redundant code: {{ input }}
+
+        ## What to Look For
+
+        1. **Unused exports**: Exported functions, types, constants, or variables
+           that are never referenced outside their package.
+
+        2. **Unreachable code**: Code after return/panic, impossible branches,
+           dead switch cases.
+
+        3. **Orphaned files**: Files not imported by any other file in the project.
+
+        4. **Redundant / duplicate code**: Duplicate functions or copy-paste blocks
+           across packages. Functions with identical signatures in different packages.
+
+        5. **Stale tests**: Tests for functions that no longer exist,
+           or tests that test nothing meaningful.
+
+        6. **Unused imports**: Imports that are no longer needed.
+
+        7. **Commented-out code**: Large blocks of commented code that
+           should be deleted (git has history).
+
+        8. **Stale glue code**: Adapter or wrapper functions that once connected
+           components but now have no consumers.
+
+        9. **Hardcoded values**: Magic numbers, hardcoded strings, or configuration
+           values that should be extracted to constants, env vars, or config files.
+
+        ## Verification
+
+        For each finding, verify it's truly dead:
+        - Grep for all references across the entire codebase
+        - Check for reflect-based or string-based usage
+        - Check if it's part of an interface implementation
+        - Check for build tag conditional compilation
+
+        Produce a structured JSON result matching the contract schema.
+        Only include findings with high or medium confidence. Skip low confidence.
+    output_artifacts:
+      - name: scan_results
+        path: .wave/output/dead-code-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/dead-code-scan.json
+        schema_path: .wave/contracts/dead-code-scan.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: clean
+    persona: craftsman
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: findings
+    workspace:
+      type: worktree
+      branch: "chore/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Remove the dead code on this isolated worktree branch.
+
+        ## Process
+
+        1. **Remove dead code** — ONLY high-confidence findings:
+           - Start with unused imports (safest)
+           - Then commented-out code blocks
+           - Then unused exports
+           - Then orphaned files
+           - Skip anything with confidence=medium unless trivially safe
+           - After each removal, verify: `go build ./...`
+
+        2. **Run goimports** if available to clean up imports:
+           ```bash
+           goimports -w <modified-files> 2>/dev/null || true
+           ```
+
+        3. **Run full test suite**:
+           ```bash
+           go test ./... -count=1
+           ```
+
+        4. **Commit**:
+           ```bash
+           git add <specific-files>
+           git commit -m "chore: remove dead code
+
+           Removed N items of dead code:
+           - DC-001: <symbol> (unused export)
+           - DC-002: <file> (orphaned file)
+           ..."
+           ```
+
+        If ANY test fails after a removal, revert that specific removal
+        and continue with the next item.
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+
+  - id: verify
+    persona: auditor
+    dependencies: [clean]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_findings
+    exec:
+      type: prompt
+      source: |
+        Verify the dead code removal was safe.
+
+        Check:
+        1. Were only high-confidence items removed?
+        2. Are all tests still passing?
+        3. Does the project still build cleanly?
+        4. Were any false positives accidentally removed?
+        5. Is the commit focused (no unrelated changes)?
+
+        Produce a verification report covering:
+        - Items removed (with justification)
+        - Items skipped (with reason)
+        - Lines of code removed
+        - Test status
+        - Overall assessment: CLEAN / NEEDS_REVIEW
+    output_artifacts:
+      - name: verification
+        path: .wave/output/verification.md
+        type: markdown
+
+  - id: create-pr
+    persona: craftsman
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: findings
+        - step: verify
+          artifact: verification
+          as: verification_report
+    workspace:
+      type: worktree
+      branch: "chore/{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Create a pull request for the dead code removal.
+
+        ## Working Directory
+
+        You are running in an **isolated git worktree** shared with previous pipeline steps.
+        Your working directory IS the project root. The branch already exists from the
+        clean step — just push it and create the PR.
+
+        ## SAFETY: Do NOT Modify the Working Tree
+
+        This step MUST NOT run `git checkout`, `git stash`, or any command that changes
+        the current branch or working tree state.
+
+        ## Instructions
+
+        1. Push the branch: `git push -u origin HEAD`
+        2. Create PR: `gh pr create --title "chore: remove dead code" --body-file .wave/artifacts/verification_report`
+        3. Request review: `gh pr edit --add-reviewer "copilot" 2>/dev/null || true`
+
+        ## CONSTRAINTS
+
+        - Do NOT spawn Task subagents — work directly in the main context
+        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
+        - Do NOT include Co-Authored-By or AI attribution in commits
+
+        Produce a JSON status report matching the contract schema.
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"

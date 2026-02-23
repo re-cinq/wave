@@ -1,12 +1,15 @@
 kind: WavePipeline
 metadata:
-  name: dead-code
-  description: "Scan for dead, redundant, and misplaced code — output a local JSON report"
+  name: dead-code-pr
+  description: "Scan for dead code and post findings as a PR comment"
   release: true
+
+requires:
+  tools: [gh]
 
 input:
   source: cli
-  example: "find dead code in internal/pipeline"
+  example: "scan for dead code and comment on PR #42"
 
 steps:
   - id: scan
@@ -121,3 +124,44 @@ steps:
         schema_path: .wave/contracts/dead-code-report.schema.json
         on_failure: retry
         max_retries: 2
+
+  - id: publish-pr-comment
+    persona: github-commenter
+    dependencies: [format]
+    memory:
+      inject_artifacts:
+        - step: format
+          artifact: report
+          as: report
+    exec:
+      type: prompt
+      source: |
+        Post the dead code scan report as a PR comment.
+
+        The original input was: {{ input }}
+        Extract the PR number or URL from the input.
+
+        1. Read the report artifact to get the body content
+        2. Post it as a PR comment:
+
+           ```bash
+           gh pr comment <PR_NUMBER_OR_URL> --body-file .wave/artifacts/report
+           ```
+
+        3. Produce a JSON status report matching the contract schema.
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/dead-code-pr-result.schema.json
+        on_failure: retry
+        max_retries: 2
+    outcomes:
+      - type: url
+        extract_from: .wave/output/pr-result.json
+        json_path: .comment_url
+        label: "PR Comment"
