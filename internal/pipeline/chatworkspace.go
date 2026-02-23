@@ -9,9 +9,25 @@ import (
 	"time"
 )
 
+// ChatMode determines the permission level for a chat workspace.
+type ChatMode string
+
+const (
+	ChatModeAnalysis   ChatMode = "analysis"   // Phase 1: read-only
+	ChatModeManipulate ChatMode = "manipulate"  // Phase 2: read-write
+)
+
 // ChatWorkspaceOptions configures the chat workspace preparation.
 type ChatWorkspaceOptions struct {
-	Model string // Model override (e.g., "sonnet", "opus")
+	Model string   // Model override (e.g., "sonnet", "opus")
+	Mode  ChatMode // defaults to ChatModeAnalysis if empty
+}
+
+func (opts ChatWorkspaceOptions) effectiveMode() ChatMode {
+	if opts.Mode == "" {
+		return ChatModeAnalysis
+	}
+	return opts.Mode
 }
 
 // PrepareChatWorkspace creates a workspace directory with CLAUDE.md and settings.json
@@ -23,8 +39,10 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 		return "", fmt.Errorf("failed to create chat workspace: %w", err)
 	}
 
+	mode := opts.effectiveMode()
+
 	// 2. Build and write CLAUDE.md
-	claudeMd := buildChatClaudeMd(ctx)
+	claudeMd := buildChatClaudeMd(ctx, mode)
 	claudeMdPath := filepath.Join(wsDir, "CLAUDE.md")
 	if err := os.WriteFile(claudeMdPath, []byte(claudeMd), 0644); err != nil {
 		return "", fmt.Errorf("failed to write CLAUDE.md: %w", err)
@@ -41,9 +59,23 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 		model = "sonnet"
 	}
 
-	settings := chatSettings{
-		Model: model,
-		Permissions: chatPermissions{
+	var perms chatPermissions
+	switch mode {
+	case ChatModeManipulate:
+		perms = chatPermissions{
+			Allow: []string{
+				"Read", "Glob", "Grep", "Write", "Edit",
+				"Bash(git:*)", "Bash(go:*)", "Bash(make:*)",
+				"Bash(ls:*)", "Bash(cat:*)", "Bash(find:*)", "Bash(wc:*)",
+				"Bash(mkdir:*)", "Bash(cp:*)", "Bash(mv:*)",
+			},
+			Deny: []string{
+				"NotebookEdit",
+				"Bash(rm -rf /)*",
+			},
+		}
+	default: // ChatModeAnalysis
+		perms = chatPermissions{
 			Allow: []string{
 				"Read",
 				"Glob",
@@ -63,7 +95,12 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 				"Bash(rm:*)",
 				"Bash(mv:*)",
 			},
-		},
+		}
+	}
+
+	settings := chatSettings{
+		Model:       model,
+		Permissions: perms,
 	}
 
 	settingsData, err := json.MarshalIndent(settings, "", "  ")
@@ -74,6 +111,13 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 	settingsPath := filepath.Join(settingsDir, "settings.json")
 	if err := os.WriteFile(settingsPath, settingsData, 0644); err != nil {
 		return "", fmt.Errorf("failed to write settings.json: %w", err)
+	}
+
+	// 4. Provision slash commands for manipulate mode
+	if mode == ChatModeManipulate {
+		if err := provisionSlashCommands(wsDir); err != nil {
+			return "", fmt.Errorf("failed to provision slash commands: %w", err)
+		}
 	}
 
 	return wsDir, nil
@@ -90,7 +134,7 @@ type chatPermissions struct {
 }
 
 // buildChatClaudeMd generates the CLAUDE.md content for a chat session.
-func buildChatClaudeMd(ctx *ChatContext) string {
+func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 	var b strings.Builder
 
 	b.WriteString("# Wave Pipeline Analysis\n\n")
@@ -186,13 +230,47 @@ func buildChatClaudeMd(ctx *ChatContext) string {
 		}
 	}
 
+	// Wave infrastructure reference
+	b.WriteString("\n## Wave Infrastructure\n\n")
+	b.WriteString("Use these CLI commands — do NOT query the database directly.\n\n")
+	b.WriteString("```bash\n")
+	fmt.Fprintf(&b, "wave status %s          # run details + step states\n", ctx.Run.RunID)
+	fmt.Fprintf(&b, "wave logs %s            # event log for this run\n", ctx.Run.RunID)
+	fmt.Fprintf(&b, "wave artifacts %s       # list artifacts for this run\n", ctx.Run.RunID)
+	b.WriteString("wave chat --list                    # recent runs\n")
+	b.WriteString("```\n\n")
+	b.WriteString("If you must query state directly:\n")
+	b.WriteString("- Database: `.wave/state.db` (SQLite)\n")
+	b.WriteString("- Tables: `pipeline_run`, `event_log`, `artifact`, `step_state`, `pipeline_state`\n")
+	b.WriteString("- Run ID column: `run_id` (not `id`)\n")
+	b.WriteString("- Step column: `step_id` (not `step`)\n")
+	b.WriteString("- There is NO table called `steps` or `runs`\n\n")
+	b.WriteString("Key paths:\n")
+	b.WriteString("- State DB: `.wave/state.db`\n")
+	b.WriteString("- Workspaces: `.wave/workspaces/<pipeline>/<step>/`\n")
+	b.WriteString("- Artifacts: `.wave/artifacts/` and `.wave/output/`\n")
+	b.WriteString("- Traces: `.wave/traces/`\n")
+
 	// Instructions
 	b.WriteString("\n## Instructions\n\n")
+	b.WriteString("- Use `wave status` and `wave logs` instead of raw SQL\n")
 	b.WriteString("- Read artifacts to understand pipeline outputs\n")
 	b.WriteString("- Inspect step workspaces to see what each step produced\n")
 	b.WriteString("- Compare artifacts across steps to trace data flow\n")
 	b.WriteString("- Diagnose failures by reading error messages and workspace state\n")
 	fmt.Fprintf(&b, "- The project root is at: `%s`\n", ctx.ProjectRoot)
+
+	// Manipulate mode: write access instructions
+	if mode == ChatModeManipulate {
+		b.WriteString("\n## Write Access\n\n")
+		b.WriteString("You have write access to this workspace. You can:\n")
+		b.WriteString("- Edit files in step workspaces\n")
+		b.WriteString("- Run commands (go test, make, git)\n")
+		b.WriteString("- Create new files\n")
+		b.WriteString("- Modify artifacts\n\n")
+		b.WriteString("Use `/wave-status` to check pipeline state.\n")
+		b.WriteString("Use `/wave-diff` to see workspace changes.\n")
+	}
 
 	return b.String()
 }
@@ -242,3 +320,36 @@ func chatFormatSize(bytes int64) string {
 	}
 	return fmt.Sprintf("%.1f MB", float64(bytes)/(1024.0*1024.0))
 }
+
+// provisionSlashCommands creates .claude/commands/ with Wave-specific slash commands.
+func provisionSlashCommands(wsDir string) error {
+	commandsDir := filepath.Join(wsDir, ".claude", "commands")
+	if err := os.MkdirAll(commandsDir, 0755); err != nil {
+		return err
+	}
+
+	commands := map[string]string{
+		"wave-status.md": waveStatusCommand,
+		"wave-diff.md":   waveDiffCommand,
+	}
+
+	for name, content := range commands {
+		path := filepath.Join(commandsDir, name)
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write slash command %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+const waveStatusCommand = `Show the current state of the pipeline run.
+
+List each step with its status, duration, and key artifacts.
+Highlight any failures or warnings.
+`
+
+const waveDiffCommand = `Show what has changed in the current step's workspace.
+
+Run git diff or compare files against the original state.
+Summarize the key changes made.
+`
