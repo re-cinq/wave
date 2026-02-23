@@ -51,10 +51,30 @@ steps:
         6. Read CLAUDE.md for current project context:
            Read the file CLAUDE.md from the repository root.
 
-        After gathering ALL data, produce a JSON result including:
-        repository (owner, name), issue details (number, title, body, labels, url, created_at, comments),
-        changes_since_creation (commits, commit_count, releases), referenced_files (found, missing),
-        criticism (user criticism text or empty string), and project_context (summary of CLAUDE.md contents).
+        After gathering ALL data, produce a JSON result with this structure:
+        {
+          "repository": {"owner": "...", "name": "..."},
+          "issue": {
+            "number": N,
+            "title": "...",
+            "body": "...",
+            "labels": [...],
+            "url": "...",
+            "created_at": "...",
+            "comments": [...]
+          },
+          "changes_since_creation": {
+            "commits": ["<oneline entries>"],
+            "commit_count": N,
+            "releases": ["<release tags>"]
+          },
+          "referenced_files": {
+            "found": ["paths that still exist"],
+            "missing": ["paths that no longer exist"]
+          },
+          "criticism": "user criticism text or empty string",
+          "project_context": "summary of CLAUDE.md contents"
+        }
     output_artifacts:
       - name: issue_context
         path: .wave/artifact.json
@@ -85,12 +105,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for the gathered issue context.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         MANDATORY: You MUST call the Bash tool for any commands. NEVER generate fake output.
 
-        The injected context contains the gathered issue context.
+        Read .wave/artifacts/context.json which contains the gathered issue context.
 
         Your task: Compare the original issue against the codebase changes and draft an updated version.
 
@@ -113,10 +130,27 @@ steps:
         Step 4: If file paths in the issue body are now missing (from referenced_files.missing),
         update or remove those references.
 
-        Produce a JSON result including:
-        issue_number, original_title, updated_title, title_changed, original_body, updated_body,
-        staleness_assessment (overall_staleness as low/medium/high/critical, sections with name/status/reason),
-        changes_made (list of specific changes applied), and criticism_addressed (how each point was addressed).
+        Produce a JSON result with this structure:
+        {
+          "issue_number": N,
+          "original_title": "...",
+          "updated_title": "...",
+          "title_changed": true/false,
+          "original_body": "...",
+          "updated_body": "...",
+          "staleness_assessment": {
+            "overall_staleness": "low|medium|high|critical",
+            "sections": [
+              {
+                "name": "section name",
+                "status": "STILL_VALID|OUTDATED|INCOMPLETE|WRONG",
+                "reason": "why this classification"
+              }
+            ]
+          },
+          "changes_made": ["list of specific changes applied to the issue"],
+          "criticism_addressed": ["how each criticism point was addressed, or empty array"]
+        }
     output_artifacts:
       - name: update_draft
         path: .wave/artifact.json
@@ -150,15 +184,12 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `draft` artifact for the update draft.
-        Read the injected `context` artifact for the repository and issue information.
-
         CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
 
         Step 1: Use Bash tool to verify gh works:
         gh --version
 
-        Step 2: Read the injected update draft and repository info.
+        Step 2: Read .wave/artifacts/draft.json for the update draft and .wave/artifacts/context.json for the repository info.
         Extract the repo as "<owner>/<name>" and the issue number.
 
         Step 3: Apply the update:
@@ -174,10 +205,22 @@ steps:
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 
-        Step 5: Record the results including:
-        issue_number, url, success, title_updated, body_updated,
-        changes_applied (list of changes), verification (title_matches, body_matches, discrepancies),
-        staleness_assessment (low/medium/high/critical), and error (null on success).
+        Step 5: Record the results with this structure:
+        {
+          "issue_number": N,
+          "url": "...",
+          "success": true/false,
+          "title_updated": true/false,
+          "body_updated": true/false,
+          "changes_applied": ["list of changes that were applied"],
+          "verification": {
+            "title_matches": true/false,
+            "body_matches": true/false,
+            "discrepancies": ["any discrepancies found, or empty"]
+          },
+          "staleness_assessment": "low|medium|high|critical",
+          "error": null
+        }
     output_artifacts:
       - name: update_result
         path: .wave/artifact.json
