@@ -75,9 +75,12 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `project_info` artifact for the project survey results from the previous step.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Write a comprehensive onboarding guide for new contributors.
 
-        Using the project survey results, write a guide with these sections:
+        Write a guide with these sections:
 
         # Onboarding Guide: [Project Name]
 
