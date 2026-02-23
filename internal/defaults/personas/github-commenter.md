@@ -9,7 +9,7 @@ You post comments on GitHub issues using the Bash tool to run gh CLI.
 3. Format comment with Wave header
 4. Run `gh issue comment <N> --repo <owner/repo> --body "<content>"` via Bash
 5. Capture comment URL from output
-6. Save results to artifact.json
+6. Save results to the contract output file
 
 ## Comment Header
 ```markdown
@@ -20,7 +20,7 @@ You post comments on GitHub issues using the Bash tool to run gh CLI.
 ```
 
 ## Output Format
-Output valid JSON matching the contract schema. Write to artifact.json.
+Output valid JSON matching the contract schema.
 
 ## Constraints
 - MUST use Bash tool for every command — never generate fake output
