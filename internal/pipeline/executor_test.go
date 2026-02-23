@@ -689,10 +689,11 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 // TestBuildContractPrompt_JSONSchema tests that contract compliance prompt is generated
 // for json_schema contracts with output artifacts and required fields.
 func TestBuildContractPrompt_JSONSchema(t *testing.T) {
-	// Create a temporary schema file with required fields
 	tmpDir := t.TempDir()
 	schemaPath := filepath.Join(tmpDir, "test.schema.json")
 	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
+
+	executor := createSchemaTestExecutor(tmpDir)
 
 	step := &Step{
 		ID: "test-step",
@@ -707,7 +708,7 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 		},
 	}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 
 	assert.Contains(t, prompt, "Contract Compliance")
 	assert.Contains(t, prompt, "artifact.json")
@@ -718,6 +719,9 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 
 // TestBuildContractPrompt_TestSuite tests contract prompt for test_suite contracts.
 func TestBuildContractPrompt_TestSuite(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
 	step := &Step{
 		ID: "test-step",
 		Handover: HandoverConfig{
@@ -728,7 +732,7 @@ func TestBuildContractPrompt_TestSuite(t *testing.T) {
 		},
 	}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 
 	assert.Contains(t, prompt, "Contract Compliance")
 	assert.Contains(t, prompt, "go test ./...")
@@ -737,9 +741,12 @@ func TestBuildContractPrompt_TestSuite(t *testing.T) {
 
 // TestBuildContractPrompt_NoContract tests that no prompt is generated when no contract exists.
 func TestBuildContractPrompt_NoContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
 	step := &Step{ID: "test-step"}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 	assert.Empty(t, prompt)
 }
 
