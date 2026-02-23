@@ -57,11 +57,10 @@ steps:
 
         ## Output Format
 
-        Write the result as JSON to output/security-scan.json matching the contract schema.
-        Include: target, attack_surface (entry_point, type, description, risk_level),
-        findings (id, title, severity, category, location, description, evidence, exploitability),
-        secrets_check (hardcoded_secrets, insecure_configs), summary (total_findings,
-        by_severity, risk_assessment), and timestamp.
+        Produce a structured result covering: target, attack_surface (entry_point, type,
+        description, risk_level), findings (id, title, severity, category, location, description,
+        evidence, exploitability), secrets_check (hardcoded_secrets, insecure_configs), summary
+        (total_findings, by_severity, risk_assessment), and timestamp.
     output_artifacts:
       - name: scan_results
         path: .wave/output/security-scan.json
@@ -92,10 +91,6 @@ steps:
       source: |
         Perform a deep security analysis based on the initial scan results.
 
-        Read the scan findings first:
-
-          cat .wave/artifacts/scan_findings
-
         For each finding with severity HIGH or CRITICAL:
 
         1. **Verify the finding**: Read the actual source code at the reported location.
@@ -115,7 +110,7 @@ steps:
 
         For MEDIUM and LOW findings, do a lighter review confirming they're real.
 
-        Output as markdown to output/security-deep-dive.md with sections:
+        Produce a report with these sections:
         - Executive Summary
         - Confirmed Vulnerabilities (with severity badges)
         - False Positives Eliminated
@@ -142,11 +137,6 @@ steps:
       type: prompt
       source: |
         Synthesize the security audit into a final report.
-
-        Read both artifacts:
-
-          cat .wave/artifacts/scan_findings
-          cat .wave/artifacts/analysis
 
         Create a concise, actionable security report:
 

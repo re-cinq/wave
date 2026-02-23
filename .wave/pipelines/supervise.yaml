@@ -38,8 +38,7 @@ steps:
 
         ## Output
 
-        Write a comprehensive evidence bundle as JSON to output/supervision-evidence.json
-        matching the contract schema. Include all raw evidence — the evaluation step
+        Write a comprehensive evidence bundle as structured JSON. Include all raw evidence — the evaluation step
         will interpret it.
 
         Be thorough in transcript analysis — the process quality evaluation depends
@@ -74,8 +73,6 @@ steps:
       source: |
         Evaluate the work quality based on gathered evidence.
 
-        Read the evidence: cat .wave/artifacts/evidence
-
         ## Output Quality Assessment
 
         For each dimension, score as excellent/good/adequate/poor with specific findings:
@@ -100,7 +97,7 @@ steps:
         - Key strengths (what went well)
         - Key concerns (what needs attention)
 
-        Write the evaluation as JSON to output/supervision-evaluation.json matching the contract schema.
+        Write the evaluation as structured JSON.
     output_artifacts:
       - name: evaluation
         path: .wave/output/supervision-evaluation.json
@@ -134,10 +131,6 @@ steps:
       source: |
         Synthesize a final supervision verdict.
 
-        Read the evidence and evaluation:
-          cat .wave/artifacts/evidence
-          cat .wave/artifacts/evaluation
-
         ## Independent Verification
 
         1. Run the test suite: `go test ./...`
@@ -162,7 +155,7 @@ steps:
 
         What should be done differently next time? Process improvements, common pitfalls observed.
 
-        Write the verdict as markdown to output/supervision-verdict.md with clear sections:
+        Write the verdict as markdown with clear sections:
         ## Verdict, ## Output Quality, ## Process Quality, ## Action Items, ## Lessons Learned
     output_artifacts:
       - name: verdict
