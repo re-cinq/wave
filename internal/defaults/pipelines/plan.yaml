@@ -83,19 +83,16 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, testing landscape, and risks).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         You are breaking down a feature into actionable implementation tasks.
 
         ## Input
 
         Feature request: {{ input }}
 
-        Codebase exploration has already been done. Read the exploration results FIRST:
-
-          cat .wave/artifacts/context
-
-        This file contains structured JSON with: related files, codebase patterns,
-        affected modules, testing landscape, and identified risks. Use ALL of this
-        information to inform your task breakdown.
+        Use ALL of the exploration context to inform your task breakdown.
 
         ## Task Breakdown Rules
 
@@ -164,20 +161,15 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, testing landscape, and risks).
+        Read the injected `task_list` artifact for the task breakdown plan (feature summary, tasks with dependencies and acceptance criteria, and execution order).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         You are reviewing a task breakdown plan for quality, completeness, and correctness.
 
         ## Input
 
         Feature request: {{ input }}
-
-        Two artifacts have been injected into your workspace. Read them BOTH first:
-
-          cat .wave/artifacts/context      # Codebase exploration (JSON)
-          cat .wave/artifacts/task_list    # Task breakdown plan (JSON)
-
-        The exploration contains: related files, patterns, affected modules, testing
-        landscape, and risks. The task list contains: feature summary, tasks with
-        dependencies and acceptance criteria, and execution order.
 
         ## Review Checklist
 

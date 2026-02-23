@@ -25,7 +25,7 @@ steps:
         3. Identify the root cause
         4. Assess blast radius (what else could be affected)
 
-        Create artifact.json with your structured findings matching the contract schema.
+        Produce your structured findings as JSON.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json
@@ -54,6 +54,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `investigation` artifact for the root cause analysis and investigation findings.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Fix the production issue based on the investigation findings.
 
         Requirements:

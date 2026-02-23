@@ -68,6 +68,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, test files, and risks).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Create an implementation plan for this feature.
 
         Feature: {{ input }}
@@ -111,6 +114,10 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, test files, and risks).
+        Read the injected `plan` artifact for the implementation plan (ordered steps with files to modify, acceptance criteria, and complexity estimates).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Implement the feature on this isolated worktree branch.
 
         Feature: {{ input }}
@@ -167,6 +174,8 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `result` artifact for the implementation results (what was implemented, files changed, and test outcomes).
+
         PUBLISH — push the branch and create a pull request.
 
         ## Steps

@@ -36,8 +36,6 @@ steps:
 
         The specification must be technology-agnostic and focused on user value.
 
-        Create artifact.json with your results. The output must match the contract schema.
-
     workspace:
       mount:
         - source: .
@@ -76,11 +74,12 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `input-spec.md` artifact for the specification from the spec step.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         You are in the documentation phase of prototype-driven development.
 
         Your goal is to create comprehensive, runnable documentation from the specification.
-
-        Input specification is available in .wave/artifacts/input-spec.md
 
         Create feature documentation that includes:
         - User-friendly explanation of the feature
@@ -91,8 +90,6 @@ steps:
         Generate VitePress-compatible markdown that can be served as runnable documentation.
 
         CRITICAL: Create both feature-docs.md and stakeholder-summary.md files.
-
-        Create artifact.json with your results. The output must match the contract schema.
 
     workspace:
       mount:
@@ -135,13 +132,13 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `feature-docs.md` artifact for the feature documentation.
+        Read the injected `spec.md` artifact for the original specification.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         You are in the dummy/prototype phase of development.
 
         Your goal is to create a working prototype with authentic I/O handling but stub business logic.
-
-        Available context:
-        - .wave/artifacts/feature-docs.md - Feature documentation
-        - .wave/artifacts/spec.md - Original specification
 
         Create a functional prototype that:
         - Handles real input and output properly
@@ -153,8 +150,6 @@ steps:
         Focus on proving the interface design and user flows work correctly.
 
         CRITICAL: Create prototype/ directory with working code and interfaces.md with interface definitions.
-
-        Create artifact.json with your results. The output must match the contract schema.
 
     workspace:
       mount:
@@ -200,12 +195,12 @@ steps:
     exec:
       type: prompt
       source: |
-        You are in the implementation phase - transitioning from prototype to production code.
+        Read the injected `spec.md` artifact for the original specification.
+        Read the injected `feature-docs.md` artifact for the feature documentation.
+        Read the injected `prototype/` artifact for the working prototype with interfaces.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
 
-        Available context:
-        - .wave/artifacts/spec.md - Original specification
-        - .wave/artifacts/feature-docs.md - Feature documentation
-        - .wave/artifacts/prototype/ - Working prototype with interfaces
+        You are in the implementation phase - transitioning from prototype to production code.
 
         Your goal is to provide implementation guidance and begin real implementation:
         - Review all previous artifacts for implementation readiness
@@ -217,8 +212,6 @@ steps:
         Focus on production-quality code that fulfills the original specification.
 
         CRITICAL: Create implementation-plan.md and implementation-checklist.md files.
-
-        Create artifact.json with your results. The output must match the contract schema.
 
     workspace:
       mount:
@@ -258,10 +251,9 @@ steps:
     exec:
       type: prompt
       source: |
-        You are creating a pull request for the implemented feature.
+        Read the injected `implementation-plan.md` artifact for the implementation details.
 
-        Available context:
-        - .wave/artifacts/implementation-plan.md - Implementation details
+        You are creating a pull request for the implemented feature.
 
         Create a comprehensive pull request:
         - Clear PR title and description

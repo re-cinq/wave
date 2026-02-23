@@ -50,7 +50,8 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: feature_context (input_summary,
+        Write the result as a single JSON object to output/exploration.json matching
+        the contract schema. The output must include: feature_context (input_summary,
         scope_assessment), related_files, patterns (with PAT-### IDs), affected_modules,
         testing_landscape, risks, and timestamp.
 
@@ -82,15 +83,16 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, testing landscape, and risks).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         You are breaking down a feature into actionable implementation tasks.
 
         ## Input
 
         Feature request: {{ input }}
 
-        Codebase exploration has already been done and will be injected as context.
-        It contains: related files, codebase patterns, affected modules, testing landscape,
-        and identified risks. Use ALL of this information to inform your task breakdown.
+        Use ALL of the exploration context to inform your task breakdown.
 
         ## Task Breakdown Rules
 
@@ -122,7 +124,8 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: feature_summary, tasks (with T## IDs, personas,
+        Write a single JSON object to output/tasks.json matching the contract schema.
+        The output must include: feature_summary, tasks (with T## IDs, personas,
         dependencies, acceptance_criteria, affected_files, complexity, risks),
         execution_order (grouped by phases), metadata, and a markdown_content field
         with a complete human-readable rendering of the plan.
@@ -158,15 +161,15 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the codebase exploration results (related files, patterns, affected modules, testing landscape, and risks).
+        Read the injected `task_list` artifact for the task breakdown plan (feature summary, tasks with dependencies and acceptance criteria, and execution order).
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         You are reviewing a task breakdown plan for quality, completeness, and correctness.
 
         ## Input
 
         Feature request: {{ input }}
-
-        Two artifacts have been injected: the codebase exploration (related files, patterns,
-        affected modules, testing landscape, and risks) and the task breakdown plan (feature
-        summary, tasks with dependencies and acceptance criteria, and execution order).
 
         ## Review Checklist
 
@@ -204,7 +207,8 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: verdict (decision, confidence, rationale), summary
+        Write a single JSON object to output/plan-review.json matching the contract schema.
+        The output must include: verdict (decision, confidence, rationale), summary
         (counts and strengths), task_reviews (per-task status with REV-### issues),
         cross_cutting_concerns (CC-### IDs), recommendations (REC-### IDs with types),
         risk_assessment, timestamp, and a markdown_content field with a complete

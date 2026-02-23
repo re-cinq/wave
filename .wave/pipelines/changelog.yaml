@@ -67,6 +67,8 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `raw_commits` artifact for the commit analysis from the previous step.
+
         Categorize and describe changes for a changelog.
 
         ## Rules
@@ -110,6 +112,8 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `raw_commits` artifact for the original commit data and the `changes` artifact for the categorized changes.
+
         Format categorized changes into a polished changelog.
 
         Format in Keep a Changelog style:

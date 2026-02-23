@@ -52,6 +52,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `issue` artifact for the reproduction details and characterization of the bug.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Form hypotheses about the root cause.
 
         For each hypothesis:
@@ -95,6 +98,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `issue` artifact for the reproduction details and the injected `hypotheses` artifact for the ranked hypotheses to test.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Test each hypothesis systematically.
 
         1. Start with most likely / easiest to test
@@ -125,6 +131,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `root_cause` artifact for the investigation findings and identified root cause.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Fix the root cause identified in the investigation.
 
         1. Implement the minimal fix
