@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Validated Findings",
+  "description": "Convergent validation of divergent findings — each finding classified as confirmed, partially confirmed, or rejected",
+  "type": "object",
+  "required": ["target", "timestamp", "total_findings", "confirmed", "partially_confirmed", "rejected", "findings"],
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "What was analyzed (path, module, or 'whole-project')"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_findings": {
+      "type": "integer",
+      "description": "Total number of findings reviewed"
+    },
+    "confirmed": {
+      "type": "integer",
+      "description": "Count of findings classified as CONFIRMED"
+    },
+    "partially_confirmed": {
+      "type": "integer",
+      "description": "Count of findings classified as PARTIALLY_CONFIRMED"
+    },
+    "rejected": {
+      "type": "integer",
+      "description": "Count of findings classified as REJECTED"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "original_category", "original_severity", "rationale", "files"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^DVG-\\d{3}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["CONFIRMED", "PARTIALLY_CONFIRMED", "REJECTED"]
+          },
+          "original_category": {
+            "type": "string"
+          },
+          "original_severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Explanation of why this classification was chosen"
+          },
+          "verified_metrics": {
+            "type": "object",
+            "properties": {
+              "line_count": { "type": "integer" },
+              "reference_count": { "type": "integer" },
+              "change_frequency": { "type": "integer" }
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

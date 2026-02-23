@@ -52,7 +52,7 @@ steps:
 
         ## Output
 
-        Write a JSON file to `output/context.json` with this structure:
+        Write a JSON output with this structure:
 
         ```json
         {
@@ -93,13 +93,14 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for gathered input context.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         DIVERGENT THINKING — cast the widest net to find simplification opportunities.
 
         Target: {{ input }}
 
         ## Starting Point
-
-        Read `.wave/artifacts/context` for input context.
         If `input_type` is `"issue"` or `"pr"`, the `focus_hint` tells you WHERE to start looking —
         but do NOT limit yourself to what the issue describes. Use it as a seed, then expand outward.
         Follow dependency chains, trace callers, explore adjacent modules. The issue author doesn't
@@ -152,7 +153,6 @@ steps:
 
         ## Output
 
-        Write findings as JSON to output/divergent-findings.json matching the contract schema.
         Each finding gets a unique ID: DVG-001, DVG-002, etc.
 
         Be AGGRESSIVE — flag everything suspicious. The convergent phase will filter.
@@ -191,14 +191,13 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `divergent_findings` artifact for the raw findings from the diverge step.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         CONVERGENT VALIDATION — separate signal from noise.
 
         This is a purely CONVERGENT step. Your job is analytical, not creative.
         Judge every finding on technical merit alone. No speculation, no new ideas.
-
-        ## Read Input
-
-        Use the Read tool to read `.wave/artifacts/divergent_findings`.
 
         Target: {{ input }}
 
@@ -217,38 +216,12 @@ steps:
         5. **Explain**: For every classification, write WHY. For rejections, explain what
            the provocateur got wrong.
 
-        ## Output
-
-        Write the validated findings to `output/validated-findings.json` as a JSON object:
-
-        ```json
-        {
-          "target": "the input target",
-          "timestamp": "ISO 8601",
-          "total_findings": 30,
-          "confirmed": 15,
-          "partially_confirmed": 8,
-          "rejected": 7,
-          "findings": [
-            {
-              "id": "DVG-001",
-              "status": "CONFIRMED|PARTIALLY_CONFIRMED|REJECTED",
-              "original_category": "premature_abstraction",
-              "original_severity": "high",
-              "rationale": "Why this classification...",
-              "verified_metrics": {
-                "line_count": 142,
-                "reference_count": 3,
-                "change_frequency": 12
-              },
-              "files": ["path/to/file.go"]
-            }
-          ]
-        }
-        ```
-
         Be RIGOROUS. The provocateur was told to be aggressive — your job is to be skeptical.
         A finding that survives your scrutiny is genuinely worth addressing.
+    handover:
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/validated-findings.schema.json
     output_artifacts:
       - name: validated_findings
         path: .wave/output/validated-findings.json
@@ -274,16 +247,15 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `divergent_findings` artifact for the original raw findings.
+        Read the injected `validated_findings` artifact for the validated and classified findings.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         SECOND DIVERGENCE — probe deeper into confirmed findings.
 
         The first pass cast a wide net. The validator filtered it down.
         Now YOU go deeper on what survived. This is DIVERGENT thinking again —
         expand, connect, discover what the first pass missed.
-
-        ## Read Inputs
-
-        Read the validated findings: the Read tool on `.wave/artifacts/validated_findings`
-        Read the original findings for context: the Read tool on `.wave/artifacts/divergent_findings`
 
         Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
 
@@ -319,46 +291,10 @@ steps:
 
         ## Output
 
-        Write to `output/probed-findings.json`:
-
-        ```json
-        {
-          "target": "the input target",
-          "timestamp": "ISO 8601",
-          "connections": [
-            {
-              "source_finding": "DVG-001",
-              "connected_files": ["path/to/related.go"],
-              "relationship": "caller depends on abstraction",
-              "second_order_effect": "Removing interface also eliminates mock in tests"
-            }
-          ],
-          "patterns": [
-            {
-              "id": "PAT-001",
-              "description": "Three findings stem from the same over-abstraction",
-              "related_findings": ["DVG-001", "DVG-005", "DVG-012"],
-              "root_cause": "The adapter interface was designed for 5 backends, only 1 exists"
-            }
-          ],
-          "new_findings": [
-            {
-              "id": "DVG-NEW-001",
-              "category": "...",
-              "severity": "high|medium|low",
-              "description": "...",
-              "evidence": { "files": [], "metrics": {} },
-              "discovered_via": "DVG-003 led to examining adjacent module"
-            }
-          ],
-          "contested_rejections": [
-            {
-              "finding_id": "DVG-007",
-              "counter_argument": "The validator said X, but actually..."
-            }
-          ]
-        }
-        ```
+        Structure your output with: connections (source_finding, connected_files, relationship,
+        second_order_effect), patterns (id, description, related_findings, root_cause),
+        new_findings (id, category, severity, description, evidence, discovered_via),
+        and contested_rejections (finding_id, counter_argument).
 
         Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
     output_artifacts:
@@ -389,6 +325,11 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for gathered input context.
+        Read the injected `validated_findings` artifact for the validated findings.
+        Read the injected `probed_findings` artifact for deeper connections, patterns, and new discoveries.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         FINAL CONVERGENCE — synthesize all findings into actionable proposals.
 
         This is the last convergent step before implementation. You have:
@@ -397,15 +338,6 @@ steps:
         - Optional issue/PR context (from the gather step)
 
         Your job: synthesize everything into prioritized, implementable proposals.
-
-        ## CRITICAL: Read Inputs First
-
-        1. Read the validated findings: the Read tool on `.wave/artifacts/validated_findings`
-        2. Read the probed findings: the Read tool on `.wave/artifacts/probed_findings`
-        3. Read the required output schema: the Read tool on `project/.wave/contracts/convergent-proposals.schema.json`
-        4. Read the input context: the Read tool on `.wave/artifacts/context`
-
-        You MUST produce valid JSON matching that schema exactly.
 
         Target: {{ input }}
 
@@ -422,13 +354,13 @@ steps:
         3. **Include new discoveries**: The probe step may have found new findings (DVG-NEW-xxx).
            These are pre-validated by the provocateur's second pass — include them.
 
-        4. **Apply issue/PR context (if present)**: If `.wave/artifacts/context` shows
+        4. **Apply issue/PR context (if present)**: If the injected context shows
            `input_type` is `"issue"` or `"pr"`, use the `focus_hint` as ONE input
            when assigning tiers. But do not discard strong proposals just because they
            fall outside the issue's scope. The best simplifications are often the ones
            the issue author didn't think to ask for.
 
-        5. For each proposal, include ALL required schema fields:
+        5. For each proposal, include these fields:
            - `id`: SMP-001, SMP-002, etc.
            - `title`: concise name
            - `description`: detailed explanation of what to change and why
@@ -448,8 +380,6 @@ steps:
 
         ## Output
 
-        Write the FULL structured JSON to `output/convergent-proposals.json`.
-        The file must be valid JSON matching the schema in `.wave/contracts/convergent-proposals.schema.json`.
         Include `source_findings`, `validation_summary`, `proposals`, `eighty_twenty_analysis`, and `timestamp`.
 
         Do NOT write a markdown summary. Write the complete JSON object with every proposal fully populated.
@@ -484,10 +414,10 @@ steps:
     exec:
       type: prompt
       source: |
-        IMPLEMENTATION — apply the best simplification proposals.
+        Read the injected `validated_findings` artifact for the validated findings.
+        Read the injected `proposals` artifact for the prioritized simplification proposals.
 
-        Read the proposals: `cat .wave/artifacts/proposals`
-        Read the validated findings for context: `cat .wave/artifacts/validated_findings`
+        IMPLEMENTATION — apply the best simplification proposals.
 
         ## Process
 
@@ -556,17 +486,16 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `proposals` artifact for the simplification proposals.
+        Read the injected `result` artifact for the implementation results.
+
         REPORT — compose a summary of what recinq found and applied.
 
-        ## Read Artifacts
-
-        1. Read `.wave/artifacts/proposals` for the proposals summary.
-        2. Read `.wave/artifacts/result` for what was actually applied.
-        3. Run `git log --oneline` to see the commits on this branch.
+        Run `git log --oneline` to see the commits on this branch.
 
         ## Compose the Report
 
-        Write a markdown report to `output/report.md` containing:
+        Write a markdown report containing:
         - **Summary**: One-paragraph overview of what recinq found and applied
         - **Proposals**: List of all proposals with their tier, impact, and status (applied/skipped/failed)
         - **Changes Applied**: Summary of commits made, files changed, net lines removed
@@ -594,6 +523,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `context` artifact for the original input context.
+        Read the injected `report` artifact for the recinq report to use as the PR body.
+
         PUBLISH — push the branch and create a pull request.
 
         ## Steps
@@ -603,12 +535,9 @@ steps:
            git push -u origin HEAD
            ```
 
-        2. Create a pull request using the report as the body:
-           ```bash
-           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file .wave/artifacts/report
-           ```
+        2. Create a pull request using the report as the body.
 
-        3. Read `.wave/artifacts/context` — if `input_type` is `"issue"` or `"pr"`,
+        3. If the injected `context` shows `input_type` is `"issue"` or `"pr"`,
            post the PR URL as a comment on the source:
            ```bash
            gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
@@ -618,15 +547,7 @@ steps:
            gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
            ```
 
-        4. Write a JSON status report to `output/pr-result.json`:
-
-           ```json
-           {
-             "pr_url": "https://github.com/owner/repo/pull/123",
-             "pr_number": 123,
-             "branch": "refactor/<pipeline_id>"
-           }
-           ```
+        4. Write a JSON status report with pr_url, pr_number, and branch fields.
 
         If any `gh` command fails, log the error and continue.
     output_artifacts:

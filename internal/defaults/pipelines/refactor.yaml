@@ -26,7 +26,7 @@ steps:
         3. Find existing test coverage
         4. Identify integration points
 
-        Write the result as JSON to output/refactor-analysis.json with fields:
+        Produce structured output with fields:
         target_files, affected_callers, existing_tests, integration_points,
         and risk_assessment (low/medium/high).
     output_artifacts:
@@ -57,6 +57,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `scope` artifact for the refactoring analysis including target files, affected callers, and risk assessment.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Before refactoring, ensure test coverage:
 
         1. Run existing tests and record baseline
@@ -97,6 +100,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `scope` artifact for the refactoring analysis and the injected `tests` artifact for the test baseline results.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Perform the refactoring: {{ input }}
 
         Guidelines:

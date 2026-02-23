@@ -32,7 +32,7 @@ steps:
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
 
-        Write the result to output/issue-content.json
+        Produce structured JSON with the issue content.
     output_artifacts:
       - name: issue-content
         path: .wave/output/issue-content.json
@@ -59,9 +59,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the GitHub issue and extract research topics.
+        Read the injected `issue` artifact for the fetched GitHub issue content.
 
-        Read the issue content from: .wave/artifacts/issue
+        Analyze the GitHub issue and extract research topics.
 
         Identify:
         1. Key technical questions that need external research
@@ -80,7 +80,7 @@ steps:
         Focus on topics that will provide actionable insights for the issue author.
         Limit to 10 most important topics.
 
-        Write the result to output/research-topics.json
+        Produce structured JSON with the research topics.
     output_artifacts:
       - name: topics
         path: .wave/output/research-topics.json
@@ -110,10 +110,10 @@ steps:
     exec:
       type: prompt
       source: |
-        Research the topics identified in the research plan.
+        Read the injected `issue` artifact for the original GitHub issue content.
+        Read the injected `research_plan` artifact for the identified research topics.
 
-        Original issue: .wave/artifacts/issue
-        Research plan: .wave/artifacts/research_plan
+        Research the topics identified in the research plan.
 
         For each topic in the research plan:
         1. Execute web searches using the provided keywords
@@ -133,7 +133,7 @@ steps:
         If a topic yields no useful results, mark confidence as "inconclusive".
         Document any gaps in the research.
 
-        Write the result to output/research-findings.json
+        Produce structured JSON with the research findings.
     output_artifacts:
       - name: findings
         path: .wave/output/research-findings.json
@@ -163,10 +163,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the research findings into a coherent report for the GitHub issue.
+        Read the injected `original_issue` artifact for the original GitHub issue content.
+        Read the injected `research` artifact for the compiled research findings.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
 
-        Original issue: .wave/artifacts/original_issue
-        Research findings: .wave/artifacts/research
+        Synthesize the research findings into a coherent report for the GitHub issue.
 
         Create a well-structured research report that includes:
 
@@ -196,7 +197,7 @@ steps:
            - Include a header: "## Research Findings (Wave Pipeline)"
            - End with sources section
 
-        Write the result to output/research-report.json
+        Produce structured JSON with the research report.
     output_artifacts:
       - name: report
         path: .wave/output/research-report.json
@@ -226,10 +227,10 @@ steps:
     exec:
       type: prompt
       source: |
-        Post the research report as a comment on the GitHub issue.
+        Read the injected `issue` artifact for the repository and issue number.
+        Read the injected `report` artifact for the research report to post.
 
-        Issue details: .wave/artifacts/issue
-        Report: .wave/artifacts/report
+        Post the research report as a comment on the GitHub issue.
 
         Steps:
         1. Read the issue details to get the repository and issue number
@@ -250,7 +251,7 @@ steps:
         5. Capture the result and verify success
         6. If successful, extract the comment URL from the output
 
-        Write the result to output/comment-result.json with:
+        Record the result with:
         - success: true/false
         - issue_reference: issue number and repository
         - comment: id, url, body_length (if successful)
