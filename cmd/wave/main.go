@@ -49,6 +49,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewArtifactsCmd())
 	rootCmd.AddCommand(commands.NewMigrateCmd())
 	rootCmd.AddCommand(commands.NewServeCmd())
+	rootCmd.AddCommand(commands.NewChatCmd())
 }
 
 func main() {
