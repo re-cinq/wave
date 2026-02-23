@@ -1346,13 +1346,35 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			}
 		}
 
+		// Archive artifact to a step-specific path so shared-worktree steps
+		// don't all point at the same file in the DB. The injection system
+		// keeps using artPath (the workspace-relative location), but the DB
+		// gets the archived copy which survives subsequent steps overwriting
+		// the same relative path.
+		registeredPath := artPath
+		if !art.IsStdoutArtifact() {
+			archiveDir := filepath.Join(workspacePath, ".wave", "artifacts", step.ID)
+			archiveName := art.Name
+			if art.Type == "json" && !strings.HasSuffix(archiveName, ".json") {
+				archiveName += ".json"
+			}
+			archivePath := filepath.Join(archiveDir, archiveName)
+			if data, readErr := os.ReadFile(artPath); readErr == nil {
+				if mkErr := os.MkdirAll(archiveDir, 0755); mkErr == nil {
+					if writeErr := os.WriteFile(archivePath, data, 0644); writeErr == nil {
+						registeredPath = archivePath
+					}
+				}
+			}
+		}
+
 		// Register artifact in DB for web dashboard visibility
 		if e.store != nil {
 			var size int64
-			if info, err := os.Stat(artPath); err == nil {
+			if info, err := os.Stat(registeredPath); err == nil {
 				size = info.Size()
 			}
-			e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, artPath, art.Type, size)
+			e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, registeredPath, art.Type, size)
 		}
 	}
 }
@@ -1515,15 +1537,8 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 		}
 
 		e.deliverableTracker.AddFile(step.ID, artifact.Name, absPath, artifact.Type)
-
-		// Register artifact in DB for web dashboard visibility
-		if e.store != nil {
-			var size int64
-			if info, statErr := os.Stat(absPath); statErr == nil {
-				size = info.Size()
-			}
-			e.store.RegisterArtifact(execution.Status.ID, step.ID, artifact.Name, absPath, artifact.Type, size)
-		}
+		// NOTE: DB registration is handled by writeOutputArtifacts (with archiving).
+		// Do NOT duplicate it here.
 	}
 
 }
