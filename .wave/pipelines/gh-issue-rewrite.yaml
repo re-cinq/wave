@@ -37,11 +37,11 @@ steps:
             gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
         2b. BATCH mode: gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
-        After getting REAL results from Bash, analyze issues and save to artifact.json.
+        After getting REAL results from Bash, analyze issues and score them.
         In single issue mode, analyze the one issue. In batch mode, analyze all returned issues.
     output_artifacts:
       - name: issue_analysis
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
         required: true
     handover:
@@ -81,12 +81,12 @@ steps:
         - suggested_labels: appropriate labels
         - enhancements: list of changes being made
 
-        Save the result to artifact.json matching the contract schema, with fields:
+        Create an enhancement plan with fields:
         issues_to_enhance (array of issue_number, suggested_title, body_template,
         suggested_labels, enhancements) and total_to_enhance.
     output_artifacts:
       - name: enhancement_plan
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
         required: true
     handover:
@@ -126,16 +126,18 @@ steps:
         - If body_template is provided: gh issue edit <N> --repo {{ input }} --body "body_template"
         - If suggested_labels: gh issue edit <N> --repo {{ input }} --add-label "label1,label2"
 
-        Step 4: Save actual results to artifact.json matching the contract schema,
-        with fields: enhanced_issues, total_attempted, total_successful, total_failed.
+        Step 4: For each issue, capture the URL: gh issue view <N> --repo {{ input }} --json url --jq .url
+
+        Step 5: Record the results with fields: enhanced_issues (each with issue_number,
+        success, changes_made, url), total_attempted, total_successful, total_failed.
     output_artifacts:
       - name: enhancement_results
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
         required: true
     outcomes:
       - type: issue
-        extract_from: artifact.json
+        extract_from: .wave/artifact.json
         json_path: .enhanced_issues[0].url
         label: "Enhanced Issue"
     handover:
@@ -170,11 +172,11 @@ steps:
 
         For each issue, verify with: gh issue view <N> --repo {{ input }} --json title,labels
 
-        Save verification to artifact.json matching the contract schema, with fields:
+        Compile a verification report with fields:
         total_enhanced, successful_enhancements, failed_enhancements, and summary.
     output_artifacts:
       - name: verification_report
-        path: artifact.json
+        path: .wave/artifact.json
         type: json
         required: true
     handover:
