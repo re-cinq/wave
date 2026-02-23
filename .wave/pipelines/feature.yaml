@@ -38,7 +38,6 @@ steps:
 
         6. **Assess risks**: Breaking changes, performance, security implications.
 
-        Write the result as JSON to output/exploration.json matching the contract schema.
         Include: feature, scope, related_files (path, relevance, reason, key_symbols),
         patterns_to_follow, affected_modules, test_files, risks, and timestamp.
     output_artifacts:
@@ -73,8 +72,6 @@ steps:
 
         Feature: {{ input }}
 
-        Read the exploration: cat .wave/artifacts/context
-
         Break the feature into ordered implementation steps:
 
         1. For each step: what to do, which files to modify, acceptance criteria
@@ -82,7 +79,6 @@ steps:
         3. What tests to write
         4. Complexity estimate per step (S/M/L)
 
-        Write the result as JSON to output/plan.json matching the contract schema.
         Include: feature, steps (id, title, description, files_to_modify, files_to_create,
         tests_to_write, acceptance_criteria, complexity, dependencies), total_complexity,
         branch_name_suggestion, commit_message_suggestion, and timestamp.
@@ -116,10 +112,6 @@ steps:
       type: prompt
       source: |
         Implement the feature on this isolated worktree branch.
-
-        Read the exploration and plan:
-          cat .wave/artifacts/context
-          cat .wave/artifacts/plan
 
         Feature: {{ input }}
 
@@ -184,20 +176,11 @@ steps:
            git push -u origin HEAD
            ```
 
-        2. Create a pull request using the implementation result as context:
-           ```bash
-           gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
-           ```
+        2. Create a pull request using the implementation result as context.
+           Use `gh pr create` with a descriptive title based on the latest commit message
+           and the implementation result as the PR body.
 
-        3. Write a JSON status report to `output/pr-result.json`:
-
-           ```json
-           {
-             "pr_url": "https://github.com/owner/repo/pull/123",
-             "pr_number": 123,
-             "branch": "feat/<pipeline_id>"
-           }
-           ```
+        3. Capture the PR URL, PR number, and branch name in the result.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
