@@ -501,6 +501,54 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 	assert.True(t, posB < posC, "step-b should execute before step-c")
 }
 
+// TestFailedStepAlwaysHasID ensures that StepError always carries the step ID,
+// even when the step fails on a single-step batch (no concurrency).
+func TestFailedStepAlwaysHasID(t *testing.T) {
+	collector := newTestEventCollector()
+	failingAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("simulated timeout")),
+	)
+
+	executor := NewDefaultPipelineExecutor(failingAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Linear pipeline: A -> B where B fails (single-step batch)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "step-id-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	// Make step-a succeed, step-b fail
+	stepAdapter := &stepAwareAdapter{
+		defaultAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-b": failingAdapter,
+		},
+	}
+	executor = NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+
+	var stepErr *StepError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	assert.Equal(t, "step-b", stepErr.StepID, "StepError must carry the failed step ID")
+	assert.NotEmpty(t, stepErr.StepID, "StepError.StepID must never be empty")
+}
+
 // TestConcurrentStepWideFanOut tests a wide fan-out pattern with many parallel steps.
 func TestConcurrentStepWideFanOut(t *testing.T) {
 	collector := newTestEventCollector()
