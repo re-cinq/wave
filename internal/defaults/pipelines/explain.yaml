@@ -44,10 +44,10 @@ steps:
 
         ## Output
 
-        Write the result as JSON to output/exploration.json matching the contract schema.
-        Include: topic, entry_points (file, symbol, role, line), key_types (name, file, purpose,
-        methods, relationships), call_flows (name, steps, description), dependencies (depends_on,
-        depended_by, external), test_files, config_points, file_count, and timestamp.
+        Produce a structured result covering: topic, entry_points (file, symbol, role, line),
+        key_types (name, file, purpose, methods, relationships), call_flows (name, steps,
+        description), dependencies (depends_on, depended_by, external), test_files, config_points,
+        file_count, and timestamp.
     output_artifacts:
       - name: exploration
         path: .wave/output/exploration.json
@@ -76,11 +76,12 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `codebase_map` artifact for the exploration results from the previous step.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+
         Analyze the architecture and design of the explored code.
 
-        Read the exploration first: cat .wave/artifacts/codebase_map
-
-        Then read the key source files identified. Focus on:
+        Read the key source files identified in the exploration. Focus on:
 
         1. **Design patterns**: What patterns are used and why?
         2. **Data flow**: How does data enter, transform, and exit?
@@ -89,10 +90,9 @@ steps:
         5. **Extension points**: Where can new functionality be added?
         6. **Design decisions**: What trade-offs were made?
 
-        Write the result as JSON to output/analysis.json matching the contract schema.
-        Include: topic, patterns (name, where, why, quality), data_flow (name, stages,
-        key_transformations), error_handling, concurrency, extension_points, design_decisions,
-        and timestamp.
+        Produce a structured result covering: topic, patterns (name, where, why, quality),
+        data_flow (name, stages, key_transformations), error_handling, concurrency,
+        extension_points, design_decisions, and timestamp.
     output_artifacts:
       - name: analysis
         path: .wave/output/analysis.json
@@ -119,13 +119,10 @@ steps:
     exec:
       type: prompt
       source: |
-        Write a comprehensive explanation document.
+        Read the injected `codebase_map` artifact for the exploration results and the `architecture` artifact for the architectural analysis.
+        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
 
-        Read both artifacts:
-          cat .wave/artifacts/codebase_map
-          cat .wave/artifacts/architecture
-
-        Write a markdown document to output/explanation.md with:
+        Write a comprehensive explanation document covering:
 
         1. **Overview** — One paragraph summary
         2. **Key Concepts** — Core abstractions and terminology (glossary)

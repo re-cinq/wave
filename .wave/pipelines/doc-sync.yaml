@@ -72,6 +72,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `scan` artifact for the documentation scan results.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         Review the doc scan findings and prioritize fixes.
 
         For each finding:
@@ -106,6 +109,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `scan` artifact for the original documentation scan findings.
+        Read the injected `plan` artifact for the prioritized fix plan.
+
         Fix the documentation inconsistencies on this isolated worktree branch.
 
         ## Process
@@ -163,6 +169,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `scan` artifact for the original scan findings.
+        Read the injected `result` artifact for the fix results summary.
+
         Create a pull request for the documentation fixes.
 
         ## Working Directory

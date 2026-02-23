@@ -71,6 +71,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `evidence` artifact for the gathered supervision evidence.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         Evaluate the work quality based on gathered evidence.
 
         ## Output Quality Assessment
@@ -129,6 +132,9 @@ steps:
     exec:
       type: prompt
       source: |
+        Read the injected `evidence` artifact for the gathered evidence and the `evaluation` artifact for the quality evaluation.
+        Base your work on the injected artifacts — do NOT fetch data from external sources.
+
         Synthesize a final supervision verdict.
 
         ## Independent Verification
