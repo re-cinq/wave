@@ -54,9 +54,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `investigation` artifact for the root cause analysis and investigation findings.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Fix the production issue based on the investigation findings.
 
         Requirements:

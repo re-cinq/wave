@@ -76,12 +76,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `codebase_map` artifact for the exploration results from the previous step.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Analyze the architecture and design of the explored code.
 
-        Read the key source files identified in the exploration. Focus on:
+        Using the exploration results, read the key source files identified. Focus on:
 
         1. **Design patterns**: What patterns are used and why?
         2. **Data flow**: How does data enter, transform, and exit?
@@ -119,10 +116,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `codebase_map` artifact for the exploration results and the `architecture` artifact for the architectural analysis.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
+        Write a comprehensive explanation document.
 
-        Write a comprehensive explanation document covering:
+        Using both the exploration and architecture analysis, write a document covering:
 
         1. **Overview** — One paragraph summary
         2. **Key Concepts** — Core abstractions and terminology (glossary)

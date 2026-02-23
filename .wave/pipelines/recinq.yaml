@@ -93,14 +93,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for gathered input context.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         DIVERGENT THINKING — cast the widest net to find simplification opportunities.
 
         Target: {{ input }}
 
         ## Starting Point
+
+        Read the injected context artifact for input context.
         If `input_type` is `"issue"` or `"pr"`, the `focus_hint` tells you WHERE to start looking —
         but do NOT limit yourself to what the issue describes. Use it as a seed, then expand outward.
         Follow dependency chains, trace callers, explore adjacent modules. The issue author doesn't
@@ -191,13 +190,12 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `divergent_findings` artifact for the raw findings from the diverge step.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         CONVERGENT VALIDATION — separate signal from noise.
 
         This is a purely CONVERGENT step. Your job is analytical, not creative.
         Judge every finding on technical merit alone. No speculation, no new ideas.
+
+        ## Read Input
 
         Target: {{ input }}
 
@@ -247,17 +245,15 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `divergent_findings` artifact for the original raw findings.
-        Read the injected `validated_findings` artifact for the validated and classified findings.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         SECOND DIVERGENCE — probe deeper into confirmed findings.
 
         The first pass cast a wide net. The validator filtered it down.
         Now YOU go deeper on what survived. This is DIVERGENT thinking again —
         expand, connect, discover what the first pass missed.
 
-        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
+        ## Read Inputs
+
+        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED from the injected artifacts.
 
         Target: {{ input }}
 
@@ -325,11 +321,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for gathered input context.
-        Read the injected `validated_findings` artifact for the validated findings.
-        Read the injected `probed_findings` artifact for deeper connections, patterns, and new discoveries.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         FINAL CONVERGENCE — synthesize all findings into actionable proposals.
 
         This is the last convergent step before implementation. You have:
@@ -414,9 +405,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `validated_findings` artifact for the validated findings.
-        Read the injected `proposals` artifact for the prioritized simplification proposals.
-
         IMPLEMENTATION — apply the best simplification proposals.
 
         ## Process
@@ -486,9 +474,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `proposals` artifact for the simplification proposals.
-        Read the injected `result` artifact for the implementation results.
-
         REPORT — compose a summary of what recinq found and applied.
 
         Run `git log --oneline` to see the commits on this branch.
@@ -523,9 +508,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for the original input context.
-        Read the injected `report` artifact for the recinq report to use as the PR body.
-
         PUBLISH — push the branch and create a pull request.
 
         ## Steps
@@ -537,7 +519,7 @@ steps:
 
         2. Create a pull request using the report as the body.
 
-        3. If the injected `context` shows `input_type` is `"issue"` or `"pr"`,
+        3. If the injected context shows `input_type` is `"issue"` or `"pr"`,
            post the PR URL as a comment on the source:
            ```bash
            gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"

@@ -41,6 +41,7 @@ steps:
            - INACCURATE: Docs describe wrong behavior
            - INCOMPLETE: Docs exist but missing details
 
+        Write the result as JSON to output/doc-scan.json matching the contract schema.
         Include: scan_scope, findings (id, type, severity, title, doc_location, code_location,
         description, suggested_fix), summary (total_findings, by_type, by_severity, fixable_count),
         and timestamp.
@@ -72,17 +73,16 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `scan` artifact for the documentation scan results.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         Review the doc scan findings and prioritize fixes.
+
+        Read the scan results: cat .wave/artifacts/scan
 
         For each finding:
         1. Verify it's a real inconsistency (not a false positive)
         2. Assess if it can be fixed by editing docs alone
         3. Prioritize: CRITICAL/HIGH first, then by effort
 
-        Produce a fix plan as markdown:
+        Produce a fix plan as markdown to output/fix-plan.md:
         - Ordered list of fixes to apply
         - For each: which file to edit, what to change, why
         - Skip items that require code changes (docs-only fixes)
@@ -109,10 +109,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `scan` artifact for the original documentation scan findings.
-        Read the injected `plan` artifact for the prioritized fix plan.
-
         Fix the documentation inconsistencies on this isolated worktree branch.
+
+        Read the scan results and fix plan:
+          cat .wave/artifacts/scan
+          cat .wave/artifacts/plan
 
         ## Process
 
@@ -135,7 +136,7 @@ steps:
            ..."
            ```
 
-        Write a summary including:
+        Write a summary to output/result.md:
         - Branch name
         - List of files modified
         - Findings fixed vs skipped
@@ -169,9 +170,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `scan` artifact for the original scan findings.
-        Read the injected `result` artifact for the fix results summary.
-
         Create a pull request for the documentation fixes.
 
         ## Working Directory
@@ -189,7 +187,8 @@ steps:
 
         ### Step 1: Load Context
 
-        Load the original scan findings and the fix summary (files modified, findings fixed/skipped).
+        Read `.wave/artifacts/scan` for the original scan findings.
+        Read `.wave/artifacts/fix_result` for the fix summary (files modified, findings fixed/skipped).
 
         ### Step 2: Push the Branch
 
@@ -236,8 +235,19 @@ steps:
 
         ## Output
 
-        Record the PR URL, PR number, branch, whether copilot review was requested,
-        counts of findings fixed and skipped, and a brief summary.
+        Write a JSON status report to `output/pr-result.json`:
+
+        ```json
+        {
+          "pr_url": "https://github.com/owner/repo/pull/123",
+          "pr_number": 123,
+          "branch": "fix/<pipeline_id>",
+          "copilot_review_requested": true,
+          "findings_fixed": 5,
+          "findings_skipped": 2,
+          "summary": "Brief description of the PR"
+        }
+        ```
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

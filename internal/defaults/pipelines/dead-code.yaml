@@ -50,9 +50,10 @@ steps:
         - Check if it's part of an interface implementation
         - Check for build tag conditional compilation
 
-        Produce a structured result covering: target, findings (id, type, location, symbol,
-        description, evidence, confidence, safe_to_remove, removal_note), summary (total_findings,
-        by_type, high_confidence_count, estimated_lines_removable), and timestamp.
+        Write the result as JSON to output/dead-code-scan.json matching the contract schema.
+        Include: target, findings (id, type, location, symbol, description, evidence, confidence,
+        safe_to_remove, removal_note), summary (total_findings, by_type, high_confidence_count,
+        estimated_lines_removable), and timestamp.
         Only include findings with high or medium confidence. Skip low confidence.
     output_artifacts:
       - name: scan_results
@@ -80,10 +81,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `findings` artifact for the dead code scan results.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         Remove the dead code on this isolated worktree branch.
+
+        Read the scan findings: cat .wave/artifacts/findings
 
         ## Process
 
@@ -137,9 +137,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `original_findings` artifact for the original dead code scan results.
-
         Verify the dead code removal was safe.
+
+        Read the original findings: cat .wave/artifacts/original_findings
 
         Check:
         1. Were only high-confidence items removed?
@@ -148,7 +148,7 @@ steps:
         4. Were any false positives accidentally removed?
         5. Is the commit focused (no unrelated changes)?
 
-        Produce a verification report covering:
+        Output a verification report to output/verification.md:
         - Items removed (with justification)
         - Items skipped (with reason)
         - Lines of code removed
@@ -176,9 +176,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `findings` artifact for the scan results and the `verification_report` artifact for the verification outcome.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         Create a pull request for the dead code removal.
 
         ## Working Directory
@@ -196,7 +193,8 @@ steps:
 
         ### Step 1: Load Context
 
-        Review the injected scan results (what was found) and verification outcome.
+        Read `.wave/artifacts/findings` to get the scan results (what was found).
+        Read `.wave/artifacts/verification_report` to get the verification outcome.
 
         ### Step 2: Push the Branch
 
@@ -245,8 +243,19 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: pr_url, pr_number, branch,
-        copilot_review_requested, items_removed, lines_removed, and summary.
+        Write a JSON status report to `output/pr-result.json`:
+
+        ```json
+        {
+          "pr_url": "https://github.com/owner/repo/pull/123",
+          "pr_number": 123,
+          "branch": "chore/<pipeline_id>",
+          "copilot_review_requested": true,
+          "items_removed": 5,
+          "lines_removed": 120,
+          "summary": "Brief description of the PR"
+        }
+        ```
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

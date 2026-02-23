@@ -35,9 +35,10 @@ steps:
         - Effort: how hard is the fix?
         - Risk: could the fix introduce regressions?
 
-        Produce a structured result covering: target, findings (id, category, title, location,
-        description, current_code, suggested_fix, impact, effort, risk), summary (total_findings,
-        by_category, quick_wins, high_impact, overall_quality), and timestamp.
+        Write the result as JSON to output/assessment.json matching the contract schema.
+        Include: target, findings (id, category, title, location, description, current_code,
+        suggested_fix, impact, effort, risk), summary (total_findings, by_category, quick_wins,
+        high_impact, overall_quality), and timestamp.
     output_artifacts:
       - name: assessment
         path: .wave/output/assessment.json
@@ -66,10 +67,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `findings` artifact for the assessment of improvement opportunities.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Apply the recommended improvements to the codebase.
+
+        Read the assessment: cat .wave/artifacts/findings
 
         ## Rules
 
@@ -103,10 +103,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `original_findings` artifact for the original assessment of improvement opportunities.
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Verify the improvements were applied correctly.
+
+        Read the original assessment: cat .wave/artifacts/original_findings
 
         For each improvement that was applied:
         1. Is the fix correct and complete?
@@ -116,7 +115,7 @@ steps:
 
         For improvements NOT applied, confirm they were appropriately skipped.
 
-        Produce a verification report covering:
+        Output a verification report to output/verification.md:
         - Applied improvements (with before/after)
         - Skipped items (with justification)
         - New issues found (if any)

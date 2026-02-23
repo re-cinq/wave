@@ -57,8 +57,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `gaps` artifact for the coverage analysis identifying uncovered functions, branches, and edge cases.
-
         Generate tests to improve coverage for: {{ input }}
 
         Requirements:

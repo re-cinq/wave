@@ -52,10 +52,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Security review of the changes.
-
-        Read the injected `changes` artifact for the structured diff analysis from the previous step.
-        Base your review exclusively on this artifact and the project codebase — do NOT fetch data from external sources.
+        Security review of the changes:
 
         Check for:
         1. SQL injection, XSS, CSRF vulnerabilities
@@ -82,10 +79,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Quality review of the changes.
-
-        Read the injected `changes` artifact for the structured diff analysis from the previous step.
-        Base your review exclusively on this artifact and the project codebase — do NOT fetch data from external sources.
+        Quality review of the changes:
 
         Check for:
         1. Error handling completeness
@@ -116,10 +110,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the review findings into a final verdict.
-
-        Read the injected `security_findings` and `quality_findings` artifacts for the review results from previous steps.
-        Base your synthesis exclusively on these artifacts — do NOT fetch data from external sources.
+        Synthesize the review findings into a final verdict:
 
         1. Overall assessment (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION)
         2. Critical issues that must be fixed
@@ -146,7 +137,6 @@ steps:
       source: |
         Post the code review summary as a PR comment.
 
-        Read the injected `review_summary` artifact for the final review content.
         The original input was: {{ input }}
         Extract the PR number or URL from the input.
 

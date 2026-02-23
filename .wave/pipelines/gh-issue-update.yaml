@@ -85,9 +85,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `context` artifact for the gathered issue context.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         MANDATORY: You MUST call the Bash tool for any commands. NEVER generate fake output.
 
         The injected context contains the gathered issue context.
@@ -150,9 +147,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `draft` artifact for the update draft.
-        Read the injected `context` artifact for the repository and issue information.
-
         CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
 
         Step 1: Use Bash tool to verify gh works:

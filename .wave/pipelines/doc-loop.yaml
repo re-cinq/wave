@@ -86,8 +86,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `scan` artifact for the scan results including changed files and documentation snapshot.
-
         Analyze documentation consistency by cross-referencing code changes with documentation.
 
         ## Cross-Reference Checks
@@ -155,9 +153,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `report` artifact for the consistency analysis results.
-        Base your work on the injected artifacts — do NOT fetch data from external sources.
-
         Compose a documentation consistency report as a GitHub-ready markdown file.
 
         ## Check for Inconsistencies
@@ -212,8 +207,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `report` artifact for the composed documentation report.
-
         PUBLISH — create a GitHub issue from the documentation report.
 
         If the report says "No inconsistencies found", skip issue creation and exit.

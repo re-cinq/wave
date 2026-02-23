@@ -37,6 +37,7 @@ steps:
 
         5. **Identify stakeholders**: Which components/teams/users are affected?
 
+        Write the result as JSON to output/adr-context.json matching the contract schema.
         Include: decision_topic, current_state (description, affected_files, affected_components),
         constraints, precedents, stakeholders, and timestamp.
     output_artifacts:
@@ -67,10 +68,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `decision_context` artifact for the context gathered from codebase exploration (current state, constraints, precedents, and stakeholders).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Analyze the options for this architectural decision.
+
+        Read the context: cat .wave/artifacts/decision_context
 
         Original decision: {{ input }}
 
@@ -86,11 +86,9 @@ steps:
         6. **Reversibility**: How hard to undo if it's the wrong choice?
         7. **Compatibility**: How well does it fit with existing constraints?
 
+        Write the result as JSON to output/adr-options.json matching the contract schema.
         Include: decision_topic, options (name, description, pros, cons, effort, risk,
         reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
-
-        CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
-        outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: options
         path: .wave/output/adr-options.json
@@ -117,13 +115,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `decision_context` artifact for the context gathered from codebase exploration (current state, constraints, precedents, and stakeholders).
-        Read the injected `analysis` artifact for the options analysis (viable options with pros, cons, effort, risk, and recommendation).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Draft the Architecture Decision Record.
 
-        Write the ADR using this standard format:
+        Read both artifacts:
+          cat .wave/artifacts/decision_context
+          cat .wave/artifacts/analysis
+
+        Write the ADR to output/adr.md using this standard format:
 
         # ADR-NNN: [Title]
 
@@ -190,8 +188,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `adr` artifact for the draft Architecture Decision Record to publish.
-
         PUBLISH — commit the ADR and create a pull request.
 
         ## Steps
@@ -199,7 +195,7 @@ steps:
         1. Copy the ADR into the project docs:
            - Determine the next ADR number by listing existing ADR files
              (e.g., `ls docs/adr/` or similar convention)
-           - Copy the injected ADR artifact to the appropriate location
+           - Copy `.wave/artifacts/adr` to the appropriate location
              (e.g., `docs/adr/NNN-title.md`)
 
         2. Commit:
@@ -211,10 +207,19 @@ steps:
         3. Push and create PR:
            ```bash
            git push -u origin HEAD
-           gh pr create --title "docs: ADR — <decision topic>" --body "<PR description>"
+           gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
            ```
 
-        4. Write a JSON status report with pr_url, pr_number, branch, and adr_path fields.
+        4. Write a JSON status report to `output/pr-result.json`:
+
+           ```json
+           {
+             "pr_url": "https://github.com/owner/repo/pull/123",
+             "pr_number": 123,
+             "branch": "docs/<pipeline_id>",
+             "adr_path": "docs/adr/NNN-title.md"
+           }
+           ```
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

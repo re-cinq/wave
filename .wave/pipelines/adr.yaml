@@ -67,9 +67,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `decision_context` artifact for the context gathered from codebase exploration (current state, constraints, precedents, and stakeholders).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Analyze the options for this architectural decision.
 
         Original decision: {{ input }}
@@ -88,9 +85,6 @@ steps:
 
         Include: decision_topic, options (name, description, pros, cons, effort, risk,
         reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
-
-        CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
-        outside the file. The file must parse as valid JSON.
     output_artifacts:
       - name: options
         path: .wave/output/adr-options.json
@@ -117,10 +111,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `decision_context` artifact for the context gathered from codebase exploration (current state, constraints, precedents, and stakeholders).
-        Read the injected `analysis` artifact for the options analysis (viable options with pros, cons, effort, risk, and recommendation).
-        Base your work on the injected artifacts and the project codebase — do NOT fetch data from external sources.
-
         Draft the Architecture Decision Record.
 
         Write the ADR using this standard format:
@@ -190,8 +180,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `adr` artifact for the draft Architecture Decision Record to publish.
-
         PUBLISH — commit the ADR and create a pull request.
 
         ## Steps
