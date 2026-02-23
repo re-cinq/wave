@@ -377,16 +377,20 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	_ = executor.Execute(ctx, p, m, "test")
 
-	// Verify schema was injected into prompt
+	// Schema injection is now in ContractPrompt (CLAUDE.md), NOT in the main prompt.
+	// Verify the main prompt is clean (no OUTPUT REQUIREMENTS).
 	prompts := capturingAdapter.GetCapturedPrompts()
 	require.Len(t, prompts, 1, "Should have captured one prompt")
 
 	prompt := prompts[0]
-	assert.Contains(t, prompt, "OUTPUT REQUIREMENTS", "Prompt should contain OUTPUT REQUIREMENTS section")
-	assert.Contains(t, prompt, ".wave/artifact.json", "Prompt should mention .wave/artifact.json")
-	assert.Contains(t, prompt, "result", "Prompt should contain schema field 'result'")
-	assert.Contains(t, prompt, "confidence", "Prompt should contain schema field 'confidence'")
-	assert.Contains(t, prompt, "JSON", "Prompt should mention JSON format")
+	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS", "Main prompt should not contain OUTPUT REQUIREMENTS — schema is in ContractPrompt/CLAUDE.md")
+	assert.Equal(t, "Analyze the codebase", prompt, "Main prompt should be clean source text")
+
+	// Verify schema content is in the contract prompt (buildContractPrompt)
+	contractPrompt := executor.buildContractPrompt(&p.Steps[0], nil)
+	assert.Contains(t, contractPrompt, "result", "Contract prompt should contain schema field 'result'")
+	assert.Contains(t, contractPrompt, "confidence", "Contract prompt should contain schema field 'confidence'")
+	assert.Contains(t, contractPrompt, "JSON", "Contract prompt should mention JSON format")
 }
 
 func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
@@ -431,12 +435,17 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 
 	_ = executor.Execute(ctx, p, m, "test")
 
+	// Schema injection is now in ContractPrompt (CLAUDE.md), NOT in the main prompt.
 	prompts := capturingAdapter.GetCapturedPrompts()
 	require.Len(t, prompts, 1)
 
 	prompt := prompts[0]
-	assert.Contains(t, prompt, "status", "Inline schema should be injected into prompt")
-	assert.Contains(t, prompt, "OUTPUT REQUIREMENTS", "Should have output requirements section")
+	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS", "Main prompt should not contain OUTPUT REQUIREMENTS")
+	assert.Equal(t, "Check status", prompt, "Main prompt should be clean source text")
+
+	// Verify schema content is in the contract prompt
+	contractPrompt := executor.buildContractPrompt(&p.Steps[0], nil)
+	assert.Contains(t, contractPrompt, "status", "Contract prompt should contain inline schema field")
 }
 
 // ============================================================================
