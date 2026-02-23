@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -22,6 +23,10 @@ type ChatOptions struct {
 	Manifest string
 	Model    string
 	List     bool
+	// Phase 2: step manipulation
+	Continue string // --continue <step-id>: continue work in step's workspace
+	Rewrite  string // --rewrite <step-id>: re-execute step with new prompt
+	Extend   string // --extend <step-id>: add instructions to step
 }
 
 // NewChatCmd creates the chat command.
@@ -31,21 +36,23 @@ func NewChatCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat [run-id]",
 		Short: "Open interactive analysis of a pipeline run",
-		Long: `Open an interactive Claude Code session with context from a completed pipeline run.
-
-Claude is launched with read-only access to run artifacts, step workspaces,
-and the project source code. The CLAUDE.md in the session contains the full
-run summary, step results, and artifact inventory.
+		Long: `Open an interactive Claude Code session with context from a completed
+pipeline run. The session includes run summary, step results, artifact
+inventory, and access to preserved step workspaces.
 
 Without arguments, opens the most recent completed run.
-With --list, shows recent runs to choose from.
 
-Examples:
-  wave chat                              # Most recent completed run
-  wave chat speckit-flow-20260223-140000  # Specific run
-  wave chat --list                        # List recent runs
-  wave chat --step implement             # Focus on a specific step
-  wave chat --model opus                 # Use a specific model`,
+  Analyze (read-only):
+    wave chat                            # latest completed run
+    wave chat <run-id>                   # specific run
+    wave chat --list                     # pick from recent runs
+    wave chat --step implement           # focus on one step
+    wave chat --model opus               # override model
+
+  Manipulate (read-write):
+    wave chat --continue <step>          # resume work in step workspace
+    wave chat --extend <step>            # add instructions to a step
+    wave chat --rewrite <step>           # re-execute with new prompt`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -59,6 +66,11 @@ Examples:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Model to use (default: sonnet)")
 	cmd.Flags().BoolVar(&opts.List, "list", false, "List recent runs")
+
+	// Phase 2: step manipulation flags
+	cmd.Flags().StringVar(&opts.Continue, "continue", "", "Continue work in a step's workspace (read-write)")
+	cmd.Flags().StringVar(&opts.Rewrite, "rewrite", "", "Re-execute a step with modified prompt")
+	cmd.Flags().StringVar(&opts.Extend, "extend", "", "Add supplementary instructions to a step")
 
 	return cmd
 }
@@ -121,9 +133,29 @@ func runChat(opts ChatOptions) error {
 		return fmt.Errorf("failed to build chat context: %w", err)
 	}
 
+	// Phase 2: Step manipulation
+	if opts.Continue != "" || opts.Rewrite != "" || opts.Extend != "" {
+		controller := pipeline.NewStepController(store, opts.Model)
+
+		if opts.Continue != "" {
+			fmt.Fprintf(os.Stderr, "  Mode:     continue step %q\n\n", opts.Continue)
+			return controller.ContinueStep(context.Background(), chatCtx, opts.Continue)
+		}
+		if opts.Extend != "" {
+			// For extend, we need additional instructions from stdin or a prompt
+			fmt.Fprintf(os.Stderr, "  Mode:     extend step %q\n\n", opts.Extend)
+			return controller.ExtendStep(context.Background(), chatCtx, opts.Extend, "")
+		}
+		if opts.Rewrite != "" {
+			fmt.Fprintf(os.Stderr, "  Mode:     rewrite step %q\n\n", opts.Rewrite)
+			return controller.RewriteStep(context.Background(), chatCtx, opts.Rewrite, "")
+		}
+	}
+
 	// Prepare workspace
 	wsOpts := pipeline.ChatWorkspaceOptions{
 		Model: opts.Model,
+		Mode:  pipeline.ChatModeAnalysis,
 	}
 	wsPath, err := pipeline.PrepareChatWorkspace(chatCtx, wsOpts)
 	if err != nil {
