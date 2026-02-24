@@ -38,8 +38,9 @@ steps:
 
         6. **Assess risks**: Breaking changes, performance, security implications.
 
-        Include: feature, scope, related_files (path, relevance, reason, key_symbols),
-        patterns_to_follow, affected_modules, test_files, risks, and timestamp.
+        Produce a structured JSON result covering: feature, scope, related_files
+        (path, relevance, reason, key_symbols), patterns_to_follow, affected_modules,
+        test_files, risks, and timestamp.
     output_artifacts:
       - name: exploration
         path: .wave/output/exploration.json
@@ -72,6 +73,8 @@ steps:
 
         Feature: {{ input }}
 
+        The codebase exploration has been injected into your workspace. Read it first.
+
         Break the feature into ordered implementation steps:
 
         1. For each step: what to do, which files to modify, acceptance criteria
@@ -79,9 +82,10 @@ steps:
         3. What tests to write
         4. Complexity estimate per step (S/M/L)
 
-        Include: feature, steps (id, title, description, files_to_modify, files_to_create,
-        tests_to_write, acceptance_criteria, complexity, dependencies), total_complexity,
-        branch_name_suggestion, commit_message_suggestion, and timestamp.
+        Produce a structured JSON result covering: feature, steps (id, title, description,
+        files_to_modify, files_to_create, tests_to_write, acceptance_criteria, complexity,
+        dependencies), total_complexity, branch_name_suggestion, commit_message_suggestion,
+        and timestamp.
     output_artifacts:
       - name: plan
         path: .wave/output/plan.json
@@ -112,6 +116,9 @@ steps:
       type: prompt
       source: |
         Implement the feature on this isolated worktree branch.
+
+        The codebase exploration and implementation plan have been injected into your
+        workspace. Read them both before starting.
 
         Feature: {{ input }}
 
@@ -176,11 +183,12 @@ steps:
            git push -u origin HEAD
            ```
 
-        2. Create a pull request using the implementation result as context.
-           Use `gh pr create` with a descriptive title based on the latest commit message
-           and the implementation result as the PR body.
+        2. Create a pull request using the implementation result as context:
+           ```bash
+           gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
+           ```
 
-        3. Capture the PR URL, PR number, and branch name in the result.
+        3. Produce a JSON status report containing: pr_url, pr_number, and branch.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
