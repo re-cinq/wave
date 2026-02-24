@@ -187,6 +187,16 @@ func GetColorSchemeByName(theme string) ColorPalette {
 	}
 }
 
+// HandoverInfo holds per-step handover metadata for verbose display.
+// It captures artifact paths written by the step, contract validation results,
+// and the target step name for inter-step handover visualization.
+type HandoverInfo struct {
+	ArtifactPaths  []string // Artifact file paths written by the step
+	ContractStatus string   // "passed", "failed", "soft_failure", or "" (no contract)
+	ContractSchema string   // Contract type/schema name (e.g., "json_schema")
+	TargetStep     string   // Next step ID in the pipeline (handover target)
+}
+
 // PipelineContext provides comprehensive context for overall pipeline progress tracking.
 // It includes project metadata, step tracking, ETA calculations, and workspace information.
 type PipelineContext struct {
@@ -241,6 +251,10 @@ type PipelineContext struct {
 	// Tool activity (verbose mode) — global fallback for backward compat
 	LastToolName   string // Most recent tool being used (Read, Write, Bash, etc.)
 	LastToolTarget string // Most recent tool target (file path, command, pattern)
+
+	// Handover metadata by step (verbose mode)
+	HandoversByStep map[string]*HandoverInfo // stepID -> handover metadata
+	Verbose         bool                     // Whether verbose mode is enabled
 
 	// Additional context
 	Message string
