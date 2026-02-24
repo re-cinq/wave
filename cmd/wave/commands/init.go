@@ -800,9 +800,6 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 				"timeout_minutes":  60,
 			},
 		},
-		"skill_mounts": []map[string]interface{}{
-			{"path": ".wave/skills/"},
-		},
 	}
 
 	if project != nil {
