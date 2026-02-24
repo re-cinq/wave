@@ -68,12 +68,22 @@ type ContractUsage struct {
 	Persona  string `json:"persona"`
 }
 
+// SkillInfo holds information about a declared skill
+type SkillInfo struct {
+	Name      string   `json:"name"`
+	Check     string   `json:"check"`
+	Install   string   `json:"install,omitempty"`
+	Installed bool     `json:"installed"`
+	UsedBy    []string `json:"used_by,omitempty"`
+}
+
 type ListOutput struct {
 	Adapters  []AdapterInfo  `json:"adapters,omitempty"`
 	Runs      []RunInfo      `json:"runs,omitempty"`
 	Pipelines []PipelineInfo `json:"pipelines,omitempty"`
 	Personas  []PersonaInfo  `json:"personas,omitempty"`
 	Contracts []ContractInfo `json:"contracts,omitempty"`
+	Skills    []SkillInfo    `json:"skills,omitempty"`
 }
 
 type ListOptions struct {
@@ -103,7 +113,7 @@ func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
 	cmd := &cobra.Command{
-		Use:   "list [adapters|runs|pipelines|personas|contracts]",
+		Use:   "list [adapters|runs|pipelines|personas|contracts|skills]",
 		Short: "List Wave configuration and resources",
 		Long: `List Wave configuration, resources, and execution history.
 
@@ -113,6 +123,7 @@ Arguments:
   pipelines   List available pipelines with step flows
   personas    List configured personas with permissions
   contracts   List contract schemas and their usage in pipelines
+  skills      List declared skills with installation status
 
 With no arguments, lists all categories.
 
@@ -120,7 +131,7 @@ For 'list runs', additional flags are available:
   --limit N           Maximum number of runs to show (default 10)
   --run-pipeline P    Filter to specific pipeline
   --run-status S      Filter by status (running, completed, failed, cancelled)`,
-		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts"},
+		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts", "skills"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := ""
 			if len(args) > 0 {
@@ -148,6 +159,7 @@ func runList(opts ListOptions, filter string) error {
 	showPipelines := showAll || filter == "pipelines"
 	showPersonas := showAll || filter == "personas"
 	showContracts := showAll || filter == "contracts"
+	showSkills := showAll || filter == "skills"
 
 	// Handle runs-only filter separately (redirect to runListRuns which prints its own logo)
 	if filter == "runs" {
@@ -174,6 +186,9 @@ func runList(opts ListOptions, filter string) error {
 			}
 			if showPersonas {
 				output.Personas = collectPersonas(m.Personas)
+			}
+			if showSkills {
+				output.Skills = collectSkills(m.Skills)
 			}
 		}
 
@@ -202,7 +217,6 @@ func runList(opts ListOptions, filter string) error {
 				output.Contracts = contracts
 			}
 		}
-
 		jsonBytes, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
@@ -269,6 +283,13 @@ func runList(opts ListOptions, filter string) error {
 		if err == nil {
 			listContractsTable(contracts)
 		}
+		if showAll {
+			fmt.Println()
+		}
+	}
+
+	if showSkills {
+		listSkillsTable(m.Skills)
 	}
 
 	return nil
@@ -290,6 +311,12 @@ type manifestData2 struct {
 			Deny         []string `yaml:"deny"`
 		} `yaml:"permissions"`
 	} `yaml:"personas"`
+	Skills map[string]struct {
+		Install      string `yaml:"install,omitempty"`
+		Init         string `yaml:"init,omitempty"`
+		Check        string `yaml:"check,omitempty"`
+		CommandsGlob string `yaml:"commands_glob,omitempty"`
+	} `yaml:"skills"`
 }
 
 func collectPipelines() ([]PipelineInfo, error) {
@@ -1290,6 +1317,149 @@ func listContractsTable(contracts []ContractInfo) {
 				}
 				fmt.Printf("      %s %s\n", f.Success("•"), usageStr)
 			}
+		}
+	}
+
+	fmt.Println()
+}
+
+// collectSkillPipelineUsage scans pipeline YAML files and returns a map of skill name to pipeline names that require it.
+func collectSkillPipelineUsage() map[string][]string {
+	usage := make(map[string][]string)
+
+	pipelineDir := ".wave/pipelines"
+	entries, err := os.ReadDir(pipelineDir)
+	if err != nil {
+		return usage
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		pipelineName := strings.TrimSuffix(entry.Name(), ".yaml")
+		pipelinePath := filepath.Join(pipelineDir, entry.Name())
+
+		data, err := os.ReadFile(pipelinePath)
+		if err != nil {
+			continue
+		}
+
+		var p struct {
+			Requires *struct {
+				Skills []string `yaml:"skills"`
+			} `yaml:"requires"`
+		}
+		if err := yaml.Unmarshal(data, &p); err != nil {
+			continue
+		}
+
+		if p.Requires != nil {
+			for _, skill := range p.Requires.Skills {
+				usage[skill] = append(usage[skill], pipelineName)
+			}
+		}
+	}
+
+	// Sort pipeline names for each skill
+	for skill := range usage {
+		sort.Strings(usage[skill])
+	}
+
+	return usage
+}
+
+// collectSkills collects skill information from the manifest's skills map.
+func collectSkills(skills map[string]struct {
+	Install      string `yaml:"install,omitempty"`
+	Init         string `yaml:"init,omitempty"`
+	Check        string `yaml:"check,omitempty"`
+	CommandsGlob string `yaml:"commands_glob,omitempty"`
+}) []SkillInfo {
+	var result []SkillInfo
+
+	names := make([]string, 0, len(skills))
+	for name := range skills {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	pipelineUsage := collectSkillPipelineUsage()
+
+	for _, name := range names {
+		skill := skills[name]
+
+		installed := false
+		if skill.Check != "" {
+			cmd := exec.Command("sh", "-c", skill.Check)
+			if err := cmd.Run(); err == nil {
+				installed = true
+			}
+		}
+
+		info := SkillInfo{
+			Name:      name,
+			Check:     skill.Check,
+			Install:   skill.Install,
+			Installed: installed,
+			UsedBy:    pipelineUsage[name],
+		}
+		result = append(result, info)
+	}
+
+	return result
+}
+
+// listSkillsTable displays skill information in table format.
+func listSkillsTable(skills map[string]struct {
+	Install      string `yaml:"install,omitempty"`
+	Init         string `yaml:"init,omitempty"`
+	Check        string `yaml:"check,omitempty"`
+	CommandsGlob string `yaml:"commands_glob,omitempty"`
+}) {
+	f := display.NewFormatter()
+
+	// Header
+	fmt.Println()
+	fmt.Printf("%s\n", f.Colorize("Skills", "\033[1;37m"))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+
+	if len(skills) == 0 {
+		fmt.Printf("  %s\n", f.Muted("(none defined)"))
+		fmt.Println()
+		return
+	}
+
+	collected := collectSkills(skills)
+
+	for _, skill := range collected {
+		// Status icon
+		var statusIcon string
+		if skill.Installed {
+			statusIcon = f.Success("✓")
+		} else {
+			statusIcon = f.Error("✗")
+		}
+
+		// Skill name with status
+		fmt.Printf("\n  %s %s\n", statusIcon, f.Primary(skill.Name))
+
+		// Metadata line: check command, install command
+		metaParts := []string{}
+		if skill.Check != "" {
+			metaParts = append(metaParts, fmt.Sprintf("check: %s", skill.Check))
+		}
+		if skill.Install != "" {
+			metaParts = append(metaParts, fmt.Sprintf("install: %s", skill.Install))
+		}
+		if len(metaParts) > 0 {
+			fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
+		}
+
+		// Pipeline usage
+		if len(skill.UsedBy) > 0 {
+			fmt.Printf("    %s %s\n", f.Muted("used by:"), strings.Join(skill.UsedBy, ", "))
 		}
 	}
 
