@@ -4,17 +4,26 @@
   "title": "WaveManifest",
   "description": "Wave project manifest (wave.yaml)",
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata", "runtime"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "runtime"
+  ],
   "additionalProperties": false,
   "properties": {
     "apiVersion": {
       "type": "string",
-      "enum": ["v1"],
+      "enum": [
+        "v1"
+      ],
       "description": "API version"
     },
     "kind": {
       "type": "string",
-      "enum": ["WaveManifest"],
+      "enum": [
+        "WaveManifest"
+      ],
       "description": "Must be 'WaveManifest'"
     },
     "metadata": {
@@ -40,13 +49,6 @@
     "runtime": {
       "$ref": "#/definitions/Runtime"
     },
-    "skill_mounts": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/SkillMount"
-      },
-      "description": "Directories to scan for skill definitions"
-    },
     "skills": {
       "type": "object",
       "additionalProperties": {
@@ -58,7 +60,9 @@
   "definitions": {
     "Metadata": {
       "type": "object",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -103,7 +107,10 @@
     },
     "Adapter": {
       "type": "object",
-      "required": ["binary", "mode"],
+      "required": [
+        "binary",
+        "mode"
+      ],
       "additionalProperties": false,
       "properties": {
         "binary": {
@@ -112,17 +119,25 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["headless", "interactive"],
+          "enum": [
+            "headless",
+            "interactive"
+          ],
           "description": "Execution mode"
         },
         "output_format": {
           "type": "string",
-          "enum": ["json", "text"],
+          "enum": [
+            "json",
+            "text"
+          ],
           "description": "Expected output format from the adapter"
         },
         "project_files": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Project files to copy into workspace (e.g., CLAUDE.md)"
         },
         "default_permissions": {
@@ -136,7 +151,10 @@
     },
     "Persona": {
       "type": "object",
-      "required": ["adapter", "system_prompt_file"],
+      "required": [
+        "adapter",
+        "system_prompt_file"
+      ],
       "additionalProperties": false,
       "properties": {
         "adapter": {
@@ -178,7 +196,9 @@
       "properties": {
         "allowed_domains": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Network domains this persona can access"
         }
       }
@@ -189,12 +209,16 @@
       "properties": {
         "allowed_tools": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Allowed tool patterns (e.g., 'Read', 'Bash(go test*)')"
         },
         "deny": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Denied tool patterns (e.g., 'Write(*)', 'Bash(rm -rf /*)')"
         }
       }
@@ -205,19 +229,26 @@
       "properties": {
         "PreToolUse": {
           "type": "array",
-          "items": { "$ref": "#/definitions/HookRule" },
+          "items": {
+            "$ref": "#/definitions/HookRule"
+          },
           "description": "Hooks that run before tool execution"
         },
         "PostToolUse": {
           "type": "array",
-          "items": { "$ref": "#/definitions/HookRule" },
+          "items": {
+            "$ref": "#/definitions/HookRule"
+          },
           "description": "Hooks that run after tool execution"
         }
       }
     },
     "HookRule": {
       "type": "object",
-      "required": ["matcher", "command"],
+      "required": [
+        "matcher",
+        "command"
+      ],
       "additionalProperties": false,
       "properties": {
         "matcher": {
@@ -232,7 +263,9 @@
     },
     "Runtime": {
       "type": "object",
-      "required": ["workspace_root"],
+      "required": [
+        "workspace_root"
+      ],
       "additionalProperties": false,
       "properties": {
         "workspace_root": {
@@ -281,12 +314,16 @@
         },
         "default_allowed_domains": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Network domains allowed by default for all personas"
         },
         "env_passthrough": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Environment variables to pass through to subprocesses"
         }
       }
@@ -303,7 +340,9 @@
         },
         "strategy": {
           "type": "string",
-          "enum": ["summarize_to_checkpoint"],
+          "enum": [
+            "summarize_to_checkpoint"
+          ],
           "description": "Compaction strategy"
         },
         "context_window": {
@@ -370,14 +409,18 @@
         },
         "rules": {
           "type": "array",
-          "items": { "$ref": "#/definitions/RoutingRule" },
+          "items": {
+            "$ref": "#/definitions/RoutingRule"
+          },
           "description": "Routing rules evaluated in priority order"
         }
       }
     },
     "RoutingRule": {
       "type": "object",
-      "required": ["pipeline"],
+      "required": [
+        "pipeline"
+      ],
       "additionalProperties": false,
       "properties": {
         "pattern": {
@@ -394,19 +437,10 @@
         },
         "match_labels": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "Label key-value patterns that must all match"
-        }
-      }
-    },
-    "SkillMount": {
-      "type": "object",
-      "required": ["path"],
-      "additionalProperties": false,
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "Directory path to scan for skill definitions"
         }
       }
     },
