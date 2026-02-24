@@ -50,10 +50,8 @@ steps:
         - Check if it's part of an interface implementation
         - Check for build tag conditional compilation
 
-        Produce a structured JSON result covering: target, findings (id, type, location,
-        symbol, description, evidence, confidence, safe_to_remove, removal_note), summary
-        (total_findings, by_type, high_confidence_count, estimated_lines_removable), and
-        timestamp. Only include findings with high or medium confidence. Skip low confidence.
+        Produce a structured JSON result matching the contract schema.
+        Only include findings with high or medium confidence. Skip low confidence.
     output_artifacts:
       - name: scan_results
         path: .wave/output/dead-code-scan.json
@@ -240,14 +238,18 @@ steps:
         - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
         - Do NOT include Co-Authored-By or AI attribution in commits
 
-        ## Output
-
-        Produce a JSON status report containing: pr_url, pr_number, branch,
-        copilot_review_requested, items_removed, lines_removed, and summary.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json
