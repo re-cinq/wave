@@ -203,12 +203,18 @@ steps:
            git push -u origin HEAD
            gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
            ```
-
-        4. Write a JSON status report with the PR URL, PR number, branch name, and ADR file path.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

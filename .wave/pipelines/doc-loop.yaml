@@ -231,11 +231,19 @@ steps:
 
         ## Capture Result
 
-        Write a JSON status report with the issue URL, issue number, and whether creation was skipped.
+        Write a JSON status report.
     output_artifacts:
       - name: issue-result
         path: .wave/output/issue-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/issue-result.json
+        schema_path: .wave/contracts/doc-issue-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: issue
         extract_from: .wave/output/issue-result.json

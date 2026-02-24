@@ -37,10 +37,6 @@ steps:
            `!` after prefix, API removals in body.
 
         5. **Extract scope**: Parse from prefix (e.g., `fix(pipeline):` → "pipeline")
-
-        Produce a structured result covering: range (from, to, total_commits, date_range),
-        commits (hash, author, date, type, scope, subject, breaking), summary (by_type,
-        breaking_changes, contributors, most_changed_scopes), and timestamp.
     output_artifacts:
       - name: commits
         path: .wave/output/commit-analysis.json
@@ -77,10 +73,6 @@ steps:
         3. **Highlight breaking changes** first with migration notes
         4. **Deduplicate**: Combine commits for the same logical change
         5. **Add context** for significant features
-
-        Produce a structured result covering: version_label, breaking_changes (description,
-        migration, related_commits), sections (title, type, entries), contributors, stats,
-        and timestamp.
     output_artifacts:
       - name: categorized
         path: .wave/output/categorized-changes.json
