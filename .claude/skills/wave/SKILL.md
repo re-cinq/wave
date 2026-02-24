@@ -469,7 +469,7 @@ These pipelines are included by default with `wave init` (release-gated with `re
 |----------|-------|-------------|
 | `github-issue-enhancer` | scan-issues, plan-enhancements, apply-enhancements, verify-enhancements | Analyze and enhance poorly documented GitHub issues |
 | `issue-research` | fetch-issue, analyze-topics, research-topics, synthesize-report, post-comment | Research a GitHub issue and post findings as a comment |
-| `doc-loop` | scan-changes, analyze-consistency, create-issue | Pre-PR documentation consistency gate — creates GitHub issue with inconsistencies |
+| `doc-audit` | scan-changes, analyze-consistency, create-issue | Pre-PR documentation consistency gate — creates GitHub issue with inconsistencies |
 
 ## Key Patterns
 

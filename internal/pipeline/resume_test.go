@@ -273,7 +273,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
-		Metadata: PipelineMetadata{Name: "gh-issue-update"},
+		Metadata: PipelineMetadata{Name: "gh-refresh"},
 		Steps: []Step{
 			{
 				ID: "gather-context",
@@ -311,7 +311,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "draft-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Simulate a previous run with hash-suffixed dir and __wt_ worktree
-				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/__wt_gh-issue-update-20260219-142150-deb8")
+				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/__wt_gh-refresh-20260219-142150-deb8")
 				if err := os.MkdirAll(wtDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -328,7 +328,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "apply-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Old run with gather-context
-				oldWt := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-100000-aaaa/__wt_some-branch")
+				oldWt := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-100000-aaaa/__wt_some-branch")
 				if err := os.MkdirAll(oldWt, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -337,7 +337,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 				}
 
 				// Newer run with both gather-context and draft-update artifacts
-				newWt := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-200000-bbbb/__wt_other-branch")
+				newWt := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-200000-bbbb/__wt_other-branch")
 				if err := os.MkdirAll(newWt, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -354,7 +354,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "draft-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Old-style: step ID as directory name
-				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/gather-context")
+				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/gather-context")
 				if err := os.MkdirAll(stepDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -371,7 +371,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "apply-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// gather-context in a __wt_ dir
-				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-142150-deb8/__wt_some-branch")
+				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/__wt_some-branch")
 				if err := os.MkdirAll(wtDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -379,7 +379,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 					t.Fatal(err)
 				}
 				// draft-update in an old-style step dir from a different run
-				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-issue-update-20260219-144614-3336/draft-update")
+				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-144614-3336/draft-update")
 				if err := os.MkdirAll(stepDir, 0755); err != nil {
 					t.Fatal(err)
 				}

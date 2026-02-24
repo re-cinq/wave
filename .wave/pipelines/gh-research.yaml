@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: gh-issue-research
+  name: gh-research
   description: Research a GitHub issue and post findings as a comment
   release: true
 
