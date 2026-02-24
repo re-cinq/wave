@@ -50,10 +50,10 @@ steps:
         - Check if it's part of an interface implementation
         - Check for build tag conditional compilation
 
-        Produce a structured result covering: target, findings (id, type, location, symbol,
-        description, evidence, confidence, safe_to_remove, removal_note), summary (total_findings,
-        by_type, high_confidence_count, estimated_lines_removable), and timestamp.
-        Only include findings with high or medium confidence. Skip low confidence.
+        Produce a structured JSON result covering: target, findings (id, type, location,
+        symbol, description, evidence, confidence, safe_to_remove, removal_note), summary
+        (total_findings, by_type, high_confidence_count, estimated_lines_removable), and
+        timestamp. Only include findings with high or medium confidence. Skip low confidence.
     output_artifacts:
       - name: scan_results
         path: .wave/output/dead-code-scan.json
@@ -81,6 +81,8 @@ steps:
       type: prompt
       source: |
         Remove the dead code on this isolated worktree branch.
+
+        The scan findings have been injected into your workspace. Read them first.
 
         ## Process
 
@@ -136,6 +138,8 @@ steps:
       source: |
         Verify the dead code removal was safe.
 
+        The original scan findings have been injected into your workspace. Read them first.
+
         Check:
         1. Were only high-confidence items removed?
         2. Are all tests still passing?
@@ -188,7 +192,8 @@ steps:
 
         ### Step 1: Load Context
 
-        Review the injected scan results (what was found) and verification outcome.
+        The scan findings and verification report have been injected into your workspace.
+        Read them both to understand what was found and the verification outcome.
 
         ### Step 2: Push the Branch
 
@@ -237,7 +242,7 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: pr_url, pr_number, branch,
+        Produce a JSON status report containing: pr_url, pr_number, branch,
         copilot_review_requested, items_removed, lines_removed, and summary.
     output_artifacts:
       - name: pr-result

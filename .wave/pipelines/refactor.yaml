@@ -26,9 +26,8 @@ steps:
         3. Find existing test coverage
         4. Identify integration points
 
-        Produce structured output with fields:
-        target_files, affected_callers, existing_tests, integration_points,
-        and risk_assessment (low/medium/high).
+        Produce a structured result covering: target_files, affected_callers,
+        existing_tests, integration_points, and risk_assessment (low/medium/high).
     output_artifacts:
       - name: analysis
         path: .wave/output/refactor-analysis.json

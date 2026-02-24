@@ -52,23 +52,12 @@ steps:
 
         ## Output
 
-        Write a JSON output with this structure:
+        Produce a JSON result with these fields:
+        input_type (issue|pr|local), url, repo, number, title, body,
+        original_input (the raw input string exactly as given), and focus_hint.
 
-        ```json
-        {
-          "input_type": "issue|pr|local",
-          "url": "https://github.com/...",
-          "repo": "owner/name",
-          "number": 42,
-          "title": "Issue or PR title",
-          "body": "Full issue/PR body text",
-          "original_input": "the raw input string exactly as given",
-          "focus_hint": "extracted guidance for what to simplify"
-        }
-        ```
-
-        For `local` input type, set `url`, `repo`, `title`, `body` to empty strings,
-        `number` to 0, and `focus_hint` to the original input itself.
+        For `local` input type, set url, repo, title, body to empty strings,
+        number to 0, and focus_hint to the original input itself.
 
         IMPORTANT: The output MUST be valid JSON. Do NOT include markdown fencing.
     output_artifacts:
@@ -99,7 +88,7 @@ steps:
 
         ## Starting Point
 
-        Read the injected context artifact for input context.
+        The context artifact contains input context.
         If `input_type` is `"issue"` or `"pr"`, the `focus_hint` tells you WHERE to start looking —
         but do NOT limit yourself to what the issue describes. Use it as a seed, then expand outward.
         Follow dependency chains, trace callers, explore adjacent modules. The issue author doesn't
@@ -195,8 +184,6 @@ steps:
         This is a purely CONVERGENT step. Your job is analytical, not creative.
         Judge every finding on technical merit alone. No speculation, no new ideas.
 
-        ## Read Input
-
         Target: {{ input }}
 
         ## For Every DVG-xxx Finding
@@ -216,10 +203,6 @@ steps:
 
         Be RIGOROUS. The provocateur was told to be aggressive — your job is to be skeptical.
         A finding that survives your scrutiny is genuinely worth addressing.
-    handover:
-      contract:
-        type: json_schema
-        schema_path: .wave/contracts/validated-findings.schema.json
     output_artifacts:
       - name: validated_findings
         path: .wave/output/validated-findings.json
@@ -251,9 +234,7 @@ steps:
         Now YOU go deeper on what survived. This is DIVERGENT thinking again —
         expand, connect, discover what the first pass missed.
 
-        ## Read Inputs
-
-        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED from the injected artifacts.
+        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
 
         Target: {{ input }}
 
@@ -287,10 +268,11 @@ steps:
 
         ## Output
 
-        Structure your output with: connections (source_finding, connected_files, relationship,
-        second_order_effect), patterns (id, description, related_findings, root_cause),
-        new_findings (id, category, severity, description, evidence, discovered_via),
-        and contested_rejections (finding_id, counter_argument).
+        Structure your output with these sections:
+        - `connections`: For each confirmed finding, document connected files, the relationship, and second-order effects of simplification
+        - `patterns`: Group findings that share a root cause, with pattern IDs (PAT-001, etc.)
+        - `new_findings`: Any new discoveries (DVG-NEW-001, etc.) with category, severity, description, evidence, and what led to the discovery
+        - `contested_rejections`: Any rejected findings you believe were dismissed too hastily, with counter-arguments
 
         Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
     output_artifacts:
@@ -345,13 +327,13 @@ steps:
         3. **Include new discoveries**: The probe step may have found new findings (DVG-NEW-xxx).
            These are pre-validated by the provocateur's second pass — include them.
 
-        4. **Apply issue/PR context (if present)**: If the injected context shows
+        4. **Apply issue/PR context (if present)**: If the context artifact shows
            `input_type` is `"issue"` or `"pr"`, use the `focus_hint` as ONE input
            when assigning tiers. But do not discard strong proposals just because they
            fall outside the issue's scope. The best simplifications are often the ones
            the issue author didn't think to ask for.
 
-        5. For each proposal, include these fields:
+        5. For each proposal, include ALL required schema fields:
            - `id`: SMP-001, SMP-002, etc.
            - `title`: concise name
            - `description`: detailed explanation of what to change and why
@@ -517,9 +499,12 @@ steps:
            git push -u origin HEAD
            ```
 
-        2. Create a pull request using the report as the body.
+        2. Create a pull request using the report as the body:
+           ```bash
+           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file .wave/artifacts/report
+           ```
 
-        3. If the injected context shows `input_type` is `"issue"` or `"pr"`,
+        3. If the context artifact shows `input_type` is `"issue"` or `"pr"`,
            post the PR URL as a comment on the source:
            ```bash
            gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
@@ -529,7 +514,7 @@ steps:
            gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
            ```
 
-        4. Write a JSON status report with pr_url, pr_number, and branch fields.
+        4. Write a JSON status report containing the PR URL, PR number, and branch name.
 
         If any `gh` command fails, log the error and continue.
     output_artifacts:

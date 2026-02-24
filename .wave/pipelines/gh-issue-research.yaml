@@ -31,8 +31,6 @@ steps:
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
-
-        Produce structured JSON with the issue content.
     output_artifacts:
       - name: issue-content
         path: .wave/output/issue-content.json
@@ -77,8 +75,6 @@ steps:
 
         Focus on topics that will provide actionable insights for the issue author.
         Limit to 10 most important topics.
-
-        Produce structured JSON with the research topics.
     output_artifacts:
       - name: topics
         path: .wave/output/research-topics.json
@@ -127,8 +123,6 @@ steps:
         Always include source URLs for attribution.
         If a topic yields no useful results, mark confidence as "inconclusive".
         Document any gaps in the research.
-
-        Produce structured JSON with the research findings.
     output_artifacts:
       - name: findings
         path: .wave/output/research-findings.json
@@ -187,8 +181,6 @@ steps:
            - Use proper headers, bullet points, and formatting
            - Include a header: "## Research Findings (Wave Pipeline)"
            - End with sources section
-
-        Produce structured JSON with the research report.
     output_artifacts:
       - name: report
         path: .wave/output/research-report.json
