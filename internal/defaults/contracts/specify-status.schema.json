@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Specify Status",
+  "description": "Status report from the specify step: feature branch creation and spec authoring.",
+  "type": "object",
+  "required": ["branch_name", "spec_file", "feature_dir", "summary"],
+  "properties": {
+    "branch_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Git branch name created for the feature"
+    },
+    "spec_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the generated spec.md file"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of what was created"
+    },
+    "checklist_status": {
+      "type": "string",
+      "enum": ["pass", "fail"],
+      "description": "Result of self-validation against the quality checklist"
+    }
+  },
+  "additionalProperties": true
+}

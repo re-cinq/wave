@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Analysis Report",
+  "description": "Cross-artifact consistency and quality analysis report before implementation.",
+  "type": "object",
+  "required": ["total_requirements", "total_tasks", "coverage_percent", "can_proceed", "feature_dir", "summary"],
+  "properties": {
+    "total_requirements": {
+      "type": "integer",
+      "description": "Total number of requirements extracted from spec"
+    },
+    "total_tasks": {
+      "type": "integer",
+      "description": "Total number of tasks in the task breakdown"
+    },
+    "coverage_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Percentage of requirements covered by tasks (0-100)"
+    },
+    "can_proceed": {
+      "type": "boolean",
+      "description": "Whether the feature is ready for implementation"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief summary of the analysis findings"
+    },
+    "issues": {
+      "type": "object",
+      "properties": {
+        "critical": {
+          "type": "integer",
+          "description": "Number of critical severity issues"
+        },
+        "high": {
+          "type": "integer",
+          "description": "Number of high severity issues"
+        },
+        "medium": {
+          "type": "integer",
+          "description": "Number of medium severity issues"
+        },
+        "low": {
+          "type": "integer",
+          "description": "Number of low severity issues"
+        }
+      },
+      "description": "Issue counts grouped by severity level"
+    }
+  },
+  "additionalProperties": true
+}

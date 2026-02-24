@@ -106,6 +106,14 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

@@ -2,7 +2,14 @@ kind: WavePipeline
 metadata:
   name: speckit-flow
   description: "Specification-driven feature development using the full speckit workflow"
-  release: false
+  release: true
+
+requires: 
+  skills:
+    - speckit
+  tools:
+    - git
+    - gh
 
 input:
   source: cli
@@ -25,6 +32,14 @@ steps:
       - name: spec-status
         path: .wave/output/specify-status.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/specify-status.json
+        schema_path: .wave/contracts/specify-status.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: clarify
     persona: implementer
@@ -44,6 +59,14 @@ steps:
       - name: clarify-status
         path: .wave/output/clarify-status.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/clarify-status.json
+        schema_path: .wave/contracts/clarify-status.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: plan
     persona: implementer
@@ -63,6 +86,14 @@ steps:
       - name: plan-status
         path: .wave/output/plan-status.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/plan-status.json
+        schema_path: .wave/contracts/plan-status.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: tasks
     persona: implementer
@@ -82,6 +113,14 @@ steps:
       - name: tasks-status
         path: .wave/output/tasks-status.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/tasks-status.json
+        schema_path: .wave/contracts/tasks-status.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: checklist
     persona: implementer
@@ -101,6 +140,14 @@ steps:
       - name: checklist-status
         path: .wave/output/checklist-status.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/checklist-status.json
+        schema_path: .wave/contracts/checklist-status.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: analyze
     persona: implementer
@@ -120,6 +167,14 @@ steps:
       - name: analysis-report
         path: .wave/output/analysis-report.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/analysis-report.json
+        schema_path: .wave/contracts/analysis-report.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: implement
     persona: craftsman
@@ -164,6 +219,14 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

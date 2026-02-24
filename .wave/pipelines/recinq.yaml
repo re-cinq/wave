@@ -52,18 +52,19 @@ steps:
 
         ## Output
 
-        Produce a JSON result with these fields:
-        input_type (issue|pr|local), url, repo, number, title, body,
-        original_input (the raw input string exactly as given), and focus_hint.
-
-        For `local` input type, set url, repo, title, body to empty strings,
-        number to 0, and focus_hint to the original input itself.
-
         IMPORTANT: The output MUST be valid JSON. Do NOT include markdown fencing.
     output_artifacts:
       - name: context
         path: .wave/output/context.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/context.json
+        schema_path: .wave/contracts/recinq-context.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
   - id: diverge
@@ -207,6 +208,14 @@ steps:
       - name: validated_findings
         path: .wave/output/validated-findings.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/validated-findings.json
+        schema_path: .wave/contracts/validated-findings.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
   - id: probe
@@ -268,17 +277,19 @@ steps:
 
         ## Output
 
-        Structure your output with these sections:
-        - `connections`: For each confirmed finding, document connected files, the relationship, and second-order effects of simplification
-        - `patterns`: Group findings that share a root cause, with pattern IDs (PAT-001, etc.)
-        - `new_findings`: Any new discoveries (DVG-NEW-001, etc.) with category, severity, description, evidence, and what led to the discovery
-        - `contested_rejections`: Any rejected findings you believe were dismissed too hastily, with counter-arguments
-
         Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
     output_artifacts:
       - name: probed_findings
         path: .wave/output/probed-findings.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/probed-findings.json
+        schema_path: .wave/contracts/probed-findings.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
@@ -333,27 +344,11 @@ steps:
            fall outside the issue's scope. The best simplifications are often the ones
            the issue author didn't think to ask for.
 
-        5. For each proposal, include ALL required schema fields:
-           - `id`: SMP-001, SMP-002, etc.
-           - `title`: concise name
-           - `description`: detailed explanation of what to change and why
-           - `source_findings`: array of DVG-xxx IDs this addresses
-           - `impact`: "high" / "medium" / "low"
-           - `effort`: "small" / "medium" / "large"
-           - `risk`: "low" / "medium" / "high"
-           - `tier`: 1 (do now), 2 (do next), 3 (consider later)
-           - `files`: array of file paths that would be modified
-           - `dependencies`: array of SMP-xxx IDs that must be applied first
-           - `lines_removed_estimate`: integer
-           - `second_order_effects`: array of insights from the probe step
+        5. **80/20 analysis**: which 20% of proposals yield 80% of the simplification?
 
-        6. **80/20 analysis**: which 20% of proposals yield 80% of the simplification?
-
-        7. **Dependency ordering**: what must be done first?
+        6. **Dependency ordering**: what must be done first?
 
         ## Output
-
-        Include `source_findings`, `validation_summary`, `proposals`, `eighty_twenty_analysis`, and `timestamp`.
 
         Do NOT write a markdown summary. Write the complete JSON object with every proposal fully populated.
     output_artifacts:
@@ -514,13 +509,21 @@ steps:
            gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
            ```
 
-        4. Write a JSON status report containing the PR URL, PR number, and branch name.
+        4. Write the JSON status report to the output artifact path.
 
         If any `gh` command fails, log the error and continue.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

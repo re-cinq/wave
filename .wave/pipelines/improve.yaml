@@ -34,11 +34,6 @@ steps:
         - Impact: how much does fixing it improve the code?
         - Effort: how hard is the fix?
         - Risk: could the fix introduce regressions?
-
-        Produce a structured result covering: target, findings (each with id, category,
-        title, location, description, current_code, suggested_fix, impact, effort, risk),
-        summary (total_findings, by_category, quick_wins, high_impact, overall_quality),
-        and timestamp.
     output_artifacts:
       - name: assessment
         path: .wave/output/assessment.json
