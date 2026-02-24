@@ -1,6 +1,7 @@
 package preflight
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -217,17 +218,21 @@ func (c *Checker) runShellCommand(command string) error {
 }
 
 // Run executes all preflight checks for the given tool and skill requirements.
-// Returns the first typed error encountered (prioritizing SkillError over ToolError).
+// When both tools and skills fail, returns a PreflightError wrapping both typed
+// errors so callers can extract either via errors.As().
 func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 	var allResults []Result
-	var skillErr error
-	var toolErr error
+	var skillErr *SkillError
+	var toolErr *ToolError
 
 	if len(tools) > 0 {
 		toolResults, err := c.CheckTools(tools)
 		allResults = append(allResults, toolResults...)
 		if err != nil {
-			toolErr = err
+			var te *ToolError
+			if errors.As(err, &te) {
+				toolErr = te
+			}
 		}
 	}
 
@@ -235,11 +240,17 @@ func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 		skillResults, err := c.CheckSkills(skills)
 		allResults = append(allResults, skillResults...)
 		if err != nil {
-			skillErr = err
+			var se *SkillError
+			if errors.As(err, &se) {
+				skillErr = se
+			}
 		}
 	}
 
-	// Prioritize SkillError over ToolError if both exist
+	// Return composite error when both fail so callers can extract either
+	if skillErr != nil && toolErr != nil {
+		return allResults, &PreflightError{SkillErr: skillErr, ToolErr: toolErr}
+	}
 	if skillErr != nil {
 		return allResults, skillErr
 	}
@@ -247,4 +258,41 @@ func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 		return allResults, toolErr
 	}
 	return allResults, nil
+}
+
+// PreflightError is a composite error returned when both tools and skills fail.
+// It implements errors.As() for both SkillError and ToolError so callers can
+// extract either typed error from the chain.
+type PreflightError struct {
+	SkillErr *SkillError
+	ToolErr  *ToolError
+}
+
+// Error implements the error interface.
+func (e *PreflightError) Error() string {
+	parts := make([]string, 0, 2)
+	if e.ToolErr != nil {
+		parts = append(parts, e.ToolErr.Error())
+	}
+	if e.SkillErr != nil {
+		parts = append(parts, e.SkillErr.Error())
+	}
+	return strings.Join(parts, "; ")
+}
+
+// As implements errors.As support so callers can extract either SkillError or ToolError.
+func (e *PreflightError) As(target interface{}) bool {
+	switch t := target.(type) {
+	case **SkillError:
+		if e.SkillErr != nil {
+			*t = e.SkillErr
+			return true
+		}
+	case **ToolError:
+		if e.ToolErr != nil {
+			*t = e.ToolErr
+			return true
+		}
+	}
+	return false
 }

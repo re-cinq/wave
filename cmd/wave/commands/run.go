@@ -309,7 +309,15 @@ func runRun(opts RunOptions, debug bool) error {
 			preflightMeta = extractPreflightMetadata(cause)
 		}
 
-		block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepID, runID, wsRoot, errClass, preflightMeta)
+		block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+			PipelineName:  p.Metadata.Name,
+			Input:         opts.Input,
+			StepID:        stepID,
+			RunID:         runID,
+			WorkspaceRoot: wsRoot,
+			ErrClass:      errClass,
+			PreflightMeta: preflightMeta,
+		})
 
 		if opts.Output.Format == OutputFormatJSON {
 			// In JSON mode, emit recovery hints as structured data.
