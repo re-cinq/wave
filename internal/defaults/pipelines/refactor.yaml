@@ -25,9 +25,6 @@ steps:
         2. Map all callers/consumers of the code being refactored
         3. Find existing test coverage
         4. Identify integration points
-
-        Produce a structured result covering: target_files, affected_callers,
-        existing_tests, integration_points, and risk_assessment (low/medium/high).
     output_artifacts:
       - name: analysis
         path: .wave/output/refactor-analysis.json

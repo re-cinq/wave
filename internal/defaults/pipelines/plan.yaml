@@ -48,12 +48,6 @@ steps:
         6. **Assess risks**: Identify potential risks (breaking changes, performance concerns,
            security implications). Rate severity (high/medium/low) and suggest mitigations.
 
-        ## Output
-
-        Produce a structured JSON result covering: feature_context (input_summary,
-        scope_assessment), related_files, patterns (with PAT-### IDs), affected_modules,
-        testing_landscape, risks, and timestamp.
-
         CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
         outside the file. The file must parse as valid JSON.
     output_artifacts:
@@ -120,13 +114,6 @@ steps:
            on Phase 1, etc.
 
         8. **Risks**: Note task-specific risks from the exploration.
-
-        ## Output
-
-        Produce a structured JSON result covering: feature_summary, tasks (with T## IDs,
-        personas, dependencies, acceptance_criteria, affected_files, complexity, risks),
-        execution_order (grouped by phases), metadata, and a markdown_content field
-        with a complete human-readable rendering of the plan.
 
         CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
         outside the file. The file must parse as valid JSON.
@@ -205,14 +192,6 @@ steps:
         - approve: Plan is ready to execute as-is
         - approve_with_notes: Plan is good but has minor issues to note
         - revise: Plan needs significant changes before execution
-
-        ## Output
-
-        Produce a structured JSON result containing: verdict (decision, confidence, rationale), summary
-        (counts and strengths), task_reviews (per-task status with REV-### issues),
-        cross_cutting_concerns (CC-### IDs), recommendations (REC-### IDs with types),
-        risk_assessment, timestamp, and a markdown_content field with a complete
-        human-readable rendering of the review.
 
         CRITICAL: Write ONLY the JSON object. No markdown wrapping, no explanation
         outside the file. The file must parse as valid JSON.

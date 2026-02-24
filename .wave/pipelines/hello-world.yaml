@@ -36,13 +36,16 @@ steps:
       source: |
         Verify the greeting artifact exists and contains content.
 
-        Output EXACTLY this JSON (replace placeholder with actual content from the greeting artifact):
-        {
-          "status": "verified",
-          "file_exists": true,
-          "content_preview": "[content from the greeting artifact]"
-        }
+        Output a JSON result confirming verification status.
     output_artifacts:
       - name: result
         path: .wave/output/result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/result.json
+        schema_path: .wave/contracts/hello-world-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
