@@ -10,14 +10,11 @@ from the main working tree and will not affect it.
 
 Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
-The issue assessment is available as an injected artifact.
-Read it to get the issue details, branch name, complexity, and assessment.
-
 ## Instructions
 
 ### Step 1: Read Assessment
 
-Read the injected issue_assessment artifact to extract:
+From the issue assessment artifact, extract:
 - Issue number, title, body, and repository
 - Branch name from the assessment
 - Complexity estimate
@@ -87,3 +84,7 @@ Mark parallelizable tasks with `[P]`.
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT start implementation — only planning in this step
 - Do NOT use WebSearch — all information is in the issue and codebase
+
+## Output
+
+Produce a JSON status report matching the injected output schema.
