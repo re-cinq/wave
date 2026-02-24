@@ -38,7 +38,7 @@ runtime:                    # Required
   audit: {}                   # Optional - Audit config
   meta_pipeline: {}            # Optional - Meta pipeline limits
 
-skill_mounts: []            # Optional - Skill discovery paths
+skills: {}                 # Optional - Named skill configurations
 ```
 
 ## Adapters
@@ -139,14 +139,18 @@ runtime:
     timeout_minutes: 60
 ```
 
-## Skill Mounts
+## Skills
 
-Mount external skill directories:
+Declare external skills with install, check, and provisioning commands:
 
 ```yaml
-skill_mounts:
-  - path: ./my-wave-skills/
-  - path: ~/.wave/skills/
+skills:
+  speckit:
+    install: "npm install -g @anthropic/speckit"
+    check: "speckit --version"
+  golangci-lint:
+    install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    check: "golangci-lint --version"
 ```
 
 ## Validation Rules
