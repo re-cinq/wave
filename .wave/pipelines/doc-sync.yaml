@@ -222,13 +222,18 @@ steps:
         - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
         - Do NOT include Co-Authored-By or AI attribution in commits
 
-        ## Output
-
-        Write a JSON status report with the PR URL, PR number, branch name, whether Copilot review was requested, counts of findings fixed and skipped, and a brief summary.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

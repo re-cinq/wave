@@ -38,9 +38,7 @@ steps:
 
         6. **Assess risks**: Breaking changes, performance, security implications.
 
-        Produce a structured JSON result covering: feature, scope, related_files
-        (path, relevance, reason, key_symbols), patterns_to_follow, affected_modules,
-        test_files, risks, and timestamp.
+        Produce a structured JSON result matching the contract schema.
     output_artifacts:
       - name: exploration
         path: .wave/output/exploration.json
@@ -82,10 +80,7 @@ steps:
         3. What tests to write
         4. Complexity estimate per step (S/M/L)
 
-        Produce a structured JSON result covering: feature, steps (id, title, description,
-        files_to_modify, files_to_create, tests_to_write, acceptance_criteria, complexity,
-        dependencies), total_complexity, branch_name_suggestion, commit_message_suggestion,
-        and timestamp.
+        Produce a structured JSON result matching the contract schema.
     output_artifacts:
       - name: plan
         path: .wave/output/plan.json
@@ -187,12 +182,18 @@ steps:
            ```bash
            gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
            ```
-
-        3. Produce a JSON status report containing: pr_url, pr_number, and branch.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

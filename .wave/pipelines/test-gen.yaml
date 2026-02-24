@@ -25,9 +25,6 @@ steps:
         2. Identify uncovered functions and branches
         3. Find edge cases not tested
         4. Map dependencies that need mocking
-
-        Produce a structured result covering: current_coverage, uncovered_functions,
-        uncovered_branches, edge_cases, and mock_requirements.
     output_artifacts:
       - name: coverage
         path: .wave/output/coverage-analysis.json

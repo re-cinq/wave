@@ -24,9 +24,6 @@ steps:
         2. Check recent commits that may have introduced the bug
         3. Identify the root cause
         4. Assess blast radius (what else could be affected)
-
-        Produce a structured result covering: root_cause, affected_code, blast_radius,
-        and recommended_fix.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json

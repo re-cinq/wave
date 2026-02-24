@@ -55,13 +55,6 @@ steps:
            - Known vulnerable patterns in dependency usage
            - Outdated security practices
 
-        ## Output
-
-        Produce a structured result covering: target, attack_surface (entry_point, type,
-        description, risk_level), findings (id, title, severity, category, location,
-        description, evidence, exploitability), secrets_check (hardcoded_secrets,
-        insecure_configs), summary (total_findings, by_severity, risk_assessment),
-        and timestamp.
     output_artifacts:
       - name: scan_results
         path: .wave/output/security-scan.json
