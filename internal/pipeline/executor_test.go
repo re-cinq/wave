@@ -501,6 +501,54 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 	assert.True(t, posB < posC, "step-b should execute before step-c")
 }
 
+// TestFailedStepAlwaysHasID ensures that StepError always carries the step ID,
+// even when the step fails on a single-step batch (no concurrency).
+func TestFailedStepAlwaysHasID(t *testing.T) {
+	collector := newTestEventCollector()
+	failingAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("simulated timeout")),
+	)
+
+	executor := NewDefaultPipelineExecutor(failingAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Linear pipeline: A -> B where B fails (single-step batch)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "step-id-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	// Make step-a succeed, step-b fail
+	stepAdapter := &stepAwareAdapter{
+		defaultAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-b": failingAdapter,
+		},
+	}
+	executor = NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+
+	var stepErr *StepError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	assert.Equal(t, "step-b", stepErr.StepID, "StepError must carry the failed step ID")
+	assert.NotEmpty(t, stepErr.StepID, "StepError.StepID must never be empty")
+}
+
 // TestConcurrentStepWideFanOut tests a wide fan-out pattern with many parallel steps.
 func TestConcurrentStepWideFanOut(t *testing.T) {
 	collector := newTestEventCollector()
@@ -689,10 +737,11 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 // TestBuildContractPrompt_JSONSchema tests that contract compliance prompt is generated
 // for json_schema contracts with output artifacts and required fields.
 func TestBuildContractPrompt_JSONSchema(t *testing.T) {
-	// Create a temporary schema file with required fields
 	tmpDir := t.TempDir()
 	schemaPath := filepath.Join(tmpDir, "test.schema.json")
 	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
+
+	executor := createSchemaTestExecutor(tmpDir)
 
 	step := &Step{
 		ID: "test-step",
@@ -707,17 +756,21 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 		},
 	}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "Output Requirements")
 	assert.Contains(t, prompt, "artifact.json")
-	assert.Contains(t, prompt, "MUST write valid JSON")
+	assert.Contains(t, prompt, "valid JSON")
+	assert.Contains(t, prompt, "Contract Schema")
 	assert.Contains(t, prompt, "`name`, `status`, `results`")
 	assert.Contains(t, prompt, "Example structure")
 }
 
 // TestBuildContractPrompt_TestSuite tests contract prompt for test_suite contracts.
 func TestBuildContractPrompt_TestSuite(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
 	step := &Step{
 		ID: "test-step",
 		Handover: HandoverConfig{
@@ -728,18 +781,21 @@ func TestBuildContractPrompt_TestSuite(t *testing.T) {
 		},
 	}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "Contract Compliance")
+	assert.Contains(t, prompt, "Test Validation")
 	assert.Contains(t, prompt, "go test ./...")
 	assert.Contains(t, prompt, "tests fail")
 }
 
 // TestBuildContractPrompt_NoContract tests that no prompt is generated when no contract exists.
 func TestBuildContractPrompt_NoContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
 	step := &Step{ID: "test-step"}
 
-	prompt := buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil)
 	assert.Empty(t, prompt)
 }
 
