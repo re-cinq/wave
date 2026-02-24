@@ -12,7 +12,6 @@ Complete field reference for `wave.yaml` — the single source of truth for all 
 | `adapters` | `map[string]`[`Adapter`](#adapter) | **yes** | Named adapter configurations. |
 | `personas` | `map[string]`[`Persona`](#persona) | **yes** | Named persona configurations. |
 | `runtime` | [`Runtime`](#runtime) | **yes** | Global runtime settings. |
-| `skill_mounts` | [`[]SkillMount`](#skillmount) | no | Skill discovery paths. |
 | `skills` | `map[string]`[`SkillConfig`](#skillconfig) | no | Named skill configurations with install, check, and provisioning settings. |
 
 ### Minimal Example
@@ -320,25 +319,6 @@ runtime:
 
 ---
 
-## SkillMount
-
-External skill directory discovery configuration.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `path` | `string` | **yes** | Directory path containing skill definitions. Supports relative (to project root) and absolute paths. `~` is expanded to `$HOME`. |
-
-```yaml
-skill_mounts:
-  - path: .wave/skills/        # Project-local skills
-  - path: ~/.wave/skills/      # User-global skills
-  - path: /opt/wave/skills/    # System-wide skills
-```
-
-Skills are discovered in order — project-local skills take precedence over global ones with the same name.
-
----
-
 ## SkillConfig
 
 Declares an external skill with install, check, and provisioning commands. Skills are referenced by pipelines via the [`requires`](#pipeline-requires) block and validated at preflight time before execution begins.
@@ -568,7 +548,8 @@ runtime:
     max_total_tokens: 500000
     timeout_minutes: 60
 
-skill_mounts:
-  - path: .wave/skills/
-  - path: ~/.wave/skills/
+skills:
+  speckit:
+    install: "npm install -g @anthropic/speckit"
+    check: "speckit --version"
 ```
