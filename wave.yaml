@@ -322,5 +322,8 @@ runtime:
         strategy: summarize_to_checkpoint
         token_threshold_percent: 80
     workspace_root: .wave/workspaces
-skill_mounts:
-    - path: .wave/skills/
+skills:
+    speckit:
+        check: specify --version
+        install: uv tool install git+https://github.com/github/spec-kit.git
+        init: specify init

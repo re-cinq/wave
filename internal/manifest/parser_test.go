@@ -32,8 +32,6 @@ runtime:
   workspace_root: ./workspace
   max_concurrent_workers: 4
   default_timeout_minutes: 10
-skill_mounts:
-  - path: ./skills
 `
 	if err := os.WriteFile(manifestPath, []byte(manifestContent), 0644); err != nil {
 		t.Fatalf("Failed to write test manifest: %v", err)
