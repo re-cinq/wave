@@ -320,14 +320,14 @@ A selection of the 23 built-in pipelines:
 | Pipeline | Description |
 |----------|-------------|
 | `plan` | Break down a feature into actionable tasks |
-| `doc-sync` | Generate or update documentation |
+| `doc-fix` | Generate or update documentation |
 
 ### GitHub Automation
 
 | Pipeline | Description |
 |----------|-------------|
 | `github-issue-enhancer` | Analyze and enhance poorly documented issues |
-| `doc-loop` | Documentation impact analysis before merge |
+| `doc-audit` | Documentation impact analysis before merge |
 
 > **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`
 >
