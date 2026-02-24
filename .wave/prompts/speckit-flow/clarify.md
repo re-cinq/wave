@@ -39,9 +39,4 @@ Since this runs in a pipeline, resolve all clarifications autonomously:
 
 ## Output
 
-Write a JSON status report with:
-- `clarifications_resolved`: number of clarifications resolved
-- `sections_updated`: list of section names that were updated
-- `spec_file`: path to updated spec.md
-- `feature_dir`: path to feature directory
-- `summary`: brief description of clarifications made
+Produce a JSON status report matching the injected output schema.
