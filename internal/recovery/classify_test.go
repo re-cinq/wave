@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/contract"
+	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/security"
 )
 
@@ -80,6 +81,38 @@ func TestClassifyError(t *testing.T) {
 					Message:      "test failed",
 				})),
 			expected: ClassContractValidation,
+		},
+		{
+			name: "direct skill error",
+			err: &preflight.SkillError{
+				MissingSkills: []string{"speckit"},
+				Err:           errors.New("missing required skills: speckit"),
+			},
+			expected: ClassPreflight,
+		},
+		{
+			name: "wrapped skill error",
+			err: fmt.Errorf("preflight check failed: %w", &preflight.SkillError{
+				MissingSkills: []string{"speckit", "testkit"},
+				Err:           errors.New("missing required skills: speckit, testkit"),
+			}),
+			expected: ClassPreflight,
+		},
+		{
+			name: "direct tool error",
+			err: &preflight.ToolError{
+				MissingTools: []string{"gh"},
+				Err:          errors.New("missing required tools: gh"),
+			},
+			expected: ClassPreflight,
+		},
+		{
+			name: "wrapped tool error",
+			err: fmt.Errorf("preflight check failed: %w", &preflight.ToolError{
+				MissingTools: []string{"gh", "jq"},
+				Err:          errors.New("missing required tools: gh, jq"),
+			}),
+			expected: ClassPreflight,
 		},
 	}
 

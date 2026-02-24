@@ -18,9 +18,16 @@ type ErrorClass string
 const (
 	ClassContractValidation ErrorClass = "contract_validation"
 	ClassSecurityViolation  ErrorClass = "security_violation"
+	ClassPreflight          ErrorClass = "preflight"
 	ClassRuntimeError       ErrorClass = "runtime_error"
 	ClassUnknown            ErrorClass = "unknown"
 )
+
+// PreflightMetadata contains details about a preflight failure.
+type PreflightMetadata struct {
+	MissingSkills []string `json:"missing_skills,omitempty"`
+	MissingTools  []string `json:"missing_tools,omitempty"`
+}
 
 // RecoveryHint represents a single suggested recovery action.
 type RecoveryHint struct {
@@ -42,21 +49,50 @@ type RecoveryBlock struct {
 // BuildRecoveryBlock constructs a RecoveryBlock with appropriate hints based on the error class.
 // workspaceRoot is the resolved workspace directory (e.g. from manifest runtime.workspace_root);
 // pass "" to use the default ".wave/workspaces".
-func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string, errClass ErrorClass) *RecoveryBlock {
+// preflightMeta is optional preflight metadata containing missing skills/tools; pass nil when not a preflight error.
+func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string, errClass ErrorClass, preflightMeta *PreflightMetadata) *RecoveryBlock {
 	if workspaceRoot == "" {
 		workspaceRoot = ".wave/workspaces"
 	}
+
+	// Construct workspace path, avoiding double trailing slash when stepID is empty
+	workspacePath := fmt.Sprintf("%s/%s", workspaceRoot, runID)
+	if stepID != "" {
+		workspacePath = fmt.Sprintf("%s/%s", workspacePath, stepID)
+	}
+	workspacePath = workspacePath + "/"
 
 	block := &RecoveryBlock{
 		PipelineName:  pipelineName,
 		StepID:        stepID,
 		Input:         input,
-		WorkspacePath: fmt.Sprintf("%s/%s/%s/", workspaceRoot, runID, stepID),
+		WorkspacePath: workspacePath,
 		ErrorClass:    errClass,
 	}
 
-	// Always add resume hint (skip if stepID is unknown)
-	if stepID != "" {
+	// Add preflight-specific hints (skills and tools) before resume hints
+	if errClass == ClassPreflight && preflightMeta != nil {
+		// Generate skill install hints
+		for _, skill := range preflightMeta.MissingSkills {
+			block.Hints = append(block.Hints, RecoveryHint{
+				Label:   "Install missing skill",
+				Command: fmt.Sprintf("wave skill install %s", ShellEscape(skill)),
+				Type:    HintType("preflight"),
+			})
+		}
+
+		// Generate tool hints
+		for _, tool := range preflightMeta.MissingTools {
+			block.Hints = append(block.Hints, RecoveryHint{
+				Label:   "Install missing tool",
+				Command: fmt.Sprintf("%s is required but not on PATH\nInstall it using your package manager or ensure it's in PATH", tool),
+				Type:    HintType("preflight"),
+			})
+		}
+	}
+
+	// Add resume hint (skip if stepID is unknown OR if this is a preflight error)
+	if stepID != "" && errClass != ClassPreflight {
 		resumeCmd := buildResumeCommand(pipelineName, input, stepID)
 		block.Hints = append(block.Hints, RecoveryHint{
 			Label:   "Resume from failed step",

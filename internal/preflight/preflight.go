@@ -8,6 +8,46 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 )
 
+// SkillError represents a preflight failure due to missing skills.
+// It wraps an underlying error and preserves the list of missing skill names.
+type SkillError struct {
+	MissingSkills []string
+	Err           error
+}
+
+// Error implements the error interface.
+func (e *SkillError) Error() string {
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("missing required skills: %s", strings.Join(e.MissingSkills, ", "))
+}
+
+// Unwrap returns the underlying error for errors.Unwrap support.
+func (e *SkillError) Unwrap() error {
+	return e.Err
+}
+
+// ToolError represents a preflight failure due to missing tools.
+// It wraps an underlying error and preserves the list of missing tool names.
+type ToolError struct {
+	MissingTools []string
+	Err          error
+}
+
+// Error implements the error interface.
+func (e *ToolError) Error() string {
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("missing required tools: %s", strings.Join(e.MissingTools, ", "))
+}
+
+// Unwrap returns the underlying error for errors.Unwrap support.
+func (e *ToolError) Unwrap() error {
+	return e.Err
+}
+
 // Result represents the outcome of a single preflight check.
 type Result struct {
 	Name    string // Tool or skill name
@@ -62,7 +102,9 @@ func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 	}
 
 	if len(missing) > 0 {
-		return results, fmt.Errorf("missing required tools: %s", strings.Join(missing, ", "))
+		return results, &ToolError{
+			MissingTools: missing,
+		}
 	}
 	return results, nil
 }
@@ -154,7 +196,9 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 	}
 
 	if len(failed) > 0 {
-		return results, fmt.Errorf("missing required skills: %s", strings.Join(failed, ", "))
+		return results, &SkillError{
+			MissingSkills: failed,
+		}
 	}
 	return results, nil
 }
@@ -173,15 +217,17 @@ func (c *Checker) runShellCommand(command string) error {
 }
 
 // Run executes all preflight checks for the given tool and skill requirements.
+// Returns the first typed error encountered (prioritizing SkillError over ToolError).
 func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 	var allResults []Result
-	var errors []string
+	var skillErr error
+	var toolErr error
 
 	if len(tools) > 0 {
 		toolResults, err := c.CheckTools(tools)
 		allResults = append(allResults, toolResults...)
 		if err != nil {
-			errors = append(errors, err.Error())
+			toolErr = err
 		}
 	}
 
@@ -189,12 +235,16 @@ func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 		skillResults, err := c.CheckSkills(skills)
 		allResults = append(allResults, skillResults...)
 		if err != nil {
-			errors = append(errors, err.Error())
+			skillErr = err
 		}
 	}
 
-	if len(errors) > 0 {
-		return allResults, fmt.Errorf("preflight check failed: %s", strings.Join(errors, "; "))
+	// Prioritize SkillError over ToolError if both exist
+	if skillErr != nil {
+		return allResults, skillErr
+	}
+	if toolErr != nil {
+		return allResults, toolErr
 	}
 	return allResults, nil
 }

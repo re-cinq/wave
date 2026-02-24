@@ -188,7 +188,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				})
 			}
 			if err != nil {
-				return fmt.Errorf("preflight check failed: %w", err)
+				return err
 			}
 		}
 	}
