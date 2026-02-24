@@ -637,7 +637,7 @@ func TestContractPrompt_ArtifactGuidance(t *testing.T) {
 	assert.Contains(t, prompt, "Available Artifacts")
 	assert.Contains(t, prompt, "`research_data` → `.wave/artifacts/research_data`")
 	assert.Contains(t, prompt, "`findings` → `.wave/artifacts/findings`")
-	assert.Contains(t, prompt, "Read these files")
+	assert.Contains(t, prompt, "Read these files instead of fetching")
 }
 
 // TestContractPrompt_ArtifactGuidanceUsesArtifactNameWhenNoAs tests fallback to Artifact name.

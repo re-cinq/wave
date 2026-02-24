@@ -1558,7 +1558,8 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			}
 			b.WriteString(fmt.Sprintf("- `%s` → `.wave/artifacts/%s`\n", name, name))
 		}
-		b.WriteString("\nRead these files to access data from prior steps.\n")
+		b.WriteString("\nThese artifacts contain ALL data you need from prior pipeline steps. ")
+		b.WriteString("Read these files instead of fetching equivalent data from external sources.\n")
 	}
 
 	if b.Len() == 0 {
