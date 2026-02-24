@@ -159,12 +159,12 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 
 ### Proposal 1: Consolidate Craftsman + Implementer
 
-**Rationale**: The implementer persona was created for gh-issue-impl and speckit-flow pipelines but is functionally a subset of craftsman. Both write code, follow patterns, and produce artifacts. Maintaining two similar implementation personas creates confusion for pipeline authors.
+**Rationale**: The implementer persona was created for gh-implement and speckit-flow pipelines but is functionally a subset of craftsman. Both write code, follow patterns, and produce artifacts. Maintaining two similar implementation personas creates confusion for pipeline authors.
 
 **Changes**:
 - Merge implementer's capabilities into craftsman prompt
 - Add Glob and Grep to craftsman's permissions (from implementer)
-- Update `speckit-flow.yaml` and `gh-issue-impl.yaml` to use `craftsman`
+- Update `speckit-flow.yaml` and `gh-implement.yaml` to use `craftsman`
 - Remove `implementer.md` persona file
 - Remove `implementer` entry from `wave.yaml`
 
