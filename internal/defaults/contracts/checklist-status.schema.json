@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Checklist Status",
+  "description": "Status report from the checklist step: quality checklist generation for requirement validation.",
+  "type": "object",
+  "required": ["checklist_files", "total_items", "feature_dir", "summary"],
+  "properties": {
+    "checklist_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Paths to generated checklist files"
+    },
+    "total_items": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of checklist items across all files"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of the checklists generated"
+    },
+    "critical_gaps": {
+      "type": "integer",
+      "description": "Number of critical quality gaps identified"
+    }
+  },
+  "additionalProperties": true
+}

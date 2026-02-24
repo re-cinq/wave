@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hello World Result",
+  "description": "Verification result from the hello-world verify step",
+  "type": "object",
+  "required": ["success", "message"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the hello-world pipeline completed successfully"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable verification result"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "description": "Optional list of individual verification checks performed"
+    }
+  },
+  "additionalProperties": true
+}

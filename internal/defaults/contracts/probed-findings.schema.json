@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Probed Findings",
+  "description": "Deep-dive analysis from the recinq probe step",
+  "type": "object",
+  "required": ["target", "total_probed", "findings"],
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "What was analyzed (path, module, or 'whole-project')"
+    },
+    "total_probed": {
+      "type": "integer",
+      "description": "Total number of confirmed findings that were probed deeper"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "deeper_analysis", "files"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Original finding ID (e.g. DVG-001)"
+          },
+          "deeper_analysis": {
+            "type": "string",
+            "description": "Extended analysis including dependency graph, second-order effects, and cross-finding patterns"
+          },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "File paths involved in this finding and its connections"
+          }
+        },
+        "additionalProperties": true
+      },
+      "description": "Per-finding deep-dive results"
+    }
+  },
+  "additionalProperties": true
+}
