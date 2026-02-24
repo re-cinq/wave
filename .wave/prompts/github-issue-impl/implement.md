@@ -9,14 +9,12 @@ Your working directory IS the project root. The feature branch was created by th
 plan step and is already checked out. All git operations here are isolated from
 the main working tree.
 
-The issue assessment and implementation plan are available as injected artifacts.
-
 ## Instructions
 
 ### Step 1: Load Context
 
-1. Read the injected issue_assessment artifact for the issue details and branch name
-2. Read the injected plan artifact for the task breakdown, file changes, and feature directory
+1. Get the issue details and branch name from the issue assessment artifact
+2. Get the task breakdown, file changes, and feature directory from the plan artifact
 
 ### Step 2: Read Plan Files
 

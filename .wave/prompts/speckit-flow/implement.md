@@ -8,14 +8,11 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available as an injected artifact.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
 Follow the `/speckit.implement` workflow:
 
-1. Read the injected spec_info artifact to find the feature directory and spec file path
+1. Find the feature directory and spec file path from the spec info artifact
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR, load tasks.md, plan.md, and all available artifacts
 3. Check checklists status — if any are incomplete, note them but proceed
