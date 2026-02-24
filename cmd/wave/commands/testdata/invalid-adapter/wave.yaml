@@ -20,4 +20,3 @@ personas:
 runtime:
   workspace_root: .wave/workspaces
   default_timeout_minutes: 30
-skill_mounts: []
