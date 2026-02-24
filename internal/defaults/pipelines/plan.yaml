@@ -50,8 +50,7 @@ steps:
 
         ## Output
 
-        Write the result as a single JSON object to output/exploration.json matching
-        the contract schema. The output must include: feature_context (input_summary,
+        Produce a structured JSON result covering: feature_context (input_summary,
         scope_assessment), related_files, patterns (with PAT-### IDs), affected_modules,
         testing_landscape, risks, and timestamp.
 
@@ -89,11 +88,8 @@ steps:
 
         Feature request: {{ input }}
 
-        Codebase exploration has already been done. Read the exploration results FIRST:
-
-          cat .wave/artifacts/context
-
-        This file contains structured JSON with: related files, codebase patterns,
+        Codebase exploration has already been done and injected into your workspace.
+        It contains structured JSON with: related files, codebase patterns,
         affected modules, testing landscape, and identified risks. Use ALL of this
         information to inform your task breakdown.
 
@@ -127,9 +123,8 @@ steps:
 
         ## Output
 
-        Write a single JSON object to output/tasks.json matching the contract schema.
-        The output must include: feature_summary, tasks (with T## IDs, personas,
-        dependencies, acceptance_criteria, affected_files, complexity, risks),
+        Produce a structured JSON result covering: feature_summary, tasks (with T## IDs,
+        personas, dependencies, acceptance_criteria, affected_files, complexity, risks),
         execution_order (grouped by phases), metadata, and a markdown_content field
         with a complete human-readable rendering of the plan.
 
@@ -170,10 +165,8 @@ steps:
 
         Feature request: {{ input }}
 
-        Two artifacts have been injected into your workspace. Read them BOTH first:
-
-          cat .wave/artifacts/context      # Codebase exploration (JSON)
-          cat .wave/artifacts/task_list    # Task breakdown plan (JSON)
+        Two artifacts have been injected into your workspace: the codebase exploration
+        and the task breakdown plan. Read them BOTH before proceeding.
 
         The exploration contains: related files, patterns, affected modules, testing
         landscape, and risks. The task list contains: feature summary, tasks with
@@ -215,8 +208,7 @@ steps:
 
         ## Output
 
-        Write a single JSON object to output/plan-review.json matching the contract schema.
-        The output must include: verdict (decision, confidence, rationale), summary
+        Produce a structured JSON result containing: verdict (decision, confidence, rationale), summary
         (counts and strengths), task_reviews (per-task status with REV-### issues),
         cross_cutting_concerns (CC-### IDs), recommendations (REC-### IDs with types),
         risk_assessment, timestamp, and a markdown_content field with a complete

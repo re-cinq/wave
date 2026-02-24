@@ -68,7 +68,9 @@ func ClassifyFailure(subtype string, resultContent string, ctxErr error) string 
 	}
 	lowerContent := strings.ToLower(resultContent)
 	if strings.Contains(lowerContent, "you've hit your limit") ||
-		strings.Contains(lowerContent, "rate limit") ||
+		strings.Contains(lowerContent, "rate limit exceeded") ||
+		strings.Contains(lowerContent, "rate limit reached") ||
+		strings.Contains(lowerContent, "rate limited") ||
 		strings.Contains(lowerContent, "too many requests") {
 		return FailureReasonRateLimit
 	}

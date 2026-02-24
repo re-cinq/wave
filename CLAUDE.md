@@ -283,7 +283,8 @@ The highest bump type wins when multiple commits are present. The CI then create
 
 <!-- MANUAL ADDITIONS START -->
 
-1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step.
+1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
 2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
+3. NEVER make bulk-edits to the codebase except it is not functional code; BEWARE personas, pipelines etc. are all functional code and should be edited with the same care as any other code: Individually!
 
 <!-- MANUAL ADDITIONS END -->

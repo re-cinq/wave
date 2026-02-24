@@ -107,7 +107,7 @@ steps:
       source: |
         MANDATORY: You MUST call the Bash tool for any commands. NEVER generate fake output.
 
-        Read .wave/artifacts/context.json which contains the gathered issue context.
+        The context artifact contains the gathered issue context.
 
         Your task: Compare the original issue against the codebase changes and draft an updated version.
 
@@ -189,8 +189,7 @@ steps:
         Step 1: Use Bash tool to verify gh works:
         gh --version
 
-        Step 2: Read .wave/artifacts/draft.json for the update draft and .wave/artifacts/context.json for the repository info.
-        Extract the repo as "<owner>/<name>" and the issue number.
+        Step 2: Extract the repo as "<owner>/<name>" and the issue number from the available artifacts.
 
         Step 3: Apply the update:
         - If title_changed is true:

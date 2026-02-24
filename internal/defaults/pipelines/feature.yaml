@@ -38,9 +38,9 @@ steps:
 
         6. **Assess risks**: Breaking changes, performance, security implications.
 
-        Write the result as JSON to output/exploration.json matching the contract schema.
-        Include: feature, scope, related_files (path, relevance, reason, key_symbols),
-        patterns_to_follow, affected_modules, test_files, risks, and timestamp.
+        Produce a structured JSON result covering: feature, scope, related_files
+        (path, relevance, reason, key_symbols), patterns_to_follow, affected_modules,
+        test_files, risks, and timestamp.
     output_artifacts:
       - name: exploration
         path: .wave/output/exploration.json
@@ -73,7 +73,7 @@ steps:
 
         Feature: {{ input }}
 
-        Read the exploration: cat .wave/artifacts/context
+        The codebase exploration has been injected into your workspace. Read it first.
 
         Break the feature into ordered implementation steps:
 
@@ -82,10 +82,10 @@ steps:
         3. What tests to write
         4. Complexity estimate per step (S/M/L)
 
-        Write the result as JSON to output/plan.json matching the contract schema.
-        Include: feature, steps (id, title, description, files_to_modify, files_to_create,
-        tests_to_write, acceptance_criteria, complexity, dependencies), total_complexity,
-        branch_name_suggestion, commit_message_suggestion, and timestamp.
+        Produce a structured JSON result covering: feature, steps (id, title, description,
+        files_to_modify, files_to_create, tests_to_write, acceptance_criteria, complexity,
+        dependencies), total_complexity, branch_name_suggestion, commit_message_suggestion,
+        and timestamp.
     output_artifacts:
       - name: plan
         path: .wave/output/plan.json
@@ -117,9 +117,8 @@ steps:
       source: |
         Implement the feature on this isolated worktree branch.
 
-        Read the exploration and plan:
-          cat .wave/artifacts/context
-          cat .wave/artifacts/plan
+        The codebase exploration and implementation plan have been injected into your
+        workspace. Read them both before starting.
 
         Feature: {{ input }}
 
@@ -189,15 +188,7 @@ steps:
            gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
            ```
 
-        3. Write a JSON status report to `output/pr-result.json`:
-
-           ```json
-           {
-             "pr_url": "https://github.com/owner/repo/pull/123",
-             "pr_number": 123,
-             "branch": "feat/<pipeline_id>"
-           }
-           ```
+        3. Produce a JSON status report containing: pr_url, pr_number, and branch.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

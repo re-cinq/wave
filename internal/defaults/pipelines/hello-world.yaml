@@ -34,13 +34,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the file at .wave/artifacts/greeting_file and verify it exists and contains content.
+        Verify the greeting artifact exists and contains content.
 
-        Output EXACTLY this JSON (replace placeholder with actual file content):
+        Output EXACTLY this JSON (replace placeholder with actual content from the greeting artifact):
         {
           "status": "verified",
           "file_exists": true,
-          "content_preview": "[content from .wave/artifacts/greeting_file]"
+          "content_preview": "[content from the greeting artifact]"
         }
     output_artifacts:
       - name: result

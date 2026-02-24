@@ -8,12 +8,9 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available at `.wave/artifacts/spec_info`.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
-1. Read `.wave/artifacts/spec_info` to find the branch name and feature directory
+1. Find the branch name and feature directory from the spec info artifact
 
 2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
@@ -53,12 +50,4 @@ Read it to find the branch name, spec file, and feature directory.
 
 ## Output
 
-Write a JSON status report to .wave/output/pr-result.json with:
-```json
-{
-  "pr_url": "https://github.com/...",
-  "pr_number": 42,
-  "copilot_review_requested": true,
-  "summary": "brief description of PR"
-}
-```
+Produce a JSON status report matching the injected output schema.

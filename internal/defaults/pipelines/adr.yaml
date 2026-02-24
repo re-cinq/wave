@@ -37,7 +37,7 @@ steps:
 
         5. **Identify stakeholders**: Which components/teams/users are affected?
 
-        Write the result as JSON to output/adr-context.json matching the contract schema.
+        Write your findings as structured JSON.
         Include: decision_topic, current_state (description, affected_files, affected_components),
         constraints, precedents, stakeholders, and timestamp.
     output_artifacts:
@@ -70,8 +70,6 @@ steps:
       source: |
         Analyze the options for this architectural decision.
 
-        Read the context: cat .wave/artifacts/decision_context
-
         Original decision: {{ input }}
 
         ## Analysis
@@ -86,7 +84,7 @@ steps:
         6. **Reversibility**: How hard to undo if it's the wrong choice?
         7. **Compatibility**: How well does it fit with existing constraints?
 
-        Write the result as JSON to output/adr-options.json matching the contract schema.
+        Write your analysis as structured JSON.
         Include: decision_topic, options (name, description, pros, cons, effort, risk,
         reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
     output_artifacts:
@@ -115,13 +113,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Draft the Architecture Decision Record.
+        Draft the Architecture Decision Record using the injected context and analysis.
 
-        Read both artifacts:
-          cat .wave/artifacts/decision_context
-          cat .wave/artifacts/analysis
-
-        Write the ADR to output/adr.md using this standard format:
+        Use this standard ADR format:
 
         # ADR-NNN: [Title]
 
@@ -210,16 +204,7 @@ steps:
            gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
            ```
 
-        4. Write a JSON status report to `output/pr-result.json`:
-
-           ```json
-           {
-             "pr_url": "https://github.com/owner/repo/pull/123",
-             "pr_number": 123,
-             "branch": "docs/<pipeline_id>",
-             "adr_path": "docs/adr/NNN-title.md"
-           }
-           ```
+        4. Write a JSON status report with the PR URL, PR number, branch name, and ADR file path.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

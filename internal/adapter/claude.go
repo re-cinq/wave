@@ -179,13 +179,10 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		result.FailureReason = ClassifyFailure(parsed.Subtype, parsed.ResultContent, nil)
 	}
 
-	// Also classify when result content indicates rate limiting (may have exit code 0)
-	if result.FailureReason == "" && parsed.ResultContent != "" {
-		reason := ClassifyFailure("", parsed.ResultContent, nil)
-		if reason == FailureReasonRateLimit {
-			result.FailureReason = reason
-		}
-	}
+	// NOTE: Do NOT re-scan ResultContent for rate limit strings on exit code 0.
+	// The CLI always exits non-zero on rate limits, and scanning the full output
+	// produces false positives when personas write about "rate limiting" in their
+	// analysis (e.g. security reviews mentioning "No rate limiting on endpoints").
 
 	// Apply output validation and correction
 	correctedContent, err := a.validateAndCorrectOutput(parsed.ResultContent, cfg.OutputFormat)
