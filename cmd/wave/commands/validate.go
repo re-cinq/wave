@@ -111,8 +111,8 @@ func runValidate(opts ValidateOptions) error {
 		fmt.Printf("\nSummary:\n")
 		fmt.Printf("  Adapters:  %d defined\n", len(m.Adapters))
 		fmt.Printf("  Personas:  %d defined\n", len(m.Personas))
-		if len(m.SkillMounts) > 0 {
-			fmt.Printf("  Skills:    %d mounts\n", len(m.SkillMounts))
+		if len(m.Skills) > 0 {
+			fmt.Printf("  Skills:    %d declared\n", len(m.Skills))
 		}
 		fmt.Printf("\n")
 	}

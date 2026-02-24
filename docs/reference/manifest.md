@@ -98,7 +98,7 @@ runtime:
 | `adapters` | yes | LLM CLI configurations |
 | `personas` | yes | Agent configurations |
 | `runtime` | yes | Execution settings |
-| `skill_mounts` | no | External skill paths |
+| `skills` | no | Named skill configurations |
 
 ---
 
@@ -313,18 +313,21 @@ runtime:
 
 ---
 
-## Skill Mounts
+## Skills
 
-External skill discovery paths.
+Declare external skills with install, check, and provisioning commands.
 
 ```yaml
-skill_mounts:
-  - path: .wave/skills/       # Project-local
-  - path: ~/.wave/skills/     # User-global
-  - path: /opt/wave/skills/   # System-wide
+skills:
+  speckit:
+    install: "npm install -g @anthropic/speckit"
+    check: "speckit --version"
+  golangci-lint:
+    install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    check: "golangci-lint --version"
 ```
 
-Skills are discovered in order. Project-local takes precedence.
+Each skill is referenced by name from pipeline `requires.skills` blocks.
 
 ---
 
