@@ -692,17 +692,27 @@ func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *Handove
 
 	// Handover target line
 	targetStep := info.TargetStep
+	targetStepNum := 0
 	if targetStep == "" {
 		// Determine from step order
 		for i, sid := range bpd.stepOrder {
 			if sid == stepID && i+1 < len(bpd.stepOrder) {
 				targetStep = bpd.stepOrder[i+1]
+				targetStepNum = i + 2 // 1-based, and it's the next step
+				break
+			}
+		}
+	} else {
+		// Find targetStep's position in stepOrder
+		for i, sid := range bpd.stepOrder {
+			if sid == targetStep {
+				targetStepNum = i + 1 // 1-based
 				break
 			}
 		}
 	}
 	if targetStep != "" {
-		items = append(items, fmt.Sprintf("handover → %s", targetStep))
+		items = append(items, fmt.Sprintf("handover → step %d: %s", targetStepNum, targetStep))
 	}
 
 	// Format with tree connectors
