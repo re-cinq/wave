@@ -9,8 +9,7 @@ Your working directory IS the project root. The feature branch was created by th
 plan step and is already checked out. All git operations here are isolated from
 the main working tree.
 
-The issue assessment is available as an injected artifact.
-Read it to find the issue number, repository, branch name, and issue URL.
+Read the issue assessment artifact to find the issue number, repository, branch name, and issue URL.
 
 ## SAFETY: Do NOT Modify the Working Tree
 
@@ -22,7 +21,7 @@ implement step — just push it and create the PR.
 
 ### Step 1: Load Context
 
-Read the injected issue_assessment artifact to extract:
+From the issue assessment artifact, extract:
 - Issue number and title
 - Repository (`owner/repo`)
 - Branch name
@@ -71,3 +70,7 @@ This is a best-effort command. If Copilot isn't available in the repository, the
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
 - The PR body MUST contain `Closes #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
+
+## Output
+
+Produce a JSON status report matching the injected output schema.
