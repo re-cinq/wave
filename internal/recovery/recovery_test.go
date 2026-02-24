@@ -84,7 +84,13 @@ func TestBuildRecoveryBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block := BuildRecoveryBlock(tt.pipelineName, tt.input, tt.stepID, tt.runID, "", tt.errClass, nil)
+			block := BuildRecoveryBlock(RecoveryBlockOpts{
+				PipelineName:  tt.pipelineName,
+				Input:         tt.input,
+				StepID:        tt.stepID,
+				RunID:         tt.runID,
+				ErrClass:      tt.errClass,
+			})
 
 			if block.PipelineName != tt.pipelineName {
 				t.Errorf("PipelineName = %q, want %q", block.PipelineName, tt.pipelineName)
@@ -126,7 +132,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_EmptyInput(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "", "implement", "feature-abc123", "", ClassRuntimeError, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassRuntimeError})
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintResume || hint.Type == HintDebug {
@@ -143,7 +149,7 @@ func TestBuildRecoveryBlock_EmptyInput(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_SpecialCharsInput(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "it's a test & more", "implement", "feature-abc123", "", ClassRuntimeError, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "it's a test & more", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassRuntimeError})
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintResume {
@@ -156,7 +162,7 @@ func TestBuildRecoveryBlock_SpecialCharsInput(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_ForceLabel(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "add auth", "implement", "feature-abc123", "", ClassContractValidation, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "add auth", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassContractValidation})
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintForce {
@@ -168,7 +174,7 @@ func TestBuildRecoveryBlock_ForceLabel(t *testing.T) {
 }
 
 func TestBuildRecoveryBlock_CustomWorkspaceRoot(t *testing.T) {
-	block := BuildRecoveryBlock("feature", "", "implement", "feature-abc", "/tmp/ws", ClassRuntimeError, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", StepID: "implement", RunID: "feature-abc", WorkspaceRoot: "/tmp/ws", ErrClass: ClassRuntimeError})
 
 	if block.WorkspacePath != "/tmp/ws/feature-abc/implement/" {
 		t.Errorf("WorkspacePath = %q, want %q", block.WorkspacePath, "/tmp/ws/feature-abc/implement/")
@@ -179,7 +185,7 @@ func TestBuildRecoveryBlock_InputFlag(t *testing.T) {
 	// Input starting with "--" must use --input flag to avoid cobra misparse.
 	// "--help" contains no shell metacharacters so ShellEscape returns it as-is,
 	// but the --input flag prevents cobra from interpreting it as a flag.
-	block := BuildRecoveryBlock("feature", "--help", "implement", "run-abc", "", ClassRuntimeError, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "--help", StepID: "implement", RunID: "run-abc", ErrClass: ClassRuntimeError})
 
 	for _, hint := range block.Hints {
 		if hint.Type == HintResume {
@@ -193,7 +199,7 @@ func TestBuildRecoveryBlock_InputFlag(t *testing.T) {
 
 func TestBuildRecoveryBlock_EmptyStepID(t *testing.T) {
 	// When stepID is unknown, resume/force/debug hints should be omitted
-	block := BuildRecoveryBlock("feature", "test", "", "run-abc", "", ClassRuntimeError, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "test", RunID: "run-abc", ErrClass: ClassRuntimeError})
 
 	// Verify workspace path does not contain double trailing slash
 	expectedPath := ".wave/workspaces/run-abc/"
@@ -257,7 +263,7 @@ func TestBuildRecoveryBlock_PreflightNoDoubleSlash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block := BuildRecoveryBlock(tt.pipelineName, "", tt.stepID, tt.runID, tt.workspaceRoot, ClassPreflight, nil)
+			block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: tt.pipelineName, StepID: tt.stepID, RunID: tt.runID, WorkspaceRoot: tt.workspaceRoot, ErrClass: ClassPreflight})
 
 			if block.WorkspacePath != tt.expectedPath {
 				t.Errorf("WorkspacePath = %q, want %q", block.WorkspacePath, tt.expectedPath)
@@ -285,7 +291,7 @@ func TestBuildRecoveryBlock_PreflightWithSkills(t *testing.T) {
 	meta := &PreflightMetadata{
 		MissingSkills: []string{"speckit", "testkit"},
 	}
-	block := BuildRecoveryBlock("speckit-flow", "test input", "", "run-abc", "", ClassPreflight, meta)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "speckit-flow", Input: "test input", RunID: "run-abc", ErrClass: ClassPreflight, PreflightMeta: meta})
 
 	// Should have skill install hints
 	skillHintCount := 0
@@ -293,7 +299,7 @@ func TestBuildRecoveryBlock_PreflightWithSkills(t *testing.T) {
 		if hint.Type == HintType("preflight") && hint.Label == "Install missing skill" {
 			skillHintCount++
 			// Verify command format
-			if hint.Command != "wave skill install speckit" && hint.Command != "wave skill install testkit" {
+			if hint.Command != "Check wave.yaml skills.speckit.install for the install command" && hint.Command != "Check wave.yaml skills.testkit.install for the install command" {
 				t.Errorf("unexpected skill install command: %q", hint.Command)
 			}
 		}
@@ -325,7 +331,7 @@ func TestBuildRecoveryBlock_PreflightWithTools(t *testing.T) {
 	meta := &PreflightMetadata{
 		MissingTools: []string{"jq", "yq"},
 	}
-	block := BuildRecoveryBlock("feature", "", "", "run-xyz", "", ClassPreflight, meta)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", RunID: "run-xyz", ErrClass: ClassPreflight, PreflightMeta: meta})
 
 	// Should have tool hints
 	toolHintCount := 0
@@ -333,8 +339,8 @@ func TestBuildRecoveryBlock_PreflightWithTools(t *testing.T) {
 		if hint.Type == HintType("preflight") && hint.Label == "Install missing tool" {
 			toolHintCount++
 			// Verify command contains tool name and guidance
-			if hint.Command != "jq is required but not on PATH\nInstall it using your package manager or ensure it's in PATH" &&
-				hint.Command != "yq is required but not on PATH\nInstall it using your package manager or ensure it's in PATH" {
+			if hint.Command != "jq is required but not on PATH — install it using your package manager" &&
+				hint.Command != "yq is required but not on PATH — install it using your package manager" {
 				t.Errorf("unexpected tool hint command: %q", hint.Command)
 			}
 		}
@@ -349,7 +355,7 @@ func TestBuildRecoveryBlock_PreflightMixed(t *testing.T) {
 		MissingSkills: []string{"speckit"},
 		MissingTools:  []string{"jq"},
 	}
-	block := BuildRecoveryBlock("feature", "", "", "run-abc", "", ClassPreflight, meta)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", RunID: "run-abc", ErrClass: ClassPreflight, PreflightMeta: meta})
 
 	// Should have both skill and tool hints
 	hasSkillHint := false
@@ -374,7 +380,7 @@ func TestBuildRecoveryBlock_PreflightMixed(t *testing.T) {
 
 func TestBuildRecoveryBlock_PreflightNoMetadata(t *testing.T) {
 	// When ClassPreflight is used but metadata is nil, should still work gracefully
-	block := BuildRecoveryBlock("feature", "", "", "run-abc", "", ClassPreflight, nil)
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", RunID: "run-abc", ErrClass: ClassPreflight})
 
 	// Should not have any preflight hints
 	for _, hint := range block.Hints {

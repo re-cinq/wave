@@ -86,20 +86,19 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 	meta := &recovery.PreflightMetadata{
 		MissingSkills: skillErr.MissingSkills,
 	}
-	block := recovery.BuildRecoveryBlock(
-		p.Metadata.Name,
-		"test input",
-		"", // stepID is empty for preflight failures
-		"test-run-12345678",
-		".wave/workspaces",
-		errClass,
-		meta,
-	)
+	block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+		PipelineName:  p.Metadata.Name,
+		Input:         "test input",
+		RunID:         "test-run-12345678",
+		WorkspaceRoot: ".wave/workspaces",
+		ErrClass:      errClass,
+		PreflightMeta: meta,
+	})
 
 	// Verify recovery hints include skill install command
 	foundSkillHint := false
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave skill install") &&
+		if strings.Contains(hint.Command, "wave.yaml skills.") &&
 			strings.Contains(hint.Command, "nonexistent-skill-xyz") {
 			foundSkillHint = true
 			if hint.Label != "Install missing skill" {
@@ -201,15 +200,14 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 	meta := &recovery.PreflightMetadata{
 		MissingTools: toolErr.MissingTools,
 	}
-	block := recovery.BuildRecoveryBlock(
-		p.Metadata.Name,
-		"test input",
-		"", // stepID is empty for preflight failures
-		"test-run-87654321",
-		".wave/workspaces",
-		errClass,
-		meta,
-	)
+	block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+		PipelineName:  p.Metadata.Name,
+		Input:         "test input",
+		RunID:         "test-run-87654321",
+		WorkspaceRoot: ".wave/workspaces",
+		ErrClass:      errClass,
+		PreflightMeta: meta,
+	})
 
 	// Verify recovery hints include tool guidance
 	foundToolHint := false
@@ -329,20 +327,19 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 		MissingSkills: missingSkills,
 		MissingTools:  missingTools,
 	}
-	block := recovery.BuildRecoveryBlock(
-		p.Metadata.Name,
-		"test input",
-		"",
-		"test-run-mixed123",
-		".wave/workspaces",
-		errClass,
-		meta,
-	)
+	block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+		PipelineName:  p.Metadata.Name,
+		Input:         "test input",
+		RunID:         "test-run-mixed123",
+		WorkspaceRoot: ".wave/workspaces",
+		ErrClass:      errClass,
+		PreflightMeta: meta,
+	})
 
 	// Verify hints include both skill install commands
 	skillHintCount := 0
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave skill install") {
+		if strings.Contains(hint.Command, "wave.yaml skills.") {
 			skillHintCount++
 			// Verify it mentions one of our missing skills
 			if !strings.Contains(hint.Command, "missing-skill-alpha") &&
@@ -517,15 +514,14 @@ func TestPreflightRecovery_CleanWorkspacePaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block := recovery.BuildRecoveryBlock(
-				"test-pipeline",
-				"test input",
-				tt.stepID,
-				tt.runID,
-				tt.workspaceRoot,
-				recovery.ClassPreflight,
-				nil,
-			)
+			block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+				PipelineName:  "test-pipeline",
+				Input:         "test input",
+				StepID:        tt.stepID,
+				RunID:         tt.runID,
+				WorkspaceRoot: tt.workspaceRoot,
+				ErrClass:      recovery.ClassPreflight,
+			})
 
 			// Verify path matches expected
 			if block.WorkspacePath != tt.wantPath {
@@ -648,15 +644,15 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 
 	// Step 8: Build recovery block
 	runID := "e2e-test-run-12345678"
-	block := recovery.BuildRecoveryBlock(
-		p.Metadata.Name,
-		"test feature request",
-		stepID,
-		runID,
-		m.Runtime.WorkspaceRoot,
-		errClass,
-		preflightMeta,
-	)
+	block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
+		PipelineName:  p.Metadata.Name,
+		Input:         "test feature request",
+		StepID:        stepID,
+		RunID:         runID,
+		WorkspaceRoot: m.Runtime.WorkspaceRoot,
+		ErrClass:      errClass,
+		PreflightMeta: preflightMeta,
+	})
 
 	// Step 9: Verify recovery block structure
 	if block.PipelineName != p.Metadata.Name {
@@ -676,10 +672,10 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	var hasResumeHint bool
 
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave skill install speckit") {
+		if strings.Contains(hint.Command, "wave.yaml skills.speckit.install") {
 			hasSkillHint = true
 		}
-		if strings.Contains(hint.Command, "nonexistent-cli-xyz-e2e") && strings.Contains(hint.Command, "PATH") {
+		if strings.Contains(hint.Command, "nonexistent-cli-xyz-e2e") && strings.Contains(hint.Command, "package manager") {
 			hasToolHint = true
 		}
 		if hint.Type == recovery.HintWorkspace {
@@ -691,7 +687,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	}
 
 	if !hasSkillHint {
-		t.Error("expected recovery hints to include 'wave skill install speckit'")
+		t.Error("expected recovery hints to reference wave.yaml skills config")
 	}
 
 	if !hasToolHint {
@@ -731,7 +727,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	// Step 14: Verify all acceptance criteria
 	t.Run("acceptance_criteria", func(t *testing.T) {
 		// AC1: Recovery options suggest installing the missing skill
-		if !strings.Contains(formattedBlock, "wave skill install") {
+		if !strings.Contains(formattedBlock, "wave.yaml skills.") {
 			t.Error("AC1 failed: recovery options should suggest installing the missing skill")
 		}
 
@@ -749,7 +745,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 		skillHintCount := 0
 		toolHintCount := 0
 		for _, hint := range block.Hints {
-			if strings.Contains(hint.Command, "wave skill install") {
+			if strings.Contains(hint.Command, "wave.yaml skills.") {
 				skillHintCount++
 			}
 			if hint.Label == "Install missing tool" {
