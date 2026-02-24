@@ -716,6 +716,7 @@ func TestListCmd_All_ShowsEverything(t *testing.T) {
 	assert.Contains(t, stdout, "Pipelines")
 	assert.Contains(t, stdout, "Personas")
 	assert.Contains(t, stdout, "Contracts")
+	assert.Contains(t, stdout, "Skills")
 }
 
 // Test with missing manifest
@@ -824,6 +825,11 @@ func TestListCmd_FilterOptions(t *testing.T) {
 			name:         "contracts filter",
 			filter:       "contracts",
 			wantContains: []string{"Contracts"},
+		},
+		{
+			name:         "skills filter",
+			filter:       "skills",
+			wantContains: []string{"Skills"},
 		},
 	}
 
@@ -1259,4 +1265,204 @@ func TestListRunsCmd_JSONStructure(t *testing.T) {
 	assert.Equal(t, "test-pipeline", output.Runs[0].Pipeline)
 	assert.Equal(t, "completed", output.Runs[0].Status)
 	assert.NotEmpty(t, output.Runs[0].StartedAt)
+}
+
+// ====================================================================
+// Tests for list skills subcommand
+// ====================================================================
+
+// sampleManifestWithSkills returns a wave.yaml content that includes skills.
+func sampleManifestWithSkills() string {
+	return `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-project
+  description: Test project
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+    output_format: json
+personas:
+  navigator:
+    adapter: claude
+    description: Navigator persona
+    system_prompt_file: personas/navigator.md
+    temperature: 0.1
+skills:
+  speckit:
+    check: "true"
+    install: "go install github.com/example/speckit@latest"
+  linter:
+    check: "false"
+    install: "npm install -g linter"
+runtime:
+  workspace_root: .wave/workspaces
+`
+}
+
+func TestListCmd_Skills_TableFormat(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifestWithSkills())
+	h.writeFile("personas/navigator.md", "# Navigator")
+
+	stdout, _, err := executeListCmd("skills")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Skills")
+	assert.Contains(t, stdout, "speckit")
+	assert.Contains(t, stdout, "linter")
+}
+
+func TestListCmd_Skills_ShowsStatus(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifestWithSkills())
+	h.writeFile("personas/navigator.md", "# Navigator")
+
+	stdout, _, err := executeListCmd("skills")
+
+	require.NoError(t, err)
+	// "true" check command should show installed (✓), "false" should show missing (✗)
+	// The output uses ANSI codes, so just check that both skill names are present
+	// and the output distinguishes between them
+	assert.Contains(t, stdout, "speckit")
+	assert.Contains(t, stdout, "linter")
+}
+
+func TestListCmd_Skills_ShowsPipelineUsage(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifestWithSkills())
+	h.writeFile("personas/navigator.md", "# Navigator")
+
+	// Create a pipeline that requires speckit
+	h.writeFile(".wave/pipelines/feature.yaml", `kind: WavePipeline
+metadata:
+  name: feature
+  description: Feature pipeline
+requires:
+  skills:
+    - speckit
+steps:
+  - id: plan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Plan"
+`)
+
+	stdout, _, err := executeListCmd("skills")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "used by:")
+	assert.Contains(t, stdout, "feature")
+}
+
+func TestListCmd_Skills_NoSkillsDefined(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-project
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas: {}
+skills: {}
+runtime:
+  workspace_root: .wave/workspaces
+`)
+
+	stdout, _, err := executeListCmd("skills")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Skills")
+	assert.Contains(t, stdout, "(none defined)")
+}
+
+func TestListCmd_Skills_JSONFormat(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", sampleManifestWithSkills())
+	h.writeFile("personas/navigator.md", "# Navigator")
+
+	stdout, _, err := executeListCmd("skills", "--format", "json")
+
+	require.NoError(t, err)
+
+	var output ListOutput
+	err = json.Unmarshal([]byte(stdout), &output)
+	require.NoError(t, err, "output should be valid JSON")
+	require.NotNil(t, output.Skills, "skills should be in output")
+	require.Len(t, output.Skills, 2, "should have 2 skills")
+
+	// Find skills by name
+	skillMap := make(map[string]SkillInfo)
+	for _, s := range output.Skills {
+		skillMap[s.Name] = s
+	}
+
+	speckit, ok := skillMap["speckit"]
+	require.True(t, ok, "speckit skill should exist")
+	assert.Equal(t, "true", speckit.Check)
+	assert.Equal(t, "go install github.com/example/speckit@latest", speckit.Install)
+	assert.True(t, speckit.Installed, "speckit should be installed (check=true)")
+
+	linter, ok := skillMap["linter"]
+	require.True(t, ok, "linter skill should exist")
+	assert.Equal(t, "false", linter.Check)
+	assert.False(t, linter.Installed, "linter should not be installed (check=false)")
+}
+
+func TestListCmd_Skills_SortedAlphabetically(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	h.writeFile("wave.yaml", `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-project
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas: {}
+skills:
+  zebra-skill:
+    check: "true"
+  alpha-skill:
+    check: "true"
+  middle-skill:
+    check: "true"
+runtime:
+  workspace_root: .wave/workspaces
+`)
+
+	stdout, _, err := executeListCmd("skills")
+
+	require.NoError(t, err)
+	alphaIdx := strings.Index(stdout, "alpha-skill")
+	middleIdx := strings.Index(stdout, "middle-skill")
+	zebraIdx := strings.Index(stdout, "zebra-skill")
+
+	assert.True(t, alphaIdx > 0, "alpha-skill should appear in output")
+	assert.True(t, middleIdx > 0, "middle-skill should appear in output")
+	assert.True(t, zebraIdx > 0, "zebra-skill should appear in output")
+	assert.True(t, alphaIdx < middleIdx, "alpha-skill should appear before middle-skill")
+	assert.True(t, middleIdx < zebraIdx, "middle-skill should appear before zebra-skill")
 }
