@@ -1,6 +1,9 @@
 package recovery
 
-import "fmt"
+import (
+	"fmt"
+	"path/filepath"
+)
 
 // HintType identifies the category of recovery hint.
 type HintType string
@@ -18,9 +21,16 @@ type ErrorClass string
 const (
 	ClassContractValidation ErrorClass = "contract_validation"
 	ClassSecurityViolation  ErrorClass = "security_violation"
+	ClassPreflight          ErrorClass = "preflight"
 	ClassRuntimeError       ErrorClass = "runtime_error"
 	ClassUnknown            ErrorClass = "unknown"
 )
+
+// PreflightMetadata contains details about a preflight failure.
+type PreflightMetadata struct {
+	MissingSkills []string `json:"missing_skills,omitempty"`
+	MissingTools  []string `json:"missing_tools,omitempty"`
+}
 
 // RecoveryHint represents a single suggested recovery action.
 type RecoveryHint struct {
@@ -39,25 +49,63 @@ type RecoveryBlock struct {
 	Hints         []RecoveryHint `json:"hints"`
 }
 
+// RecoveryBlockOpts holds parameters for building a recovery block.
+type RecoveryBlockOpts struct {
+	PipelineName   string
+	Input          string
+	StepID         string
+	RunID          string
+	WorkspaceRoot  string              // defaults to ".wave/workspaces" if empty
+	ErrClass       ErrorClass
+	PreflightMeta  *PreflightMetadata  // nil when not a preflight error
+}
+
 // BuildRecoveryBlock constructs a RecoveryBlock with appropriate hints based on the error class.
-// workspaceRoot is the resolved workspace directory (e.g. from manifest runtime.workspace_root);
-// pass "" to use the default ".wave/workspaces".
-func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string, errClass ErrorClass) *RecoveryBlock {
+func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
+	workspaceRoot := opts.WorkspaceRoot
 	if workspaceRoot == "" {
 		workspaceRoot = ".wave/workspaces"
 	}
 
+	// Construct workspace path using filepath.Join (handles empty segments cleanly)
+	workspacePath := filepath.Join(workspaceRoot, opts.RunID)
+	if opts.StepID != "" {
+		workspacePath = filepath.Join(workspacePath, opts.StepID)
+	}
+	workspacePath = workspacePath + "/"
+
 	block := &RecoveryBlock{
-		PipelineName:  pipelineName,
-		StepID:        stepID,
-		Input:         input,
-		WorkspacePath: fmt.Sprintf("%s/%s/%s/", workspaceRoot, runID, stepID),
-		ErrorClass:    errClass,
+		PipelineName:  opts.PipelineName,
+		StepID:        opts.StepID,
+		Input:         opts.Input,
+		WorkspacePath: workspacePath,
+		ErrorClass:    opts.ErrClass,
 	}
 
-	// Always add resume hint (skip if stepID is unknown)
-	if stepID != "" {
-		resumeCmd := buildResumeCommand(pipelineName, input, stepID)
+	// Add preflight-specific hints (skills and tools) before resume hints
+	if opts.ErrClass == ClassPreflight && opts.PreflightMeta != nil {
+		// Generate skill install hints
+		for _, skill := range opts.PreflightMeta.MissingSkills {
+			block.Hints = append(block.Hints, RecoveryHint{
+				Label:   "Install missing skill",
+				Command: fmt.Sprintf("Check wave.yaml skills.%s.install for the install command", skill),
+				Type:    HintType("preflight"),
+			})
+		}
+
+		// Generate tool hints
+		for _, tool := range opts.PreflightMeta.MissingTools {
+			block.Hints = append(block.Hints, RecoveryHint{
+				Label:   "Install missing tool",
+				Command: fmt.Sprintf("%s is required but not on PATH — install it using your package manager", tool),
+				Type:    HintType("preflight"),
+			})
+		}
+	}
+
+	// Add resume hint (skip if stepID is unknown OR if this is a preflight error)
+	if opts.StepID != "" && opts.ErrClass != ClassPreflight {
+		resumeCmd := buildResumeCommand(opts.PipelineName, opts.Input, opts.StepID)
 		block.Hints = append(block.Hints, RecoveryHint{
 			Label:   "Resume from failed step",
 			Command: resumeCmd,
@@ -65,7 +113,7 @@ func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string
 		})
 
 		// Add force hint only for contract validation errors
-		if errClass == ClassContractValidation {
+		if opts.ErrClass == ClassContractValidation {
 			forceCmd := resumeCmd + " --force"
 			block.Hints = append(block.Hints, RecoveryHint{
 				Label:   "Resume and skip validation checks",
@@ -83,8 +131,8 @@ func BuildRecoveryBlock(pipelineName, input, stepID, runID, workspaceRoot string
 	})
 
 	// Add debug hint for runtime errors and unknown errors
-	if stepID != "" && (errClass == ClassRuntimeError || errClass == ClassUnknown) {
-		debugCmd := buildResumeCommand(pipelineName, input, stepID) + " --debug"
+	if opts.StepID != "" && (opts.ErrClass == ClassRuntimeError || opts.ErrClass == ClassUnknown) {
+		debugCmd := buildResumeCommand(opts.PipelineName, opts.Input, opts.StepID) + " --debug"
 		block.Hints = append(block.Hints, RecoveryHint{
 			Label:   "Re-run with debug output",
 			Command: debugCmd,
