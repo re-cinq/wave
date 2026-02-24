@@ -667,7 +667,7 @@ func TestInitManifestStructure(t *testing.T) {
 	assert.Contains(t, manifest, "adapters")
 	assert.Contains(t, manifest, "personas")
 	assert.Contains(t, manifest, "runtime")
-	assert.Contains(t, manifest, "skill_mounts")
+	assert.NotContains(t, manifest, "skill_mounts")
 
 	// Verify runtime structure
 	runtime, ok := manifest["runtime"].(map[string]interface{})
