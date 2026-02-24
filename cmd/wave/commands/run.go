@@ -16,6 +16,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
@@ -301,7 +302,14 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 
 		errClass := recovery.ClassifyError(cause)
-		block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepID, runID, wsRoot, errClass)
+
+		// Extract preflight metadata when the error is a preflight failure
+		var preflightMeta *recovery.PreflightMetadata
+		if errClass == recovery.ClassPreflight {
+			preflightMeta = extractPreflightMetadata(cause)
+		}
+
+		block := recovery.BuildRecoveryBlock(p.Metadata.Name, opts.Input, stepID, runID, wsRoot, errClass, preflightMeta)
 
 		if opts.Output.Format == OutputFormatJSON {
 			// In JSON mode, emit recovery hints as structured data.
@@ -516,4 +524,31 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
 	}
 
 	return nil
+}
+
+// extractPreflightMetadata extracts missing skills and tools from preflight errors.
+// It walks the error chain using errors.As to find SkillError or ToolError types.
+func extractPreflightMetadata(err error) *recovery.PreflightMetadata {
+	if err == nil {
+		return nil
+	}
+
+	meta := &recovery.PreflightMetadata{}
+
+	var skillErr *preflight.SkillError
+	if errors.As(err, &skillErr) {
+		meta.MissingSkills = skillErr.MissingSkills
+	}
+
+	var toolErr *preflight.ToolError
+	if errors.As(err, &toolErr) {
+		meta.MissingTools = toolErr.MissingTools
+	}
+
+	// Return nil if no metadata was found
+	if len(meta.MissingSkills) == 0 && len(meta.MissingTools) == 0 {
+		return nil
+	}
+
+	return meta
 }
