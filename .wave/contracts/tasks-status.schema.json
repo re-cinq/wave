@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Tasks Status",
+  "description": "Status report from the tasks step: dependency-ordered task breakdown generation.",
+  "type": "object",
+  "required": ["total_tasks", "feature_dir", "summary"],
+  "properties": {
+    "total_tasks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of tasks generated"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of the task breakdown"
+    },
+    "tasks_per_story": {
+      "type": "object",
+      "description": "Mapping of user story identifiers to task counts"
+    },
+    "parallel_opportunities": {
+      "type": "integer",
+      "description": "Number of tasks that can be executed in parallel"
+    }
+  },
+  "additionalProperties": true
+}
