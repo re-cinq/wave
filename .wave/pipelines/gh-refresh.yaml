@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: gh-issue-update
+  name: gh-refresh
   description: "Refresh a stale GitHub issue by comparing it against recent codebase changes"
   release: true
 

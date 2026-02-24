@@ -43,9 +43,9 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run doc-sync',
+    command: 'wave run doc-fix',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: doc-sync' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: doc-fix' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  4m 38s' },
       { text: ' ' },

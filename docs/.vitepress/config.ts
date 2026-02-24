@@ -74,7 +74,7 @@ export default withMermaid(
             items: [
               { text: 'Overview', link: '/use-cases/' },
               { text: 'Code Review', link: '/use-cases/code-review' },
-              { text: 'Doc Consistency', link: '/use-cases/doc-loop' },
+              { text: 'Doc Consistency', link: '/use-cases/doc-audit' },
               { text: 'Issue Enhancement', link: '/use-cases/github-issue-enhancer' },
               { text: 'Issue Research', link: '/use-cases/issue-research' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },

@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: gh-issue-rewrite
+  name: gh-rewrite
   description: "Analyze and rewrite poorly documented GitHub issues"
   release: true
 

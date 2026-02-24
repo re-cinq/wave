@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: gh-issue-impl
+  name: gh-implement
   description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
 
 input:
@@ -18,7 +18,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/github-issue-impl/fetch-assess.md
+      source_path: .wave/prompts/gh-implement/fetch-assess.md
     output_artifacts:
       - name: assessment
         path: .wave/output/issue-assessment.json
@@ -46,7 +46,7 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/github-issue-impl/plan.md
+      source_path: .wave/prompts/gh-implement/plan.md
     output_artifacts:
       - name: impl-plan
         path: .wave/output/impl-plan.json
@@ -76,7 +76,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/github-issue-impl/implement.md
+      source_path: .wave/prompts/gh-implement/implement.md
     handover:
       contract:
         type: test_suite
@@ -101,7 +101,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/github-issue-impl/create-pr.md
+      source_path: .wave/prompts/gh-implement/create-pr.md
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

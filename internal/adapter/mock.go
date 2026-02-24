@@ -114,8 +114,8 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 // falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
 	// Check for pipeline-specific step generators first
-	// (workspace path contains pipeline name, e.g., ".wave/workspaces/github-issue-impl/fetch-assess/")
-	if strings.Contains(cfg.WorkspacePath, "github-issue-impl") {
+	// (workspace path contains pipeline name, e.g., ".wave/workspaces/gh-implement/fetch-assess/")
+	if strings.Contains(cfg.WorkspacePath, "gh-implement") {
 		phase := filepath.Base(cfg.WorkspacePath)
 		switch phase {
 		case "fetch-assess":
@@ -453,7 +453,7 @@ func generateIssuePlanOutput(cfg AdapterRunConfig) string {
 	return string(out)
 }
 
-// generateIssuePROutput returns PR result output for github-issue-impl create-pr step
+// generateIssuePROutput returns PR result output for gh-implement create-pr step
 func generateIssuePROutput(cfg AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"pr_url":                   "https://github.com/re-cinq/wave/pull/51",

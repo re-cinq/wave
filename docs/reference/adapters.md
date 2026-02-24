@@ -201,9 +201,9 @@ At least one of these must be set for the adapter to authenticate with the GitHu
 
 The GitHub adapter is used by pipelines that interact with GitHub repositories:
 
-- `gh-issue-research` — scan and analyze issue quality
-- `gh-issue-rewrite` — enhance poorly written issues
-- `gh-issue-impl` — implement features from GitHub issues
+- `gh-research` — scan and analyze issue quality
+- `gh-rewrite` — enhance poorly written issues
+- `gh-implement` — implement features from GitHub issues
 
 ---
 
