@@ -9,14 +9,11 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available as an injected artifact.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
 Follow the `/speckit.analyze` workflow:
 
-1. Read the injected spec_info artifact to find the feature directory and spec file path
+1. Find the feature directory and spec file path from the spec info artifact
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
    to find FEATURE_DIR and locate spec.md, plan.md, tasks.md
 3. Load all three artifacts and build semantic models:
@@ -41,6 +38,10 @@ Follow the `/speckit.analyze` workflow:
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT use WebSearch — all information is in the spec artifacts
 - This is a READ-ONLY analysis — do NOT modify any files
+
+## Output
+
+Produce a JSON analysis report matching the injected output schema.
 
 IMPORTANT: If CRITICAL issues are found, document them clearly but do NOT block
 the pipeline. The implement step will handle resolution.
