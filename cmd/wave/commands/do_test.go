@@ -45,7 +45,6 @@ personas:
 	manifestContent += `runtime:
   workspace_root: .wave/workspaces
   default_timeout_minutes: 30
-skill_mounts: []
 `
 
 	// Create personas directory and files

@@ -58,7 +58,6 @@ runtime:
     max_total_steps: 20
     max_total_tokens: 500000
     timeout_minutes: 60
-skill_mounts: []
 `
 
 	// Create personas directory and files
