@@ -73,3 +73,7 @@ If the issue IS implementable:
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT modify the issue — this is read-only assessment
+
+## Output
+
+Produce a JSON assessment matching the injected output schema.

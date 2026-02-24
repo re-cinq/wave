@@ -9,14 +9,11 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available as an injected artifact.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
 Follow the `/speckit.checklist` workflow:
 
-1. Read the injected spec_info artifact to find the feature directory and spec file path
+1. Find the feature directory and spec file path from the spec info artifact
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json` to get FEATURE_DIR
 3. Load feature context: spec.md, plan.md, tasks.md
 4. Generate focused checklists as "unit tests for requirements":
@@ -37,3 +34,7 @@ Follow the `/speckit.checklist` workflow:
 
 - WRONG: "Verify the button clicks correctly" (tests implementation)
 - RIGHT: "Are interaction requirements defined for all clickable elements?" (tests requirements)
+
+## Output
+
+Produce a JSON status report matching the injected output schema.

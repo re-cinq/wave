@@ -9,8 +9,7 @@ Your working directory IS the project root. The feature branch was created by th
 plan step and is already checked out. All git operations here are isolated from
 the main working tree.
 
-The issue assessment is available at `.wave/artifacts/issue_assessment`.
-Read it to find the issue number, repository, branch name, and issue URL.
+Read the issue assessment artifact to find the issue number, repository, branch name, and issue URL.
 
 ## SAFETY: Do NOT Modify the Working Tree
 
@@ -22,7 +21,7 @@ implement step — just push it and create the PR.
 
 ### Step 1: Load Context
 
-Read `.wave/artifacts/issue_assessment` to extract:
+From the issue assessment artifact, extract:
 - Issue number and title
 - Repository (`owner/repo`)
 - Branch name
@@ -74,15 +73,4 @@ This is a best-effort command. If Copilot isn't available in the repository, the
 
 ## Output
 
-Write a JSON status report to `.wave/output/pr-result.json`:
-
-```json
-{
-  "pr_url": "https://github.com/owner/repo/pull/123",
-  "pr_number": 123,
-  "issue_number": 42,
-  "issue_url": "https://github.com/owner/repo/issues/42",
-  "copilot_review_requested": true,
-  "summary": "Brief description of the PR"
-}
-```
+Produce a JSON status report matching the injected output schema.

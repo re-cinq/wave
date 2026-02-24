@@ -76,29 +76,4 @@ If the issue IS implementable:
 
 ## Output
 
-Write a JSON assessment to `.wave/output/issue-assessment.json`:
-
-```json
-{
-  "implementable": true,
-  "issue": {
-    "number": 42,
-    "title": "Issue title",
-    "body": "Full issue body text",
-    "repository": "owner/repo",
-    "url": "https://github.com/owner/repo/issues/42",
-    "labels": ["bug", "enhancement"],
-    "state": "open",
-    "author": "username",
-    "comments": []
-  },
-  "assessment": {
-    "quality_score": 75,
-    "complexity": "medium",
-    "skip_steps": ["specify", "clarify"],
-    "branch_name": "042-issue-short-name",
-    "missing_info": ["No explicit acceptance criteria"],
-    "summary": "Issue has clear requirements and affected code is identifiable."
-  }
-}
-```
+Produce a JSON assessment matching the injected output schema.

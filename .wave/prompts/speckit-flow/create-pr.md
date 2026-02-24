@@ -8,12 +8,9 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the specify step is available as an injected artifact.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
-1. Read the injected spec_info artifact to find the branch name and feature directory
+1. Find the branch name and feature directory from the spec info artifact
 
 2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
@@ -50,3 +47,7 @@ Read it to find the branch name, spec file, and feature directory.
 ## CONSTRAINTS
 
 - Do NOT spawn Task subagents — work directly in the main context
+
+## Output
+
+Produce a JSON status report matching the injected output schema.
