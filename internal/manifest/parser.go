@@ -170,10 +170,6 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, personaErrs...)
 	}
 
-	if mountErrs := validateSkillMountsWithFile(m.SkillMounts, basePath, filePath); len(mountErrs) > 0 {
-		errs = append(errs, mountErrs...)
-	}
-
 	if skillErrs := validateSkillsWithFile(m.Skills, filePath); len(skillErrs) > 0 {
 		errs = append(errs, skillErrs...)
 	}
@@ -283,20 +279,6 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 	return errs
 }
 
-func validateSkillMountsWithFile(mounts []SkillMount, basePath, filePath string) []error {
-	var errs []error
-	for i, mount := range mounts {
-		if strings.TrimSpace(mount.Path) == "" {
-			errs = append(errs, &ValidationError{
-				File:       filePath,
-				Field:      fmt.Sprintf("skill_mounts[%d].path", i),
-				Reason:     "is required",
-				Suggestion: "Set 'path' to a directory containing skill definitions",
-			})
-		}
-	}
-	return errs
-}
 
 // validateSkillsWithFile validates the skills configuration map.
 func validateSkillsWithFile(skills map[string]SkillConfig, filePath string) []error {

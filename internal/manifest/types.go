@@ -21,7 +21,6 @@ type Manifest struct {
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
-	SkillMounts []SkillMount               `yaml:"skill_mounts,omitempty"`
 	Skills      map[string]SkillConfig     `yaml:"skills,omitempty"`
 }
 
@@ -156,10 +155,6 @@ type MetaConfig struct {
 	MaxTotalSteps  int `yaml:"max_total_steps,omitempty"`
 	MaxTotalTokens int `yaml:"max_total_tokens,omitempty"`
 	TimeoutMin     int `yaml:"timeout_minutes,omitempty"`
-}
-
-type SkillMount struct {
-	Path string `yaml:"path"`
 }
 
 // SkillConfig declares an external skill with install, init, and check commands.
