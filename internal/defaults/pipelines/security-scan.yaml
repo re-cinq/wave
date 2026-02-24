@@ -55,13 +55,13 @@ steps:
            - Known vulnerable patterns in dependency usage
            - Outdated security practices
 
-        ## Output Format
+        ## Output
 
-        Write the result as JSON to output/security-scan.json matching the contract schema.
-        Include: target, attack_surface (entry_point, type, description, risk_level),
-        findings (id, title, severity, category, location, description, evidence, exploitability),
-        secrets_check (hardcoded_secrets, insecure_configs), summary (total_findings,
-        by_severity, risk_assessment), and timestamp.
+        Produce a structured result covering: target, attack_surface (entry_point, type,
+        description, risk_level), findings (id, title, severity, category, location,
+        description, evidence, exploitability), secrets_check (hardcoded_secrets,
+        insecure_configs), summary (total_findings, by_severity, risk_assessment),
+        and timestamp.
     output_artifacts:
       - name: scan_results
         path: .wave/output/security-scan.json
@@ -90,11 +90,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Perform a deep security analysis based on the initial scan results.
-
-        Read the scan findings first:
-
-          cat .wave/artifacts/scan_findings
+        Perform a deep security analysis based on the injected scan results.
 
         For each finding with severity HIGH or CRITICAL:
 
@@ -115,7 +111,7 @@ steps:
 
         For MEDIUM and LOW findings, do a lighter review confirming they're real.
 
-        Output as markdown to output/security-deep-dive.md with sections:
+        Produce a markdown report with these sections:
         - Executive Summary
         - Confirmed Vulnerabilities (with severity badges)
         - False Positives Eliminated
@@ -141,12 +137,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the security audit into a final report.
-
-        Read both artifacts:
-
-          cat .wave/artifacts/scan_findings
-          cat .wave/artifacts/analysis
+        Synthesize the injected scan findings and deep-dive analysis into a final report.
 
         Create a concise, actionable security report:
 

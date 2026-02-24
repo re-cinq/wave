@@ -47,13 +47,9 @@ Use 1-3 Task agents to parallelize independent work:
 
 ## Output
 
-Write a JSON status report to .wave/output/specify-status.json with:
-```json
-{
-  "branch_name": "the created branch name",
-  "spec_file": "path to spec.md",
-  "feature_dir": "path to feature directory",
-  "checklist_status": "pass or fail",
-  "summary": "brief description of what was created"
-}
-```
+Write a JSON status report with:
+- `branch_name`: the created branch name
+- `spec_file`: path to spec.md
+- `feature_dir`: path to feature directory
+- `checklist_status`: pass or fail
+- `summary`: brief description of what was created
