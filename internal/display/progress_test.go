@@ -643,3 +643,59 @@ func TestBasicProgressDisplay_BuildHandoverLines(t *testing.T) {
 		})
 	}
 }
+
+func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
+	bpd := NewBasicProgressDisplayWithVerbose(true)
+	bpd.stepOrder = []string{"analyst", "implementer", "reviewer"}
+
+	tests := []struct {
+		name           string
+		stepID         string
+		targetStep     string
+		wantHandover   string
+	}{
+		{
+			name:         "explicit target step",
+			stepID:       "analyst",
+			targetStep:   "implementer",
+			wantHandover: "handover → step 2: implementer",
+		},
+		{
+			name:         "derived target from step order",
+			stepID:       "implementer",
+			targetStep:   "", // should derive "reviewer" as step 3
+			wantHandover: "handover → step 3: reviewer",
+		},
+		{
+			name:         "first to second step",
+			stepID:       "analyst",
+			targetStep:   "", // should derive "implementer" as step 2
+			wantHandover: "handover → step 2: implementer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &HandoverInfo{
+				TargetStep: tt.targetStep,
+			}
+			lines := bpd.buildHandoverLines(tt.stepID, info)
+			
+			// Should have exactly one line (the handover line)
+			if len(lines) != 1 {
+				t.Fatalf("expected 1 line, got %d: %v", len(lines), lines)
+			}
+			
+			// Check if the handover line contains the expected format
+			handoverLine := lines[0]
+			if !strings.Contains(handoverLine, tt.wantHandover) {
+				t.Errorf("handover line should contain %q, got: %s", tt.wantHandover, handoverLine)
+			}
+			
+			// Verify it has the tree connector
+			if !strings.HasPrefix(handoverLine, "└─") {
+				t.Errorf("handover line should start with tree connector, got: %s", handoverLine)
+			}
+		})
+	}
+}
