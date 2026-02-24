@@ -8,14 +8,11 @@ You are running in an **isolated git worktree** shared with previous pipeline st
 Your working directory IS the project root. The feature branch was created by a
 previous step and is already checked out.
 
-A status report from the previous step is available at `.wave/artifacts/spec_info`.
-Read it to find the branch name, spec file, and feature directory.
-
 ## Instructions
 
 Follow the `/speckit.clarify` workflow:
 
-1. Read `.wave/artifacts/spec_info` to find the feature directory and spec file path
+1. Find the feature directory and spec file path from the spec info artifact
 2. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` to confirm paths
 3. Load the current spec and perform a focused ambiguity scan across:
    - Functional scope and domain model
@@ -42,13 +39,9 @@ Since this runs in a pipeline, resolve all clarifications autonomously:
 
 ## Output
 
-Write a JSON status report to .wave/output/clarify-status.json with:
-```json
-{
-  "clarifications_resolved": 3,
-  "sections_updated": ["section1", "section2"],
-  "spec_file": "path to updated spec.md",
-  "feature_dir": "path to feature directory",
-  "summary": "brief description of clarifications made"
-}
-```
+Write a JSON status report with:
+- `clarifications_resolved`: number of clarifications resolved
+- `sections_updated`: list of section names that were updated
+- `spec_file`: path to updated spec.md
+- `feature_dir`: path to feature directory
+- `summary`: brief description of clarifications made
