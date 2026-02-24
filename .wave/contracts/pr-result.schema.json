@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pull Request Result",
+  "description": "Result of creating a pull request. Used by pipeline steps that produce a PR as their final output.",
+  "type": "object",
+  "required": ["pr_url", "pr_number", "branch", "summary"],
+  "properties": {
+    "pr_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the created pull request"
+    },
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Pull request number"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Branch name for the pull request"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of what the pull request does"
+    },
+    "copilot_review_requested": {
+      "type": "boolean",
+      "description": "Whether a Copilot review was requested for the PR"
+    },
+    "closes_issue": {
+      "type": "boolean",
+      "description": "Whether the PR closes a linked issue"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Issue number that this PR addresses"
+    }
+  },
+  "additionalProperties": true
+}
