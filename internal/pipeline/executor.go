@@ -803,6 +803,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			MaxRetries: step.Handover.Contract.MaxRetries,
 		}
 
+		// Use schema filename for display when available, fall back to contract type
+		contractDisplayName := step.Handover.Contract.Type
+		if step.Handover.Contract.SchemaPath != "" {
+			contractDisplayName = filepath.Base(step.Handover.Contract.SchemaPath)
+		}
+
 		e.emit(event.Event{
 			Timestamp:       time.Now(),
 			PipelineID:      pipelineID,
@@ -810,7 +816,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			State:           "validating",
 			Message:         fmt.Sprintf("Validating %s contract", step.Handover.Contract.Type),
 			CurrentAction:   "Validating contract",
-			ValidationPhase: step.Handover.Contract.Type,
+			ValidationPhase: contractDisplayName,
 		})
 
 		if err := contract.Validate(contractCfg, workspacePath); err != nil {
