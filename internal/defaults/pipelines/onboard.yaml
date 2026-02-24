@@ -47,12 +47,12 @@ steps:
 
         9. **Documentation**: Where is documentation? Is it up to date?
 
-        Write the result as JSON to output/project-survey.json matching the contract schema.
-        Include: project (name, language, framework, purpose, license), build (commands,
-        prerequisites, ci_system), structure (path, purpose, key_files), architecture
-        (entry_points, components, patterns), dependencies (key_deps, total_count),
-        configuration (env_vars, config_files, feature_flags), testing (framework, patterns,
-        run_command, coverage_command), workflow, documentation, and timestamp.
+        Produce a structured result covering: project (name, language, framework, purpose,
+        license), build (commands, prerequisites, ci_system), structure (path, purpose,
+        key_files), architecture (entry_points, components, patterns), dependencies
+        (key_deps, total_count), configuration (env_vars, config_files, feature_flags),
+        testing (framework, patterns, run_command, coverage_command), workflow, documentation,
+        and timestamp.
     output_artifacts:
       - name: survey
         path: .wave/output/project-survey.json
@@ -78,9 +78,7 @@ steps:
       source: |
         Write a comprehensive onboarding guide for new contributors.
 
-        Read the project survey: cat .wave/artifacts/project_info
-
-        Write to output/onboarding-guide.md with these sections:
+        Using the injected project survey data, write a guide with these sections:
 
         # Onboarding Guide: [Project Name]
 
