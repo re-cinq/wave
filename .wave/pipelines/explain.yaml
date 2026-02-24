@@ -42,12 +42,6 @@ steps:
         6. **Check configuration**: Find config files, constants, or environment
            variables that affect behavior.
 
-        ## Output
-
-        Produce a structured result covering: topic, entry_points (file, symbol, role, line),
-        key_types (name, file, purpose, methods, relationships), call_flows (name, steps,
-        description), dependencies (depends_on, depended_by, external), test_files, config_points,
-        file_count, and timestamp.
     output_artifacts:
       - name: exploration
         path: .wave/output/exploration.json
@@ -86,10 +80,6 @@ steps:
         4. **Concurrency model**: Goroutines, channels, mutexes?
         5. **Extension points**: Where can new functionality be added?
         6. **Design decisions**: What trade-offs were made?
-
-        Produce a structured result covering: topic, patterns (name, where, why, quality),
-        data_flow (name, stages, key_transformations), error_handling, concurrency,
-        extension_points, design_decisions, and timestamp.
     output_artifacts:
       - name: analysis
         path: .wave/output/analysis.json
