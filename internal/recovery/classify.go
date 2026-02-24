@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/contract"
+	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/security"
 )
 
@@ -25,6 +26,16 @@ func ClassifyError(err error) ErrorClass {
 	var se *security.SecurityValidationError
 	if errors.As(err, &se) {
 		return ClassSecurityViolation
+	}
+
+	var skillErr *preflight.SkillError
+	if errors.As(err, &skillErr) {
+		return ClassPreflight
+	}
+
+	var toolErr *preflight.ToolError
+	if errors.As(err, &toolErr) {
+		return ClassPreflight
 	}
 
 	// Distinguish meaningful runtime messages from generic/empty ones.
