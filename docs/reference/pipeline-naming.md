@@ -58,7 +58,7 @@ Good names:
 - `security-scan` — security scope, scan verb
 - `refactor` — single verb, self-explanatory
 
-Bad names:
-- `gh-issue-impl` — abbreviation (`impl`), verbose prefix (`gh-issue-`)
-- `doc-loop` — unclear what "loop" means in context
-- `speckit-flow` — trademark pipeline name (exception to naming rules)
+Avoid:
+- Abbreviations that aren't universally understood (e.g., `impl`, `sync`)
+- Verbose prefixes that repeat scope (e.g., `gh-issue-` when `gh-` suffices)
+- Abstract nouns that don't convey action (e.g., `loop`, `flow`)
