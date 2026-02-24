@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Recinq Context",
+  "description": "Parsed input context from the recinq gather step",
+  "type": "object",
+  "required": ["input_type", "original_input", "focus_hint"],
+  "properties": {
+    "input_type": {
+      "type": "string",
+      "enum": ["issue", "pr", "local"],
+      "description": "The kind of input: GitHub issue, GitHub PR, or local path/description"
+    },
+    "original_input": {
+      "type": "string",
+      "description": "The raw input string exactly as given by the user"
+    },
+    "focus_hint": {
+      "type": "string",
+      "description": "Summary of what should be simplified or focused on"
+    },
+    "url": {
+      "type": "string",
+      "description": "GitHub issue or PR URL (empty for local input)"
+    },
+    "repo": {
+      "type": "string",
+      "description": "GitHub owner/repo (empty for local input)"
+    },
+    "number": {
+      "type": "integer",
+      "description": "GitHub issue or PR number (0 for local input)"
+    },
+    "title": {
+      "type": "string",
+      "description": "GitHub issue or PR title (empty for local input)"
+    },
+    "body": {
+      "type": "string",
+      "description": "GitHub issue or PR body (empty for local input)"
+    }
+  },
+  "additionalProperties": true
+}
