@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Clarify Status",
+  "description": "Status report from the clarify step: ambiguity resolution and spec refinement.",
+  "type": "object",
+  "required": ["questions_asked", "answers_encoded", "feature_dir", "summary"],
+  "properties": {
+    "questions_asked": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of clarification questions identified"
+    },
+    "answers_encoded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of clarifications resolved and encoded into the spec"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of clarifications made"
+    }
+  },
+  "additionalProperties": true
+}

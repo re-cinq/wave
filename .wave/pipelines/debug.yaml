@@ -25,9 +25,6 @@ steps:
         2. Create minimal reproduction steps
         3. Identify relevant code paths
         4. Note environmental factors (OS, versions, config)
-
-        Produce a structured result covering: expected_behavior, actual_behavior,
-        reproduction_steps, relevant_files, and environmental_factors.
     output_artifacts:
       - name: reproduction
         path: .wave/output/reproduction.json
@@ -59,10 +56,6 @@ steps:
         3. How to test this hypothesis?
 
         Rank by likelihood and ease of testing.
-
-        Produce a structured result with a hypotheses array, each covering:
-        id, description, likelihood (high/medium/low), test_approach,
-        and expected_result_if_true.
     output_artifacts:
       - name: hypotheses
         path: .wave/output/hypotheses.json

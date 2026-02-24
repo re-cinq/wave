@@ -268,6 +268,14 @@ steps:
       - name: pr-info
         path: pr-info.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: pr-info.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
 
   - id: pr-review
     persona: auditor

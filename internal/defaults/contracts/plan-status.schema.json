@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Speckit Plan Status",
+  "description": "Status report from the plan step: research, design, and implementation plan generation.",
+  "type": "object",
+  "required": ["plan_file", "feature_dir", "summary"],
+  "properties": {
+    "plan_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the generated implementation plan file"
+    },
+    "feature_dir": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the feature directory"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief description of the plan produced"
+    },
+    "research_file": {
+      "type": "string",
+      "description": "Path to research.md if generated"
+    },
+    "data_model_file": {
+      "type": "string",
+      "description": "Path to data-model.md if generated"
+    },
+    "constitution_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Constitution compliance issues found during planning"
+    }
+  },
+  "additionalProperties": true
+}
