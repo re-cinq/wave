@@ -124,7 +124,7 @@ func TestCheckSkills_CheckFails_NoInstall(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing skill without install")
 	}
-	if !results[0].OK == false {
+	if results[0].OK {
 		t.Error("expected skill to not be installed")
 	}
 }
@@ -456,7 +456,7 @@ func TestRun_PreservesToolError(t *testing.T) {
 	}
 }
 
-func TestRun_PrioritizesSkillErrorOverToolError(t *testing.T) {
+func TestRun_BothFailReturnsPreflightError(t *testing.T) {
 	skills := map[string]manifest.SkillConfig{
 		"speckit": {Check: "false"},
 	}
@@ -468,13 +468,26 @@ func TestRun_PrioritizesSkillErrorOverToolError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 
-	// Should get SkillError, not ToolError
-	var skillErr *SkillError
-	if !errors.As(err, &skillErr) {
-		t.Fatalf("expected SkillError to be prioritized, got %T: %v", err, err)
+	// Should get PreflightError wrapping both
+	var preflightErr *PreflightError
+	if !errors.As(err, &preflightErr) {
+		t.Fatalf("expected PreflightError, got %T: %v", err, err)
 	}
 
+	// Both typed errors should be extractable via errors.As
+	var skillErr *SkillError
+	if !errors.As(err, &skillErr) {
+		t.Fatal("expected SkillError to be extractable from PreflightError")
+	}
 	if len(skillErr.MissingSkills) != 1 || skillErr.MissingSkills[0] != "speckit" {
 		t.Errorf("expected missing skill 'speckit', got %v", skillErr.MissingSkills)
+	}
+
+	var toolErr *ToolError
+	if !errors.As(err, &toolErr) {
+		t.Fatal("expected ToolError to be extractable from PreflightError")
+	}
+	if len(toolErr.MissingTools) != 1 || toolErr.MissingTools[0] != "nonexistent-tool-xyz-999" {
+		t.Errorf("expected missing tool, got %v", toolErr.MissingTools)
 	}
 }
