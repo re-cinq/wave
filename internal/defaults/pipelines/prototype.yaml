@@ -36,7 +36,7 @@ steps:
 
         The specification must be technology-agnostic and focused on user value.
 
-        Create artifact.json with your results. The output must match the contract schema.
+        Create artifact.json with your results.
 
     workspace:
       mount:
@@ -80,9 +80,7 @@ steps:
 
         Your goal is to create comprehensive, runnable documentation from the specification.
 
-        Input specification is available in .wave/artifacts/input-spec.md
-
-        Create feature documentation that includes:
+        Create feature documentation from the injected specification that includes:
         - User-friendly explanation of the feature
         - Usage examples and scenarios
         - Integration guide for developers
@@ -92,7 +90,7 @@ steps:
 
         CRITICAL: Create both feature-docs.md and stakeholder-summary.md files.
 
-        Create artifact.json with your results. The output must match the contract schema.
+        Create artifact.json with your results.
 
     workspace:
       mount:
@@ -139,10 +137,6 @@ steps:
 
         Your goal is to create a working prototype with authentic I/O handling but stub business logic.
 
-        Available context:
-        - .wave/artifacts/feature-docs.md - Feature documentation
-        - .wave/artifacts/spec.md - Original specification
-
         Create a functional prototype that:
         - Handles real input and output properly
         - Implements all user interfaces and endpoints
@@ -154,7 +148,7 @@ steps:
 
         CRITICAL: Create prototype/ directory with working code and interfaces.md with interface definitions.
 
-        Create artifact.json with your results. The output must match the contract schema.
+        Create artifact.json with your results.
 
     workspace:
       mount:
@@ -202,11 +196,6 @@ steps:
       source: |
         You are in the implementation phase - transitioning from prototype to production code.
 
-        Available context:
-        - .wave/artifacts/spec.md - Original specification
-        - .wave/artifacts/feature-docs.md - Feature documentation
-        - .wave/artifacts/prototype/ - Working prototype with interfaces
-
         Your goal is to provide implementation guidance and begin real implementation:
         - Review all previous artifacts for implementation readiness
         - Create implementation plan and checklist
@@ -218,7 +207,7 @@ steps:
 
         CRITICAL: Create implementation-plan.md and implementation-checklist.md files.
 
-        Create artifact.json with your results. The output must match the contract schema.
+        Create artifact.json with your results.
 
     workspace:
       mount:
@@ -259,9 +248,6 @@ steps:
       type: prompt
       source: |
         You are creating a pull request for the implemented feature.
-
-        Available context:
-        - .wave/artifacts/implementation-plan.md - Implementation details
 
         Create a comprehensive pull request:
         - Clear PR title and description

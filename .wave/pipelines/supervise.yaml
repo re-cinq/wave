@@ -38,8 +38,8 @@ steps:
 
         ## Output
 
-        Write a comprehensive evidence bundle as structured JSON. Include all raw evidence — the evaluation step
-        will interpret it.
+        Produce a comprehensive evidence bundle as structured JSON. Include all raw
+        evidence — the evaluation step will interpret it.
 
         Be thorough in transcript analysis — the process quality evaluation depends
         heavily on understanding what the agent actually did vs what it should have done.
@@ -73,6 +73,8 @@ steps:
       source: |
         Evaluate the work quality based on gathered evidence.
 
+        The gathered evidence has been injected into your workspace. Read it first.
+
         ## Output Quality Assessment
 
         For each dimension, score as excellent/good/adequate/poor with specific findings:
@@ -97,7 +99,7 @@ steps:
         - Key strengths (what went well)
         - Key concerns (what needs attention)
 
-        Write the evaluation as structured JSON.
+        Produce the evaluation as a structured JSON result.
     output_artifacts:
       - name: evaluation
         path: .wave/output/supervision-evaluation.json
@@ -131,6 +133,9 @@ steps:
       source: |
         Synthesize a final supervision verdict.
 
+        The gathered evidence and evaluation have been injected into your workspace.
+        Read them both before proceeding.
+
         ## Independent Verification
 
         1. Run the test suite: `go test ./...`
@@ -155,7 +160,7 @@ steps:
 
         What should be done differently next time? Process improvements, common pitfalls observed.
 
-        Write the verdict as markdown with clear sections:
+        Produce the verdict as a markdown report with clear sections:
         ## Verdict, ## Output Quality, ## Process Quality, ## Action Items, ## Lessons Learned
     output_artifacts:
       - name: verdict

@@ -41,7 +41,7 @@ steps:
            - INACCURATE: Docs describe wrong behavior
            - INCOMPLETE: Docs exist but missing details
 
-        Write the result as JSON to output/doc-scan.json matching the contract schema.
+        Write your findings as structured JSON.
         Include: scan_scope, findings (id, type, severity, title, doc_location, code_location,
         description, suggested_fix), summary (total_findings, by_type, by_severity, fixable_count),
         and timestamp.
@@ -75,14 +75,12 @@ steps:
       source: |
         Review the doc scan findings and prioritize fixes.
 
-        Read the scan results: cat .wave/artifacts/scan
-
         For each finding:
         1. Verify it's a real inconsistency (not a false positive)
         2. Assess if it can be fixed by editing docs alone
         3. Prioritize: CRITICAL/HIGH first, then by effort
 
-        Produce a fix plan as markdown to output/fix-plan.md:
+        Produce a fix plan as markdown:
         - Ordered list of fixes to apply
         - For each: which file to edit, what to change, why
         - Skip items that require code changes (docs-only fixes)
@@ -111,10 +109,6 @@ steps:
       source: |
         Fix the documentation inconsistencies on this isolated worktree branch.
 
-        Read the scan results and fix plan:
-          cat .wave/artifacts/scan
-          cat .wave/artifacts/plan
-
         ## Process
 
         1. **Apply fixes** following the priority order from the plan:
@@ -136,7 +130,7 @@ steps:
            ..."
            ```
 
-        Write a summary to output/result.md:
+        Write a summary including:
         - Branch name
         - List of files modified
         - Findings fixed vs skipped
@@ -185,18 +179,13 @@ steps:
 
         ## Instructions
 
-        ### Step 1: Load Context
-
-        Read `.wave/artifacts/scan` for the original scan findings.
-        Read `.wave/artifacts/fix_result` for the fix summary (files modified, findings fixed/skipped).
-
-        ### Step 2: Push the Branch
+        ### Step 1: Push the Branch
 
         ```bash
         git push -u origin HEAD
         ```
 
-        ### Step 3: Create Pull Request
+        ### Step 2: Create Pull Request
 
         ```bash
         gh pr create --title "docs: sync documentation with implementation" --body "$(cat <<'PREOF'
@@ -221,7 +210,7 @@ steps:
         )"
         ```
 
-        ### Step 4: Request Copilot Review (Best-Effort)
+        ### Step 3: Request Copilot Review (Best-Effort)
 
         ```bash
         gh pr edit --add-reviewer "copilot" 2>/dev/null || true
@@ -235,19 +224,7 @@ steps:
 
         ## Output
 
-        Write a JSON status report to `output/pr-result.json`:
-
-        ```json
-        {
-          "pr_url": "https://github.com/owner/repo/pull/123",
-          "pr_number": 123,
-          "branch": "fix/<pipeline_id>",
-          "copilot_review_requested": true,
-          "findings_fixed": 5,
-          "findings_skipped": 2,
-          "summary": "Brief description of the PR"
-        }
-        ```
+        Write a JSON status report with the PR URL, PR number, branch name, whether Copilot review was requested, counts of findings fixed and skipped, and a brief summary.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

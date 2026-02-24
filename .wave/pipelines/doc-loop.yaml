@@ -55,6 +55,7 @@ steps:
 
         ## Output
 
+        Write your findings as structured JSON.
         Include:
         - scan_scope: mode ("diff" or "full"), range used, base_ref
         - changed_files: total_count + categories object with arrays of file paths
@@ -121,6 +122,7 @@ steps:
 
         ## Output
 
+        Write your analysis as structured JSON.
         Include:
         - summary: total_count, by_severity counts, clean (true if zero inconsistencies)
         - inconsistencies: array of {id (DOC-001 format), severity, category, title, description, source_location, doc_location, fix_description}
@@ -157,13 +159,13 @@ steps:
 
         ## Check for Inconsistencies
 
-        If the report has `summary.clean == true` (zero inconsistencies):
-        - Produce a short "No inconsistencies found" message
-        - Mark the result as skipped with reason "clean"
+        If the consistency report has `summary.clean == true` (zero inconsistencies):
+        - Write a short "No inconsistencies found" message as the report
+        - Write the issue result with skipped=true and reason="clean"
 
         ## Compose the Report
 
-        Produce a markdown report:
+        Write the report as markdown:
 
         ```
         ## Documentation Consistency Report
@@ -217,15 +219,19 @@ steps:
 
         ## Create the Issue
 
-        Use the `gh issue create` command with the report content as the body,
-        title "docs: documentation consistency report", and label "documentation".
+        ```bash
+        gh issue create \
+          --title "docs: documentation consistency report" \
+          --body-file .wave/artifacts/report \
+          --label "documentation"
+        ```
 
         If the `documentation` label doesn't exist, create without labels.
         If any `gh` command fails, log the error and continue.
 
         ## Capture Result
 
-        Record the issue URL, issue number, and whether creation was skipped.
+        Write a JSON status report with the issue URL, issue number, and whether creation was skipped.
     output_artifacts:
       - name: issue-result
         path: .wave/output/issue-result.json

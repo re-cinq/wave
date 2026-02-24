@@ -50,7 +50,7 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: feature_context (input_summary,
+        Produce a structured JSON result covering: feature_context (input_summary,
         scope_assessment), related_files, patterns (with PAT-### IDs), affected_modules,
         testing_landscape, risks, and timestamp.
 
@@ -88,9 +88,10 @@ steps:
 
         Feature request: {{ input }}
 
-        Codebase exploration has already been done and will be injected as context.
-        It contains: related files, codebase patterns, affected modules, testing landscape,
-        and identified risks. Use ALL of this information to inform your task breakdown.
+        Codebase exploration has already been done and injected into your workspace.
+        It contains structured JSON with: related files, codebase patterns,
+        affected modules, testing landscape, and identified risks. Use ALL of this
+        information to inform your task breakdown.
 
         ## Task Breakdown Rules
 
@@ -122,8 +123,8 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: feature_summary, tasks (with T## IDs, personas,
-        dependencies, acceptance_criteria, affected_files, complexity, risks),
+        Produce a structured JSON result covering: feature_summary, tasks (with T## IDs,
+        personas, dependencies, acceptance_criteria, affected_files, complexity, risks),
         execution_order (grouped by phases), metadata, and a markdown_content field
         with a complete human-readable rendering of the plan.
 
@@ -164,9 +165,12 @@ steps:
 
         Feature request: {{ input }}
 
-        Two artifacts have been injected: the codebase exploration (related files, patterns,
-        affected modules, testing landscape, and risks) and the task breakdown plan (feature
-        summary, tasks with dependencies and acceptance criteria, and execution order).
+        Two artifacts have been injected into your workspace: the codebase exploration
+        and the task breakdown plan. Read them BOTH before proceeding.
+
+        The exploration contains: related files, patterns, affected modules, testing
+        landscape, and risks. The task list contains: feature summary, tasks with
+        dependencies and acceptance criteria, and execution order.
 
         ## Review Checklist
 
@@ -204,7 +208,7 @@ steps:
 
         ## Output
 
-        Produce a structured result covering: verdict (decision, confidence, rationale), summary
+        Produce a structured JSON result containing: verdict (decision, confidence, rationale), summary
         (counts and strengths), task_reviews (per-task status with REV-### issues),
         cross_cutting_concerns (CC-### IDs), recommendations (REC-### IDs with types),
         risk_assessment, timestamp, and a markdown_content field with a complete
