@@ -291,15 +291,55 @@ func (m *ProgressModel) renderCurrentStep() string {
 			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine)
 			steps = append(steps, stepLine)
 
-			// Show deliverables for completed steps in tree format
+			// Collect all metadata lines (deliverables + handover) for tree formatting
+			var metadataLines []string
+
+			// Deliverables
 			if m.ctx.DeliverablesByStep != nil {
 				if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
 					for _, deliverable := range stepDeliverables {
-						deliverableLine := fmt.Sprintf("   ├─ %s", deliverable)
-						deliverableLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(deliverableLine)
-						steps = append(steps, deliverableLine)
+						metadataLines = append(metadataLines, deliverable)
 					}
 				}
+			}
+
+			// Handover metadata (verbose mode only)
+			if m.ctx.Verbose && m.ctx.HandoversByStep != nil {
+				if info, exists := m.ctx.HandoversByStep[stepID]; exists {
+					// Artifact lines
+					for _, path := range info.ArtifactPaths {
+						metadataLines = append(metadataLines, fmt.Sprintf("artifact: %s (written)", path))
+					}
+					// Contract line
+					if info.ContractStatus != "" {
+						status := "✓ valid"
+						if info.ContractStatus == "failed" {
+							status = "✗ failed"
+						} else if info.ContractStatus == "soft_failure" {
+							status = "⚠ soft failure"
+						}
+						schema := info.ContractSchema
+						if schema == "" {
+							schema = "contract"
+						}
+						metadataLines = append(metadataLines, fmt.Sprintf("contract: %s %s", schema, status))
+					}
+					// Handover target line
+					if info.TargetStep != "" {
+						metadataLines = append(metadataLines, fmt.Sprintf("handover → %s", info.TargetStep))
+					}
+				}
+			}
+
+			// Render all metadata lines with correct tree connectors
+			for i, line := range metadataLines {
+				connector := "├─"
+				if i == len(metadataLines)-1 {
+					connector = "└─"
+				}
+				metaLine := fmt.Sprintf("   %s %s", connector, line)
+				metaLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(metaLine)
+				steps = append(steps, metaLine)
 			}
 
 		case StateRunning:
