@@ -78,7 +78,7 @@ steps:
       source: |
         Analyze the architecture and design of the explored code.
 
-        Using the exploration results, read the key source files identified. Focus on:
+        Review the injected exploration data, then read the key source files identified. Focus on:
 
         1. **Design patterns**: What patterns are used and why?
         2. **Data flow**: How does data enter, transform, and exit?
@@ -118,7 +118,7 @@ steps:
       source: |
         Write a comprehensive explanation document.
 
-        Using both the exploration and architecture analysis, write a document covering:
+        Review the injected exploration and architecture data, then produce a markdown document with:
 
         1. **Overview** — One paragraph summary
         2. **Key Concepts** — Core abstractions and terminology (glossary)
