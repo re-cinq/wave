@@ -529,27 +529,31 @@ func (pd *ProgressDisplay) Finish() {
 
 // BasicProgressDisplay provides simple text-based progress for non-TTY environments.
 type BasicProgressDisplay struct {
-	mu       sync.Mutex
-	writer   io.Writer
-	verbose  bool
-	termInfo *TerminalInfo
+	mu           sync.Mutex
+	writer       io.Writer
+	verbose      bool
+	termInfo     *TerminalInfo
+	handoverInfo map[string]*HandoverInfo // Per-step handover metadata
+	stepOrder    []string                 // Ordered list of step IDs (for target lookup)
 }
 
 // NewBasicProgressDisplay creates a fallback progress display.
 func NewBasicProgressDisplay() *BasicProgressDisplay {
 	return &BasicProgressDisplay{
-		writer:   os.Stderr,
-		verbose:  false,
-		termInfo: NewTerminalInfo(),
+		writer:       os.Stderr,
+		verbose:      false,
+		termInfo:     NewTerminalInfo(),
+		handoverInfo: make(map[string]*HandoverInfo),
 	}
 }
 
 // NewBasicProgressDisplayWithVerbose creates a progress display with verbose tool activity.
 func NewBasicProgressDisplayWithVerbose(verbose bool) *BasicProgressDisplay {
 	return &BasicProgressDisplay{
-		writer:   os.Stderr,
-		verbose:  verbose,
-		termInfo: NewTerminalInfo(),
+		writer:       os.Stderr,
+		verbose:      verbose,
+		termInfo:     NewTerminalInfo(),
+		handoverInfo: make(map[string]*HandoverInfo),
 	}
 }
 
@@ -566,9 +570,33 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			if ev.Persona != "" {
 				fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
 			}
+			// Track step order for handover target lookup
+			found := false
+			for _, sid := range bpd.stepOrder {
+				if sid == ev.StepID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
+			}
 		case "completed":
 			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
 				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
+			// Capture artifacts into handover info
+			if len(ev.Artifacts) > 0 {
+				if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
+					bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
+				}
+				bpd.handoverInfo[ev.StepID].ArtifactPaths = ev.Artifacts
+			}
+			// Render handover metadata in verbose mode
+			if bpd.verbose {
+				if info, exists := bpd.handoverInfo[ev.StepID]; exists {
+					bpd.renderHandoverMetadata(timestamp, ev.StepID, info)
+				}
+			}
 		case "failed":
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
@@ -579,6 +607,36 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s: %s\n", timestamp, ev.StepID, ev.Message)
 		case "validating", "contract_validating":
 			fmt.Fprintf(bpd.writer, "[%s]   %s: validating contract\n", timestamp, ev.StepID)
+			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
+				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
+			}
+			bpd.handoverInfo[ev.StepID].ContractSchema = ev.ValidationPhase
+			// Track step order
+			found := false
+			for _, sid := range bpd.stepOrder {
+				if sid == ev.StepID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
+			}
+		case "contract_passed":
+			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
+				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
+			}
+			bpd.handoverInfo[ev.StepID].ContractStatus = "passed"
+		case "contract_failed":
+			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
+				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
+			}
+			bpd.handoverInfo[ev.StepID].ContractStatus = "failed"
+		case "contract_soft_failure":
+			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
+				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
+			}
+			bpd.handoverInfo[ev.StepID].ContractStatus = "soft_failure"
 		case "stream_activity":
 			if bpd.verbose && ev.ToolName != "" {
 				// Compute available space: total width minus fixed prefix overhead
@@ -598,6 +656,65 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 	}
 
 	return nil
+}
+
+// renderHandoverMetadata outputs handover metadata lines in tree format for a completed step.
+func (bpd *BasicProgressDisplay) renderHandoverMetadata(timestamp, stepID string, info *HandoverInfo) {
+	lines := bpd.buildHandoverLines(stepID, info)
+	for _, line := range lines {
+		fmt.Fprintf(bpd.writer, "[%s]   %s\n", timestamp, line)
+	}
+}
+
+// buildHandoverLines constructs the tree-formatted handover metadata lines.
+func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *HandoverInfo) []string {
+	var items []string
+
+	// Artifact lines
+	for _, path := range info.ArtifactPaths {
+		items = append(items, fmt.Sprintf("artifact: %s (written)", path))
+	}
+
+	// Contract line
+	if info.ContractStatus != "" {
+		status := "✓ valid"
+		if info.ContractStatus == "failed" {
+			status = "✗ failed"
+		} else if info.ContractStatus == "soft_failure" {
+			status = "⚠ soft failure"
+		}
+		schema := info.ContractSchema
+		if schema == "" {
+			schema = "contract"
+		}
+		items = append(items, fmt.Sprintf("contract: %s %s", schema, status))
+	}
+
+	// Handover target line
+	targetStep := info.TargetStep
+	if targetStep == "" {
+		// Determine from step order
+		for i, sid := range bpd.stepOrder {
+			if sid == stepID && i+1 < len(bpd.stepOrder) {
+				targetStep = bpd.stepOrder[i+1]
+				break
+			}
+		}
+	}
+	if targetStep != "" {
+		items = append(items, fmt.Sprintf("handover → %s", targetStep))
+	}
+
+	// Format with tree connectors
+	var lines []string
+	for i, item := range items {
+		connector := "├─"
+		if i == len(items)-1 {
+			connector = "└─"
+		}
+		lines = append(lines, fmt.Sprintf("%s %s", connector, item))
+	}
+	return lines
 }
 
 // QuietProgressDisplay only renders pipeline-level completed/failed events.
