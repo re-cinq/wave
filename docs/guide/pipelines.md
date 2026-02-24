@@ -31,7 +31,7 @@ Wave ships with 18 pipelines organized by use case:
 | `plan` | explore → breakdown → review | Task planning |
 | `docs` | discover → generate → review | Documentation |
 | `migrate` | impact → plan → implement → review | Migrations |
-| `doc-loop` | analyze → report | Documentation impact analysis |
+| `doc-audit` | analyze → report | Documentation impact analysis |
 
 ### GitHub Automation
 
