@@ -34,6 +34,7 @@ type BubbleTeaProgressDisplay struct {
 	stepToolActivity   map[string][2]string      // stepID -> [toolName, toolTarget] per-step
 	lastToolName       string                   // Most recent tool name (global fallback)
 	lastToolTarget     string                   // Most recent tool target (global fallback)
+	handoverInfo       map[string]*HandoverInfo // Per-step handover metadata
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
@@ -87,6 +88,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		stepDurations:      make(map[string]int64),
 		stepStartTimes:     make(map[string]time.Time),
 		stepToolActivity:   make(map[string][2]string),
+		handoverInfo:       make(map[string]*HandoverInfo),
 		startTime:          time.Now(),
 		enabled:            true,
 		verbose:            isVerbose,
@@ -257,6 +259,37 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		btpd.lastToolTarget = evt.ToolTarget
 	}
 
+	// Capture handover metadata for verbose mode
+	switch evt.State {
+	case "validating":
+		if _, exists := btpd.handoverInfo[evt.StepID]; !exists {
+			btpd.handoverInfo[evt.StepID] = &HandoverInfo{}
+		}
+		btpd.handoverInfo[evt.StepID].ContractSchema = evt.ValidationPhase
+	case "contract_passed":
+		if _, exists := btpd.handoverInfo[evt.StepID]; !exists {
+			btpd.handoverInfo[evt.StepID] = &HandoverInfo{}
+		}
+		btpd.handoverInfo[evt.StepID].ContractStatus = "passed"
+	case "contract_failed":
+		if _, exists := btpd.handoverInfo[evt.StepID]; !exists {
+			btpd.handoverInfo[evt.StepID] = &HandoverInfo{}
+		}
+		btpd.handoverInfo[evt.StepID].ContractStatus = "failed"
+	case "contract_soft_failure":
+		if _, exists := btpd.handoverInfo[evt.StepID]; !exists {
+			btpd.handoverInfo[evt.StepID] = &HandoverInfo{}
+		}
+		btpd.handoverInfo[evt.StepID].ContractStatus = "soft_failure"
+	case "completed":
+		if len(evt.Artifacts) > 0 {
+			if _, exists := btpd.handoverInfo[evt.StepID]; !exists {
+				btpd.handoverInfo[evt.StepID] = &HandoverInfo{}
+			}
+			btpd.handoverInfo[evt.StepID].ArtifactPaths = evt.Artifacts
+		}
+	}
+
 	// Recompute currentStepID: first running step in order
 	btpd.currentStepID = ""
 	for _, sid := range btpd.stepOrder {
@@ -374,6 +407,20 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		stepToolActivity[sid] = ta
 	}
 
+
+	// Build handover info with target steps
+	handoversByStep := make(map[string]*HandoverInfo, len(btpd.handoverInfo))
+	for stepID, info := range btpd.handoverInfo {
+		copied := *info
+		// Determine handover target: next step in order
+		for i, sid := range btpd.stepOrder {
+			if sid == stepID && i+1 < len(btpd.stepOrder) {
+				copied.TargetStep = btpd.stepOrder[i+1]
+				break
+			}
+		}
+		handoversByStep[stepID] = &copied
+	}
 	return &PipelineContext{
 		PipelineName:       btpd.pipelineName,
 		PipelineID:         btpd.pipelineID,
@@ -402,5 +449,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepToolActivity:   stepToolActivity,
 		LastToolName:       btpd.lastToolName,
 		LastToolTarget:     btpd.lastToolTarget,
+		HandoversByStep:   handoversByStep,
+		Verbose:           btpd.verbose,
 	}
 }

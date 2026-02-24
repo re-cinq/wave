@@ -803,6 +803,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			MaxRetries: step.Handover.Contract.MaxRetries,
 		}
 
+		// Use schema filename for display when available, fall back to contract type
+		contractDisplayName := step.Handover.Contract.Type
+		if step.Handover.Contract.SchemaPath != "" {
+			contractDisplayName = filepath.Base(step.Handover.Contract.SchemaPath)
+		}
+
 		e.emit(event.Event{
 			Timestamp:       time.Now(),
 			PipelineID:      pipelineID,
@@ -810,7 +816,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			State:           "validating",
 			Message:         fmt.Sprintf("Validating %s contract", step.Handover.Contract.Type),
 			CurrentAction:   "Validating contract",
-			ValidationPhase: step.Handover.Contract.Type,
+			ValidationPhase: contractDisplayName,
 		})
 
 		if err := contract.Validate(contractCfg, workspacePath); err != nil {
@@ -825,25 +831,33 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			// Check if we should fail the step or allow soft failure
 			if contractCfg.StrictMode {
 				return fmt.Errorf("contract validation failed: %w", err)
-			} else {
-				// Soft failure: log the validation error but continue execution
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "contract_soft_failure",
-					Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
-				})
 			}
+			// Soft failure: log the validation error but continue execution
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "contract_soft_failure",
+				Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
+			})
+		} else {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "contract_passed",
+				Message:    fmt.Sprintf("%s contract validated", step.Handover.Contract.Type),
+			})
 		}
+	}
 
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "contract_passed",
-			Message:    fmt.Sprintf("%s contract validated", step.Handover.Contract.Type),
-		})
+	// Populate artifact paths from step's OutputArtifacts when the adapter
+	// doesn't report them (e.g. Claude adapter never populates Artifacts).
+	stepArtifacts := result.Artifacts
+	if len(stepArtifacts) == 0 && len(step.OutputArtifacts) > 0 && execution.Context != nil {
+		for _, art := range step.OutputArtifacts {
+			stepArtifacts = append(stepArtifacts, execution.Context.ResolveArtifactPath(art))
+		}
 	}
 
 	e.emit(event.Event{
@@ -854,7 +868,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:    step.Persona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
-		Artifacts:  result.Artifacts,
+		Artifacts:  stepArtifacts,
 	})
 
 	return nil
