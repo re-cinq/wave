@@ -37,6 +37,7 @@ steps:
 
         5. **Identify stakeholders**: Which components/teams/users are affected?
 
+        Write your findings as structured JSON.
         Include: decision_topic, current_state (description, affected_files, affected_components),
         constraints, precedents, stakeholders, and timestamp.
     output_artifacts:
@@ -83,6 +84,7 @@ steps:
         6. **Reversibility**: How hard to undo if it's the wrong choice?
         7. **Compatibility**: How well does it fit with existing constraints?
 
+        Write your analysis as structured JSON.
         Include: decision_topic, options (name, description, pros, cons, effort, risk,
         reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
     output_artifacts:
@@ -111,9 +113,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Draft the Architecture Decision Record.
+        Draft the Architecture Decision Record using the injected context and analysis.
 
-        Write the ADR using this standard format:
+        Use this standard ADR format:
 
         # ADR-NNN: [Title]
 
@@ -187,7 +189,7 @@ steps:
         1. Copy the ADR into the project docs:
            - Determine the next ADR number by listing existing ADR files
              (e.g., `ls docs/adr/` or similar convention)
-           - Copy the injected ADR artifact to the appropriate location
+           - Copy `.wave/artifacts/adr` to the appropriate location
              (e.g., `docs/adr/NNN-title.md`)
 
         2. Commit:
@@ -199,10 +201,10 @@ steps:
         3. Push and create PR:
            ```bash
            git push -u origin HEAD
-           gh pr create --title "docs: ADR — <decision topic>" --body "<PR description>"
+           gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
            ```
 
-        4. Write a JSON status report with pr_url, pr_number, branch, and adr_path fields.
+        4. Write a JSON status report with the PR URL, PR number, branch name, and ADR file path.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

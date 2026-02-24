@@ -34,9 +34,14 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected greeting artifact and verify it exists and contains content.
+        Verify the greeting artifact exists and contains content.
 
-        Output a JSON object with fields: status, file_exists, and content_preview.
+        Output EXACTLY this JSON (replace placeholder with actual content from the greeting artifact):
+        {
+          "status": "verified",
+          "file_exists": true,
+          "content_preview": "[content from the greeting artifact]"
+        }
     output_artifacts:
       - name: result
         path: .wave/output/result.json

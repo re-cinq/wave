@@ -67,7 +67,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Categorize and describe changes for a changelog.
+        Categorize and describe changes for a changelog using the injected commit analysis.
 
         ## Rules
 
@@ -110,9 +110,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Format categorized changes into a polished changelog.
+        Format the injected commit analysis and categorized changes into a polished changelog.
 
-        Format in Keep a Changelog style:
+        Use Keep a Changelog format:
 
         # Changelog
 

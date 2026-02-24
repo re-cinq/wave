@@ -36,6 +36,8 @@ steps:
 
         The specification must be technology-agnostic and focused on user value.
 
+        Create artifact.json with your results.
+
     workspace:
       mount:
         - source: .
@@ -78,7 +80,7 @@ steps:
 
         Your goal is to create comprehensive, runnable documentation from the specification.
 
-        Create feature documentation that includes:
+        Create feature documentation from the injected specification that includes:
         - User-friendly explanation of the feature
         - Usage examples and scenarios
         - Integration guide for developers
@@ -87,6 +89,8 @@ steps:
         Generate VitePress-compatible markdown that can be served as runnable documentation.
 
         CRITICAL: Create both feature-docs.md and stakeholder-summary.md files.
+
+        Create artifact.json with your results.
 
     workspace:
       mount:
@@ -144,6 +148,8 @@ steps:
 
         CRITICAL: Create prototype/ directory with working code and interfaces.md with interface definitions.
 
+        Create artifact.json with your results.
+
     workspace:
       mount:
         - source: .
@@ -200,6 +206,8 @@ steps:
         Focus on production-quality code that fulfills the original specification.
 
         CRITICAL: Create implementation-plan.md and implementation-checklist.md files.
+
+        Create artifact.json with your results.
 
     workspace:
       mount:
