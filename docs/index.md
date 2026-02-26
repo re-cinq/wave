@@ -11,9 +11,9 @@ let rotationInterval = null
 
 const terminals = [
   {
-    command: 'wave run code-review',
+    command: 'wave run gh-pr-review',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: code-review' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: gh-pr-review' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  1m 21s' },
       { text: ' ' },
