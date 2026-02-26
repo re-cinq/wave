@@ -16,7 +16,7 @@ Analyze coverage gaps and generate comprehensive tests. Wave's test-gen pipeline
 
 - Wave installed and initialized (`wave init`)
 - Go project with existing test infrastructure
-- Understanding of [gh-pr-review](/use-cases/gh-pr-review) pipeline (recommended)
+- Understanding of [code-review](/use-cases/gh-pr-review) pipeline (recommended)
 - Familiarity with table-driven tests and mocking patterns
 
 ## Quick Start
