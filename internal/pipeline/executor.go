@@ -1147,7 +1147,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 						Timestamp:  time.Now(),
 						PipelineID: pipelineID,
 						StepID:     step.ID,
-						State:      "running",
+						State:      "step_progress",
 						Message:    fmt.Sprintf("injected artifact %s from step %s stdout", artName, ref.Step),
 					})
 					continue
@@ -1160,7 +1160,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
-					State:      "running",
+					State:      "step_progress",
 					Message:    fmt.Sprintf("optional artifact '%s' from step '%s' not found, skipping", ref.Artifact, ref.Step),
 				})
 				continue
@@ -1183,7 +1183,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
-					State:      "running",
+					State:      "step_progress",
 					Message:    fmt.Sprintf("optional artifact '%s' could not be read, skipping: %v", ref.Artifact, err),
 				})
 				continue
@@ -1198,7 +1198,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      "running",
+			State:      "step_progress",
 			Message:    fmt.Sprintf("injected artifact %s from %s (%s)", artName, ref.Step, artifactPath),
 		})
 
@@ -1211,7 +1211,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
-				State:      "running",
+				State:      "step_progress",
 				Message:    fmt.Sprintf("validated artifact %s against schema %s", artName, ref.SchemaPath),
 			})
 		}
