@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withBase } from 'vitepress'
 interface Card {
   title: string
   description: string
@@ -16,7 +17,7 @@ defineProps<{
     <a
       v-for="card in cards"
       :key="card.link"
-      :href="card.link"
+      :href="withBase(card.link)"
       class="card"
     >
       <div class="card-icon" v-if="card.icon">{{ card.icon }}</div>
