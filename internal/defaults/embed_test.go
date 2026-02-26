@@ -177,7 +177,7 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 	expected := []string{
 		"adr.yaml",
 		"changelog.yaml",
-		"code-review.yaml",
+		"gh-pr-review.yaml",
 		"dead-code.yaml",
 		"debug.yaml",
 		"doc-fix.yaml",

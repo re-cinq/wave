@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Code Review Publish Result",
-  "description": "Result of publishing a code review comment on a pull request",
+  "title": "GitHub PR Comment Result",
+  "description": "Result of posting a code review comment on a GitHub pull request",
   "type": "object",
   "required": ["comment_url", "pr_number"],
   "properties": {

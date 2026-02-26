@@ -89,7 +89,7 @@ steps:
         persona: summarizer
 
   - id: create-pr
-    persona: craftsman
+    persona: github-commenter
     dependencies: [implement]
     memory:
       inject_artifacts:
