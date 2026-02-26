@@ -293,6 +293,6 @@ steps:
 
 ## Next Steps
 
-- [Code Review](/use-cases/code-review) - Review documentation changes in PRs
+- [Code Review](/use-cases/gh-pr-review) - Review documentation changes in PRs
 - [Test Generation](/use-cases/test-generation) - Generate tests from documented behavior
 - [Concepts: Artifacts](/concepts/artifacts) - Understand how docs are passed between steps

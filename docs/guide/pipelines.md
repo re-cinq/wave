@@ -20,7 +20,7 @@ Wave ships with 18 pipelines organized by use case:
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `code-review` | diff → security + quality → summary | PR reviews |
+| `gh-pr-review` | diff → security + quality → summary | PR reviews |
 | `test-gen` | analyze-coverage → generate → verify | Test coverage |
 | `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
 

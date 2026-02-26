@@ -13,7 +13,7 @@ your-project/
 ├── .wave/
 │   ├── wave.yaml              # Project manifest
 │   ├── pipelines/
-│   │   ├── code-review.yaml
+│   │   ├── gh-pr-review.yaml
 │   │   ├── documentation.yaml
 │   │   └── testing.yaml
 │   ├── personas/
@@ -55,18 +55,18 @@ Pipeline changes go through normal code review:
 
 ```bash
 # Create feature branch
-git checkout -b improve-code-review-pipeline
+git checkout -b improve-gh-pr-review-pipeline
 
 # Modify pipeline
-vim .wave/pipelines/code-review.yaml
+vim .wave/pipelines/gh-pr-review.yaml
 
 # Test changes
-wave run code-review "Test the changes"
+wave run gh-pr-review "Test the changes"
 
 # Submit PR
 git add .wave/
 git commit -m "Add security scanning step to code review"
-git push origin improve-code-review-pipeline
+git push origin improve-gh-pr-review-pipeline
 gh pr create
 ```
 
@@ -98,12 +98,12 @@ Wave guarantees identical behavior when the same pipeline runs on different mach
 
 ```bash
 # Developer A
-wave run code-review "Review auth changes"
+wave run gh-pr-review "Review auth changes"
 # Output: output/review-summary.md
 
 # Developer B (same repository state)
 git checkout same-commit
-wave run code-review "Review auth changes"
+wave run gh-pr-review "Review auth changes"
 # Output: identical output/review-summary.md
 ```
 
@@ -111,10 +111,10 @@ wave run code-review "Review auth changes"
 
 ```bash
 # See pipeline evolution
-git log --oneline .wave/pipelines/code-review.yaml
+git log --oneline .wave/pipelines/gh-pr-review.yaml
 
 # Compare versions
-git diff HEAD~5 .wave/pipelines/code-review.yaml
+git diff HEAD~5 .wave/pipelines/gh-pr-review.yaml
 
 # Revert problematic changes
 git revert <commit>
@@ -255,14 +255,14 @@ jobs:
 
       - name: Run Code Review
         run: |
-          wave run code-review "$(git diff origin/main..HEAD)"
+          wave run gh-pr-review "$(git diff origin/main..HEAD)"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Upload Review
         uses: actions/upload-artifact@v3
         with:
-          name: code-review
+          name: gh-pr-review
           path: .wave/workspaces/*/output/
 ```
 
@@ -274,7 +274,7 @@ ai-review:
   stage: review
   script:
     - curl -L https://wave.dev/install | sh
-    - wave run code-review "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -289,11 +289,11 @@ Add descriptions and comments:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: |
     Security-focused code review pipeline.
 
-    Usage: wave run code-review "description of changes"
+    Usage: wave run gh-pr-review "description of changes"
 
     Outputs:
     - Security findings (output/security.md)
@@ -307,11 +307,11 @@ Changes to persona prompts affect all pipelines using them. Test thoroughly:
 
 ```bash
 # Before changing a persona
-wave run code-review "test input" > before.txt
+wave run gh-pr-review "test input" > before.txt
 
 # After changing
 vim .wave/personas/auditor.md
-wave run code-review "test input" > after.txt
+wave run gh-pr-review "test input" > after.txt
 
 # Compare
 diff before.txt after.txt
@@ -343,7 +343,7 @@ When modifying shared pipelines:
 ```
 .wave/pipelines/
 ├── review/
-│   ├── code-review.yaml
+│   ├── gh-pr-review.yaml
 │   └── security-review.yaml
 ├── development/
 │   ├── feature.yaml
@@ -358,12 +358,12 @@ When modifying shared pipelines:
 ### Pipeline Not Found
 
 ```
-Error: pipeline "code-review" not found
+Error: pipeline "gh-pr-review" not found
 ```
 
 Check:
-1. File exists: `ls .wave/pipelines/code-review.yaml`
-2. Metadata name matches: `grep "name:" .wave/pipelines/code-review.yaml`
+1. File exists: `ls .wave/pipelines/gh-pr-review.yaml`
+2. Metadata name matches: `grep "name:" .wave/pipelines/gh-pr-review.yaml`
 
 ### Persona Not Found
 

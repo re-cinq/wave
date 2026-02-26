@@ -224,7 +224,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 Run a code review on your project:
 
 ```bash
-wave run code-review "review the main module"
+wave run gh-pr-review "review the main module"
 ```
 
 Or run an ad-hoc task without a pipeline file:

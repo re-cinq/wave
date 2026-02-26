@@ -23,7 +23,7 @@ Wave treats AI workflows like infrastructure code. You declare what you want in 
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Automated code review with security analysis"
 
 input:
@@ -77,7 +77,7 @@ steps:
 Run it:
 
 ```bash
-wave run code-review "Review changes in src/auth"
+wave run gh-pr-review "Review changes in src/auth"
 ```
 
 ### Key Concepts
@@ -156,7 +156,7 @@ Wave executes pipelines with these guarantees:
 
 ```bash
 # Run a pipeline
-wave run code-review "Review authentication changes"
+wave run gh-pr-review "Review authentication changes"
 
 # Check status
 wave status

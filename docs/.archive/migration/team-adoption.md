@@ -72,10 +72,10 @@ runtime:
 Start with pipelines that solve real team problems:
 
 ```yaml
-# .wave/pipelines/code-review.yaml
+# .wave/pipelines/gh-pr-review.yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Team code review"
 
 input:
@@ -140,7 +140,7 @@ Teammates get the configuration with `git pull`.
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
 
 steps:
   - id: review
@@ -199,9 +199,9 @@ Add descriptions:
 
 ```yaml
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: |
-    Usage: wave run code-review "description of changes"
+    Usage: wave run gh-pr-review "description of changes"
     Output: .wave/output/review.md
 ```
 
@@ -217,7 +217,7 @@ Check that the file exists and `metadata.name` matches:
 
 ```bash
 ls .wave/pipelines/
-grep "name:" .wave/pipelines/code-review.yaml
+grep "name:" .wave/pipelines/gh-pr-review.yaml
 ```
 
 ### "Persona not defined"

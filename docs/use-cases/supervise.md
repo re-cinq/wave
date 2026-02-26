@@ -146,7 +146,7 @@ wave run supervise "PR #42"
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/code-review) - Automated PR review for code quality
+- [Code Review](/use-cases/gh-pr-review) - Automated PR review for code quality
 - [Recinq](/use-cases/recinq) - Rethink and simplify code
 
 ## Next Steps

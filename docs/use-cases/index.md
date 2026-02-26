@@ -14,14 +14,14 @@ import UseCaseGallery from '../.vitepress/theme/components/UseCaseGallery.vue'
 
 const useCases = [
   {
-    id: 'code-review',
+    id: 'gh-pr-review',
     title: 'Code Review',
     description: 'Automated PR reviews with security checks, quality analysis, and actionable feedback.',
     category: 'code-quality',
     complexity: 'beginner',
     personas: ['navigator', 'auditor', 'summarizer'],
     tags: ['PR review', 'quality'],
-    link: '/use-cases/code-review'
+    link: '/use-cases/gh-pr-review'
   },
   {
     id: 'doc-audit',
