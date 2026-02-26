@@ -1,0 +1,121 @@
+kind: WavePipeline
+metadata:
+  name: gl-implement
+  description: "Implement a GitLab issue end-to-end: fetch, assess, plan, implement, create MR"
+
+input:
+  source: cli
+  schema:
+    type: string
+    description: "GitLab repository and issue number"
+  example: "re-cinq/wave 42"
+
+steps:
+  - id: fetch-assess
+    persona: implementer
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .wave/prompts/gl-implement/fetch-assess.md
+    output_artifacts:
+      - name: assessment
+        path: .wave/output/issue-assessment.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/issue-assessment.json
+        schema_path: .wave/contracts/issue-assessment.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+
+  - id: plan
+    persona: implementer
+    dependencies: [fetch-assess]
+    memory:
+      inject_artifacts:
+        - step: fetch-assess
+          artifact: assessment
+          as: issue_assessment
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+      base: main
+    exec:
+      type: prompt
+      source_path: .wave/prompts/gl-implement/plan.md
+    output_artifacts:
+      - name: impl-plan
+        path: .wave/output/impl-plan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/impl-plan.json
+        schema_path: .wave/contracts/issue-impl-plan.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+
+  - id: implement
+    persona: craftsman
+    dependencies: [plan]
+    memory:
+      inject_artifacts:
+        - step: fetch-assess
+          artifact: assessment
+          as: issue_assessment
+        - step: plan
+          artifact: impl-plan
+          as: plan
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .wave/prompts/gl-implement/implement.md
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: true
+        on_failure: retry
+        max_retries: 3
+      compaction:
+        trigger: "token_limit_80%"
+        persona: summarizer
+
+  - id: create-mr
+    persona: gitlab-commenter
+    dependencies: [implement]
+    memory:
+      inject_artifacts:
+        - step: fetch-assess
+          artifact: assessment
+          as: issue_assessment
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .wave/prompts/gl-implement/create-mr.md
+    output_artifacts:
+      - name: pr-result
+        path: .wave/output/pr-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/pr-result.json
+        schema_path: .wave/contracts/pr-result.schema.json
+        must_pass: true
+        on_failure: retry
+        max_retries: 2
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/pr-result.json
+        json_path: .pr_url
+        label: "Merge Request"
