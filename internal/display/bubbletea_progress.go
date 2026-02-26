@@ -141,6 +141,12 @@ func (btpd *BubbleTeaProgressDisplay) AddStep(stepID, stepName, persona string) 
 	btpd.mu.Lock()
 	defer btpd.mu.Unlock()
 
+	btpd.addStepLocked(stepID, stepName, persona)
+}
+
+// addStepLocked creates a step entry without acquiring the mutex.
+// The caller must already hold btpd.mu.
+func (btpd *BubbleTeaProgressDisplay) addStepLocked(stepID, stepName, persona string) {
 	if _, exists := btpd.steps[stepID]; !exists {
 		btpd.steps[stepID] = &StepStatus{
 			StepID:   stepID,
@@ -213,7 +219,7 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 
 	// Ensure step exists
 	if _, exists := btpd.steps[evt.StepID]; !exists {
-		btpd.AddStep(evt.StepID, evt.StepID, "")
+		btpd.addStepLocked(evt.StepID, evt.StepID, "")
 	}
 
 	step := btpd.steps[evt.StepID]
