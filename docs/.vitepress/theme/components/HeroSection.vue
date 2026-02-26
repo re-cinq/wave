@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { withBase } from 'vitepress'
 import type { HeroSectionProps, TerminalLineVariant, TerminalIcon } from '../types'
 
 const props = withDefaults(defineProps<HeroSectionProps>(), {
@@ -140,7 +141,7 @@ function getLineIcon(icon?: TerminalIcon): string {
           <template v-for="(pill, index) in props.valuePills" :key="index">
             <a
               v-if="pill.link"
-              :href="pill.link"
+              :href="withBase(pill.link)"
               class="hero-pill"
               :title="pill.tooltip"
             >
@@ -160,12 +161,12 @@ function getLineIcon(icon?: TerminalIcon): string {
 
         <!-- CTA buttons and GitHub badge -->
         <div class="hero-actions">
-          <a :href="props.primaryAction.link" class="btn btn-primary">
+          <a :href="withBase(props.primaryAction.link)" class="btn btn-primary">
             {{ props.primaryAction.text }}
           </a>
           <a
             v-if="props.secondaryAction"
-            :href="props.secondaryAction.link"
+            :href="withBase(props.secondaryAction.link)"
             class="btn btn-secondary"
           >
             {{ props.secondaryAction.text }}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useData, useRoute } from 'vitepress'
+import { useData, useRoute, withBase } from 'vitepress'
 
 interface BreadcrumbItem {
   text: string
@@ -64,7 +64,7 @@ function formatSegment(segment: string): string {
   <nav class="breadcrumb" aria-label="Breadcrumb" v-if="breadcrumbs.length > 1">
     <ol>
       <li v-for="(item, index) in breadcrumbs" :key="index">
-        <a v-if="item.link" :href="item.link">{{ item.text }}</a>
+        <a v-if="item.link" :href="withBase(item.link!)">{{ item.text }}</a>
         <span v-else class="current" aria-current="page">{{ item.text }}</span>
         <span v-if="index < breadcrumbs.length - 1" class="separator" aria-hidden="true">/</span>
       </li>
