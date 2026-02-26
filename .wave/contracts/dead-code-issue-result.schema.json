@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dead Code Issue Result",
+  "description": "Result of creating a GitHub issue with dead code findings",
+  "type": "object",
+  "required": ["issue_url", "issue_number", "findings_summary"],
+  "properties": {
+    "issue_url": { "type": "string", "format": "uri" },
+    "issue_number": { "type": "integer", "minimum": 1 },
+    "findings_summary": {
+      "type": "object",
+      "required": ["total", "by_category"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_category": { "type": "object" },
+        "high_confidence": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

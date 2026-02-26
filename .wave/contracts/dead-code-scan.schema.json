@@ -15,7 +15,7 @@
           "id": { "type": "string", "pattern": "^DC-[0-9]{3}$" },
           "type": {
             "type": "string",
-            "enum": ["unused_export", "unreachable", "orphaned_file", "redundant", "stale_test", "unused_import", "commented_code"]
+            "enum": ["unused_export", "unreachable", "orphaned_file", "redundant", "stale_test", "unused_import", "commented_code", "duplicate", "stale_glue", "hardcoded_value"]
           },
           "location": { "type": "string", "minLength": 1 },
           "symbol": { "type": "string" },
@@ -23,7 +23,19 @@
           "evidence": { "type": "string" },
           "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
           "safe_to_remove": { "type": "boolean" },
-          "removal_note": { "type": "string" }
+          "removal_note": { "type": "string" },
+          "line_range": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "integer", "minimum": 1 },
+              "end": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["start", "end"]
+          },
+          "suggested_action": {
+            "type": "string",
+            "enum": ["remove", "consolidate", "investigate", "configure"]
+          }
         }
       }
     },

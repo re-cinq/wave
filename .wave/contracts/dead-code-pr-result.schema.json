@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dead Code PR Result",
+  "description": "Result of posting dead code findings as a PR comment",
+  "type": "object",
+  "required": ["comment_url", "pr_number", "findings_summary"],
+  "properties": {
+    "comment_url": { "type": "string", "format": "uri" },
+    "pr_number": { "type": "integer", "minimum": 1 },
+    "findings_summary": {
+      "type": "object",
+      "required": ["total", "by_category"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_category": { "type": "object" },
+        "high_confidence": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,12 +1,15 @@
 kind: WavePipeline
 metadata:
-  name: dead-code
-  description: "Scan for dead, redundant, and misplaced code — output a local JSON report"
+  name: dead-code-issue
+  description: "Scan for dead code and create a GitHub issue with findings"
   release: true
+
+requires:
+  tools: [gh]
 
 input:
   source: cli
-  example: "find dead code in internal/pipeline"
+  example: "scan for dead code and create an issue report"
 
 steps:
   - id: scan
@@ -121,3 +124,41 @@ steps:
         schema_path: .wave/contracts/dead-code-report.schema.json
         on_failure: retry
         max_retries: 2
+
+  - id: create-github-issue
+    persona: github-commenter
+    dependencies: [format]
+    memory:
+      inject_artifacts:
+        - step: format
+          artifact: report
+          as: report
+    exec:
+      type: prompt
+      source: |
+        Create a GitHub issue with the dead code scan findings.
+
+        1. Read the report artifact to get the title and body
+        2. Create a GitHub issue:
+
+           ```bash
+           gh issue create --title "<title from report>" --body-file .wave/artifacts/report --label "code-quality"
+           ```
+
+        3. Produce a JSON status report matching the contract schema.
+    output_artifacts:
+      - name: issue-result
+        path: .wave/output/issue-result.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/issue-result.json
+        schema_path: .wave/contracts/dead-code-issue-result.schema.json
+        on_failure: retry
+        max_retries: 2
+    outcomes:
+      - type: issue
+        extract_from: .wave/output/issue-result.json
+        json_path: .issue_url
+        label: "Issue Report"
