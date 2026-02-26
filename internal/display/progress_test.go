@@ -699,3 +699,52 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestBasicProgressDisplay_SyntheticCompletionEvent(t *testing.T) {
+	var buf bytes.Buffer
+	bpd := NewBasicProgressDisplay()
+	bpd.writer = &buf
+
+	now := time.Now()
+
+	// Test 1: Synthetic completion event (DurationMs=0, TokensUsed=0, Message set)
+	bpd.EmitProgress(event.Event{
+		Timestamp:  now,
+		PipelineID: "test-pipeline",
+		StepID:     "step-id",
+		State:      "completed",
+		DurationMs: 0,
+		TokensUsed: 0,
+		Message:    "completed in prior run",
+	})
+
+	output := buf.String()
+
+	if !strings.Contains(output, "✓ step-id completed in prior run") {
+		t.Errorf("Synthetic completion should contain '✓ step-id completed in prior run', got:\n%s", output)
+	}
+	if strings.Contains(output, "(0.0s, 0 tokens)") {
+		t.Errorf("Synthetic completion should NOT contain '(0.0s, 0 tokens)', got:\n%s", output)
+	}
+
+	// Test 2: Normal completion event (DurationMs=1500, TokensUsed=5000)
+	buf.Reset()
+
+	bpd.EmitProgress(event.Event{
+		Timestamp:  now,
+		PipelineID: "test-pipeline",
+		StepID:     "step-id",
+		State:      "completed",
+		DurationMs: 1500,
+		TokensUsed: 5000,
+	})
+
+	output = buf.String()
+
+	if !strings.Contains(output, "✓ step-id completed (1.5s,") {
+		t.Errorf("Normal completion should contain duration, got:\n%s", output)
+	}
+	if !strings.Contains(output, "tokens)") {
+		t.Errorf("Normal completion should contain token count, got:\n%s", output)
+	}
+}

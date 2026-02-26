@@ -582,8 +582,14 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
 			}
 		case "completed":
-			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
-				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
+			if ev.DurationMs == 0 && ev.TokensUsed == 0 && ev.Message != "" {
+				// Synthetic completion event (e.g., from resume) — show message instead of zero stats
+				fmt.Fprintf(bpd.writer, "[%s] ✓ %s %s\n",
+					timestamp, ev.StepID, ev.Message)
+			} else {
+				fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
+					timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
+			}
 			// Capture artifacts into handover info
 			if len(ev.Artifacts) > 0 {
 				if _, exists := bpd.handoverInfo[ev.StepID]; !exists {

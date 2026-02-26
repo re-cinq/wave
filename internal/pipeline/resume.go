@@ -122,6 +122,24 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 				Message:    "Resume: no prior state found — starting fresh",
 			})
 		}
+
+		// Emit synthetic completion events for prior steps so display
+		// backends mark them as ✓ completed instead of ○ pending.
+		stepPersonas := make(map[string]string, len(p.Steps))
+		for _, s := range p.Steps {
+			stepPersonas[s.ID] = s.Persona
+		}
+		for _, completedStepID := range resumeState.CompletedSteps {
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     completedStepID,
+				State:      event.StateCompleted,
+				Persona:    stepPersonas[completedStepID],
+				Message:    "completed in prior run",
+				DurationMs: 0,
+			})
+		}
 	}
 
 	// Generate a new runtime ID for this resumed execution.

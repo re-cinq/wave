@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -884,5 +886,127 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	err = manager.ResumeFromStep(ctx, p, m, "test", "docs", true)
 	if err != nil && strings.Contains(err.Error(), "prerequisite phase") {
 		t.Errorf("force should skip phase validation, got: %v", err)
+	}
+}
+
+// testEmitter captures events for test assertions.
+type testEmitter struct {
+	mu     sync.Mutex
+	events []event.Event
+}
+
+func (te *testEmitter) Emit(evt event.Event) {
+	te.mu.Lock()
+	defer te.mu.Unlock()
+	te.events = append(te.events, evt)
+}
+
+func TestResumeFromStep_EmitsSyntheticCompletionEvents(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	// Create workspace dirs for step 1 ("gather") with an artifact file
+	// so that loadResumeState discovers it as completed.
+	gatherWs := filepath.Join(tmpDir, ".wave/workspaces/test-pipeline/gather")
+	if err := os.MkdirAll(gatherWs, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gatherWs, "artifact.json"), []byte(`{"gathered": true}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Define a 3-step pipeline: gather -> analyze -> report
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-pipeline"},
+		Steps: []Step{
+			{
+				ID:      "gather",
+				Persona: "researcher",
+				Exec:    ExecConfig{Source: "gather data"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "gathered_data", Path: "artifact.json"},
+				},
+			},
+			{
+				ID:           "analyze",
+				Persona:      "analyst",
+				Dependencies: []string{"gather"},
+				Exec:         ExecConfig{Source: "analyze data"},
+			},
+			{
+				ID:           "report",
+				Persona:      "writer",
+				Dependencies: []string{"analyze"},
+				Exec:         ExecConfig{Source: "write report"},
+			},
+		},
+	}
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test-project"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"researcher": {Adapter: "claude", Temperature: 0.1},
+			"analyst":    {Adapter: "claude", Temperature: 0.1},
+			"writer":     {Adapter: "claude", Temperature: 0.1},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:     tmpDir,
+			DefaultTimeoutMin: 5,
+		},
+	}
+
+	// Create executor with a mock adapter and attach testEmitter
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+	emitter := &testEmitter{}
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(emitter))
+	manager := NewResumeManager(executor)
+
+	ctx := context.Background()
+
+	// Call ResumeFromStep with force=true to skip phase validation.
+	// Execution will likely fail (mock adapter + workspace issues), but
+	// synthetic completion events are emitted BEFORE execution begins.
+	_ = manager.ResumeFromStep(ctx, p, m, "test-input", "analyze", true)
+
+	// Filter captured events for synthetic completion events
+	emitter.mu.Lock()
+	defer emitter.mu.Unlock()
+
+	var syntheticEvents []event.Event
+	for _, evt := range emitter.events {
+		if evt.State == "completed" && evt.Message == "completed in prior run" {
+			syntheticEvents = append(syntheticEvents, evt)
+		}
+	}
+
+	if len(syntheticEvents) == 0 {
+		t.Fatal("expected at least one synthetic completion event for prior steps, got none")
+	}
+
+	// Verify that step "gather" received a synthetic completion event
+	foundGather := false
+	for _, evt := range syntheticEvents {
+		if evt.StepID == "gather" {
+			foundGather = true
+			if evt.Persona != "researcher" {
+				t.Errorf("expected Persona %q for gather step event, got %q", "researcher", evt.Persona)
+			}
+			if evt.Message != "completed in prior run" {
+				t.Errorf("expected Message %q, got %q", "completed in prior run", evt.Message)
+			}
+			break
+		}
+	}
+
+	if !foundGather {
+		t.Errorf("expected synthetic completion event with StepID='gather', got events: %v", syntheticEvents)
 	}
 }
