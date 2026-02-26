@@ -467,6 +467,7 @@ a.hero-pill {
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+  text-align: left;
 }
 
 .terminal-content::after {
@@ -481,6 +482,7 @@ a.hero-pill {
 }
 
 .terminal-line {
+  text-align: left;
   white-space: pre;
 }
 
