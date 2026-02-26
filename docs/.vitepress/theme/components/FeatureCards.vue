@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { withBase } from 'vitepress'
 import type { FeatureCardsProps } from '../types'
 
 const props = defineProps<FeatureCardsProps>()
@@ -44,7 +45,7 @@ function getIcon(iconName: string): string {
     <a
       v-for="feature in props.features"
       :key="feature.title"
-      :href="feature.link"
+      :href="withBase(feature.link)"
       class="feature-card"
     >
       <div class="icon" v-html="getIcon(feature.icon)"></div>
