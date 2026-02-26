@@ -15,7 +15,7 @@ Perform comprehensive code review using multiple specialized personas working in
 ## Prerequisites
 
 - Wave installed and initialized (`wave init`)
-- Experience with [gh-pr-review](/use-cases/gh-pr-review) pipeline
+- Experience with [code-review](/use-cases/gh-pr-review) pipeline
 - Understanding of parallel step execution
 - Familiarity with artifact injection patterns
 
