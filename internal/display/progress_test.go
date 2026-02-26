@@ -699,3 +699,62 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestBasicProgressDisplay_StreamActivityGuard(t *testing.T) {
+	tests := []struct {
+		name       string
+		stepState  string // pre-set state in stepStates map ("running", "completed", or "" for not-started)
+		wantOutput bool
+	}{
+		{
+			name:       "running step produces output",
+			stepState:  "running",
+			wantOutput: true,
+		},
+		{
+			name:       "completed step produces no output",
+			stepState:  "completed",
+			wantOutput: false,
+		},
+		{
+			name:       "not-started step produces no output",
+			stepState:  "",
+			wantOutput: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			bpd := NewBasicProgressDisplayWithVerbose(true)
+			bpd.writer = &buf
+
+			// Pre-set step state
+			if tt.stepState != "" {
+				bpd.stepStates["test-step"] = tt.stepState
+			}
+
+			// Emit a stream_activity event
+			err := bpd.EmitProgress(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: "test-pipeline",
+				StepID:     "test-step",
+				State:      "stream_activity",
+				ToolName:   "Read",
+				ToolTarget: "main.go",
+			})
+			if err != nil {
+				t.Fatalf("EmitProgress failed: %v", err)
+			}
+
+			output := buf.String()
+			if tt.wantOutput && output == "" {
+				t.Error("expected output for stream_activity on running step, got none")
+			}
+			if !tt.wantOutput && output != "" {
+				t.Errorf("expected no output for stream_activity on %s step, got: %s",
+					tt.stepState, output)
+			}
+		})
+	}
+}
