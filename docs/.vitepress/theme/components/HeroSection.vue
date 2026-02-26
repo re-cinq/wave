@@ -547,6 +547,7 @@ a.hero-pill {
   }
 
   .terminal-content {
+    overflow-x: hidden;
     height: 260px;
   }
 }
@@ -599,6 +600,7 @@ a.hero-pill {
   }
 
   .terminal-content {
+    overflow-x: hidden;
     height: 200px;
     font-size: 10px;
     padding: 12px;
@@ -622,6 +624,7 @@ a.hero-pill {
 /* Extra small mobile devices */
 @media (max-width: 380px) {
   .terminal-content {
+    overflow-x: hidden;
     font-size: 9px;
     padding: 10px;
   }
