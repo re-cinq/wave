@@ -466,7 +466,7 @@ a.hero-pill {
   color: #a9b1d6;
   height: 260px;
   width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
   text-align: left;
 }
@@ -506,6 +506,7 @@ a.hero-pill {
 .terminal-line.line-info { color: #7dd3fc; }
 .terminal-line.line-muted { color: #6b7280; }
 .terminal-line.line-highlight { color: #c4b5fd; font-weight: 500; }
+.terminal-line.line-logo { color: #7aa2f7; font-weight: 600; }
 
 /* Background pattern */
 .hero-background-pattern {
@@ -605,6 +606,10 @@ a.hero-pill {
     font-size: 10px;
     padding: 12px;
     line-height: 1.3;
+  }
+
+  .terminal-line.line-logo {
+    display: none;
   }
 
   .terminal-header {
