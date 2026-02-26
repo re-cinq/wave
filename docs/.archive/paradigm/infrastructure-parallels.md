@@ -24,7 +24,7 @@ services:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
 
 steps:
   - id: analyze
@@ -290,7 +290,7 @@ In all three paradigms, configuration files serve as living documentation:
 # This Wave pipeline IS the documentation for how code reviews work
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Security-focused code review with quality gates"
 
 steps:

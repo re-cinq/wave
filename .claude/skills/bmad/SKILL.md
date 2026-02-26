@@ -35,7 +35,7 @@ Comprehensive planning workflow for major initiatives (> 1 week):
 |---------|---------|--------|
 | `bmad.quick-spec` | Analyze codebase and create tech spec with stories | `/bmad.quick-spec "description"` |
 | `bmad.dev-story` | Implement a single story from spec | `/bmad.dev-story [story-id]` |
-| `bmad.code-review` | Validate code quality and compliance | `/bmad.code-review` |
+| `bmad.gh-pr-review` | Validate code quality and compliance | `/bmad.gh-pr-review` |
 
 ### Full Path Commands
 
@@ -100,7 +100,7 @@ BMAD leverages specialized AI agent personas:
 /bmad.dev-story 1
 
 # 3. Review and validate
-/bmad.code-review
+/bmad.gh-pr-review
 ```
 
 ### Full Path Example
@@ -127,7 +127,7 @@ BMAD leverages specialized AI agent personas:
 /bmad.dev-story 1.1
 
 # 8. Quality validation
-/bmad.code-review
+/bmad.gh-pr-review
 ```
 
 ### Collaborative Sessions
@@ -218,7 +218,7 @@ BMAD adapts to team size and project complexity:
 - Document decisions and rationale in artifacts
 
 ### Quality Assurance
-- Run `/bmad.code-review` after every implementation
+- Run `/bmad.gh-pr-review` after every implementation
 - Validate artifacts cross-reference correctly
 - Maintain living documentation practices
 - Use quality gates to prevent technical debt accumulation

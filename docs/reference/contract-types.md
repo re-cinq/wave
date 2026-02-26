@@ -460,7 +460,7 @@ Recommended directory structure:
 ├── scripts/
 │   └── validate.sh
 └── pipelines/
-    └── code-review.yaml
+    └── gh-pr-review.yaml
 ```
 
 ---

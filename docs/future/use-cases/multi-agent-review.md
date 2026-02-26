@@ -15,7 +15,7 @@ Perform comprehensive code review using multiple specialized personas working in
 ## Prerequisites
 
 - Wave installed and initialized (`wave init`)
-- Experience with [code-review](/use-cases/code-review) pipeline
+- Experience with [gh-pr-review](/use-cases/gh-pr-review) pipeline
 - Understanding of parallel step execution
 - Familiarity with artifact injection patterns
 
@@ -441,7 +441,7 @@ Add scoring to the synthesis step:
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/code-review) - Simpler single-pass review
+- [Code Review](/use-cases/gh-pr-review) - Simpler single-pass review
 - [Security Audit](./security-audit) - Deep security-only analysis
 - [Refactoring](/use-cases/refactoring) - Follow up on architecture findings
 

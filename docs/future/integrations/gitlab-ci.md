@@ -11,7 +11,7 @@ wave-pipeline:
   image: ubuntu:latest
   script:
     - curl -fsSL https://wave.dev/install.sh | sh
-    - wave run code-review
+    - wave run gh-pr-review
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
 ```
@@ -24,7 +24,7 @@ wave-pipeline:
 stages:
   - review
 
-code-review:
+gh-pr-review:
   stage: review
   image: node:20
   rules:
@@ -33,7 +33,7 @@ code-review:
     - curl -fsSL https://wave.dev/install.sh | sh
     - npm install -g @anthropic-ai/claude-code
   script:
-    - wave run code-review --input "Review changes in MR !$CI_MERGE_REQUEST_IID"
+    - wave run gh-pr-review --input "Review changes in MR !$CI_MERGE_REQUEST_IID"
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
@@ -114,11 +114,11 @@ stages:
       - .wave/workspaces/
     expire_in: 1 week
 
-code-review:
+gh-pr-review:
   extends: .wave-template
   stage: wave
   script:
-    - wave run code-review
+    - wave run gh-pr-review
 
 lint-check:
   extends: .wave-template
@@ -427,7 +427,7 @@ wave-job:
    ```yaml
    script:
      - which claude && claude --version
-     - wave run code-review
+     - wave run gh-pr-review
    ```
 
 3. Use a custom image with pre-installed tools:
@@ -456,7 +456,7 @@ wave-job:
 ### Conditional Pipeline Execution
 
 ```yaml
-code-review:
+gh-pr-review:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
@@ -466,7 +466,7 @@ code-review:
   script:
     - |
       CHANGED_FILES=$(git diff --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | tr '\n' ' ')
-      wave run code-review --input "Review these files: $CHANGED_FILES"
+      wave run gh-pr-review --input "Review these files: $CHANGED_FILES"
 ```
 
 ### Using GitLab Services
@@ -494,7 +494,7 @@ wave-review:
   stage: review
   extends: .wave-template
   script:
-    - wave run code-review
+    - wave run gh-pr-review
   rules:
     - if: $CI_MERGE_REQUEST_ID
 ```
@@ -509,7 +509,7 @@ wave-job:
     - wave-runner
     - self-hosted
   script:
-    - wave run code-review
+    - wave run gh-pr-review
 ```
 
 ## See Also

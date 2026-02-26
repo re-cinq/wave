@@ -181,7 +181,7 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 - Remove `auditor.md` persona file
 - Remove `auditor` entry from `wave.yaml`
 
-**Impact**: 7 pipeline files updated, 1 persona removed. The `code-review` pipeline's security-review and quality-review steps retain distinct prompts even though both use the unified reviewer persona.
+**Impact**: 7 pipeline files updated, 1 persona removed. The `gh-pr-review` pipeline's security-review and quality-review steps retain distinct prompts even though both use the unified reviewer persona.
 
 ### Proposal 3: Clarify Planner vs Philosopher Boundaries
 
