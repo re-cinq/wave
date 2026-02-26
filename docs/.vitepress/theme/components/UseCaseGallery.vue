@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { withBase } from 'vitepress'
 import type { UseCaseGalleryProps, UseCaseCategory, ComplexityLevel } from '../types'
 
 const props = withDefaults(defineProps<UseCaseGalleryProps>(), {
@@ -113,7 +114,7 @@ function formatCategory(category: UseCaseCategory): string {
       <a
         v-for="useCase in filteredUseCases"
         :key="useCase.id"
-        :href="useCase.link"
+        :href="withBase(useCase.link)"
         class="use-case-card"
       >
         <div class="card-header">
