@@ -10,17 +10,16 @@ const tabs: PlatformContent[] = [
     label: 'macOS',
     content: `
 <div class="install-option">
-<h4>Build from Source <span class="recommended-badge">Recommended</span></h4>
+<h4>Install Script <span class="recommended-badge">Recommended</span></h4>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</code></pre>
+</div>
+
+<div class="install-option">
+<h4>Build from Source</h4>
 <p>Requires Go 1.25+ and git:</p>
 <pre><code>git clone https://github.com/re-cinq/wave.git
 cd wave && make build
 sudo mv wave /usr/local/bin/</code></pre>
-</div>
-
-<div class="install-option">
-<h4>Install Script</h4>
-<p class="install-note">Requires the repository to be public. Available once open-sourced.</p>
-<pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</code></pre>
 </div>
 `
   },
@@ -29,25 +28,23 @@ sudo mv wave /usr/local/bin/</code></pre>
     label: 'Linux',
     content: `
 <div class="install-option">
-<h4>Build from Source <span class="recommended-badge">Recommended</span></h4>
-<p>Requires Go 1.25+ and git:</p>
-<pre><code>git clone https://github.com/re-cinq/wave.git
-cd wave && make build
-sudo mv wave /usr/local/bin/</code></pre>
-</div>
-
-<div class="install-option">
-<h4>Install Script</h4>
-<p class="install-note">Requires the repository to be public. Available once open-sourced.</p>
+<h4>Install Script <span class="recommended-badge">Recommended</span></h4>
 <pre><code>curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</code></pre>
 </div>
 
 <div class="install-option">
 <h4>Debian/Ubuntu (.deb)</h4>
-<p class="install-note">Requires the repository to be public.</p>
 <p>Download the <code>.deb</code> package from <a href="https://github.com/re-cinq/wave/releases">GitHub Releases</a>:</p>
 <pre><code>curl -LO https://github.com/re-cinq/wave/releases/latest/download/wave_linux_amd64.deb
 sudo dpkg -i wave_linux_amd64.deb</code></pre>
+</div>
+
+<div class="install-option">
+<h4>Build from Source</h4>
+<p>Requires Go 1.25+ and git:</p>
+<pre><code>git clone https://github.com/re-cinq/wave.git
+cd wave && make build
+sudo mv wave /usr/local/bin/</code></pre>
 </div>
 `
   },
