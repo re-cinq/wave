@@ -122,6 +122,20 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 				Message:    "Resume: no prior state found — starting fresh",
 			})
 		}
+
+		// Emit synthetic completion events for prior steps so the display
+		// marks them as completed (✓) instead of pending (○).
+		for _, stepID := range resumeState.CompletedSteps {
+			persona := r.lookupStepPersona(p, stepID)
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     stepID,
+				State:      "completed",
+				Persona:    persona,
+				Message:    "Completed in prior run",
+			})
+		}
 	}
 
 	// Generate a new runtime ID for this resumed execution.
@@ -166,6 +180,16 @@ type ResumeState struct {
 	ArtifactPaths  map[string]string
 	WorkspacePaths map[string]string
 	CompletedSteps []string
+}
+
+// lookupStepPersona finds the persona for a step by ID in the full pipeline.
+func (r *ResumeManager) lookupStepPersona(p *Pipeline, stepID string) string {
+	for _, step := range p.Steps {
+		if step.ID == stepID {
+			return step.Persona
+		}
+	}
+	return ""
 }
 
 // loadResumeState loads state from previous execution for resumption
