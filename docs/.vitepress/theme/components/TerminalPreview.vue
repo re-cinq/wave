@@ -212,7 +212,7 @@ defineExpose({ replay })
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 0 30px rgba(99, 102, 241, 0.15),
     0 0 60px rgba(99, 102, 241, 0.1);
-  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  font-family: var(--wave-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
 }
 
 /* Subtle glow effect on the border */

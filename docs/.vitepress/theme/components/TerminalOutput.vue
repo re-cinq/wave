@@ -26,7 +26,7 @@ defineProps({
   border-radius: 8px;
   overflow: hidden;
   margin: 1rem 0;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--wave-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
 }
 .terminal-header {
   background: #2d2d44;
