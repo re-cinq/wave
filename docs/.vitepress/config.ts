@@ -18,7 +18,10 @@ export default withMermaid(
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
       ['meta', { name: 'twitter:title', content: 'Wave · AI-as-Code for multi-agent pipelines' }],
       ['meta', { name: 'twitter:description', content: 'Define, version, and run AI workflows like you manage infrastructure.' }],
-      ['link', { rel: 'icon', type: 'image/svg+xml', href: '/wave/favicon.svg' }]
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: '/wave/favicon.svg' }],
+      ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+      ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+      ['link', { href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap', rel: 'stylesheet' }]
     ],
 
     themeConfig: {
