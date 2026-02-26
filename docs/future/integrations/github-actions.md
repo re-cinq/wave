@@ -20,7 +20,7 @@ jobs:
       - name: Run Pipeline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: wave run code-review
+        run: wave run gh-pr-review
 ```
 
 ## Complete Examples
@@ -54,7 +54,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          wave run code-review --input "Review changes in PR #${{ github.event.pull_request.number }}"
+          wave run gh-pr-review --input "Review changes in PR #${{ github.event.pull_request.number }}"
 
       - name: Upload Review Artifacts
         uses: actions/upload-artifact@v4
@@ -151,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pipeline: [code-review, lint-check, test-generation]
+        pipeline: [gh-pr-review, lint-check, test-generation]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -377,7 +377,7 @@ permissions:
   if: github.event_name == 'pull_request'
   run: |
     CHANGED_FILES=$(git diff --name-only origin/main...HEAD | tr '\n' ' ')
-    wave run code-review --input "Review these files: $CHANGED_FILES"
+    wave run gh-pr-review --input "Review these files: $CHANGED_FILES"
 ```
 
 ### Parallel Jobs with Dependencies
@@ -420,7 +420,7 @@ jobs:
       - name: Run Pipeline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: wave run code-review
+        run: wave run gh-pr-review
 ```
 
 ## See Also

@@ -49,10 +49,10 @@ func NewRunCmd() *cobra.Command {
 Supports dry-run mode, step resumption, and custom timeouts.
 
 Arguments can be provided as positional args or flags:
-  wave run code-review "Review auth module"
-  wave run --pipeline code-review --input "Review auth module"
-  wave run code-review --input "Review auth module"`,
-		Example: `  wave run code-review "Review the authentication changes"
+  wave run gh-pr-review "Review auth module"
+  wave run --pipeline gh-pr-review --input "Review auth module"
+  wave run gh-pr-review --input "Review auth module"`,
+		Example: `  wave run gh-pr-review "Review the authentication changes"
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate`,

@@ -27,7 +27,7 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
-        run: wave run code-review "${{ github.event.pull_request.title }}"
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -48,7 +48,7 @@ jobs:
         run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
-        run: wave run code-review "${{ github.event.pull_request.title }}"
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -74,12 +74,12 @@ name: Wave CI
 on: [pull_request]
 
 jobs:
-  code-review:
+  gh-pr-review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-      - run: wave run code-review "${{ github.event.pull_request.title }}"
+      - run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -105,7 +105,7 @@ wave-review:
   stage: review
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run code-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -124,7 +124,7 @@ wave-review:
   stage: review
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run code-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -137,11 +137,11 @@ wave-review:
 stages:
   - analyze
 
-code-review:
+gh-pr-review:
   stage: analyze
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run code-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_TITLE"
 
 security-audit:
   stage: analyze
@@ -188,7 +188,7 @@ jobs:
 
       - name: Run Code Review
         run: |
-          wave run code-review "${{ github.event.pull_request.title }}"
+          wave run gh-pr-review "${{ github.event.pull_request.title }}"
 
       - name: Check Status
         run: wave status

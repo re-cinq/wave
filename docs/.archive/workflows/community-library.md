@@ -11,7 +11,7 @@ Analyzes changes and provides feedback:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Basic code review"
 
 input:
@@ -342,7 +342,7 @@ Good patterns are:
 ```
 my-wave-patterns/
 ├── README.md
-├── code-review/
+├── gh-pr-review/
 │   ├── basic.yaml
 │   ├── security.yaml
 │   └── README.md
