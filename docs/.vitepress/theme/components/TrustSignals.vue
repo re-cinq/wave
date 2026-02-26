@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { withBase } from 'vitepress'
 import type { TrustSignalsProps, TrustBadge, ComplianceStatus } from '../types'
 
 const props = withDefaults(defineProps<TrustSignalsProps>(), {
@@ -66,7 +67,7 @@ function getStatusLabel(status: ComplianceStatus): string {
       <a
         v-for="badge in activeBadges"
         :key="badge.name"
-        :href="badge.link"
+        :href="withBase(badge.link)"
         class="trust-badge"
         :class="getStatusClass(badge)"
       >
