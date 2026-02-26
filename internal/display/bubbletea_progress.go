@@ -229,8 +229,13 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 	case "completed":
 		step.State = StateCompleted
 		step.Progress = 100
-		// Clean up per-step tool activity
+		// Clean up per-step tool activity and clear stale global activity
+		// to prevent leakage to the next step in shared-worktree pipelines.
 		delete(btpd.stepToolActivity, evt.StepID)
+		if btpd.currentStepID == evt.StepID {
+			btpd.lastToolName = ""
+			btpd.lastToolTarget = ""
+		}
 		// Capture step duration for display
 		if evt.DurationMs > 0 {
 			btpd.stepDurations[evt.StepID] = evt.DurationMs
@@ -252,11 +257,15 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		step.Progress = evt.Progress
 	}
 
-	// Capture tool activity for verbose mode (per-step)
+	// Capture tool activity for verbose mode (per-step).
+	// Guard: drop stream_activity for steps that are already completed or not yet started.
+	// This prevents phantom activity from shared-worktree steps leaking to wrong steps.
 	if btpd.verbose && evt.State == "stream_activity" && evt.ToolName != "" {
-		btpd.stepToolActivity[evt.StepID] = [2]string{evt.ToolName, evt.ToolTarget}
-		btpd.lastToolName = evt.ToolName
-		btpd.lastToolTarget = evt.ToolTarget
+		if step.State == StateRunning {
+			btpd.stepToolActivity[evt.StepID] = [2]string{evt.ToolName, evt.ToolTarget}
+			btpd.lastToolName = evt.ToolName
+			btpd.lastToolTarget = evt.ToolTarget
+		}
 	}
 
 	// Capture handover metadata for verbose mode

@@ -535,6 +535,7 @@ type BasicProgressDisplay struct {
 	termInfo     *TerminalInfo
 	handoverInfo map[string]*HandoverInfo // Per-step handover metadata
 	stepOrder    []string                 // Ordered list of step IDs (for target lookup)
+	stepStates   map[string]string        // Per-step state tracking for activity guard
 }
 
 // NewBasicProgressDisplay creates a fallback progress display.
@@ -544,6 +545,7 @@ func NewBasicProgressDisplay() *BasicProgressDisplay {
 		verbose:      false,
 		termInfo:     NewTerminalInfo(),
 		handoverInfo: make(map[string]*HandoverInfo),
+		stepStates:   make(map[string]string),
 	}
 }
 
@@ -554,6 +556,7 @@ func NewBasicProgressDisplayWithVerbose(verbose bool) *BasicProgressDisplay {
 		verbose:      verbose,
 		termInfo:     NewTerminalInfo(),
 		handoverInfo: make(map[string]*HandoverInfo),
+		stepStates:   make(map[string]string),
 	}
 }
 
@@ -567,6 +570,7 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 	if ev.StepID != "" {
 		switch ev.State {
 		case "started", "running":
+			bpd.stepStates[ev.StepID] = "running"
 			if ev.Persona != "" {
 				fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
 			}
@@ -582,6 +586,7 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
 			}
 		case "completed":
+			bpd.stepStates[ev.StepID] = "completed"
 			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
 				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
 			// Capture artifacts into handover info
@@ -598,6 +603,7 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 				}
 			}
 		case "failed":
+			bpd.stepStates[ev.StepID] = "failed"
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
 			if ev.CurrentAction != "" {
@@ -638,7 +644,7 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			}
 			bpd.handoverInfo[ev.StepID].ContractStatus = "soft_failure"
 		case "stream_activity":
-			if bpd.verbose && ev.ToolName != "" {
+			if bpd.verbose && ev.ToolName != "" && bpd.stepStates[ev.StepID] == "running" {
 				// Compute available space: total width minus fixed prefix overhead
 				// Format: "[HH:MM:SS]   %-20s %s → " = 10 + 3 + 20 + 1 + toolName + 3
 				overhead := 37 + len(ev.ToolName)
