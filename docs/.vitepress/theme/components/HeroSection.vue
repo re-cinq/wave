@@ -396,7 +396,7 @@ a.hero-pill {
 
 .terminal-window {
   width: 100%;
-  max-width: 100%;
+  max-width: 560px;
   background: #1a1a2e;
   border-radius: 12px;
   overflow: hidden;
@@ -458,12 +458,13 @@ a.hero-pill {
 
 .terminal-content {
   position: relative;
-  padding: 16px 20px;
+  padding: 16px;
   font-family: var(--wave-font-mono, 'SF Mono', 'Fira Code', monospace);
   font-size: 13px;
   line-height: 1.2;
   color: #a9b1d6;
   height: 260px;
+  width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -590,12 +591,40 @@ a.hero-pill {
 
   .terminal-window {
     max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .terminal-content {
-    height: 220px;
-    font-size: 12px;
-    padding: 12px 16px;
+    height: 200px;
+    font-size: 10px;
+    padding: 12px;
+    line-height: 1.3;
+  }
+
+  .terminal-header {
+    padding: 10px 12px;
+  }
+
+  .terminal-title {
+    font-size: 11px;
+  }
+
+  .terminal-dots .dot {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 380px) {
+  .terminal-content {
+    font-size: 9px;
+    padding: 10px;
+  }
+
+  .hero-content h1 {
+    font-size: 2rem;
   }
 }
 
