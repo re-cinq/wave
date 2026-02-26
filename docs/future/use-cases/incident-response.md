@@ -16,7 +16,7 @@ Rapid investigation and remediation workflows for production incidents. This pip
 
 - Wave installed and initialized (`wave init`)
 - Access to logs, metrics, or error traces
-- Experience with [gh-pr-review](/use-cases/gh-pr-review) and [security-audit](./security-audit) pipelines
+- Experience with [code-review](/use-cases/gh-pr-review) and [security-audit](./security-audit) pipelines
 - Understanding of your system's architecture and monitoring stack
 
 ## Quick Start

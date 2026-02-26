@@ -16,7 +16,7 @@ Perform systematic code refactoring with analysis, safe implementation, and veri
 
 - Wave installed and initialized (`wave init`)
 - Git repository with tests (highly recommended)
-- Understanding of [gh-pr-review](/use-cases/gh-pr-review) pipeline
+- Understanding of [code-review](/use-cases/gh-pr-review) pipeline
 - Familiarity with common refactoring patterns
 
 ## Quick Start
@@ -317,7 +317,7 @@ steps:
 ### After Refactoring
 
 1. **Full test run** - Verify all tests pass
-2. **Code review** - Use [gh-pr-review](/use-cases/gh-pr-review) pipeline
+2. **Code review** - Use [code-review](/use-cases/gh-pr-review) pipeline
 3. **Documentation** - Update any affected docs
 
 ## Related Use Cases
