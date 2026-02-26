@@ -507,6 +507,7 @@ a.hero-pill {
 .terminal-line.line-muted { color: #6b7280; }
 .terminal-line.line-highlight { color: #c4b5fd; font-weight: 500; }
 .terminal-line.line-logo { color: #7aa2f7; font-weight: 600; }
+.terminal-line.line-meta { display: none; }
 
 /* Background pattern */
 .hero-background-pattern {
@@ -610,6 +611,10 @@ a.hero-pill {
 
   .terminal-line.line-logo {
     display: none;
+  }
+
+  .terminal-line.line-meta {
+    display: block;
   }
 
   .terminal-header {
