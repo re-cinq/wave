@@ -16,7 +16,7 @@ This document defines the naming conventions for Wave pipelines. All new pipelin
 |---|---|
 | `adr` | Create an Architecture Decision Record |
 | `changelog` | Generate a changelog from recent commits |
-| `code-review` | Review code changes and provide feedback |
+| `gh-pr-review` | Review code changes and provide feedback |
 | `dead-code` | Detect and report unused code |
 | `debug` | Debug a failing test or runtime issue |
 | `doc-audit` | Audit documentation for consistency and create issues for drift |

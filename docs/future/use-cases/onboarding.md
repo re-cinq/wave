@@ -229,7 +229,7 @@ test suites, TypeScript compilation).
 
 ### Running a Pipeline
 ` ` `bash
-wave run code-review "review the authentication module"
+wave run gh-pr-review "review the authentication module"
 ` ` `
 
 ### Creating a Custom Pipeline
@@ -432,7 +432,7 @@ steps:
 ## Related Use Cases
 
 - [Documentation Generation](./documentation-generation) - Generate API docs
-- [Code Review](/use-cases/code-review) - Learn review standards
+- [Code Review](/use-cases/gh-pr-review) - Learn review standards
 - [API Design](./api-design) - Understand API patterns
 
 ## Next Steps

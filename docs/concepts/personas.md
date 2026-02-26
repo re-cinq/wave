@@ -303,7 +303,7 @@ Reference personas by name in pipeline steps:
 
 ```yaml
 pipelines:
-  code-review:
+  gh-pr-review:
     description: "Review and improve code quality"
     steps:
       - id: analyze

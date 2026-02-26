@@ -16,15 +16,15 @@ Perform comprehensive security analysis of your codebase. This pipeline performs
 
 - Wave installed and initialized (`wave init`)
 - Git repository to audit
-- Understanding of [code-review](/use-cases/code-review) pipeline (recommended)
+- Understanding of [gh-pr-review](/use-cases/gh-pr-review) pipeline (recommended)
 - Familiarity with OWASP Top 10 and common vulnerability types
 
 ## Quick Start
 
-For basic security review, use the built-in `code-review` pipeline:
+For basic security review, use the built-in `gh-pr-review` pipeline:
 
 ```bash
-wave run code-review "security audit of the entire codebase"
+wave run gh-pr-review "security audit of the entire codebase"
 ```
 
 For comprehensive security audits, create a dedicated pipeline (see below):
@@ -308,7 +308,7 @@ Ensure compliance report follows expected format:
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/code-review) - Regular PR reviews with security checks
+- [Code Review](/use-cases/gh-pr-review) - Regular PR reviews with security checks
 - [Test Generation](/use-cases/test-generation) - Generate security-focused tests
 - [Incident Response](./incident-response) - Respond to security incidents
 

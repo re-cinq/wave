@@ -15,7 +15,7 @@ org-wave-config/
 │   ├── auditor.md
 │   └── craftsman.md
 ├── contracts/
-│   ├── code-review.schema.json
+│   ├── gh-pr-review.schema.json
 │   └── security-report.schema.json
 └── README.md
 ```
@@ -127,7 +127,7 @@ jobs:
           curl -L https://wave.dev/install.sh | sh
 
       - name: Run Review
-        run: wave run code-review "${{ github.event.pull_request.title }}"
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -145,7 +145,7 @@ wave-review:
   stage: review
   script:
     - curl -L https://wave.dev/install.sh | sh
-    - wave run code-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
       - .wave/workspaces/*/output/

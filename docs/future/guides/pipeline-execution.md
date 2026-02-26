@@ -7,7 +7,7 @@ Wave transforms declarative pipeline configurations into orchestrated AI executi
 When you run a pipeline:
 
 ```bash
-wave run code-review "Review authentication changes"
+wave run gh-pr-review "Review authentication changes"
 ```
 
 Wave performs these phases:
@@ -25,7 +25,7 @@ Wave loads the pipeline definition and validates it against the schema:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Automated code review"
 
 input:
@@ -244,10 +244,10 @@ wave artifacts <run-id>
 A complete code review execution:
 
 ```
-1. wave run code-review "Review auth changes"
+1. wave run gh-pr-review "Review auth changes"
 
 2. Parse configuration
-   ✓ Pipeline: code-review
+   ✓ Pipeline: gh-pr-review
    ✓ Steps: analyze → security, quality → summary
 
 3. Create run: run-abc123
@@ -280,10 +280,10 @@ A complete code review execution:
 
 ```bash
 # Run a pipeline
-wave run code-review "Review the authentication module"
+wave run gh-pr-review "Review the authentication module"
 
 # Run with specific input
-wave run code-review --input "path/to/diff.patch"
+wave run gh-pr-review --input "path/to/diff.patch"
 ```
 
 ### Monitoring Execution

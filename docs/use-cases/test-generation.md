@@ -16,7 +16,7 @@ Analyze coverage gaps and generate comprehensive tests. Wave's test-gen pipeline
 
 - Wave installed and initialized (`wave init`)
 - Go project with existing test infrastructure
-- Understanding of [code-review](/use-cases/code-review) pipeline (recommended)
+- Understanding of [gh-pr-review](/use-cases/gh-pr-review) pipeline (recommended)
 - Familiarity with table-driven tests and mocking patterns
 
 ## Quick Start
@@ -372,7 +372,7 @@ This ensures generated tests at least compile. Set `must_pass: true` to require 
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/code-review) - Review generated tests in PRs
+- [Code Review](/use-cases/gh-pr-review) - Review generated tests in PRs
 - [Documentation Generation](/future/use-cases/documentation-generation) - Document test patterns
 - [Refactoring](/use-cases/refactoring) - Generate tests before refactoring
 

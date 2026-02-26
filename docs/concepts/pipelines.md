@@ -7,7 +7,7 @@ A pipeline is a multi-step AI workflow where each step runs one persona in an is
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
 steps:
   - id: analyze
     persona: navigator
@@ -253,13 +253,13 @@ Fresh memory is recommended to prevent context pollution and ensure reproducible
 Execute a pipeline with input:
 
 ```bash
-wave run code-review "Review authentication changes"
+wave run gh-pr-review "Review authentication changes"
 ```
 
 Check pipeline status:
 
 ```bash
-wave status code-review
+wave status gh-pr-review
 ```
 
 View artifacts from a run:
@@ -277,7 +277,7 @@ A production-ready code review pipeline:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Multi-perspective code review with security and quality checks"
 
 input:

@@ -15,7 +15,7 @@ When using `--from-step` to resume a pipeline, prior completed steps show as pen
 Prior steps that were already completed before the resume point should display with a ✓ checkmark, reflecting their actual completed status:
 
 ```
-wave run code-review --input <url> --from-step security-review
+wave run gh-pr-review --input <url> --from-step security-review
 
 ✓ diff-analysis (navigator)          ← completed in prior run
 ✓ security-review (auditor) (475.6s)
@@ -27,7 +27,7 @@ wave run code-review --input <url> --from-step security-review
 ## Observed Behavior
 
 ```
-wave run code-review --input <url> --from-step security-review
+wave run gh-pr-review --input <url> --from-step security-review
 
 ○ diff-analysis (navigator)          ← should be ✓
 ✓ security-review (auditor) (475.6s)

@@ -87,7 +87,7 @@ Pipelines define multi-step workflows with dependency resolution, artifact chain
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Comprehensive code review"
   release: true       # included in `wave init` (without --all)
   disabled: false      # can be disabled
@@ -290,7 +290,7 @@ Creates: `wave.yaml`, `.wave/personas/`, `.wave/pipelines/`, `.wave/contracts/`,
 #### `wave run [pipeline] [input]`
 Execute a pipeline.
 ```
-wave run code-review "Review auth module"
+wave run gh-pr-review "Review auth module"
 wave run --pipeline speckit-flow --input "add user auth"
 wave run hotfix --dry-run
 wave run migrate --from-step validate --force
@@ -401,7 +401,7 @@ wave cancel --format json
 Validate manifest and pipeline configuration.
 ```
 wave validate
-wave validate --pipeline code-review
+wave validate --pipeline gh-pr-review
 
 --pipeline    Specific pipeline to validate
 ```
@@ -410,7 +410,7 @@ wave validate --pipeline code-review
 Remove workspaces, state, and cached artifacts.
 ```
 wave clean --all                         # remove everything
-wave clean --pipeline code-review        # specific pipeline
+wave clean --pipeline gh-pr-review        # specific pipeline
 wave clean --all --keep-last 5           # keep 5 most recent
 wave clean --older-than 7d               # age-based cleanup
 wave clean --status completed            # status-based cleanup
@@ -445,7 +445,7 @@ wave.yaml                    # Main manifest
     craftsman.md
     ...
   pipelines/                 # Pipeline YAML definitions
-    code-review.yaml
+    gh-pr-review.yaml
     hello-world.yaml
     prototype.yaml
     ...

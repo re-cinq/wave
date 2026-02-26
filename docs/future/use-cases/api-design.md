@@ -563,7 +563,7 @@ Add a code generation step:
 
 - [Documentation Generation](./documentation-generation) - Generate API docs
 - [Test Generation](/use-cases/test-generation) - Generate API tests
-- [Code Review](/use-cases/code-review) - Review API implementations
+- [Code Review](/use-cases/gh-pr-review) - Review API implementations
 
 ## Next Steps
 

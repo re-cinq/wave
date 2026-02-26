@@ -21,7 +21,7 @@ Automate pull request reviews with security checks, quality analysis, and action
 ## Quick Start
 
 ```bash
-wave run code-review "review the authentication module"
+wave run gh-pr-review "review the authentication module"
 ```
 
 With `-o text`:
@@ -37,19 +37,19 @@ With `-o text`:
 [10:00:49] → summary (summarizer)
 [10:01:05] ✓ summary completed (16.0s, 1.2k tokens)
 
-  ✓ Pipeline 'code-review' completed successfully (64s)
+  ✓ Pipeline 'gh-pr-review' completed successfully (64s)
 ```
 
 ## Complete Pipeline
 
-This is the full `code-review` pipeline from `.wave/pipelines/code-review.yaml`:
+This is the full `gh-pr-review` pipeline from `.wave/pipelines/gh-pr-review.yaml`:
 
 <div v-pre>
 
 ```yaml
 kind: WavePipeline
 metadata:
-  name: code-review
+  name: gh-pr-review
   description: "Comprehensive code review for pull requests"
 
 input:
@@ -224,13 +224,13 @@ The pipeline produces `.wave/output/review-summary.md`:
 ### Focus on specific areas
 
 ```bash
-wave run code-review "focus on error handling in the API layer"
+wave run gh-pr-review "focus on error handling in the API layer"
 ```
 
 ### Review a specific PR
 
 ```bash
-wave run code-review "review changes in PR #123"
+wave run gh-pr-review "review changes in PR #123"
 ```
 
 ### Add contract validation

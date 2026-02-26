@@ -135,7 +135,7 @@ wave run speckit-flow "add OAuth2 with Google"
 wave run hotfix "500 errors on /api/users"
 
 # Review PR
-wave run code-review "review auth module changes"
+wave run gh-pr-review "review auth module changes"
 
 # Generate tests
 wave run test-gen "improve coverage for internal/cache"
@@ -311,7 +311,7 @@ A selection of the 23 built-in pipelines:
 
 | Pipeline | Description |
 |----------|-------------|
-| `code-review` | Comprehensive code review for pull requests |
+| `gh-pr-review` | Comprehensive code review for pull requests |
 | `test-gen` | Generate comprehensive test coverage |
 | `debug` | Systematic debugging with hypothesis testing |
 
