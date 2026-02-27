@@ -1139,6 +1139,9 @@ func TestListRunsCmd_WithDatabase(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
+	// Set terminal width for non-TTY test environment
+	t.Setenv("COLUMNS", "120")
+
 	// Create a minimal state database with pipeline_run table
 	dbDir := ".wave"
 	err := os.MkdirAll(dbDir, 0755)
@@ -1182,6 +1185,9 @@ func TestListRunsCmd_StatusFilter(t *testing.T) {
 	h := newListTestHelper(t)
 	h.chdir()
 	defer h.restore()
+
+	// Set terminal width for non-TTY test environment
+	t.Setenv("COLUMNS", "120")
 
 	// Create database with multiple runs
 	dbDir := ".wave"
@@ -1465,4 +1471,172 @@ runtime:
 	assert.True(t, zebraIdx > 0, "zebra-skill should appear in output")
 	assert.True(t, alphaIdx < middleIdx, "alpha-skill should appear before middle-skill")
 	assert.True(t, middleIdx < zebraIdx, "middle-skill should appear before zebra-skill")
+}
+
+// ====================================================================
+// Tests for dynamic terminal width (#167)
+// ====================================================================
+
+// TestListRunsCmd_DynamicSeparatorWidth verifies the separator adapts to terminal width.
+func TestListRunsCmd_DynamicSeparatorWidth(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Set terminal width to 120
+	t.Setenv("COLUMNS", "120")
+
+	// Create a workspace for the fallback
+	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+
+	// Find the separator line (consists of "─" characters)
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		// Strip ANSI codes to get raw content
+		clean := stripANSI(line)
+		if len(clean) > 0 && allSameRune(clean, '─') {
+			// Separator should be 120 chars (matching COLUMNS)
+			assert.Equal(t, 120, len([]rune(clean)),
+				"separator width should match terminal width (120)")
+			return
+		}
+	}
+	t.Fatal("no separator line found in output")
+}
+
+// TestListRunsCmd_NoTruncationAtWideTerminal verifies run IDs are not truncated
+// when the terminal is wide enough.
+func TestListRunsCmd_NoTruncationAtWideTerminal(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Set wide terminal
+	t.Setenv("COLUMNS", "160")
+
+	// Create database with a long run ID
+	dbDir := ".wave"
+	err := os.MkdirAll(filepath.Join(h.tmpDir, dbDir), 0755)
+	require.NoError(t, err)
+
+	dbPath := filepath.Join(dbDir, "state.db")
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS pipeline_run (
+			run_id TEXT PRIMARY KEY,
+			pipeline_name TEXT NOT NULL,
+			status TEXT NOT NULL,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER
+		)
+	`)
+	require.NoError(t, err)
+
+	longRunID := "gh-implement-20260227-093609-787b-extra-suffix"
+	now := time.Now().Unix()
+	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
+		longRunID, "feature-pipeline", "completed", now-3600, now)
+	require.NoError(t, err)
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	// At 160 columns, the full run ID should be visible without truncation
+	assert.Contains(t, stdout, longRunID,
+		"full run ID should be visible at 160-column terminal width")
+	assert.Contains(t, stdout, "feature-pipeline",
+		"full pipeline name should be visible")
+}
+
+// TestListRunsCmd_NarrowTerminalGraceful verifies the table renders without crashing
+// at narrow terminal widths.
+func TestListRunsCmd_NarrowTerminalGraceful(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	// Set narrow terminal
+	t.Setenv("COLUMNS", "60")
+
+	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+
+	stdout, _, err := executeListRunsCmd()
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Recent Pipeline Runs")
+	assert.Contains(t, stdout, "RUN_ID")
+}
+
+// TestListCmd_SeparatorsAdaptToWidth verifies all list subcommand separators
+// adapt to terminal width.
+func TestListCmd_SeparatorsAdaptToWidth(t *testing.T) {
+	h := newListTestHelper(t)
+	h.chdir()
+	defer h.restore()
+
+	t.Setenv("COLUMNS", "100")
+
+	h.writeFile("wave.yaml", sampleManifest())
+	h.writeFile("personas/navigator.md", "# Navigator")
+	h.writeFile("personas/craftsman.md", "# Craftsman")
+	h.writeFile("personas/auditor.md", "# Auditor")
+	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
+	h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
+
+	stdout, _, err := executeListCmd()
+
+	require.NoError(t, err)
+
+	// All separators should be 100 chars wide (matching COLUMNS)
+	lines := strings.Split(stdout, "\n")
+	separatorCount := 0
+	for _, line := range lines {
+		clean := stripANSI(line)
+		if len(clean) > 0 && allSameRune(clean, '─') {
+			runeLen := len([]rune(clean))
+			assert.Equal(t, 100, runeLen,
+				"separator should match terminal width (100), got %d", runeLen)
+			separatorCount++
+		}
+	}
+	assert.GreaterOrEqual(t, separatorCount, 4,
+		"should have at least 4 separators (adapters, runs, pipelines, personas)")
+}
+
+// stripANSI removes ANSI escape codes from a string.
+func stripANSI(s string) string {
+	// Simple ANSI escape code stripper
+	result := make([]byte, 0, len(s))
+	inEscape := false
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\033' {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') {
+				inEscape = false
+			}
+			continue
+		}
+		result = append(result, s[i])
+	}
+	return string(result)
+}
+
+// allSameRune checks if a string consists entirely of the given rune.
+func allSameRune(s string, r rune) bool {
+	for _, c := range s {
+		if c != r {
+			return false
+		}
+	}
+	return true
 }
