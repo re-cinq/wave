@@ -1711,3 +1711,58 @@ func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*Pipelin
 	}
 	return nil, false
 }
+
+// TestMaxConcurrentAgentsPropagation verifies that MaxConcurrentAgents is passed
+// from the pipeline Step definition through to the AdapterRunConfig.
+func TestMaxConcurrentAgentsPropagation(t *testing.T) {
+	tests := []struct {
+		name               string
+		maxConcurrentAgents int
+		wantValue          int
+	}{
+		{"unset (zero)", 0, 0},
+		{"single agent", 1, 1},
+		{"multiple agents", 6, 6},
+		{"max agents", 10, 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			capturingAdapter := &configCapturingAdapter{
+				MockAdapter: adapter.NewMockAdapter(
+					adapter.WithStdoutJSON(`{"status": "success"}`),
+					adapter.WithTokensUsed(500),
+				),
+			}
+
+			collector := newTestEventCollector()
+			executor := NewDefaultPipelineExecutor(capturingAdapter, WithEmitter(collector))
+
+			m := createTestManifest(tmpDir)
+
+			p := &Pipeline{
+				Metadata: PipelineMetadata{Name: "concurrency-propagation-test"},
+				Steps: []Step{
+					{
+						ID:                  "step1",
+						Persona:             "navigator",
+						Exec:                ExecConfig{Source: "test"},
+						MaxConcurrentAgents: tt.maxConcurrentAgents,
+					},
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			err := executor.Execute(ctx, p, m, "test")
+			require.NoError(t, err)
+
+			cfg := capturingAdapter.getLastConfig()
+			assert.Equal(t, tt.wantValue, cfg.MaxConcurrentAgents,
+				"MaxConcurrentAgents should be propagated from Step to AdapterRunConfig")
+		})
+	}
+}

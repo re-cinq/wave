@@ -1349,3 +1349,166 @@ func TestParseOutputSubtype(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildConcurrencySection(t *testing.T) {
+	tests := []struct {
+		name         string
+		cfg          AdapterRunConfig
+		wantEmpty    bool
+		wantContains []string
+	}{
+		{
+			name:      "zero returns empty",
+			cfg:       AdapterRunConfig{MaxConcurrentAgents: 0},
+			wantEmpty: true,
+		},
+		{
+			name:      "one returns empty",
+			cfg:       AdapterRunConfig{MaxConcurrentAgents: 1},
+			wantEmpty: true,
+		},
+		{
+			name:      "three returns section",
+			cfg:       AdapterRunConfig{MaxConcurrentAgents: 3},
+			wantEmpty: false,
+			wantContains: []string{
+				"## Agent Usage",
+				"You may spawn up to 3 concurrent sub-agents",
+			},
+		},
+		{
+			name:      "ten returns section",
+			cfg:       AdapterRunConfig{MaxConcurrentAgents: 10},
+			wantEmpty: false,
+			wantContains: []string{
+				"You may spawn up to 10 concurrent sub-agents",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildConcurrencySection(tt.cfg)
+			if tt.wantEmpty {
+				if result != "" {
+					t.Errorf("expected empty string, got %q", result)
+				}
+				return
+			}
+			if result == "" {
+				t.Error("expected non-empty concurrency section")
+			}
+			for _, want := range tt.wantContains {
+				if !strings.Contains(result, want) {
+					t.Errorf("concurrency section missing %q\nGot:\n%s", want, result)
+				}
+			}
+		})
+	}
+}
+
+func TestCLAUDEMDConcurrencySection(t *testing.T) {
+	tests := []struct {
+		name         string
+		cfg          AdapterRunConfig
+		wantContains []string
+		wantAbsent   []string
+		checkOrder   bool // when true, assert "## Agent Usage" appears before "## Restrictions"
+	}{
+		{
+			name: "concurrency hint present when MaxConcurrentAgents > 1",
+			cfg: AdapterRunConfig{
+				Persona:            "test",
+				Model:              "sonnet",
+				SystemPrompt:       "# Test",
+				MaxConcurrentAgents: 6,
+				AllowedTools:       []string{"Read", "Write"},
+			},
+			wantContains: []string{
+				"## Agent Usage",
+				"You may spawn up to 6 concurrent sub-agents",
+			},
+		},
+		{
+			name: "no concurrency hint when MaxConcurrentAgents is 0",
+			cfg: AdapterRunConfig{
+				Persona:            "test",
+				Model:              "sonnet",
+				SystemPrompt:       "# Test",
+				MaxConcurrentAgents: 0,
+				AllowedTools:       []string{"Read"},
+			},
+			wantAbsent: []string{
+				"## Agent Usage",
+				"concurrent sub-agents",
+			},
+		},
+		{
+			name: "no concurrency hint when MaxConcurrentAgents is 1",
+			cfg: AdapterRunConfig{
+				Persona:      "test",
+				Model:        "sonnet",
+				SystemPrompt: "# Test",
+				MaxConcurrentAgents: 1,
+			},
+			wantAbsent: []string{
+				"## Agent Usage",
+				"concurrent sub-agents",
+			},
+		},
+		{
+			name: "concurrency section appears before restrictions",
+			cfg: AdapterRunConfig{
+				Persona:            "test",
+				Model:              "sonnet",
+				SystemPrompt:       "# Test",
+				MaxConcurrentAgents: 3,
+				AllowedTools:       []string{"Read"},
+				DenyTools:          []string{"Write(*)"},
+			},
+			checkOrder: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := NewClaudeAdapter()
+			tmpDir := t.TempDir()
+
+			if err := a.prepareWorkspace(tmpDir, tt.cfg); err != nil {
+				t.Fatalf("prepareWorkspace failed: %v", err)
+			}
+
+			data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+			if err != nil {
+				t.Fatalf("failed to read CLAUDE.md: %v", err)
+			}
+			content := string(data)
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(content, want) {
+					t.Errorf("CLAUDE.md missing %q\nGot:\n%s", want, content)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				if strings.Contains(content, absent) {
+					t.Errorf("CLAUDE.md should not contain %q\nGot:\n%s", absent, content)
+				}
+			}
+
+			if tt.checkOrder {
+				agentIdx := strings.Index(content, "## Agent Usage")
+				restrictIdx := strings.Index(content, "## Restrictions")
+				if agentIdx < 0 {
+					t.Fatal("CLAUDE.md missing '## Agent Usage' section")
+				}
+				if restrictIdx < 0 {
+					t.Fatal("CLAUDE.md missing '## Restrictions' section")
+				}
+				if agentIdx >= restrictIdx {
+					t.Errorf("'## Agent Usage' (index %d) should appear before '## Restrictions' (index %d)", agentIdx, restrictIdx)
+				}
+			}
+		})
+	}
+}

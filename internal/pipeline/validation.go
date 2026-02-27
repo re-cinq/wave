@@ -339,3 +339,16 @@ func (c *ConcurrencyValidator) GetRunningPipelines() map[string]string {
 	}
 	return result
 }
+// ValidateMaxConcurrentAgents checks that MaxConcurrentAgents is within valid bounds (0-10)
+// for all steps. Zero means unset/default. Returns an error if any step has an invalid value.
+func ValidateMaxConcurrentAgents(p *Pipeline) error {
+	for _, step := range p.Steps {
+		if step.MaxConcurrentAgents < 0 {
+			return fmt.Errorf("step %q: max_concurrent_agents must be >= 0, got %d", step.ID, step.MaxConcurrentAgents)
+		}
+		if step.MaxConcurrentAgents > 10 {
+			return fmt.Errorf("step %q: max_concurrent_agents must be <= 10 (Claude Code hard cap), got %d", step.ID, step.MaxConcurrentAgents)
+		}
+	}
+	return nil
+}

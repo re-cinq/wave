@@ -549,6 +549,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedDomains:   sandboxDomains,
 		EnvPassthrough:   envPassthrough,
 		SkillCommandsDir: skillCommandsDir,
+		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
 				e.emit(event.Event{

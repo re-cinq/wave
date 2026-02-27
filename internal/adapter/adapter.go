@@ -51,6 +51,9 @@ type AdapterRunConfig struct {
 	// Skill provisioning
 	SkillCommandsDir string // Source directory containing skill command files to copy into workspace
 
+	// Concurrency configuration
+	MaxConcurrentAgents int // Max sub-agents the persona may spawn (0 = default, capped at 10)
+
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)

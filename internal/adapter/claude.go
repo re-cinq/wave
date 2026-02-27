@@ -273,7 +273,13 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		}
 	}
 
-	// 2. Restriction section from manifest
+	// 2. Concurrency section (when max_concurrent_agents > 1)
+	concurrency := buildConcurrencySection(cfg)
+	if concurrency != "" {
+		claudeMd.WriteString(concurrency)
+	}
+
+	// 3. Restriction section from manifest
 	restrictions := buildRestrictionSection(cfg)
 	if restrictions != "" {
 		claudeMd.WriteString(restrictions)
@@ -876,6 +882,19 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 		b.WriteString("\n")
 	}
 
+	return b.String()
+}
+
+// buildConcurrencySection generates the concurrency directive for CLAUDE.md
+// when MaxConcurrentAgents > 1. Returns empty string otherwise.
+func buildConcurrencySection(cfg AdapterRunConfig) string {
+	if cfg.MaxConcurrentAgents <= 1 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n\n---\n\n## Agent Usage\n\n")
+	fmt.Fprintf(&b, "You may spawn up to %d concurrent sub-agents or workers for this step.\n", cfg.MaxConcurrentAgents)
 	return b.String()
 }
 

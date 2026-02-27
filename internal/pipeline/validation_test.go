@@ -555,3 +555,71 @@ func TestConcurrencyValidator_GetRunningPipelines(t *testing.T) {
 		t.Error("Expected pipeline1 to not be in running pipelines after release")
 	}
 }
+func TestValidateMaxConcurrentAgents(t *testing.T) {
+	tests := []struct {
+		name          string
+		value         int
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "negative value",
+			value:         -1,
+			expectError:   true,
+			errorContains: "must be >= 0",
+		},
+		{
+			name:        "zero value (unset/default)",
+			value:       0,
+			expectError: false,
+		},
+		{
+			name:        "minimum valid value",
+			value:       1,
+			expectError: false,
+		},
+		{
+			name:        "mid-range value",
+			value:       5,
+			expectError: false,
+		},
+		{
+			name:        "upper bound",
+			value:       10,
+			expectError: false,
+		},
+		{
+			name:          "exceeds upper bound",
+			value:         11,
+			expectError:   true,
+			errorContains: "must be <= 10",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pipeline{
+				Steps: []Step{
+					{
+						ID:                 "test-step",
+						MaxConcurrentAgents: tt.value,
+					},
+				},
+			}
+
+			err := ValidateMaxConcurrentAgents(p)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error for value %d, but got none", tt.value)
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing %q, got %q", tt.errorContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error for value %d: %v", tt.value, err)
+				}
+			}
+		})
+	}
+}

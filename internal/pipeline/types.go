@@ -48,16 +48,17 @@ type InputSchema struct {
 }
 
 type Step struct {
-	ID              string           `yaml:"id"`
-	Persona         string           `yaml:"persona"`
-	Dependencies    []string         `yaml:"dependencies,omitempty"`
-	Memory          MemoryConfig     `yaml:"memory"`
-	Workspace       WorkspaceConfig  `yaml:"workspace"`
-	Exec            ExecConfig       `yaml:"exec"`
-	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
-	Handover        HandoverConfig   `yaml:"handover,omitempty"`
-	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
-	Validation      []ValidationRule `yaml:"validation,omitempty"`
+	ID                  string           `yaml:"id"`
+	Persona             string           `yaml:"persona"`
+	Dependencies        []string         `yaml:"dependencies,omitempty"`
+	Memory              MemoryConfig     `yaml:"memory"`
+	Workspace           WorkspaceConfig  `yaml:"workspace"`
+	Exec                ExecConfig       `yaml:"exec"`
+	OutputArtifacts     []ArtifactDef    `yaml:"output_artifacts,omitempty"`
+	Handover            HandoverConfig   `yaml:"handover,omitempty"`
+	Strategy            *MatrixStrategy  `yaml:"strategy,omitempty"`
+	Validation          []ValidationRule `yaml:"validation,omitempty"`
+	MaxConcurrentAgents int              `yaml:"max_concurrent_agents,omitempty"`
 }
 
 type MemoryConfig struct {
@@ -88,10 +89,10 @@ type Mount struct {
 
 type ExecConfig struct {
 	Type       string `yaml:"type"`                  // "prompt", "command", or "slash_command"
-	Source     string `yaml:"source,omitempty"`       // Inline prompt content
-	SourcePath string `yaml:"source_path,omitempty"`  // Path to prompt file
-	Command    string `yaml:"command,omitempty"`      // Slash command name (for type: slash_command)
-	Args       string `yaml:"args,omitempty"`         // Arguments for slash command
+	Source     string `yaml:"source,omitempty"`      // Inline prompt content
+	SourcePath string `yaml:"source_path,omitempty"` // Path to prompt file
+	Command    string `yaml:"command,omitempty"`     // Slash command name (for type: slash_command)
+	Args       string `yaml:"args,omitempty"`        // Arguments for slash command
 }
 
 type ArtifactDef struct {
