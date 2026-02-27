@@ -1,0 +1,160 @@
+kind: WavePipeline
+metadata:
+  name: audit-security
+  description: "Security audit — vulnerability scanning, secret detection, SAST checks"
+  release: true
+
+input:
+  source: cli
+  example: "audit security of the authentication and API modules"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a security audit of: {{ input }}
+
+        ## Scan Categories
+
+        1. **OWASP Top 10**: Check for common web application vulnerabilities:
+           - Injection (SQL, command, LDAP, XPath, template)
+           - Broken authentication and session management
+           - Sensitive data exposure (hardcoded secrets, unencrypted data)
+           - XML external entities (XXE)
+           - Broken access control
+           - Security misconfiguration
+           - Cross-site scripting (XSS)
+           - Insecure deserialization
+           - Using components with known vulnerabilities
+           - Insufficient logging and monitoring
+
+        2. **Secret Detection**: Scan for exposed credentials:
+           - Hardcoded API keys, tokens, passwords
+           - Private keys or certificates in source
+           - Connection strings with embedded credentials
+           - Environment variable leaks in code or config
+
+        3. **Dependency Vulnerabilities**: Check for known vulnerable dependencies:
+           - Review dependency manifests (go.mod, package.json, etc.)
+           - Known CVEs in direct and transitive dependencies
+           - Outdated dependencies with security patches available
+
+        4. **SAST (Static Application Security Testing)**: Analyze code patterns:
+           - Unchecked errors on security-critical operations
+           - Race conditions on shared state
+           - Path traversal via unsanitized file paths
+           - Unsafe type assertions or reflection
+           - Missing input validation at trust boundaries
+
+        ## Output
+
+        Produce a structured JSON result matching the audit-findings contract schema.
+        Use finding IDs prefixed with `AS-` (e.g., AS-001, AS-002).
+        Set `audit_type` to `"security"`.
+        Use categories: `owasp`, `secrets`, `dependency_vuln`, `sast`.
+    output_artifacts:
+      - name: scan_results
+        path: .wave/output/audit-security-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-security-scan.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: verify
+    persona: auditor
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Review the injected security scan findings.
+
+        For each finding with severity HIGH or CRITICAL:
+
+        1. **Verify the finding**: Read the actual source code at the reported location.
+           Confirm the vulnerability exists.
+
+        2. **Trace data flow**: Follow untrusted input from entry point to sink.
+           Identify all transformations and validation (or lack thereof).
+
+        3. **Assess exploitability**: Could an attacker realistically exploit this?
+           What preconditions are needed? What is the potential impact?
+
+        4. **Check for related patterns**: Search for similar vulnerable patterns
+           elsewhere in the codebase.
+
+        5. **Eliminate false positives**: Remove findings where mitigations exist
+           or the vulnerability is not exploitable in context.
+
+        For MEDIUM and LOW findings, do a lighter review confirming they are real.
+
+        Produce an updated JSON result with verified findings. Remove false positives.
+        Keep the same audit-findings schema format.
+    output_artifacts:
+      - name: verified_findings
+        path: .wave/output/audit-security-verified.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-security-verified.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: report
+    persona: summarizer
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_scan
+        - step: verify
+          artifact: verified_findings
+          as: verified
+    exec:
+      type: prompt
+      source: |
+        Synthesize the injected scan and verification results into a final security audit report.
+
+        Create a structured JSON report that:
+
+        1. Uses only the verified findings (false positives removed)
+        2. Updates the summary counts to reflect verified findings only
+        3. Includes a risk_assessment with an executive summary and remediation roadmap
+        4. Orders findings by severity (CRITICAL first, then HIGH, MEDIUM, LOW)
+
+        The output must match the audit-findings contract schema.
+        Set `audit_type` to `"security"`.
+    output_artifacts:
+      - name: report
+        path: .wave/output/audit-security.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-security.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2

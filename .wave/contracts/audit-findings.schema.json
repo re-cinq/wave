@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Audit Findings",
+  "description": "Unified output schema for all Wave audit pipelines (quality, security, deps, flaws)",
+  "type": "object",
+  "required": ["target", "audit_type", "findings", "summary", "timestamp"],
+  "properties": {
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What was audited (project path, module name, etc.)"
+    },
+    "audit_type": {
+      "type": "string",
+      "enum": ["quality", "security", "deps", "flaws"],
+      "description": "Category of audit performed"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "severity", "category", "location", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(AQ|AS|AD|AF)-[0-9]{3}$",
+            "description": "Finding identifier with category prefix (AQ=quality, AS=security, AD=deps, AF=flaws)"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 200,
+            "description": "Short title describing the finding"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+            "description": "Finding severity level"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Sub-category within the audit type (e.g. lint, complexity, secrets, outdated)"
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "description": "File path or module location of the finding"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Detailed description of the finding"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Supporting evidence such as code snippets or tool output"
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Actionable recommendation for addressing the finding"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional type-specific data (e.g. current_version/latest_version for deps)"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_findings", "by_severity", "by_category", "risk_assessment"],
+      "properties": {
+        "total_findings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of findings"
+        },
+        "by_severity": {
+          "type": "object",
+          "required": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+          "properties": {
+            "CRITICAL": { "type": "integer", "minimum": 0 },
+            "HIGH": { "type": "integer", "minimum": 0 },
+            "MEDIUM": { "type": "integer", "minimum": 0 },
+            "LOW": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "by_category": {
+          "type": "object",
+          "description": "Finding counts grouped by sub-category",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "risk_assessment": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Overall risk assessment narrative"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the audit was performed"
+    }
+  }
+}

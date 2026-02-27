@@ -24,6 +24,16 @@ const useCases = [
     link: '/use-cases/gh-pr-review'
   },
   {
+    id: 'audit-pipelines',
+    title: 'Audit Pipelines',
+    description: 'Reusable audit pipelines for code quality, security, dependency health, and common flaws with unified JSON output.',
+    category: 'code-quality',
+    complexity: 'beginner',
+    personas: ['navigator', 'auditor', 'summarizer'],
+    tags: ['audit', 'quality', 'security', 'dependencies'],
+    link: '/use-cases/audit-pipelines'
+  },
+  {
     id: 'doc-audit',
     title: 'Documentation Consistency',
     description: 'Pre-PR gate that scans code changes, cross-references docs, and creates a GitHub issue for inconsistencies.',

@@ -1,0 +1,154 @@
+kind: WavePipeline
+metadata:
+  name: audit-quality
+  description: "Code quality audit — linting, formatting, complexity analysis, dead code detection"
+  release: true
+
+input:
+  source: cli
+  example: "audit code quality of the internal/ packages"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a code quality audit of: {{ input }}
+
+        ## Scan Categories
+
+        1. **Linting**: Identify code style violations, anti-patterns, and inconsistencies
+           with project conventions. Check for:
+           - Unused variables, imports, and parameters
+           - Shadowed variables
+           - Naming convention violations
+           - Ineffectual assignments
+           - Deprecated function usage
+
+        2. **Formatting**: Check for formatting inconsistencies:
+           - Files not matching standard formatting (gofmt/prettier/etc.)
+           - Inconsistent indentation or whitespace
+           - Line length violations
+           - Missing or inconsistent file headers
+
+        3. **Complexity**: Analyze code complexity:
+           - Functions exceeding reasonable cyclomatic complexity (>15)
+           - Deeply nested control structures (>4 levels)
+           - Functions with too many parameters (>5)
+           - Overly long functions (>100 lines)
+           - High coupling between packages
+
+        4. **Dead Code**: Detect unused or unreachable code:
+           - Exported symbols with no external callers
+           - Unreachable code after return/panic
+           - Commented-out code blocks
+           - Orphaned files not imported anywhere
+
+        ## Output
+
+        Produce a structured JSON result matching the audit-findings contract schema.
+        Use finding IDs prefixed with `AQ-` (e.g., AQ-001, AQ-002).
+        Set `audit_type` to `"quality"`.
+        Use categories: `lint`, `formatting`, `complexity`, `dead_code`.
+    output_artifacts:
+      - name: scan_results
+        path: .wave/output/audit-quality-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-quality-scan.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: verify
+    persona: auditor
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Review the injected quality scan findings.
+
+        For each finding with severity HIGH or CRITICAL:
+
+        1. **Verify the finding**: Read the actual source code at the reported location.
+           Confirm the issue exists and is accurately described.
+
+        2. **Assess impact**: How does this quality issue affect maintainability,
+           readability, or correctness? Could it lead to bugs?
+
+        3. **Check patterns**: Search for similar quality issues elsewhere in the codebase
+           that the scan may have missed.
+
+        4. **Eliminate false positives**: Remove findings that are intentional patterns,
+           framework requirements, or otherwise acceptable.
+
+        For MEDIUM and LOW findings, do a lighter review confirming they are real.
+
+        Produce an updated JSON result with verified findings. Remove false positives.
+        Keep the same audit-findings schema format.
+    output_artifacts:
+      - name: verified_findings
+        path: .wave/output/audit-quality-verified.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-quality-verified.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: report
+    persona: summarizer
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_scan
+        - step: verify
+          artifact: verified_findings
+          as: verified
+    exec:
+      type: prompt
+      source: |
+        Synthesize the injected scan and verification results into a final quality audit report.
+
+        Create a structured JSON report that:
+
+        1. Uses only the verified findings (false positives removed)
+        2. Updates the summary counts to reflect verified findings only
+        3. Includes a risk_assessment summarizing overall code quality health
+        4. Orders findings by severity (CRITICAL first, then HIGH, MEDIUM, LOW)
+
+        The output must match the audit-findings contract schema.
+        Set `audit_type` to `"quality"`.
+    output_artifacts:
+      - name: report
+        path: .wave/output/audit-quality.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-quality.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2

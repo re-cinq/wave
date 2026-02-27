@@ -1,0 +1,155 @@
+kind: WavePipeline
+metadata:
+  name: audit-flaws
+  description: "Common flaws audit — error handling gaps, missing tests, TODO/FIXME tracking, API contract drift"
+  release: true
+
+input:
+  source: cli
+  example: "audit common flaws in the internal/ packages"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a common flaws audit of: {{ input }}
+
+        ## Scan Categories
+
+        1. **Error Handling Gaps**: Identify places where errors are not properly handled:
+           - Ignored error return values (e.g., `_ = someFunc()`)
+           - Empty catch/error blocks
+           - Errors logged but not propagated
+           - Missing error wrapping (losing context)
+           - Panics used where error returns would be appropriate
+           - Missing nil checks on pointers from fallible operations
+
+        2. **Missing Tests**: Find code without adequate test coverage:
+           - Public functions/methods with no corresponding test
+           - Complex logic branches not covered by tests
+           - Error paths not tested
+           - Edge cases not covered (empty input, nil, boundary values)
+           - Integration points not tested
+
+        3. **TODO/FIXME Tracking**: Catalog all deferred work items:
+           - TODO comments with context (who, when, why)
+           - FIXME markers indicating known issues
+           - HACK/WORKAROUND comments indicating technical debt
+           - XXX markers indicating dangerous or fragile code
+           - Orphaned TODOs referencing closed issues
+
+        4. **API Contract Drift**: Check for inconsistencies between API contracts and implementation:
+           - JSON schema fields not matching struct definitions
+           - Documented API responses not matching actual output
+           - Missing validation for required contract fields
+           - Stale contract schemas not reflecting code changes
+
+        ## Output
+
+        Produce a structured JSON result matching the audit-findings contract schema.
+        Use finding IDs prefixed with `AF-` (e.g., AF-001, AF-002).
+        Set `audit_type` to `"flaws"`.
+        Use categories: `error_handling`, `missing_tests`, `todo_fixme`, `contract_drift`.
+    output_artifacts:
+      - name: scan_results
+        path: .wave/output/audit-flaws-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-flaws-scan.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: verify
+    persona: auditor
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Review the injected common flaws scan findings.
+
+        For each finding with severity HIGH or CRITICAL:
+
+        1. **Verify the finding**: Read the actual source code at the reported location.
+           Confirm the flaw exists and is accurately described.
+
+        2. **Assess impact**: How does this flaw affect reliability, maintainability,
+           or correctness? Could it cause production issues?
+
+        3. **Check patterns**: Search for similar flaws elsewhere in the codebase
+           that the scan may have missed.
+
+        4. **Eliminate false positives**: Remove findings that are intentional patterns
+           (e.g., deliberately ignored errors with comments explaining why).
+
+        For MEDIUM and LOW findings, do a lighter review confirming they are real.
+
+        Produce an updated JSON result with verified findings. Remove false positives.
+        Keep the same audit-findings schema format.
+    output_artifacts:
+      - name: verified_findings
+        path: .wave/output/audit-flaws-verified.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-flaws-verified.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: report
+    persona: summarizer
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_scan
+        - step: verify
+          artifact: verified_findings
+          as: verified
+    exec:
+      type: prompt
+      source: |
+        Synthesize the injected scan and verification results into a final common flaws report.
+
+        Create a structured JSON report that:
+
+        1. Uses only the verified findings (false positives removed)
+        2. Updates the summary counts to reflect verified findings only
+        3. Includes a risk_assessment summarizing overall code health with prioritized recommendations
+        4. Orders findings by severity (CRITICAL first, then HIGH, MEDIUM, LOW)
+
+        The output must match the audit-findings contract schema.
+        Set `audit_type` to `"flaws"`.
+    output_artifacts:
+      - name: report
+        path: .wave/output/audit-flaws.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-flaws.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2

@@ -1,0 +1,147 @@
+kind: WavePipeline
+metadata:
+  name: audit-deps
+  description: "Dependency health audit — outdated packages, deprecated dependencies, license compliance"
+  release: true
+
+input:
+  source: cli
+  example: "audit dependency health of the project"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a dependency health audit of: {{ input }}
+
+        ## Scan Categories
+
+        1. **Outdated Packages**: Identify dependencies that have newer versions available:
+           - Check dependency manifests (go.mod, package.json, requirements.txt, etc.)
+           - Compare current versions against latest stable releases
+           - Flag major version bumps that may require migration effort
+           - Identify dependencies that are multiple major versions behind
+
+        2. **Deprecated Dependencies**: Find dependencies that are no longer maintained:
+           - Check for archived or abandoned repositories
+           - Look for deprecation notices in package metadata
+           - Identify dependencies with no updates in >2 years
+           - Check for known successor packages
+
+        3. **License Compliance**: Review dependency licenses:
+           - Identify all dependency licenses
+           - Flag copyleft licenses (GPL, AGPL) that may conflict with project license
+           - Flag dependencies with no license specified
+           - Flag dependencies with unusual or restrictive licenses
+           - Check for license compatibility with the project license
+
+        ## Output
+
+        Produce a structured JSON result matching the audit-findings contract schema.
+        Use finding IDs prefixed with `AD-` (e.g., AD-001, AD-002).
+        Set `audit_type` to `"deps"`.
+        Use categories: `outdated`, `deprecated`, `license`.
+        Include version details in the `details` field where applicable.
+    output_artifacts:
+      - name: scan_results
+        path: .wave/output/audit-deps-scan.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-deps-scan.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: verify
+    persona: auditor
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: scan_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Review the injected dependency scan findings.
+
+        For each finding with severity HIGH or CRITICAL:
+
+        1. **Verify the finding**: Confirm the dependency status by reading the actual
+           dependency manifest files (go.mod, package.json, etc.).
+
+        2. **Check version accuracy**: Verify that reported current and latest versions
+           are correct.
+
+        3. **Assess impact**: Evaluate the risk of not updating — are there security
+           patches, breaking changes, or end-of-life concerns?
+
+        4. **Verify license classifications**: Confirm license types are correctly
+           identified and compatibility concerns are valid.
+
+        For MEDIUM and LOW findings, do a lighter review confirming they are real.
+
+        Produce an updated JSON result with verified findings. Remove false positives.
+        Keep the same audit-findings schema format.
+    output_artifacts:
+      - name: verified_findings
+        path: .wave/output/audit-deps-verified.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-deps-verified.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: report
+    persona: summarizer
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: scan_results
+          as: original_scan
+        - step: verify
+          artifact: verified_findings
+          as: verified
+    exec:
+      type: prompt
+      source: |
+        Synthesize the injected scan and verification results into a final dependency health report.
+
+        Create a structured JSON report that:
+
+        1. Uses only the verified findings (false positives removed)
+        2. Updates the summary counts to reflect verified findings only
+        3. Includes a risk_assessment with dependency health overview and upgrade recommendations
+        4. Orders findings by severity (CRITICAL first, then HIGH, MEDIUM, LOW)
+
+        The output must match the audit-findings contract schema.
+        Set `audit_type` to `"deps"`.
+    output_artifacts:
+      - name: report
+        path: .wave/output/audit-deps.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/audit-deps.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+        max_retries: 2
