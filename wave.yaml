@@ -235,7 +235,175 @@ personas:
                 - Bash(gh pr close*)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-commenter.md
+    gitlab-analyst:
+        adapter: claude
+        description: GitLab issue analysis and quality assessment
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(glab *)
+                - Write
+            deny:
+                - Bash(gh *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/gitlab-analyst.md
+    gitlab-enhancer:
+        adapter: claude
+        description: GitLab issue enhancement and improvement
+        model: opus
+        #temperature: 0.5
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Bash(glab *)
+            deny:
+                - Bash(rm *)
+                - Bash(gh *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/gitlab-enhancer.md
+    gitlab-commenter:
+        adapter: claude
+        description: Post comments on GitLab issues and merge requests
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(.wave/artifact.json)
+                - Write(.wave/output/*)
+                - Bash(glab issue note*)
+                - Bash(glab mr note*)
+                - Bash(glab mr create*)
+                - Bash(glab mr update*)
+                - Bash(glab --version)
+                - Bash(git push*)
+                - Bash(git status*)
+            deny:
+                - Bash(glab issue update*)
+                - Bash(glab issue close*)
+                - Bash(glab mr merge*)
+                - Bash(glab mr close*)
+                - Bash(gh *)
+                - Bash(tea *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/gitlab-commenter.md
+    gitea-analyst:
+        adapter: claude
+        description: Gitea issue analysis and quality assessment
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(tea *)
+                - Write
+            deny:
+                - Bash(gh *)
+                - Bash(glab *)
+        system_prompt_file: .wave/personas/gitea-analyst.md
+    gitea-enhancer:
+        adapter: claude
+        description: Gitea issue enhancement and improvement
+        model: opus
+        #temperature: 0.5
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Bash(tea *)
+            deny:
+                - Bash(rm *)
+                - Bash(gh *)
+                - Bash(glab *)
+        system_prompt_file: .wave/personas/gitea-enhancer.md
+    gitea-commenter:
+        adapter: claude
+        description: Post comments on Gitea issues and pull requests
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(.wave/artifact.json)
+                - Write(.wave/output/*)
+                - Bash(tea issues comment*)
+                - Bash(tea pulls create*)
+                - Bash(tea --version)
+                - Bash(git push*)
+                - Bash(git status*)
+            deny:
+                - Bash(tea issues edit*)
+                - Bash(tea issues close*)
+                - Bash(tea pulls merge*)
+                - Bash(tea pulls close*)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/gitea-commenter.md
 
+    bitbucket-analyst:
+        adapter: claude
+        description: Bitbucket issue analysis and quality assessment
+        model: haiku
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(bb *)
+                - Write
+            deny:
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/bitbucket-analyst.md
+    bitbucket-enhancer:
+        adapter: claude
+        description: Bitbucket issue enhancement and improvement
+        model: haiku
+        #temperature: 0.5
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Bash(bb *)
+            deny:
+                - Bash(rm *)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/bitbucket-enhancer.md
+    bitbucket-commenter:
+        adapter: claude
+        description: Post comments on Bitbucket issues and pull requests, create PRs
+        model: haiku
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(.wave/artifact.json)
+                - Write(.wave/output/*)
+                - Bash(bb issue comment*)
+                - Bash(bb pr comment*)
+                - Bash(bb pr review*)
+                - Bash(bb pr create*)
+                - Bash(bb pr edit*)
+                - Bash(bb pr view*)
+                - Bash(bb --version)
+                - Bash(git push*)
+                - Bash(git status*)
+            deny:
+                - Bash(bb issue edit*)
+                - Bash(bb issue close*)
+                - Bash(bb pr merge*)
+                - Bash(bb pr close*)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/bitbucket-commenter.md
     supervisor:
         adapter: claude
         description: Work quality and process quality evaluation
