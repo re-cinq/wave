@@ -235,7 +235,6 @@ personas:
                 - Bash(gh pr close*)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-commenter.md
-=======
     gitlab-analyst:
         adapter: claude
         description: GitLab issue analysis and quality assessment
@@ -344,6 +343,67 @@ personas:
                 - Bash(glab *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitea-commenter.md
+
+    bitbucket-analyst:
+        adapter: claude
+        description: Bitbucket issue analysis and quality assessment
+        model: haiku
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(bb *)
+                - Write
+            deny:
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/bitbucket-analyst.md
+    bitbucket-enhancer:
+        adapter: claude
+        description: Bitbucket issue enhancement and improvement
+        model: haiku
+        #temperature: 0.5
+        permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Bash(bb *)
+            deny:
+                - Bash(rm *)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+        system_prompt_file: .wave/personas/bitbucket-enhancer.md
+    bitbucket-commenter:
+        adapter: claude
+        description: Post comments on Bitbucket issues and pull requests, create PRs
+        model: haiku
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Write(.wave/artifact.json)
+                - Write(.wave/output/*)
+                - Bash(bb issue comment*)
+                - Bash(bb pr comment*)
+                - Bash(bb pr review*)
+                - Bash(bb pr create*)
+                - Bash(bb pr edit*)
+                - Bash(bb pr view*)
+                - Bash(bb --version)
+                - Bash(git push*)
+                - Bash(git status*)
+            deny:
+                - Bash(bb issue edit*)
+                - Bash(bb issue close*)
+                - Bash(bb pr merge*)
+                - Bash(bb pr close*)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/bitbucket-commenter.md
     supervisor:
         adapter: claude
         description: Work quality and process quality evaluation
