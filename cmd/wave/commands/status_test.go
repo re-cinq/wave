@@ -182,6 +182,9 @@ func TestStatusCmd_RunningPipeline(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
+	// Set terminal width for non-TTY test environment
+	t.Setenv("COLUMNS", "120")
+
 	h.createRun("debug-20260202-143022", "debug", "running", "investigate", 45000, time.Now().Add(-2*time.Minute), nil)
 
 	stdout, _, err := executeStatusCmd()
