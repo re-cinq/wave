@@ -76,75 +76,8 @@ func (jc *JSONCleaner) ExtractJSONFromText(text string) (string, error) {
 		return result.RecoveredJSON, nil
 	}
 
-	// Fallback to original extraction logic if recovery fails
-	return jc.extractJSONFromTextLegacy(text)
-}
-
-// extractJSONFromTextLegacy is the original extraction logic kept as fallback
-func (jc *JSONCleaner) extractJSONFromTextLegacy(text string) (string, error) {
-	text = strings.TrimSpace(text)
-
-	// Find the first { or [ and match it to the corresponding } or ]
-	firstBrace := strings.IndexAny(text, "{[")
-	if firstBrace == -1 {
-		return "", fmt.Errorf("no JSON object or array found in text")
-	}
-
-	jsonStartChar := text[firstBrace]
-	var jsonEndChar rune
-	if jsonStartChar == '{' {
-		jsonEndChar = '}'
-	} else {
-		jsonEndChar = ']'
-	}
-
-	// Simple bracket matching (handles nested structures)
-	depth := 0
-	inString := false
-	escaped := false
-	endPos := -1
-
-	for i, ch := range text[firstBrace:] {
-		if escaped {
-			escaped = false
-			continue
-		}
-
-		if ch == '\\' && inString {
-			escaped = true
-			continue
-		}
-
-		if ch == '"' {
-			inString = !inString
-			continue
-		}
-
-		if !inString {
-			if rune(text[firstBrace+i]) == rune(jsonStartChar) {
-				depth++
-			} else if rune(text[firstBrace+i]) == jsonEndChar {
-				depth--
-				if depth == 0 {
-					endPos = firstBrace + i + 1
-					break
-				}
-			}
-		}
-	}
-
-	if endPos == -1 {
-		return "", fmt.Errorf("unmatched JSON braces")
-	}
-
-	jsonStr := text[firstBrace:endPos]
-
-	// Validate the extracted JSON
-	if !jc.IsValidJSON(jsonStr) {
-		return "", fmt.Errorf("extracted text is not valid JSON")
-	}
-
-	return jsonStr, nil
+	// Recovery parser failed — return the error directly
+	return "", err
 }
 
 // NormalizeJSONFormat takes valid JSON and normalizes its formatting for consistency

@@ -38,7 +38,7 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			expected: "path/custom_value/file.txt",
 		},
 		{
-			name:     "legacy_variables",
+			name:     "short_form_variables",
 			template: "{{pipeline_id}}/{{step_id}}",
 			expected: "test-pipeline/test-step",
 		},

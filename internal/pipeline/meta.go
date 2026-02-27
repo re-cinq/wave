@@ -575,9 +575,7 @@ func extractPipelineAndSchemas(output string) (*PipelineGenerationResult, error)
 	// Extract pipeline section
 	pipelineStart := strings.Index(output, "--- PIPELINE ---")
 	if pipelineStart == -1 {
-		// Fallback to old format for backward compatibility
-		result.PipelineYAML = extractYAMLLegacy(output)
-		return result, nil
+		return nil, fmt.Errorf("missing --- PIPELINE --- section marker; meta-pipeline output must use section format (--- PIPELINE --- / --- SCHEMAS ---)")
 	}
 
 	schemasStart := strings.Index(output, "--- SCHEMAS ---")
@@ -599,34 +597,6 @@ func extractPipelineAndSchemas(output string) (*PipelineGenerationResult, error)
 	}
 
 	return result, nil
-}
-
-// extractYAMLLegacy provides backward compatibility for the old format.
-func extractYAMLLegacy(output string) string {
-	// Try to extract from code block
-	if idx := strings.Index(output, "```yaml"); idx != -1 {
-		start := idx + 7
-		if end := strings.Index(output[start:], "```"); end != -1 {
-			return strings.TrimSpace(output[start : start+end])
-		}
-	}
-	if idx := strings.Index(output, "```"); idx != -1 {
-		start := idx + 3
-		// Skip optional language identifier
-		if newline := strings.Index(output[start:], "\n"); newline != -1 {
-			start += newline + 1
-		}
-		if end := strings.Index(output[start:], "```"); end != -1 {
-			return strings.TrimSpace(output[start : start+end])
-		}
-	}
-
-	// If no code block, try to find YAML starting with "kind:"
-	if idx := strings.Index(output, "kind:"); idx != -1 {
-		return strings.TrimSpace(output[idx:])
-	}
-
-	return strings.TrimSpace(output)
 }
 
 // extractYAMLFromCodeBlock removes markdown code block wrappers from YAML content.

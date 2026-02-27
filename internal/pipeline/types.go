@@ -80,7 +80,7 @@ type ArtifactRef struct {
 type WorkspaceConfig struct {
 	Root   string  `yaml:"root,omitempty"`
 	Mount  []Mount `yaml:"mount,omitempty"`
-	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for legacy directory
+	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for default directory workspace
 	Branch string  `yaml:"branch,omitempty"` // Branch name for worktree workspaces
 	Base   string  `yaml:"base,omitempty"`   // Start point for worktree (e.g. "main")
 	Ref    string  `yaml:"ref,omitempty"`    // Reference another step's workspace (shared worktree)

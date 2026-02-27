@@ -263,9 +263,6 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 
 		// Apply progressive validation logic
 		mustPass := cfg.MustPass
-		if !cfg.MustPass && cfg.StrictMode {
-			mustPass = cfg.StrictMode
-		}
 
 		// Check if progressive validation is enabled
 		if cfg.ProgressiveValidation && !mustPass {
@@ -330,7 +327,7 @@ func determineRecoveryLevel(cfg ContractConfig) RecoveryLevel {
 	// Progressive validation logic:
 	// - If MustPass is true, use conservative recovery (maintain strict validation)
 	// - If progressive validation is enabled, use progressive recovery
-	// - If StrictMode is false, use progressive recovery
+	// - If MustPass is false, use progressive recovery
 	// - Default to conservative recovery for safety
 
 	if cfg.MustPass {
@@ -342,8 +339,8 @@ func determineRecoveryLevel(cfg ContractConfig) RecoveryLevel {
 		return ProgressiveRecovery
 	}
 
-	// If not in strict mode, allow more progressive recovery
-	if !cfg.StrictMode {
+	// If must_pass is false, allow more progressive recovery
+	if !cfg.MustPass {
 		return ProgressiveRecovery
 	}
 

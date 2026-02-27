@@ -22,20 +22,20 @@ func TestTypeScriptValidator_WithoutTsc(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name: "graceful degradation when tsc unavailable and not strict",
+			name: "graceful degradation when tsc unavailable and must_pass false",
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/some/file.ts",
-				StrictMode: false,
+				MustPass: false,
 			},
 			expectError: false,
 		},
 		{
-			name: "error when tsc unavailable and strict mode enabled",
+			name: "error when tsc unavailable and must_pass enabled",
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/some/file.ts",
-				StrictMode: true,
+				MustPass: true,
 			},
 			expectError: true,
 			errorMsg:    "TypeScript compiler (tsc) not available",
@@ -43,7 +43,7 @@ func TestTypeScriptValidator_WithoutTsc(t *testing.T) {
 	}
 
 	// Only run these tests if tsc is NOT available
-	if IsTypeScriptAvailable() {
+	if available, _ := CheckTypeScriptAvailability(); available {
 		t.Skip("skipping tsc-unavailable tests because tsc is available")
 	}
 
@@ -97,7 +97,7 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 	ResetTypeScriptAvailabilityCache()
 	defer ResetTypeScriptAvailabilityCache()
 
-	tscAvailable := IsTypeScriptAvailable()
+	tscAvailable, _ := CheckTypeScriptAvailability()
 
 	tests := []struct {
 		name                   string
@@ -114,7 +114,7 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "",
-				StrictMode: true,
+				MustPass: true,
 			},
 			createFile:           false,
 			expectError:          true,
@@ -127,7 +127,7 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/nonexistent/path/interface.ts",
-				StrictMode: true,
+				MustPass: true,
 			},
 			createFile:           false,
 			expectError:          true,
@@ -185,7 +185,7 @@ func TestTypeScriptValidator_WithTsc(t *testing.T) {
 	ResetTypeScriptAvailabilityCache()
 	defer ResetTypeScriptAvailabilityCache()
 
-	if !IsTypeScriptAvailable() {
+	if available, _ := CheckTypeScriptAvailability(); !available {
 		t.Skip("skipping tsc-available tests because tsc is not installed")
 	}
 
@@ -245,7 +245,7 @@ const config: Config = { port: "8080", host: 123 };  // wrong types
 			cfg := ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: filePath,
-				StrictMode: true,
+				MustPass: true,
 			}
 
 			err := v.Validate(cfg, workspacePath)
@@ -311,20 +311,6 @@ func TestResetTypeScriptAvailabilityCache(t *testing.T) {
 
 	if available1 != available2 {
 		t.Error("availability check should be consistent after reset")
-	}
-}
-
-// TestIsTypeScriptAvailable tests the backward-compatible availability check.
-func TestIsTypeScriptAvailable(t *testing.T) {
-	// Reset cache before test
-	ResetTypeScriptAvailabilityCache()
-	defer ResetTypeScriptAvailabilityCache()
-
-	available := IsTypeScriptAvailable()
-	available2, _ := CheckTypeScriptAvailability()
-
-	if available != available2 {
-		t.Error("IsTypeScriptAvailable should match CheckTypeScriptAvailability")
 	}
 }
 

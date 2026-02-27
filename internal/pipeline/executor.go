@@ -798,7 +798,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    resolvedCommand,
 			Dir:        step.Handover.Contract.Dir,
-			StrictMode: step.Handover.Contract.MustPass,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
 		}
@@ -829,7 +828,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			})
 
 			// Check if we should fail the step or allow soft failure
-			if contractCfg.StrictMode {
+			if contractCfg.MustPass {
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
 			// Soft failure: log the validation error but continue execution
@@ -1868,7 +1867,7 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 		status := &PipelineStatus{
 			ID:             stateRecord.PipelineID,
 			State:          stateRecord.Status,
-			CurrentStep:    "", // Not tracked in legacy state store
+			CurrentStep:    "", // Not available from pipeline_state record
 			CompletedSteps: []string{}, // Would need step states to populate
 			FailedSteps:    []string{}, // Would need step states to populate
 			StartedAt:      stateRecord.CreatedAt,

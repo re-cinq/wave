@@ -30,11 +30,7 @@ CREATE TABLE IF NOT EXISTS step_state (
 
 CREATE INDEX IF NOT EXISTS idx_step_pipeline_id ON step_state(pipeline_id);
 `,
-			Down: `
-DROP INDEX IF EXISTS idx_step_pipeline_id;
-DROP TABLE IF EXISTS step_state;
-DROP TABLE IF EXISTS pipeline_state;
-`,
+			Down: "",
 		},
 		{
 			Version:     2,
@@ -98,18 +94,7 @@ CREATE TABLE IF NOT EXISTS cancellation (
     FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
 );
 `,
-			Down: `
-DROP TABLE IF EXISTS cancellation;
-DROP INDEX IF EXISTS idx_artifact_run;
-DROP TABLE IF EXISTS artifact;
-DROP INDEX IF EXISTS idx_event_timestamp;
-DROP INDEX IF EXISTS idx_event_run;
-DROP TABLE IF EXISTS event_log;
-DROP INDEX IF EXISTS idx_run_started;
-DROP INDEX IF EXISTS idx_run_status;
-DROP INDEX IF EXISTS idx_run_pipeline;
-DROP TABLE IF EXISTS pipeline_run;
-`,
+			Down: "",
 		},
 		{
 			Version:     3,
@@ -139,13 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_perf_step ON performance_metric(step_id);
 CREATE INDEX IF NOT EXISTS idx_perf_pipeline ON performance_metric(pipeline_name);
 CREATE INDEX IF NOT EXISTS idx_perf_started ON performance_metric(started_at);
 `,
-			Down: `
-DROP INDEX IF EXISTS idx_perf_started;
-DROP INDEX IF EXISTS idx_perf_pipeline;
-DROP INDEX IF EXISTS idx_perf_step;
-DROP INDEX IF EXISTS idx_perf_run;
-DROP TABLE IF EXISTS performance_metric;
-`,
+			Down: "",
 		},
 		{
 			Version:     4,
@@ -201,17 +180,7 @@ CREATE TABLE IF NOT EXISTS pipeline_progress (
     FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
 );
 `,
-			Down: `
-DROP TABLE IF EXISTS pipeline_progress;
-DROP INDEX IF EXISTS idx_step_progress_updated;
-DROP INDEX IF EXISTS idx_step_progress_state;
-DROP INDEX IF EXISTS idx_step_progress_run;
-DROP TABLE IF EXISTS step_progress;
-DROP INDEX IF EXISTS idx_progress_timestamp;
-DROP INDEX IF EXISTS idx_progress_step;
-DROP INDEX IF EXISTS idx_progress_run;
-DROP TABLE IF EXISTS progress_snapshot;
-`,
+			Down: "",
 		},
 		{
 			Version:     5,
@@ -234,11 +203,7 @@ CREATE TABLE IF NOT EXISTS artifact_metadata (
 CREATE INDEX IF NOT EXISTS idx_artifact_meta_run ON artifact_metadata(run_id);
 CREATE INDEX IF NOT EXISTS idx_artifact_meta_step ON artifact_metadata(step_id);
 `,
-			Down: `
-DROP INDEX IF EXISTS idx_artifact_meta_step;
-DROP INDEX IF EXISTS idx_artifact_meta_run;
-DROP TABLE IF EXISTS artifact_metadata;
-`,
+			Down: "",
 		},
 		{
 			Version:     6,
@@ -252,42 +217,7 @@ ALTER TABLE pipeline_run ADD COLUMN tags_json TEXT DEFAULT '[]';
 -- Note: SQLite's json_each can be used for searching within tags
 CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
 `,
-			Down: `
--- SQLite doesn't support DROP COLUMN directly before 3.35.0
--- We need to recreate the table without the column
-DROP INDEX IF EXISTS idx_run_tags;
-
--- Create temporary table with original schema
-CREATE TABLE pipeline_run_backup (
-    run_id TEXT PRIMARY KEY,
-    pipeline_name TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
-    input TEXT,
-    current_step TEXT,
-    total_tokens INTEGER DEFAULT 0,
-    started_at INTEGER NOT NULL,
-    completed_at INTEGER,
-    cancelled_at INTEGER,
-    error_message TEXT
-);
-
--- Copy data to backup
-INSERT INTO pipeline_run_backup SELECT
-    run_id, pipeline_name, status, input, current_step, total_tokens,
-    started_at, completed_at, cancelled_at, error_message
-FROM pipeline_run;
-
--- Drop original table (cascades will handle dependent tables)
-DROP TABLE pipeline_run;
-
--- Rename backup to original
-ALTER TABLE pipeline_run_backup RENAME TO pipeline_run;
-
--- Recreate indexes
-CREATE INDEX IF NOT EXISTS idx_run_pipeline ON pipeline_run(pipeline_name);
-CREATE INDEX IF NOT EXISTS idx_run_status ON pipeline_run(status);
-CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
-`,
+			Down: "",
 		},
 	}
 }
