@@ -137,6 +137,18 @@ func getTerminalHeight() int {
 	return 24
 }
 
+// GetTerminalWidth returns the current terminal width.
+// Exported wrapper for use by display-related code in other packages.
+func GetTerminalWidth() int {
+	return getTerminalWidth()
+}
+
+// GetTerminalHeight returns the current terminal height.
+// Exported wrapper for use by display-related code in other packages.
+func GetTerminalHeight() int {
+	return getTerminalHeight()
+}
+
 // checkANSISupport checks if terminal supports ANSI escape sequences.
 func checkANSISupport() bool {
 	// ANSI is supported if:
