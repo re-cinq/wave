@@ -41,7 +41,7 @@ nfpms:
     maintainer: "re-cinq <engineering@re-cinq.com>"
     description: "Multi-agent pipeline orchestrator"
     homepage: "https://github.com/re-cinq/wave"
-    license: "Apache-2.0"
+    license: "MIT"
     bindir: /usr/local/bin
     formats:
       - deb
