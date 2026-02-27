@@ -1,0 +1,255 @@
+kind: WavePipeline
+metadata:
+  name: bb-research
+  description: Research a Bitbucket issue and post findings as a comment
+  release: true
+
+input:
+  source: cli
+  example: "recinq/wave 42"
+  schema:
+    type: string
+    description: "Bitbucket repository and issue number (e.g. 'workspace/repo number')"
+
+steps:
+  - id: fetch-issue
+    persona: bitbucket-analyst
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Fetch the Bitbucket issue specified in the input: {{ input }}
+
+        The input format is "workspace/repo issue_number" (e.g., "recinq/wave 112").
+
+        Parse the input to extract the repository and issue number.
+        Use the bb CLI to fetch the issue:
+
+        bb issue view <number> --repo <workspace/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+
+        Parse the output and produce structured JSON with the issue content.
+        Include repository information in the output.
+    output_artifacts:
+      - name: issue-content
+        path: .wave/output/issue-content.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/issue-content.json
+        schema_path: .wave/contracts/issue-content.schema.json
+        on_failure: retry
+        max_retries: 3
+
+  - id: analyze-topics
+    persona: researcher
+    dependencies: [fetch-issue]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-content
+          as: issue
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Analyze the Bitbucket issue and extract research topics.
+
+        Identify:
+        1. Key technical questions that need external research
+        2. Domain concepts that require clarification
+        3. External dependencies, libraries, or tools to investigate
+        4. Similar problems/solutions that might provide guidance
+
+        For each topic, provide:
+        - A unique ID (TOPIC-001, TOPIC-002, etc.)
+        - A clear title
+        - Specific questions to answer (1-5 questions per topic)
+        - Search keywords for web research
+        - Priority (critical/high/medium/low based on relevance to solving the issue)
+        - Category (technical/documentation/best_practices/security/performance/compatibility/other)
+
+        Focus on topics that will provide actionable insights for the issue author.
+        Limit to 10 most important topics.
+    output_artifacts:
+      - name: topics
+        path: .wave/output/research-topics.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/research-topics.json
+        schema_path: .wave/contracts/research-topics.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: research-topics
+    persona: researcher
+    dependencies: [analyze-topics]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-content
+          as: issue
+        - step: analyze-topics
+          artifact: topics
+          as: research_plan
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Research the topics identified in the research plan.
+
+        For each topic in the research plan:
+        1. Execute web searches using the provided keywords
+        2. Evaluate source credibility (official docs > authoritative > community)
+        3. Extract relevant findings with key points
+        4. Include direct quotes where helpful
+        5. Rate your confidence in the answer (high/medium/low/inconclusive)
+
+        For each finding:
+        - Assign a unique ID (FINDING-001, FINDING-002, etc.)
+        - Provide a summary (20-2000 characters)
+        - List key points as bullet items
+        - Include source URL, title, and type
+        - Rate relevance to the topic (0-1)
+
+        Always include source URLs for attribution.
+        If a topic yields no useful results, mark confidence as "inconclusive".
+        Document any gaps in the research.
+    output_artifacts:
+      - name: findings
+        path: .wave/output/research-findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/research-findings.json
+        schema_path: .wave/contracts/research-findings.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: synthesize-report
+    persona: summarizer
+    dependencies: [research-topics]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-content
+          as: original_issue
+        - step: research-topics
+          artifact: findings
+          as: research
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Synthesize the research findings into a coherent report for the Bitbucket issue.
+
+        Create a well-structured research report that includes:
+
+        1. Executive Summary:
+           - Brief overview (50-1000 chars)
+           - Key findings (1-7 bullet points)
+           - Primary recommendation
+           - Confidence assessment (high/medium/low)
+
+        2. Detailed Findings:
+           - Organize by topic/section
+           - Include code examples where relevant
+           - Reference sources using SRC-### IDs
+
+        3. Recommendations:
+           - Actionable items with IDs (REC-001, REC-002, etc.)
+           - Priority and effort estimates
+           - Maximum 10 recommendations
+
+        4. Sources:
+           - List all sources with IDs (SRC-001, SRC-002, etc.)
+           - Include URL, title, type, and reliability
+
+        5. Pre-rendered Markdown:
+           - Generate complete markdown_content field ready for Bitbucket comment
+           - Use proper headers, bullet points, and formatting
+           - Include a header: "## Research Findings (Wave Pipeline)"
+           - End with sources section
+    output_artifacts:
+      - name: report
+        path: .wave/output/research-report.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/research-report.json
+        schema_path: .wave/contracts/research-report.schema.json
+        on_failure: retry
+        max_retries: 2
+
+  - id: post-comment
+    persona: bitbucket-commenter
+    dependencies: [synthesize-report]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-content
+          as: issue
+        - step: synthesize-report
+          artifact: report
+          as: report
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Post the research report as a comment on the Bitbucket issue.
+
+        Steps:
+        1. Read the issue details to get the repository and issue number
+        2. Read the report to get the markdown_content
+        3. Write the markdown content to a file, then use bb CLI to post the comment:
+
+           # Write to file to avoid shell escaping issues with large markdown
+           cat > /tmp/comment-body.md << 'COMMENT_EOF'
+           <markdown_content>
+           COMMENT_EOF
+
+           bb issue comment <number> --repo <workspace/repo> --body-file /tmp/comment-body.md
+
+        4. Add a footer to the comment:
+           ---
+           *Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*
+
+        5. Capture the result and verify success
+        6. If successful, extract the comment URL from the output
+
+        Record the result with:
+        - success: true/false
+        - issue_reference: issue number and repository
+        - comment: id, url, body_length (if successful)
+        - error: code, message, retryable (if failed)
+        - timestamp: current time
+    output_artifacts:
+      - name: comment-result
+        path: .wave/output/comment-result.json
+        type: json
+    outcomes:
+      - type: url
+        extract_from: .wave/output/comment-result.json
+        json_path: .comment.url
+        label: "Research Comment"
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/comment-result.json
+        schema_path: .wave/contracts/comment-result.schema.json
+        on_failure: retry
+        max_retries: 3
