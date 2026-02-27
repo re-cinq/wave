@@ -23,18 +23,55 @@ Each persona runs in isolation with explicit permissions. Deny patterns always w
 
 ---
 
+## Installation
+
+### Install Script (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+```
+
+Install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh -s -- 0.3.0
+```
+
+### GitHub Releases
+
+Download pre-built binaries from [GitHub Releases](https://github.com/re-cinq/wave/releases). Archives are available for Linux (x86_64, ARM64) and macOS (Intel, Apple Silicon).
+
+### Build from Source
+
+```bash
+git clone https://github.com/re-cinq/wave.git
+cd wave
+make build
+# Binary is at ./wave — move it to your PATH:
+make install   # installs to ~/.local/bin by default
+```
+
+### Nix Dev Shell (Optional)
+
+```bash
+nix develop
+```
+
+See [Installation Guide](docs/guide/installation.md) for more options including `.deb` packages and custom install directories.
+
+---
+
 ## Quick Start
 
 ```bash
-# Install
-git clone https://github.com/re-cinq/wave.git
-cd wave && ./install.sh
-
-# Initialize project (in your target project)
+# Initialize Wave in your project
 cd /path/to/your/project
 wave init
 
 # Run your first pipeline
+wave run hello-world
+
+# Run a feature development pipeline
 wave run speckit-flow "add user authentication"
 
 # Or run ad-hoc tasks
@@ -444,6 +481,12 @@ See [Sandbox Setup Guide](docs/guides/sandbox-setup.md) for details.
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on building, testing, commit conventions, and the PR workflow.
+
+---
+
 ## License
 
-MIT
+[MIT](LICENSE)

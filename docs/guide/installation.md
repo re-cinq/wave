@@ -7,9 +7,9 @@
 
 ## Install Wave
 
-### Build from Source (Recommended)
+### Build from Source
 
-While the repository is private, building from source is the recommended installation method:
+Build from source:
 
 ```bash
 git clone https://github.com/re-cinq/wave.git
@@ -27,10 +27,6 @@ make build
 mkdir -p ~/.local/bin
 mv wave ~/.local/bin/
 ```
-
-::: warning Private Repository
-The install script, `.deb` packages, and pre-built binary downloads require the repository to be **public**. While `re-cinq/wave` is private, use the "Build from Source" method above. The methods below will become available once the repository is open-sourced.
-:::
 
 ### Install Script
 
