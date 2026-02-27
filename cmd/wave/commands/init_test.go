@@ -1100,7 +1100,8 @@ func TestInitNoProjectWhenUndetected(t *testing.T) {
 	assert.False(t, hasProject, "manifest should not contain project key when undetected")
 }
 
-// TestInitPersonaPermissionsAreGeneric tests that persona permissions don't contain language-specific commands.
+// TestInitPersonaPermissionsAreGeneric tests that generic persona permissions don't contain language-specific commands.
+// The supervisor persona is excluded because it legitimately needs "go test" for work quality evaluation.
 func TestInitPersonaPermissionsAreGeneric(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -1108,11 +1109,25 @@ func TestInitPersonaPermissionsAreGeneric(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	content, err := os.ReadFile("wave.yaml")
+	manifest, err := readYAML("wave.yaml")
 	require.NoError(t, err)
-	contentStr := string(content)
 
-	assert.NotContains(t, contentStr, "go vet", "manifest should not contain go vet in permissions")
-	assert.NotContains(t, contentStr, "go test", "manifest should not contain go test in permissions")
-	assert.NotContains(t, contentStr, "npm audit", "manifest should not contain npm audit in permissions")
+	personas, ok := manifest["personas"].(map[string]interface{})
+	require.True(t, ok)
+
+	// Supervisor legitimately needs "go test" for quality evaluation
+	excluded := map[string]bool{"supervisor": true}
+	forbidden := []string{"go vet", "go test", "npm audit"}
+
+	for name, raw := range personas {
+		if excluded[name] {
+			continue
+		}
+		personaYAML, err := yaml.Marshal(raw)
+		require.NoError(t, err)
+		for _, term := range forbidden {
+			assert.NotContains(t, string(personaYAML), term,
+				"persona %s should not contain language-specific command %q", name, term)
+		}
+	}
 }

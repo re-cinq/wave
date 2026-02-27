@@ -746,6 +746,106 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 					"deny":          []string{},
 				},
 			},
+			"gitea-analyst": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Gitea issue analysis and scanning",
+				"system_prompt_file": ".wave/personas/gitea-analyst.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(tea *)"},
+					"deny":          []string{},
+				},
+			},
+			"gitea-enhancer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Gitea issue enhancement and improvement",
+				"system_prompt_file": ".wave/personas/gitea-enhancer.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(tea *)"},
+					"deny":          []string{},
+				},
+			},
+			"gitea-commenter": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Posts comments on Gitea issues",
+				"system_prompt_file": ".wave/personas/gitea-commenter.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Bash(tea *)"},
+					"deny":          []string{},
+				},
+			},
+			"gitlab-analyst": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "GitLab issue analysis and scanning",
+				"system_prompt_file": ".wave/personas/gitlab-analyst.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(glab *)"},
+					"deny":          []string{},
+				},
+			},
+			"gitlab-enhancer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "GitLab issue enhancement and improvement",
+				"system_prompt_file": ".wave/personas/gitlab-enhancer.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(glab *)"},
+					"deny":          []string{},
+				},
+			},
+			"gitlab-commenter": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Posts comments on GitLab issues",
+				"system_prompt_file": ".wave/personas/gitlab-commenter.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Bash(glab *)"},
+					"deny":          []string{},
+				},
+			},
+			"bitbucket-analyst": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Bitbucket issue analysis and scanning",
+				"system_prompt_file": ".wave/personas/bitbucket-analyst.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(bb *)"},
+					"deny":          []string{},
+				},
+			},
+			"bitbucket-enhancer": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Bitbucket issue enhancement and improvement",
+				"system_prompt_file": ".wave/personas/bitbucket-enhancer.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Write", "Bash(bb *)"},
+					"deny":          []string{},
+				},
+			},
+			"bitbucket-commenter": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Posts comments on Bitbucket issues",
+				"system_prompt_file": ".wave/personas/bitbucket-commenter.md",
+				"temperature":        0.2,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Bash(bb *)"},
+					"deny":          []string{},
+				},
+			},
+			"supervisor": map[string]interface{}{
+				"adapter":            adapter,
+				"description":        "Work supervision and quality evaluation",
+				"system_prompt_file": ".wave/personas/supervisor.md",
+				"temperature":        0.1,
+				"permissions": map[string]interface{}{
+					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(git *)", "Bash(go test *)"},
+					"deny":          []string{"Write(*)", "Edit(*)"},
+				},
+			},
 			"provocateur": map[string]interface{}{
 				"adapter":            adapter,
 				"description":        "Creative challenger for divergent thinking and complexity hunting",
