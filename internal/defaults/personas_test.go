@@ -39,7 +39,7 @@ func TestPersonaFilesNoLanguageReferences(t *testing.T) {
 	}
 }
 
-// TestPersonaFilesTokenRange verifies all 17 persona files (excluding base-protocol.md)
+// TestPersonaFilesTokenRange verifies all persona files (excluding base-protocol.md)
 // are within the 100-400 token range using word count heuristic (SC-001).
 func TestPersonaFilesTokenRange(t *testing.T) {
 	personas, err := GetPersonas()
@@ -64,7 +64,7 @@ func TestPersonaFilesTokenRange(t *testing.T) {
 	}
 }
 
-// TestPersonaFilesMandatorySections verifies all 17 persona files contain the
+// TestPersonaFilesMandatorySections verifies all persona files contain the
 // three mandatory structural elements (SC-007):
 // 1. H1 identity heading
 // 2. Responsibilities section
@@ -96,7 +96,7 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 	}
 }
 
-// TestAllPersonasCovered verifies exactly 17 persona files exist (excluding
+// TestAllPersonasCovered verifies exactly 23 persona files exist (excluding
 // base-protocol.md) with the expected names (SC-004).
 func TestAllPersonasCovered(t *testing.T) {
 	personas, err := GetPersonas()
@@ -105,23 +105,29 @@ func TestAllPersonasCovered(t *testing.T) {
 	}
 
 	expected := map[string]bool{
-		"navigator.md":        true,
-		"implementer.md":      true,
-		"reviewer.md":         true,
-		"planner.md":          true,
-		"researcher.md":       true,
-		"debugger.md":         true,
-		"auditor.md":          true,
-		"craftsman.md":        true,
-		"summarizer.md":       true,
-		"github-analyst.md":   true,
-		"github-commenter.md": true,
-		"github-enhancer.md":  true,
-		"philosopher.md":      true,
-		"provocateur.md":      true,
-		"validator.md":        true,
-		"synthesizer.md":      true,
-		"supervisor.md":       true,
+		"navigator.md":         true,
+		"implementer.md":       true,
+		"reviewer.md":          true,
+		"planner.md":           true,
+		"researcher.md":        true,
+		"debugger.md":          true,
+		"auditor.md":           true,
+		"craftsman.md":         true,
+		"summarizer.md":        true,
+		"github-analyst.md":    true,
+		"github-commenter.md":  true,
+		"github-enhancer.md":   true,
+		"gitlab-analyst.md":    true,
+		"gitlab-commenter.md":  true,
+		"gitlab-enhancer.md":   true,
+		"gitea-analyst.md":     true,
+		"gitea-commenter.md":   true,
+		"gitea-enhancer.md":    true,
+		"philosopher.md":       true,
+		"provocateur.md":       true,
+		"validator.md":         true,
+		"synthesizer.md":       true,
+		"supervisor.md":        true,
 	}
 
 	for name := range expected {
@@ -137,7 +143,7 @@ func TestAllPersonasCovered(t *testing.T) {
 			count++
 		}
 	}
-	if count != 17 {
-		t.Errorf("expected 17 persona files, got %d", count)
+	if count != 26 {
+		t.Errorf("expected 26 persona files, got %d", count)
 	}
 }
