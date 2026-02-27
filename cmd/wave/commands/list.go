@@ -448,7 +448,11 @@ func listPipelinesTable() error {
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Pipelines", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(entries) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none found in "+pipelineDir+"/)"))
@@ -563,7 +567,11 @@ func listPersonasTable(personas map[string]struct {
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Personas", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(personas) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none defined)"))
@@ -639,7 +647,11 @@ func listAdaptersTable(adapters map[string]struct {
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Adapters", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(adapters) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none defined)"))
@@ -1117,37 +1129,75 @@ func getDirectoryCreationTime(path string) time.Time {
 // listRunsTable displays run information in table format
 func listRunsTable(runs []RunInfo) {
 	f := display.NewFormatter()
+	termWidth := display.GetTerminalWidth()
+
+	// Separator width: cap at terminal width, minimum 40
+	sepWidth := termWidth
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
 
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Recent Pipeline Runs", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 100)))
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(runs) == 0 {
 		fmt.Printf("  %s\n\n", f.Muted("(no runs found)"))
 		return
 	}
 
+	// Dynamic column width allocation
+	// Fixed-width columns: Status=12, Started=20, Duration=10
+	// Indent (2) + 4 column gaps (2 each) = 10
+	const statusWidth = 12
+	const startedWidth = 20
+	const durationWidth = 10
+	const indent = 2
+	const gaps = 8 // 4 gaps x 2 chars each
+
+	fixedWidth := indent + statusWidth + startedWidth + durationWidth + gaps
+	remaining := termWidth - fixedWidth
+	if remaining < 20 {
+		remaining = 20
+	}
+
+	// Allocate remaining to RunID (priority) and Pipeline
+	// RunID gets 60% of remaining, Pipeline gets 40%
+	runIDWidth := remaining * 60 / 100
+	pipelineWidth := remaining - runIDWidth
+
+	// Ensure minimum widths
+	if runIDWidth < 10 {
+		runIDWidth = 10
+	}
+	if pipelineWidth < 8 {
+		pipelineWidth = 8
+	}
+
 	// Table header
 	fmt.Printf("  %s  %s  %s  %s  %s\n",
-		f.Muted(fmt.Sprintf("%-30s", "RUN_ID")),
-		f.Muted(fmt.Sprintf("%-22s", "PIPELINE")),
-		f.Muted(fmt.Sprintf("%-12s", "STATUS")),
-		f.Muted(fmt.Sprintf("%-20s", "STARTED")),
+		f.Muted(fmt.Sprintf("%-*s", runIDWidth, "RUN_ID")),
+		f.Muted(fmt.Sprintf("%-*s", pipelineWidth, "PIPELINE")),
+		f.Muted(fmt.Sprintf("%-*s", statusWidth, "STATUS")),
+		f.Muted(fmt.Sprintf("%-*s", startedWidth, "STARTED")),
 		f.Muted("DURATION"),
 	)
 
 	for _, run := range runs {
-		// Truncate long run IDs
 		runID := run.RunID
-		if len(runID) > 30 {
-			runID = runID[:27] + "..."
-		}
-
-		// Truncate long pipeline names
 		pipeline := run.Pipeline
-		if len(pipeline) > 22 {
-			pipeline = pipeline[:19] + "..."
+
+		// Only truncate as a last resort for very narrow terminals
+		if len(runID) > runIDWidth {
+			if runIDWidth > 3 {
+				runID = runID[:runIDWidth-3] + "..."
+			}
+		}
+		if len(pipeline) > pipelineWidth {
+			if pipelineWidth > 3 {
+				pipeline = pipeline[:pipelineWidth-3] + "..."
+			}
 		}
 
 		// Format status with color
@@ -1155,19 +1205,20 @@ func listRunsTable(runs []RunInfo) {
 		var statusStr string
 		switch strings.ToLower(status) {
 		case "completed":
-			statusStr = f.Success(fmt.Sprintf("%-12s", status))
+			statusStr = f.Success(fmt.Sprintf("%-*s", statusWidth, status))
 		case "failed":
-			statusStr = f.Error(fmt.Sprintf("%-12s", status))
+			statusStr = f.Error(fmt.Sprintf("%-*s", statusWidth, status))
 		case "running":
-			statusStr = f.Primary(fmt.Sprintf("%-12s", status))
+			statusStr = f.Primary(fmt.Sprintf("%-*s", statusWidth, status))
 		case "cancelled":
-			statusStr = f.Warning(fmt.Sprintf("%-12s", status))
+			statusStr = f.Warning(fmt.Sprintf("%-*s", statusWidth, status))
 		default:
-			statusStr = f.Muted(fmt.Sprintf("%-12s", status))
+			statusStr = f.Muted(fmt.Sprintf("%-*s", statusWidth, status))
 		}
 
-		fmt.Printf("  %-30s  %-22s  %s  %-20s  %s\n",
-			runID, pipeline, statusStr, run.StartedAt, f.Muted(run.Duration))
+		fmt.Printf("  %-*s  %-*s  %s  %-*s  %s\n",
+			runIDWidth, runID, pipelineWidth, pipeline, statusStr,
+			startedWidth, run.StartedAt, f.Muted(run.Duration))
 	}
 
 	fmt.Println()
@@ -1291,7 +1342,11 @@ func listContractsTable(contracts []ContractInfo) {
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Contracts", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(contracts) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none found in .wave/contracts/)"))
@@ -1423,7 +1478,11 @@ func listSkillsTable(skills map[string]struct {
 	// Header
 	fmt.Println()
 	fmt.Printf("%s\n", f.Colorize("Skills", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", 60)))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(skills) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none defined)"))
