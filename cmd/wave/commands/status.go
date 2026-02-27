@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/display"
 	"github.com/spf13/cobra"
 
 	_ "modernc.org/sqlite"
@@ -221,23 +222,65 @@ func outputRuns(runs []StatusRunInfo, opts StatusOptions) error {
 		return nil
 	}
 
+	// Dynamic column width allocation based on terminal width
+	termWidth := display.GetTerminalWidth()
+
+	// Fixed-width columns: Status=12, Elapsed=10, Tokens=8
+	// Gaps between 6 columns = 5 gaps x 1 space each = 5
+	const statusWidth = 12
+	const elapsedWidth = 10
+	const tokensWidth = 8
+	const gaps = 5
+
+	fixedWidth := statusWidth + elapsedWidth + tokensWidth + gaps
+	remaining := termWidth - fixedWidth
+	if remaining < 30 {
+		remaining = 30
+	}
+
+	// Allocate remaining: RunID 40%, Pipeline 30%, Step 30%
+	runIDWidth := remaining * 40 / 100
+	pipelineWidth := remaining * 30 / 100
+	stepWidth := remaining - runIDWidth - pipelineWidth
+
+	if runIDWidth < 10 {
+		runIDWidth = 10
+	}
+	if pipelineWidth < 8 {
+		pipelineWidth = 8
+	}
+	if stepWidth < 8 {
+		stepWidth = 8
+	}
+
 	// Table format
-	fmt.Printf("%-26s %-15s %-12s %-15s %-10s %s\n",
-		"RUN_ID", "PIPELINE", "STATUS", "STEP", "ELAPSED", "TOKENS")
+	fmt.Printf("%-*s %-*s %-*s %-*s %-*s %s\n",
+		runIDWidth, "RUN_ID", pipelineWidth, "PIPELINE",
+		statusWidth, "STATUS", stepWidth, "STEP",
+		elapsedWidth, "ELAPSED", "TOKENS")
 
 	for _, run := range runs {
-		runID := truncateString(run.RunID, 26)
-		pipeline := truncateString(run.Pipeline, 15)
+		runID := run.RunID
+		if len(runID) > runIDWidth && runIDWidth > 3 {
+			runID = runID[:runIDWidth-3] + "..."
+		}
+		pipeline := run.Pipeline
+		if len(pipeline) > pipelineWidth && pipelineWidth > 3 {
+			pipeline = pipeline[:pipelineWidth-3] + "..."
+		}
 		step := run.CurrentStep
 		if step == "" {
 			step = "-"
 		}
-		step = truncateString(step, 15)
+		if len(step) > stepWidth && stepWidth > 3 {
+			step = step[:stepWidth-3] + "..."
+		}
 
-		statusColored := fmt.Sprintf("%s%-12s%s", statusColor(run.Status), run.Status, colorReset)
+		statusColored := fmt.Sprintf("%s%-*s%s", statusColor(run.Status), statusWidth, run.Status, colorReset)
 
-		fmt.Printf("%-26s %-15s %s %-15s %-10s %s\n",
-			runID, pipeline, statusColored, step, run.Elapsed, run.TokensStr)
+		fmt.Printf("%-*s %-*s %s %-*s %-*s %s\n",
+			runIDWidth, runID, pipelineWidth, pipeline, statusColored,
+			stepWidth, step, elapsedWidth, run.Elapsed, run.TokensStr)
 	}
 
 	return nil
