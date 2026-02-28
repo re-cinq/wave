@@ -1,0 +1,7 @@
+description: "Posts comments on GitHub issues"
+temperature: 0.2
+permissions:
+  allowed_tools:
+    - Read
+    - "Bash(gh *)"
+  deny: []

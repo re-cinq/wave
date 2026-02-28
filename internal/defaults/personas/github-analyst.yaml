@@ -1,0 +1,8 @@
+description: "GitHub issue analysis and scanning"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - "Bash(gh *)"
+  deny: []
