@@ -1,0 +1,8 @@
+description: "GitHub epic analysis, decomposition, and sub-issue creation"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - "Bash(gh *)"
+  deny: []

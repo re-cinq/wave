@@ -1,0 +1,173 @@
+kind: WavePipeline
+metadata:
+  name: bb-scope
+  description: "Decompose a Bitbucket epic into well-scoped child issues"
+  release: true
+
+input:
+  source: cli
+  example: "re-cinq/wave 42"
+  schema:
+    type: string
+    description: "Bitbucket repository with epic issue number (e.g. 'owner/repo 42')"
+
+steps:
+  - id: fetch-epic
+    persona: bitbucket-analyst
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        MANDATORY: You MUST call the Bash tool. NEVER say "bb CLI not installed" without trying.
+
+        Input: {{ input }}
+
+        Parse the input: extract the repo (first token) and the epic issue number (second token).
+
+        Execute these commands using the Bash tool:
+
+        1. bb --version
+
+        2. Fetch the epic issue with full details:
+           bb issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments
+
+        3. List existing open issues to check for duplicates:
+           bb issue list --repo <REPO> --limit 50 --json number,title,labels,url
+
+        After getting REAL results from Bash, analyze the epic:
+        - Determine if this is truly an epic/umbrella issue (contains multiple work items)
+        - Identify the key themes and work areas
+        - Estimate overall complexity
+        - Count how many sub-issues should be created (3-10)
+        - List existing issues to avoid creating duplicates
+    output_artifacts:
+      - name: epic_assessment
+        path: .wave/artifact.json
+        type: json
+        required: true
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/epic-assessment.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
+
+  - id: scope-and-create
+    persona: bitbucket-scoper
+    dependencies: [fetch-epic]
+    memory:
+      inject_artifacts:
+        - step: fetch-epic
+          artifact: epic_assessment
+          as: assessment
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
+
+        The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
+
+        Input: {{ input }}
+        Parse the repo from the input (first token).
+
+        Step 1: Verify bb works:
+        bb --version
+
+        Step 2: For each planned sub-issue, create it using:
+        bb issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"
+
+        Each sub-issue body MUST include:
+        - A "Parent: #<epic_number>" reference line
+        - A clear Summary section
+        - Acceptance Criteria as a checkbox list
+        - Dependencies on other sub-issues if applicable
+        - Scope Notes for what is explicitly excluded
+
+        Step 3: After creating all issues, capture each issue's number and URL from the creation output.
+
+        Step 4: Record the results with fields: parent_issue (number, url, repository),
+        created_issues (array of number, title, url, labels, success, complexity, dependencies),
+        total_created, total_failed.
+    output_artifacts:
+      - name: scope_plan
+        path: .wave/artifact.json
+        type: json
+        required: true
+    outcomes:
+      - type: issue
+        extract_from: .wave/artifact.json
+        json_path: .created_issues[0].url
+        label: "First Sub-Issue"
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/scope-plan.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
+
+  - id: verify-report
+    persona: bitbucket-analyst
+    dependencies: [scope-and-create]
+    memory:
+      inject_artifacts:
+        - step: scope-and-create
+          artifact: scope_plan
+          as: results
+        - step: fetch-epic
+          artifact: epic_assessment
+          as: assessment
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Verify the created sub-issues and post a summary comment on the epic.
+
+        Input: {{ input }}
+        Parse the repo (first token) and epic number (second token).
+
+        Step 1: For each created issue in the results, verify it exists:
+        bb issue view <N> --repo <REPO> --json number,title,body,labels
+
+        Check that each issue:
+        - Exists and is open
+        - Has acceptance criteria in the body
+        - References the parent epic
+
+        Step 2: Post a summary comment on the epic issue listing all created sub-issues:
+        Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>)
+        and post it using: bb issue comment <EPIC_NUMBER> --repo <REPO> --body "<summary>"
+
+        Step 3: Compile the verification report with fields:
+        parent_issue (number, url), verified_issues (array of number, title, url, exists,
+        has_acceptance_criteria, references_parent), summary (total_verified, total_valid,
+        total_issues_created, comment_posted, comment_url).
+    output_artifacts:
+      - name: scope_report
+        path: .wave/artifact.json
+        type: json
+        required: true
+    handover:
+      max_retries: 1
+      contract:
+        type: json_schema
+        schema_path: .wave/contracts/scope-report.schema.json
+        validate: true
+        must_pass: true
+        allow_recovery: true
+        recovery_level: progressive
+        progressive_validation: false
