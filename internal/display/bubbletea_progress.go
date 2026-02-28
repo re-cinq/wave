@@ -25,6 +25,7 @@ type BubbleTeaProgressDisplay struct {
 	steps              map[string]*StepStatus
 	stepOrder          []string
 	stepDurations      map[string]int64      // Track step durations in milliseconds
+	stepTokens         map[string]int        // Track per-step token counts
 	stepStartTimes     map[string]time.Time  // Track when each step started
 	startTime          time.Time
 	enabled            bool
@@ -86,6 +87,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		steps:              make(map[string]*StepStatus),
 		stepOrder:          make([]string, 0, totalSteps),
 		stepDurations:      make(map[string]int64),
+		stepTokens:         make(map[string]int),
 		stepStartTimes:     make(map[string]time.Time),
 		stepToolActivity:   make(map[string][2]string),
 		handoverInfo:       make(map[string]*HandoverInfo),
@@ -245,6 +247,10 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		// Capture step duration for display
 		if evt.DurationMs > 0 {
 			btpd.stepDurations[evt.StepID] = evt.DurationMs
+		}
+		// Capture token usage
+		if evt.TokensUsed > 0 {
+			btpd.stepTokens[evt.StepID] = evt.TokensUsed
 		}
 	case "failed":
 		step.State = StateFailed
@@ -436,6 +442,14 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		}
 		handoversByStep[stepID] = &copied
 	}
+
+	// Compute per-step tokens and total
+	stepTokens := make(map[string]int, len(btpd.stepTokens))
+	totalTokens := 0
+	for sid, tokens := range btpd.stepTokens {
+		stepTokens[sid] = tokens
+		totalTokens += tokens
+	}
 	return &PipelineContext{
 		PipelineName:       btpd.pipelineName,
 		PipelineID:         btpd.pipelineID,
@@ -450,6 +464,8 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepStatuses:       stepStatuses,
 		StepOrder:          btpd.stepOrder,
 		StepDurations:      btpd.stepDurations,
+		StepTokens:         stepTokens,
+		TotalTokens:        totalTokens,
 		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
