@@ -1,0 +1,7 @@
+description: "Posts comments on GitLab issues"
+temperature: 0.2
+permissions:
+  allowed_tools:
+    - Read
+    - "Bash(glab *)"
+  deny: []

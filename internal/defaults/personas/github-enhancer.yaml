@@ -1,0 +1,8 @@
+description: "GitHub issue enhancement and improvement"
+temperature: 0.2
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - "Bash(gh *)"
+  deny: []

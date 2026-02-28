@@ -1,0 +1,8 @@
+description: "Task breakdown and planning"
+temperature: 0.2
+permissions:
+  allowed_tools:
+    - Read
+    - "Write(.wave/plans/*)"
+  deny:
+    - "Bash(*)"

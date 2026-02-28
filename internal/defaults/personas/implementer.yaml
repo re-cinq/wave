@@ -1,0 +1,10 @@
+description: "Execution specialist for code changes and structured output"
+temperature: 0.3
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+  deny:
+    - "Bash(rm -rf /*)"

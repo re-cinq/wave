@@ -1,0 +1,12 @@
+description: "Deep codebase research and analysis"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(gh *)"
+    - "Bash(git log*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"
