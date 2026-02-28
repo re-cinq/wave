@@ -236,6 +236,12 @@ type PipelineContext struct {
 	// Step durations in milliseconds
 	StepDurations map[string]int64 // stepID -> duration in ms
 
+	// Per-step token counts
+	StepTokens map[string]int // stepID -> token count
+
+	// Total tokens across all steps
+	TotalTokens int
+
 	// Step persona mapping
 	StepPersonas map[string]string // stepID -> persona name
 
