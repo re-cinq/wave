@@ -1,0 +1,11 @@
+description: "Security review and quality assurance"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Grep
+    - "Bash(git log*)"
+    - "Bash(git status*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"

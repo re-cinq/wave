@@ -1116,3 +1116,85 @@ func TestInitPersonaPermissionsAreGeneric(t *testing.T) {
 	assert.NotContains(t, contentStr, "go test", "manifest should not contain go test in permissions")
 	assert.NotContains(t, contentStr, "npm audit", "manifest should not contain npm audit in permissions")
 }
+
+// TestInitTransitivePersonaFiltering tests that default init only includes
+// manifest persona entries for personas referenced by release pipelines + system personas.
+func TestInitTransitivePersonaFiltering(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd()
+	require.NoError(t, err)
+
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	personas, ok := manifest["personas"].(map[string]interface{})
+	require.True(t, ok, "personas should exist in manifest")
+
+	// System personas should always be present
+	for _, name := range []string{"summarizer", "navigator", "philosopher"} {
+		_, has := personas[name]
+		assert.True(t, has, "system persona %q should be present in manifest", name)
+	}
+
+	// supervisor is only used by the non-release "supervise" pipeline
+	_, hasSupervisor := personas["supervisor"]
+	assert.False(t, hasSupervisor, "supervisor should NOT be in manifest (only used by non-release pipeline)")
+
+	// With --all, all personas should be in the manifest
+	env2 := newTestEnv(t)
+	defer env2.cleanup()
+
+	_, _, err = executeInitCmd("--all")
+	require.NoError(t, err)
+
+	allManifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	allPersonas, ok := allManifest["personas"].(map[string]interface{})
+	require.True(t, ok)
+
+	_, hasSupervisorAll := allPersonas["supervisor"]
+	assert.True(t, hasSupervisorAll, "supervisor should be present with --all flag")
+
+	// --all should have more or equal personas than filtered
+	assert.GreaterOrEqual(t, len(allPersonas), len(personas),
+		"--all should have at least as many personas in manifest as filtered init")
+}
+
+// TestInitPersonaManifestMatchesConfig tests that the generated manifest persona
+// entries match the embedded YAML config data.
+func TestInitPersonaManifestMatchesConfig(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd("--all")
+	require.NoError(t, err)
+
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	personas, ok := manifest["personas"].(map[string]interface{})
+	require.True(t, ok)
+
+	personaConfigs, err := defaults.GetPersonaConfigs()
+	require.NoError(t, err)
+
+	for name, cfg := range personaConfigs {
+		entry, ok := personas[name].(map[string]interface{})
+		require.True(t, ok, "persona %q should be in manifest", name)
+
+		assert.Equal(t, cfg.Description, entry["description"], "%s description mismatch", name)
+		assert.Equal(t, "claude", entry["adapter"], "%s adapter should be 'claude'", name)
+		assert.Equal(t, fmt.Sprintf(".wave/personas/%s.md", name), entry["system_prompt_file"],
+			"%s system_prompt_file should follow convention", name)
+
+		if cfg.Model != "" {
+			assert.Equal(t, cfg.Model, entry["model"], "%s model mismatch", name)
+		} else {
+			_, hasModel := entry["model"]
+			assert.False(t, hasModel, "%s should not have model field", name)
+		}
+	}
+}

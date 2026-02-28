@@ -1,0 +1,19 @@
+description: "Creative challenger for divergent thinking and complexity hunting"
+model: opus
+temperature: 0.8
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(wc *)"
+    - "Bash(git log*)"
+    - "Bash(git diff*)"
+    - "Bash(find*)"
+    - "Bash(ls*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"
+    - "Bash(git commit*)"
+    - "Bash(git push*)"
+    - "Bash(rm*)"
