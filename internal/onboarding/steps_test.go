@@ -165,7 +165,9 @@ func TestModelSelectionStep_UnknownAdapter(t *testing.T) {
 
 	result, err := step.Run(cfg)
 	require.NoError(t, err)
-	assert.True(t, result.Skipped)
+	require.NotNil(t, result)
+	assert.False(t, result.Skipped, "unknown adapter should not skip")
+	assert.Equal(t, "", result.Data["model"], "unknown adapter non-interactive should return empty model")
 }
 
 func TestPipelineSelectionStep_NoPipelinesDir(t *testing.T) {
