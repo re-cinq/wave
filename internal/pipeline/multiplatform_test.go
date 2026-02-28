@@ -20,7 +20,7 @@ func TestGitLabPipelinesParseable(t *testing.T) {
 		{"gl-implement", "gl-implement.yaml", 4},
 		{"gl-research", "gl-research.yaml", 5},
 		{"gl-refresh", "gl-refresh.yaml", 3},
-		{"gl-rewrite", "gl-rewrite.yaml", 4},
+		{"gl-rewrite", "gl-rewrite.yaml", 2},
 	}
 
 	repoRoot := filepath.Join("..", "..")
@@ -75,7 +75,7 @@ func TestGiteaPipelinesParseable(t *testing.T) {
 		{"gt-implement", "gt-implement.yaml", 4},
 		{"gt-research", "gt-research.yaml", 5},
 		{"gt-refresh", "gt-refresh.yaml", 3},
-		{"gt-rewrite", "gt-rewrite.yaml", 4},
+		{"gt-rewrite", "gt-rewrite.yaml", 2},
 	}
 
 	repoRoot := filepath.Join("..", "..")

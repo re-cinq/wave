@@ -40,7 +40,7 @@ steps:
         max_retries: 2
 
   - id: security-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -50,7 +50,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Security review of the changes:
+        Security review of the PR changes.
 
         Check for:
         1. SQL injection, XSS, CSRF vulnerabilities
@@ -65,9 +65,13 @@ steps:
       - name: security
         path: .wave/output/security-review.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/security-review.md
 
   - id: quality-review
-    persona: auditor
+    persona: reviewer
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -77,7 +81,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Quality review of the changes:
+        Quality review of the PR changes.
 
         Check for:
         1. Error handling completeness
@@ -93,6 +97,10 @@ steps:
       - name: quality
         path: .wave/output/quality-review.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/quality-review.md
 
   - id: summary
     persona: summarizer
@@ -108,8 +116,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the review findings into a final verdict:
+        Synthesize the review findings into a final verdict.
 
+        Produce a unified review with:
         1. Overall assessment (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION)
         2. Critical issues that must be fixed
         3. Suggested improvements (optional but recommended)
@@ -121,6 +130,10 @@ steps:
       - name: verdict
         path: .wave/output/review-summary.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/review-summary.md
 
   - id: publish
     persona: github-commenter
