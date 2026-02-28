@@ -117,3 +117,7 @@ steps:
       - name: guide
         path: .wave/output/onboarding-guide.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/onboarding-guide.md
