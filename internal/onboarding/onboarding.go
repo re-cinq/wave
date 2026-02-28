@@ -17,7 +17,8 @@ type WizardConfig struct {
 	All         bool               // true when --all flag includes all pipelines
 	Adapter     string             // default adapter name
 	Workspace   string             // workspace directory path
-	OutputPath  string             // path for wave.yaml output
+	OutputPath     string                      // path for wave.yaml output
+	PersonaConfigs map[string]manifest.Persona // persona configs for manifest generation
 }
 
 // WizardResult holds the collected results from all wizard steps.
@@ -156,6 +157,7 @@ func writeManifest(cfg WizardConfig, result *WizardResult) error {
 	return os.WriteFile(cfg.OutputPath, data, 0644)
 }
 
+
 // buildManifest constructs a manifest map from wizard results.
 func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{} {
 	adapter := result.Adapter
@@ -225,11 +227,28 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 		m["project"] = project
 	}
 
-	// Add model if specified
-	if result.Model != "" {
-		// Model is set at the adapter level in manifest
-		adapterCfg := m["adapters"].(map[string]interface{})[adapter].(map[string]interface{})
-		adapterCfg["model"] = result.Model
+	// Build personas section from PersonaConfigs
+	if len(cfg.PersonaConfigs) > 0 {
+		personas := make(map[string]interface{})
+		for name, pcfg := range cfg.PersonaConfigs {
+			entry := map[string]interface{}{
+				"adapter":            adapter,
+				"description":        pcfg.Description,
+				"system_prompt_file": fmt.Sprintf(".wave/personas/%s.md", name),
+				"temperature":        pcfg.Temperature,
+				"permissions": map[string]interface{}{
+					"allowed_tools": pcfg.Permissions.AllowedTools,
+					"deny":          pcfg.Permissions.Deny,
+				},
+			}
+			if result.Model != "" {
+				entry["model"] = result.Model
+			} else if pcfg.Model != "" {
+				entry["model"] = pcfg.Model
+			}
+			personas[name] = entry
+		}
+		m["personas"] = personas
 	}
 
 	return m
