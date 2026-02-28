@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/pathfmt"
 )
 
 // ProgressBar represents a visual progress indicator with customizable styling.
@@ -678,7 +679,7 @@ func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *Handove
 
 	// Artifact lines
 	for _, path := range info.ArtifactPaths {
-		items = append(items, fmt.Sprintf("artifact: %s (written)", path))
+		items = append(items, fmt.Sprintf("artifact: %s (written)", pathfmt.FileURI(path)))
 	}
 
 	// Contract line
