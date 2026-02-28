@@ -9,10 +9,10 @@ input:
   example: "recinq/wave 42"
   schema:
     type: string
-    description: "Bitbucket repository, optionally with issue number (e.g. 'workspace/repo' or 'workspace/repo 42')"
+    description: "Bitbucket repo with optional issue number"
 
 steps:
-  - id: scan-issues
+  - id: scan-and-score
     persona: bitbucket-analyst
     workspace:
       type: worktree
@@ -20,70 +20,22 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "bb CLI not installed" without trying.
-
         Input: {{ input }}
 
-        Parse the input to determine the mode:
-        - If the input contains a number after the repo (e.g. "recinq/wave 42"), this is SINGLE ISSUE mode.
-          Extract the repo (first token) and issue number (second token).
-        - If the input is just a repo (e.g. "recinq/wave"), this is BATCH mode.
+        Step 1: Parse input format.
+        - If "workspace/repo NUM" → single issue mode
+        - If "workspace/repo" alone → batch mode
 
-        Execute these commands using the Bash tool:
+        Step 2: Fetch issues via bb CLI.
+        - Single: bb issue view NUM --repo WORKSPACE/REPO --json number,title,body,labels,url
+        - Batch: bb issue list --repo WORKSPACE/REPO --limit 10 --json number,title,body,labels,url
 
-        1. bb --version
+        Step 3: Score each issue quality (0-100) on title clarity, description completeness, labels, and acceptance criteria.
 
-        2a. SINGLE ISSUE mode: Parse the repo and number from {{ input }}, then run:
-            bb issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url
-        2b. BATCH mode: bb issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
+        Step 4: For issues scoring below 70, create an enhancement plan with:
+        - suggested_title, body_template (preserving original content), suggested_labels, enhancements list
 
-        After getting REAL results from Bash, analyze issues and score them.
-        In single issue mode, analyze the one issue. In batch mode, analyze all returned issues.
-    output_artifacts:
-      - name: issue_analysis
-        path: .wave/artifact.json
-        type: json
-        required: true
-    handover:
-      max_retries: 1
-      contract:
-        type: json_schema
-        schema_path: .wave/contracts/github-issue-analysis.schema.json
-        validate: true
-        must_pass: true
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
-
-  - id: plan-enhancements
-    persona: bitbucket-analyst
-    dependencies: [scan-issues]
-    memory:
-      inject_artifacts:
-        - step: scan-issues
-          artifact: issue_analysis
-          as: analysis
-    workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-    exec:
-      type: prompt
-      source: |
-        The analysis artifact contains poor_quality_issues from the scan step.
-
-        For EACH issue in poor_quality_issues, use bb CLI to fetch the current body:
-        bb issue view <NUMBER> --repo {{ input }} --json body
-
-        Then create an enhancement plan with:
-        - issue_number: the issue number
-        - suggested_title: improved title (or keep original if good)
-        - body_template: enhanced body text (improve the existing body, add missing sections)
-        - suggested_labels: appropriate labels
-        - enhancements: list of changes being made
-
-        Create an enhancement plan with fields:
-        issues_to_enhance (array of issue_number, suggested_title, body_template,
-        suggested_labels, enhancements) and total_to_enhance.
+        Output JSON with repository (workspace/repo string), issues_to_enhance array, and total_to_enhance.
     output_artifacts:
       - name: enhancement_plan
         path: .wave/artifact.json
@@ -102,10 +54,10 @@ steps:
 
   - id: apply-enhancements
     persona: bitbucket-enhancer
-    dependencies: [plan-enhancements]
+    dependencies: [scan-and-score]
     memory:
       inject_artifacts:
-        - step: plan-enhancements
+        - step: scan-and-score
           artifact: enhancement_plan
           as: plan
     workspace:
@@ -114,20 +66,16 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
+        Read the repository field from the plan artifact for --repo flag.
 
-        Step 1: Use Bash tool to verify bb works:
-        bb --version
+        For each issue in issues_to_enhance:
+        1. Apply title: bb issue edit NUM --repo REPO --title "suggested_title"
+        2. Apply body: bb issue edit NUM --repo REPO --body "body_template"
+        3. Add labels: bb issue edit NUM --repo REPO --add-label "label1,label2"
+        4. Capture URL: bb issue view NUM --repo REPO --json url --jq .url
 
-        Step 2: For EACH issue in the plan, use Bash tool to apply changes:
-        - If suggested_title differs from current: bb issue edit <N> --repo {{ input }} --title "suggested_title"
-        - If body_template is provided: bb issue edit <N> --repo {{ input }} --body "body_template"
-        - If suggested_labels: bb issue edit <N> --repo {{ input }} --add-label "label1,label2"
-
-        Step 4: For each issue, capture the URL: bb issue view <N> --repo {{ input }} --json url --jq .url
-
-        Step 5: Record the results with fields: enhanced_issues (each with issue_number,
-        success, changes_made, url), total_attempted, total_successful, total_failed.
+        Output JSON with enhanced_issues (issue_number, success, changes_made, url),
+        total_attempted, total_successful.
     output_artifacts:
       - name: enhancement_results
         path: .wave/artifact.json
@@ -143,43 +91,6 @@ steps:
       contract:
         type: json_schema
         schema_path: .wave/contracts/github-enhancement-results.schema.json
-        validate: true
-        must_pass: true
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
-
-  - id: verify-enhancements
-    persona: bitbucket-analyst
-    dependencies: [apply-enhancements]
-    memory:
-      inject_artifacts:
-        - step: apply-enhancements
-          artifact: enhancement_results
-          as: results
-        - step: scan-issues
-          artifact: issue_analysis
-          as: original_analysis
-    workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-    exec:
-      type: prompt
-      source: |
-        For each enhanced issue, verify with: bb issue view <N> --repo {{ input }} --json title,labels
-
-        Compile a verification report with fields:
-        total_enhanced, successful_enhancements, failed_enhancements, and summary.
-    output_artifacts:
-      - name: verification_report
-        path: .wave/artifact.json
-        type: json
-        required: true
-    handover:
-      max_retries: 1
-      contract:
-        type: json_schema
-        schema_path: .wave/contracts/github-verification-report.schema.json
         validate: true
         must_pass: true
         allow_recovery: true
