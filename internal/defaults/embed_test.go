@@ -190,6 +190,10 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 		"refactor.yaml",
 		"security-scan.yaml",
 		"test-gen.yaml",
+		"gh-scope.yaml",
+		"gt-scope.yaml",
+		"gl-scope.yaml",
+		"bb-scope.yaml",
 	}
 
 	for _, name := range expected {
@@ -229,13 +233,13 @@ func TestGetPersonaConfigs_ReturnsAllPersonas(t *testing.T) {
 		t.Fatalf("GetPersonaConfigs() error: %v", err)
 	}
 
-	// Should have exactly 26 persona configs (all .md files minus base-protocol)
-	if len(configs) != 26 {
-		t.Errorf("expected 26 persona configs, got %d", len(configs))
+	// Should have exactly 30 persona configs (all .md files minus base-protocol)
+	if len(configs) != 30 {
+		t.Errorf("expected 30 persona configs, got %d", len(configs))
 	}
 
 	// Verify a few known personas exist
-	expected := []string{"navigator", "craftsman", "summarizer", "implementer", "github-analyst", "gitea-analyst", "gitlab-analyst", "bitbucket-analyst"}
+	expected := []string{"navigator", "craftsman", "summarizer", "implementer", "github-analyst", "gitea-analyst", "gitlab-analyst", "bitbucket-analyst", "github-scoper", "gitea-scoper", "gitlab-scoper", "bitbucket-scoper"}
 	for _, name := range expected {
 		if _, ok := configs[name]; !ok {
 			t.Errorf("expected persona config %q not found", name)
