@@ -166,3 +166,7 @@ steps:
       - name: verdict
         path: .wave/output/supervision-verdict.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/supervision-verdict.md

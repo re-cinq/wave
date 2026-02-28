@@ -69,7 +69,7 @@ steps:
         max_retries: 3
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [fix]
     exec:
       type: prompt
@@ -86,3 +86,7 @@ steps:
       - name: verdict
         path: .wave/output/verdict.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/verdict.md
