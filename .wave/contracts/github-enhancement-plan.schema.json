@@ -3,8 +3,12 @@
   "title": "GitHub Issue Enhancement Plan",
   "description": "Schema for GitHub issue enhancement recommendations",
   "type": "object",
-  "required": ["issues_to_enhance"],
+  "required": ["repository", "issues_to_enhance"],
   "properties": {
+    "repository": {
+      "type": "string",
+      "description": "Repository in owner/repo format"
+    },
     "issues_to_enhance": {
       "type": "array",
       "items": {
