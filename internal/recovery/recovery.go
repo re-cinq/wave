@@ -3,6 +3,8 @@ package recovery
 import (
 	"fmt"
 	"path/filepath"
+
+	"github.com/recinq/wave/internal/pathfmt"
 )
 
 // HintType identifies the category of recovery hint.
@@ -126,7 +128,7 @@ func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
 	// Always add workspace hint
 	block.Hints = append(block.Hints, RecoveryHint{
 		Label:   "Inspect workspace artifacts",
-		Command: fmt.Sprintf("ls %s", ShellEscape(block.WorkspacePath)),
+		Command: fmt.Sprintf("ls %s", ShellEscape(pathfmt.FileURI(block.WorkspacePath))),
 		Type:    HintWorkspace,
 	})
 
