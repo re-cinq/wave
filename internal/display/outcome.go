@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/pathfmt"
 )
 
 // PipelineOutcome is a read-only summary struct constructed after pipeline
@@ -272,8 +273,8 @@ func GenerateNextSteps(outcome *PipelineOutcome) []NextStep {
 	// If workspace path is set, suggest inspection
 	if outcome.WorkspacePath != "" {
 		steps = append(steps, NextStep{
-			Label:   fmt.Sprintf("Inspect workspace at %s", outcome.WorkspacePath),
-			Command: fmt.Sprintf("ls %s", outcome.WorkspacePath),
+			Label:   fmt.Sprintf("Inspect workspace at %s", pathfmt.FileURI(outcome.WorkspacePath)),
+			Command: fmt.Sprintf("ls %s", pathfmt.FileURI(outcome.WorkspacePath)),
 		})
 	}
 
