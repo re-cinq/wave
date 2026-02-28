@@ -77,7 +77,7 @@ steps:
         type: markdown
 
   - id: verify-coverage
-    persona: auditor
+    persona: reviewer
     dependencies: [generate-tests]
     exec:
       type: prompt
@@ -95,3 +95,7 @@ steps:
       - name: verification
         path: .wave/output/coverage-verification.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/coverage-verification.md

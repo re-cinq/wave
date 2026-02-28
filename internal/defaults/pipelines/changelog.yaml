@@ -135,3 +135,7 @@ steps:
       - name: changelog
         path: .wave/output/CHANGELOG.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/CHANGELOG.md

@@ -100,6 +100,10 @@ steps:
       - name: findings
         path: .wave/output/investigation.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/investigation.md
 
   - id: fix
     persona: craftsman

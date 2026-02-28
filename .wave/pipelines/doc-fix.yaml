@@ -89,6 +89,10 @@ steps:
       - name: fix_plan
         path: .wave/output/fix-plan.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/fix-plan.md
 
   - id: fix-docs
     persona: craftsman

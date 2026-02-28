@@ -19,7 +19,7 @@ func TestGhRewritePipeline_NoHardcodedRepo(t *testing.T) {
 		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
 	}
 
-	// Every gh command should use {{ input }} for the repo, not a hardcoded value
+	// Every gh command should use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo
 	for i, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
 		// Skip comment-only lines that don't contain gh commands
@@ -51,12 +51,12 @@ func TestGhRewritePipeline_UsesInputTemplate(t *testing.T) {
 		t.Error("pipeline should contain {{ input }} template variables")
 	}
 
-	// Count occurrences — scan-issues has 2 (Input line + gh issue list),
-	// plan-enhancements has 1 (gh issue view), apply-enhancements has 3,
-	// verify-enhancements has 1 = 7 total minimum
+	// Optimized 2-step pipeline: scan-and-plan has Input line + batch --repo = 2,
+	// apply-enhancements reads repo from artifact (no {{ input }}).
+	// Minimum 2 occurrences.
 	count := strings.Count(content, "{{ input }}")
-	if count < 7 {
-		t.Errorf("expected at least 7 {{ input }} occurrences, got %d", count)
+	if count < 2 {
+		t.Errorf("expected at least 2 {{ input }} occurrences, got %d", count)
 	}
 }
 

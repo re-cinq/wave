@@ -125,3 +125,7 @@ steps:
       - name: explanation
         path: .wave/output/explanation.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/explanation.md
