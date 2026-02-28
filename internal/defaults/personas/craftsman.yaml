@@ -1,0 +1,10 @@
+description: "Code implementation and testing"
+temperature: 0.7
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+  deny:
+    - "Bash(rm -rf /*)"
