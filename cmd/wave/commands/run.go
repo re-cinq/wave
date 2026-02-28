@@ -107,6 +107,13 @@ Arguments can be provided as positional args or flags:
 }
 
 func runRun(opts RunOptions, debug bool) error {
+	// Gate on onboarding completion — skip when --force is set
+	if !opts.Force {
+		if err := checkOnboarding(); err != nil {
+			return err
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
