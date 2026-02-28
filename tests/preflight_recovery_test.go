@@ -533,9 +533,13 @@ func TestPreflightRecovery_CleanWorkspacePaths(t *testing.T) {
 				t.Errorf("workspace path contains double slashes: %s", block.WorkspacePath)
 			}
 
-			// Verify in recovery hints as well
+			// Verify in recovery hints as well — allow :// in URI schemes but catch path-level // errors
 			for _, hint := range block.Hints {
-				if strings.Contains(hint.Command, "//") {
+				// Strip known URI schemes before checking for double slashes
+				cleaned := strings.ReplaceAll(hint.Command, "file://", "")
+				cleaned = strings.ReplaceAll(cleaned, "https://", "")
+				cleaned = strings.ReplaceAll(cleaned, "http://", "")
+				if strings.Contains(cleaned, "//") {
 					t.Errorf("hint command contains double slashes: %s", hint.Command)
 				}
 			}

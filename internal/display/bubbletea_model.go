@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/recinq/wave/internal/pathfmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -308,7 +310,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 				if info, exists := m.ctx.HandoversByStep[stepID]; exists {
 					// Artifact lines
 					for _, path := range info.ArtifactPaths {
-						metadataLines = append(metadataLines, fmt.Sprintf("artifact: %s (written)", path))
+						metadataLines = append(metadataLines, fmt.Sprintf("artifact: %s (written)", pathfmt.FileURI(path)))
 					}
 					// Contract line
 					if info.ContractStatus != "" {
