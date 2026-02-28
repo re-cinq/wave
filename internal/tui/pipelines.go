@@ -15,6 +15,8 @@ type PipelineInfo struct {
 	Description  string
 	StepCount    int
 	InputExample string
+	Release      bool
+	Category     string
 }
 
 // DiscoverPipelines scans the given directory for pipeline YAML files
@@ -66,5 +68,7 @@ func parsePipelineFile(path string) (PipelineInfo, error) {
 		Description:  p.Metadata.Description,
 		StepCount:    len(p.Steps),
 		InputExample: p.Input.Example,
+		Release:      p.Metadata.Release,
+		Category:     p.Metadata.Category,
 	}, nil
 }
