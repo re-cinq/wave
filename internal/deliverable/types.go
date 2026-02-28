@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/pathfmt"
 )
 
 // DeliverableType represents the kind of deliverable
@@ -114,7 +116,7 @@ func (d *Deliverable) String() string {
 	if d.Type == TypeFile {
 		// Show absolute path for files
 		absPath, _ := filepath.Abs(d.Path)
-		return fmt.Sprintf("%s %s", icon, absPath)
+		return fmt.Sprintf("%s %s", icon, pathfmt.FileURI(absPath))
 	}
 
 	// For non-file types, show name and path

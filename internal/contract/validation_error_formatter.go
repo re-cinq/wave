@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/recinq/wave/internal/pathfmt"
 )
 
 // ValidationErrorFormatter provides enhanced error messages with actionable guidance
@@ -20,7 +22,7 @@ func (f *ValidationErrorFormatter) FormatJSONSchemaError(err error, recoveryResu
 	details := []string{}
 
 	// Add file context
-	details = append(details, fmt.Sprintf("File: %s", artifactPath))
+	details = append(details, fmt.Sprintf("File: %s", pathfmt.FileURI(artifactPath)))
 
 	// Add recovery information if applicable
 	if recoveryResult != nil && len(recoveryResult.AppliedFixes) > 0 {

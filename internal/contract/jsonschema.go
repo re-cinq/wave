@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/recinq/wave/internal/pathfmt"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -153,7 +154,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 	if err != nil {
 		return &ValidationError{
 			ContractType: "json_schema",
-			Message:      fmt.Sprintf("failed to read artifact file: %s", artifactPath),
+			Message:      fmt.Sprintf("failed to read artifact file: %s", pathfmt.FileURI(artifactPath)),
 			Details:      []string{err.Error()},
 			Retryable:    false,
 		}
@@ -210,7 +211,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 		var recoveryErr error
 		recoveryResult, recoveryErr = recoveryParser.ParseWithRecovery(string(data))
 		if recoveryErr != nil || !recoveryResult.IsValid {
-			details := []string{fmt.Sprintf("file: %s", artifactPath)}
+			details := []string{fmt.Sprintf("file: %s", pathfmt.FileURI(artifactPath))}
 			if recoveryErr != nil {
 				details = append(details, recoveryErr.Error())
 			}
@@ -239,7 +240,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			return &ValidationError{
 				ContractType: "json_schema",
 				Message:      "failed to parse artifact JSON",
-				Details:      []string{fmt.Sprintf("file: %s", artifactPath), err.Error()},
+				Details:      []string{fmt.Sprintf("file: %s", pathfmt.FileURI(artifactPath)), err.Error()},
 				Retryable:    true,
 			}
 		}
