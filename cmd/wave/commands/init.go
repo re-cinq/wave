@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -57,10 +58,11 @@ preserving your custom settings.`,
 
 // initAssets holds the resolved asset maps for init/merge operations.
 type initAssets struct {
-	personas  map[string]string
-	pipelines map[string]string
-	contracts map[string]string
-	prompts   map[string]string
+	personas       map[string]string
+	personaConfigs map[string]manifest.Persona
+	pipelines      map[string]string
+	contracts      map[string]string
+	prompts        map[string]string
 }
 
 // getFilteredAssets returns the asset maps for init, applying release filtering
@@ -69,6 +71,11 @@ func getFilteredAssets(cmd *cobra.Command, opts InitOptions) (*initAssets, error
 	personas, err := defaults.GetPersonas()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default personas: %w", err)
+	}
+
+	allPersonaConfigs, err := defaults.GetPersonaConfigs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get persona configs: %w", err)
 	}
 
 	if opts.All {
@@ -85,10 +92,11 @@ func getFilteredAssets(cmd *cobra.Command, opts InitOptions) (*initAssets, error
 			return nil, fmt.Errorf("failed to get default prompts: %w", err)
 		}
 		return &initAssets{
-			personas:  personas,
-			pipelines: pipelines,
-			contracts: contracts,
-			prompts:   prompts,
+			personas:       personas,
+			personaConfigs: allPersonaConfigs,
+			pipelines:      pipelines,
+			contracts:      contracts,
+			prompts:        prompts,
 		}, nil
 	}
 
@@ -111,21 +119,31 @@ func getFilteredAssets(cmd *cobra.Command, opts InitOptions) (*initAssets, error
 		return nil, fmt.Errorf("failed to get default prompts: %w", err)
 	}
 
-	contracts, prompts := filterTransitiveDeps(cmd, pipelines, allContracts, allPrompts)
+	contracts, prompts, personaConfigs := filterTransitiveDeps(cmd, pipelines, allContracts, allPrompts, allPersonaConfigs)
 
 	return &initAssets{
-		personas:  personas,
-		pipelines: pipelines,
-		contracts: contracts,
-		prompts:   prompts,
+		personas:       personas,
+		personaConfigs: personaConfigs,
+		pipelines:      pipelines,
+		contracts:      contracts,
+		prompts:        prompts,
 	}, nil
 }
 
-// filterTransitiveDeps filters contracts and prompts to only those referenced
-// by the given pipeline set. Personas are never filtered.
-func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompts map[string]string) (contracts, prompts map[string]string) {
+// systemPersonas are always included in the manifest regardless of pipeline references.
+// These are used by relay compaction, meta-pipelines, and adhoc operations.
+var systemPersonas = map[string]bool{
+	"summarizer":  true,
+	"navigator":   true,
+	"philosopher": true,
+}
+
+// filterTransitiveDeps filters contracts, prompts, and persona configs to only
+// those referenced by the given pipeline set. System personas are always included.
+func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompts map[string]string, allPersonaConfigs map[string]manifest.Persona) (contracts, prompts map[string]string, personaConfigs map[string]manifest.Persona) {
 	contractRefs := make(map[string]bool)
 	promptRefs := make(map[string]bool)
+	personaRefs := make(map[string]bool)
 
 	for name, content := range pipelines {
 		var p pipeline.Pipeline
@@ -135,6 +153,16 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 		}
 
 		for _, step := range p.Steps {
+			// Extract persona references
+			if step.Persona != "" {
+				personaRefs[step.Persona] = true
+			}
+
+			// Extract compaction persona references
+			if step.Handover.Compaction.Persona != "" {
+				personaRefs[step.Handover.Compaction.Persona] = true
+			}
+
 			// Extract contract references from schema_path
 			if sp := step.Handover.Contract.SchemaPath; sp != "" {
 				normalized := strings.TrimPrefix(sp, ".wave/contracts/")
@@ -148,6 +176,19 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 					promptRefs[normalized] = true
 				}
 			}
+		}
+	}
+
+	// Always include system personas
+	for name := range systemPersonas {
+		personaRefs[name] = true
+	}
+
+	// Filter persona configs to only referenced ones
+	personaConfigs = make(map[string]manifest.Persona)
+	for name, cfg := range allPersonaConfigs {
+		if personaRefs[name] {
+			personaConfigs[name] = cfg
 		}
 	}
 
@@ -174,7 +215,7 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 		}
 	}
 
-	return contracts, prompts
+	return contracts, prompts, personaConfigs
 }
 
 func runInit(cmd *cobra.Command, opts InitOptions) error {
@@ -228,7 +269,13 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	project := detectProject()
-	manifest := createDefaultManifest(opts.Adapter, opts.Workspace, project)
+	// Get filtered assets based on --all flag (needed for persona configs in manifest)
+	assets, err := getFilteredAssets(cmd, opts)
+	if err != nil {
+		return err
+	}
+
+	manifest := createDefaultManifest(opts.Adapter, opts.Workspace, project, assets.personaConfigs)
 	manifestData, err := yaml.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
@@ -245,12 +292,6 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 
 	if err := os.WriteFile(opts.OutputPath, manifestData, 0644); err != nil {
 		return fmt.Errorf("failed to write manifest to %s: %w", absOutputPath, err)
-	}
-
-	// Get filtered assets based on --all flag
-	assets, err := getFilteredAssets(cmd, opts)
-	if err != nil {
-		return err
 	}
 
 	if err := createExamplePersonas(assets.personas); err != nil {
@@ -285,9 +326,14 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 		return fmt.Errorf("failed to parse existing manifest %s: %w", absOutputPath, err)
 	}
 
-	// Create default manifest
+	// Get filtered assets for persona configs
 	project := detectProject()
-	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace, project)
+	assets, err := getFilteredAssets(cmd, opts)
+	if err != nil {
+		return err
+	}
+
+	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace, project, assets.personaConfigs)
 
 	// Merge manifests (existing values take precedence)
 	merged := mergeManifests(defaultManifest, existingManifest)
@@ -316,12 +362,6 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 			absDir, _ := filepath.Abs(dir)
 			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
 		}
-	}
-
-	// Get filtered assets based on --all flag
-	assets, err := getFilteredAssets(cmd, opts)
-	if err != nil {
-		return err
 	}
 
 	// Create persona files only if they don't exist
@@ -593,7 +633,31 @@ func detectNodeProject() map[string]interface{} {
 	return result
 }
 
-func createDefaultManifest(adapter string, workspace string, project map[string]interface{}) map[string]interface{} {
+// buildPersonaManifest converts parsed persona configs into the map[string]interface{}
+// structure expected by the manifest YAML. It sets adapter and system_prompt_file
+// by convention — these are not stored in the YAML config files.
+func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) map[string]interface{} {
+	result := make(map[string]interface{})
+	for name, cfg := range configs {
+		entry := map[string]interface{}{
+			"adapter":            adapter,
+			"description":        cfg.Description,
+			"system_prompt_file": fmt.Sprintf(".wave/personas/%s.md", name),
+			"temperature":        cfg.Temperature,
+			"permissions": map[string]interface{}{
+				"allowed_tools": cfg.Permissions.AllowedTools,
+				"deny":          cfg.Permissions.Deny,
+			},
+		}
+		if cfg.Model != "" {
+			entry["model"] = cfg.Model
+		}
+		result[name] = entry
+	}
+	return result
+}
+
+func createDefaultManifest(adapter string, workspace string, project map[string]interface{}, personaConfigs map[string]manifest.Persona) map[string]interface{} {
 	adapters := map[string]interface{}{
 		adapter: map[string]interface{}{
 			"binary":        adapter,
@@ -615,171 +679,7 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 			"description": "A Wave multi-agent project",
 		},
 		"adapters": adapters,
-		"personas": map[string]interface{}{
-			"navigator": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Read-only codebase exploration and analysis",
-				"system_prompt_file": ".wave/personas/navigator.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"},
-					"deny":          []string{"Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"},
-				},
-			},
-			"philosopher": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Architecture design and specification",
-				"system_prompt_file": ".wave/personas/philosopher.md",
-				"temperature":        0.3,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write(.wave/specs/*)"},
-					"deny":          []string{"Bash(*)"},
-				},
-			},
-			"craftsman": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Code implementation and testing",
-				"system_prompt_file": ".wave/personas/craftsman.md",
-				"temperature":        0.7,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
-					"deny":          []string{"Bash(rm -rf /*)"},
-				},
-			},
-			"auditor": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Security review and quality assurance",
-				"system_prompt_file": ".wave/personas/auditor.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Grep", "Bash(git log*)", "Bash(git status*)"},
-					"deny":          []string{"Write(*)", "Edit(*)"},
-				},
-			},
-			"summarizer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Context compaction for relay handoffs",
-				"system_prompt_file": ".wave/personas/summarizer.md",
-				"temperature":        0.0,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read"},
-					"deny":          []string{"Write(*)", "Bash(*)"},
-				},
-			},
-			"planner": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Task breakdown and planning",
-				"system_prompt_file": ".wave/personas/planner.md",
-				"temperature":        0.2,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write(.wave/plans/*)"},
-					"deny":          []string{"Bash(*)"},
-				},
-			},
-			"debugger": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Systematic debugging and root cause analysis",
-				"system_prompt_file": ".wave/personas/debugger.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(git log*)", "Bash(git bisect*)"},
-					"deny":          []string{"Write(*)", "Edit(*)"},
-				},
-			},
-			"github-analyst": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "GitHub issue analysis and scanning",
-				"system_prompt_file": ".wave/personas/github-analyst.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Bash(gh *)"},
-					"deny":          []string{},
-				},
-			},
-			"github-enhancer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "GitHub issue enhancement and improvement",
-				"system_prompt_file": ".wave/personas/github-enhancer.md",
-				"temperature":        0.2,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Bash(gh *)"},
-					"deny":          []string{},
-				},
-			},
-			"implementer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Execution specialist for code changes and structured output",
-				"system_prompt_file": ".wave/personas/implementer.md",
-				"temperature":        0.3,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
-					"deny":          []string{"Bash(rm -rf /*)"},
-				},
-			},
-			"researcher": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Deep codebase research and analysis",
-				"system_prompt_file": ".wave/personas/researcher.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(gh *)", "Bash(git log*)"},
-					"deny":          []string{"Write(*)", "Edit(*)"},
-				},
-			},
-			"reviewer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Code review and quality checks",
-				"system_prompt_file": ".wave/personas/reviewer.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(git diff*)", "Bash(git log*)"},
-					"deny":          []string{"Write(*)", "Edit(*)"},
-				},
-			},
-			"github-commenter": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Posts comments on GitHub issues",
-				"system_prompt_file": ".wave/personas/github-commenter.md",
-				"temperature":        0.2,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Bash(gh *)"},
-					"deny":          []string{},
-				},
-			},
-			"provocateur": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Creative challenger for divergent thinking and complexity hunting",
-				"model":              "opus",
-				"system_prompt_file": ".wave/personas/provocateur.md",
-				"temperature":        0.8,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(wc *)", "Bash(git log*)", "Bash(git diff*)", "Bash(find*)", "Bash(ls*)"},
-					"deny":          []string{"Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)", "Bash(rm*)"},
-				},
-			},
-			"validator": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Skeptical analysis and verification of findings against source code",
-				"model":              "sonnet",
-				"system_prompt_file": ".wave/personas/validator.md",
-				"temperature":        0.1,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep", "Bash(wc *)", "Bash(git log*)", "Bash(git diff*)"},
-					"deny":          []string{"Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)", "Bash(rm*)"},
-				},
-			},
-			"synthesizer": map[string]interface{}{
-				"adapter":            adapter,
-				"description":        "Structured synthesis of analysis findings into actionable JSON proposals",
-				"model":              "sonnet",
-				"system_prompt_file": ".wave/personas/synthesizer.md",
-				"temperature":        0.2,
-				"permissions": map[string]interface{}{
-					"allowed_tools": []string{"Read", "Glob", "Grep"},
-					"deny":          []string{"Edit(*)", "Bash(*)"},
-				},
-			},
-		},
+		"personas": buildPersonaManifest(personaConfigs, adapter),
 		"runtime": map[string]interface{}{
 			"workspace_root":          workspace,
 			"max_concurrent_workers":  5,

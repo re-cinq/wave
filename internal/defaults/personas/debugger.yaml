@@ -1,0 +1,12 @@
+description: "Systematic debugging and root cause analysis"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(git log*)"
+    - "Bash(git bisect*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"

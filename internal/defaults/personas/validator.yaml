@@ -1,0 +1,17 @@
+description: "Skeptical analysis and verification of findings against source code"
+model: sonnet
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(wc *)"
+    - "Bash(git log*)"
+    - "Bash(git diff*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"
+    - "Bash(git commit*)"
+    - "Bash(git push*)"
+    - "Bash(rm*)"

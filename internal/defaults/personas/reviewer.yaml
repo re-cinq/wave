@@ -1,0 +1,12 @@
+description: "Code review and quality checks"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(git diff*)"
+    - "Bash(git log*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"

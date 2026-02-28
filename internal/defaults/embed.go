@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"gopkg.in/yaml.v3"
 )
@@ -27,9 +28,43 @@ var contractsFS embed.FS
 //go:embed prompts/**/*.md
 var promptsFS embed.FS
 
+//go:embed personas/*.yaml
+var personaConfigsFS embed.FS
+
 // GetPersonas returns a map of filename to content for all default personas.
 func GetPersonas() (map[string]string, error) {
 	return readDir(personasFS, "personas")
+}
+
+// GetPersonaConfigs returns parsed persona configurations keyed by persona name
+// (e.g. "navigator", not "navigator.yaml").
+func GetPersonaConfigs() (map[string]manifest.Persona, error) {
+	result := make(map[string]manifest.Persona)
+
+	err := fs.WalkDir(personaConfigsFS, "personas", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".yaml") {
+			return nil
+		}
+
+		data, err := personaConfigsFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", path, err)
+		}
+
+		var p manifest.Persona
+		if err := yaml.Unmarshal(data, &p); err != nil {
+			return fmt.Errorf("parsing %s: %w", path, err)
+		}
+
+		name := strings.TrimSuffix(filepath.Base(path), ".yaml")
+		result[name] = p
+		return nil
+	})
+
+	return result, err
 }
 
 // GetPipelines returns a map of filename to content for all default pipelines.

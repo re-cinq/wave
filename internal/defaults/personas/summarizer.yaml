@@ -1,0 +1,8 @@
+description: "Context compaction for relay handoffs"
+temperature: 0.0
+permissions:
+  allowed_tools:
+    - Read
+  deny:
+    - "Write(*)"
+    - "Bash(*)"
