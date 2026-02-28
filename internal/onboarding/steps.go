@@ -18,12 +18,14 @@ var knownAdapters = []struct {
 }{
 	{Name: "claude", Binary: "claude", InstallURL: "https://docs.anthropic.com/en/docs/claude-code"},
 	{Name: "opencode", Binary: "opencode", InstallURL: "https://opencode.ai"},
+	{Name: "ollama", Binary: "ollama", InstallURL: "https://ollama.com"},
 }
 
 // adapterModels maps adapter names to their available models.
 var adapterModels = map[string][]string{
 	"claude":   {"opus", "sonnet", "haiku"},
 	"opencode": {"gpt-4o", "gpt-4o-mini", "o3-mini"},
+	"ollama":   {"llama3.1", "codellama", "deepseek-coder"},
 }
 
 // knownDependencies lists the tools checked during dependency verification.
@@ -379,6 +381,7 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 			label := fmt.Sprintf("%-12s (%s)", a.Name, status)
 			options = append(options, huh.NewOption(label, a.Name))
 		}
+		options = append(options, huh.NewOption("Other (type manually)", "other"))
 
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -395,6 +398,29 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 				return nil, fmt.Errorf("wizard cancelled by user")
 			}
 			return nil, err
+		}
+
+		// Handle custom adapter input
+		if selectedAdapter == "other" {
+			var customAdapter string
+			inputForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Enter adapter binary name").
+						Value(&customAdapter).
+						Placeholder("e.g. my-adapter"),
+				),
+			).WithTheme(tui.WaveTheme())
+
+			if err := inputForm.Run(); err != nil {
+				if err == huh.ErrUserAborted {
+					return nil, fmt.Errorf("wizard cancelled by user")
+				}
+				return nil, err
+			}
+			if customAdapter != "" {
+				selectedAdapter = customAdapter
+			}
 		}
 
 		// Verify adapter binary exists
@@ -424,13 +450,9 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		adapter = "claude"
 	}
 
-	models, ok := adapterModels[adapter]
-	if !ok || len(models) == 0 {
-		// Unknown adapter — skip model selection
-		return &StepResult{Skipped: true}, nil
-	}
+	models, knownAdapter := adapterModels[adapter]
 
-	selectedModel := models[0] // default to first model
+	var selectedModel string
 
 	// Pre-fill from existing manifest if reconfiguring
 	if cfg.Reconfigure && cfg.Existing != nil {
@@ -442,28 +464,76 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}
 	}
 
-	if cfg.Interactive {
-		var options []huh.Option[string]
-		for _, model := range models {
-			options = append(options, huh.NewOption(model, model))
+	if knownAdapter && len(models) > 0 {
+		// Known adapter with model list
+		if selectedModel == "" {
+			selectedModel = models[0]
 		}
 
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Select default model").
-					Options(options...).
-					Value(&selectedModel),
-			).Title("Step 5 of 5 — Model Selection").
-				Description("Choose the default model for pipeline execution."),
-		).WithTheme(tui.WaveTheme())
-
-		if err := form.Run(); err != nil {
-			if err == huh.ErrUserAborted {
-				return nil, fmt.Errorf("wizard cancelled by user")
+		if cfg.Interactive {
+			var options []huh.Option[string]
+			for _, model := range models {
+				options = append(options, huh.NewOption(model, model))
 			}
-			return nil, err
+			options = append(options, huh.NewOption("Other (type manually)", "other"))
+
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Select default model").
+						Options(options...).
+						Value(&selectedModel),
+				).Title("Step 5 of 5 — Model Selection").
+					Description("Choose the default model for pipeline execution."),
+			).WithTheme(tui.WaveTheme())
+
+			if err := form.Run(); err != nil {
+				if err == huh.ErrUserAborted {
+					return nil, fmt.Errorf("wizard cancelled by user")
+				}
+				return nil, err
+			}
+
+			if selectedModel == "other" {
+				selectedModel = ""
+				inputForm := huh.NewForm(
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Enter model name").
+							Value(&selectedModel).
+							Placeholder("e.g. claude-3-opus-20240229"),
+					),
+				).WithTheme(tui.WaveTheme())
+
+				if err := inputForm.Run(); err != nil {
+					if err == huh.ErrUserAborted {
+						return nil, fmt.Errorf("wizard cancelled by user")
+					}
+					return nil, err
+				}
+			}
 		}
+	} else {
+		// Unknown adapter — prompt for free-text model name
+		if cfg.Interactive {
+			inputForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Enter model name (leave blank for adapter default)").
+						Value(&selectedModel).
+						Placeholder("e.g. gpt-4o"),
+				).Title("Step 5 of 5 — Model Selection").
+					Description("Enter the model name for your adapter."),
+			).WithTheme(tui.WaveTheme())
+
+			if err := inputForm.Run(); err != nil {
+				if err == huh.ErrUserAborted {
+					return nil, fmt.Errorf("wizard cancelled by user")
+				}
+				return nil, err
+			}
+		}
+		// Non-interactive unknown adapter: leave model empty (no override)
 	}
 
 	return &StepResult{
