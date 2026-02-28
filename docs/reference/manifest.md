@@ -187,6 +187,7 @@ personas:
 | `system_prompt_file` | yes | - | Path to system prompt |
 | `description` | no | `""` | Human-readable purpose |
 | `temperature` | no | adapter default | LLM temperature (0.0-1.0) |
+| `model` | no | adapter default | Model override (e.g. `opus`, `sonnet`, `haiku`) |
 | `permissions` | no | inherit adapter | Tool access control |
 | `hooks` | no | `{}` | Pre/post tool hooks |
 
