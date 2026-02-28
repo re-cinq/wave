@@ -306,3 +306,94 @@ func TestProgressBarAnimationRegression(t *testing.T) {
 		t.Error("Full progress bar should contain filled blocks")
 	}
 }
+
+// Task 4.3: Dashboard header shows total tokens
+func TestDashboard_RenderHeader_TotalTokens(t *testing.T) {
+	dashboard := NewDashboard()
+
+	ctx := &PipelineContext{
+		PipelineName:  "test-pipeline",
+		ManifestPath:  "wave.yaml",
+		ElapsedTimeMs: 5000,
+		TotalTokens:   75000,
+	}
+
+	header := dashboard.renderHeader(ctx)
+
+	if !strings.Contains(header, "75.0k tokens") {
+		t.Errorf("Header should contain '75.0k tokens' when TotalTokens is set, got:\n%s", header)
+	}
+}
+
+// Task 4.3: Dashboard header hides tokens when zero
+func TestDashboard_RenderHeader_NoTokensWhenZero(t *testing.T) {
+	dashboard := NewDashboard()
+
+	ctx := &PipelineContext{
+		PipelineName:  "test-pipeline",
+		ManifestPath:  "wave.yaml",
+		ElapsedTimeMs: 5000,
+		TotalTokens:   0,
+	}
+
+	header := dashboard.renderHeader(ctx)
+
+	if strings.Contains(header, "tokens") {
+		t.Errorf("Header should not contain 'tokens' when TotalTokens is 0, got:\n%s", header)
+	}
+}
+
+// Task 4.3: Dashboard step panel shows per-step tokens
+func TestDashboard_StepStatusPanel_PerStepTokens(t *testing.T) {
+	dashboard := NewDashboard()
+
+	ctx := &PipelineContext{
+		TotalSteps:     2,
+		CurrentStepNum: 2,
+		StepStatuses: map[string]ProgressState{
+			"step1": StateCompleted,
+			"step2": StateRunning,
+		},
+		StepOrder: []string{"step1", "step2"},
+		StepDurations: map[string]int64{
+			"step1": 30000,
+		},
+		StepTokens: map[string]int{
+			"step1": 42500,
+		},
+	}
+
+	panel := dashboard.renderStepStatusPanel(ctx)
+
+	if !strings.Contains(panel, "42.5k tokens") {
+		t.Errorf("Step panel should contain '42.5k tokens' for completed step, got:\n%s", panel)
+	}
+	if !strings.Contains(panel, "30.0s") {
+		t.Errorf("Step panel should contain duration '30.0s' for completed step, got:\n%s", panel)
+	}
+}
+
+// Task 4.3: Dashboard step panel hides tokens when zero
+func TestDashboard_StepStatusPanel_NoTokensWhenZero(t *testing.T) {
+	dashboard := NewDashboard()
+
+	ctx := &PipelineContext{
+		TotalSteps:     2,
+		CurrentStepNum: 2,
+		StepStatuses: map[string]ProgressState{
+			"step1": StateCompleted,
+			"step2": StateRunning,
+		},
+		StepOrder: []string{"step1", "step2"},
+		StepDurations: map[string]int64{
+			"step1": 30000,
+		},
+		// No StepTokens set
+	}
+
+	panel := dashboard.renderStepStatusPanel(ctx)
+
+	if strings.Contains(panel, "tokens") {
+		t.Errorf("Step panel should not contain 'tokens' when no token data is set, got:\n%s", panel)
+	}
+}

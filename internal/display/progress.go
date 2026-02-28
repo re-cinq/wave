@@ -483,6 +483,16 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		}
 	}
 
+	// Compute per-step tokens and total
+	stepTokens := make(map[string]int, len(pd.steps))
+	totalTokens := 0
+	for stepID, step := range pd.steps {
+		if step.TokensUsed > 0 {
+			stepTokens[stepID] = step.TokensUsed
+			totalTokens += step.TokensUsed
+		}
+	}
+
 	return &PipelineContext{
 		PipelineName:      pd.pipelineName,
 		PipelineID:        pd.pipelineID,
@@ -505,6 +515,8 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		CurrentStepName:   currentStepID,
 		PipelineStartTime: pd.startTime.UnixNano(),
 		CurrentStepStart:  pd.startTime.UnixNano(), // Simplified
+		StepTokens:        stepTokens,
+		TotalTokens:       totalTokens,
 	}
 }
 

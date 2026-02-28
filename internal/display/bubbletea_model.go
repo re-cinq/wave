@@ -119,7 +119,7 @@ func (m *ProgressModel) renderHeader() string {
 	projectLines := []string{
 		fmt.Sprintf("Pipeline: %s", pipelineLabel),
 		fmt.Sprintf("Config:   %s", m.ctx.ManifestPath),
-		fmt.Sprintf("Elapsed:  %s", formatElapsed(elapsed)),
+		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
 	}
 
 	// Create columns with proper spacing and bright colors
@@ -289,7 +289,16 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine += fmt.Sprintf(" (%s)", durationText)
+			// Append tokens alongside duration if available
+			if m.ctx.StepTokens != nil {
+				if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
+					stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
+				} else {
+					stepLine += fmt.Sprintf(" (%s)", durationText)
+				}
+			} else {
+				stepLine += fmt.Sprintf(" (%s)", durationText)
+			}
 			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine)
 			steps = append(steps, stepLine)
 
@@ -477,4 +486,13 @@ func formatElapsed(d time.Duration) string {
 	minutes := int(d.Minutes())
 	seconds := int(d.Seconds()) % 60
 	return fmt.Sprintf("%dm %ds", minutes, seconds)
+}
+
+// formatElapsedWithTokens formats elapsed time and optionally appends total token count.
+func (m *ProgressModel) formatElapsedWithTokens(d time.Duration) string {
+	elapsed := formatElapsed(d)
+	if m.ctx.TotalTokens > 0 {
+		return fmt.Sprintf("%s • %s tokens", elapsed, FormatTokenCount(m.ctx.TotalTokens))
+	}
+	return elapsed
 }

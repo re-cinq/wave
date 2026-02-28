@@ -1544,3 +1544,128 @@ func TestBaseProtocolWithInlinePrompt(t *testing.T) {
 		t.Error("base protocol should appear before inline persona content")
 	}
 }
+
+// Task 1.2: Token parsing with cache token fields
+func TestParseStreamLine_CacheTokenExclusion(t *testing.T) {
+	tests := []struct {
+		name      string
+		line      []byte
+		wantIn    int
+		wantOut   int
+	}{
+		{
+			name:    "result excludes cache_read_input_tokens",
+			line:    []byte(`{"type":"result","usage":{"input_tokens":5000,"output_tokens":2000,"cache_read_input_tokens":1500000,"cache_creation_input_tokens":50000}}`),
+			wantIn:  55000, // 5000 + 50000 (cache_read excluded)
+			wantOut: 2000,
+		},
+		{
+			name:    "result with cache_creation only",
+			line:    []byte(`{"type":"result","usage":{"input_tokens":3000,"output_tokens":1000,"cache_creation_input_tokens":20000}}`),
+			wantIn:  23000, // 3000 + 20000
+			wantOut: 1000,
+		},
+		{
+			name:    "result with cache_read only (excluded)",
+			line:    []byte(`{"type":"result","usage":{"input_tokens":3000,"output_tokens":1000,"cache_read_input_tokens":500000}}`),
+			wantIn:  3000, // cache_read excluded
+			wantOut: 1000,
+		},
+		{
+			name:    "result with no cache tokens",
+			line:    []byte(`{"type":"result","usage":{"input_tokens":1000,"output_tokens":500}}`),
+			wantIn:  1000,
+			wantOut: 500,
+		},
+		{
+			name:    "result with both cache fields zero",
+			line:    []byte(`{"type":"result","usage":{"input_tokens":2000,"output_tokens":800,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}`),
+			wantIn:  2000,
+			wantOut: 800,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evt, ok := parseStreamLine(tt.line)
+			if !ok {
+				t.Fatal("expected ok=true for result event")
+			}
+			if evt.Type != "result" {
+				t.Errorf("Type = %q, want %q", evt.Type, "result")
+			}
+			if evt.TokensIn != tt.wantIn {
+				t.Errorf("TokensIn = %d, want %d", evt.TokensIn, tt.wantIn)
+			}
+			if evt.TokensOut != tt.wantOut {
+				t.Errorf("TokensOut = %d, want %d", evt.TokensOut, tt.wantOut)
+			}
+		})
+	}
+}
+
+// Task 1.2: Verify parseStreamLine and parseOutput agree on cache token handling
+func TestParseOutputAndStreamLineConsistency(t *testing.T) {
+	// Same NDJSON payload parsed by both methods should produce the same total
+	data := []byte(`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":5000,"output_tokens":2000,"cache_read_input_tokens":1500000,"cache_creation_input_tokens":50000}}` + "\n")
+
+	adapter := NewClaudeAdapter()
+	parsed := adapter.parseOutput(data)
+
+	evt, ok := parseStreamLine(data[:len(data)-1]) // strip trailing newline for parseStreamLine
+	if !ok {
+		t.Fatal("parseStreamLine should return ok=true for result event")
+	}
+
+	streamTotal := evt.TokensIn + evt.TokensOut
+	if parsed.Tokens != streamTotal {
+		t.Errorf("parseOutput tokens (%d) != parseStreamLine total (%d); cache_read handling inconsistent",
+			parsed.Tokens, streamTotal)
+	}
+}
+
+// Task 1.3: Token fallback chain tests
+func TestParseOutputFallbackChain(t *testing.T) {
+	adapter := NewClaudeAdapter()
+
+	t.Run("prefers result tokens over assistant tokens", func(t *testing.T) {
+		data := []byte(
+			`{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":100,"output_tokens":50}}}` + "\n" +
+				`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":5000,"output_tokens":2000}}` + "\n",
+		)
+		parsed := adapter.parseOutput(data)
+		if parsed.Tokens != 7000 {
+			t.Errorf("Tokens = %d, want 7000 (result tokens preferred)", parsed.Tokens)
+		}
+	})
+
+	t.Run("falls back to assistant tokens when result is zero", func(t *testing.T) {
+		data := []byte(
+			`{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":100,"output_tokens":50}}}` + "\n" +
+				`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":0,"output_tokens":0}}` + "\n",
+		)
+		parsed := adapter.parseOutput(data)
+		if parsed.Tokens != 150 {
+			t.Errorf("Tokens = %d, want 150 (assistant fallback)", parsed.Tokens)
+		}
+	})
+
+	t.Run("falls back to byte estimate when both are zero", func(t *testing.T) {
+		// A result event with all-zero tokens and no assistant event
+		data := []byte(`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":0,"output_tokens":0}}` + "\n")
+		parsed := adapter.parseOutput(data)
+		expected := len(data) / 4
+		if parsed.Tokens != expected {
+			t.Errorf("Tokens = %d, want %d (byte estimate fallback)", parsed.Tokens, expected)
+		}
+	})
+
+	t.Run("falls back to byte estimate with no events", func(t *testing.T) {
+		data := []byte("some raw output with no JSON\n")
+		parsed := adapter.parseOutput(data)
+		expected := len(data) / 4
+		if parsed.Tokens != expected {
+			t.Errorf("Tokens = %d, want %d (byte estimate for non-JSON)", parsed.Tokens, expected)
+		}
+	})
+}
