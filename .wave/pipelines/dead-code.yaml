@@ -124,7 +124,7 @@ steps:
         max_retries: 3
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [clean]
     memory:
       inject_artifacts:
@@ -155,6 +155,10 @@ steps:
       - name: verification
         path: .wave/output/verification.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/verification.md
 
   - id: create-pr
     persona: craftsman

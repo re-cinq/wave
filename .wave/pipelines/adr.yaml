@@ -167,6 +167,10 @@ steps:
       - name: adr
         path: .wave/output/adr.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/adr.md
 
   - id: publish
     persona: craftsman
