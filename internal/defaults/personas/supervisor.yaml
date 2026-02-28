@@ -1,0 +1,13 @@
+description: "Work supervision and quality evaluation"
+temperature: 0.2
+permissions:
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - "Bash(go test *)"
+    - "Bash(git log*)"
+    - "Bash(git notes*)"
+  deny:
+    - "Write(*)"
+    - "Edit(*)"

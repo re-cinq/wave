@@ -1,0 +1,8 @@
+description: "Bitbucket issue analysis and scanning"
+temperature: 0.1
+permissions:
+  allowed_tools:
+    - Read
+    - Write
+    - "Bash(bb *)"
+  deny: []
