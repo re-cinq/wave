@@ -544,6 +544,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
 
+	// Pre-create .wave/output/ so personas without Bash can write artifacts
+	if len(step.OutputArtifacts) > 0 {
+		outputDir := filepath.Join(workspacePath, ".wave", "output")
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output dir: %w", err)
+		}
+	}
+
 	e.emit(event.Event{
 		Timestamp:     time.Now(),
 		PipelineID:    pipelineID,
