@@ -195,7 +195,7 @@ func TestDoCommand_MissingManifestError(t *testing.T) {
 
 	err = runDo("test task", opts)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "manifest file not found")
+	// Onboarding gate now fires before manifest read when no wave.yaml exists
 	assert.Contains(t, err.Error(), "wave init")
 }
 

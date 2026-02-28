@@ -2,9 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/recinq/wave/internal/onboarding"
 )
 
 // formatSize formats bytes into human-readable format (KB, MB, etc.)
@@ -87,4 +90,22 @@ func formatElapsed(d time.Duration) string {
 		return fmt.Sprintf("%dh%dm", hours, minutes)
 	}
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
+}
+
+
+// checkOnboarding verifies that onboarding has been completed.
+// It returns an error if onboarding is incomplete, directing the user to run 'wave init'.
+// Existing projects that have a wave.yaml but no .onboarded marker are grandfathered in.
+func checkOnboarding() error {
+	if onboarding.IsOnboarded(".wave") {
+		return nil
+	}
+
+	// Grandfather existing projects: if wave.yaml exists but no .onboarded marker,
+	// assume the project was set up before onboarding was introduced.
+	if _, err := os.Stat("wave.yaml"); err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("onboarding not complete\n\nRun 'wave init' to complete setup before running pipelines")
 }

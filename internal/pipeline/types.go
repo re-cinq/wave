@@ -33,6 +33,7 @@ type PipelineMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 	Release     bool   `yaml:"release,omitempty"`
+	Category    string `yaml:"category,omitempty"`
 	Disabled    bool   `yaml:"disabled,omitempty"`
 }
 
