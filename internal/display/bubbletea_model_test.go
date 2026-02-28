@@ -362,3 +362,147 @@ func TestProgressModel_View_HandoverMetadata_NoHandoverForLastStep(t *testing.T)
 		t.Errorf("View should NOT contain handover line for last step (no next step), got:\n%s", view)
 	}
 }
+
+// Task 4.1: Verify completed step lines include token count
+func TestProgressModel_View_CompletedStepShowsTokens(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    2,
+		OverallProgress:   50,
+		ManifestPath:      "wave.yaml",
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses: map[string]ProgressState{
+			"analyst":     StateCompleted,
+			"implementer": StateRunning,
+		},
+		StepOrder: []string{"analyst", "implementer"},
+		StepPersonas: map[string]string{
+			"analyst":     "analyst",
+			"implementer": "implementer",
+		},
+		StepDurations: map[string]int64{
+			"analyst": 45200,
+		},
+		StepStartTimes: map[string]int64{
+			"implementer": time.Now().UnixNano(),
+		},
+		StepTokens: map[string]int{
+			"analyst": 149100,
+		},
+		TotalTokens: 149100,
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	// Should contain formatted token count for completed step
+	if !strings.Contains(view, "149.1k tokens") {
+		t.Errorf("Completed step should show '149.1k tokens', got:\n%s", view)
+	}
+
+	// Should contain duration alongside tokens
+	if !strings.Contains(view, "45.2s") {
+		t.Errorf("Completed step should show duration '45.2s', got:\n%s", view)
+	}
+}
+
+// Task 4.1: Verify total tokens in header
+func TestProgressModel_View_HeaderShowsTotalTokens(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    2,
+		OverallProgress:   50,
+		ManifestPath:      "wave.yaml",
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses: map[string]ProgressState{
+			"step1": StateCompleted,
+			"step2": StateRunning,
+		},
+		StepOrder: []string{"step1", "step2"},
+		StepDurations: map[string]int64{
+			"step1": 30000,
+		},
+		StepStartTimes: map[string]int64{
+			"step2": time.Now().UnixNano(),
+		},
+		StepTokens: map[string]int{
+			"step1": 50000,
+		},
+		TotalTokens: 50000,
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	// Header should contain total tokens
+	if !strings.Contains(view, "50.0k tokens") {
+		t.Errorf("Header should show total tokens '50.0k tokens', got:\n%s", view)
+	}
+}
+
+// Task 4.2: Verify zero-token graceful degradation
+func TestProgressModel_View_ZeroTokensHidden(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    2,
+		OverallProgress:   50,
+		ManifestPath:      "wave.yaml",
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses: map[string]ProgressState{
+			"step1": StateCompleted,
+			"step2": StateRunning,
+		},
+		StepOrder: []string{"step1", "step2"},
+		StepDurations: map[string]int64{
+			"step1": 30000,
+		},
+		StepStartTimes: map[string]int64{
+			"step2": time.Now().UnixNano(),
+		},
+		// No StepTokens or TotalTokens set (zero values)
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	// Should NOT contain "tokens" anywhere when no tokens are set
+	if strings.Contains(view, "tokens") {
+		t.Errorf("View should not contain 'tokens' when no token data is set, got:\n%s", view)
+	}
+}
+
+// Task 4.2: Verify zero-token with explicit zero map
+func TestProgressModel_View_ExplicitZeroTokensHidden(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    2,
+		OverallProgress:   50,
+		ManifestPath:      "wave.yaml",
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses: map[string]ProgressState{
+			"step1": StateCompleted,
+			"step2": StateRunning,
+		},
+		StepOrder: []string{"step1", "step2"},
+		StepDurations: map[string]int64{
+			"step1": 30000,
+		},
+		StepStartTimes: map[string]int64{
+			"step2": time.Now().UnixNano(),
+		},
+		StepTokens:  map[string]int{"step1": 0},
+		TotalTokens: 0,
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	// Should NOT contain "tokens" when values are explicitly zero
+	if strings.Contains(view, "tokens") {
+		t.Errorf("View should not contain 'tokens' when token values are 0, got:\n%s", view)
+	}
+}

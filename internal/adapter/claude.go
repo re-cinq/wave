@@ -542,7 +542,7 @@ func parseStreamLine(line []byte) (StreamEvent, bool) {
 		}
 		return StreamEvent{
 			Type:      "result",
-			TokensIn:  usage.InputTokens + usage.CacheReadInputTokens + usage.CacheCreationInputTokens,
+			TokensIn:  usage.InputTokens + usage.CacheCreationInputTokens,
 			TokensOut: usage.OutputTokens,
 			Subtype:   subtype,
 		}, true
