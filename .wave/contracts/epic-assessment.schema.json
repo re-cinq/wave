@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Epic Issue Assessment",
+  "description": "Schema for epic/umbrella issue analysis results",
+  "type": "object",
+  "required": ["is_epic", "issue", "analysis"],
+  "properties": {
+    "is_epic": {
+      "type": "boolean",
+      "const": true,
+      "description": "Must be true for the pipeline to proceed. Set to false if the issue is not an epic or umbrella issue."
+    },
+    "issue": {
+      "type": "object",
+      "required": ["number", "title", "body", "repository", "url"],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "existing_issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "number": { "type": "integer" },
+              "title": { "type": "string" },
+              "labels": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "description": "Existing issues in the repo to avoid duplication"
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["scope_summary", "proposed_issues_count", "complexity"],
+      "properties": {
+        "scope_summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Brief summary of what the epic covers"
+        },
+        "proposed_issues_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "description": "Number of sub-issues to create"
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["small", "medium", "large", "epic"],
+          "description": "Overall complexity of the work"
+        },
+        "key_themes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Major themes or categories of work identified"
+        },
+        "risks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Identified risks or concerns"
+        }
+      }
+    }
+  }
+}
