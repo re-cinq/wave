@@ -11,19 +11,23 @@ import (
 
 	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 )
 
 type InitOptions struct {
-	Force      bool
-	Merge      bool
-	All        bool
-	Adapter    string
-	Workspace  string
-	OutputPath string
-	Yes        bool // Skip confirmation prompts
+	Force       bool
+	Merge       bool
+	All         bool
+	Adapter     string
+	Workspace   string
+	OutputPath  string
+	Yes         bool // Skip confirmation prompts
+	Reconfigure bool // Re-run wizard with existing values as defaults
 }
 
 func NewInitCmd() *cobra.Command {
@@ -52,6 +56,7 @@ preserving your custom settings.`,
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".wave/workspaces", "Workspace directory path")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", "wave.yaml", "Output path for wave.yaml")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
+	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Re-run onboarding wizard with current settings as defaults")
 
 	return cmd
 }
@@ -219,6 +224,17 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 }
 
 func runInit(cmd *cobra.Command, opts InitOptions) error {
+	// Handle --reconfigure: clear onboarding state and re-run wizard
+	if opts.Reconfigure {
+		return runReconfigure(cmd, opts)
+	}
+
+	// Determine if we should run the interactive wizard
+	interactive := !opts.Yes && isInitInteractive()
+	if interactive && !opts.Force && !opts.Merge {
+		return runWizardInit(cmd, opts)
+	}
+
 	// Get absolute path for clearer error messages
 	absOutputPath, err := filepath.Abs(opts.OutputPath)
 	if err != nil {
@@ -817,4 +833,204 @@ func createExamplePromptsIfMissing(prompts map[string]string) error {
 	}
 
 	return nil
+}
+
+// isInitInteractive returns true when stdin is a TTY and interactive prompts are possible.
+func isInitInteractive() bool {
+	if v := os.Getenv("WAVE_FORCE_TTY"); v != "" {
+		return v == "1" || v == "true"
+	}
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// runWizardInit runs the interactive onboarding wizard for first-time setup.
+func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
+	// Print Wave logo
+	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
+
+	// Check if wave.yaml already exists
+	var existing *manifest.Manifest
+	if data, err := os.ReadFile(opts.OutputPath); err == nil {
+		var m manifest.Manifest
+		if err := yaml.Unmarshal(data, &m); err == nil {
+			existing = &m
+		}
+	}
+
+	// If file exists and not forcing, prompt for confirmation
+	if existing != nil && !opts.Force {
+		confirmed, err := confirmOverwrite(cmd, opts.OutputPath)
+		if err != nil {
+			return fmt.Errorf("failed to read confirmation: %w", err)
+		}
+		if !confirmed {
+			return fmt.Errorf("aborted: %s already exists (use --force to overwrite or --merge to merge)", opts.OutputPath)
+		}
+	}
+
+	// Create .wave directory structure
+	waveDirs := []string{
+		".wave/personas",
+		".wave/pipelines",
+		".wave/contracts",
+		".wave/prompts",
+		".wave/traces",
+		".wave/workspaces",
+	}
+	for _, dir := range waveDirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			absDir, _ := filepath.Abs(dir)
+			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
+		}
+	}
+
+	// Copy default assets before running wizard (so pipeline selection can discover them)
+	assets, err := getFilteredAssets(cmd, opts)
+	if err != nil {
+		return err
+	}
+
+	if err := createExamplePersonas(assets.personas); err != nil {
+		return fmt.Errorf("failed to create example personas: %w", err)
+	}
+	if err := createExamplePipelines(assets.pipelines); err != nil {
+		return fmt.Errorf("failed to create example pipelines: %w", err)
+	}
+	if err := createExampleContracts(assets.contracts); err != nil {
+		return fmt.Errorf("failed to create example contracts: %w", err)
+	}
+	if err := createExamplePrompts(assets.prompts); err != nil {
+		return fmt.Errorf("failed to create example prompts: %w", err)
+	}
+
+	cfg := onboarding.WizardConfig{
+		WaveDir:     ".wave",
+		Interactive: true,
+		Reconfigure: false,
+		Existing:    existing,
+		All:         opts.All,
+		Adapter:     opts.Adapter,
+		Workspace:   opts.Workspace,
+		OutputPath:  opts.OutputPath,
+		PersonaConfigs: assets.personaConfigs,
+	}
+
+	result, err := onboarding.RunWizard(cfg)
+	if err != nil {
+		return fmt.Errorf("onboarding wizard failed: %w", err)
+	}
+
+	// Remove deselected pipelines
+	if len(result.Pipelines) > 0 {
+		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
+		}
+	}
+
+	printWizardSuccess(cmd, opts.OutputPath, result)
+	return nil
+}
+
+// runReconfigure re-runs the wizard with existing values as defaults.
+func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
+	// Read existing manifest
+	data, err := os.ReadFile(opts.OutputPath)
+	if err != nil {
+		return fmt.Errorf("cannot reconfigure: %s not found\nRun 'wave init' first", opts.OutputPath)
+	}
+
+	var existing manifest.Manifest
+	if err := yaml.Unmarshal(data, &existing); err != nil {
+		return fmt.Errorf("failed to parse existing manifest: %w", err)
+	}
+
+	// Clear onboarding state so the wizard runs fresh
+	onboarding.ClearOnboarding(".wave")
+
+	interactive := !opts.Yes && isInitInteractive()
+
+	// Print Wave logo
+	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
+
+	// Extract persona configs from existing manifest for buildManifest
+	personaConfigs := make(map[string]manifest.Persona)
+	for name, p := range existing.Personas {
+		personaConfigs[name] = p
+	}
+
+	cfg := onboarding.WizardConfig{
+		WaveDir:     ".wave",
+		Interactive: interactive,
+		Reconfigure: true,
+		Existing:    &existing,
+		All:         opts.All,
+		Adapter:     opts.Adapter,
+		Workspace:   opts.Workspace,
+		OutputPath:  opts.OutputPath,
+		PersonaConfigs: personaConfigs,
+	}
+
+	result, err := onboarding.RunWizard(cfg)
+	if err != nil {
+		return fmt.Errorf("reconfiguration failed: %w", err)
+	}
+	// Remove deselected pipelines
+	if len(result.Pipelines) > 0 {
+		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
+		}
+	}
+
+	printWizardSuccess(cmd, opts.OutputPath, result)
+	return nil
+}
+
+// removeDeselectedPipelines deletes pipeline YAML files that are not in the selected list.
+func removeDeselectedPipelines(pipelinesDir string, selected []string) error {
+	keep := make(map[string]bool)
+	for _, name := range selected {
+		keep[name] = true
+	}
+	entries, err := os.ReadDir(pipelinesDir)
+	if err != nil {
+		return nil // no dir = nothing to remove
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ".yaml")
+		if name == e.Name() {
+			continue // not a .yaml file
+		}
+		if !keep[name] {
+			os.Remove(filepath.Join(pipelinesDir, e.Name()))
+		}
+	}
+	return nil
+}
+
+// printWizardSuccess shows a success message after wizard completion.
+func printWizardSuccess(cmd *cobra.Command, outputPath string, result *onboarding.WizardResult) {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Onboarding complete!\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Configuration:\n")
+	fmt.Fprintf(out, "    %-20s %s\n", "Manifest:", outputPath)
+	fmt.Fprintf(out, "    %-20s %s\n", "Adapter:", result.Adapter)
+	if result.Model != "" {
+		fmt.Fprintf(out, "    %-20s %s\n", "Model:", result.Model)
+	}
+	if result.Language != "" {
+		fmt.Fprintf(out, "    %-20s %s\n", "Language:", result.Language)
+	}
+	if len(result.Pipelines) > 0 {
+		fmt.Fprintf(out, "    %-20s %d selected\n", "Pipelines:", len(result.Pipelines))
+	}
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  Next steps:\n")
+	fmt.Fprintf(out, "    1. Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "    2. Run 'wave run' to select and execute a pipeline\n")
+	fmt.Fprintf(out, "\n")
 }

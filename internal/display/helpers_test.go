@@ -11,12 +11,18 @@ func TestFormatTokenCount(t *testing.T) {
 		want   string
 	}{
 		{"zero", 0, "0"},
-		{"small", 500, "500"},
+		{"small", 842, "842"},
 		{"just under 1k", 999, "999"},
 		{"exactly 1k", 1000, "1.0k"},
 		{"over 1k", 1500, "1.5k"},
 		{"large", 10000, "10.0k"},
 		{"very large", 100000, "100.0k"},
+		{"just_under_1M", 999999, "1000.0k"},
+		{"exactly_1M", 1000000, "1.0M"},
+		{"1.5M", 1500000, "1.5M"},
+		{"just_under_1B", 999999999, "1000.0M"},
+		{"exactly_1B", 1000000000, "1.0B"},
+		{"2.3B", 2300000000, "2.3B"},
 	}
 
 	for _, tt := range tests {

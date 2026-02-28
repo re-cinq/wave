@@ -47,13 +47,32 @@ brew install opencode
 opencode --version
 ```
 
-To use OpenCode as your default adapter, configure it in your `wave.yaml`:
+### Ollama (Local Models)
+
+Run models locally with no API key required.
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model
+ollama pull llama3.1
+
+# Verify installation
+ollama --version
+```
+
+### Using a Non-Default Adapter
+
+The onboarding wizard (`wave init`) lets you select your adapter interactively. You can also type a custom adapter binary name if yours isn't listed.
+
+The selected model is set at the **persona level** in `wave.yaml`:
 
 ```yaml
-adapters:
-  default: opencode
-  opencode:
-    model: gpt-4-turbo
+personas:
+  navigator:
+    adapter: claude
+    model: opus
 ```
 
 See [Adapters Reference](/reference/adapters) for complete configuration options.

@@ -501,7 +501,13 @@ func FormatTokenCount(tokens int) string {
 	if tokens < 1000 {
 		return fmt.Sprintf("%d", tokens)
 	}
-	return fmt.Sprintf("%.1fk", float64(tokens)/1000.0)
+	if tokens < 1_000_000 {
+		return fmt.Sprintf("%.1fk", float64(tokens)/1_000.0)
+	}
+	if tokens < 1_000_000_000 {
+		return fmt.Sprintf("%.1fM", float64(tokens)/1_000_000.0)
+	}
+	return fmt.Sprintf("%.1fB", float64(tokens)/1_000_000_000.0)
 }
 
 // FormatFileCount formats a file count to human-readable form.

@@ -14,7 +14,7 @@
         {{end}}
         <div class="step-meta">
             {{if .Duration}}<span>Duration: {{.Duration}}</span>{{end}}
-            {{if gt .TokensUsed 0}}<span>Tokens: {{.TokensUsed}}</span>{{end}}
+            {{if or (eq .State "completed") (eq .State "failed") (eq .State "running")}}<span class="token-count">Tokens: {{formatTokens .TokensUsed}}</span>{{end}}
         </div>
         {{if .Error}}<div class="step-error">{{.Error}}</div>{{end}}
         {{if .Artifacts}}
