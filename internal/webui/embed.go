@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"net/http"
 	"time"
+
+	"github.com/recinq/wave/internal/display"
 )
 
 //go:embed static/*
@@ -36,6 +38,7 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"statusClass":    statusClass,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"formatTokens":   formatTokensFunc,
 	}
 
 	// Parse layout into the base template.
@@ -147,5 +150,18 @@ func formatTime(t interface{}) string {
 		return v.Format("2006-01-02 15:04:05")
 	default:
 		return "-"
+	}
+}
+
+// formatTokensFunc formats a token count for display in templates.
+// Accepts int or int64 values and delegates to display.FormatTokenCount.
+func formatTokensFunc(v interface{}) string {
+	switch n := v.(type) {
+	case int:
+		return display.FormatTokenCount(n)
+	case int64:
+		return display.FormatTokenCount(int(n))
+	default:
+		return "0"
 	}
 }
