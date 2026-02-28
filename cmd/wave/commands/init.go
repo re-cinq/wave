@@ -912,11 +912,19 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 		Adapter:     opts.Adapter,
 		Workspace:   opts.Workspace,
 		OutputPath:  opts.OutputPath,
+		PersonaConfigs: assets.personaConfigs,
 	}
 
 	result, err := onboarding.RunWizard(cfg)
 	if err != nil {
 		return fmt.Errorf("onboarding wizard failed: %w", err)
+	}
+
+	// Remove deselected pipelines
+	if len(result.Pipelines) > 0 {
+		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
+		}
 	}
 
 	printWizardSuccess(cmd, opts.OutputPath, result)
@@ -944,6 +952,12 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	// Print Wave logo
 	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
 
+	// Extract persona configs from existing manifest for buildManifest
+	personaConfigs := make(map[string]manifest.Persona)
+	for name, p := range existing.Personas {
+		personaConfigs[name] = p
+	}
+
 	cfg := onboarding.WizardConfig{
 		WaveDir:     ".wave",
 		Interactive: interactive,
@@ -953,14 +967,46 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 		Adapter:     opts.Adapter,
 		Workspace:   opts.Workspace,
 		OutputPath:  opts.OutputPath,
+		PersonaConfigs: personaConfigs,
 	}
 
 	result, err := onboarding.RunWizard(cfg)
 	if err != nil {
 		return fmt.Errorf("reconfiguration failed: %w", err)
 	}
+	// Remove deselected pipelines
+	if len(result.Pipelines) > 0 {
+		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
+		}
+	}
 
 	printWizardSuccess(cmd, opts.OutputPath, result)
+	return nil
+}
+
+// removeDeselectedPipelines deletes pipeline YAML files that are not in the selected list.
+func removeDeselectedPipelines(pipelinesDir string, selected []string) error {
+	keep := make(map[string]bool)
+	for _, name := range selected {
+		keep[name] = true
+	}
+	entries, err := os.ReadDir(pipelinesDir)
+	if err != nil {
+		return nil // no dir = nothing to remove
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ".yaml")
+		if name == e.Name() {
+			continue // not a .yaml file
+		}
+		if !keep[name] {
+			os.Remove(filepath.Join(pipelinesDir, e.Name()))
+		}
+	}
 	return nil
 }
 
