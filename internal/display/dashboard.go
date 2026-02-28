@@ -98,7 +98,7 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 	}
 	projectInfo := []string{
 		pipelineLabel,
-		fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath),
+		d.formatElapsedInfo(elapsed, ctx),
 		" Press: q=quit",
 	}
 
@@ -114,6 +114,15 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 	}
 
 	return sb.String()
+}
+
+// formatElapsedInfo formats the elapsed time info line, optionally including total tokens.
+func (d *Dashboard) formatElapsedInfo(elapsed float64, ctx *PipelineContext) string {
+	info := fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath)
+	if ctx.TotalTokens > 0 {
+		info += fmt.Sprintf(" • %s tokens", FormatTokenCount(ctx.TotalTokens))
+	}
+	return info
 }
 
 // renderProgressPanel displays compact pipeline progress.
@@ -190,10 +199,26 @@ func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			// Show duration for completed and failed steps
-			if (state == StateCompleted || state == StateFailed) && ctx.StepDurations != nil {
-				if durationMs, exists := ctx.StepDurations[stepID]; exists {
-					stepLine += fmt.Sprintf(" (%.1fs)", float64(durationMs)/1000.0)
+			// Show duration and tokens for completed and failed steps
+			if state == StateCompleted || state == StateFailed {
+				durationText := ""
+				if ctx.StepDurations != nil {
+					if durationMs, exists := ctx.StepDurations[stepID]; exists {
+						durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
+					}
+				}
+				tokenText := ""
+				if ctx.StepTokens != nil {
+					if tokens, exists := ctx.StepTokens[stepID]; exists && tokens > 0 {
+						tokenText = fmt.Sprintf("%s tokens", FormatTokenCount(tokens))
+					}
+				}
+				if durationText != "" && tokenText != "" {
+					stepLine += fmt.Sprintf(" (%s, %s)", durationText, tokenText)
+				} else if durationText != "" {
+					stepLine += fmt.Sprintf(" (%s)", durationText)
+				} else if tokenText != "" {
+					stepLine += fmt.Sprintf(" (%s)", tokenText)
 				}
 			}
 			sb.WriteString(stepLine)
