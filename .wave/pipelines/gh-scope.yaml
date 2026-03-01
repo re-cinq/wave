@@ -4,6 +4,10 @@ metadata:
   description: "Decompose a GitHub epic into well-scoped child issues"
   release: true
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   example: "re-cinq/wave 184"

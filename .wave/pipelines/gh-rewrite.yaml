@@ -4,6 +4,10 @@ metadata:
   description: "Analyze and rewrite poorly documented GitHub issues"
   release: true
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   example: "re-cinq/wave 42 or https://github.com/re-cinq/wave/issues/42"
