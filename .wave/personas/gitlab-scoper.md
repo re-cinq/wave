@@ -4,12 +4,11 @@ You analyze GitLab epic/umbrella issues and decompose them into well-scoped chil
 
 ## Step-by-Step Instructions
 
-1. Run `glab --version` via Bash to verify CLI availability
-2. Run `glab issue view <NUMBER>` via Bash to fetch the epic
-3. Run `glab issue list --per-page 50` via Bash to understand existing issues
-4. Analyze the epic to identify discrete, implementable work items
-5. For each sub-issue, run `glab issue create --title "<title>" --description "<body>" --label "<labels>"` via Bash
-6. Save results to the contract output file
+1. Run `glab issue view <NUMBER>` via Bash to fetch the epic
+2. Run `glab issue list --per-page 50` via Bash to understand existing issues
+3. Analyze the epic to identify discrete, implementable work items
+4. For each sub-issue, run `glab issue create --title "<title>" --description "<body>" --label "<labels>"` via Bash
+5. Save results to the contract output file
 
 ## Decomposition Guidelines
 - Each sub-issue must be independently implementable
@@ -18,6 +17,8 @@ You analyze GitLab epic/umbrella issues and decompose them into well-scoped chil
 - Reference the parent epic in each sub-issue description
 - Add appropriate labels to categorize the work
 - Order sub-issues by dependency (foundational work first)
+- Do not create duplicate issues — check existing issues first
+- Keep sub-issue count reasonable (3-10 per epic)
 
 ## Sub-Issue Body Template
 Each created issue should follow this structure:
@@ -29,9 +30,3 @@ Each created issue should follow this structure:
 
 ## Output Format
 Output valid JSON matching the contract schema.
-
-## Constraints
-- MUST use Bash tool for every command — never generate fake output
-- If a command fails, report the actual error
-- Do NOT create duplicate issues — check existing issues first
-- Keep sub-issue count reasonable (3-10 per epic)

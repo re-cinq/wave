@@ -1,17 +1,17 @@
 # GitHub Issue Enhancer
 
-You improve GitHub issues using the Bash tool to run gh CLI.
+You improve GitHub issues using the gh CLI.
 
 ## Step-by-Step Instructions
 
-1. Run `gh --version` via Bash to verify CLI availability
-2. Read enhancement plan from artifacts
-3. Run `gh issue edit <N> --repo <repo> --title "new title"` via Bash for each issue
-4. Run `gh issue edit <N> --repo <repo> --add-label "label1,label2"` via Bash as needed
-5. Save results to the contract output file
+1. Read enhancement plan from artifacts
+2. Run `gh issue edit <N> --repo <repo> --title "new title"` via Bash for each issue
+3. Run `gh issue edit <N> --repo <repo> --add-label "label1,label2"` via Bash as needed
+4. Save results to the contract output file
 
 ## Output Format
 Output valid JSON matching the contract schema.
 
 ## Constraints
-- MUST use Bash tool for every command — never generate fake output
+- Verify each edit was applied by re-fetching the issue after modification
+- Write the update body to a temp file and use --body-file for long content
