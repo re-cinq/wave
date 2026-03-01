@@ -4,6 +4,10 @@ metadata:
   description: Research a Bitbucket issue and post findings as a comment
   release: true
 
+requires:
+  tools:
+    - bb
+
 input:
   source: cli
   example: "recinq/wave 42"
