@@ -4,6 +4,11 @@ metadata:
   description: "Decompose a Bitbucket epic into well-scoped child issues"
   release: true
 
+requires:
+  tools:
+    - curl
+    - jq
+
 input:
   source: cli
   example: "re-cinq/wave 42"
@@ -20,23 +25,28 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "bb CLI not installed" without trying.
-
         Input: {{ input }}
 
-        Parse the input: extract the repo (first token) and the epic issue number (second token).
+        Parse the input: extract the REPO (first token) and the epic issue NUMBER (second token).
 
-        Execute these commands using the Bash tool:
+        Execute these steps:
 
-        1. bb --version
+        1. Fetch the epic issue with full details via the Bitbucket REST API:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER" \
+             | jq '{id, title, content: .content.raw, state, kind, url: .links.html.href}'
 
-        2. Fetch the epic issue with full details:
-           bb issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments
+           Also fetch comments:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER/comments" \
+             | jq '[.values[] | {id, content: .content.raw, user: .user.display_name}]'
 
-        3. List existing open issues to check for duplicates:
-           bb issue list --repo <REPO> --limit 50 --json number,title,labels,url
+        2. List existing open issues to check for duplicates:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues?pagelen=50" \
+             | jq '[.values[] | {id, title, kind, url: .links.html.href}]'
 
-        After getting REAL results from Bash, analyze the epic:
+        Analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
         - Identify the key themes and work areas
         - Estimate overall complexity
@@ -72,18 +82,23 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
-
         The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
 
         Input: {{ input }}
         Parse the repo from the input (first token).
 
-        Step 1: Verify bb works:
-        bb --version
+        For each planned sub-issue, create it via the Bitbucket REST API:
 
-        Step 2: For each planned sub-issue, create it using:
-        bb issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"
+        1. Write the payload to a temp file:
+           cat > /tmp/bb-payload.json << 'EOF'
+           {"title":"sub-issue title","content":{"raw":"sub-issue body","markup":"markdown"},"kind":"task"}
+           EOF
+
+        2. Create the issue:
+           curl -s -X POST -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+             -d @/tmp/bb-payload.json \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues" \
+             | jq '{id, url: .links.html.href}'
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line
@@ -92,9 +107,9 @@ steps:
         - Dependencies on other sub-issues if applicable
         - Scope Notes for what is explicitly excluded
 
-        Step 3: After creating all issues, capture each issue's number and URL from the creation output.
+        After creating all issues, capture each issue's id and URL from the creation output.
 
-        Step 4: Record the results with fields: parent_issue (number, url, repository),
+        Record the results with fields: parent_issue (number, url, repository),
         created_issues (array of number, title, url, labels, success, complexity, dependencies),
         total_created, total_failed.
     output_artifacts:
@@ -141,16 +156,20 @@ steps:
         Parse the repo (first token) and epic number (second token).
 
         Step 1: For each created issue in the results, verify it exists:
-        bb issue view <N> --repo <REPO> --json number,title,body,labels
+        curl -s -H "Authorization: Bearer $BB_TOKEN" \
+          "https://api.bitbucket.org/2.0/repositories/REPO/issues/N" \
+          | jq '{id, title, content: .content.raw, kind}'
 
         Check that each issue:
-        - Exists and is open
+        - Exists and is in "new" or "open" state
         - Has acceptance criteria in the body
         - References the parent epic
 
-        Step 2: Post a summary comment on the epic issue listing all created sub-issues:
-        Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>)
-        and post it using: bb issue comment <EPIC_NUMBER> --repo <REPO> --body "<summary>"
+        Step 2: This step is READ-ONLY. Do NOT post comments — the bitbucket-analyst
+        persona does not have write permissions. Instead, include a pre-rendered markdown
+        summary in the output JSON that a commenter persona could post later.
+
+        Create a markdown summary with a checklist of all sub-issues (- [ ] #<id> <title>).
 
         Step 3: Compile the verification report with fields:
         parent_issue (number, url), verified_issues (array of number, title, url, exists,
