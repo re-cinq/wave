@@ -3,6 +3,10 @@ metadata:
   name: gh-implement
   description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   schema:
