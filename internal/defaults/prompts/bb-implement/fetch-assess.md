@@ -6,8 +6,9 @@ The input format is `workspace/repo number` (e.g. `recinq/wave 42`).
 
 ## Working Directory
 
-You are running in an isolated Wave workspace. The `bb` CLI works from any
-directory when using the `--repo` flag, so no directory change is needed.
+You are running in an isolated Wave workspace. All Bitbucket API calls use
+`$BB_TOKEN` for authentication and the full repository path in the URL,
+so no directory change is needed.
 
 ## Instructions
 
@@ -17,10 +18,19 @@ Extract the repository (`workspace/repo`) and issue number from the input string
 
 ### Step 2: Fetch Issue
 
-Use the `bb` CLI to fetch the issue with full details:
+Use the Bitbucket REST API to fetch the issue with full details:
 
 ```bash
-bb issue view <NUMBER> --repo <WORKSPACE/REPO> --json number,title,body,url,labels,state,author,comments
+curl -s -H "Authorization: Bearer $BB_TOKEN" \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER" \
+  | jq '{id, title, content: .content.raw, state, kind, reporter: .reporter.display_name, created_on, url: .links.html.href}'
+```
+
+Also fetch comments:
+```bash
+curl -s -H "Authorization: Bearer $BB_TOKEN" \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER/comments" \
+  | jq '[.values[] | {id, content: .content.raw, user: .user.display_name, created_on}]'
 ```
 
 ### Step 3: Assess Implementability
