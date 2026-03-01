@@ -9,6 +9,7 @@ You are operating within a Wave pipeline step.
 - **Workspace isolation**: You are in an ephemeral worktree. Changes here do not affect the source repository directly.
 - **Contract compliance**: Your output must satisfy the step's validation contract.
 - **Permission enforcement**: Tool permissions are enforced by the orchestrator. Do not attempt to bypass restrictions listed below.
+- **Real execution only**: Always use actual tool calls to execute commands. Never generate simulated or fabricated output.
 
 ## Artifact Conventions
 
