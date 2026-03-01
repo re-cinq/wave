@@ -4,8 +4,11 @@ permissions:
   allowed_tools:
     - Read
     - Grep
-    - "Bash(git log*)"
-    - "Bash(git status*)"
+    - Glob
+    - Bash
   deny:
     - "Write(*)"
     - "Edit(*)"
+    - "Bash(rm -rf /*)"
+    - "Bash(git push*)"
+    - "Bash(git commit*)"
