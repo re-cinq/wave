@@ -150,7 +150,6 @@ personas:
                 - Bash(gh issue close*)
                 - Bash(glab *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-analyst.md
     github-enhancer:
@@ -171,7 +170,6 @@ personas:
                 - Bash(gh issue close*)
                 - Bash(glab *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-enhancer.md
     github-scoper:
@@ -192,7 +190,6 @@ personas:
                 - Bash(gh issue close*)
                 - Bash(glab *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/github-scoper.md
     implementer:
@@ -298,7 +295,6 @@ personas:
                 - Bash(glab issue close*)
                 - Bash(gh *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitlab-analyst.md
     gitlab-enhancer:
@@ -319,7 +315,6 @@ personas:
                 - Bash(glab issue close*)
                 - Bash(gh *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitlab-enhancer.md
     gitlab-scoper:
@@ -340,7 +335,6 @@ personas:
                 - Bash(glab issue close*)
                 - Bash(gh *)
                 - Bash(tea *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitlab-scoper.md
     gitlab-commenter:
@@ -390,7 +384,6 @@ personas:
                 - Bash(tea issues close*)
                 - Bash(gh *)
                 - Bash(glab *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitea-analyst.md
     gitea-enhancer:
@@ -411,7 +404,6 @@ personas:
                 - Bash(tea issue close*)
                 - Bash(gh *)
                 - Bash(glab *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitea-enhancer.md
     gitea-scoper:
@@ -432,7 +424,6 @@ personas:
                 - Bash(tea issues close*)
                 - Bash(gh *)
                 - Bash(glab *)
-                - Bash(bb *)
                 - Edit(*)
         system_prompt_file: .wave/personas/gitea-scoper.md
     gitea-commenter:
@@ -468,17 +459,17 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(bb issue view*)
-                - Bash(bb issue list*)
-                - Bash(bb --version)
+                - Bash(curl -s*)
+                - Bash(jq *)
                 - Bash(git log*)
                 - Bash(git status*)
                 - Bash(ls *)
                 - Write(.wave/artifact.json)
             deny:
-                - Bash(bb issue edit*)
-                - Bash(bb issue create*)
-                - Bash(bb issue close*)
+                - Bash(curl *-X PUT*)
+                - Bash(curl *-X POST*)
+                - Bash(curl *-X DELETE*)
+                - Bash(curl *-X PATCH*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)
@@ -492,14 +483,13 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(bb issue edit*)
-                - Bash(bb issue view*)
-                - Bash(bb --version)
+                - Bash(curl *)
+                - Bash(jq *)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
             deny:
-                - Bash(bb issue create*)
-                - Bash(bb issue close*)
+                - Bash(curl *-X POST*)
+                - Bash(curl *-X DELETE*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)
@@ -513,14 +503,12 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(bb issue create*)
-                - Bash(bb issue view*)
-                - Bash(bb issue list*)
-                - Bash(bb --version)
+                - Bash(curl *)
+                - Bash(jq *)
                 - Write(.wave/artifact.json)
+                - Write(/tmp/*)
             deny:
-                - Bash(bb issue edit*)
-                - Bash(bb issue close*)
+                - Bash(curl *-X DELETE*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)
@@ -536,20 +524,13 @@ personas:
                 - Read
                 - Write(.wave/artifact.json)
                 - Write(.wave/output/*)
-                - Bash(bb issue comment*)
-                - Bash(bb pr comment*)
-                - Bash(bb pr review*)
-                - Bash(bb pr create*)
-                - Bash(bb pr edit*)
-                - Bash(bb pr view*)
-                - Bash(bb --version)
+                - Write(/tmp/*)
+                - Bash(curl *)
+                - Bash(jq *)
                 - Bash(git push*)
                 - Bash(git status*)
             deny:
-                - Bash(bb issue edit*)
-                - Bash(bb issue close*)
-                - Bash(bb pr merge*)
-                - Bash(bb pr close*)
+                - Bash(curl *-X DELETE*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)

@@ -3,6 +3,10 @@ metadata:
   name: gl-implement
   description: "Implement a GitLab issue end-to-end: fetch, assess, plan, implement, create MR"
 
+requires:
+  tools:
+    - glab
+
 input:
   source: cli
   schema:
