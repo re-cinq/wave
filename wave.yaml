@@ -137,8 +137,21 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash
-                - Write
+                - Bash(gh issue view*)
+                - Bash(gh issue list*)
+                - Bash(gh --version)
+                - Bash(git log*)
+                - Bash(git status*)
+                - Bash(ls *)
+                - Write(.wave/artifact.json)
+            deny:
+                - Bash(gh issue edit*)
+                - Bash(gh issue create*)
+                - Bash(gh issue close*)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/github-analyst.md
     github-enhancer:
         adapter: claude
@@ -148,11 +161,40 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write
-                - Bash
+                - Bash(gh issue edit*)
+                - Bash(gh issue view*)
+                - Bash(gh --version)
+                - Write(.wave/artifact.json)
+                - Write(/tmp/*)
             deny:
-                - Bash(rm *)
+                - Bash(gh issue create*)
+                - Bash(gh issue close*)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/github-enhancer.md
+    github-scoper:
+        adapter: claude
+        description: GitHub epic decomposition into child issues
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(gh issue create*)
+                - Bash(gh issue view*)
+                - Bash(gh issue list*)
+                - Bash(gh --version)
+                - Write(.wave/artifact.json)
+            deny:
+                - Bash(gh issue edit*)
+                - Bash(gh issue close*)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/github-scoper.md
     implementer:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
@@ -243,11 +285,21 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(glab *)
-                - Write
+                - Bash(glab issue view*)
+                - Bash(glab issue list*)
+                - Bash(glab --version)
+                - Bash(git log*)
+                - Bash(git status*)
+                - Bash(ls *)
+                - Write(.wave/artifact.json)
             deny:
+                - Bash(glab issue edit*)
+                - Bash(glab issue create*)
+                - Bash(glab issue close*)
                 - Bash(gh *)
                 - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/gitlab-analyst.md
     gitlab-enhancer:
         adapter: claude
@@ -257,13 +309,40 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write
-                - Bash(glab *)
+                - Bash(glab issue edit*)
+                - Bash(glab issue view*)
+                - Bash(glab --version)
+                - Write(.wave/artifact.json)
+                - Write(/tmp/*)
             deny:
-                - Bash(rm *)
+                - Bash(glab issue create*)
+                - Bash(glab issue close*)
                 - Bash(gh *)
                 - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/gitlab-enhancer.md
+    gitlab-scoper:
+        adapter: claude
+        description: GitLab epic decomposition into child issues
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(glab issue create*)
+                - Bash(glab issue view*)
+                - Bash(glab issue list*)
+                - Bash(glab --version)
+                - Write(.wave/artifact.json)
+            deny:
+                - Bash(glab issue edit*)
+                - Bash(glab issue close*)
+                - Bash(gh *)
+                - Bash(tea *)
+                - Bash(bb *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/gitlab-scoper.md
     gitlab-commenter:
         adapter: claude
         description: Post comments on GitLab issues and merge requests
@@ -298,11 +377,21 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(tea *)
-                - Write
+                - Bash(tea issues view*)
+                - Bash(tea issues list*)
+                - Bash(tea --version)
+                - Bash(git log*)
+                - Bash(git status*)
+                - Bash(ls *)
+                - Write(.wave/artifact.json)
             deny:
+                - Bash(tea issues edit*)
+                - Bash(tea issues create*)
+                - Bash(tea issues close*)
                 - Bash(gh *)
                 - Bash(glab *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/gitea-analyst.md
     gitea-enhancer:
         adapter: claude
@@ -312,13 +401,40 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write
-                - Bash(tea *)
+                - Bash(tea issue edit*)
+                - Bash(tea issue view*)
+                - Bash(tea --version)
+                - Write(.wave/artifact.json)
+                - Write(/tmp/*)
             deny:
-                - Bash(rm *)
+                - Bash(tea issue create*)
+                - Bash(tea issue close*)
                 - Bash(gh *)
                 - Bash(glab *)
+                - Bash(bb *)
+                - Edit(*)
         system_prompt_file: .wave/personas/gitea-enhancer.md
+    gitea-scoper:
+        adapter: claude
+        description: Gitea epic decomposition into child issues
+        model: opus
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(tea issues create*)
+                - Bash(tea issues view*)
+                - Bash(tea issues list*)
+                - Bash(tea --version)
+                - Write(.wave/artifact.json)
+            deny:
+                - Bash(tea issues edit*)
+                - Bash(tea issues close*)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(bb *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/gitea-scoper.md
     gitea-commenter:
         adapter: claude
         description: Post comments on Gitea issues and pull requests
@@ -352,12 +468,21 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(bb *)
-                - Write
+                - Bash(bb issue view*)
+                - Bash(bb issue list*)
+                - Bash(bb --version)
+                - Bash(git log*)
+                - Bash(git status*)
+                - Bash(ls *)
+                - Write(.wave/artifact.json)
             deny:
+                - Bash(bb issue edit*)
+                - Bash(bb issue create*)
+                - Bash(bb issue close*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)
+                - Edit(*)
         system_prompt_file: .wave/personas/bitbucket-analyst.md
     bitbucket-enhancer:
         adapter: claude
@@ -367,14 +492,40 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write
-                - Bash(bb *)
+                - Bash(bb issue edit*)
+                - Bash(bb issue view*)
+                - Bash(bb --version)
+                - Write(.wave/artifact.json)
+                - Write(/tmp/*)
             deny:
-                - Bash(rm *)
+                - Bash(bb issue create*)
+                - Bash(bb issue close*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Bash(tea *)
+                - Edit(*)
         system_prompt_file: .wave/personas/bitbucket-enhancer.md
+    bitbucket-scoper:
+        adapter: claude
+        description: Bitbucket epic decomposition into child issues
+        model: haiku
+        #temperature: 0.3
+        permissions:
+            allowed_tools:
+                - Read
+                - Bash(bb issue create*)
+                - Bash(bb issue view*)
+                - Bash(bb issue list*)
+                - Bash(bb --version)
+                - Write(.wave/artifact.json)
+            deny:
+                - Bash(bb issue edit*)
+                - Bash(bb issue close*)
+                - Bash(gh *)
+                - Bash(glab *)
+                - Bash(tea *)
+                - Edit(*)
+        system_prompt_file: .wave/personas/bitbucket-scoper.md
     bitbucket-commenter:
         adapter: claude
         description: Post comments on Bitbucket issues and pull requests, create PRs
