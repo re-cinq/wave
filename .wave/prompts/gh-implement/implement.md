@@ -44,7 +44,7 @@ Follow the task breakdown phase by phase:
 
 After each phase, run:
 ```bash
-go test -race ./...
+{{ project.test_command }}
 ```
 
 If tests fail, fix the issue before proceeding to the next phase.
@@ -56,7 +56,7 @@ As you complete each task, mark it as `[X]` in `tasks.md`.
 ### Step 6: Final Validation
 
 After all tasks are complete:
-1. Run `go test -race ./...` one final time
+1. Run `{{ project.test_command }}` one final time
 2. Verify all tasks in `tasks.md` are marked complete
 3. Stage and commit all changes:
    ```bash
@@ -67,7 +67,7 @@ After all tasks are complete:
 
 Commit changes to the worktree branch.
 
-## Agent Usage — USE UP TO 6 AGENTS
+## Agent Usage
 
 Maximize parallelism with up to 6 Task agents for independent work:
 - Agents 1-2: Setup and foundational tasks (Phase 1-2)
