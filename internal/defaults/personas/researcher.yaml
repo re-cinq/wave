@@ -5,8 +5,12 @@ permissions:
     - Read
     - Glob
     - Grep
-    - "Bash(gh *)"
-    - "Bash(git log*)"
+    - WebSearch
+    - WebFetch
+    - Write
   deny:
-    - "Write(*)"
     - "Edit(*)"
+    - "Bash(*)"
+    - "Write(*.go)"
+    - "Write(*.ts)"
+    - "Write(*.py)"

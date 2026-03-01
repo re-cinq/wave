@@ -5,8 +5,10 @@ permissions:
     - Read
     - Glob
     - Grep
-    - "Bash(git log*)"
-    - "Bash(git bisect*)"
+    - Bash
   deny:
     - "Write(*)"
     - "Edit(*)"
+    - "Bash(rm -rf /*)"
+    - "Bash(git push*)"
+    - "Bash(git commit*)"
