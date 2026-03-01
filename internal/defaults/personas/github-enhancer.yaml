@@ -3,6 +3,15 @@ temperature: 0.2
 permissions:
   allowed_tools:
     - Read
-    - Write
-    - "Bash(gh *)"
-  deny: []
+    - "Bash(gh issue edit*)"
+    - "Bash(gh issue view*)"
+    - "Bash(gh --version)"
+    - "Write(.wave/artifact.json)"
+    - "Write(/tmp/*)"
+  deny:
+    - "Bash(gh issue create*)"
+    - "Bash(gh issue close*)"
+    - "Bash(glab *)"
+    - "Bash(tea *)"
+    - "Bash(bb *)"
+    - "Edit(*)"
