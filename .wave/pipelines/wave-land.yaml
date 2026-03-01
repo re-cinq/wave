@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
   name: wave-land
-  description: "Commit, push, merge PR, and update local main"
+  description: "Branch, commit, push, PR, merge, and update local main"
 
 input:
   source: cli
@@ -13,29 +13,38 @@ steps:
     exec:
       type: prompt
       source: |
-        Create separate, well-structured git commits for all current changes.
+        Create a feature branch and well-structured git commits for all current changes.
+
+        Your workspace is an isolated directory. Change to the project root first:
+        Run `git rev-parse --show-toplevel` from the workspace parent directories to
+        find the repository, then `cd` into it.
 
         ## Process
 
-        1. Run `git status` and `git diff` to see all staged and unstaged changes
-        2. Run `git log --oneline -10` to see the project's commit message style
-        3. Analyze the changes and group them into logical units:
+        1. Run `git status` and `git diff --stat` to see all unstaged changes
+        2. If there are no changes to commit, report that and stop
+        3. Create a feature branch from the user context below:
+           - Derive a short kebab-case name with a prefix: `fix/`, `feat/`, `refactor/`, `chore/`
+           - Example: "fix persona permissions" → `fix/persona-permissions`
+           - Run `git checkout -b <branch-name>`
+        4. Run `git log --oneline -10` to see the project's commit message style
+        5. Analyze the changes and group them into logical units:
            - Each commit should be a single logical change
            - Separate code changes from test changes from doc changes
            - Use conventional commit prefixes: feat:, fix:, docs:, refactor:, test:, chore:
            - Include component scope where appropriate: fix(pipeline):, feat(cli):
-        4. For each logical group:
+        6. For each logical group:
            - Stage only the relevant files: `git add <specific-files>`
            - Create a commit with a clear, descriptive message
            - NEVER use `git add -A` or `git add .`
-        5. After all commits are created, run `git log --oneline -10` to verify
+        7. After all commits are created, run `git log --oneline -10` to verify
 
         ## Rules
 
         - NEVER include Co-Authored-By lines in commit messages
         - NEVER include AI attribution in commit messages
         - Keep commit messages concise (1-2 sentences) focused on "why" not "what"
-        - If there are no changes to commit, report that and stop
+        - You MUST create a feature branch — never commit directly to main
 
         Context from user: {{ input }}
 
@@ -47,22 +56,25 @@ steps:
     exec:
       type: prompt
       source: |
-        Ship the committed changes: push, create/merge PR, and update local main.
+        Ship the committed changes: push, create PR, merge, and update local main.
+
+        Your workspace may not be the project root. Find it with
+        `git rev-parse --show-toplevel` and `cd` into it.
 
         Run these steps in order. Stop and report errors if any step fails.
 
         1. **Push**: `git push -u origin HEAD`
-        2. **Create PR**: Use `gh pr create` with a short title and summary body.
+        2. **Create PR**: `gh pr create --fill`
            If a PR already exists for this branch, skip creation.
         3. **Merge PR**: `gh pr merge --merge --delete-branch`
         4. **Switch to main**: `git checkout main`
         5. **Pull latest**: `git pull`
-        6. **Install**: `make -C $(git rev-parse --show-toplevel) install`
+        6. **Install**: `make install`
         7. **Verify**: `wave --version`
 
         ## Rules
 
         - If `git push` fails due to auth, report the error and stop
-        - If `gh` is not found, try `nix-shell -p gh --run "gh ..."`
+        - If `gh` is not found, try the full nix store path
         - Do NOT force push
         - Do NOT amend existing commits
