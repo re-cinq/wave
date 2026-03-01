@@ -130,7 +130,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the created sub-issues and post a summary comment on the epic.
+        Verify the created sub-issues and compile a verification report.
 
         Input: {{ input }}
         Parse the project (first token) and epic number (second token).
@@ -143,9 +143,11 @@ steps:
         - Has acceptance criteria in the body
         - References the parent epic
 
-        Step 2: Post a summary comment on the epic issue listing all created sub-issues:
-        Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>)
-        and post it using: glab issue note <EPIC_NUMBER> --repo <PROJECT> --message "<summary>"
+        Step 2: This step is READ-ONLY. Do NOT post comments -- the gitlab-analyst
+        persona does not have write permissions. Instead, include a pre-rendered markdown
+        summary in the output JSON that a commenter persona could post later.
+
+        Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>).
 
         Step 3: Compile the verification report with fields:
         parent_issue (number, url), verified_issues (array of number, title, url, exists,
