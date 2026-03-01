@@ -647,7 +647,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Temperature:      persona.Temperature,
 		Model:            persona.Model,
 		AllowedTools:     allowedTools,
-		DenyTools:        persona.Permissions.Deny,
+		DenyTools:        appendDefaultDeny(persona.Permissions.Deny),
 		OutputFormat:     adapterDef.OutputFormat,
 		Debug:            e.debug,
 		SandboxEnabled:   sandboxEnabled,
@@ -1956,4 +1956,25 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 	defer e.mu.Unlock()
 
 	delete(e.pipelines, pipelineID)
+}
+
+// defaultDenyTools are tools denied for all pipeline personas to reduce token waste.
+// TodoWrite is a Claude Code built-in that personas use for internal progress tracking,
+// which adds ~500 tokens per step with no benefit to pipeline output.
+var defaultDenyTools = []string{"TodoWrite"}
+
+// appendDefaultDeny merges persona-specific deny rules with pipeline-wide defaults.
+func appendDefaultDeny(personaDeny []string) []string {
+	seen := make(map[string]bool, len(personaDeny))
+	for _, d := range personaDeny {
+		seen[d] = true
+	}
+	result := make([]string, len(personaDeny))
+	copy(result, personaDeny)
+	for _, d := range defaultDenyTools {
+		if !seen[d] {
+			result = append(result, d)
+		}
+	}
+	return result
 }
