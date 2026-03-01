@@ -3,6 +3,15 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
-    - Write
-    - "Bash(bb *)"
-  deny: []
+    - "Bash(bb issue create*)"
+    - "Bash(bb issue view*)"
+    - "Bash(bb issue list*)"
+    - "Bash(bb --version)"
+    - "Write(.wave/artifact.json)"
+  deny:
+    - "Bash(bb issue edit*)"
+    - "Bash(bb issue close*)"
+    - "Bash(gh *)"
+    - "Bash(glab *)"
+    - "Bash(tea *)"
+    - "Edit(*)"
