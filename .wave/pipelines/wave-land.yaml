@@ -1,0 +1,68 @@
+kind: WavePipeline
+metadata:
+  name: wave-land
+  description: "Commit, push, merge PR, and update local main"
+
+input:
+  source: cli
+  example: "fix onboarding wizard bugs — personas missing from manifest, model at wrong level"
+
+steps:
+  - id: commit
+    persona: craftsman
+    exec:
+      type: prompt
+      source: |
+        Create separate, well-structured git commits for all current changes.
+
+        ## Process
+
+        1. Run `git status` and `git diff` to see all staged and unstaged changes
+        2. Run `git log --oneline -10` to see the project's commit message style
+        3. Analyze the changes and group them into logical units:
+           - Each commit should be a single logical change
+           - Separate code changes from test changes from doc changes
+           - Use conventional commit prefixes: feat:, fix:, docs:, refactor:, test:, chore:
+           - Include component scope where appropriate: fix(pipeline):, feat(cli):
+        4. For each logical group:
+           - Stage only the relevant files: `git add <specific-files>`
+           - Create a commit with a clear, descriptive message
+           - NEVER use `git add -A` or `git add .`
+        5. After all commits are created, run `git log --oneline -10` to verify
+
+        ## Rules
+
+        - NEVER include Co-Authored-By lines in commit messages
+        - NEVER include AI attribution in commit messages
+        - Keep commit messages concise (1-2 sentences) focused on "why" not "what"
+        - If there are no changes to commit, report that and stop
+
+        Context from user: {{ input }}
+
+  - id: ship
+    persona: implementer
+    dependencies: [commit]
+    workspace:
+      ref: commit
+    exec:
+      type: prompt
+      source: |
+        Ship the committed changes: push, create/merge PR, and update local main.
+
+        Run these steps in order. Stop and report errors if any step fails.
+
+        1. **Push**: `git push -u origin HEAD`
+        2. **Create PR**: Use `gh pr create` with a short title and summary body.
+           If a PR already exists for this branch, skip creation.
+        3. **Merge PR**: `gh pr merge --merge --delete-branch`
+        4. **Switch to main**: `git checkout main`
+        5. **Pull latest**: `git pull`
+        6. **Install**: `make -C $(git rev-parse --show-toplevel) install`
+        7. **Verify**: `wave --version`
+
+        ## Rules
+
+        - If `git push` fails due to auth, report the error and stop
+        - If `gh` is not found, try `nix-shell -p gh --run "gh ..."`
+        - Do NOT force push
+        - Do NOT amend existing commits
