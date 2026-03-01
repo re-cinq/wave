@@ -4,6 +4,10 @@ metadata:
   description: "Analyze and rewrite poorly documented Bitbucket issues"
   release: true
 
+requires:
+  tools:
+    - bb
+
 input:
   source: cli
   example: "recinq/wave 42"
