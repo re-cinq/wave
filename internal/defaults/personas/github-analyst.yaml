@@ -5,6 +5,9 @@ permissions:
     - Read
     - "Bash(gh issue view*)"
     - "Bash(gh issue list*)"
+    - "Bash(gh release list*)"
+    - "Bash(gh pr view*)"
+    - "Bash(gh pr list*)"
     - "Bash(gh --version)"
     - "Bash(git log*)"
     - "Bash(git status*)"

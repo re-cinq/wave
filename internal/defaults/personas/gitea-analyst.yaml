@@ -5,6 +5,9 @@ permissions:
     - Read
     - "Bash(tea issues view*)"
     - "Bash(tea issues list*)"
+    - "Bash(tea releases list*)"
+    - "Bash(tea pulls view*)"
+    - "Bash(tea pulls list*)"
     - "Bash(tea --version)"
     - "Bash(git log*)"
     - "Bash(git status*)"

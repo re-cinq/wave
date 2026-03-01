@@ -5,8 +5,14 @@ permissions:
     - Read
     - Glob
     - Grep
-    - "Bash(git diff*)"
-    - "Bash(git log*)"
+    - "Write(.wave/artifact.json)"
+    - "Write(.wave/artifacts/*)"
+    - Bash
   deny:
-    - "Write(*)"
+    - "Write(*.go)"
+    - "Write(*.ts)"
+    - "Write(*.py)"
     - "Edit(*)"
+    - "Bash(rm -rf /*)"
+    - "Bash(git push*)"
+    - "Bash(git commit*)"
