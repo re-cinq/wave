@@ -6,7 +6,8 @@ metadata:
 
 requires:
   tools:
-    - bb
+    - curl
+    - jq
 
 input:
   source: cli
@@ -30,14 +31,22 @@ steps:
         - If "workspace/repo NUM" → single issue mode
         - If "workspace/repo" alone → batch mode
 
-        Step 2: Fetch issues via bb CLI.
-        - Single: bb issue view NUM --repo WORKSPACE/REPO --json number,title,body,labels,url
-        - Batch: bb issue list --repo WORKSPACE/REPO --limit 10 --json number,title,body,labels,url
+        Step 2: Fetch issues via the Bitbucket REST API.
+        - Single issue:
+          curl -s -H "Authorization: Bearer $BB_TOKEN" \
+            "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUM" \
+            | jq '{id, title, content: .content.raw, kind, url: .links.html.href}'
+        - Batch (list open issues):
+          curl -s -H "Authorization: Bearer $BB_TOKEN" \
+            "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues?pagelen=10" \
+            | jq '[.values[] | {id, title, content: .content.raw, kind, url: .links.html.href}]'
 
-        Step 3: Score each issue quality (0-100) on title clarity, description completeness, labels, and acceptance criteria.
+        Step 3: Score each issue quality (0-100) on title clarity, description completeness, kind classification, and acceptance criteria.
 
         Step 4: For issues scoring below 70, create an enhancement plan with:
         - suggested_title, body_template (preserving original content), suggested_labels, enhancements list
+
+        Note: Bitbucket uses "kind" (bug/enhancement/proposal/task) instead of labels. Map suggested_labels to the appropriate kind value.
 
         Output JSON with repository (workspace/repo string), issues_to_enhance array, and total_to_enhance.
     output_artifacts:
@@ -70,13 +79,27 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the repository field from the plan artifact for --repo flag.
+        Read the repository field from the plan artifact for API calls.
 
         For each issue in issues_to_enhance:
-        1. Apply title: bb issue edit NUM --repo REPO --title "suggested_title"
-        2. Apply body: bb issue edit NUM --repo REPO --body "body_template"
-        3. Add labels: bb issue edit NUM --repo REPO --add-label "label1,label2"
-        4. Capture URL: bb issue view NUM --repo REPO --json url --jq .url
+        1. Write the update payload to a temp file:
+           cat > /tmp/bb-payload.json << 'EOF'
+           {"title":"suggested_title","content":{"raw":"body_template","markup":"markdown"},"kind":"appropriate_kind"}
+           EOF
+
+        2. Apply the update via PUT:
+           curl -s -X PUT -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+             -d @/tmp/bb-payload.json \
+             "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUM" \
+             | jq '{id, title, state, kind}'
+
+        3. Verify the update by re-fetching:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUM" \
+             | jq '{id, title, url: .links.html.href}'
+
+        Note: Bitbucket uses "kind" (bug/enhancement/proposal/task) instead of labels.
+        Map any suggested_labels to the appropriate kind value in the PUT payload.
 
         Output JSON with enhanced_issues (issue_number, success, changes_made, url),
         total_attempted, total_successful.
