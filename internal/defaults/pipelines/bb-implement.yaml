@@ -3,6 +3,11 @@ metadata:
   name: bb-implement
   description: "Implement a Bitbucket issue end-to-end: fetch, assess, plan, implement, create PR"
 
+requires:
+  tools:
+    - curl
+    - jq
+
 input:
   source: cli
   schema:

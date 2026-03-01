@@ -4,6 +4,10 @@ metadata:
   description: Research a GitLab issue and post findings as a comment
   release: true
 
+requires:
+  tools:
+    - glab
+
 input:
   source: cli
   example: "re-cinq/wave 42"
