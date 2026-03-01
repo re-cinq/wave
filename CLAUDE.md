@@ -91,7 +91,7 @@ tests/            # Test coverage
 - Use interfaces for testability and dependency injection
 - Comprehensive error types with structured details
 - Table-driven tests with edge case coverage
-- **Find & replace**: prefer `perl -pi -e` over `sed`/`awk` for in-place substitutions — `sed` and `awk` are unreliable with escaping, multiline, and cross-platform differences (macOS vs Linux)
+- **Find & replace**: prefer `perl -pi -e` over `sed`/`awk` for in-place substitutions — `sed` and `awk` are unreliable with escaping, multiline, and cross-platform differences (macOS vs Linux). **Caution**: `perl -pi -e 'next if /pattern/'` does NOT delete lines — `next` skips to the next line but `-p` still prints it. To delete lines, use `perl -ni -e 'print unless /pattern/'`
 
 ### Testing
 ```bash
