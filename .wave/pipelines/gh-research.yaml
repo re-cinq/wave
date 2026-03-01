@@ -4,6 +4,10 @@ metadata:
   description: Research a GitHub issue and post findings as a comment
   release: true
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   example: "re-cinq/wave 42"
