@@ -5,6 +5,9 @@ permissions:
     - Read
     - "Bash(glab issue view*)"
     - "Bash(glab issue list*)"
+    - "Bash(glab release list*)"
+    - "Bash(glab mr view*)"
+    - "Bash(glab mr list*)"
     - "Bash(glab --version)"
     - "Bash(git log*)"
     - "Bash(git status*)"
