@@ -4,6 +4,10 @@ metadata:
   description: "Refresh a stale GitHub issue by comparing it against recent codebase changes"
   release: true
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   example: "re-cinq/wave 45 -- acceptance criteria are outdated after the worktree refactor"
