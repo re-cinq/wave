@@ -139,6 +139,9 @@ personas:
                 - Read
                 - Bash(gh issue view*)
                 - Bash(gh issue list*)
+                - Bash(gh release list*)
+                - Bash(gh pr view*)
+                - Bash(gh pr list*)
                 - Bash(gh --version)
                 - Bash(git log*)
                 - Bash(git status*)
@@ -284,6 +287,9 @@ personas:
                 - Read
                 - Bash(glab issue view*)
                 - Bash(glab issue list*)
+                - Bash(glab release list*)
+                - Bash(glab mr view*)
+                - Bash(glab mr list*)
                 - Bash(glab --version)
                 - Bash(git log*)
                 - Bash(git status*)
@@ -373,6 +379,9 @@ personas:
                 - Read
                 - Bash(tea issues view*)
                 - Bash(tea issues list*)
+                - Bash(tea releases list*)
+                - Bash(tea pulls view*)
+                - Bash(tea pulls list*)
                 - Bash(tea --version)
                 - Bash(git log*)
                 - Bash(git status*)
