@@ -20,23 +20,19 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "bb CLI not installed" without trying.
-
         Input: {{ input }}
 
         Parse the input: extract the repo (first token) and the epic issue number (second token).
 
-        Execute these commands using the Bash tool:
+        Execute these steps:
 
-        1. bb --version
-
-        2. Fetch the epic issue with full details:
+        1. Fetch the epic issue with full details:
            bb issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments
 
-        3. List existing open issues to check for duplicates:
+        2. List existing open issues to check for duplicates:
            bb issue list --repo <REPO> --limit 50 --json number,title,labels,url
 
-        After getting REAL results from Bash, analyze the epic:
+        Analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
         - Identify the key themes and work areas
         - Estimate overall complexity
@@ -72,17 +68,12 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
-
         The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
 
         Input: {{ input }}
         Parse the repo from the input (first token).
 
-        Step 1: Verify bb works:
-        bb --version
-
-        Step 2: For each planned sub-issue, create it using:
+        For each planned sub-issue, create it using:
         bb issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"
 
         Each sub-issue body MUST include:
@@ -92,9 +83,9 @@ steps:
         - Dependencies on other sub-issues if applicable
         - Scope Notes for what is explicitly excluded
 
-        Step 3: After creating all issues, capture each issue's number and URL from the creation output.
+        After creating all issues, capture each issue's number and URL from the creation output.
 
-        Step 4: Record the results with fields: parent_issue (number, url, repository),
+        Record the results with fields: parent_issue (number, url, repository),
         created_issues (array of number, title, url, labels, success, complexity, dependencies),
         total_created, total_failed.
     output_artifacts:
