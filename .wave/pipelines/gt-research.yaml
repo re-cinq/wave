@@ -4,6 +4,10 @@ metadata:
   description: Research a Gitea issue and post findings as a comment
   release: true
 
+requires:
+  tools:
+    - tea
+
 input:
   source: cli
   example: "re-cinq/wave 42"
