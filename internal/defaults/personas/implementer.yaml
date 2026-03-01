@@ -6,5 +6,8 @@ permissions:
     - Write
     - Edit
     - Bash
+    - Glob
+    - Grep
   deny:
     - "Bash(rm -rf /*)"
+    - "Bash(sudo *)"
