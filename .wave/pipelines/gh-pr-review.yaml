@@ -4,6 +4,10 @@ metadata:
   description: "GitHub pull request code review with automated security and quality analysis"
   release: true
 
+requires:
+  tools:
+    - gh
+
 input:
   source: cli
   example: "review the authentication module"

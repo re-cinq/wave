@@ -4,6 +4,10 @@ metadata:
   description: "Analyze and rewrite poorly documented Gitea issues"
   release: true
 
+requires:
+  tools:
+    - tea
+
 input:
   source: cli
   example: "re-cinq/wave 42"

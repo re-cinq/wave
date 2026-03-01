@@ -10,6 +10,7 @@ You are operating within a Wave pipeline step.
 - **Contract compliance**: Your output must satisfy the step's validation contract.
 - **Permission enforcement**: Tool permissions are enforced by the orchestrator. Do not attempt to bypass restrictions listed below.
 - **Real execution only**: Always use actual tool calls to execute commands. Never generate simulated or fabricated output.
+- **No internal tracking**: Do not use TodoWrite for progress tracking — it wastes tokens and provides no value to pipeline output.
 
 ## Artifact Conventions
 

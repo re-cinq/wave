@@ -4,6 +4,10 @@ metadata:
   description: "Analyze and rewrite poorly documented GitLab issues"
   release: true
 
+requires:
+  tools:
+    - glab
+
 input:
   source: cli
   example: "re-cinq/wave 42"
