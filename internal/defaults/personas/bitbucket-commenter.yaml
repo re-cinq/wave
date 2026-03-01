@@ -3,5 +3,16 @@ temperature: 0.2
 permissions:
   allowed_tools:
     - Read
-    - "Bash(bb *)"
-  deny: []
+    - "Bash(curl *)"
+    - "Bash(jq *)"
+    - "Write(.wave/artifact.json)"
+    - "Write(.wave/output/*)"
+    - "Write(/tmp/*)"
+    - "Bash(git push*)"
+    - "Bash(git status*)"
+  deny:
+    - "Bash(curl *-X DELETE*)"
+    - "Bash(gh *)"
+    - "Bash(glab *)"
+    - "Bash(tea *)"
+    - "Edit(*)"
