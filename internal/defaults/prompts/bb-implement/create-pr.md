@@ -37,24 +37,46 @@ git push -u origin <BRANCH_NAME>
 
 ### Step 3: Create Pull Request
 
-Create the PR using `bb pr create` with `--source` to specify the branch. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
+Create the PR via the Bitbucket REST API. The PR description MUST include `Closes #<NUMBER>` to link to the issue.
 
-Use a heredoc to pass the PR body to avoid shell escaping issues.
+Write the PR payload to a temp file to avoid shell escaping issues:
+
+```bash
+cat > /tmp/bb-payload.json << 'PRBODY'
+{
+  "title": "PR title",
+  "description": "PR description\n\nCloses #NUMBER",
+  "source": {"branch": {"name": "BRANCH_NAME"}},
+  "destination": {"branch": {"name": "main"}},
+  "close_source_branch": true
+}
+PRBODY
+
+curl -s -X POST -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+  -d @/tmp/bb-payload.json \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/pullrequests" \
+  | jq '{id, url: .links.html.href}'
+```
 
 ### Step 4: Request Review (Best-Effort)
 
-After the PR is created, attempt to add reviewers if configured:
+After the PR is created, attempt to add reviewers by updating the PR:
 ```bash
-bb pr edit --add-reviewer "<reviewer-username>"
+cat > /tmp/bb-payload.json << 'EOF'
+{"reviewers": [{"username": "reviewer-username"}]}
+EOF
+curl -s -X PUT -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+  -d @/tmp/bb-payload.json \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/pullrequests/ID"
 ```
 
-This is a best-effort command. If reviewers aren't configured, the command will fail silently and the PR will still be created successfully.
+This is a best-effort operation. If reviewers aren't configured, the command will fail and the PR will still be created successfully.
 
 ## CONSTRAINTS
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-- The PR body MUST contain `Closes #<NUMBER>` to link to the issue
+- The PR description MUST contain `Closes #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 ## Output
