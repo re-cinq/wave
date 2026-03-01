@@ -16,5 +16,4 @@ permissions:
     - "Bash(tea issues close*)"
     - "Bash(gh *)"
     - "Bash(glab *)"
-    - "Bash(bb *)"
     - "Edit(*)"
