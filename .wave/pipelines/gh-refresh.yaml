@@ -9,7 +9,7 @@ input:
   example: "re-cinq/wave 45 -- acceptance criteria are outdated after the worktree refactor"
   schema:
     type: string
-    description: "owner/repo number [-- optional criticism or direction]"
+    description: "owner/repo number, or full issue URL [-- optional criticism or direction]"
 
 steps:
   - id: gather-context
@@ -20,38 +20,30 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "gh CLI not installed" without trying.
-
         Input: {{ input }}
 
         Parse the input:
-        - Split on " -- " to separate the repo+number from optional criticism.
-        - The first part is "<owner/repo> <number>". Extract REPO (first token) and NUMBER (second token).
+        - If the input is a URL (https://github.com/OWNER/REPO/issues/NUM), extract REPO and NUMBER.
+        - If the input is "owner/repo number", extract REPO (first token) and NUMBER (second token).
+        - Split on " -- " to separate the identifier from optional criticism.
         - If there is text after " -- ", that is the user's CRITICISM about what's wrong with the issue.
-        - If there is no " -- ", criticism is empty.
 
-        Execute these commands using the Bash tool:
+        Execute these steps:
 
-        1. gh --version
-
-        2. Fetch the full issue:
+        1. Fetch the full issue:
            gh issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
 
-        3. Get commits since the issue was created (cap at 100):
-           git log --since="<createdAt>" --oneline -100
+        2. Get recent commits since the issue was created (cap at 30):
+           git log --since="<createdAt>" --oneline -30
 
-        4. Get releases since the issue was created:
+        3. Get releases since the issue was created:
            gh release list --repo REPO --limit 20
-           Then filter to only releases after the issue's createdAt date.
+           Filter to only releases after the issue's createdAt date.
 
-        5. Scan the issue body for file path references (anything matching patterns like
-           `internal/...`, `cmd/...`, `.wave/...`, or backtick-quoted paths).
-           For each referenced file, check if it still exists using `ls -la <path>`.
+        4. Scan the issue body for file path references (backtick-quoted paths, relative paths).
+           For each referenced file, check if it still exists.
 
-        6. Read CLAUDE.md for current project context:
-           Read the file CLAUDE.md from the repository root.
-
-        After gathering ALL data, produce a JSON result matching the contract schema.
+        Produce a JSON result matching the contract schema.
     output_artifacts:
       - name: issue_context
         path: .wave/artifact.json
@@ -82,11 +74,9 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool for any commands. NEVER generate fake output.
-
         The context artifact contains the gathered issue context.
 
-        Your task: Compare the original issue against the codebase changes and draft an updated version.
+        Compare the original issue against the codebase changes and draft an updated version.
 
         Step 1: Analyze each section of the issue body. Classify each as:
         - STILL_VALID: Content is accurate and up-to-date
@@ -141,27 +131,21 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
+        Extract the repo and issue number from the available artifacts.
 
-        Step 1: Use Bash tool to verify gh works:
-        gh --version
-
-        Step 2: Extract the repo as "<owner>/<name>" and the issue number from the available artifacts.
-
-        Step 3: Apply the update:
+        Apply the update:
         - If title_changed is true:
           gh issue edit <NUMBER> --repo <REPO> --title "<updated_title>"
         - Write the updated_body to a temp file, then apply it:
-          Write updated_body to /tmp/issue-body.md
-          gh issue edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md
-        - Clean up /tmp/issue-body.md after applying.
+          gh issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
+        - Clean up the temp file after applying.
 
-        Step 4: Verify the update was applied:
+        Verify the update was applied:
         gh issue view <NUMBER> --repo <REPO> --json number,title,body,url
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 
-        Step 5: Record the results as a JSON object matching the contract schema.
+        Record the results as a JSON object matching the contract schema.
     output_artifacts:
       - name: update_result
         path: .wave/artifact.json
