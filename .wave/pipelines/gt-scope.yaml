@@ -20,23 +20,19 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "tea CLI not installed" without trying.
-
         Input: {{ input }}
 
         Parse the input: extract the repo (first token) and the epic issue number (second token).
 
-        Execute these commands using the Bash tool:
+        Execute these steps:
 
-        1. tea --version
+        1. Fetch the epic issue with full details:
+           tea issue view <NUMBER> --repo <REPO>
 
-        2. Fetch the epic issue with full details:
-           tea issues view <NUMBER> --output json
+        2. List existing open issues to check for duplicates:
+           tea issue list --repo <REPO>
 
-        3. List existing open issues to check for duplicates:
-           tea issues list --limit 50 --output json
-
-        After getting REAL results from Bash, analyze the epic:
+        Analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
         - Identify the key themes and work areas
         - Estimate overall complexity
@@ -72,15 +68,13 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
-
         The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
 
-        Step 1: Verify tea works:
-        tea --version
+        Input: {{ input }}
+        Parse the repo from the input (first token).
 
-        Step 2: For each planned sub-issue, create it using:
-        tea issues create --title "<title>" --body "<body>" --labels "<labels>"
+        For each planned sub-issue, create it using:
+        tea issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line
@@ -89,9 +83,9 @@ steps:
         - Dependencies on other sub-issues if applicable
         - Scope Notes for what is explicitly excluded
 
-        Step 3: After creating all issues, capture each issue's number and URL from the creation output.
+        After creating all issues, capture each issue's number and URL from the creation output.
 
-        Step 4: Record the results with fields: parent_issue (number, url, repository),
+        Record the results with fields: parent_issue (number, url, repository),
         created_issues (array of number, title, url, labels, success, complexity, dependencies),
         total_created, total_failed.
     output_artifacts:
@@ -134,8 +128,11 @@ steps:
       source: |
         Verify the created sub-issues and post a summary comment on the epic.
 
+        Input: {{ input }}
+        Parse the repo (first token) and epic number (second token).
+
         Step 1: For each created issue in the results, verify it exists:
-        tea issues view <N> --output json
+        tea issue view <N> --repo <REPO>
 
         Check that each issue:
         - Exists and is open
@@ -144,7 +141,7 @@ steps:
 
         Step 2: Post a summary comment on the epic issue listing all created sub-issues:
         Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>)
-        and post it using: tea issues comment <EPIC_NUMBER> --body "<summary>"
+        and post it using: tea issue comment <EPIC_NUMBER> --repo <REPO> --body "<summary>"
 
         Step 3: Compile the verification report with fields:
         parent_issue (number, url), verified_issues (array of number, title, url, exists,

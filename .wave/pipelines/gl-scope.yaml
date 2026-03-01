@@ -9,7 +9,7 @@ input:
   example: "re-cinq/wave 42"
   schema:
     type: string
-    description: "GitLab project with epic issue number (e.g. 'owner/repo 42')"
+    description: "GitLab project with epic issue number (e.g. 'group/project 42')"
 
 steps:
   - id: fetch-epic
@@ -20,23 +20,19 @@ steps:
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "glab CLI not installed" without trying.
-
         Input: {{ input }}
 
         Parse the input: extract the project (first token) and the epic issue number (second token).
 
-        Execute these commands using the Bash tool:
+        Execute these steps:
 
-        1. glab --version
+        1. Fetch the epic issue with full details:
+           glab issue view <NUMBER> --repo <PROJECT>
 
-        2. Fetch the epic issue with full details:
-           glab issue view <NUMBER>
+        2. List existing open issues to check for duplicates:
+           glab issue list --repo <PROJECT>
 
-        3. List existing open issues to check for duplicates:
-           glab issue list --per-page 50
-
-        After getting REAL results from Bash, analyze the epic:
+        Analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
         - Identify the key themes and work areas
         - Estimate overall complexity
@@ -72,26 +68,24 @@ steps:
     exec:
       type: prompt
       source: |
-        CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
-
         The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
 
-        Step 1: Verify glab works:
-        glab --version
+        Input: {{ input }}
+        Parse the project from the input (first token).
 
-        Step 2: For each planned sub-issue, create it using:
-        glab issue create --title "<title>" --description "<body>" --label "<labels>"
+        For each planned sub-issue, create it using:
+        glab issue create --repo <PROJECT> --title "<title>" --description "<body>" --label "<labels>"
 
-        Each sub-issue description MUST include:
+        Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line
         - A clear Summary section
         - Acceptance Criteria as a checkbox list
         - Dependencies on other sub-issues if applicable
         - Scope Notes for what is explicitly excluded
 
-        Step 3: After creating all issues, capture each issue's number and URL from the creation output.
+        After creating all issues, capture each issue's number and URL from the creation output.
 
-        Step 4: Record the results with fields: parent_issue (number, url, repository),
+        Record the results with fields: parent_issue (number, url, repository),
         created_issues (array of number, title, url, labels, success, complexity, dependencies),
         total_created, total_failed.
     output_artifacts:
@@ -134,17 +128,20 @@ steps:
       source: |
         Verify the created sub-issues and post a summary comment on the epic.
 
+        Input: {{ input }}
+        Parse the project (first token) and epic number (second token).
+
         Step 1: For each created issue in the results, verify it exists:
-        glab issue view <N>
+        glab issue view <N> --repo <PROJECT>
 
         Check that each issue:
         - Exists and is open
-        - Has acceptance criteria in the description
+        - Has acceptance criteria in the body
         - References the parent epic
 
         Step 2: Post a summary comment on the epic issue listing all created sub-issues:
         Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>)
-        and post it using: glab issue note <EPIC_NUMBER> --message "<summary>"
+        and post it using: glab issue note <EPIC_NUMBER> --repo <PROJECT> --message "<summary>"
 
         Step 3: Compile the verification report with fields:
         parent_issue (number, url), verified_issues (array of number, title, url, exists,
