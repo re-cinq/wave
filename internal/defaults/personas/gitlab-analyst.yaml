@@ -3,6 +3,18 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
-    - Write
-    - "Bash(glab *)"
-  deny: []
+    - "Bash(glab issue view*)"
+    - "Bash(glab issue list*)"
+    - "Bash(glab --version)"
+    - "Bash(git log*)"
+    - "Bash(git status*)"
+    - "Bash(ls *)"
+    - "Write(.wave/artifact.json)"
+  deny:
+    - "Bash(glab issue edit*)"
+    - "Bash(glab issue create*)"
+    - "Bash(glab issue close*)"
+    - "Bash(gh *)"
+    - "Bash(tea *)"
+    - "Bash(bb *)"
+    - "Edit(*)"
