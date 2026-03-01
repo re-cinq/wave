@@ -4,6 +4,10 @@ metadata:
   description: "Decompose a Gitea epic into well-scoped child issues"
   release: true
 
+requires:
+  tools:
+    - tea
+
 input:
   source: cli
   example: "re-cinq/wave 42"
