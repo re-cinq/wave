@@ -403,14 +403,14 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Bash(tea issue edit*)
-                - Bash(tea issue view*)
+                - Bash(tea issues edit*)
+                - Bash(tea issues view*)
                 - Bash(tea --version)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
             deny:
-                - Bash(tea issue create*)
-                - Bash(tea issue close*)
+                - Bash(tea issues create*)
+                - Bash(tea issues close*)
                 - Bash(gh *)
                 - Bash(glab *)
                 - Edit(*)
