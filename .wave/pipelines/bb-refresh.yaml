@@ -6,7 +6,8 @@ metadata:
 
 requires:
   tools:
-    - bb
+    - curl
+    - jq
 
 input:
   source: cli
@@ -33,15 +34,22 @@ steps:
 
         Execute these steps:
 
-        1. Fetch the full issue:
-           bb issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+        1. Fetch the full issue via the Bitbucket REST API:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER" \
+             | jq '{id, title, content: .content.raw, state, kind, created_on, url: .links.html.href}'
+
+           Also fetch comments:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER/comments" \
+             | jq '[.values[] | {id, content: .content.raw, user: .user.display_name, created_on}]'
 
         2. Get recent commits since the issue was created (cap at 30):
-           git log --since="<createdAt>" --oneline -30
+           git log --since="<created_on>" --oneline -30
 
-        3. Get releases since the issue was created:
-           bb release list --repo REPO --limit 20
-           Filter to only releases after the issue's createdAt date.
+        3. Get recent releases (tags) since the issue was created:
+           git tag --sort=-creatordate | head -20
+           Filter to only tags created after the issue's created_on date.
 
         4. Scan the issue body for file path references (backtick-quoted paths, relative paths).
            For each referenced file, check if it still exists.
@@ -136,15 +144,24 @@ steps:
       source: |
         Extract the repo and issue number from the available artifacts.
 
-        Apply the update:
-        - If title_changed is true:
-          bb issue edit <NUMBER> --repo <REPO> --title "<updated_title>"
-        - Write the updated_body to a temp file, then apply it:
-          bb issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
-        - Clean up the temp file after applying.
+        Apply the update via the Bitbucket REST API:
+        1. Write the update payload to a temp file:
+           cat > /tmp/bb-payload.json << 'EOF'
+           {"title":"updated_title","content":{"raw":"updated_body","markup":"markdown"}}
+           EOF
 
-        Verify the update was applied:
-        bb issue view <NUMBER> --repo <REPO> --json number,title,body,url
+        2. If title_changed is true, include the new title in the payload.
+
+        3. Apply the update via PUT:
+           curl -s -X PUT -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+             -d @/tmp/bb-payload.json \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER" \
+             | jq '{id, title, state}'
+
+        4. Verify the update was applied by re-fetching:
+           curl -s -H "Authorization: Bearer $BB_TOKEN" \
+             "https://api.bitbucket.org/2.0/repositories/REPO/issues/NUMBER" \
+             | jq '{id, title, content: .content.raw, url: .links.html.href}'
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 
