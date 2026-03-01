@@ -5,7 +5,8 @@ metadata:
 
 requires:
   tools:
-    - bb
+    - curl
+    - jq
 
 input:
   source: cli
