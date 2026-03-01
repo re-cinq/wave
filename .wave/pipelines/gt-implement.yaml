@@ -3,6 +3,10 @@ metadata:
   name: gt-implement
   description: "Implement a Gitea issue end-to-end: fetch, assess, plan, implement, create PR"
 
+requires:
+  tools:
+    - tea
+
 input:
   source: cli
   schema:

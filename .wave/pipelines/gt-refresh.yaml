@@ -4,6 +4,10 @@ metadata:
   description: "Refresh a stale Gitea issue by comparing it against recent codebase changes"
   release: true
 
+requires:
+  tools:
+    - tea
+
 input:
   source: cli
   example: "recinq/wave 45 -- acceptance criteria are outdated after the worktree refactor"
