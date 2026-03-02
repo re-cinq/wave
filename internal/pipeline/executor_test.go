@@ -2818,3 +2818,147 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 	return a.MockAdapter.Run(ctx, cfg)
 }
 
+// TestOutcomeExtractionEmptyArrayFriendlyMessage verifies that when an outcome
+// json_path indexes into an empty array, the system produces a friendly warning
+// in the summary (via the tracker) but does NOT emit a real-time warning event.
+func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Artifact contains an empty array — a valid "no results" condition
+	artifactJSON := `{"enhanced_issues": []}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-empty-array-test"},
+		Steps: []Step{
+			{
+				ID:      "apply-enhancements",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "apply enhancements"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "publish-result", Path: "output/publish-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "url",
+						ExtractFrom: "output/publish-result.json",
+						JSONPath:    ".enhanced_issues[0].url",
+						Label:       "Enhanced Issue",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// The tracker should have a friendly warning message about empty array
+	tracker := executor.GetDeliverableTracker()
+	require.NotNil(t, tracker)
+	warnings := tracker.OutcomeWarnings()
+	require.Len(t, warnings, 1, "should have 1 outcome warning for empty array")
+	assert.Contains(t, warnings[0], "no items in enhanced_issues")
+	assert.Contains(t, warnings[0], "skipping")
+
+	// Crucially: no real-time warning event should have been emitted for this case.
+	// The warning appears only in the summary via the tracker.
+	pipelineID := collector.GetPipelineID()
+	events := collector.GetEvents()
+	for _, e := range events {
+		if e.PipelineID == pipelineID && e.StepID == "apply-enhancements" && e.State == "warning" {
+			if strings.Contains(e.Message, "outcome:") && strings.Contains(e.Message, "enhanced_issues") {
+				t.Errorf("should NOT emit real-time warning event for empty array, but got: %s", e.Message)
+			}
+		}
+	}
+}
+
+// TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning verifies that a genuine
+// out-of-bounds error (non-empty array) still emits both a tracker warning AND
+// a real-time warning event.
+func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Array has 1 element but the outcome path asks for index 5
+	artifactJSON := `{"items": [{"url": "https://example.com"}]}`
+	outcomeAdapter := &outcomeTestAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		artifactJSON: artifactJSON,
+	}
+
+	executor := NewDefaultPipelineExecutor(outcomeAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "outcome-oob-test"},
+		Steps: []Step{
+			{
+				ID:      "apply",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "apply"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "publish-result", Path: "output/publish-result.json", Type: "json"},
+				},
+				Outcomes: []OutcomeDef{
+					{
+						Type:        "url",
+						ExtractFrom: "output/publish-result.json",
+						JSONPath:    ".items[5].url",
+						Label:       "Item URL",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Tracker should have a warning with the technical error message
+	tracker := executor.GetDeliverableTracker()
+	require.NotNil(t, tracker)
+	warnings := tracker.OutcomeWarnings()
+	require.Len(t, warnings, 1, "should have 1 outcome warning for OOB")
+	assert.Contains(t, warnings[0], "array index 5 out of bounds")
+
+	// A real-time warning event SHOULD have been emitted for non-empty-array OOB
+	pipelineID := collector.GetPipelineID()
+	events := collector.GetEvents()
+	var hasRealtimeWarning bool
+	for _, e := range events {
+		if e.PipelineID == pipelineID && e.StepID == "apply" && e.State == "warning" {
+			if strings.Contains(e.Message, "outcome:") && strings.Contains(e.Message, "array index 5 out of bounds") {
+				hasRealtimeWarning = true
+				break
+			}
+		}
+	}
+	assert.True(t, hasRealtimeWarning, "should emit real-time warning for non-empty-array OOB error")
+}
