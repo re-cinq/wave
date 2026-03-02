@@ -96,6 +96,13 @@ const (
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
+
+	// Batch execution states (cross-pipeline parallelism)
+	StateBatchStarted           = "batch_started"
+	StateBatchPipelineStarted   = "batch_pipeline_started"
+	StateBatchPipelineCompleted = "batch_pipeline_completed"
+	StateBatchPipelineFailed    = "batch_pipeline_failed"
+	StateBatchCompleted         = "batch_completed"
 )
 
 type EventEmitter interface {

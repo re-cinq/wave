@@ -80,6 +80,29 @@ type Runtime struct {
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+	Batch                BatchConfig            `yaml:"batch,omitempty"`
+}
+
+// BatchConfig holds default configuration for cross-pipeline batch execution.
+type BatchConfig struct {
+	MaxConcurrentPipelines int    `yaml:"max_concurrent_pipelines,omitempty"` // Default max concurrent pipelines (default: 3)
+	DefaultOnFailure       string `yaml:"default_on_failure,omitempty"`       // Default error policy: "continue" or "abort-all" (default: "continue")
+}
+
+// GetMaxConcurrentPipelines returns the configured max or the default (3).
+func (c *BatchConfig) GetMaxConcurrentPipelines() int {
+	if c.MaxConcurrentPipelines > 0 {
+		return c.MaxConcurrentPipelines
+	}
+	return 3
+}
+
+// GetDefaultOnFailure returns the configured error policy or "continue".
+func (c *BatchConfig) GetDefaultOnFailure() string {
+	if c.DefaultOnFailure != "" {
+		return c.DefaultOnFailure
+	}
+	return "continue"
 }
 
 // RuntimeArtifactsConfig holds global configuration for artifact handling.
