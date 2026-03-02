@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1788,15 +1789,23 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 
 		value, err := ExtractJSONPath(data, outcome.JSONPath)
 		if err != nil {
-			msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
-			e.deliverableTracker.AddOutcomeWarning(msg)
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "warning",
-				Message:    msg,
-			})
+			var emptyErr *EmptyArrayError
+			if errors.As(err, &emptyErr) {
+				// Empty array is a "no results" condition, not an error.
+				// Show a friendly message in the summary only — skip the real-time warning event.
+				msg := fmt.Sprintf("[%s] outcome: no items in %s — skipping %s extraction from %s", step.ID, emptyErr.Field, outcome.JSONPath, outcome.ExtractFrom)
+				e.deliverableTracker.AddOutcomeWarning(msg)
+			} else {
+				msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
+				e.deliverableTracker.AddOutcomeWarning(msg)
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "warning",
+					Message:    msg,
+				})
+			}
 			continue
 		}
 
