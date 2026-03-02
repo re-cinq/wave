@@ -45,19 +45,19 @@ func TestNormalizeAllowedTools(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "bare tools unchanged",
+			name:  "Write and Edit stripped from bare tools",
 			input: []string{"Read", "Write", "Edit", "Bash"},
-			want:  []string{"Read", "Write", "Edit", "Bash"},
+			want:  []string{"Read", "Bash"},
 		},
 		{
-			name:  "Write scoped entries normalized to bare Write",
+			name:  "scoped Write entries stripped entirely",
 			input: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
-			want:  []string{"Read", "Write"},
+			want:  []string{"Read"},
 		},
 		{
-			name:  "deduplicates after normalization",
+			name:  "deduplicates after stripping",
 			input: []string{"Write(.wave/output/*)", "Write(.wave/artifact.json)", "Read"},
-			want:  []string{"Write", "Read"},
+			want:  []string{"Read"},
 		},
 		{
 			name:  "preserves Bash scoped entries",
@@ -65,9 +65,9 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  []string{"Bash(go test*)", "Bash(git log*)", "Read"},
 		},
 		{
-			name:  "mixed scoped and bare",
+			name:  "Write stripped from mixed tools",
 			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
-			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write"},
+			want:  []string{"Read", "Glob", "Grep", "WebSearch"},
 		},
 		{
 			name:  "empty input",
@@ -75,9 +75,14 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  nil,
 		},
 		{
-			name:  "bare Write preserved",
+			name:  "bare Write stripped",
 			input: []string{"Write"},
-			want:  []string{"Write"},
+			want:  nil,
+		},
+		{
+			name:  "Edit bare and scoped stripped",
+			input: []string{"Edit", "Edit(.wave/output/*)", "Read"},
+			want:  []string{"Read"},
 		},
 	}
 
@@ -105,7 +110,7 @@ func TestContractPromptInClaudeMD(t *testing.T) {
 		Persona:        "test",
 		WorkspacePath:  tmpDir,
 		Model:          "sonnet",
-		AllowedTools:   []string{"Read", "Write", "Bash"},
+		AllowedTools:   []string{"Read", "Bash"},
 		ContractPrompt: "## Contract Compliance\n\n- **Output file**: `artifact.json`\n- **Format**: Valid JSON only.\n",
 	}
 
@@ -175,13 +180,13 @@ func TestSettingsJSONFormat(t *testing.T) {
 		t.Fatal("settings.json missing 'permissions.allow' array")
 	}
 
-	// Verify Write(.wave/output/*) was normalized to Write
+// Verify Write(.wave/output/*) was stripped (Write doesn't exist in headless Claude Code)
 	allowStrs := make([]string, len(allow))
 	for i, v := range allow {
 		allowStrs[i] = v.(string)
 	}
 
-	expected := []string{"Read", "Write", "Glob"}
+	expected := []string{"Read", "Glob"}
 	if len(allowStrs) != len(expected) {
 		t.Fatalf("permissions.allow = %v, want %v", allowStrs, expected)
 	}
@@ -214,9 +219,44 @@ func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
 		t.Fatal("--allowedTools not found in args")
 	}
 
-	expected := "Read,Write,Glob"
+	// Write entries should be stripped entirely
+	expected := "Read,Glob"
 	if allowedToolsArg != expected {
 		t.Errorf("--allowedTools = %q, want %q", allowedToolsArg, expected)
+	}
+
+	// Verify --disallowedTools TodoWrite is present
+	var disallowedToolsArg string
+	for i, arg := range args {
+		if arg == "--disallowedTools" && i+1 < len(args) {
+			disallowedToolsArg = args[i+1]
+			break
+		}
+	}
+	if disallowedToolsArg != "TodoWrite" {
+		t.Errorf("--disallowedTools = %q, want %q", disallowedToolsArg, "TodoWrite")
+	}
+}
+
+
+func TestBuildArgsDisallowsTodoWrite(t *testing.T) {
+	adapter := NewClaudeAdapter()
+
+	// Even with no explicit AllowedTools, --disallowedTools TodoWrite must be present
+	cfg := AdapterRunConfig{
+		Prompt: "test",
+	}
+	args := adapter.buildArgs(cfg)
+
+	var disallowedToolsArg string
+	for i, arg := range args {
+		if arg == "--disallowedTools" && i+1 < len(args) {
+			disallowedToolsArg = args[i+1]
+			break
+		}
+	}
+	if disallowedToolsArg != "TodoWrite" {
+		t.Errorf("--disallowedTools = %q, want %q", disallowedToolsArg, "TodoWrite")
 	}
 }
 
@@ -664,11 +704,11 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			wantSandbox:  false,
 		},
 		{
-			name:           "implementer: full access with sandbox",
+			name:           "implementer: full access with sandbox (Write/Edit stripped)",
 			persona:        "implementer",
 			allowedTools:   []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			allowedDomains: []string{"api.anthropic.com", "github.com", "proxy.golang.org"},
-			wantAllow:      []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
+			wantAllow:      []string{"Read", "Bash", "Glob", "Grep"},
 			wantSandbox:    true,
 			sandboxEnabled: true,
 		},
