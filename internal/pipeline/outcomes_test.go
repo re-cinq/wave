@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -150,5 +151,34 @@ func TestExtractJSONPath(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestExtractJSONPath_EmptyArrayReturnsEmptyArrayError(t *testing.T) {
+	data := []byte(`{"enhanced_issues": []}`)
+	_, err := ExtractJSONPath(data, ".enhanced_issues[0].url")
+	if err == nil {
+		t.Fatal("expected error for index 0 on empty array")
+	}
+
+	var emptyErr *EmptyArrayError
+	if !errors.As(err, &emptyErr) {
+		t.Fatalf("expected EmptyArrayError, got %T: %v", err, err)
+	}
+	if emptyErr.Field != "enhanced_issues" {
+		t.Errorf("expected field %q, got %q", "enhanced_issues", emptyErr.Field)
+	}
+}
+
+func TestExtractJSONPath_NonEmptyArrayOOBIsNotEmptyArrayError(t *testing.T) {
+	data := []byte(`{"items": [{"name": "a"}, {"name": "b"}]}`)
+	_, err := ExtractJSONPath(data, ".items[5].name")
+	if err == nil {
+		t.Fatal("expected error for index 5 on length-2 array")
+	}
+
+	var emptyErr *EmptyArrayError
+	if errors.As(err, &emptyErr) {
+		t.Fatalf("expected non-EmptyArrayError for OOB on non-empty array, got EmptyArrayError{Field: %q}", emptyErr.Field)
 	}
 }
