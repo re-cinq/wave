@@ -174,6 +174,7 @@ type OutcomeDef struct {
 	Type        string `yaml:"type"`         // "pr", "issue", "url", "deployment"
 	ExtractFrom string `yaml:"extract_from"` // Artifact path relative to workspace (e.g., "output/publish-result.json")
 	JSONPath    string `yaml:"json_path"`    // Dot notation path (e.g., ".comment_url")
+	JSONPathLabel string `yaml:"json_path_label,omitempty"` // Label extraction path for [*] array items
 	Label       string `yaml:"label,omitempty"`
 }
 

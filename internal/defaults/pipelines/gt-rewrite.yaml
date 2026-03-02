@@ -84,7 +84,7 @@ steps:
     outcomes:
       - type: issue
         extract_from: .wave/artifact.json
-        json_path: .enhanced_issues[0].url
+        json_path: .enhanced_issues[*].url
         label: "Enhanced Issue"
     handover:
       max_retries: 1
