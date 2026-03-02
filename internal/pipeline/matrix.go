@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -93,9 +94,26 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 		Message:    fmt.Sprintf("Loaded %d items for parallel execution", len(items)),
 	})
 
+	// Resolve worker function: child pipeline or direct step execution
+	worker := matrixWorkerFunc(m.executeWorker)
+	if strategy.ChildPipeline != "" {
+		childPipeline, err := m.loadChildPipeline(strategy.ChildPipeline)
+		if err != nil {
+			return err
+		}
+		m.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "matrix_child_pipeline_loaded",
+			Message:    fmt.Sprintf("Loaded child pipeline %q with %d steps", childPipeline.PipelineName(), len(childPipeline.Steps)),
+		})
+		worker = m.childPipelineWorker(childPipeline)
+	}
+
 	// Branch to tiered execution when dependency_key is configured
 	if strategy.DependencyKey != "" {
-		return m.tieredExecution(ctx, execution, step, items)
+		return m.tieredExecution(ctx, execution, step, items, worker)
 	}
 
 	// Determine max concurrency
@@ -117,7 +135,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 		itemValue := item
 
 		g.Go(func() error {
-			result := m.executeWorker(gctx, execution, step, itemIndex, itemValue)
+			result := worker(gctx, execution, step, itemIndex, itemValue)
 			resultsChan <- result
 			if result.Error != nil {
 				return result.Error
@@ -571,13 +589,16 @@ type MatrixWorkerContext struct {
 	WorkspacePath string
 }
 
+// matrixWorkerFunc is the signature for a function that executes a single matrix item.
+type matrixWorkerFunc func(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int, item interface{}) MatrixResult
+
 // Ensure workspace package is used (for linter)
 var _ = workspace.WorkspaceConfig{}
 
 // tieredExecution runs matrix items in dependency-ordered tiers.
 // Items within a tier run in parallel; tiers execute sequentially.
 // If an item fails, items that depend on it are skipped.
-func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *PipelineExecution, step *Step, items []interface{}) error {
+func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *PipelineExecution, step *Step, items []interface{}, worker matrixWorkerFunc) error {
 	strategy := step.Strategy
 	pipelineID := execution.Status.ID
 
@@ -691,7 +712,7 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 			itemValue := items[itemIndex]
 
 			g.Go(func() error {
-				result := m.executeWorker(gctx, execution, step, itemIndex, itemValue)
+				result := worker(gctx, execution, step, itemIndex, itemValue)
 				result.ItemID = itemID
 
 				mu.Lock()
@@ -883,4 +904,103 @@ func (m *MatrixExecutor) shouldSkipItem(id string, itemDeps []string, failed map
 		}
 	}
 	return false, ""
+}
+
+// loadChildPipeline loads a pipeline by name or path for use in child pipeline execution.
+func (m *MatrixExecutor) loadChildPipeline(name string) (*Pipeline, error) {
+	path := m.resolveChildPipelinePath(name)
+	loader := &YAMLPipelineLoader{}
+	pipeline, err := loader.Load(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load child pipeline %q from %s: %w", name, path, err)
+	}
+	return pipeline, nil
+}
+
+// resolveChildPipelinePath converts a pipeline name to its filesystem path.
+// If the name already ends in .yaml or .yml, it's treated as a direct path.
+// Otherwise it resolves to .wave/pipelines/<name>.yaml.
+func (m *MatrixExecutor) resolveChildPipelinePath(name string) string {
+	if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+		return name
+	}
+	return filepath.Join(".wave", "pipelines", name+".yaml")
+}
+
+// childPipelineWorker returns a matrixWorkerFunc that executes a full child
+// pipeline for each matrix item, using a fresh executor per item.
+func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWorkerFunc {
+	return func(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int, item interface{}) MatrixResult {
+		result := MatrixResult{
+			ItemIndex: itemIndex,
+			Item:      item,
+		}
+
+		pipelineID := execution.Status.ID
+
+		// Render input from template
+		input, err := m.renderInputTemplate(step.Strategy.InputTemplate, item)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to render input template: %w", err)
+			return result
+		}
+
+		m.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "matrix_child_pipeline_start",
+			Message:    fmt.Sprintf("Starting child pipeline %q for item %d", childPipeline.PipelineName(), itemIndex),
+		})
+
+		// Create child executor with independent state
+		childExecutor := m.executor.NewChildExecutor()
+
+		// Execute the child pipeline
+		if err := childExecutor.Execute(ctx, childPipeline, execution.Manifest, input); err != nil {
+			result.Error = err
+			m.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "matrix_child_pipeline_failed",
+				Message:    fmt.Sprintf("Child pipeline for item %d failed: %v", itemIndex, err),
+			})
+			return result
+		}
+
+		m.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "matrix_child_pipeline_complete",
+			Message:    fmt.Sprintf("Child pipeline for item %d completed", itemIndex),
+		})
+
+		return result
+	}
+}
+
+// renderInputTemplate renders a Go text/template with the matrix item as data context.
+// If the template string is empty, the item is serialized to JSON as the default input.
+func (m *MatrixExecutor) renderInputTemplate(tmplStr string, item interface{}) (string, error) {
+	if tmplStr == "" {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return "", fmt.Errorf("failed to serialize item: %w", err)
+		}
+		return string(data), nil
+	}
+
+	tmpl, err := template.New("input").Parse(tmplStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse input template: %w", err)
+	}
+
+	var buf strings.Builder
+	if err := tmpl.Execute(&buf, item); err != nil {
+		return "", fmt.Errorf("failed to execute input template: %w", err)
+	}
+
+	return buf.String(), nil
 }
