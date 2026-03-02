@@ -590,6 +590,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("failed to inject artifacts: %w", err)
 	}
 
+	// Audit: log step start with injected artifact names
+	if e.logger != nil {
+		var artifactNames []string
+		for _, ref := range step.Memory.InjectArtifacts {
+			name := ref.As
+			if name == "" {
+				name = ref.Artifact
+			}
+			artifactNames = append(artifactNames, name)
+		}
+		e.logger.LogStepStart(pipelineID, step.ID, step.Persona, artifactNames)
+	}
+
 	prompt := e.buildStepPrompt(execution, step)
 
 	if e.logger != nil {
@@ -708,6 +721,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		// Let the higher-level executor emit a single failure event; just
 		// propagate the error with context so enriched details (e.g. from
 		// *adapter.StepError) remain available to callers.
+		if e.logger != nil {
+			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), 0, 0, 0, err.Error())
+		}
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 
@@ -727,6 +743,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Fail immediately on rate limit — the result content is an error message,
 	// not useful work product. Proceeding would write the error as an artifact.
 	if result.FailureReason == adapter.FailureReasonRateLimit {
+		if e.logger != nil {
+			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+		}
 		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
 	}
 
@@ -859,6 +878,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 			// Check if we should fail the step or allow soft failure
 			if contractCfg.StrictMode {
+				if e.logger != nil {
+					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
+					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
+				}
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
 			// Soft failure: log the validation error but continue execution
@@ -869,6 +892,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				State:      "contract_soft_failure",
 				Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
 			})
+			if e.logger != nil {
+				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "soft_fail")
+			}
 		} else {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -877,7 +903,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				State:      "contract_passed",
 				Message:    fmt.Sprintf("%s contract validated", step.Handover.Contract.Type),
 			})
+			if e.logger != nil {
+				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
+			}
 		}
+	}
+	if step.Handover.Contract.Type == "" && e.logger != nil {
+		e.logger.LogContractResult(pipelineID, step.ID, "none", "skip")
 	}
 
 	// Populate artifact paths from step's OutputArtifacts when the adapter
@@ -899,6 +931,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		TokensUsed: result.TokensUsed,
 		Artifacts:  stepArtifacts,
 	})
+
+	if e.logger != nil {
+		e.logger.LogStepEnd(pipelineID, step.ID, "success", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
+	}
 
 	return nil
 }
