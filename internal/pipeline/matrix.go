@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"sync"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +24,9 @@ type MatrixResult struct {
 	Output        map[string]interface{}
 	ModifiedFiles []string
 	Error         error
+	Skipped    bool
+	SkipReason string
+	ItemID     string
 }
 
 // MatrixExecutor handles fan-out execution for matrix strategy steps.
@@ -87,6 +92,11 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 		State:      "matrix_items_loaded",
 		Message:    fmt.Sprintf("Loaded %d items for parallel execution", len(items)),
 	})
+
+	// Branch to tiered execution when dependency_key is configured
+	if strategy.DependencyKey != "" {
+		return m.tieredExecution(ctx, execution, step, items)
+	}
 
 	// Determine max concurrency
 	maxConcurrency := strategy.MaxConcurrency
@@ -563,3 +573,314 @@ type MatrixWorkerContext struct {
 
 // Ensure workspace package is used (for linter)
 var _ = workspace.WorkspaceConfig{}
+
+// tieredExecution runs matrix items in dependency-ordered tiers.
+// Items within a tier run in parallel; tiers execute sequentially.
+// If an item fails, items that depend on it are skipped.
+func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *PipelineExecution, step *Step, items []interface{}) error {
+	strategy := step.Strategy
+	pipelineID := execution.Status.ID
+
+	// Build ID → item index mapping
+	idToIndex := make(map[string]int, len(items))
+	indexToID := make(map[int]string, len(items))
+	for i, item := range items {
+		id, err := m.extractItemID(item, strategy.ItemIDKey)
+		if err != nil {
+			return fmt.Errorf("failed to extract item_id_key %q from item %d: %w", strategy.ItemIDKey, i, err)
+		}
+		if _, exists := idToIndex[id]; exists {
+			return fmt.Errorf("duplicate item ID %q at index %d", id, i)
+		}
+		idToIndex[id] = i
+		indexToID[i] = id
+	}
+
+	// Build dependency graph
+	deps := make(map[string][]string, len(items))
+	for i, item := range items {
+		id := indexToID[i]
+		itemDeps, err := m.extractDependencies(item, strategy.DependencyKey)
+		if err != nil {
+			return fmt.Errorf("failed to extract dependency_key %q from item %d: %w", strategy.DependencyKey, i, err)
+		}
+		for _, depID := range itemDeps {
+			if _, ok := idToIndex[depID]; !ok {
+				return fmt.Errorf("item %q depends on %q which does not exist", id, depID)
+			}
+		}
+		deps[id] = itemDeps
+	}
+
+	// Compute tiers using Kahn's algorithm
+	tiers, err := m.computeTiers(idToIndex, deps)
+	if err != nil {
+		return err
+	}
+
+	m.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      "matrix_tiers_computed",
+		Message:    fmt.Sprintf("Computed %d execution tiers for %d items", len(tiers), len(items)),
+	})
+
+	maxConcurrency := strategy.MaxConcurrency
+	if maxConcurrency <= 0 {
+		maxConcurrency = len(items)
+	}
+
+	allResults := make([]MatrixResult, 0, len(items))
+	failed := make(map[string]bool)     // IDs of items that failed
+	succeeded := make(map[string]bool)   // IDs of items that succeeded
+
+	for tierIdx, tier := range tiers {
+		m.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "matrix_tier_start",
+			Message:    fmt.Sprintf("Starting tier %d with %d items", tierIdx, len(tier)),
+		})
+
+		// Partition tier into runnable and skipped items
+		var runnable []string
+		for _, id := range tier {
+			shouldSkip, reason := m.shouldSkipItem(id, deps[id], failed)
+			if shouldSkip {
+				idx := idToIndex[id]
+				allResults = append(allResults, MatrixResult{
+					ItemIndex:  idx,
+					Item:       items[idx],
+					ItemID:     id,
+					Skipped:    true,
+					SkipReason: reason,
+				})
+				failed[id] = true // propagate failure downstream
+				m.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "matrix_item_skipped",
+					Message:    fmt.Sprintf("Skipping item %q: %s", id, reason),
+				})
+				continue
+			}
+			runnable = append(runnable, id)
+		}
+
+		if len(runnable) == 0 {
+			continue
+		}
+
+		// Execute runnable items in parallel with concurrency limit
+		g, gctx := errgroup.WithContext(ctx)
+		concurrency := maxConcurrency
+		if concurrency > len(runnable) {
+			concurrency = len(runnable)
+		}
+		g.SetLimit(concurrency)
+
+		var mu sync.Mutex
+		tierResults := make([]MatrixResult, 0, len(runnable))
+
+		for _, id := range runnable {
+			itemID := id
+			itemIndex := idToIndex[itemID]
+			itemValue := items[itemIndex]
+
+			g.Go(func() error {
+				result := m.executeWorker(gctx, execution, step, itemIndex, itemValue)
+				result.ItemID = itemID
+
+				mu.Lock()
+				tierResults = append(tierResults, result)
+				mu.Unlock()
+
+				// Don't return error — we want all items in this tier to execute
+				return nil
+			})
+		}
+
+		_ = g.Wait()
+
+		// Record results and track failures
+		for _, result := range tierResults {
+			allResults = append(allResults, result)
+			if result.Error != nil {
+				failed[result.ItemID] = true
+			} else {
+				succeeded[result.ItemID] = true
+			}
+		}
+	}
+
+	// Aggregate all results
+	m.aggregateResults(execution, step, allResults)
+
+	// Count outcomes
+	skipCount := 0
+	failCount := 0
+	successCount := 0
+	for _, r := range allResults {
+		switch {
+		case r.Skipped:
+			skipCount++
+		case r.Error != nil:
+			failCount++
+		default:
+			successCount++
+		}
+	}
+
+	// Override counts in aggregated results — aggregateResults does not distinguish skipped items
+	execution.mu.Lock()
+	if results, ok := execution.Results[step.ID]; ok {
+		results["skip_count"] = skipCount
+		results["success_count"] = successCount
+		results["fail_count"] = failCount
+	}
+	execution.mu.Unlock()
+
+	if failCount > 0 {
+		failedWorkers := m.collectFailedWorkers(allResults)
+		failureMsg := m.buildPartialFailureMessage(failedWorkers, successCount, len(items))
+		m.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "matrix_failed",
+			Message:    fmt.Sprintf("%s (skipped: %d)", failureMsg, skipCount),
+		})
+		return fmt.Errorf("matrix execution partially failed: %d/%d workers failed, %d skipped. %s",
+			failCount, len(items), skipCount, m.formatFailedWorkerErrors(failedWorkers))
+	}
+
+	m.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      "matrix_complete",
+		Message:    fmt.Sprintf("Successfully processed %d items (%d skipped)", successCount, skipCount),
+	})
+
+	return nil
+}
+
+// extractItemID extracts a string ID from an item using a dot-path key.
+func (m *MatrixExecutor) extractItemID(item interface{}, key string) (string, error) {
+	val, err := m.extractByKey(item, key)
+	if err != nil {
+		return "", err
+	}
+	switch v := val.(type) {
+	case string:
+		return v, nil
+	case float64:
+		// JSON numbers are float64 — format as integer if possible
+		if v == float64(int(v)) {
+			return fmt.Sprintf("%d", int(v)), nil
+		}
+		return fmt.Sprintf("%g", v), nil
+	default:
+		return fmt.Sprintf("%v", v), nil
+	}
+}
+
+// extractDependencies extracts a string slice of dependency IDs from an item.
+// Returns an empty slice if the key points to null or an empty array.
+func (m *MatrixExecutor) extractDependencies(item interface{}, key string) ([]string, error) {
+	val, err := m.extractByKey(item, key)
+	if err != nil {
+		// Key not found means no dependencies
+		return nil, nil
+	}
+	if val == nil {
+		return nil, nil
+	}
+	arr, ok := val.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("dependency_key value must be an array, got %T", val)
+	}
+	result := make([]string, 0, len(arr))
+	for _, v := range arr {
+		switch dv := v.(type) {
+		case string:
+			result = append(result, dv)
+		case float64:
+			if dv == float64(int(dv)) {
+				result = append(result, fmt.Sprintf("%d", int(dv)))
+			} else {
+				result = append(result, fmt.Sprintf("%g", dv))
+			}
+		default:
+			result = append(result, fmt.Sprintf("%v", v))
+		}
+	}
+	return result, nil
+}
+
+// computeTiers uses Kahn's algorithm (BFS topological sort) to group items
+// into execution tiers. Returns an error if the graph has cycles.
+func (m *MatrixExecutor) computeTiers(idToIndex map[string]int, deps map[string][]string) ([][]string, error) {
+	// Build in-degree map
+	inDegree := make(map[string]int, len(idToIndex))
+	for id := range idToIndex {
+		inDegree[id] = 0
+	}
+	for id, depList := range deps {
+		inDegree[id] = len(depList)
+	}
+
+	// Build reverse adjacency: dep → items that depend on it
+	reverse := make(map[string][]string, len(idToIndex))
+	for id, depList := range deps {
+		for _, dep := range depList {
+			reverse[dep] = append(reverse[dep], id)
+		}
+	}
+
+	var tiers [][]string
+	remaining := len(idToIndex)
+
+	for remaining > 0 {
+		// Collect items with in-degree 0
+		var tier []string
+		for id, deg := range inDegree {
+			if deg == 0 {
+				tier = append(tier, id)
+			}
+		}
+
+		if len(tier) == 0 {
+			return nil, fmt.Errorf("dependency cycle detected among remaining %d items", remaining)
+		}
+
+		// Sort tier for deterministic ordering
+		sort.Strings(tier)
+
+		// Remove items from graph
+		for _, id := range tier {
+			delete(inDegree, id)
+			for _, dependent := range reverse[id] {
+				inDegree[dependent]--
+			}
+		}
+
+		tiers = append(tiers, tier)
+		remaining -= len(tier)
+	}
+
+	return tiers, nil
+}
+
+// shouldSkipItem checks if an item should be skipped because a dependency failed.
+func (m *MatrixExecutor) shouldSkipItem(id string, itemDeps []string, failed map[string]bool) (bool, string) {
+	for _, dep := range itemDeps {
+		if failed[dep] {
+			return true, fmt.Sprintf("dependency %q failed", dep)
+		}
+	}
+	return false, ""
+}
