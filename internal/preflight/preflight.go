@@ -51,23 +51,26 @@ func (e *ToolError) Unwrap() error {
 
 // Result represents the outcome of a single preflight check.
 type Result struct {
-	Name    string // Tool or skill name
-	Kind    string // "tool" or "skill"
-	OK      bool
-	Message string
+	Name        string `json:"name"`                  // Tool or skill name
+	Kind        string `json:"kind"`                  // "tool", "skill", "forge", "adapter", or "init"
+	OK          bool   `json:"ok"`
+	Message     string `json:"message"`
+	Remediation string `json:"remediation,omitempty"` // Optional install/fix guidance
 }
 
 // Checker validates that pipeline dependencies are satisfied before execution.
 type Checker struct {
-	skills  map[string]manifest.SkillConfig
-	runCmd  func(name string, args ...string) error // for testing
+	skills   map[string]manifest.SkillConfig
+	runCmd   func(name string, args ...string) error // for testing
+	lookPath func(file string) (string, error)       // for testing
 }
 
 // NewChecker creates a preflight checker with the given skill configurations.
 func NewChecker(skills map[string]manifest.SkillConfig) *Checker {
 	return &Checker{
-		skills: skills,
-		runCmd: defaultRunCmd,
+		skills:   skills,
+		runCmd:   defaultRunCmd,
+		lookPath: exec.LookPath,
 	}
 }
 
@@ -83,13 +86,14 @@ func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 	var missing []string
 
 	for _, tool := range tools {
-		_, err := exec.LookPath(tool)
+		_, err := c.lookPath(tool)
 		if err != nil {
 			results = append(results, Result{
-				Name:    tool,
-				Kind:    "tool",
-				OK:      false,
-				Message: fmt.Sprintf("tool %q not found on PATH", tool),
+				Name:        tool,
+				Kind:        "tool",
+				OK:          false,
+				Message:     fmt.Sprintf("tool %q not found on PATH", tool),
+				Remediation: fmt.Sprintf("Install %q and ensure it is on your PATH", tool),
 			})
 			missing = append(missing, tool)
 		} else {
@@ -119,10 +123,11 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 		cfg, exists := c.skills[name]
 		if !exists {
 			results = append(results, Result{
-				Name:    name,
-				Kind:    "skill",
-				OK:      false,
-				Message: fmt.Sprintf("skill %q not declared in wave.yaml skills section", name),
+				Name:        name,
+				Kind:        "skill",
+				OK:          false,
+				Message:     fmt.Sprintf("skill %q not declared in wave.yaml skills section", name),
+				Remediation: fmt.Sprintf("Add skill %q to the skills section of wave.yaml", name),
 			})
 			failed = append(failed, name)
 			continue
@@ -142,10 +147,11 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 		// Attempt auto-install if install command is configured
 		if cfg.Install == "" {
 			results = append(results, Result{
-				Name:    name,
-				Kind:    "skill",
-				OK:      false,
-				Message: fmt.Sprintf("skill %q not installed and no install command configured", name),
+				Name:        name,
+				Kind:        "skill",
+				OK:          false,
+				Message:     fmt.Sprintf("skill %q not installed and no install command configured", name),
+				Remediation: fmt.Sprintf("Configure an install command for skill %q in wave.yaml, or install it manually", name),
 			})
 			failed = append(failed, name)
 			continue
@@ -154,10 +160,11 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 		// Run install command
 		if err := c.runShellCommand(cfg.Install); err != nil {
 			results = append(results, Result{
-				Name:    name,
-				Kind:    "skill",
-				OK:      false,
-				Message: fmt.Sprintf("skill %q install failed: %v", name, err),
+				Name:        name,
+				Kind:        "skill",
+				OK:          false,
+				Message:     fmt.Sprintf("skill %q install failed: %v", name, err),
+				Remediation: fmt.Sprintf("Check that the install command for skill %q is correct in wave.yaml: %s", name, cfg.Install),
 			})
 			failed = append(failed, name)
 			continue
@@ -167,10 +174,11 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 		if cfg.Init != "" {
 			if err := c.runShellCommand(cfg.Init); err != nil {
 				results = append(results, Result{
-					Name:    name,
-					Kind:    "skill",
-					OK:      false,
-					Message: fmt.Sprintf("skill %q init failed: %v", name, err),
+					Name:        name,
+					Kind:        "skill",
+					OK:          false,
+					Message:     fmt.Sprintf("skill %q init failed: %v", name, err),
+					Remediation: fmt.Sprintf("Check that the init command for skill %q is correct in wave.yaml: %s", name, cfg.Init),
 				})
 				failed = append(failed, name)
 				continue
@@ -187,10 +195,11 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 			})
 		} else {
 			results = append(results, Result{
-				Name:    name,
-				Kind:    "skill",
-				OK:      false,
-				Message: fmt.Sprintf("skill %q still not detected after install", name),
+				Name:        name,
+				Kind:        "skill",
+				OK:          false,
+				Message:     fmt.Sprintf("skill %q still not detected after install", name),
+				Remediation: fmt.Sprintf("Skill %q check command did not pass after installation — verify the check command: %s", name, cfg.Check),
 			})
 			failed = append(failed, name)
 		}
@@ -215,6 +224,64 @@ func (c *Checker) isSkillInstalled(cfg manifest.SkillConfig) bool {
 // runShellCommand executes a shell command string via sh -c.
 func (c *Checker) runShellCommand(command string) error {
 	return c.runCmd("sh", "-c", command)
+}
+
+// CheckAdapterHealth verifies that each configured adapter binary is reachable
+// on PATH and can respond to an auth probe command.
+func (c *Checker) CheckAdapterHealth(adapters map[string]manifest.Adapter) ([]Result, error) {
+	var results []Result
+
+	for name, adapter := range adapters {
+		binary := adapter.Binary
+
+		// Check if binary is on PATH
+		_, err := c.lookPath(binary)
+		if err != nil {
+			results = append(results, Result{
+				Name:        name,
+				Kind:        "adapter",
+				OK:          false,
+				Message:     fmt.Sprintf("adapter %q binary %q not found on PATH", name, binary),
+				Remediation: fmt.Sprintf("Install adapter binary %q and ensure it is on your PATH", binary),
+			})
+			continue
+		}
+
+		// Run auth probe
+		var probeErr error
+		if adapter.AuthCheck != "" {
+			probeErr = c.runCmd("sh", "-c", adapter.AuthCheck)
+		} else {
+			probeErr = c.runCmd(binary, "--version")
+		}
+
+		if probeErr == nil {
+			results = append(results, Result{
+				Name:    name,
+				Kind:    "adapter",
+				OK:      true,
+				Message: fmt.Sprintf("adapter %q is reachable and responding", name),
+			})
+		} else {
+			remediation := fmt.Sprintf("Run %q to verify it is working correctly", binary)
+			switch name {
+			case "claude":
+				remediation = "Run `claude` to complete authentication, or check your API key"
+			case "opencode":
+				remediation = "Run `opencode` to complete setup, or check your API key"
+			}
+
+			results = append(results, Result{
+				Name:        name,
+				Kind:        "adapter",
+				OK:          false,
+				Message:     fmt.Sprintf("adapter %q binary found but health check failed: %v", name, probeErr),
+				Remediation: remediation,
+			})
+		}
+	}
+
+	return results, nil
 }
 
 // Run executes all preflight checks for the given tool and skill requirements.

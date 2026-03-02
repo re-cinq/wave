@@ -37,6 +37,7 @@ type Adapter struct {
 	ProjectFiles       []string    `yaml:"project_files,omitempty"`
 	DefaultPermissions Permissions `yaml:"default_permissions,omitempty"`
 	HooksTemplate      string      `yaml:"hooks_template,omitempty"`
+	AuthCheck          string      `yaml:"auth_check,omitempty"` // Command to verify adapter is authenticated
 }
 
 type Persona struct {
