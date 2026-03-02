@@ -157,6 +157,27 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 	return ex
 }
 
+// NewChildExecutor creates a fresh executor that shares the same adapter runner,
+// event emitter, workspace manager, and configuration, but has independent
+// execution state. Used for child pipeline invocation within matrix strategies.
+func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
+	return &DefaultPipelineExecutor{
+		runner:             e.runner,
+		emitter:            e.emitter,
+		store:              e.store,
+		logger:             e.logger,
+		wsManager:          e.wsManager,
+		relayMonitor:       e.relayMonitor,
+		pipelines:          make(map[string]*PipelineExecution),
+		debug:              e.debug,
+		securityConfig:     e.securityConfig,
+		pathValidator:      e.pathValidator,
+		inputSanitizer:     e.inputSanitizer,
+		securityLogger:     e.securityLogger,
+		deliverableTracker: deliverable.NewTracker(""),
+	}
+}
+
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
