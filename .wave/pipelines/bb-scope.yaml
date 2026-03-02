@@ -120,7 +120,7 @@ steps:
     outcomes:
       - type: issue
         extract_from: .wave/artifact.json
-        json_path: .created_issues[0].url
+        json_path: .created_issues[*].url
         label: "First Sub-Issue"
     handover:
       max_retries: 1
