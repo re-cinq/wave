@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Proposal",
+  "description": "Structured proposal output from the pipeline proposal engine, consumable by the TUI or downstream pipeline steps.",
+  "type": "object",
+  "required": ["forge_type", "proposals", "timestamp"],
+  "properties": {
+    "forge_type": {
+      "type": "string",
+      "enum": ["github", "gitlab", "gitea", "bitbucket", "unknown"],
+      "description": "Detected or configured source code forge type"
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pipeline", "rationale", "priority", "score", "parallel_group"],
+        "properties": {
+          "pipeline": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Pipeline name (e.g., 'gh-implement')"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Why this pipeline is relevant given the codebase health state"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Execution priority (1 = highest)"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Relevance score (0.0-1.0)"
+          },
+          "parallel_group": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Items in the same group can run concurrently"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Pipeline names this item depends on"
+          },
+          "category": {
+            "type": "string",
+            "description": "Pipeline category from metadata"
+          }
+        }
+      },
+      "description": "Ordered list of pipeline recommendations"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the proposal was generated"
+    },
+    "health_summary": {
+      "type": "string",
+      "description": "Summary of the health analysis input"
+    }
+  }
+}
