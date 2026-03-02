@@ -89,6 +89,10 @@ Arguments can be provided as positional args or flags:
 				return err
 			}
 
+			// Suppress cobra's automatic usage text for pipeline execution errors.
+			// Argument validation errors (above) still show usage; pipeline errors
+			// already include recovery hints making usage text redundant and noisy.
+			cmd.SilenceUsage = true
 			return runRun(opts, debug)
 		},
 	}
