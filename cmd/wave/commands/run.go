@@ -89,6 +89,8 @@ Arguments can be provided as positional args or flags:
 				return err
 			}
 
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			return runRun(opts, debug)
 		},
 	}
