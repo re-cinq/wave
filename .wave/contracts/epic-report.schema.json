@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Epic Implementation Report",
+  "description": "Output from the report step of gh-implement-epic: implementation status for each subissue",
+  "type": "object",
+  "required": ["parent_issue", "results", "summary"],
+  "properties": {
+    "parent_issue": {
+      "type": "object",
+      "required": ["owner", "repo", "number", "url"],
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" },
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["number", "title", "status"],
+        "properties": {
+          "number": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "status": { "type": "string", "enum": ["implemented", "failed", "skipped"] },
+          "pr_url": { "type": "string" },
+          "pr_number": { "type": "integer" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_subissues", "implemented", "failed", "skipped"],
+      "properties": {
+        "total_subissues": { "type": "integer", "minimum": 0 },
+        "implemented": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "comment_posted": { "type": "boolean" },
+        "comment_url": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
