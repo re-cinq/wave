@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"time"
 	"os"
 	"path/filepath"
 	"strings"
@@ -425,5 +426,284 @@ func TestCredentialScrubbingPatterns_LogFileOpScrubs(t *testing.T) {
 	contentStr := string(content)
 	if strings.Contains(contentStr, "abc123") {
 		t.Errorf("trace file contains unredacted token: %s", contentStr)
+	}
+}
+
+// =============================================================================
+// Tests for LogStepStart, LogStepEnd, LogContractResult (Issue #189)
+// =============================================================================
+
+func TestLogStepStart(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	err = logger.LogStepStart("pipeline-001", "step-001", "navigator", []string{"spec.md", "plan.md"})
+	if err != nil {
+		t.Fatalf("LogStepStart failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "[STEP_START]") {
+		t.Error("trace file missing [STEP_START] marker")
+	}
+	if !strings.Contains(contentStr, "pipeline=pipeline-001") {
+		t.Error("trace file missing pipeline ID")
+	}
+	if !strings.Contains(contentStr, "step=step-001") {
+		t.Error("trace file missing step ID")
+	}
+	if !strings.Contains(contentStr, "persona=navigator") {
+		t.Error("trace file missing persona")
+	}
+	if !strings.Contains(contentStr, "artifacts=spec.md,plan.md") {
+		t.Error("trace file missing artifacts list")
+	}
+}
+
+func TestLogStepStart_NoArtifacts(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	err = logger.LogStepStart("pipeline-001", "step-001", "craftsman", nil)
+	if err != nil {
+		t.Fatalf("LogStepStart failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "[STEP_START]") {
+		t.Error("trace file missing [STEP_START] marker")
+	}
+	if strings.Contains(contentStr, "artifacts=") {
+		t.Error("trace file should not contain artifacts field when none are injected")
+	}
+}
+
+func TestLogStepEnd_Success(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	duration := 7*time.Second + 523*time.Millisecond
+	err = logger.LogStepEnd("pipeline-001", "step-001", "success", duration, 0, 2048, 761, "")
+	if err != nil {
+		t.Fatalf("LogStepEnd failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "[STEP_END]") {
+		t.Error("trace file missing [STEP_END] marker")
+	}
+	if !strings.Contains(contentStr, "status=success") {
+		t.Error("trace file missing status=success")
+	}
+	if !strings.Contains(contentStr, "duration=7.523s") {
+		t.Errorf("trace file missing or incorrect duration, got: %s", contentStr)
+	}
+	if !strings.Contains(contentStr, "exit_code=0") {
+		t.Error("trace file missing exit_code=0")
+	}
+	if !strings.Contains(contentStr, "output_bytes=2048") {
+		t.Error("trace file missing output_bytes=2048")
+	}
+	if !strings.Contains(contentStr, "tokens_used=761") {
+		t.Error("trace file missing tokens_used=761")
+	}
+	if strings.Contains(contentStr, "error=") {
+		t.Error("trace file should not contain error field on success")
+	}
+}
+
+func TestLogStepEnd_Failure(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	duration := 3*time.Second + 100*time.Millisecond
+	err = logger.LogStepEnd("pipeline-001", "step-001", "failed", duration, 1, 0, 200, "adapter execution failed: context deadline exceeded")
+	if err != nil {
+		t.Fatalf("LogStepEnd failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "[STEP_END]") {
+		t.Error("trace file missing [STEP_END] marker")
+	}
+	if !strings.Contains(contentStr, "status=failed") {
+		t.Error("trace file missing status=failed")
+	}
+	if !strings.Contains(contentStr, "exit_code=1") {
+		t.Error("trace file missing exit_code=1")
+	}
+	if !strings.Contains(contentStr, "error=") {
+		t.Error("trace file missing error field on failure")
+	}
+	if !strings.Contains(contentStr, "adapter execution failed") {
+		t.Error("trace file missing error message content")
+	}
+}
+
+func TestLogStepEnd_CredentialScrubbing(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	err = logger.LogStepEnd("pipeline-001", "step-001", "failed", time.Second, 1, 0, 0, "failed with API_KEY=sk-supersecret123")
+	if err != nil {
+		t.Fatalf("LogStepEnd failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if strings.Contains(contentStr, "sk-supersecret123") {
+		t.Errorf("trace file contains unredacted secret: %s", contentStr)
+	}
+	if !strings.Contains(contentStr, "[REDACTED]") {
+		t.Errorf("trace file missing [REDACTED] marker: %s", contentStr)
+	}
+}
+
+func TestLogContractResult(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		contractType string
+		result       string
+	}{
+		{"pass", "json_schema", "pass"},
+		{"fail", "test_suite", "fail"},
+		{"soft_fail", "json_schema", "soft_fail"},
+		{"skip", "none", "skip"},
+	}
+
+	for _, tt := range tests {
+		err = logger.LogContractResult("pipeline-001", "step-001", tt.contractType, tt.result)
+		if err != nil {
+			t.Fatalf("LogContractResult failed for %s: %v", tt.name, err)
+		}
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	for _, tt := range tests {
+		if !strings.Contains(contentStr, "[CONTRACT]") {
+			t.Error("trace file missing [CONTRACT] marker")
+		}
+		if !strings.Contains(contentStr, "type="+tt.contractType) {
+			t.Errorf("trace file missing contract type=%s", tt.contractType)
+		}
+		if !strings.Contains(contentStr, "result="+tt.result) {
+			t.Errorf("trace file missing result=%s", tt.result)
+		}
+	}
+}
+
+func TestLogStepStart_CredentialScrubbingInArtifacts(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	logger, err := NewTraceLoggerWithDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	// Artifact name that contains a credential pattern (unlikely but should still be scrubbed)
+	err = logger.LogStepStart("pipeline-001", "step-001", "navigator", []string{"TOKEN=secret123"})
+	if err != nil {
+		t.Fatalf("LogStepStart failed: %v", err)
+	}
+
+	logger.Close()
+
+	files, err := os.ReadDir(traceDir)
+	if err != nil {
+		t.Fatalf("failed to read trace dir: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(traceDir, files[0].Name()))
+	if err != nil {
+		t.Fatalf("failed to read trace file: %v", err)
+	}
+
+	contentStr := string(content)
+	if strings.Contains(contentStr, "secret123") {
+		t.Errorf("trace file contains unredacted secret in artifacts: %s", contentStr)
 	}
 }
