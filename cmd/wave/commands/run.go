@@ -36,6 +36,7 @@ type RunOptions struct {
 	Manifest string
 	Mock     bool
 	RunID    string
+	Propose  bool
 	Output   OutputConfig
 }
 
@@ -68,6 +69,51 @@ Arguments can be provided as positional args or flags:
 
 			opts.Output = GetOutputConfig(cmd)
 			debug, _ := cmd.Flags().GetBool("debug")
+
+			// Proposal mode: present multi-pipeline selection when --propose is used
+			propose, _ := cmd.Flags().GetBool("propose")
+			if propose && isInteractive() {
+				var proposals []tui.Proposal
+				if opts.Mock {
+					proposals = tui.MockProposalProvider()
+				}
+				// When #208 proposal engine is implemented, proposals will come
+				// from it instead of (or in addition to) the mock provider.
+				if len(proposals) > 0 {
+					result, err := tui.RunProposalSelector(proposals)
+					if err != nil {
+						if errors.Is(err, huh.ErrUserAborted) {
+							return nil
+						}
+						return err
+					}
+					if result.Aborted || len(result.Pipelines) == 0 {
+						return nil
+					}
+					// For now, run the first accepted pipeline.
+					// Multi-pipeline sequential execution will be added with #208.
+					opts.Pipeline = result.Pipelines[0].Pipeline
+					if result.Pipelines[0].Input != "" {
+						opts.Input = result.Pipelines[0].Input
+					}
+					for _, flag := range result.Pipelines[0].Flags {
+						switch flag {
+						case "--verbose":
+							opts.Output.Verbose = true
+						case "--output json":
+							opts.Output.Format = OutputFormatJSON
+						case "--output text":
+							opts.Output.Format = OutputFormatText
+						case "--dry-run":
+							opts.DryRun = true
+						case "--mock":
+							opts.Mock = true
+						case "--debug":
+							debug = true
+						}
+					}
+				}
+			}
 
 			// If no pipeline specified and stdin is a TTY, launch interactive selector
 			if opts.Pipeline == "" {
@@ -102,6 +148,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
+	cmd.Flags().BoolVar(&opts.Propose, "propose", false, "Interactive multi-pipeline proposal mode (requires #208 proposal engine or --mock)")
 
 	return cmd
 }
