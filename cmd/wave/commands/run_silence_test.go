@@ -51,4 +51,5 @@ func TestRunCmdSilencesUsageOnPipelineError(t *testing.T) {
 	// After RunE executes past the argument validation, SilenceUsage must be true
 	// so cobra does not append usage/help text to the error output.
 	assert.True(t, cmd.SilenceUsage, "SilenceUsage should be true after runRun error")
+	assert.True(t, cmd.SilenceErrors, "SilenceErrors should be true after runRun error")
 }
