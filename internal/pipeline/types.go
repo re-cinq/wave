@@ -153,6 +153,10 @@ type MatrixStrategy struct {
 	ItemsSource    string `yaml:"items_source"`
 	ItemKey        string `yaml:"item_key"`
 	MaxConcurrency int    `yaml:"max_concurrency,omitempty"`
+	ItemIDKey      string `yaml:"item_id_key,omitempty"`
+	DependencyKey  string `yaml:"dependency_key,omitempty"`
+	ChildPipeline  string `yaml:"child_pipeline,omitempty"`
+	InputTemplate  string `yaml:"input_template,omitempty"`
 }
 
 type ValidationRule struct {
