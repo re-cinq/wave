@@ -115,6 +115,17 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 func generateRealisticOutput(cfg AdapterRunConfig) string {
 	// Check for pipeline-specific step generators first
 	// (workspace path contains pipeline name, e.g., ".wave/workspaces/gh-implement/fetch-assess/")
+	// gh-implement-epic must be checked before gh-implement to avoid false match
+	if strings.Contains(cfg.WorkspacePath, "gh-implement-epic") {
+		phase := filepath.Base(cfg.WorkspacePath)
+		switch phase {
+		case "fetch-scope":
+			return generateEpicScopePlanOutput(cfg)
+		case "report":
+			return generateEpicReportOutput(cfg)
+		}
+	}
+
 	if strings.Contains(cfg.WorkspacePath, "gh-implement") {
 		phase := filepath.Base(cfg.WorkspacePath)
 		switch phase {
@@ -462,6 +473,100 @@ func generateIssuePROutput(cfg AdapterRunConfig) string {
 		"issue_url":                "https://github.com/re-cinq/wave/issues/50",
 		"copilot_review_requested": true,
 		"summary":                  "Mock PR created for issue #50",
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
+
+// generateEpicScopePlanOutput returns epic-scope-plan.schema.json compliant output
+func generateEpicScopePlanOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"parent_issue": map[string]interface{}{
+			"owner":  "re-cinq",
+			"repo":   "wave",
+			"number": 184,
+			"title":  "Mock epic for testing",
+			"url":    "https://github.com/re-cinq/wave/issues/184",
+		},
+		"subissues": []map[string]interface{}{
+			{
+				"number":       206,
+				"repository":   "re-cinq/wave",
+				"title":        "Add dependency tier computation",
+				"url":          "https://github.com/re-cinq/wave/issues/206",
+				"state":        "OPEN",
+				"complexity":   "M",
+				"dependencies": []interface{}{},
+			},
+			{
+				"number":       207,
+				"repository":   "re-cinq/wave",
+				"title":        "Add child pipeline invocation",
+				"url":          "https://github.com/re-cinq/wave/issues/207",
+				"state":        "OPEN",
+				"complexity":   "L",
+				"dependencies": []interface{}{206},
+			},
+			{
+				"number":       208,
+				"repository":   "re-cinq/wave",
+				"title":        "Create gh-implement-epic pipeline",
+				"url":          "https://github.com/re-cinq/wave/issues/208",
+				"state":        "OPEN",
+				"complexity":   "M",
+				"dependencies": []interface{}{207},
+			},
+		},
+		"total_subissues": 3,
+		"open_subissues":  3,
+		"dependency_tiers": [][]int{
+			{206},
+			{207},
+			{208},
+		},
+	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	return string(out)
+}
+
+// generateEpicReportOutput returns epic-report.schema.json compliant output
+func generateEpicReportOutput(cfg AdapterRunConfig) string {
+	data := map[string]interface{}{
+		"parent_issue": map[string]interface{}{
+			"owner":  "re-cinq",
+			"repo":   "wave",
+			"number": 184,
+			"url":    "https://github.com/re-cinq/wave/issues/184",
+		},
+		"results": []map[string]interface{}{
+			{
+				"number":    206,
+				"title":     "Add dependency tier computation",
+				"status":    "implemented",
+				"pr_url":    "https://github.com/re-cinq/wave/pull/215",
+				"pr_number": 215,
+			},
+			{
+				"number":    207,
+				"title":     "Add child pipeline invocation",
+				"status":    "implemented",
+				"pr_url":    "https://github.com/re-cinq/wave/pull/216",
+				"pr_number": 216,
+			},
+			{
+				"number": 208,
+				"title":  "Create gh-implement-epic pipeline",
+				"status": "failed",
+			},
+		},
+		"summary": map[string]interface{}{
+			"total_subissues": 3,
+			"implemented":     2,
+			"failed":          1,
+			"skipped":         0,
+			"comment_posted":  true,
+			"comment_url":     "https://github.com/re-cinq/wave/issues/184#issuecomment-mock-123",
+		},
 	}
 	out, _ := json.MarshalIndent(data, "", "  ")
 	return string(out)
