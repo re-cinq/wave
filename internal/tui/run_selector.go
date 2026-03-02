@@ -36,13 +36,21 @@ func DefaultFlags() []Flag {
 // RunPipelineSelector launches the interactive TUI for pipeline selection.
 // preFilter narrows the initial pipeline list (e.g. from a partial name argument).
 // pipelinesDir is the directory to scan for pipeline YAML files.
-func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
+func RunPipelineSelector(pipelinesDir, preFilter, forgeFilter string) (*Selection, error) {
 	pipelines, err := DiscoverPipelines(pipelinesDir)
 	if err != nil {
 		return nil, fmt.Errorf("discovering pipelines: %w", err)
 	}
 	if len(pipelines) == 0 {
 		return nil, fmt.Errorf("no pipelines found in %s", pipelinesDir)
+	}
+
+	// Filter by forge type if specified.
+	if forgeFilter != "" {
+		pipelines = filterByForge(pipelines, forgeFilter)
+		if len(pipelines) == 0 {
+			return nil, fmt.Errorf("no pipelines found for forge %q", forgeFilter)
+		}
 	}
 
 	// Filter pipelines if a pre-filter is provided.
@@ -215,4 +223,32 @@ func ComposeCommand(pipeline, input string, flags []string) string {
 	}
 	parts = append(parts, flags...)
 	return strings.Join(parts, " ")
+}
+
+// forgePrefixes lists all recognized forge pipeline prefixes.
+var forgePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
+
+// filterByForge returns pipelines matching the given forge prefix plus universal (non-prefixed) pipelines.
+func filterByForge(pipelines []PipelineInfo, forgePrefix string) []PipelineInfo {
+	var result []PipelineInfo
+	for _, p := range pipelines {
+		if strings.HasPrefix(p.Name, forgePrefix) {
+			result = append(result, p)
+			continue
+		}
+		if !hasForgePrefix(p.Name) {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+// hasForgePrefix returns true if the name starts with any known forge prefix.
+func hasForgePrefix(name string) bool {
+	for _, p := range forgePrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
 }

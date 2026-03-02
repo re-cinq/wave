@@ -13,6 +13,11 @@ type Project struct {
 	SourceGlob   string `yaml:"source_glob,omitempty"`
 }
 
+// ForgeConfig holds domain-to-forge type mappings for self-hosted forge instances.
+type ForgeConfig struct {
+	Domains map[string]string `yaml:"domains,omitempty"`
+}
+
 type Manifest struct {
 	APIVersion  string              `yaml:"apiVersion"`
 	Kind        string              `yaml:"kind"`
@@ -22,6 +27,7 @@ type Manifest struct {
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
 	Skills      map[string]SkillConfig     `yaml:"skills,omitempty"`
+	Forge   *ForgeConfig               `yaml:"forge,omitempty"`
 }
 
 type Metadata struct {

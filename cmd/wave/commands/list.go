@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -25,6 +26,7 @@ type PipelineInfo struct {
 	Description string   `json:"description"`
 	StepCount   int      `json:"step_count"`
 	Steps       []string `json:"steps"`
+	Forge       string   `json:"forge,omitempty"`
 }
 
 type PersonaInfo struct {
@@ -361,11 +363,24 @@ func collectPipelines() ([]PipelineInfo, error) {
 			stepIDs = append(stepIDs, s.ID)
 		}
 
+		forgeType := ""
+		switch {
+		case strings.HasPrefix(name, "gh-"):
+			forgeType = "github"
+		case strings.HasPrefix(name, "gl-"):
+			forgeType = "gitlab"
+		case strings.HasPrefix(name, "bb-"):
+			forgeType = "bitbucket"
+		case strings.HasPrefix(name, "gt-"):
+			forgeType = "gitea"
+		}
+
 		pipelines = append(pipelines, PipelineInfo{
 			Name:        name,
 			Description: p.Metadata.Description,
 			StepCount:   len(p.Steps),
 			Steps:       stepIDs,
+			Forge:       forgeType,
 		})
 	}
 
@@ -453,6 +468,13 @@ func listPipelinesTable() error {
 		sepWidth = 40
 	}
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
+
+	// Show detected forge type
+	primary, _, fErr := forge.DetectPrimary(nil, nil)
+	if fErr == nil && primary.Type != forge.Unknown {
+		forgeBadge := f.Primary(string(primary.Type))
+		fmt.Printf("  %s %s\n", f.Muted("forge:"), forgeBadge)
+	}
 
 	if len(entries) == 0 {
 		fmt.Printf("  %s\n", f.Muted("(none found in "+pipelineDir+"/)"))

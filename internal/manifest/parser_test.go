@@ -563,3 +563,66 @@ func TestManifestGetPersona(t *testing.T) {
 		t.Error("Expected nil for nonexistent persona")
 	}
 }
+
+func TestManifestForgeConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-forge
+runtime:
+  workspace_root: ./workspace
+forge:
+  domains:
+    git.internal.corp: github
+    code.company.com: gitlab
+    my-gitea.example.org: gitea
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest with forge config: %v", err)
+	}
+
+	if m.Forge == nil {
+		t.Fatal("expected forge config to be non-nil")
+	}
+	if len(m.Forge.Domains) != 3 {
+		t.Fatalf("expected 3 forge domains, got %d", len(m.Forge.Domains))
+	}
+	if m.Forge.Domains["git.internal.corp"] != "github" {
+		t.Errorf("expected github for git.internal.corp, got %s", m.Forge.Domains["git.internal.corp"])
+	}
+	if m.Forge.Domains["code.company.com"] != "gitlab" {
+		t.Errorf("expected gitlab for code.company.com, got %s", m.Forge.Domains["code.company.com"])
+	}
+	if m.Forge.Domains["my-gitea.example.org"] != "gitea" {
+		t.Errorf("expected gitea for my-gitea.example.org, got %s", m.Forge.Domains["my-gitea.example.org"])
+	}
+}
+
+func TestManifestForgeConfigEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	manifestContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-no-forge
+runtime:
+  workspace_root: ./workspace
+`
+	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Failed to load manifest without forge config: %v", err)
+	}
+
+	if m.Forge != nil {
+		t.Error("expected nil forge config when not configured")
+	}
+}

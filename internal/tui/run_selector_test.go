@@ -182,3 +182,72 @@ func TestSelectionStruct(t *testing.T) {
 	assert.Equal(t, "add auth", s.Input)
 	assert.Equal(t, []string{"--verbose", "--dry-run"}, s.Flags)
 }
+
+func TestFilterByForge(t *testing.T) {
+	pipelines := []PipelineInfo{
+		{Name: "gh-implement", Description: "Implement GitHub issue"},
+		{Name: "gh-pr-review", Description: "Review GitHub PR"},
+		{Name: "gl-merge-request", Description: "GitLab MR"},
+		{Name: "bb-pull-request", Description: "Bitbucket PR"},
+		{Name: "gt-issue-flow", Description: "Gitea issue"},
+		{Name: "prototype", Description: "Prototype pipeline"},
+		{Name: "hotfix", Description: "Hotfix pipeline"},
+	}
+
+	tests := []struct {
+		name        string
+		forgePrefix string
+		want        []string
+	}{
+		{
+			name:        "GitHub prefix",
+			forgePrefix: "gh-",
+			want:        []string{"gh-implement", "gh-pr-review", "prototype", "hotfix"},
+		},
+		{
+			name:        "GitLab prefix",
+			forgePrefix: "gl-",
+			want:        []string{"gl-merge-request", "prototype", "hotfix"},
+		},
+		{
+			name:        "Bitbucket prefix",
+			forgePrefix: "bb-",
+			want:        []string{"bb-pull-request", "prototype", "hotfix"},
+		},
+		{
+			name:        "Gitea prefix",
+			forgePrefix: "gt-",
+			want:        []string{"gt-issue-flow", "prototype", "hotfix"},
+		},
+		{
+			name:        "Empty prefix returns all",
+			forgePrefix: "",
+			want:        nil, // filterByForge is not called when empty
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.forgePrefix == "" {
+				// Empty prefix means filterByForge shouldn't be called
+				return
+			}
+			got := filterByForge(pipelines, tt.forgePrefix)
+			var names []string
+			for _, p := range got {
+				names = append(names, p.Name)
+			}
+			assert.Equal(t, tt.want, names)
+		})
+	}
+}
+
+func TestHasForgePrefixTUI(t *testing.T) {
+	assert.True(t, hasForgePrefix("gh-implement"))
+	assert.True(t, hasForgePrefix("gl-deploy"))
+	assert.True(t, hasForgePrefix("bb-pr"))
+	assert.True(t, hasForgePrefix("gt-issue"))
+	assert.False(t, hasForgePrefix("prototype"))
+	assert.False(t, hasForgePrefix("hotfix"))
+	assert.False(t, hasForgePrefix(""))
+}

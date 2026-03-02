@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
@@ -69,10 +70,13 @@ Arguments can be provided as positional args or flags:
 			opts.Output = GetOutputConfig(cmd)
 			debug, _ := cmd.Flags().GetBool("debug")
 
+			// Detect forge type for pipeline filtering
+			forgePrefix := detectForgePrefix(opts.Manifest)
+
 			// If no pipeline specified and stdin is a TTY, launch interactive selector
 			if opts.Pipeline == "" {
 				if isInteractive() {
-					sel, err := tui.RunPipelineSelector(pipelinesDir(), "")
+					sel, err := tui.RunPipelineSelector(pipelinesDir(), "", forgePrefix)
 					if err != nil {
 						if errors.Is(err, huh.ErrUserAborted) {
 							return nil
@@ -138,7 +142,8 @@ func runRun(opts RunOptions, debug bool) error {
 	if err != nil {
 		// Pipeline not found — if interactive, try TUI with partial name as filter
 		if isInteractive() {
-			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
+			forgePrefix := forgeFilterFromManifest(&m)
+			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline, forgePrefix)
 			if tuiErr != nil {
 				if errors.Is(tuiErr, huh.ErrUserAborted) {
 					return nil
@@ -566,4 +571,33 @@ func extractPreflightMetadata(err error) *recovery.PreflightMetadata {
 	}
 
 	return meta
+}
+
+// detectForgePrefix loads the manifest and detects forge type to compute a pipeline prefix.
+// Returns empty string if detection fails or forge is unknown.
+func detectForgePrefix(manifestPath string) string {
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return ""
+	}
+	var m manifest.Manifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return ""
+	}
+	return forgeFilterFromManifest(&m)
+}
+
+// forgeFilterFromManifest converts manifest forge config to a forge prefix for pipeline filtering.
+func forgeFilterFromManifest(m *manifest.Manifest) string {
+	var forgeCfg *forge.ForgeConfig
+	if m.Forge != nil {
+		forgeCfg = &forge.ForgeConfig{
+			Domains: m.Forge.Domains,
+		}
+	}
+	primary, _, err := forge.DetectPrimary(forgeCfg, nil)
+	if err != nil || primary.Type == forge.Unknown {
+		return ""
+	}
+	return primary.Type.Prefix()
 }
