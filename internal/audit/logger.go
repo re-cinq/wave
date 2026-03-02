@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +12,9 @@ import (
 type AuditLogger interface {
 	LogToolCall(pipelineID, stepID, tool, args string) error
 	LogFileOp(pipelineID, stepID, op, path string) error
+	LogStepStart(pipelineID, stepID, persona string, injectedArtifacts []string) error
+	LogStepEnd(pipelineID, stepID, status string, duration time.Duration, exitCode int, outputBytes int, tokensUsed int, errMsg string) error
+	LogContractResult(pipelineID, stepID, contractType, result string) error
 	Close() error
 }
 
@@ -80,9 +84,50 @@ func (l *TraceLogger) LogFileOp(pipelineID, stepID, op, path string) error {
 	return err
 }
 
+func (l *TraceLogger) LogStepStart(pipelineID, stepID, persona string, injectedArtifacts []string) error {
+	scrubbedPersona := l.scrub(persona)
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := timestamp + " [STEP_START] pipeline=" + pipelineID + " step=" + stepID + " persona=" + scrubbedPersona
+	if len(injectedArtifacts) > 0 {
+		scrubbed := make([]string, len(injectedArtifacts))
+		for i, a := range injectedArtifacts {
+			scrubbed[i] = l.scrub(a)
+		}
+		line += " artifacts=" + strings.Join(scrubbed, ",")
+	}
+	line += "\n"
+	_, err := l.file.WriteString(line)
+	return err
+}
+
+func (l *TraceLogger) LogStepEnd(pipelineID, stepID, status string, duration time.Duration, exitCode int, outputBytes int, tokensUsed int, errMsg string) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := fmt.Sprintf("%s [STEP_END] pipeline=%s step=%s status=%s duration=%s exit_code=%d output_bytes=%d tokens_used=%d",
+		timestamp, pipelineID, stepID, status, formatDuration(duration), exitCode, outputBytes, tokensUsed)
+	if errMsg != "" {
+		line += fmt.Sprintf(" error=%q", l.scrub(errMsg))
+	}
+	line += "\n"
+	_, err := l.file.WriteString(line)
+	return err
+}
+
+func (l *TraceLogger) LogContractResult(pipelineID, stepID, contractType, result string) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := timestamp + " [CONTRACT] pipeline=" + pipelineID + " step=" + stepID + " type=" + contractType + " result=" + result + "\n"
+	_, err := l.file.WriteString(line)
+	return err
+}
+
 func (l *TraceLogger) Close() error {
 	if l.file != nil {
 		return l.file.Close()
 	}
 	return nil
+}
+
+// formatDuration formats a duration as seconds with millisecond precision (e.g. "7.523s").
+func formatDuration(d time.Duration) string {
+	secs := d.Seconds()
+	return fmt.Sprintf("%.3fs", secs)
 }
