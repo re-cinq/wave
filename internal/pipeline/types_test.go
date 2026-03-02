@@ -366,3 +366,35 @@ func TestPipelineMetadata_YAMLParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestOutcomeDef_JSONPathLabel_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name              string
+		yaml              string
+		wantJSONPathLabel string
+	}{
+		{
+			name:              "json_path_label present",
+			yaml:              "type: issue\nextract_from: output/result.json\njson_path: \".enhanced_issues[*].url\"\njson_path_label: \".enhanced_issues[*].issue_number\"\nlabel: Issues\n",
+			wantJSONPathLabel: ".enhanced_issues[*].issue_number",
+		},
+		{
+			name:              "json_path_label absent defaults to empty",
+			yaml:              "type: url\nextract_from: output/result.json\njson_path: .comment_url\n",
+			wantJSONPathLabel: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var def OutcomeDef
+			err := yaml.Unmarshal([]byte(tt.yaml), &def)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+			if def.JSONPathLabel != tt.wantJSONPathLabel {
+				t.Errorf("JSONPathLabel = %q, want %q", def.JSONPathLabel, tt.wantJSONPathLabel)
+			}
+		})
+	}
+}

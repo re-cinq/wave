@@ -1745,6 +1745,10 @@ func schemaFieldPlaceholder(field string, prop map[string]any) string {
 // processStepOutcomes extracts declared outcomes from step artifacts and registers
 // them with the deliverable tracker for display in the pipeline output summary.
 // Errors are logged as warnings — outcome extraction never fails a step.
+//
+// When a json_path contains [*] wildcard syntax, all array elements are extracted
+// and each is registered as a separate deliverable. The optional json_path_label
+// field provides per-item labels; when absent, items are labeled with their index.
 func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecution, step *Step) {
 	if e.deliverableTracker == nil || len(step.Outcomes) == 0 {
 		return
@@ -1787,6 +1791,12 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			continue
 		}
 
+		// Wildcard path: extract all array elements as separate deliverables
+		if ContainsWildcard(outcome.JSONPath) {
+			e.processWildcardOutcome(execution, step, outcome, data)
+			continue
+		}
+
 		value, err := ExtractJSONPath(data, outcome.JSONPath)
 		if err != nil {
 			var emptyErr *EmptyArrayError
@@ -1815,17 +1825,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		}
 		desc := fmt.Sprintf("Extracted from %s at %s", outcome.ExtractFrom, outcome.JSONPath)
 
-		switch outcome.Type {
-		case "pr":
-			e.deliverableTracker.AddPR(step.ID, label, value, desc)
-		case "issue":
-			e.deliverableTracker.AddIssue(step.ID, label, value, desc)
-		case "deployment":
-			e.deliverableTracker.AddDeployment(step.ID, label, value, desc)
-		default:
-			// "url" or any unknown type → generic URL
-			e.deliverableTracker.AddURL(step.ID, label, value, desc)
-		}
+		e.registerOutcomeDeliverable(step.ID, outcome.Type, label, value, desc)
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -1834,6 +1834,81 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			State:      "running",
 			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
 		})
+	}
+}
+
+// processWildcardOutcome handles outcome definitions with [*] wildcard paths,
+// extracting all array elements and registering each as a separate deliverable.
+func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExecution, step *Step, outcome OutcomeDef, data []byte) {
+	pipelineID := execution.Status.ID
+
+	values, err := ExtractJSONPathAll(data, outcome.JSONPath)
+	if err != nil {
+		msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
+		e.deliverableTracker.AddOutcomeWarning(msg)
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "warning",
+			Message:    msg,
+		})
+		return
+	}
+
+	// Empty array — log friendly message and skip
+	if len(values) == 0 {
+		msg := fmt.Sprintf("[%s] outcome: empty array at %s — skipping extraction from %s", step.ID, outcome.JSONPath, outcome.ExtractFrom)
+		e.deliverableTracker.AddOutcomeWarning(msg)
+		return
+	}
+
+	// Extract per-item labels if json_path_label is set
+	var labels []string
+	if outcome.JSONPathLabel != "" && ContainsWildcard(outcome.JSONPathLabel) {
+		labels, _ = ExtractJSONPathAll(data, outcome.JSONPathLabel)
+	}
+
+	baseLabel := outcome.Label
+	if baseLabel == "" {
+		baseLabel = outcome.Type
+	}
+
+	total := len(values)
+	for i, value := range values {
+		var label string
+		if i < len(labels) && labels[i] != "" {
+			label = fmt.Sprintf("%s: %s", baseLabel, labels[i])
+		} else {
+			label = fmt.Sprintf("%s (%d/%d)", baseLabel, i+1, total)
+		}
+
+		desc := fmt.Sprintf("Extracted from %s at %s [%d]", outcome.ExtractFrom, outcome.JSONPath, i)
+		e.registerOutcomeDeliverable(step.ID, outcome.Type, label, value, desc)
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "running",
+			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
+		})
+	}
+}
+
+// registerOutcomeDeliverable registers a single outcome value with the deliverable tracker
+// based on the outcome type.
+func (e *DefaultPipelineExecutor) registerOutcomeDeliverable(stepID, outcomeType, label, value, desc string) {
+	switch outcomeType {
+	case "pr":
+		e.deliverableTracker.AddPR(stepID, label, value, desc)
+	case "issue":
+		e.deliverableTracker.AddIssue(stepID, label, value, desc)
+	case "deployment":
+		e.deliverableTracker.AddDeployment(stepID, label, value, desc)
+	default:
+		// "url" or any unknown type → generic URL
+		e.deliverableTracker.AddURL(stepID, label, value, desc)
 	}
 }
 
