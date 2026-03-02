@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Repository Health Report",
+  "description": "Health analysis of a repository covering commits, pull requests, issues, and CI status",
+  "type": "object",
+  "required": ["forge_type", "repository", "analyzed_at", "commits", "pull_requests", "issues"],
+  "additionalProperties": false,
+  "properties": {
+    "forge_type": {
+      "type": "string",
+      "enum": ["github", "gitlab", "bitbucket", "gitea", "unknown"],
+      "description": "The forge platform hosting the repository"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository identifier (e.g. owner/repo)"
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of when the analysis was performed"
+    },
+    "commits": {
+      "type": "object",
+      "required": ["total_count", "window_days", "authors", "areas_of_activity", "frequency_per_day"],
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "window_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "commit_count"],
+            "properties": {
+              "name": { "type": "string" },
+              "commit_count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "areas_of_activity": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "frequency_per_day": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "pull_requests": {
+      "type": "object",
+      "required": ["total_open", "by_review_state", "stale", "recent_activity"],
+      "properties": {
+        "total_open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_review_state": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "stale": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["number", "title", "author", "days_since_update"],
+            "properties": {
+              "number": { "type": "integer" },
+              "title": { "type": "string" },
+              "author": { "type": "string" },
+              "days_since_update": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "recent_activity": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "issues": {
+      "type": "object",
+      "required": ["total_open", "by_category", "by_priority", "actionable"],
+      "properties": {
+        "total_open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_category": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "by_priority": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "actionable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["number", "title", "labels", "priority"],
+            "properties": {
+              "number": { "type": "integer" },
+              "title": { "type": "string" },
+              "labels": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "priority": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "ci_status": {
+      "type": "object",
+      "required": ["recent_runs", "pass_rate", "last_run_status"],
+      "properties": {
+        "recent_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "last_run_status": {
+          "type": "string"
+        },
+        "last_run_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
