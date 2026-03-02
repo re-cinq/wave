@@ -182,3 +182,132 @@ func TestExtractJSONPath_NonEmptyArrayOOBIsNotEmptyArrayError(t *testing.T) {
 		t.Fatalf("expected non-EmptyArrayError for OOB on non-empty array, got EmptyArrayError{Field: %q}", emptyErr.Field)
 	}
 }
+func TestContainsWildcard(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{".items[*].url", true},
+		{".items[0].url", false},
+		{".simple_field", false},
+		{"[*]", true},
+		{".result.items[*].name", true},
+		{"", false},
+		{".items[*]", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := ContainsWildcard(tt.path)
+			if got != tt.want {
+				t.Errorf("ContainsWildcard(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractJSONPathAll(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    string
+		path    string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "array of strings",
+			data: `{"urls": ["https://a.com", "https://b.com", "https://c.com"]}`,
+			path: ".urls[*]",
+			want: []string{"https://a.com", "https://b.com", "https://c.com"},
+		},
+		{
+			name: "array of objects with sub-path",
+			data: `{"enhanced_issues": [{"url": "https://github.com/issues/1"}, {"url": "https://github.com/issues/2"}]}`,
+			path: ".enhanced_issues[*].url",
+			want: []string{"https://github.com/issues/1", "https://github.com/issues/2"},
+		},
+		{
+			name: "nested prefix path",
+			data: `{"result": {"items": [{"name": "alpha"}, {"name": "beta"}]}}`,
+			path: ".result.items[*].name",
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "empty array returns empty slice",
+			data: `{"items": []}`,
+			path: ".items[*]",
+			want: []string{},
+		},
+		{
+			name:    "non-array at wildcard position",
+			data:    `{"name": "not-an-array"}`,
+			path:    ".name[*]",
+			wantErr: true,
+		},
+		{
+			name:    "missing field",
+			data:    `{"other": "value"}`,
+			path:    ".missing[*]",
+			wantErr: true,
+		},
+		{
+			name:    "invalid JSON",
+			data:    `{not json`,
+			path:    ".items[*]",
+			wantErr: true,
+		},
+		{
+			name: "single element array",
+			data: `{"items": ["only"]}`,
+			path: ".items[*]",
+			want: []string{"only"},
+		},
+		{
+			name:    "no wildcard in path returns error",
+			data:    `{"items": ["a"]}`,
+			path:    ".items",
+			wantErr: true,
+		},
+		{
+			name:    "empty path",
+			data:    `{"items": ["a"]}`,
+			path:    "",
+			wantErr: true,
+		},
+		{
+			name: "deeply nested with sub-path",
+			data: `{"data": {"results": [{"issue_number": 42, "url": "https://gh.com/42"}, {"issue_number": 99, "url": "https://gh.com/99"}]}}`,
+			path: ".data.results[*].url",
+			want: []string{"https://gh.com/42", "https://gh.com/99"},
+		},
+		{
+			name: "extract integer values as strings",
+			data: `{"issues": [{"number": 1}, {"number": 2}]}`,
+			path: ".issues[*].number",
+			want: []string{"1", "2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ExtractJSONPathAll([]byte(tt.data), tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got %v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d results, want %d: %v", len(got), len(tt.want), got)
+			}
+			for i, v := range got {
+				if v != tt.want[i] {
+					t.Errorf("result[%d] = %q, want %q", i, v, tt.want[i])
+				}
+			}
+		})
+	}
+}
