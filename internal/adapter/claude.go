@@ -184,15 +184,10 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	// produces false positives when personas write about "rate limiting" in their
 	// analysis (e.g. security reviews mentioning "No rate limiting on endpoints").
 
-	// Apply output validation and correction
-	correctedContent, err := a.validateAndCorrectOutput(parsed.ResultContent, cfg.OutputFormat)
-	if err != nil && cfg.Debug {
-		fmt.Printf("[DEBUG] Output validation/correction failed: %v\n", err)
-		fmt.Printf("[DEBUG] Using original content\n")
-		result.ResultContent = parsed.ResultContent
-	} else {
-		result.ResultContent = correctedContent
-	}
+	// The persona's text response (ResultContent) is always natural language,
+	// not the JSON artifact. Artifact validation is handled by the contract
+	// validator which reads the actual file. Skip format validation here.
+	result.ResultContent = parsed.ResultContent
 
 	if cfg.Debug {
 		fmt.Printf("[DEBUG] Claude exit code: %d\n", result.ExitCode)
@@ -216,7 +211,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	// Build allowed tools list from config
 	allowedTools := cfg.AllowedTools
 	if len(allowedTools) == 0 {
-		allowedTools = []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"}
+		allowedTools = []string{"Read", "Bash", "Glob", "Grep"}
 	}
 
 	// Generate settings.json for this step's persona
@@ -388,6 +383,9 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 		normalized := normalizeAllowedTools(cfg.AllowedTools)
 		args = append(args, "--allowedTools", strings.Join(normalized, ","))
 	}
+
+	// Prevent personas from wasting turns on TodoWrite
+	args = append(args, "--disallowedTools", "TodoWrite")
 
 	args = append(args, "--output-format", "stream-json")
 	args = append(args, "--verbose")
@@ -729,112 +727,6 @@ func ExtractJSONFromMarkdown(content string) string {
 	return jsonStr
 }
 
-// validateAndCorrectOutput validates and attempts to fix common output format issues
-func (a *ClaudeAdapter) validateAndCorrectOutput(content, outputFormat string) (string, error) {
-	if content == "" {
-		return "", fmt.Errorf("empty output content")
-	}
-
-	// Apply format-specific validation and correction
-	switch outputFormat {
-	case "json":
-		return a.validateAndCorrectJSON(content)
-	default:
-		// For non-JSON formats, return as-is
-		return content, nil
-	}
-}
-
-// validateAndCorrectJSON validates JSON output and applies automatic corrections
-func (a *ClaudeAdapter) validateAndCorrectJSON(content string) (string, error) {
-	// First, try to parse the content as-is
-	var js json.RawMessage
-	if json.Unmarshal([]byte(content), &js) == nil {
-		// Already valid JSON
-		return content, nil
-	}
-
-	// Try extracting JSON from markdown code blocks
-	if strings.Contains(content, "```") {
-		if extracted := ExtractJSONFromMarkdown(content); extracted != "" {
-			if json.Unmarshal([]byte(extracted), &js) == nil {
-				return extracted, nil
-			}
-		}
-	}
-
-	// Try basic JSON cleanup
-	cleaned := a.cleanJSONContent(content)
-	if cleaned != "" {
-		if json.Unmarshal([]byte(cleaned), &js) == nil {
-			return cleaned, nil
-		}
-	}
-
-	// If all corrections failed, return original with error
-	return content, fmt.Errorf("could not correct malformed JSON output")
-}
-
-// cleanJSONContent performs basic JSON cleanup operations
-func (a *ClaudeAdapter) cleanJSONContent(content string) string {
-	// Remove common non-JSON text patterns
-	lines := strings.Split(content, "\n")
-	var jsonLines []string
-	inJSON := false
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		// Skip empty lines
-		if trimmed == "" {
-			continue
-		}
-
-		// Skip lines that look like explanatory text
-		if strings.HasPrefix(trimmed, "Here") ||
-		   strings.HasPrefix(trimmed, "This") ||
-		   strings.HasPrefix(trimmed, "The") ||
-		   strings.Contains(strings.ToLower(trimmed), "explanation") ||
-		   strings.Contains(strings.ToLower(trimmed), "here is") {
-			continue
-		}
-
-		// Look for JSON start
-		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
-			inJSON = true
-		}
-
-		if inJSON {
-			jsonLines = append(jsonLines, line)
-		}
-
-		// Look for JSON end
-		if (strings.HasSuffix(trimmed, "}") || strings.HasSuffix(trimmed, "]")) && inJSON {
-			// Check if this completes the JSON
-			candidate := strings.Join(jsonLines, "\n")
-			var js json.RawMessage
-			if json.Unmarshal([]byte(candidate), &js) == nil {
-				return candidate
-			}
-		}
-	}
-
-	// If we collected JSON lines but validation failed, try the full content
-	if len(jsonLines) > 0 {
-		candidate := strings.Join(jsonLines, "\n")
-
-		// Try some common fixes
-		candidate = strings.TrimSpace(candidate)
-
-		// Remove trailing commas before closing braces/brackets
-		candidate = strings.ReplaceAll(candidate, ",}", "}")
-		candidate = strings.ReplaceAll(candidate, ",]", "]")
-
-		return candidate
-	}
-
-	return content
-}
 
 // shelljoinArgs formats command arguments for debug logging, quoting any
 // argument that contains shell metacharacters or whitespace so the logged
@@ -897,15 +789,18 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 	return b.String()
 }
 
-// normalizeAllowedTools converts scoped Write entries to bare Write
-// since Claude Code doesn't support Write(path) specifiers.
+// normalizeAllowedTools strips Write and Edit entries (bare or scoped) since
+// these tools don't exist in headless Claude Code CLI. File writing is done
+// via Bash; CLAUDE.md restrictions control which paths are allowed.
 // It also deduplicates entries.
 func normalizeAllowedTools(tools []string) []string {
 	seen := make(map[string]bool)
 	var result []string
 	for _, tool := range tools {
-		if strings.HasPrefix(tool, "Write(") {
-			tool = "Write"
+		// Skip Write/Edit — these tools don't exist in headless Claude Code CLI.
+		if tool == "Write" || strings.HasPrefix(tool, "Write(") ||
+			tool == "Edit" || strings.HasPrefix(tool, "Edit(") {
+			continue
 		}
 		if !seen[tool] {
 			seen[tool] = true

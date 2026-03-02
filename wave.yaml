@@ -15,8 +15,6 @@ adapters:
         default_permissions:
             allowed_tools:
                 - Read
-                - Write
-                - Edit
                 - Bash
             deny: []
         mode: headless
