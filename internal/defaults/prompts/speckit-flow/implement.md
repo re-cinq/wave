@@ -29,7 +29,18 @@ Follow the `/speckit.implement` workflow:
 7. Run `go test -race ./...` after each phase to catch regressions early
 8. Final validation: verify all tasks complete, tests pass, spec requirements met
 
-## Agent Usage — USE UP TO 6 AGENTS
+## Tool Usage
+
+- Use the Edit tool for file modifications. Do NOT use perl, sed, or awk
+- Use the Write tool for new files. Do NOT use cat heredocs or echo redirection
+- Use the Read tool for reading files. Do NOT use cat, head, or tail
+- Use the Grep tool for searching. Do NOT use grep or rg via Bash
+- Do NOT push to remote — that happens in the create-pr step
+- Do NOT include Co-Authored-By or AI attribution in commits
+
+These rules apply to both the main context AND any Task subagents you spawn.
+
+## Agent Usage
 
 Maximize parallelism with up to 6 Task agents for independent work:
 - Agents 1-2: Setup and foundational tasks (Phase 1-2)
