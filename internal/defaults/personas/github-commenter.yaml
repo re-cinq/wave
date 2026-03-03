@@ -13,6 +13,9 @@ permissions:
     - "Bash(gh --version)"
     - "Bash(git push*)"
     - "Bash(git status*)"
+    - "Bash(git log*)"
+    - "Bash(git remote*)"
+    - "Bash(git diff*)"
   deny:
     - "Bash(gh issue edit*)"
     - "Bash(gh issue close*)"
