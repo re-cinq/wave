@@ -1,4 +1,4 @@
-package pipeline
+package chat
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -257,7 +258,7 @@ func (c *DefaultStepController) findStep(chatCtx *ChatContext, stepID string) (*
 }
 
 // findPipelineStep locates a Step definition by ID within the Pipeline.
-func findPipelineStep(p *Pipeline, stepID string) *Step {
+func findPipelineStep(p *pipeline.Pipeline, stepID string) *pipeline.Step {
 	if p == nil {
 		return nil
 	}

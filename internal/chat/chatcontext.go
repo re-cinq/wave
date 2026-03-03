@@ -1,4 +1,4 @@
-package pipeline
+package chat
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -13,7 +14,7 @@ import (
 type ChatContext struct {
 	Run          *state.RunRecord
 	Steps        []ChatStepContext
-	Pipeline     *Pipeline
+	Pipeline     *pipeline.Pipeline
 	PipelinePath string
 	Artifacts    []state.ArtifactRecord
 	ProjectRoot  string
@@ -33,7 +34,7 @@ type ChatStepContext struct {
 
 // BuildChatContext assembles the context for a chat session from the state store.
 // It gathers run info, step events, artifacts, and workspace paths.
-func BuildChatContext(store state.StateStore, runID string, p *Pipeline, projectRoot string) (*ChatContext, error) {
+func BuildChatContext(store state.StateStore, runID string, p *pipeline.Pipeline, projectRoot string) (*ChatContext, error) {
 	// 1. Get run record
 	run, err := store.GetRun(runID)
 	if err != nil {
@@ -65,7 +66,7 @@ func BuildChatContext(store state.StateStore, runID string, p *Pipeline, project
 }
 
 // buildStepContexts assembles per-step context from events and artifacts.
-func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.ArtifactRecord, pipelineName, projectRoot string) []ChatStepContext {
+func buildStepContexts(p *pipeline.Pipeline, events []state.LogRecord, artifacts []state.ArtifactRecord, pipelineName, projectRoot string) []ChatStepContext {
 	// Index events by step ID — track last state, total tokens, duration
 	type stepInfo struct {
 		state      string

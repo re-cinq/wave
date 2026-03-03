@@ -1,4 +1,4 @@
-package pipeline
+package chat
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -32,7 +33,7 @@ func (m *mockStepStore) Close() error { return nil }
 // Helper to build a minimal ChatContext for tests.
 // ---------------------------------------------------------------------------
 
-func newTestChatContext(projectRoot string, steps []ChatStepContext, pipeline *Pipeline) *ChatContext {
+func newTestChatContext(projectRoot string, steps []ChatStepContext, p *pipeline.Pipeline) *ChatContext {
 	return &ChatContext{
 		Run: &state.RunRecord{
 			RunID:        "test-run-001",
@@ -41,7 +42,7 @@ func newTestChatContext(projectRoot string, steps []ChatStepContext, pipeline *P
 			StartedAt:    time.Now(),
 		},
 		Steps:       steps,
-		Pipeline:    pipeline,
+		Pipeline:    p,
 		ProjectRoot: projectRoot,
 	}
 }
@@ -81,9 +82,9 @@ func TestContinueStep_Success(t *testing.T) {
 			State:         "completed",
 			WorkspacePath: wsDir,
 		},
-	}, &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps:    []Step{{ID: "analyze", Persona: "navigator"}},
+	}, &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{{ID: "analyze", Persona: "navigator"}},
 	})
 
 	store := &mockStepStore{}
@@ -218,9 +219,9 @@ func TestRevertStep_Preview(t *testing.T) {
 				{Name: "output.json", Path: ".wave/output/output.json", Type: "json"},
 			},
 		},
-	}, &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps:    []Step{{ID: "build", Persona: "craftsman"}},
+	}, &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{{ID: "build", Persona: "craftsman"}},
 	})
 
 	store := &mockStepStore{}
@@ -295,9 +296,9 @@ func TestConfirmRevert_DirectoryWorkspace(t *testing.T) {
 			State:         "completed",
 			WorkspacePath: wsDir,
 		},
-	}, &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps:    []Step{{ID: "build", Persona: "craftsman"}},
+	}, &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{{ID: "build", Persona: "craftsman"}},
 	})
 
 	store := &mockStepStore{}
@@ -378,9 +379,9 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 			State:         "failed",
 			WorkspacePath: rewriteWsDir,
 		},
-	}, &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps: []Step{
+	}, &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{
 			{ID: "analyze", Persona: "navigator"},
 			{ID: "implement", Persona: "craftsman", Dependencies: []string{"analyze"}},
 		},
@@ -560,12 +561,12 @@ func TestRevertStep_WorktreeType(t *testing.T) {
 			State:         "completed",
 			WorkspacePath: wsDir,
 		},
-	}, &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps: []Step{{
+	}, &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{{
 			ID:      "implement",
 			Persona: "craftsman",
-			Workspace: WorkspaceConfig{
+			Workspace: pipeline.WorkspaceConfig{
 				Type: "worktree",
 			},
 		}},
@@ -632,8 +633,8 @@ func TestConfirmRevert_NoWorkspace(t *testing.T) {
 }
 
 func TestFindPipelineStep_NotFound(t *testing.T) {
-	p := &Pipeline{
-		Steps: []Step{
+	p := &pipeline.Pipeline{
+		Steps: []pipeline.Step{
 			{ID: "step-1"},
 			{ID: "step-2"},
 		},
@@ -652,8 +653,8 @@ func TestFindPipelineStep_NilPipeline(t *testing.T) {
 }
 
 func TestFindPipelineStep_Found(t *testing.T) {
-	p := &Pipeline{
-		Steps: []Step{
+	p := &pipeline.Pipeline{
+		Steps: []pipeline.Step{
 			{ID: "step-1", Persona: "navigator"},
 			{ID: "step-2", Persona: "craftsman"},
 		},

@@ -1,4 +1,4 @@
-package pipeline
+package chat
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -86,9 +87,9 @@ func TestBuildChatContext(t *testing.T) {
 		},
 	}
 
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "test-pipeline"},
-		Steps: []Step{
+	p := &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test-pipeline"},
+		Steps: []pipeline.Step{
 			{ID: "step-1", Persona: "navigator"},
 			{ID: "step-2", Persona: "craftsman"},
 		},
@@ -166,9 +167,9 @@ func TestBuildChatContext_WithWorkspace(t *testing.T) {
 		},
 	}
 
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "my-pipeline"},
-		Steps: []Step{
+	p := &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "my-pipeline"},
+		Steps: []pipeline.Step{
 			{ID: "analyze", Persona: "navigator"},
 		},
 	}
@@ -199,9 +200,9 @@ func TestBuildChatContext_FailedStep(t *testing.T) {
 		},
 	}
 
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "test"},
-		Steps: []Step{
+	p := &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test"},
+		Steps: []pipeline.Step{
 			{ID: "build", Persona: "craftsman"},
 		},
 	}
@@ -224,9 +225,9 @@ func TestBuildChatContext_RunNotFound(t *testing.T) {
 		runErr: fmt.Errorf("run not found: missing-id"),
 	}
 
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "test"},
-		Steps:    []Step{},
+	p := &pipeline.Pipeline{
+		Metadata: pipeline.PipelineMetadata{Name: "test"},
+		Steps:    []pipeline.Step{},
 	}
 
 	_, err := BuildChatContext(store, "missing-id", p, t.TempDir())

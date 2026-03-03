@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/chat"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -93,7 +93,7 @@ func runChat(opts ChatOptions) error {
 	// Resolve run ID
 	runID := opts.RunID
 	if runID == "" {
-		runID, err = pipeline.MostRecentCompletedRunID(store)
+		runID, err = chat.MostRecentCompletedRunID(store)
 		if err != nil {
 			return fmt.Errorf("no runs found: %w", err)
 		}
@@ -128,14 +128,14 @@ func runChat(opts ChatOptions) error {
 	}
 
 	// Build chat context
-	chatCtx, err := pipeline.BuildChatContext(store, runID, p, projectRoot)
+	chatCtx, err := chat.BuildChatContext(store, runID, p, projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to build chat context: %w", err)
 	}
 
 	// Phase 2: Step manipulation
 	if opts.Continue != "" || opts.Rewrite != "" || opts.Extend != "" {
-		controller := pipeline.NewStepController(store, opts.Model)
+		controller := chat.NewStepController(store, opts.Model)
 
 		if opts.Continue != "" {
 			fmt.Fprintf(os.Stderr, "  Mode:     continue step %q\n\n", opts.Continue)
@@ -153,11 +153,11 @@ func runChat(opts ChatOptions) error {
 	}
 
 	// Prepare workspace
-	wsOpts := pipeline.ChatWorkspaceOptions{
+	wsOpts := chat.ChatWorkspaceOptions{
 		Model: opts.Model,
-		Mode:  pipeline.ChatModeAnalysis,
+		Mode:  chat.ChatModeAnalysis,
 	}
-	wsPath, err := pipeline.PrepareChatWorkspace(chatCtx, wsOpts)
+	wsPath, err := chat.PrepareChatWorkspace(chatCtx, wsOpts)
 	if err != nil {
 		return fmt.Errorf("failed to prepare chat workspace: %w", err)
 	}
