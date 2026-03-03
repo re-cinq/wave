@@ -624,13 +624,25 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Auto-grant Write permissions for declared output artifact paths
+	// but only if the persona doesn't already have bare Write permission.
+	// Bare Write subsumes all scoped Write(path) entries, and mixing them
+	// causes Claude Code CLI to narrow to the scoped version.
 	allowedTools := persona.Permissions.AllowedTools
-	for _, art := range step.OutputArtifacts {
-		dir := filepath.Dir(art.Path)
-		if dir == "." {
-			allowedTools = append(allowedTools, "Write("+art.Path+")")
-		} else {
-			allowedTools = append(allowedTools, "Write("+dir+"/*)")
+	hasBareWrite := false
+	for _, t := range allowedTools {
+		if t == "Write" {
+			hasBareWrite = true
+			break
+		}
+	}
+	if !hasBareWrite {
+		for _, art := range step.OutputArtifacts {
+			dir := filepath.Dir(art.Path)
+			if dir == "." {
+				allowedTools = append(allowedTools, "Write("+art.Path+")")
+			} else {
+				allowedTools = append(allowedTools, "Write("+dir+"/*)")
+			}
 		}
 	}
 
@@ -1033,10 +1045,19 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// Use pipeline context for template variables
 		templateVars := execution.Context.ToTemplateVars()
 
-		return e.wsManager.Create(workspace.WorkspaceConfig{
+		wsPath, err := e.wsManager.Create(workspace.WorkspaceConfig{
 			Root:  wsRoot,
 			Mount: toWorkspaceMounts(step.Workspace.Mount),
 		}, templateVars)
+		if err != nil {
+			return "", err
+		}
+
+		// Anchor Claude Code path resolution to the workspace root.
+		// Without .git, Claude Code walks up the directory tree and resolves
+		// relative paths against the project root instead of the workspace.
+		exec.Command("git", "init", "-q", wsPath).Run()
+		return wsPath, nil
 	}
 
 	// Create directory under .wave/workspaces/<pipeline>/<step>/
@@ -1044,6 +1065,8 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	// Anchor Claude Code path resolution (see mount-based workspace above)
+	exec.Command("git", "init", "-q", wsPath).Run()
 	return wsPath, nil
 }
 
