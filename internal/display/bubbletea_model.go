@@ -115,10 +115,15 @@ func shimmerPosition(logoWidth int, cycleMs int64) float64 {
 	now := time.Now().UnixMilli()
 	halfCycle := cycleMs / 2
 	phase := now % cycleMs
+	// Sweep from -1 to logoWidth so the white core disappears off both edges symmetrically
+	sweepRange := float64(logoWidth) + 1.0
+	var pos float64
 	if phase < halfCycle {
-		return float64(phase) / float64(halfCycle) * float64(logoWidth)
+		pos = float64(phase) / float64(halfCycle) * sweepRange
+	} else {
+		pos = float64(cycleMs-phase) / float64(halfCycle) * sweepRange
 	}
-	return float64(cycleMs-phase) / float64(halfCycle) * float64(logoWidth)
+	return pos - 1.0
 }
 
 // shimmerColorForChar returns a style for a single logo character based on
