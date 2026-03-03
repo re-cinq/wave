@@ -789,19 +789,12 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 	return b.String()
 }
 
-// normalizeAllowedTools strips Write and Edit entries (bare or scoped) since
-// these tools don't exist in headless Claude Code CLI. File writing is done
-// via Bash; CLAUDE.md restrictions control which paths are allowed.
-// It also deduplicates entries.
+// normalizeAllowedTools deduplicates tool entries to prevent repeated
+// entries from reaching the Claude Code CLI.
 func normalizeAllowedTools(tools []string) []string {
 	seen := make(map[string]bool)
 	var result []string
 	for _, tool := range tools {
-		// Skip Write/Edit — these tools don't exist in headless Claude Code CLI.
-		if tool == "Write" || strings.HasPrefix(tool, "Write(") ||
-			tool == "Edit" || strings.HasPrefix(tool, "Edit(") {
-			continue
-		}
 		if !seen[tool] {
 			seen[tool] = true
 			result = append(result, tool)
