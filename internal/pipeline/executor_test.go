@@ -2905,3 +2905,219 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 	}
 	assert.True(t, hasRealtimeWarning, "should emit real-time warning for non-empty-array OOB error")
 }
+
+// modelCapturingAdapter captures the AdapterRunConfig.Model for each step execution.
+type modelCapturingAdapter struct {
+	mu      sync.Mutex
+	models  map[string]string // stepID -> model
+	inner   adapter.AdapterRunner
+}
+
+func newModelCapturingAdapter() *modelCapturingAdapter {
+	return &modelCapturingAdapter{
+		models: make(map[string]string),
+		inner: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+}
+
+func (a *modelCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	stepID := filepath.Base(cfg.WorkspacePath)
+	a.mu.Lock()
+	a.models[stepID] = cfg.Model
+	a.mu.Unlock()
+	return a.inner.Run(ctx, cfg)
+}
+
+func (a *modelCapturingAdapter) getModel(stepID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.models[stepID]
+}
+
+// TestWithModelOverrideOption verifies that the WithModelOverride option sets the field
+func TestWithModelOverrideOption(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
+	assert.Equal(t, "haiku", executor.modelOverride)
+}
+
+// TestWithModelOverrideEmpty verifies that empty string override is not set
+func TestWithModelOverrideEmpty(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride(""))
+	assert.Equal(t, "", executor.modelOverride)
+}
+
+// TestModelOverridePrecedence tests the three-tier model precedence logic
+func TestModelOverridePrecedence(t *testing.T) {
+	tests := []struct {
+		name          string
+		personaModel  string
+		modelOverride string
+		expectedModel string
+	}{
+		{
+			name:          "override applied when persona has no model",
+			personaModel:  "",
+			modelOverride: "haiku",
+			expectedModel: "haiku",
+		},
+		{
+			name:          "persona pinning takes precedence over override",
+			personaModel:  "opus",
+			modelOverride: "haiku",
+			expectedModel: "opus",
+		},
+		{
+			name:          "no override and no persona model yields empty",
+			personaModel:  "",
+			modelOverride: "",
+			expectedModel: "",
+		},
+		{
+			name:          "persona model used when no override",
+			personaModel:  "sonnet",
+			modelOverride: "",
+			expectedModel: "sonnet",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			capturer := newModelCapturingAdapter()
+
+			var opts []ExecutorOption
+			opts = append(opts, WithEmitter(newTestEventCollector()))
+			if tc.modelOverride != "" {
+				opts = append(opts, WithModelOverride(tc.modelOverride))
+			}
+
+			executor := NewDefaultPipelineExecutor(capturer, opts...)
+
+			tmpDir := t.TempDir()
+			m := &manifest.Manifest{
+				Metadata: manifest.Metadata{Name: "model-test"},
+				Adapters: map[string]manifest.Adapter{
+					"claude": {Binary: "claude", Mode: "headless"},
+				},
+				Personas: map[string]manifest.Persona{
+					"test-persona": {
+						Adapter:     "claude",
+						Temperature: 0.7,
+						Model:       tc.personaModel,
+					},
+				},
+				Runtime: manifest.Runtime{
+					WorkspaceRoot:     tmpDir,
+					DefaultTimeoutMin: 5,
+				},
+			}
+
+			p := &Pipeline{
+				Metadata: PipelineMetadata{Name: "model-precedence"},
+				Steps: []Step{
+					{ID: "step-1", Persona: "test-persona", Exec: ExecConfig{Source: "test"}},
+				},
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			err := executor.Execute(ctx, p, m, "test")
+			require.NoError(t, err)
+
+			// The model capturing adapter records the model from AdapterRunConfig
+			capturedModel := capturer.getModel("step-1")
+			assert.Equal(t, tc.expectedModel, capturedModel,
+				"expected model %q but got %q", tc.expectedModel, capturedModel)
+		})
+	}
+}
+
+// TestModelOverrideInChildExecutor verifies that NewChildExecutor inherits modelOverride
+func TestModelOverrideInChildExecutor(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	parent := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
+
+	child := parent.NewChildExecutor()
+	assert.Equal(t, "haiku", child.modelOverride, "child executor should inherit modelOverride")
+}
+
+// TestModelOverrideIntegration is an integration test verifying the model string
+// reaches AdapterRunConfig.Model through the full execution path
+func TestModelOverrideIntegration(t *testing.T) {
+	capturer := newModelCapturingAdapter()
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(capturer,
+		WithEmitter(collector),
+		WithModelOverride("haiku"),
+	)
+
+	tmpDir := t.TempDir()
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "integration-model-test"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"navigator": {
+				Adapter:     "claude",
+				Temperature: 0.1,
+				// No model set — should use override
+			},
+			"craftsman": {
+				Adapter:     "claude",
+				Temperature: 0.7,
+				Model:       "opus", // Pinned model — should NOT be overridden
+			},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:     tmpDir,
+			DefaultTimeoutMin: 5,
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "integration-model"},
+		Steps: []Step{
+			{ID: "navigate", Persona: "navigator", Exec: ExecConfig{Source: "navigate"}},
+			{ID: "implement", Persona: "craftsman", Dependencies: []string{"navigate"}, Exec: ExecConfig{Source: "implement"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test integration")
+	require.NoError(t, err)
+
+	// Navigator has no model pinned — should use CLI override "haiku"
+	assert.Equal(t, "haiku", capturer.getModel("navigate"),
+		"unpinned persona should use CLI model override")
+
+	// Craftsman has model pinned to "opus" — should NOT be overridden
+	assert.Equal(t, "opus", capturer.getModel("implement"),
+		"pinned persona model should take precedence over CLI override")
+}
+
+// TestResolveModelMethod tests the resolveModel method directly
+func TestResolveModelMethod(t *testing.T) {
+	executor := &DefaultPipelineExecutor{modelOverride: "haiku"}
+
+	// Persona with no model — use override
+	p1 := &manifest.Persona{Model: ""}
+	assert.Equal(t, "haiku", executor.resolveModel(p1))
+
+	// Persona with pinned model — use persona model
+	p2 := &manifest.Persona{Model: "opus"}
+	assert.Equal(t, "opus", executor.resolveModel(p2))
+
+	// No override, no persona model — empty
+	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
+	p3 := &manifest.Persona{Model: ""}
+	assert.Equal(t, "", executor2.resolveModel(p3))
+}
