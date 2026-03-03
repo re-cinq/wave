@@ -161,7 +161,7 @@ func confirmAndReturn(pipeline, input string, selectedFlags []string) (*Selectio
 	// Print the composed command so it stays in scrollback for debugging.
 	cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("$")
 	cmdText := lipgloss.NewStyle().Foreground(lipgloss.Color("7")).Render(cmdStr)
-	fmt.Printf("  %s %s\n\n", cmdStyle, cmdText)
+	fmt.Printf("%s %s\n\n", cmdStyle, cmdText)
 
 	return &Selection{
 		Pipeline: pipeline,
