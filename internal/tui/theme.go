@@ -72,6 +72,6 @@ func WaveLogo() string {
 	return lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("6")). // Standard cyan — matches Formatter.Primary()
-		Margin(1, 0, 1, 2).              // top, right, bottom, left (2-char indent)
+		Margin(1, 0, 1, 1).              // top, right, bottom, left (1-char indent, matches TUI margin)
 		Render(logo)
 }
