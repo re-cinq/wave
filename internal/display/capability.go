@@ -38,16 +38,6 @@ func DetectColorSupport() bool {
 	return ti.SupportsColor()
 }
 
-// Detect256ColorSupport determines if 256-color palette can be used.
-// Returns true if:
-//   - ANSI is supported
-//   - TERM indicates 256-color support
-//   - 24-bit color is supported (superset)
-func Detect256ColorSupport() bool {
-	ti := NewTerminalInfo()
-	return ti.Supports256Colors()
-}
-
 // DetectUnicodeSupport determines if Unicode characters can be displayed.
 // Returns true if:
 //   - LANG or LC_ALL contains "UTF-8"
@@ -106,46 +96,6 @@ func SelectAnimationType(preferred AnimationType) AnimationType {
 
 	// Default animation
 	return AnimationSpinner
-}
-
-// GetOptimalDisplayConfig returns a display configuration optimized for the terminal.
-func GetOptimalDisplayConfig() DisplayConfig {
-	ti := NewTerminalInfo()
-
-	// Determine color mode
-	colorMode := "auto"
-	if os.Getenv("NO_COLOR") != "" {
-		colorMode = "off"
-	}
-
-	// ASCII-only mode for non-Unicode terminals
-	asciiOnly := !ti.SupportsUnicode()
-
-	// Select animation based on capabilities
-	animation := AnimationSpinner
-	if asciiOnly {
-		animation = AnimationDots
-	}
-
-	// Refresh rate: smooth animations for modern CLI feel
-	refreshRate := 30 // 30 FPS for smooth animations like btop+/opencode
-	if !ti.IsTTY() {
-		refreshRate = 1 // Still slow for non-interactive
-	}
-
-	return DisplayConfig{
-		Enabled:          ti.IsTTY() && ti.SupportsANSI(),
-		AnimationType:    animation,
-		RefreshRate:      refreshRate,
-		ShowDetails:      true,
-		ShowArtifacts:    true,
-		CompactMode:      false,
-		ColorMode:        colorMode,
-		AsciiOnly:        asciiOnly,
-		MaxHistoryLines:  100,
-		EnableTimestamps: true,
-		VerboseOutput:    false,
-	}
 }
 
 // ANSICodec provides functions to generate ANSI control codes.

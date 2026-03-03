@@ -3,7 +3,6 @@ package contract
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 // ContractConfig defines the configuration for contract validation.
@@ -76,8 +75,6 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &typeScriptValidator{}
 	case "test_suite":
 		return &testSuiteValidator{}
-	case "markdown_spec":
-		return &markdownSpecValidator{}
 	case "format":
 		return &FormatValidator{}
 	default:
@@ -132,67 +129,6 @@ func ValidateWithRetries(cfg ContractConfig, workspacePath string) error {
 	}
 
 	return lastErr
-}
-
-// ValidateWithAdaptiveRetry runs validation with intelligent retry strategy.
-// It analyzes failures and generates targeted repair prompts for the AI.
-func ValidateWithAdaptiveRetry(cfg ContractConfig, workspacePath string) (*RetryResult, error) {
-	strategy := NewAdaptiveRetryStrategy(cfg.MaxRetries)
-	if cfg.MaxRetries <= 0 {
-		strategy.MaxRetries = 3 // Default to 3 retries
-	}
-
-	result := &RetryResult{
-		Attempts:     0,
-		FailureTypes: make([]FailureType, 0),
-	}
-
-	startTime := time.Now()
-
-	for attempt := 1; attempt <= strategy.MaxRetries; attempt++ {
-		result.Attempts = attempt
-
-		// Run validation
-		err := Validate(cfg, workspacePath)
-
-		if err == nil {
-			// Success
-			result.Success = true
-			result.TotalDuration = time.Since(startTime)
-			return result, nil
-		}
-
-		// Classify the failure
-		classified := strategy.Classifier.Classify(err)
-		if classified != nil {
-			result.FailureTypes = append(result.FailureTypes, classified.Type)
-		}
-
-		// Check if we should retry
-		if !strategy.ShouldRetry(attempt, err) {
-			result.FinalError = err
-			result.TotalDuration = time.Since(startTime)
-			return result, err
-		}
-
-		// If not the last attempt, wait before retrying
-		if attempt < strategy.MaxRetries {
-			delay := strategy.GetRetryDelay(attempt)
-			time.Sleep(delay)
-		}
-	}
-
-	// All retries exhausted
-	result.Success = false
-	result.TotalDuration = time.Since(startTime)
-	return result, result.FinalError
-}
-
-// GetRepairGuidance generates targeted guidance for fixing validation failures.
-// This is intended to be injected into the AI prompt for retry attempts.
-func GetRepairGuidance(err error, attempt int, maxRetries int) string {
-	strategy := NewAdaptiveRetryStrategy(maxRetries)
-	return strategy.GenerateRepairPrompt(err, attempt)
 }
 
 // WrapValidationError wraps a regular error into a ValidationError with details.

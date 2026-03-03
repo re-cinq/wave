@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/recinq/wave/internal/pathfmt"
@@ -13,67 +12,6 @@ import (
 )
 
 type jsonSchemaValidator struct{}
-
-// cleanJSON removes comments and fixes common JSON formatting issues
-// while preserving the integrity of string values
-func cleanJSON(data []byte) ([]byte, []string, error) {
-	content := string(data)
-	changes := []string{}
-
-	// First, try to parse as-is to see if it's already valid
-	var test interface{}
-	if err := json.Unmarshal([]byte(content), &test); err == nil {
-		// Already valid JSON, no cleaning needed
-		return data, changes, nil
-	}
-
-	// Remove single-line comments (// comment) - only outside of strings
-	// This is a simplified approach; full comment removal would need proper parsing
-	singleLineCommentRegex := regexp.MustCompile(`//[^\n]*`)
-	if singleLineCommentRegex.MatchString(content) {
-		content = singleLineCommentRegex.ReplaceAllString(content, "")
-		changes = append(changes, "removed_single_line_comments")
-	}
-
-	// Remove multi-line comments (/* comment */)
-	multiLineCommentRegex := regexp.MustCompile(`(?s)/\*.*?\*/`)
-	if multiLineCommentRegex.MatchString(content) {
-		content = multiLineCommentRegex.ReplaceAllString(content, "")
-		changes = append(changes, "removed_multi_line_comments")
-	}
-
-	// Remove hash comments (# comment) - only at line start or after whitespace
-	hashCommentRegex := regexp.MustCompile(`(?m)^\s*#.*$`)
-	if hashCommentRegex.MatchString(content) {
-		content = hashCommentRegex.ReplaceAllString(content, "")
-		changes = append(changes, "removed_hash_comments")
-	}
-
-	// Remove trailing commas before } or ] - this is safe as JSON doesn't allow trailing commas
-	trailingCommaRegex := regexp.MustCompile(`,(\s*[}\]])`)
-	if trailingCommaRegex.MatchString(content) {
-		content = trailingCommaRegex.ReplaceAllString(content, "$1")
-		changes = append(changes, "removed_trailing_commas")
-	}
-
-	// Clean up excessive whitespace but preserve necessary structure
-	// Only collapse multiple spaces/tabs on a line, preserve newlines in multiline content
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		// Collapse multiple spaces/tabs to single space
-		line = regexp.MustCompile(`[ \t]+`).ReplaceAllString(line, " ")
-		lines[i] = strings.TrimSpace(line)
-	}
-	content = strings.Join(lines, "\n")
-	content = strings.TrimSpace(content)
-
-	// Validate that the cleaned JSON is parseable
-	if err := json.Unmarshal([]byte(content), &test); err != nil {
-		return data, changes, fmt.Errorf("cleaned JSON is still invalid: %w", err)
-	}
-
-	return []byte(content), changes, nil
-}
 
 func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string) error {
 	compiler := jsonschema.NewCompiler()

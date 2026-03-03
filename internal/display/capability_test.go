@@ -1,7 +1,6 @@
 package display
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -58,36 +57,6 @@ func TestSelectAnimationType(t *testing.T) {
 				t.Error("SelectAnimationType should not return empty string")
 			}
 		})
-	}
-}
-
-func TestGetOptimalDisplayConfig(t *testing.T) {
-	config := GetOptimalDisplayConfig()
-
-	// Verify config has valid values
-	if config.RefreshRate < 1 || config.RefreshRate > 60 {
-		t.Errorf("RefreshRate should be between 1 and 60, got %d", config.RefreshRate)
-	}
-
-	if config.ColorMode != "auto" && config.ColorMode != "on" && config.ColorMode != "off" {
-		t.Errorf("ColorMode should be auto/on/off, got %q", config.ColorMode)
-	}
-
-	if config.MaxHistoryLines < 1 {
-		t.Errorf("MaxHistoryLines should be positive, got %d", config.MaxHistoryLines)
-	}
-}
-
-func TestGetOptimalDisplayConfig_WithNoColor(t *testing.T) {
-	// Save and restore NO_COLOR
-	oldNoColor := os.Getenv("NO_COLOR")
-	defer os.Setenv("NO_COLOR", oldNoColor)
-
-	os.Setenv("NO_COLOR", "1")
-	config := GetOptimalDisplayConfig()
-
-	if config.ColorMode != "off" {
-		t.Errorf("ColorMode should be 'off' when NO_COLOR is set, got %q", config.ColorMode)
 	}
 }
 

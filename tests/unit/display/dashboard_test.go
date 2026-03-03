@@ -171,7 +171,6 @@ func TestCapabilityDetector(t *testing.T) {
 	// Test standalone detection functions (results depend on environment)
 	_ = display.DetectANSISupport()
 	_ = display.DetectColorSupport()
-	_ = display.Detect256ColorSupport()
 	_ = display.DetectUnicodeSupport()
 }
 
@@ -234,34 +233,6 @@ func TestSelectAnimationType(t *testing.T) {
 				t.Errorf("expected valid animation type, got %v", selected)
 			}
 		})
-	}
-}
-
-// TestGetOptimalDisplayConfig tests optimal configuration detection.
-func TestGetOptimalDisplayConfig(t *testing.T) {
-	config := display.GetOptimalDisplayConfig()
-
-	// Should have reasonable defaults
-	if config.RefreshRate < 1 || config.RefreshRate > 60 {
-		t.Errorf("expected RefreshRate 1-60, got %d", config.RefreshRate)
-	}
-
-	if config.ColorMode != "auto" && config.ColorMode != "off" {
-		t.Errorf("expected ColorMode 'auto' or 'off', got %q", config.ColorMode)
-	}
-
-	// Animation type should be valid
-	validTypes := map[display.AnimationType]bool{
-		display.AnimationDots:        true,
-		display.AnimationLine:        true,
-		display.AnimationBars:        true,
-		display.AnimationSpinner:     true,
-		display.AnimationClock:       true,
-		display.AnimationBouncingBar: true,
-	}
-
-	if !validTypes[config.AnimationType] {
-		t.Errorf("expected valid animation type, got %v", config.AnimationType)
 	}
 }
 
