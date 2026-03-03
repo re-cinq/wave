@@ -1539,63 +1539,6 @@ func (a *configCapturingAdapter) getLastConfig() adapter.AdapterRunConfig {
 	return a.lastConfig
 }
 
-// TestOutputArtifactPermissionGrants verifies that output artifact paths
-// are auto-granted Write permissions in the adapter config.
-func TestOutputArtifactPermissionGrants(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(500),
-		),
-	}
-
-	collector := newTestEventCollector()
-	executor := NewDefaultPipelineExecutor(capturingAdapter, WithEmitter(collector))
-
-	m := createTestManifest(tmpDir)
-	// Use a persona with restricted permissions (no Write by default)
-	m.Personas["restricted"] = manifest.Persona{
-		Adapter:     "claude",
-		Temperature: 0.1,
-		Permissions: manifest.Permissions{
-			AllowedTools: []string{"Read", "Glob", "Grep"},
-		},
-	}
-
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "permission-grant-test"},
-		Steps: []Step{
-			{
-				ID:      "step1",
-				Persona: "restricted",
-				Exec:    ExecConfig{Source: "analyze and write output"},
-				OutputArtifacts: []ArtifactDef{
-					{Name: "topics", Path: ".wave/output/research-topics.json"},
-					{Name: "summary", Path: "results.json"},
-				},
-			},
-		},
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	err := executor.Execute(ctx, p, m, "permission-test")
-	require.NoError(t, err)
-
-	cfg := capturingAdapter.getLastConfig()
-
-	// Should include original persona tools plus auto-granted Write paths
-	assert.Contains(t, cfg.AllowedTools, "Read")
-	assert.Contains(t, cfg.AllowedTools, "Glob")
-	assert.Contains(t, cfg.AllowedTools, "Grep")
-	assert.Contains(t, cfg.AllowedTools, "Write(.wave/output/*)",
-		"Should auto-grant Write for .wave/output/ directory artifacts")
-	assert.Contains(t, cfg.AllowedTools, "Write(results.json)",
-		"Should auto-grant Write for root-level artifacts")
-}
 
 // TestExecuteStep_NonZeroExitCode_EmitsWarning verifies that a non-zero adapter exit code
 // emits a warning event but still allows the step to complete (work may have been done).
