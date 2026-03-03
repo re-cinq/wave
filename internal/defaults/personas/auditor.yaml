@@ -3,11 +3,11 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
+    - Write
     - Grep
     - Glob
     - Bash
   deny:
-    - "Write(*)"
     - "Edit(*)"
     - "Bash(rm -rf /*)"
     - "Bash(git push*)"

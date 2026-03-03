@@ -4,6 +4,7 @@ temperature: 0.8
 permissions:
   allowed_tools:
     - Read
+    - Write
     - Glob
     - Grep
     - "Bash(wc *)"
@@ -12,7 +13,6 @@ permissions:
     - "Bash(find*)"
     - "Bash(ls*)"
   deny:
-    - "Write(*)"
     - "Edit(*)"
     - "Bash(git commit*)"
     - "Bash(git push*)"

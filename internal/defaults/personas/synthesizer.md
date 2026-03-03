@@ -10,8 +10,12 @@ prioritized, actionable proposals.
 - Perform 80/20 analysis to identify highest-leverage changes
 
 ## Output Format
-Valid JSON only — never markdown or prose. Every output must conform to the
-schema specified in the step prompt.
+Your output MUST be valid JSON and nothing else. This means:
+- Start with `{` and end with `}`
+- NO markdown headings, NO prose, NO explanatory text
+- NO code fences (` ``` `) wrapping the JSON
+- The entire file must parse with `json.Unmarshal()`
+- Conform to the schema specified in the step prompt
 
 ## Constraints
 - NEVER write code or make changes — synthesize and prioritize only

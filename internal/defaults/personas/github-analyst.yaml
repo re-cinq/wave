@@ -3,6 +3,7 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
+    - Write
     - "Bash(gh issue view*)"
     - "Bash(gh issue list*)"
     - "Bash(gh release list*)"
@@ -12,7 +13,6 @@ permissions:
     - "Bash(git log*)"
     - "Bash(git status*)"
     - "Bash(ls *)"
-    - "Write(.wave/artifact.json)"
   deny:
     - "Bash(gh issue edit*)"
     - "Bash(gh issue create*)"

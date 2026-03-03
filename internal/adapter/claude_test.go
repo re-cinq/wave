@@ -45,19 +45,19 @@ func TestNormalizeAllowedTools(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "Write and Edit stripped from bare tools",
+			name:  "preserves Write and Edit bare tools",
 			input: []string{"Read", "Write", "Edit", "Bash"},
-			want:  []string{"Read", "Bash"},
+			want:  []string{"Read", "Write", "Edit", "Bash"},
 		},
 		{
-			name:  "scoped Write entries stripped entirely",
+			name:  "preserves scoped Write entries",
 			input: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
-			want:  []string{"Read"},
+			want:  []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
 		},
 		{
-			name:  "deduplicates after stripping",
-			input: []string{"Write(.wave/output/*)", "Write(.wave/artifact.json)", "Read"},
-			want:  []string{"Read"},
+			name:  "deduplicates entries",
+			input: []string{"Read", "Write", "Read", "Write"},
+			want:  []string{"Read", "Write"},
 		},
 		{
 			name:  "preserves Bash scoped entries",
@@ -65,9 +65,9 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  []string{"Bash(go test*)", "Bash(git log*)", "Read"},
 		},
 		{
-			name:  "Write stripped from mixed tools",
+			name:  "preserves Write in mixed tools",
 			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
-			want:  []string{"Read", "Glob", "Grep", "WebSearch"},
+			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
 		},
 		{
 			name:  "empty input",
@@ -75,14 +75,14 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  nil,
 		},
 		{
-			name:  "bare Write stripped",
+			name:  "bare Write preserved",
 			input: []string{"Write"},
-			want:  nil,
+			want:  []string{"Write"},
 		},
 		{
-			name:  "Edit bare and scoped stripped",
+			name:  "Edit bare and scoped preserved",
 			input: []string{"Edit", "Edit(.wave/output/*)", "Read"},
-			want:  []string{"Read"},
+			want:  []string{"Edit", "Edit(.wave/output/*)", "Read"},
 		},
 	}
 
@@ -180,13 +180,13 @@ func TestSettingsJSONFormat(t *testing.T) {
 		t.Fatal("settings.json missing 'permissions.allow' array")
 	}
 
-// Verify Write(.wave/output/*) was stripped (Write doesn't exist in headless Claude Code)
+// Verify Write(.wave/output/*) is preserved in permissions
 	allowStrs := make([]string, len(allow))
 	for i, v := range allow {
 		allowStrs[i] = v.(string)
 	}
 
-	expected := []string{"Read", "Glob"}
+	expected := []string{"Read", "Write(.wave/output/*)", "Glob"}
 	if len(allowStrs) != len(expected) {
 		t.Fatalf("permissions.allow = %v, want %v", allowStrs, expected)
 	}
@@ -219,8 +219,8 @@ func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
 		t.Fatal("--allowedTools not found in args")
 	}
 
-	// Write entries should be stripped entirely
-	expected := "Read,Glob"
+	// Write entries should be preserved
+	expected := "Read,Write(.wave/output/*),Write(.wave/artifact.json),Glob"
 	if allowedToolsArg != expected {
 		t.Errorf("--allowedTools = %q, want %q", allowedToolsArg, expected)
 	}
@@ -704,11 +704,11 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			wantSandbox:  false,
 		},
 		{
-			name:           "implementer: full access with sandbox (Write/Edit stripped)",
+			name:           "implementer: full access with sandbox (Write/Edit preserved)",
 			persona:        "implementer",
 			allowedTools:   []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			allowedDomains: []string{"api.anthropic.com", "github.com", "proxy.golang.org"},
-			wantAllow:      []string{"Read", "Bash", "Glob", "Grep"},
+			wantAllow:      []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			wantSandbox:    true,
 			sandboxEnabled: true,
 		},
