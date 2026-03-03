@@ -187,7 +187,7 @@ func (m *ProgressModel) renderHeader() string {
 		logoColumn,
 		lipgloss.NewStyle().Width(4).Render(""), // Spacer
 		projectColumn,
-	) + "\n"
+	)
 }
 
 // renderCurrentStep shows detailed step information with loading indicators
