@@ -171,6 +171,8 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 
 	parsed := a.parseOutput(stdoutBuf.Bytes())
 	result.TokensUsed = parsed.Tokens
+	result.TokensIn = parsed.TokensIn
+	result.TokensOut = parsed.TokensOut
 	result.Artifacts = parsed.Artifacts
 	result.Subtype = parsed.Subtype
 
@@ -406,6 +408,8 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 // parseOutputResult holds the parsed output data from NDJSON stream.
 type parseOutputResult struct {
 	Tokens        int
+	TokensIn      int      // Input tokens (prompt + cache creation)
+	TokensOut     int      // Output tokens (completion)
 	Artifacts     []string
 	ResultContent string
 	Subtype       string // Result event subtype: "success", "error_max_turns", "error_during_execution"
@@ -413,6 +417,8 @@ type parseOutputResult struct {
 
 func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 	var resultTokens int
+	var resultTokensIn int
+	var resultTokensOut int
 	var assistantTokens int
 	var artifacts []string
 	var resultContent string
@@ -464,6 +470,8 @@ func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 			// on each turn (already counted once in cache_creation_input_tokens).
 			resultTokens = obj.Usage.InputTokens + obj.Usage.OutputTokens +
 				obj.Usage.CacheCreationInputTokens
+			resultTokensIn = obj.Usage.InputTokens + obj.Usage.CacheCreationInputTokens
+			resultTokensOut = obj.Usage.OutputTokens
 			resultContent = obj.Result
 			subtype = obj.Subtype
 		case "assistant":
@@ -494,6 +502,8 @@ func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
 
 	return parseOutputResult{
 		Tokens:        tokens,
+		TokensIn:      resultTokensIn,
+		TokensOut:     resultTokensOut,
 		Artifacts:     artifacts,
 		ResultContent: resultContent,
 		Subtype:       subtype,

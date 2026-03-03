@@ -34,7 +34,7 @@ func NewProgressModel(ctx *PipelineContext) *ProgressModel {
 
 // Init implements tea.Model
 func (m *ProgressModel) Init() tea.Cmd {
-	return tickCmd() // Just start ticking, no alt screen
+	return tea.Batch(tea.ClearScreen, tickCmd())
 }
 
 // Update implements tea.Model
@@ -118,7 +118,6 @@ func (m *ProgressModel) renderHeader() string {
 	}
 	projectLines := []string{
 		fmt.Sprintf("Pipeline: %s", pipelineLabel),
-		fmt.Sprintf("Config:   %s", m.ctx.ManifestPath),
 		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
 	}
 
@@ -278,7 +277,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 
 		switch state {
 		case StateCompleted:
-			// Completed: checkmark stepID (persona) (duration)
+			// Completed: checkmark stepID (persona) [model] (duration, tokens)
 			durationText := "0.0s"
 			if m.ctx.StepDurations != nil {
 				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
@@ -289,8 +288,28 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
+			// Show model info for completed steps
+			if m.ctx.StepModels != nil {
+				if model, ok := m.ctx.StepModels[stepID]; ok && model != "" {
+					stepLine += fmt.Sprintf(" [%s]", model)
+				}
+			}
 			// Append tokens alongside duration if available
-			if m.ctx.StepTokens != nil {
+			if m.ctx.StepTokensIn != nil {
+				tIn := m.ctx.StepTokensIn[stepID]
+				tOut := m.ctx.StepTokensOut[stepID]
+				if tIn > 0 || tOut > 0 {
+					stepLine += fmt.Sprintf(" (%s, %s in / %s out)", durationText, FormatTokenCount(tIn), FormatTokenCount(tOut))
+				} else if m.ctx.StepTokens != nil {
+					if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
+						stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
+					} else {
+						stepLine += fmt.Sprintf(" (%s)", durationText)
+					}
+				} else {
+					stepLine += fmt.Sprintf(" (%s)", durationText)
+				}
+			} else if m.ctx.StepTokens != nil {
 				if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
 					stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
 				} else {
@@ -354,7 +373,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			}
 
 		case StateRunning:
-			// Running: spinner stepID (persona) (elapsed) bullet action
+			// Running: spinner stepID (persona) [model via adapter] (elapsed) bullet action
 			spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 			now := time.Now().UnixMilli()
 			frame := (now / 80) % int64(len(spinners))
@@ -363,6 +382,18 @@ func (m *ProgressModel) renderCurrentStep() string {
 			stepLine := fmt.Sprintf("%s %s", icon, stepID)
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			// Show model/adapter info for running steps
+			if m.ctx.StepModels != nil {
+				if model, ok := m.ctx.StepModels[stepID]; ok && model != "" {
+					modelInfo := model
+					if m.ctx.StepAdapters != nil {
+						if adpt, ok := m.ctx.StepAdapters[stepID]; ok && adpt != "" {
+							modelInfo += " via " + adpt
+						}
+					}
+					stepLine += fmt.Sprintf(" [%s]", modelInfo)
+				}
 			}
 			// Per-step timing: use StepStartTimes if available, fall back to CurrentStepStart
 			var stepElapsed time.Duration
@@ -491,6 +522,9 @@ func formatElapsed(d time.Duration) string {
 // formatElapsedWithTokens formats elapsed time and optionally appends total token count.
 func (m *ProgressModel) formatElapsedWithTokens(d time.Duration) string {
 	elapsed := formatElapsed(d)
+	if m.ctx.TotalTokensIn > 0 || m.ctx.TotalTokensOut > 0 {
+		return fmt.Sprintf("%s • %s in / %s out", elapsed, FormatTokenCount(m.ctx.TotalTokensIn), FormatTokenCount(m.ctx.TotalTokensOut))
+	}
 	if m.ctx.TotalTokens > 0 {
 		return fmt.Sprintf("%s • %s tokens", elapsed, FormatTokenCount(m.ctx.TotalTokens))
 	}

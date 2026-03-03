@@ -26,6 +26,11 @@ type BubbleTeaProgressDisplay struct {
 	stepOrder          []string
 	stepDurations      map[string]int64      // Track step durations in milliseconds
 	stepTokens         map[string]int        // Track per-step token counts
+	stepModels       map[string]string   // Track per-step model names
+	stepAdapters     map[string]string   // Track per-step adapter types
+	stepTemperatures map[string]float64  // Track per-step temperature settings
+	stepTokensIn     map[string]int      // Track per-step input tokens
+	stepTokensOut    map[string]int      // Track per-step output tokens
 	stepStartTimes     map[string]time.Time  // Track when each step started
 	startTime          time.Time
 	enabled            bool
@@ -88,6 +93,11 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		stepOrder:          make([]string, 0, totalSteps),
 		stepDurations:      make(map[string]int64),
 		stepTokens:         make(map[string]int),
+		stepModels:         make(map[string]string),
+		stepAdapters:       make(map[string]string),
+		stepTemperatures:   make(map[string]float64),
+		stepTokensIn:       make(map[string]int),
+		stepTokensOut:      make(map[string]int),
 		stepStartTimes:     make(map[string]time.Time),
 		stepToolActivity:   make(map[string][2]string),
 		handoverInfo:       make(map[string]*HandoverInfo),
@@ -234,6 +244,16 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 			btpd.stepStartTimes[evt.StepID] = time.Now()
 		}
 		step.State = StateRunning
+		// Capture model/adapter/temperature metadata from start events
+		if evt.Model != "" {
+			btpd.stepModels[evt.StepID] = evt.Model
+		}
+		if evt.Adapter != "" {
+			btpd.stepAdapters[evt.StepID] = evt.Adapter
+		}
+		if evt.Temperature > 0 {
+			btpd.stepTemperatures[evt.StepID] = evt.Temperature
+		}
 	case "completed":
 		step.State = StateCompleted
 		step.Progress = 100
@@ -251,6 +271,13 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 		// Capture token usage
 		if evt.TokensUsed > 0 {
 			btpd.stepTokens[evt.StepID] = evt.TokensUsed
+		}
+		// Capture input/output token breakdown
+		if evt.TokensIn > 0 {
+			btpd.stepTokensIn[evt.StepID] = evt.TokensIn
+		}
+		if evt.TokensOut > 0 {
+			btpd.stepTokensOut[evt.StepID] = evt.TokensOut
 		}
 	case "failed":
 		step.State = StateFailed
@@ -450,6 +477,34 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		stepTokens[sid] = tokens
 		totalTokens += tokens
 	}
+	// Build per-step model/adapter/temperature maps
+	stepModels := make(map[string]string, len(btpd.stepModels))
+	for sid, model := range btpd.stepModels {
+		stepModels[sid] = model
+	}
+	stepAdapters := make(map[string]string, len(btpd.stepAdapters))
+	for sid, adpt := range btpd.stepAdapters {
+		stepAdapters[sid] = adpt
+	}
+	stepTemperatures := make(map[string]float64, len(btpd.stepTemperatures))
+	for sid, temp := range btpd.stepTemperatures {
+		stepTemperatures[sid] = temp
+	}
+
+	// Build per-step input/output token maps
+	stepTokensIn := make(map[string]int, len(btpd.stepTokensIn))
+	stepTokensOut := make(map[string]int, len(btpd.stepTokensOut))
+	totalTokensIn := 0
+	totalTokensOut := 0
+	for sid, tIn := range btpd.stepTokensIn {
+		stepTokensIn[sid] = tIn
+		totalTokensIn += tIn
+	}
+	for sid, tOut := range btpd.stepTokensOut {
+		stepTokensOut[sid] = tOut
+		totalTokensOut += tOut
+	}
+
 	return &PipelineContext{
 		PipelineName:       btpd.pipelineName,
 		PipelineID:         btpd.pipelineID,
@@ -466,6 +521,13 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepDurations:      btpd.stepDurations,
 		StepTokens:         stepTokens,
 		TotalTokens:        totalTokens,
+		StepModels:       stepModels,
+		StepAdapters:     stepAdapters,
+		StepTemperatures: stepTemperatures,
+		StepTokensIn:     stepTokensIn,
+		StepTokensOut:    stepTokensOut,
+		TotalTokensIn:    totalTokensIn,
+		TotalTokensOut:   totalTokensOut,
 		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
