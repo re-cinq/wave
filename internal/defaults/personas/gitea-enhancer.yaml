@@ -3,11 +3,10 @@ temperature: 0.2
 permissions:
   allowed_tools:
     - Read
+    - Write
     - "Bash(tea issues edit*)"
     - "Bash(tea issues view*)"
     - "Bash(tea --version)"
-    - "Write(.wave/artifact.json)"
-    - "Write(/tmp/*)"
   deny:
     - "Bash(tea issues create*)"
     - "Bash(tea issues close*)"
