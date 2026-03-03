@@ -1045,10 +1045,19 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// Use pipeline context for template variables
 		templateVars := execution.Context.ToTemplateVars()
 
-		return e.wsManager.Create(workspace.WorkspaceConfig{
+		wsPath, err := e.wsManager.Create(workspace.WorkspaceConfig{
 			Root:  wsRoot,
 			Mount: toWorkspaceMounts(step.Workspace.Mount),
 		}, templateVars)
+		if err != nil {
+			return "", err
+		}
+
+		// Anchor Claude Code path resolution to the workspace root.
+		// Without .git, Claude Code walks up the directory tree and resolves
+		// relative paths against the project root instead of the workspace.
+		exec.Command("git", "init", "-q", wsPath).Run()
+		return wsPath, nil
 	}
 
 	// Create directory under .wave/workspaces/<pipeline>/<step>/
@@ -1056,6 +1065,8 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	// Anchor Claude Code path resolution (see mount-based workspace above)
+	exec.Command("git", "init", "-q", wsPath).Run()
 	return wsPath, nil
 }
 
