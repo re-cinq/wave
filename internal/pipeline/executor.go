@@ -2121,3 +2121,10 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 
 	delete(e.pipelines, pipelineID)
 }
+
+// ResumeWithValidation resumes a pipeline with full validation and error handling.
+// When force is true, phase validation and stale artifact checks are skipped.
+func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
+	manager := NewResumeManager(e)
+	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force)
+}
