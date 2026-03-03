@@ -105,7 +105,7 @@ func (m *ProgressModel) View() string {
 
 	// Add margins: 1 character on all sides
 	return lipgloss.NewStyle().
-		Margin(1, 1, 1, 1). // top, right, bottom, left
+		Margin(0, 1, 1, 1). // top, right, bottom, left
 		Render(fullContent)
 }
 
