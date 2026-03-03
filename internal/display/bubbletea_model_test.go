@@ -525,11 +525,12 @@ func TestShimmerPosition_RangeAndPingPong(t *testing.T) {
 	logoWidth := 15
 	cycleMs := int64(2500)
 
-	// Sample many points and verify the result is always in [0, logoWidth]
+	// Sample many points and verify the result is always in [-1, logoWidth]
+	// (sweep extends 1 unit past the left edge so the core disappears symmetrically)
 	for i := 0; i < 1000; i++ {
 		pos := shimmerPosition(logoWidth, cycleMs)
-		if pos < 0 || pos > float64(logoWidth) {
-			t.Errorf("shimmerPosition out of range: got %f, want [0, %d]", pos, logoWidth)
+		if pos < -1.0 || pos > float64(logoWidth) {
+			t.Errorf("shimmerPosition out of range: got %f, want [-1, %d]", pos, logoWidth)
 		}
 	}
 
