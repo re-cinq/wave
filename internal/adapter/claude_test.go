@@ -65,9 +65,9 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  []string{"Bash(go test*)", "Bash(git log*)", "Read"},
 		},
 		{
-			name:  "preserves Write in mixed tools",
+			name:  "bare Write subsumes scoped Write entries",
 			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
-			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
+			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write"},
 		},
 		{
 			name:  "empty input",
@@ -80,9 +80,9 @@ func TestNormalizeAllowedTools(t *testing.T) {
 			want:  []string{"Write"},
 		},
 		{
-			name:  "Edit bare and scoped preserved",
+			name:  "bare Edit subsumes scoped Edit entries",
 			input: []string{"Edit", "Edit(.wave/output/*)", "Read"},
-			want:  []string{"Edit", "Edit(.wave/output/*)", "Read"},
+			want:  []string{"Edit", "Read"},
 		},
 	}
 

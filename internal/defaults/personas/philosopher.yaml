@@ -4,5 +4,8 @@ permissions:
   allowed_tools:
     - Read
     - Write
-  deny:
-    - "Bash(*)"
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+  deny: []

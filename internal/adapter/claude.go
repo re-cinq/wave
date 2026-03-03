@@ -789,16 +789,36 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 	return b.String()
 }
 
-// normalizeAllowedTools deduplicates tool entries to prevent repeated
-// entries from reaching the Claude Code CLI.
+// normalizeAllowedTools deduplicates tool entries and collapses scoped
+// permissions when a bare (unscoped) version is present. For example,
+// if the list contains both "Write" and "Write(.wave/output/*)", the
+// scoped entry is dropped because bare Write already subsumes it.
 func normalizeAllowedTools(tools []string) []string {
+	// First pass: identify bare (unscoped) tool names
+	bare := make(map[string]bool)
+	for _, tool := range tools {
+		if !strings.Contains(tool, "(") {
+			bare[tool] = true
+		}
+	}
+
+	// Second pass: deduplicate and drop scoped entries subsumed by bare ones
 	seen := make(map[string]bool)
 	var result []string
 	for _, tool := range tools {
-		if !seen[tool] {
-			seen[tool] = true
-			result = append(result, tool)
+		if seen[tool] {
+			continue
 		}
+		seen[tool] = true
+		// If this is a scoped entry like "Write(.wave/output/*)" and bare
+		// "Write" exists, skip it — the bare version already covers it.
+		if idx := strings.Index(tool, "("); idx > 0 {
+			name := tool[:idx]
+			if bare[name] {
+				continue
+			}
+		}
+		result = append(result, tool)
 	}
 	return result
 }
