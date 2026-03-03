@@ -8,6 +8,9 @@ permissions:
     - "Bash(jq *)"
     - "Bash(git push*)"
     - "Bash(git status*)"
+    - "Bash(git log*)"
+    - "Bash(git remote*)"
+    - "Bash(git diff*)"
   deny:
     - "Bash(curl *-X DELETE*)"
     - "Bash(gh *)"

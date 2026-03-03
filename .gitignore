@@ -34,6 +34,7 @@ debug
 release
 *.dSYM
 
+
 # Traces and logs
 *.log
 
