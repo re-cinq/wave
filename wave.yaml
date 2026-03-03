@@ -594,6 +594,7 @@ personas:
         permissions:
             allowed_tools:
                 - Read
+                - Write
                 - Glob
                 - Grep
             deny:
