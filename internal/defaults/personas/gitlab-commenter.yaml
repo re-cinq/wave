@@ -11,6 +11,9 @@ permissions:
     - "Bash(glab --version)"
     - "Bash(git push*)"
     - "Bash(git status*)"
+    - "Bash(git log*)"
+    - "Bash(git remote*)"
+    - "Bash(git diff*)"
   deny:
     - "Bash(glab issue update*)"
     - "Bash(glab issue close*)"

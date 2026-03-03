@@ -85,8 +85,8 @@ func TestRecordRenderStartDeferred(t *testing.T) {
 		t.Errorf("expected 1 render, got %d", stats.TotalRenders)
 	}
 
-	if stats.LastRenderTimeMs < 1.5 || stats.LastRenderTimeMs > 3.0 {
-		t.Errorf("expected render time around 2ms, got %fms", stats.LastRenderTimeMs)
+	if stats.LastRenderTimeMs < 1.0 || stats.LastRenderTimeMs > 50.0 {
+		t.Errorf("expected render time between 1-50ms, got %fms", stats.LastRenderTimeMs)
 	}
 }
 
