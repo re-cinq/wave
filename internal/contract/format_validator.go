@@ -1,7 +1,6 @@
 package contract
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,13 +28,28 @@ func (v *FormatValidator) Validate(cfg ContractConfig, workspacePath string) err
 		return fmt.Errorf("failed to read output file: %w", err)
 	}
 
-	// Parse output as JSON
-	var output map[string]interface{}
-	if err := json.Unmarshal(data, &output); err != nil {
+	// Parse output as JSON, using recovery to handle common LLM output issues
+	recoveryParser := NewJSONRecoveryParser(ConservativeRecovery)
+	recoveryResult, recoveryErr := recoveryParser.ParseWithRecovery(string(data))
+	if recoveryErr != nil || !recoveryResult.IsValid {
+		details := []string{}
+		if recoveryErr != nil {
+			details = append(details, recoveryErr.Error())
+		}
 		return &ValidationError{
 			ContractType: "format",
 			Message:      "output is not valid JSON",
-			Details:      []string{err.Error()},
+			Details:      details,
+			Retryable:    true,
+		}
+	}
+
+	output, ok := recoveryResult.ParsedData.(map[string]interface{})
+	if !ok {
+		return &ValidationError{
+			ContractType: "format",
+			Message:      "output is not a JSON object",
+			Details:      []string{"expected a JSON object, got a different type"},
 			Retryable:    true,
 		}
 	}

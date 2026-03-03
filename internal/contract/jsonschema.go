@@ -263,7 +263,7 @@ func determineRecoveryLevel(cfg ContractConfig) RecoveryLevel {
 	case "progressive":
 		return ProgressiveRecovery
 	case "aggressive":
-		return AggressiveRecovery
+		return ProgressiveRecovery
 	}
 
 	// Progressive validation logic:
