@@ -161,9 +161,35 @@ func (m *ProgressModel) renderHeader() string {
 	if m.ctx.PipelineID != "" && m.ctx.PipelineID != m.ctx.PipelineName {
 		pipelineLabel = m.ctx.PipelineID
 	}
+	// Build compact progress summary for third line
+	progressLine := fmt.Sprintf("Progress: %d%% Step %d/%d", m.ctx.OverallProgress, m.ctx.CurrentStepNum, m.ctx.TotalSteps)
+	{
+		var parts []string
+		for _, stepID := range m.ctx.StepOrder {
+			if state, exists := m.ctx.StepStatuses[stepID]; exists && state == StateRunning {
+				parts = append(parts, stepID) // just count
+			}
+		}
+		runningCount := len(parts)
+		var counts []string
+		if runningCount > 0 {
+			counts = append(counts, fmt.Sprintf("%d running", runningCount))
+		}
+		if m.ctx.CompletedSteps > 0 {
+			counts = append(counts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
+		}
+		if m.ctx.FailedSteps > 0 {
+			counts = append(counts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
+		}
+		if len(counts) > 0 {
+			progressLine += " (" + strings.Join(counts, ", ") + ")"
+		}
+	}
+
 	projectLines := []string{
 		fmt.Sprintf("Pipeline: %s", pipelineLabel),
 		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
+		progressLine,
 	}
 
 	// Render logo with per-character shimmer animation
