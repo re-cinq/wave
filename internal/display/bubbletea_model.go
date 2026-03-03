@@ -2,12 +2,27 @@ package display
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/pathfmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+// Unified color palette — semantic names for consistent theming
+var (
+	colorPrimary     = lipgloss.Color("14")  // Bright cyan — active/accent
+	colorSuccess     = lipgloss.Color("10")  // Bright green — completed
+	colorError       = lipgloss.Color("9")   // Bright red — failed
+	colorMuted       = lipgloss.Color("244") // Medium gray — metadata/inactive
+	colorDim         = lipgloss.Color("240") // Dark gray — empty/not-started
+	colorInfo        = lipgloss.Color("7")   // Light gray — project info
+	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
+	colorShimmerMid  = lipgloss.Color("14")  // Bright cyan — shimmer fringe
+	colorShimmerBase = lipgloss.Color("14")  // Bright cyan — shimmer ambient
 )
 
 // ProgressModel implements the bubbletea model for Wave progress display
@@ -68,17 +83,12 @@ func (m *ProgressModel) View() string {
 	// Header with logo and project info (has spacing built-in)
 	header := m.renderHeader()
 
-	// Progress line with spacing
-	progress := m.renderProgress()
-
 	// Current step with spacing
 	currentStep := m.renderCurrentStep()
 
 	// Main content area
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
-		"", // Empty line for spacing
-		progress,
 		"", // Empty line for spacing
 		currentStep,
 		"", // Empty line before buttons
@@ -87,7 +97,7 @@ func (m *ProgressModel) View() string {
 
 	// Bottom status line with readable colors
 	statusLine := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244")). // Medium gray for buttons
+		Foreground(colorMuted).
 		Render("Press: q=quit")
 
 	// Combine content with bottom status and add margins
@@ -95,8 +105,43 @@ func (m *ProgressModel) View() string {
 
 	// Add margins: 1 character on all sides
 	return lipgloss.NewStyle().
-		Margin(1, 1, 1, 1). // top, right, bottom, left
+		Margin(0, 1, 1, 1). // top, right, bottom, left
 		Render(fullContent)
+}
+
+// shimmerPosition calculates a ping-pong sweep position across the logo width.
+// It returns a float64 in [0, logoWidth] that bounces back and forth over cycleMs.
+func shimmerPosition(logoWidth int, cycleMs int64) float64 {
+	now := time.Now().UnixMilli()
+	halfCycle := cycleMs / 2
+	phase := now % cycleMs
+	// Sweep from -3 to logoWidth+2 so all shimmer bands (core + bold fringe)
+	// fully disappear off both edges before the bounce
+	overflow := 3.0
+	sweepRange := float64(logoWidth-1) + 2*overflow
+	var pos float64
+	if phase < halfCycle {
+		pos = float64(phase) / float64(halfCycle) * sweepRange
+	} else {
+		pos = float64(cycleMs-phase) / float64(halfCycle) * sweepRange
+	}
+	return pos - overflow
+}
+
+// shimmerColorForChar returns a style for a single logo character based on
+// its distance from the current shimmer center position.
+func shimmerColorForChar(charPos int, shimmerCenter float64) lipgloss.Style {
+	distance := math.Abs(float64(charPos) - shimmerCenter)
+	switch {
+	case distance < 1.0:
+		return lipgloss.NewStyle().Foreground(colorShimmerCore).Bold(true)
+	case distance < 2.5:
+		return lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	case distance < 4.0:
+		return lipgloss.NewStyle().Foreground(colorShimmerMid)
+	default:
+		return lipgloss.NewStyle().Foreground(colorShimmerBase)
+	}
 }
 
 // renderHeader creates the header with proper spacing and alignment
@@ -116,19 +161,51 @@ func (m *ProgressModel) renderHeader() string {
 	if m.ctx.PipelineID != "" && m.ctx.PipelineID != m.ctx.PipelineName {
 		pipelineLabel = m.ctx.PipelineID
 	}
+	// Build compact progress summary for third line
+	progressLine := fmt.Sprintf("Progress: %d%% Step %d/%d", m.ctx.OverallProgress, m.ctx.CurrentStepNum, m.ctx.TotalSteps)
+	{
+		var parts []string
+		for _, stepID := range m.ctx.StepOrder {
+			if state, exists := m.ctx.StepStatuses[stepID]; exists && state == StateRunning {
+				parts = append(parts, stepID) // just count
+			}
+		}
+		runningCount := len(parts)
+		var counts []string
+		if runningCount > 0 {
+			counts = append(counts, fmt.Sprintf("%d running", runningCount))
+		}
+		if m.ctx.CompletedSteps > 0 {
+			counts = append(counts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
+		}
+		if m.ctx.FailedSteps > 0 {
+			counts = append(counts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
+		}
+		if len(counts) > 0 {
+			progressLine += " (" + strings.Join(counts, ", ") + ")"
+		}
+	}
+
 	projectLines := []string{
 		fmt.Sprintf("Pipeline: %s", pipelineLabel),
 		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
+		progressLine,
 	}
 
-	// Create columns with proper spacing and bright colors
-	logoColumn := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("12")). // Bright cyan for logo
-		Render(lipgloss.JoinVertical(lipgloss.Left, logo...))
+	// Render logo with per-character shimmer animation
+	shimmerCenter := shimmerPosition(15, 2500)
+	var shimmerLines []string
+	for _, line := range logo {
+		var rendered strings.Builder
+		for runeIdx, r := range []rune(line) {
+			rendered.WriteString(shimmerColorForChar(runeIdx, shimmerCenter).Render(string(r)))
+		}
+		shimmerLines = append(shimmerLines, rendered.String())
+	}
+	logoColumn := lipgloss.JoinVertical(lipgloss.Left, shimmerLines...)
 
 	projectColumn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("7")). // Light gray for project info
+		Foreground(colorInfo).
 		Render(lipgloss.JoinVertical(lipgloss.Left, projectLines...))
 
 	// Join horizontally with spacing
@@ -136,126 +213,7 @@ func (m *ProgressModel) renderHeader() string {
 		logoColumn,
 		lipgloss.NewStyle().Width(4).Render(""), // Spacer
 		projectColumn,
-	) + "\n"
-}
-
-// renderProgress creates the progress bar and step info
-func (m *ProgressModel) renderProgress() string {
-	// Progress bar (25 chars wide)
-	width := 25
-	filled := (m.ctx.OverallProgress * width) / 100
-	empty := width - filled
-
-	// Create progress bar with pulsing wave animation
-	var progressBar string
-	progressBar = "["
-
-	// Calculate gradient breathing animation
-	now := time.Now().UnixMilli()
-	breatheInterval := int64(1500) // 1.5 second breathing cycle
-	breatheCycle := now % breatheInterval
-
-	// Create breathing phases: expand -> peak -> contract -> soft
-	var gradientSize int
-	phase := float64(breatheCycle) / float64(breatheInterval)
-
-	if phase < 0.25 {
-		// Expanding phase: 0 -> 3 gradient chars
-		gradientSize = int(phase * 12) // 0 to 3
-	} else if phase < 0.5 {
-		// Peak phase: hold at 3 gradient chars
-		gradientSize = 3
-	} else if phase < 0.75 {
-		// Contracting phase: 3 -> 2 gradient chars
-		gradientSize = 3 - int((phase-0.5)*4) // 3 to 2
-	} else {
-		// Soft phase: 2 gradient chars
-		gradientSize = 2
-	}
-
-	// Ensure gradient doesn't exceed empty space
-	if gradientSize > empty {
-		gradientSize = empty
-	}
-
-	// Render filled portion - Wave cyan color (matches logo)
-	for i := 0; i < filled; i++ {
-		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("█")
-		progressBar += filledChar
-	}
-
-	// Render empty portion with gradient breathing effect
-	for i := 0; i < empty; i++ {
-		var char string
-		var style lipgloss.Style
-
-		if i < gradientSize {
-			// Gradient area - different characters based on position
-			if i == 0 {
-				// First gradient character (closest to filled)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
-			} else if i < gradientSize-1 {
-				// Middle gradient characters
-				char = "▓"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
-			} else {
-				// Last gradient character (fading edge)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Medium gray
-			}
-		} else {
-			// Normal empty character - light shade block
-			char = "░"
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
-		}
-
-		styledChar := style.Render(char)
-		progressBar += styledChar
-	}
-
-	progressBar += "]"
-
-	// Count running steps for concurrent display
-	runningCount := 0
-	for _, stepID := range m.ctx.StepOrder {
-		if state, exists := m.ctx.StepStatuses[stepID]; exists && state == StateRunning {
-			runningCount++
-		}
-	}
-
-	stepInfo := fmt.Sprintf(" %d%%", m.ctx.OverallProgress)
-	if runningCount <= 1 {
-		stepInfo += fmt.Sprintf(" Step %d/%d", m.ctx.CurrentStepNum, m.ctx.TotalSteps)
-	} else {
-		stepInfo += fmt.Sprintf(" %d/%d steps", m.ctx.CompletedSteps, m.ctx.TotalSteps)
-	}
-
-	// Add completion counts
-	{
-		var parts []string
-		if m.ctx.CompletedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
-		}
-		if runningCount > 1 {
-			parts = append(parts, fmt.Sprintf("%d running", runningCount))
-		}
-		if m.ctx.FailedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
-		}
-		if m.ctx.SkippedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d skip", m.ctx.SkippedSteps))
-		}
-		if len(parts) > 0 {
-			stepInfo += " (" + parts[0]
-			for _, p := range parts[1:] {
-				stepInfo += ", " + p
-			}
-			stepInfo += ")"
-		}
-	}
-
-	return progressBar + stepInfo
+	)
 }
 
 // renderCurrentStep shows detailed step information with loading indicators
@@ -318,7 +276,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			} else {
 				stepLine += fmt.Sprintf(" (%s)", durationText)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(stepLine)
 			steps = append(steps, stepLine)
 
 			// Collect all metadata lines (deliverables + handover) for tree formatting
@@ -368,7 +326,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					connector = "└─"
 				}
 				metaLine := fmt.Sprintf("   %s %s", connector, line)
-				metaLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(metaLine)
+				metaLine = lipgloss.NewStyle().Foreground(colorMuted).Render(metaLine)
 				steps = append(steps, metaLine)
 			}
 
@@ -412,7 +370,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 				stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
 			}
 
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorPrimary).Render(stepLine)
 			steps = append(steps, stepLine)
 
 			// Show per-step tool activity when available, fall back to global
@@ -440,7 +398,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					target = target[:maxTarget-3] + "..."
 				}
 				toolLine := fmt.Sprintf("   %s → %s", toolName, target)
-				toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine)
+				toolLine = lipgloss.NewStyle().Foreground(colorMuted).Render(toolLine)
 				steps = append(steps, toolLine)
 			}
 
@@ -456,7 +414,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					stepLine += fmt.Sprintf(" (%s)", durationText)
 				}
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorError).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		case StateSkipped:
@@ -465,7 +423,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		case StateCancelled:
@@ -474,7 +432,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		default:
@@ -483,7 +441,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 		}
 	}
