@@ -314,46 +314,43 @@ steps:
     exec:
       type: prompt
       source: |
-        FINAL CONVERGENCE — synthesize all findings into actionable proposals.
-
-        This is the last convergent step before implementation. You have:
-        - Validated findings (what survived scrutiny)
-        - Probed findings (deeper connections, patterns, new discoveries)
-        - Optional issue/PR context (from the gather step)
-
-        Your job: synthesize everything into prioritized, implementable proposals.
+        FINAL CONVERGENCE — write a JSON object to `.wave/output/convergent-proposals.json`.
 
         Target: {{ input }}
 
-        ## Synthesis
+        Read ALL injected artifacts first:
+        - `.wave/artifacts/context` — issue/PR context from the gather step
+        - `.wave/artifacts/validated_findings` — findings that survived scrutiny
+        - `.wave/artifacts/probed_findings` — deeper connections, patterns, new discoveries
 
-        Transform the validated and probed findings into prioritized proposals:
+        Then write a SINGLE JSON object (no markdown, no prose, no code fences) to
+        the output file using the Write tool. The file must start with `{` and end with `}`.
 
-        1. **Group by pattern**: Use the `patterns` from the probe step. Findings that share
-           a root cause become a single proposal addressing the root cause.
+        ## How to populate each field
 
-        2. **Incorporate second-order effects**: The probe step found connections and cascading
-           simplifications. Factor these into impact estimates.
+        **`source_findings`**: Count how many findings you reviewed, confirmed, partially
+        confirmed, or rejected. Include rejection reasons.
 
-        3. **Include new discoveries**: The probe step may have found new findings (DVG-NEW-xxx).
-           These are pre-validated by the provocateur's second pass — include them.
+        **`validation_summary`**: One paragraph describing the converge→diverge→converge
+        validation process and what survived.
 
-        4. **Apply issue/PR context (if present)**: If the context artifact shows
-           `input_type` is `"issue"` or `"pr"`, use the `focus_hint` as ONE input
-           when assigning tiers. But do not discard strong proposals just because they
-           fall outside the issue's scope. The best simplifications are often the ones
-           the issue author didn't think to ask for.
+        **`proposals`** array — for each proposal:
+        - `id`: SMP-001, SMP-002, etc.
+        - Group findings that share a root cause into a single proposal
+        - Incorporate second-order effects from the probe step into `impact` estimates
+        - Include DVG-NEW-xxx discoveries from the probe step (pre-validated)
+        - If context shows `input_type` is `"issue"` or `"pr"`, use `focus_hint` as ONE
+          input when assigning `tier`, but do not discard strong proposals outside scope
+        - `tier`: 1=do now, 2=do next, 3=consider later
+        - `files`: list actual file paths affected
+        - `dependencies`: SMP-xxx IDs that must be applied first
 
-        5. **80/20 analysis**: which 20% of proposals yield 80% of the simplification?
+        **`eighty_twenty_analysis`**: Which 20% of proposals yield 80% of the benefit?
 
-        6. **Dependency ordering**: what must be done first?
+        **`timestamp`**: ISO 8601 datetime.
 
-        ## Output
-
-        IMPORTANT: Write ONLY valid JSON to the output file. Do NOT write markdown,
-        prose, or code-fenced JSON. The file must start with `{` and end with `}`.
-        Every proposal field must be fully populated. Contract validation will
-        reject non-JSON output.
+        IMPORTANT: The Write tool call must contain ONLY the JSON object.
+        Contract validation will reject non-JSON output.
     output_artifacts:
       - name: proposals
         path: .wave/output/convergent-proposals.json
