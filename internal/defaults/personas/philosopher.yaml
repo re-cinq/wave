@@ -3,6 +3,6 @@ temperature: 0.3
 permissions:
   allowed_tools:
     - Read
-    - "Write(.wave/specs/*)"
+    - Write
   deny:
     - "Bash(*)"

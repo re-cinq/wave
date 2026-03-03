@@ -3,8 +3,7 @@ temperature: 0.2
 permissions:
   allowed_tools:
     - Read
-    - "Write(.wave/artifact.json)"
-    - "Write(.wave/output/*)"
+    - Write
     - "Bash(gh issue comment*)"
     - "Bash(gh pr comment*)"
     - "Bash(gh pr review*)"
