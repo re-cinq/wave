@@ -350,7 +350,10 @@ steps:
 
         ## Output
 
-        Do NOT write a markdown summary. Write the complete JSON object with every proposal fully populated.
+        IMPORTANT: Write ONLY valid JSON to the output file. Do NOT write markdown,
+        prose, or code-fenced JSON. The file must start with `{` and end with `}`.
+        Every proposal field must be fully populated. Contract validation will
+        reject non-JSON output.
     output_artifacts:
       - name: proposals
         path: .wave/output/convergent-proposals.json
