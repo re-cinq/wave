@@ -3,11 +3,11 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
+    - Write
+    - Edit
+    - Bash
     - Glob
     - Grep
     - WebSearch
     - WebFetch
-    - Write
-  deny:
-    - "Edit(*)"
-    - "Bash(*)"
+  deny: []
