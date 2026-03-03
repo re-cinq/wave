@@ -96,9 +96,12 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(.wave/specs/*)
-            deny:
-                - Bash(*)
+                - Write
+                - Edit
+                - Bash
+                - Glob
+                - Grep
+            deny: []
         system_prompt_file: .wave/personas/philosopher.md
     planner:
         adapter: claude
@@ -108,12 +111,12 @@ personas:
         permissions:
             allowed_tools:
                 - Read
+                - Write
+                - Edit
+                - Bash
                 - Glob
                 - Grep
-            deny:
-                - Write(*)
-                - Edit(*)
-                - Bash(*)
+            deny: []
         system_prompt_file: .wave/personas/planner.md
     summarizer:
         adapter: claude
@@ -123,9 +126,12 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-            deny:
-                - Write(*)
-                - Bash(*)
+                - Write
+                - Edit
+                - Bash
+                - Glob
+                - Grep
+            deny: []
         system_prompt_file: .wave/personas/summarizer.md
     github-analyst:
         adapter: claude
@@ -237,17 +243,14 @@ personas:
         permissions:
             allowed_tools:
                 - Read
+                - Write
+                - Edit
+                - Bash
                 - Glob
                 - Grep
                 - WebSearch
                 - WebFetch
-                - Write
-            deny:
-                - Edit(*)
-                - Bash(*)
-                - Write(*.go)
-                - Write(*.ts)
-                - Write(*.py)
+            deny: []
         system_prompt_file: .wave/personas/researcher.md
     github-commenter:
         adapter: claude
@@ -595,11 +598,11 @@ personas:
             allowed_tools:
                 - Read
                 - Write
+                - Edit
+                - Bash
                 - Glob
                 - Grep
-            deny:
-                - Edit(*)
-                - Bash(*)
+            deny: []
         system_prompt_file: .wave/personas/synthesizer.md
     provocateur:
         adapter: claude
