@@ -585,7 +585,15 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 		case "started", "running":
 			bpd.stepStates[ev.StepID] = "running"
 			if ev.Persona != "" {
-				fmt.Fprintf(bpd.writer, "[%s] → %s (%s)\n", timestamp, ev.StepID, ev.Persona)
+				stepLine := fmt.Sprintf("[%s] → %s (%s)", timestamp, ev.StepID, ev.Persona)
+				if ev.Model != "" {
+					stepLine += fmt.Sprintf(" [%s", ev.Model)
+					if ev.Adapter != "" {
+						stepLine += fmt.Sprintf(" via %s", ev.Adapter)
+					}
+					stepLine += "]"
+				}
+				fmt.Fprintln(bpd.writer, stepLine)
 			}
 			// Track step order for handover target lookup
 			found := false
@@ -600,8 +608,12 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			}
 		case "completed":
 			bpd.stepStates[ev.StepID] = "completed"
-			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s tokens)\n",
-				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, FormatTokenCount(ev.TokensUsed))
+			tokenInfo := FormatTokenCount(ev.TokensUsed) + " tokens"
+			if ev.TokensIn > 0 || ev.TokensOut > 0 {
+				tokenInfo = FormatTokenCount(ev.TokensIn) + " in / " + FormatTokenCount(ev.TokensOut) + " out"
+			}
+			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s)\n",
+				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, tokenInfo)
 			// Capture artifacts into handover info
 			if len(ev.Artifacts) > 0 {
 				if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
