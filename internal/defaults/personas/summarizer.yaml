@@ -3,6 +3,6 @@ temperature: 0.0
 permissions:
   allowed_tools:
     - Read
+    - Write
   deny:
-    - "Write(*)"
     - "Bash(*)"
