@@ -3,15 +3,11 @@ temperature: 0.1
 permissions:
   allowed_tools:
     - Read
+    - Write
     - Glob
     - Grep
-    - "Write(.wave/artifact.json)"
-    - "Write(.wave/artifacts/*)"
     - Bash
   deny:
-    - "Write(*.go)"
-    - "Write(*.ts)"
-    - "Write(*.py)"
     - "Edit(*)"
     - "Bash(rm -rf /*)"
     - "Bash(git push*)"
