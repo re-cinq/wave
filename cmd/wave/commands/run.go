@@ -37,6 +37,7 @@ type RunOptions struct {
 	Mock     bool
 	RunID    string
 	Output   OutputConfig
+	Model    string
 }
 
 func NewRunCmd() *cobra.Command {
@@ -46,7 +47,10 @@ func NewRunCmd() *cobra.Command {
 		Use:   "run [pipeline] [input]",
 		Short: "Run a pipeline",
 		Long: `Execute a pipeline from the wave manifest.
-Supports dry-run mode, step resumption, and custom timeouts.
+Supports dry-run mode, step resumption, custom timeouts, and model override.
+
+The --model flag overrides the adapter model for all steps in the run.
+Per-persona model pinning in wave.yaml takes precedence over --model.
 
 Arguments can be provided as positional args or flags:
   wave run gh-pr-review "Review auth module"
@@ -55,7 +59,8 @@ Arguments can be provided as positional args or flags:
 		Example: `  wave run gh-pr-review "Review the authentication changes"
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
-  wave run migrate --from-step validate`,
+  wave run migrate --from-step validate
+  wave run my-pipeline --model haiku`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -104,6 +109,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
+	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 
 	return cmd
 }
@@ -268,6 +274,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.Timeout > 0 {
 		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
+	}
+	if opts.Model != "" {
+		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
