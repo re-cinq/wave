@@ -3,9 +3,9 @@ temperature: 0.2
 permissions:
   allowed_tools:
     - Read
+    - Write
     - Glob
     - Grep
   deny:
-    - "Write(*)"
     - "Edit(*)"
     - "Bash(*)"

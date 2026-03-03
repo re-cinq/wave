@@ -11,6 +11,3 @@ permissions:
   deny:
     - "Edit(*)"
     - "Bash(*)"
-    - "Write(*.go)"
-    - "Write(*.ts)"
-    - "Write(*.py)"
