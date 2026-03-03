@@ -22,7 +22,7 @@ var (
 	colorInfo        = lipgloss.Color("7")   // Light gray — project info
 	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
 	colorShimmerMid  = lipgloss.Color("6")   // Standard cyan — shimmer fringe
-	colorShimmerBase = lipgloss.Color("8")   // Dark gray — shimmer ambient
+	colorShimmerBase = lipgloss.Color("6")   // Standard cyan — shimmer ambient
 )
 
 // ProgressModel implements the bubbletea model for Wave progress display
@@ -83,17 +83,12 @@ func (m *ProgressModel) View() string {
 	// Header with logo and project info (has spacing built-in)
 	header := m.renderHeader()
 
-	// Progress line with spacing
-	progress := m.renderProgress()
-
 	// Current step with spacing
 	currentStep := m.renderCurrentStep()
 
 	// Main content area
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
-		"", // Empty line for spacing
-		progress,
 		"", // Empty line for spacing
 		currentStep,
 		"", // Empty line before buttons
@@ -169,8 +164,8 @@ func (m *ProgressModel) renderHeader() string {
 	var shimmerLines []string
 	for _, line := range logo {
 		var rendered strings.Builder
-		for i, r := range line {
-			rendered.WriteString(shimmerColorForChar(i, shimmerCenter).Render(string(r)))
+		for runeIdx, r := range []rune(line) {
+			rendered.WriteString(shimmerColorForChar(runeIdx, shimmerCenter).Render(string(r)))
 		}
 		shimmerLines = append(shimmerLines, rendered.String())
 	}
@@ -186,125 +181,6 @@ func (m *ProgressModel) renderHeader() string {
 		lipgloss.NewStyle().Width(4).Render(""), // Spacer
 		projectColumn,
 	) + "\n"
-}
-
-// renderProgress creates the progress bar and step info
-func (m *ProgressModel) renderProgress() string {
-	// Progress bar (25 chars wide)
-	width := 25
-	filled := (m.ctx.OverallProgress * width) / 100
-	empty := width - filled
-
-	// Create progress bar with pulsing wave animation
-	var progressBar string
-	progressBar = "["
-
-	// Calculate gradient breathing animation
-	now := time.Now().UnixMilli()
-	breatheInterval := int64(1500) // 1.5 second breathing cycle
-	breatheCycle := now % breatheInterval
-
-	// Create breathing phases: expand -> peak -> contract -> soft
-	var gradientSize int
-	phase := float64(breatheCycle) / float64(breatheInterval)
-
-	if phase < 0.25 {
-		// Expanding phase: 0 -> 3 gradient chars
-		gradientSize = int(phase * 12) // 0 to 3
-	} else if phase < 0.5 {
-		// Peak phase: hold at 3 gradient chars
-		gradientSize = 3
-	} else if phase < 0.75 {
-		// Contracting phase: 3 -> 2 gradient chars
-		gradientSize = 3 - int((phase-0.5)*4) // 3 to 2
-	} else {
-		// Soft phase: 2 gradient chars
-		gradientSize = 2
-	}
-
-	// Ensure gradient doesn't exceed empty space
-	if gradientSize > empty {
-		gradientSize = empty
-	}
-
-	// Render filled portion
-	for i := 0; i < filled; i++ {
-		filledChar := lipgloss.NewStyle().Foreground(colorPrimary).Render("█")
-		progressBar += filledChar
-	}
-
-	// Render empty portion with gradient breathing effect
-	for i := 0; i < empty; i++ {
-		var char string
-		var style lipgloss.Style
-
-		if i < gradientSize {
-			// Gradient area - different characters based on position
-			if i == 0 {
-				// First gradient character (closest to filled)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(colorPrimary)
-			} else if i < gradientSize-1 {
-				// Middle gradient characters
-				char = "▓"
-				style = lipgloss.NewStyle().Foreground(colorPrimary)
-			} else {
-				// Last gradient character (fading edge)
-				char = "▒"
-				style = lipgloss.NewStyle().Foreground(colorMuted)
-			}
-		} else {
-			// Normal empty character - light shade block
-			char = "░"
-			style = lipgloss.NewStyle().Foreground(colorDim)
-		}
-
-		styledChar := style.Render(char)
-		progressBar += styledChar
-	}
-
-	progressBar += "]"
-
-	// Count running steps for concurrent display
-	runningCount := 0
-	for _, stepID := range m.ctx.StepOrder {
-		if state, exists := m.ctx.StepStatuses[stepID]; exists && state == StateRunning {
-			runningCount++
-		}
-	}
-
-	stepInfo := fmt.Sprintf(" %d%%", m.ctx.OverallProgress)
-	if runningCount <= 1 {
-		stepInfo += fmt.Sprintf(" Step %d/%d", m.ctx.CurrentStepNum, m.ctx.TotalSteps)
-	} else {
-		stepInfo += fmt.Sprintf(" %d/%d steps", m.ctx.CompletedSteps, m.ctx.TotalSteps)
-	}
-
-	// Add completion counts
-	{
-		var parts []string
-		if m.ctx.CompletedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
-		}
-		if runningCount > 1 {
-			parts = append(parts, fmt.Sprintf("%d running", runningCount))
-		}
-		if m.ctx.FailedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
-		}
-		if m.ctx.SkippedSteps > 0 {
-			parts = append(parts, fmt.Sprintf("%d skip", m.ctx.SkippedSteps))
-		}
-		if len(parts) > 0 {
-			stepInfo += " (" + parts[0]
-			for _, p := range parts[1:] {
-				stepInfo += ", " + p
-			}
-			stepInfo += ")"
-		}
-	}
-
-	return progressBar + stepInfo
 }
 
 // renderCurrentStep shows detailed step information with loading indicators
