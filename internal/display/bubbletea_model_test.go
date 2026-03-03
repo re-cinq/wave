@@ -520,3 +520,39 @@ func TestProgressModelInit_ReturnsBatchCmd(t *testing.T) {
 		t.Error("Init() returned nil cmd, expected tea.Batch(tea.ClearScreen, tickCmd())")
 	}
 }
+
+func TestShimmerPosition_RangeAndPingPong(t *testing.T) {
+	logoWidth := 15
+	cycleMs := int64(2500)
+
+	// Sample many points and verify the result is always in [0, logoWidth]
+	for i := 0; i < 1000; i++ {
+		pos := shimmerPosition(logoWidth, cycleMs)
+		if pos < 0 || pos > float64(logoWidth) {
+			t.Errorf("shimmerPosition out of range: got %f, want [0, %d]", pos, logoWidth)
+		}
+	}
+
+	// Verify ping-pong: two calls close together should produce similar values
+	// (not jumping randomly). We can't control time.Now() easily, but we can
+	// at least verify the function doesn't panic and returns sane values.
+	a := shimmerPosition(logoWidth, cycleMs)
+	b := shimmerPosition(logoWidth, cycleMs)
+	diff := a - b
+	if diff < 0 {
+		diff = -diff
+	}
+	// Two calls within ~1ms should not differ by more than 1 character position
+	if diff > 1.0 {
+		t.Errorf("consecutive shimmerPosition calls differ too much: %f vs %f", a, b)
+	}
+}
+
+func TestShimmerColorForChar_DistanceBands(t *testing.T) {
+	// shimmerColorForChar should not panic for any reasonable inputs
+	for i := 0; i < 20; i++ {
+		for center := 0.0; center <= 15.0; center += 0.5 {
+			_ = shimmerColorForChar(i, center)
+		}
+	}
+}

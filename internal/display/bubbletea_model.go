@@ -2,12 +2,27 @@ package display
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/pathfmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+// Unified color palette — semantic names for consistent theming
+var (
+	colorPrimary     = lipgloss.Color("14")  // Bright cyan — active/accent
+	colorSuccess     = lipgloss.Color("10")  // Bright green — completed
+	colorError       = lipgloss.Color("9")   // Bright red — failed
+	colorMuted       = lipgloss.Color("244") // Medium gray — metadata/inactive
+	colorDim         = lipgloss.Color("240") // Dark gray — empty/not-started
+	colorInfo        = lipgloss.Color("7")   // Light gray — project info
+	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
+	colorShimmerMid  = lipgloss.Color("6")   // Standard cyan — shimmer fringe
+	colorShimmerBase = lipgloss.Color("8")   // Dark gray — shimmer ambient
 )
 
 // ProgressModel implements the bubbletea model for Wave progress display
@@ -87,7 +102,7 @@ func (m *ProgressModel) View() string {
 
 	// Bottom status line with readable colors
 	statusLine := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244")). // Medium gray for buttons
+		Foreground(colorMuted).
 		Render("Press: q=quit")
 
 	// Combine content with bottom status and add margins
@@ -97,6 +112,34 @@ func (m *ProgressModel) View() string {
 	return lipgloss.NewStyle().
 		Margin(1, 1, 1, 1). // top, right, bottom, left
 		Render(fullContent)
+}
+
+// shimmerPosition calculates a ping-pong sweep position across the logo width.
+// It returns a float64 in [0, logoWidth] that bounces back and forth over cycleMs.
+func shimmerPosition(logoWidth int, cycleMs int64) float64 {
+	now := time.Now().UnixMilli()
+	halfCycle := cycleMs / 2
+	phase := now % cycleMs
+	if phase < halfCycle {
+		return float64(phase) / float64(halfCycle) * float64(logoWidth)
+	}
+	return float64(cycleMs-phase) / float64(halfCycle) * float64(logoWidth)
+}
+
+// shimmerColorForChar returns a style for a single logo character based on
+// its distance from the current shimmer center position.
+func shimmerColorForChar(charPos int, shimmerCenter float64) lipgloss.Style {
+	distance := math.Abs(float64(charPos) - shimmerCenter)
+	switch {
+	case distance < 1.0:
+		return lipgloss.NewStyle().Foreground(colorShimmerCore).Bold(true)
+	case distance < 2.5:
+		return lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	case distance < 4.0:
+		return lipgloss.NewStyle().Foreground(colorShimmerMid)
+	default:
+		return lipgloss.NewStyle().Foreground(colorShimmerBase)
+	}
 }
 
 // renderHeader creates the header with proper spacing and alignment
@@ -121,14 +164,20 @@ func (m *ProgressModel) renderHeader() string {
 		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
 	}
 
-	// Create columns with proper spacing and bright colors
-	logoColumn := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("12")). // Bright cyan for logo
-		Render(lipgloss.JoinVertical(lipgloss.Left, logo...))
+	// Render logo with per-character shimmer animation
+	shimmerCenter := shimmerPosition(15, 2500)
+	var shimmerLines []string
+	for _, line := range logo {
+		var rendered strings.Builder
+		for i, r := range line {
+			rendered.WriteString(shimmerColorForChar(i, shimmerCenter).Render(string(r)))
+		}
+		shimmerLines = append(shimmerLines, rendered.String())
+	}
+	logoColumn := lipgloss.JoinVertical(lipgloss.Left, shimmerLines...)
 
 	projectColumn := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("7")). // Light gray for project info
+		Foreground(colorInfo).
 		Render(lipgloss.JoinVertical(lipgloss.Left, projectLines...))
 
 	// Join horizontally with spacing
@@ -178,9 +227,9 @@ func (m *ProgressModel) renderProgress() string {
 		gradientSize = empty
 	}
 
-	// Render filled portion - Wave cyan color (matches logo)
+	// Render filled portion
 	for i := 0; i < filled; i++ {
-		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("█")
+		filledChar := lipgloss.NewStyle().Foreground(colorPrimary).Render("█")
 		progressBar += filledChar
 	}
 
@@ -194,20 +243,20 @@ func (m *ProgressModel) renderProgress() string {
 			if i == 0 {
 				// First gradient character (closest to filled)
 				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
+				style = lipgloss.NewStyle().Foreground(colorPrimary)
 			} else if i < gradientSize-1 {
 				// Middle gradient characters
 				char = "▓"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan
+				style = lipgloss.NewStyle().Foreground(colorPrimary)
 			} else {
 				// Last gradient character (fading edge)
 				char = "▒"
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Medium gray
+				style = lipgloss.NewStyle().Foreground(colorMuted)
 			}
 		} else {
 			// Normal empty character - light shade block
 			char = "░"
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Dark gray
+			style = lipgloss.NewStyle().Foreground(colorDim)
 		}
 
 		styledChar := style.Render(char)
@@ -318,7 +367,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			} else {
 				stepLine += fmt.Sprintf(" (%s)", durationText)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(stepLine)
 			steps = append(steps, stepLine)
 
 			// Collect all metadata lines (deliverables + handover) for tree formatting
@@ -368,7 +417,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					connector = "└─"
 				}
 				metaLine := fmt.Sprintf("   %s %s", connector, line)
-				metaLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(metaLine)
+				metaLine = lipgloss.NewStyle().Foreground(colorMuted).Render(metaLine)
 				steps = append(steps, metaLine)
 			}
 
@@ -412,7 +461,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 				stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
 			}
 
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorPrimary).Render(stepLine)
 			steps = append(steps, stepLine)
 
 			// Show per-step tool activity when available, fall back to global
@@ -440,7 +489,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					target = target[:maxTarget-3] + "..."
 				}
 				toolLine := fmt.Sprintf("   %s → %s", toolName, target)
-				toolLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(toolLine)
+				toolLine = lipgloss.NewStyle().Foreground(colorMuted).Render(toolLine)
 				steps = append(steps, toolLine)
 			}
 
@@ -456,7 +505,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 					stepLine += fmt.Sprintf(" (%s)", durationText)
 				}
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorError).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		case StateSkipped:
@@ -465,7 +514,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		case StateCancelled:
@@ -474,7 +523,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 
 		default:
@@ -483,7 +532,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
 			}
-			stepLine = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(stepLine)
+			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
 			steps = append(steps, stepLine)
 		}
 	}
