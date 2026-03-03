@@ -118,8 +118,10 @@ func (d *Dashboard) renderHeader(ctx *PipelineContext) string {
 
 // formatElapsedInfo formats the elapsed time info line, optionally including total tokens.
 func (d *Dashboard) formatElapsedInfo(elapsed float64, ctx *PipelineContext) string {
-	info := fmt.Sprintf("%.1fs • %s", elapsed, ctx.ManifestPath)
-	if ctx.TotalTokens > 0 {
+	info := fmt.Sprintf("%.1fs", elapsed)
+	if ctx.TotalTokensIn > 0 || ctx.TotalTokensOut > 0 {
+		info += fmt.Sprintf(" • %s in / %s out", FormatTokenCount(ctx.TotalTokensIn), FormatTokenCount(ctx.TotalTokensOut))
+	} else if ctx.TotalTokens > 0 {
 		info += fmt.Sprintf(" • %s tokens", FormatTokenCount(ctx.TotalTokens))
 	}
 	return info
@@ -208,7 +210,14 @@ func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 					}
 				}
 				tokenText := ""
-				if ctx.StepTokens != nil {
+				if ctx.StepTokensIn != nil {
+					tIn := ctx.StepTokensIn[stepID]
+					tOut := ctx.StepTokensOut[stepID]
+					if tIn > 0 || tOut > 0 {
+						tokenText = fmt.Sprintf("%s in / %s out", FormatTokenCount(tIn), FormatTokenCount(tOut))
+					}
+				}
+				if tokenText == "" && ctx.StepTokens != nil {
 					if tokens, exists := ctx.StepTokens[stepID]; exists && tokens > 0 {
 						tokenText = fmt.Sprintf("%s tokens", FormatTokenCount(tokens))
 					}
