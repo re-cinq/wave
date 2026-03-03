@@ -9,6 +9,9 @@ permissions:
     - "Bash(tea --version)"
     - "Bash(git push*)"
     - "Bash(git status*)"
+    - "Bash(git log*)"
+    - "Bash(git remote*)"
+    - "Bash(git diff*)"
   deny:
     - "Bash(tea issues edit*)"
     - "Bash(tea issues close*)"
