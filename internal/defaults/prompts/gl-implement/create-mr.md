@@ -29,10 +29,10 @@ From the issue assessment artifact, extract:
 
 ### Step 2: Push the Branch
 
-Push the feature branch without checking it out:
+Push the feature branch. If SSH push fails, retry with HTTPS:
 
 ```bash
-git push -u origin <BRANCH_NAME>
+git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push -u origin <BRANCH_NAME>
 ```
 
 ### Step 3: Create Merge Request
