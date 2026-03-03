@@ -584,6 +584,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		CurrentAction: "Initializing",
 		Model:         persona.Model,
 		Adapter:       adapterDef.Binary,
+		Temperature:   persona.Temperature,
 	})
 
 	// Inject artifacts from dependencies
@@ -931,6 +932,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
 		Artifacts:  stepArtifacts,
+		TokensIn:   result.TokensIn,
+		TokensOut:  result.TokensOut,
 	})
 
 	if e.logger != nil {

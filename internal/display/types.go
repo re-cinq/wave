@@ -245,6 +245,19 @@ type PipelineContext struct {
 	// Step persona mapping
 	StepPersonas map[string]string // stepID -> persona name
 
+	// Per-step model/adapter/temperature metadata
+	StepModels       map[string]string  // stepID -> model name
+	StepAdapters     map[string]string  // stepID -> adapter type
+	StepTemperatures map[string]float64 // stepID -> temperature
+
+	// Per-step input/output token breakdown
+	StepTokensIn  map[string]int // stepID -> input tokens
+	StepTokensOut map[string]int // stepID -> output tokens
+
+	// Total input/output tokens across all steps
+	TotalTokensIn  int
+	TotalTokensOut int
+
 	// Deliverables by step
 	DeliverablesByStep map[string][]string // stepID -> deliverable strings
 
