@@ -623,28 +623,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Auto-grant Write permissions for declared output artifact paths
-	// but only if the persona doesn't already have bare Write permission.
-	// Bare Write subsumes all scoped Write(path) entries, and mixing them
-	// causes Claude Code CLI to narrow to the scoped version.
-	allowedTools := persona.Permissions.AllowedTools
-	hasBareWrite := false
-	for _, t := range allowedTools {
-		if t == "Write" {
-			hasBareWrite = true
-			break
-		}
-	}
-	if !hasBareWrite {
-		for _, art := range step.OutputArtifacts {
-			dir := filepath.Dir(art.Path)
-			if dir == "." {
-				allowedTools = append(allowedTools, "Write("+art.Path+")")
-			} else {
-				allowedTools = append(allowedTools, "Write("+dir+"/*)")
-			}
-		}
-	}
 
 	// Resolve sandbox config — all gated on runtime.sandbox.enabled
 	sandboxEnabled := execution.Manifest.Runtime.Sandbox.Enabled
@@ -693,7 +671,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
 		Model:            persona.Model,
-		AllowedTools:     allowedTools,
+		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
 		Debug:            e.debug,
@@ -2120,4 +2098,11 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 	defer e.mu.Unlock()
 
 	delete(e.pipelines, pipelineID)
+}
+
+// ResumeWithValidation resumes a pipeline with full validation and error handling.
+// When force is true, phase validation and stale artifact checks are skipped.
+func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
+	manager := NewResumeManager(e)
+	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force)
 }
