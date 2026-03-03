@@ -104,6 +104,10 @@ func TestNewMetaCmd(t *testing.T) {
 	dryRunFlag := flags.Lookup("dry-run")
 	require.NotNil(t, dryRunFlag)
 	assert.Equal(t, "false", dryRunFlag.DefValue)
+
+	modelFlag := flags.Lookup("model")
+	require.NotNil(t, modelFlag)
+	assert.Equal(t, "", modelFlag.DefValue)
 }
 
 // TestMetaCommand_MissingManifestError verifies that missing manifest

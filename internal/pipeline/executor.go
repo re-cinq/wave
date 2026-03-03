@@ -68,6 +68,8 @@ type DefaultPipelineExecutor struct {
 	runID string
 	// Per-step timeout override (from CLI --timeout flag)
 	stepTimeoutOverride time.Duration
+	// Model override (from CLI --model flag)
+	modelOverride string
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -102,6 +104,11 @@ func WithRunID(id string) ExecutorOption {
 
 func WithStepTimeout(d time.Duration) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepTimeoutOverride = d }
+}
+
+
+func WithModelOverride(model string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -171,6 +178,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		relayMonitor:       e.relayMonitor,
 		pipelines:          make(map[string]*PipelineExecution),
 		debug:              e.debug,
+		modelOverride:      e.modelOverride,
 		securityConfig:     e.securityConfig,
 		pathValidator:      e.pathValidator,
 		inputSanitizer:     e.inputSanitizer,
@@ -582,7 +590,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       step.Persona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:         persona.Model,
+		Model:            e.resolveModel(persona),
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -671,7 +679,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            persona.Model,
+		Model:            e.resolveModel(persona),
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -931,6 +939,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	return nil
+}
+
+// resolveModel applies three-tier model precedence:
+// 1. Per-persona model pinning (highest)
+// 2. CLI --model flag override
+// 3. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
+	if persona.Model != "" {
+		return persona.Model
+	}
+	return e.modelOverride
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
