@@ -64,6 +64,8 @@ type AdapterResult struct {
 	ExitCode      int
 	Stdout        io.Reader
 	TokensUsed    int
+	TokensIn      int    // Input tokens (prompt + cache creation)
+	TokensOut     int    // Output tokens (completion)
 	Artifacts     []string
 	ResultContent string // Extracted content from the adapter response
 	FailureReason string // Classification: "timeout", "context_exhaustion", "general_error"

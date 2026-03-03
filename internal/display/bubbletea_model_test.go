@@ -506,3 +506,17 @@ func TestProgressModel_View_ExplicitZeroTokensHidden(t *testing.T) {
 		t.Errorf("View should not contain 'tokens' when token values are 0, got:\n%s", view)
 	}
 }
+func TestProgressModelInit_ReturnsBatchCmd(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		StepStatuses:      make(map[string]ProgressState),
+		StepOrder:         []string{},
+		PipelineStartTime: time.Now().UnixNano(),
+	}
+	model := NewProgressModel(ctx)
+	cmd := model.Init()
+	if cmd == nil {
+		t.Error("Init() returned nil cmd, expected tea.Batch(tea.ClearScreen, tickCmd())")
+	}
+}

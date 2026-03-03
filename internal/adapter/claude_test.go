@@ -1709,3 +1709,23 @@ func TestParseOutputFallbackChain(t *testing.T) {
 		}
 	})
 }
+
+func TestParseOutput_ReturnsTokensInOut(t *testing.T) {
+	a := &ClaudeAdapter{}
+	// result event with input/output token breakdown
+	data := []byte(`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":5000,"output_tokens":2000,"cache_creation_input_tokens":1000,"cache_read_input_tokens":500}}` + "\n")
+	parsed := a.parseOutput(data)
+
+	// TokensIn should be input_tokens + cache_creation_input_tokens = 5000 + 1000 = 6000
+	if parsed.TokensIn != 6000 {
+		t.Errorf("TokensIn = %d, want %d", parsed.TokensIn, 6000)
+	}
+	// TokensOut should be output_tokens = 2000
+	if parsed.TokensOut != 2000 {
+		t.Errorf("TokensOut = %d, want %d", parsed.TokensOut, 2000)
+	}
+	// Total should be input_tokens + output_tokens + cache_creation = 5000 + 2000 + 1000 = 8000
+	if parsed.Tokens != 8000 {
+		t.Errorf("Tokens = %d, want %d", parsed.Tokens, 8000)
+	}
+}
