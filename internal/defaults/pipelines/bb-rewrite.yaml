@@ -41,6 +41,11 @@ steps:
             "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues?pagelen=10" \
             | jq '[.values[] | {id, title, content: .content.raw, kind, url: .links.html.href}]'
 
+        IMPORTANT: If a specific issue number was parsed from the input but the fetch
+        fails (not found, permissions error), STOP. Output JSON with repository set
+        to <REPO>, issues_to_enhance as empty array, and total_to_enhance: 0.
+        Do NOT fall back to batch mode when a specific issue was requested.
+
         Step 3: Score each issue quality (0-100) on title clarity, description completeness, kind classification, and acceptance criteria.
 
         Step 4: For issues scoring below 70, create an enhancement plan with:
