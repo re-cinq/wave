@@ -18,6 +18,8 @@ type Event struct {
 	Persona    string    `json:"persona,omitempty"`
 	Artifacts  []string  `json:"artifacts,omitempty"`
 	TokensUsed int       `json:"tokens_used,omitempty"`
+	TokensIn   int       `json:"tokens_in,omitempty"`   // Input tokens (prompt + cache creation)
+	TokensOut  int       `json:"tokens_out,omitempty"`  // Output tokens (completion)
 
 	// Progress tracking fields (optional, for enhanced visualization)
 	Progress        int     `json:"progress,omitempty"`          // 0-100 percentage for step progress
@@ -39,6 +41,7 @@ type Event struct {
 	// Step metadata fields (FR-010: model and adapter type in step-start events)
 	Model   string `json:"model,omitempty"`   // Model name (e.g., "opus", "sonnet")
 	Adapter string `json:"adapter,omitempty"` // Adapter type (e.g., "claude")
+	Temperature float64 `json:"temperature,omitempty"`  // Temperature setting for this step
 
 	// Recovery hints (populated on failure events only)
 	RecoveryHints []RecoveryHintJSON `json:"recovery_hints,omitempty"`
