@@ -18,7 +18,6 @@ type ContractConfig struct {
 	StrictMode  bool     `json:"strictMode,omitempty"`  // Deprecated: use MustPass instead
 	MustPass    bool     `json:"must_pass,omitempty"`    // New: determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"`
-	QualityGates []QualityGateConfig `json:"quality_gates,omitempty"` // Quality gates to enforce
 
 	// Progressive validation settings
 	ProgressiveValidation bool   `json:"progressive_validation,omitempty"` // Enable progressive validation with warnings
@@ -79,8 +78,6 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &testSuiteValidator{}
 	case "markdown_spec":
 		return &markdownSpecValidator{}
-	case "template":
-		return &TemplateValidator{}
 	case "format":
 		return &FormatValidator{}
 	default:
@@ -89,9 +86,7 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 }
 
 // Validate runs the appropriate validator for the given configuration.
-// It also runs any configured quality gates.
 func Validate(cfg ContractConfig, workspacePath string) error {
-	// First run the primary contract validator
 	validator := NewValidator(cfg)
 	if validator != nil {
 		if err := validator.Validate(cfg, workspacePath); err != nil {
@@ -99,38 +94,7 @@ func Validate(cfg ContractConfig, workspacePath string) error {
 		}
 	}
 
-	// Then run quality gates if configured
-	if len(cfg.QualityGates) > 0 {
-		runner := NewQualityGateRunner()
-		result, err := runner.RunGates(workspacePath, cfg.QualityGates)
-		if err != nil {
-			return fmt.Errorf("quality gate execution failed: %w", err)
-		}
-
-		if !result.Passed {
-			return &ValidationError{
-				ContractType: cfg.Type,
-				Message:      fmt.Sprintf("quality gates failed (score: %d/100)", result.Score),
-				Details:      formatQualityViolations(result.Violations),
-				Retryable:    true,
-			}
-		}
-	}
-
 	return nil
-}
-
-// formatQualityViolations converts quality violations to string details
-func formatQualityViolations(violations []QualityViolation) []string {
-	details := make([]string, 0, len(violations))
-	for _, v := range violations {
-		msg := fmt.Sprintf("[%s] %s: %s", v.Severity, v.Gate, v.Message)
-		details = append(details, msg)
-		for _, detail := range v.Details {
-			details = append(details, fmt.Sprintf("  - %s", detail))
-		}
-	}
-	return details
 }
 
 // ValidateWithRetries runs validation with retry logic.
