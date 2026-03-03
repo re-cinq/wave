@@ -21,8 +21,8 @@ var (
 	colorDim         = lipgloss.Color("240") // Dark gray — empty/not-started
 	colorInfo        = lipgloss.Color("7")   // Light gray — project info
 	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
-	colorShimmerMid  = lipgloss.Color("6")   // Standard cyan — shimmer fringe
-	colorShimmerBase = lipgloss.Color("6")   // Standard cyan — shimmer ambient
+	colorShimmerMid  = lipgloss.Color("14")  // Bright cyan — shimmer fringe
+	colorShimmerBase = lipgloss.Color("14")  // Bright cyan — shimmer ambient
 )
 
 // ProgressModel implements the bubbletea model for Wave progress display
