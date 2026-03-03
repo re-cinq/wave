@@ -632,12 +632,12 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
 			if ev.CurrentAction != "" {
-				fmt.Fprintf(bpd.writer, "[%s]   %s: %s\n", timestamp, ev.StepID, ev.CurrentAction)
+				fmt.Fprintf(bpd.writer, "[%s]   %s %s\n", timestamp, ev.StepID, ev.CurrentAction)
 			}
 		case "warning":
-			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s: %s\n", timestamp, ev.StepID, ev.Message)
+			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s %s\n", timestamp, ev.StepID, ev.Message)
 		case "validating", "contract_validating":
-			fmt.Fprintf(bpd.writer, "[%s]   %s: validating contract\n", timestamp, ev.StepID)
+			fmt.Fprintf(bpd.writer, "[%s]   %s validating contract\n", timestamp, ev.StepID)
 			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
 				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
 			}
