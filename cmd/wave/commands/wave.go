@@ -108,17 +108,11 @@ func runWave(opts WaveOptions, debug bool) error {
 		installable := meta.GetInstallable(report.Dependencies)
 		if len(installable) > 0 {
 			fmt.Fprintf(os.Stderr, "\n  %d auto-installable dependency(s) available\n", len(installable))
-			// Build install commands from manifest skills
+			// Build install commands from pipeline skill configs
 			installCmds := make(map[string]string)
-			if report.Init.ManifestValid {
-				// Load manifest to get install commands
-				m, mErr := loadManifestForWave(opts.Manifest)
-				if mErr == nil {
-					for name, cfg := range m.Skills {
-						if cfg.Install != "" {
-							installCmds[name] = cfg.Install
-						}
-					}
+			for name, cfg := range collectSkillsFromPipelines() {
+				if cfg.Install != "" {
+					installCmds[name] = cfg.Install
 				}
 			}
 

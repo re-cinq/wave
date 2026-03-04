@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/platform"
 )
 
@@ -220,11 +221,11 @@ func TestCheckDependencies_AllAvailable(t *testing.T) {
 		Adapters: map[string]manifest.Adapter{
 			"claude": {Binary: "echo", Mode: "headless"},
 		},
-		Skills: map[string]manifest.SkillConfig{
-			"test-skill": {
-				Check:   "true",
-				Install: "echo install",
-			},
+	}
+	skills := map[string]skill.SkillConfig{
+		"test-skill": {
+			Check:   "true",
+			Install: "echo install",
 		},
 	}
 
@@ -235,7 +236,7 @@ func TestCheckDependencies_AllAvailable(t *testing.T) {
 		}),
 	)
 
-	report := h.checkDependencies(context.Background(), m)
+	report := h.checkDependencies(context.Background(), m, skills)
 
 	// Should include at least "echo" (adapter binary) and "git" (implicit).
 	foundEcho := false
@@ -275,7 +276,7 @@ func TestCheckDependencies_MissingTool(t *testing.T) {
 		}),
 	)
 
-	report := h.checkDependencies(context.Background(), m)
+	report := h.checkDependencies(context.Background(), m, nil)
 
 	for _, tool := range report.Tools {
 		if tool.Name == "this-tool-does-not-exist-xyz" {
@@ -289,15 +290,14 @@ func TestCheckDependencies_MissingTool(t *testing.T) {
 }
 
 func TestCheckDependencies_SkillAutoInstallable(t *testing.T) {
-	m := &manifest.Manifest{
-		Skills: map[string]manifest.SkillConfig{
-			"installable": {
-				Check:   "false",
-				Install: "echo install",
-			},
-			"not-installable": {
-				Check: "false",
-			},
+	m := (*manifest.Manifest)(nil)
+	skills := map[string]skill.SkillConfig{
+		"installable": {
+			Check:   "false",
+			Install: "echo install",
+		},
+		"not-installable": {
+			Check: "false",
 		},
 	}
 
@@ -307,7 +307,7 @@ func TestCheckDependencies_SkillAutoInstallable(t *testing.T) {
 		}),
 	)
 
-	report := h.checkDependencies(context.Background(), m)
+	report := h.checkDependencies(context.Background(), m, skills)
 
 	for _, skill := range report.Skills {
 		switch skill.Name {
@@ -325,10 +325,10 @@ func TestCheckDependencies_SkillAutoInstallable(t *testing.T) {
 
 func TestCheckDependencies_NilManifest(t *testing.T) {
 	h := NewHealthChecker()
-	report := h.checkDependencies(context.Background(), nil)
+	report := h.checkDependencies(context.Background(), nil, nil)
 
-	if len(report.Tools) != 0 {
-		t.Errorf("expected 0 tools for nil manifest, got %d", len(report.Tools))
+	if len(report.Tools) != 1 {
+		t.Errorf("expected 1 tool (git) for nil manifest, got %d", len(report.Tools))
 	}
 	if len(report.Skills) != 0 {
 		t.Errorf("expected 0 skills for nil manifest, got %d", len(report.Skills))
@@ -738,7 +738,7 @@ func TestCheckDependencies_MultipleAdapters(t *testing.T) {
 		}),
 	)
 
-	report := h.checkDependencies(context.Background(), m)
+	report := h.checkDependencies(context.Background(), m, nil)
 
 	// Should include both adapter binaries and git.
 	if len(report.Tools) < 3 {

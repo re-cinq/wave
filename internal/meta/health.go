@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
+	"gopkg.in/yaml.v3"
 	"github.com/recinq/wave/internal/platform"
 	"golang.org/x/sync/errgroup"
 )
@@ -228,21 +230,19 @@ func (h *HealthCheckerImpl) checkInit(ctx context.Context, manifestPath string) 
 }
 
 // checkDependencies checks tool and skill availability.
-func (h *HealthCheckerImpl) checkDependencies(ctx context.Context, m *manifest.Manifest) DependencyReport {
+func (h *HealthCheckerImpl) checkDependencies(ctx context.Context, m *manifest.Manifest, skills map[string]skill.SkillConfig) DependencyReport {
 	report := DependencyReport{
 		Tools:  []DependencyStatus{},
 		Skills: []DependencyStatus{},
 	}
 
-	if m == nil {
-		return report
-	}
-
 	// Collect required tools from all pipelines by scanning adapter binaries.
 	toolSet := make(map[string]struct{})
-	for _, adapter := range m.Adapters {
-		if adapter.Binary != "" {
-			toolSet[adapter.Binary] = struct{}{}
+	if m != nil {
+		for _, adapter := range m.Adapters {
+			if adapter.Binary != "" {
+				toolSet[adapter.Binary] = struct{}{}
+			}
 		}
 	}
 	// Add git as an implicit dependency.
@@ -265,7 +265,7 @@ func (h *HealthCheckerImpl) checkDependencies(ctx context.Context, m *manifest.M
 	}
 
 	// Check skills.
-	for name, cfg := range m.Skills {
+	for name, cfg := range skills {
 		status := DependencyStatus{
 			Name:            name,
 			Kind:            "skill",
@@ -429,7 +429,7 @@ func (h *HealthCheckerImpl) RunHealthChecks(ctx context.Context, opts HealthChec
 
 		done := make(chan DependencyReport, 1)
 		go func() {
-			done <- h.checkDependencies(depCtx, m)
+			done <- h.checkDependencies(depCtx, m, collectSkillsFromPipelines())
 		}()
 
 		select {
@@ -483,4 +483,37 @@ func (h *HealthCheckerImpl) RunHealthChecks(ctx context.Context, opts HealthChec
 
 	report.Duration = time.Since(start)
 	return report, nil
+}
+
+// collectSkillsFromPipelines scans pipeline YAML files for skill definitions.
+func collectSkillsFromPipelines() map[string]skill.SkillConfig {
+	skills := make(map[string]skill.SkillConfig)
+
+	pipelineDir := ".wave/pipelines"
+	entries, err := os.ReadDir(pipelineDir)
+	if err != nil {
+		return skills
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || (!strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml")) {
+			continue
+		}
+		data, err := os.ReadFile(pipelineDir + "/" + entry.Name())
+		if err != nil {
+			continue
+		}
+		var p struct {
+			Requires struct {
+				Skills map[string]skill.SkillConfig `yaml:"skills"`
+			} `yaml:"requires"`
+		}
+		if err := yaml.Unmarshal(data, &p); err != nil {
+			continue
+		}
+		for name, cfg := range p.Requires.Skills {
+			skills[name] = cfg
+		}
+	}
+	return skills
 }
