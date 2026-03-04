@@ -574,4 +574,8 @@ func TestNewRunCmdFlags(t *testing.T) {
 
 	runFlag := flags.Lookup("run")
 	assert.NotNil(t, runFlag, "run flag should exist")
+
+	modelFlag := flags.Lookup("model")
+	assert.NotNil(t, modelFlag, "model flag should exist")
+	assert.Equal(t, "", modelFlag.DefValue, "model flag default should be empty")
 }
