@@ -208,10 +208,6 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 	// Run dirs are named <pipelineName>-<timestamp>-<hash> and sorted
 	// lexicographically so the last match is the most recent.
 	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
-	// Also check for an exact-name dir (no hash suffix, legacy)
-	if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
-		runDirs = append([]string{filepath.Join(wsRoot, p.Metadata.Name)}, runDirs...)
-	}
 
 	// Load completed steps state from workspace
 	for _, step := range p.Steps {
@@ -472,14 +468,22 @@ func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
 		return "", fmt.Errorf("resume point recommendation only available for prototype pipeline")
 	}
 
-	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
+	wsRoot := ".wave/workspaces"
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
 
 	// Check phases in forward order to find the first incomplete phase
 	prototypePhasesOrder := []string{"spec", "docs", "dummy", "implement"}
 
 	for _, phase := range prototypePhasesOrder {
-		phaseWorkspace := filepath.Join(workspaceRoot, phase)
-		if err := r.validator.validatePhaseCompletion(phase, phaseWorkspace); err != nil {
+		found := false
+		for j := len(runDirs) - 1; j >= 0; j-- {
+			phaseWorkspace := filepath.Join(runDirs[j], phase)
+			if err := r.validator.validatePhaseCompletion(phase, phaseWorkspace); err == nil {
+				found = true
+				break
+			}
+		}
+		if !found {
 			return phase, nil
 		}
 	}

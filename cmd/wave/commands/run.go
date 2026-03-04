@@ -38,6 +38,7 @@ type RunOptions struct {
 	RunID    string
 	Output   OutputConfig
 	Model    string
+	Proposal string // Auto-select a specific proposal when running "wave"
 }
 
 func NewRunCmd() *cobra.Command {
@@ -94,6 +95,18 @@ Arguments can be provided as positional args or flags:
 				return err
 			}
 
+			// Check for reserved "wave" keyword — dispatch to meta-orchestrator
+			if opts.Pipeline == "wave" {
+				waveOpts := WaveOptions{
+					Manifest: opts.Manifest,
+					Proposal: opts.Proposal,
+					Mock:     opts.Mock,
+					Output:   opts.Output,
+					Model:    opts.Model,
+				}
+				return runWave(waveOpts, debug)
+			}
+
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
 			return runRun(opts, debug)
@@ -110,6 +123,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().StringVar(&opts.Proposal, "proposal", "", "Auto-select a proposal by name when running 'wave run wave'")
 
 	return cmd
 }
@@ -421,6 +435,11 @@ func runRun(opts RunOptions, debug bool) error {
 }
 
 func loadPipeline(name string, m *manifest.Manifest) (*pipeline.Pipeline, error) {
+	// Reserve "wave" keyword for the meta-orchestrator
+	if name == "wave" {
+		return nil, fmt.Errorf("'wave' is a reserved keyword for the meta-orchestrator; use 'wave run wave' to invoke it")
+	}
+
 	candidates := []string{
 		".wave/pipelines/" + name + ".yaml",
 		".wave/pipelines/" + name,

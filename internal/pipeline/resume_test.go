@@ -38,7 +38,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec phase
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -66,7 +66,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "dummy",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create spec but not docs
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -164,7 +164,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -195,7 +195,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -540,7 +540,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 			name: "spec completed, docs incomplete",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -569,7 +569,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -601,7 +601,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -700,7 +700,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	baseTime := time.Now().Add(-1 * time.Hour)
 
 	// Create docs workspace (older)
-	docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/docs")
+	docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/docs")
 	err = os.MkdirAll(docsWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -722,7 +722,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create spec workspace (newer - simulating re-run after docs)
-	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/spec")
 	err = os.MkdirAll(specWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -745,7 +745,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create dummy workspace (older than docs re-run scenario)
-	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/dummy")
+	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype-20260101-000000-test/dummy")
 	err = os.MkdirAll(dummyWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)

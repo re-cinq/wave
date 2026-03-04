@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Health Report",
+  "description": "Aggregated results from all parallel health check jobs run by wave run wave",
+  "type": "object",
+  "required": ["timestamp", "init", "dependencies", "codebase", "platform"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when health checks completed"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total duration of all health checks in milliseconds"
+    },
+    "init": {
+      "type": "object",
+      "required": ["manifest_found", "manifest_valid"],
+      "properties": {
+        "manifest_found": {
+          "type": "boolean",
+          "description": "Whether wave.yaml exists"
+        },
+        "manifest_valid": {
+          "type": "boolean",
+          "description": "Whether wave.yaml parses successfully"
+        },
+        "wave_version": {
+          "type": "string",
+          "description": "Wave binary version"
+        },
+        "last_config_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last modification date of wave.yaml"
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message if init check failed"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "required": ["tools", "skills"],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dependency_status"
+          },
+          "description": "CLI tool availability"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dependency_status"
+          },
+          "description": "Skill availability"
+        }
+      }
+    },
+    "codebase": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "recent_commits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Commits in last 7 days"
+        },
+        "open_issue_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_pr_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prs_by_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "PR counts keyed by status"
+        },
+        "branch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_commit_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "api_available": {
+          "type": "boolean",
+          "description": "Whether platform API was reachable"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["github_api", "git_local"],
+          "description": "Data source used for codebase metrics"
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["github", "gitlab", "bitbucket", "gitea", "unknown"],
+          "description": "Detected hosting platform"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Repository owner/organization"
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "api_url": {
+          "type": "string",
+          "description": "Platform API URL"
+        },
+        "cli_tool": {
+          "type": "string",
+          "description": "Platform CLI tool name"
+        },
+        "pipeline_family": {
+          "type": "string",
+          "enum": ["gh", "gl", "bb", "gt", ""],
+          "description": "Pipeline family prefix for this platform"
+        },
+        "additional_remotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "url", "platform"],
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "platform": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "message"],
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": ["init", "dependencies", "codebase", "platform"]
+          },
+          "message": { "type": "string" },
+          "timeout": { "type": "boolean" }
+        }
+      },
+      "description": "Non-fatal errors from individual checks"
+    }
+  },
+  "definitions": {
+    "dependency_status": {
+      "type": "object",
+      "required": ["name", "kind", "available"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tool or skill name"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["tool", "skill"]
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "auto_installable": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

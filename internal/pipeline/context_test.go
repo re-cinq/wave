@@ -38,8 +38,8 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			expected: "path/custom_value/file.txt",
 		},
 		{
-			name:     "legacy_variables",
-			template: "{{pipeline_id}}/{{step_id}}",
+			name:     "pipeline_context_variables",
+			template: "{{pipeline_context.pipeline_id}}/{{pipeline_context.step_id}}",
 			expected: "test-pipeline/test-step",
 		},
 		{
@@ -53,13 +53,13 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			expected: "",
 		},
 		{
-			name:     "spaced_pipeline_name",
-			template: "feat/{{ pipeline_name }}",
+			name:     "spaced_pipeline_context_name",
+			template: "feat/{{ pipeline_context.pipeline_name }}",
 			expected: "feat/feature-worktree",
 		},
 		{
-			name:     "unspaced_pipeline_name",
-			template: "feat/{{pipeline_name}}",
+			name:     "unspaced_pipeline_context_name",
+			template: "feat/{{pipeline_context.pipeline_name}}",
 			expected: "feat/feature-worktree",
 		},
 		{
@@ -435,7 +435,7 @@ func TestPipelineContext_ArtifactPathResolution(t *testing.T) {
 		},
 		{
 			name:     "mixed variables and artifacts",
-			template: "{{ pipeline_id }}: {{ artifacts.spec }}",
+			template: "{{ pipeline_context.pipeline_id }}: {{ artifacts.spec }}",
 			expected: "test-pipeline: /workspace/.wave/artifacts/spec",
 		},
 		{

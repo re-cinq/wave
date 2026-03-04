@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Proposal",
+  "description": "A recommended pipeline run or sequence with rationale and pre-filled input",
+  "type": "object",
+  "required": ["id", "type", "pipelines", "rationale", "priority", "deps_ready"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique proposal identifier (e.g., 'p1', 'p2')"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["single", "parallel", "sequence"],
+      "description": "Execution mode for this proposal"
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "description": "Pipeline name(s) in execution order"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this pipeline is recommended based on codebase state"
+    },
+    "prefilled_input": {
+      "type": "string",
+      "description": "Suggested input string pre-filled from health check analysis"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Priority rank (lower = higher priority)"
+    },
+    "deps_ready": {
+      "type": "boolean",
+      "description": "Whether all required tools and skills are available"
+    },
+    "missing_deps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Names of missing dependencies that prevent execution"
+    }
+  }
+}

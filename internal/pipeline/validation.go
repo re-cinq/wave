@@ -45,16 +45,24 @@ func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string)
 	}
 
 	// Verify that all prerequisite phases have been completed
-	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
+	wsRoot := ".wave/workspaces"
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
 
 	for i := 0; i < fromIndex; i++ {
 		prerequisitePhase := v.prototypePhasesOrder[i]
 
-		// Check if prerequisite phase workspace exists and has valid outputs
-		phaseWorkspace := filepath.Join(workspaceRoot, prerequisitePhase)
-		if err := v.validatePhaseCompletion(prerequisitePhase, phaseWorkspace); err != nil {
-			return fmt.Errorf("cannot skip to phase '%s': prerequisite phase '%s' not completed: %w",
-				fromStep, prerequisitePhase, err)
+		// Search across all run dirs for this phase's workspace
+		found := false
+		for j := len(runDirs) - 1; j >= 0; j-- {
+			phaseWorkspace := filepath.Join(runDirs[j], prerequisitePhase)
+			if err := v.validatePhaseCompletion(prerequisitePhase, phaseWorkspace); err == nil {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("cannot skip to phase '%s': prerequisite phase '%s' not completed: workspace not found",
+				fromStep, prerequisitePhase)
 		}
 	}
 
@@ -124,7 +132,8 @@ func (d *StaleArtifactDetector) DetectStaleArtifacts(p *Pipeline, currentStep st
 	}
 
 	staleReasons := []string{}
-	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
+	wsRoot := ".wave/workspaces"
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
 
 	// Get current step dependencies
 	var currentStepObj *Step
@@ -139,16 +148,33 @@ func (d *StaleArtifactDetector) DetectStaleArtifacts(p *Pipeline, currentStep st
 		return nil, fmt.Errorf("step %s not found", currentStep)
 	}
 
-	currentStepWorkspace := filepath.Join(workspaceRoot, currentStep)
+	// Find workspace for a step by searching run dirs (most recent first)
+	findWorkspace := func(stepID string) string {
+		for j := len(runDirs) - 1; j >= 0; j-- {
+			candidate := filepath.Join(runDirs[j], stepID)
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate
+			}
+		}
+		return ""
+	}
+
+	currentStepWorkspace := findWorkspace(currentStep)
+	if currentStepWorkspace == "" {
+		// If current step workspace doesn't exist, no staleness to check
+		return nil, nil
+	}
 	currentStepTime, err := d.getWorkspaceModTime(currentStepWorkspace)
 	if err != nil {
-		// If current step workspace doesn't exist, no staleness to check
 		return nil, nil
 	}
 
 	// Check each dependency for staleness
 	for _, depStep := range currentStepObj.Dependencies {
-		depWorkspace := filepath.Join(workspaceRoot, depStep)
+		depWorkspace := findWorkspace(depStep)
+		if depWorkspace == "" {
+			continue
+		}
 		depModTime, err := d.getWorkspaceModTime(depWorkspace)
 		if err != nil {
 			continue // Skip if dependency workspace doesn't exist
