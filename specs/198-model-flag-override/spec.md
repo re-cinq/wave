@@ -38,7 +38,7 @@ wave run my-pipeline --model opus
 
 - [ ] `--model` flag is accepted by `wave run` and passed through to the adapter
 - [ ] Flag overrides the manifest-configured model for all steps in the run
-- [ ] Per-step model pinning (if supported) takes precedence over the flag
+- [ ] CLI --model flag takes precedence over per-persona model pinning
 - [ ] Invalid model identifiers produce a clear error message
 - [ ] Help text documents the flag and its interaction with manifest config
 - [ ] Unit tests cover flag parsing, override logic, and precedence rules
