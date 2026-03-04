@@ -48,13 +48,6 @@
     },
     "runtime": {
       "$ref": "#/definitions/Runtime"
-    },
-    "skills": {
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/definitions/SkillConfig"
-      },
-      "description": "External skill declarations with install/check commands"
     }
   },
   "definitions": {
@@ -441,28 +434,6 @@
             "type": "string"
           },
           "description": "Label key-value patterns that must all match"
-        }
-      }
-    },
-    "SkillConfig": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "install": {
-          "type": "string",
-          "description": "Command to install the skill"
-        },
-        "init": {
-          "type": "string",
-          "description": "Command to initialize the skill after install"
-        },
-        "check": {
-          "type": "string",
-          "description": "Command to verify the skill is installed"
-        },
-        "commands_glob": {
-          "type": "string",
-          "description": "Glob pattern for skill command files"
         }
       }
     }

@@ -1277,7 +1277,7 @@ func TestListRunsCmd_JSONStructure(t *testing.T) {
 // Tests for list skills subcommand
 // ====================================================================
 
-// sampleManifestWithSkills returns a wave.yaml content that includes skills.
+// sampleManifestWithSkills returns a wave.yaml and pipeline files with skills.
 func sampleManifestWithSkills() string {
 	return `apiVersion: v1
 kind: WaveManifest
@@ -1295,15 +1295,31 @@ personas:
     description: Navigator persona
     system_prompt_file: personas/navigator.md
     temperature: 0.1
-skills:
-  speckit:
-    check: "true"
-    install: "go install github.com/example/speckit@latest"
-  linter:
-    check: "false"
-    install: "npm install -g linter"
 runtime:
   workspace_root: .wave/workspaces
+`
+}
+
+// samplePipelineWithSkills returns a pipeline YAML that declares skills inline.
+func samplePipelineWithSkills() string {
+	return `kind: WavePipeline
+metadata:
+  name: skill-test
+  description: Pipeline for skill testing
+requires:
+  skills:
+    speckit:
+      check: "true"
+      install: "go install github.com/example/speckit@latest"
+    linter:
+      check: "false"
+      install: "npm install -g linter"
+steps:
+  - id: plan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Plan"
 `
 }
 
@@ -1314,6 +1330,7 @@ func TestListCmd_Skills_TableFormat(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
+	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills")
 
@@ -1330,6 +1347,7 @@ func TestListCmd_Skills_ShowsStatus(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
+	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills")
 
@@ -1349,14 +1367,16 @@ func TestListCmd_Skills_ShowsPipelineUsage(t *testing.T) {
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
 
-	// Create a pipeline that requires speckit
+	// Create a pipeline that declares speckit inline
 	h.writeFile(".wave/pipelines/feature.yaml", `kind: WavePipeline
 metadata:
   name: feature
   description: Feature pipeline
 requires:
   skills:
-    - speckit
+    speckit:
+      check: "true"
+      install: "go install speckit@latest"
 steps:
   - id: plan
     persona: navigator
@@ -1386,11 +1406,11 @@ adapters:
     binary: claude
     mode: headless
 personas: {}
-skills: {}
 runtime:
   workspace_root: .wave/workspaces
 `)
 
+	// No pipeline files with skills
 	stdout, _, err := executeListCmd("skills")
 
 	require.NoError(t, err)
@@ -1405,6 +1425,7 @@ func TestListCmd_Skills_JSONFormat(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
+	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills", "--format", "json")
 
@@ -1448,15 +1469,27 @@ adapters:
     binary: claude
     mode: headless
 personas: {}
-skills:
-  zebra-skill:
-    check: "true"
-  alpha-skill:
-    check: "true"
-  middle-skill:
-    check: "true"
 runtime:
   workspace_root: .wave/workspaces
+`)
+
+	h.writeFile(".wave/pipelines/sorted-test.yaml", `kind: WavePipeline
+metadata:
+  name: sorted-test
+requires:
+  skills:
+    zebra-skill:
+      check: "true"
+    alpha-skill:
+      check: "true"
+    middle-skill:
+      check: "true"
+steps:
+  - id: plan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Plan"
 `)
 
 	stdout, _, err := executeListCmd("skills")
