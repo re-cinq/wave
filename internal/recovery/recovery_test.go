@@ -299,7 +299,7 @@ func TestBuildRecoveryBlock_PreflightWithSkills(t *testing.T) {
 		if hint.Type == HintType("preflight") && hint.Label == "Install missing skill" {
 			skillHintCount++
 			// Verify command format
-			if hint.Command != "Check wave.yaml skills.speckit.install for the install command" && hint.Command != "Check wave.yaml skills.testkit.install for the install command" {
+			if hint.Command != "Check pipeline requires.skills.speckit.install for the install command" && hint.Command != "Check pipeline requires.skills.testkit.install for the install command" {
 				t.Errorf("unexpected skill install command: %q", hint.Command)
 			}
 		}

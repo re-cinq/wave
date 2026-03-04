@@ -170,10 +170,6 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, personaErrs...)
 	}
 
-	if skillErrs := validateSkillsWithFile(m.Skills, filePath); len(skillErrs) > 0 {
-		errs = append(errs, skillErrs...)
-	}
-
 	return errs
 }
 
@@ -280,22 +276,6 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 }
 
 
-// validateSkillsWithFile validates the skills configuration map.
-func validateSkillsWithFile(skills map[string]SkillConfig, filePath string) []error {
-	var errs []error
-	for name, skill := range skills {
-		// A skill must have at least a check command to verify installation
-		if strings.TrimSpace(skill.Check) == "" {
-			errs = append(errs, &ValidationError{
-				File:       filePath,
-				Field:      fmt.Sprintf("skills.%s.check", name),
-				Reason:     "is required",
-				Suggestion: "Set 'check' to a command that verifies the skill is installed (e.g., 'specify --version')",
-			})
-		}
-	}
-	return errs
-}
 
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)

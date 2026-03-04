@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/recinq/wave/internal/manifest"
 )
 
 func setupTestRepo(t *testing.T) string {
@@ -40,7 +39,7 @@ func TestProvision_CopiesMatchingFiles(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 	workspace := t.TempDir()
 
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]SkillConfig{
 		"speckit": {
 			Check: "true",
 		},
@@ -81,7 +80,7 @@ func TestProvision_UndeclaredSkill(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 	workspace := t.TempDir()
 
-	skills := map[string]manifest.SkillConfig{} // No skills declared
+	skills := map[string]SkillConfig{} // No skills declared
 
 	p := NewProvisioner(skills, repoRoot)
 	if err := p.Provision(workspace, []string{"speckit"}); err != nil {
@@ -102,7 +101,7 @@ func TestProvision_CustomGlob(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 	workspace := t.TempDir()
 
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]SkillConfig{
 		"bmad": {
 			Check:        "true",
 			CommandsGlob: filepath.Join(".claude", "commands", "bmad.*.md"),
@@ -139,7 +138,7 @@ func TestProvisionAll(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 	workspace := t.TempDir()
 
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]SkillConfig{
 		"speckit": {Check: "true"},
 		"bmad":    {Check: "true"},
 	}
@@ -168,7 +167,7 @@ func TestProvisionAll(t *testing.T) {
 func TestDiscoverCommands(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]SkillConfig{
 		"speckit": {Check: "true"},
 		"bmad":    {Check: "true"},
 	}

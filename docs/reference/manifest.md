@@ -316,19 +316,7 @@ runtime:
 
 ## Skills
 
-Declare external skills with install, check, and provisioning commands.
-
-```yaml
-skills:
-  speckit:
-    install: "npm install -g @anthropic/speckit"
-    check: "speckit --version"
-  golangci-lint:
-    install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
-    check: "golangci-lint --version"
-```
-
-Each skill is referenced by name from pipeline `requires.skills` blocks.
+Skills are now defined **per-pipeline** in the `requires.skills` section of each pipeline YAML file, not in the manifest. See [Pipeline Reference](/reference/pipeline-schema) for the `requires.skills` format.
 
 ---
 

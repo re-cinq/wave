@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
@@ -24,7 +25,9 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 			Description: "Test pipeline for skill preflight",
 		},
 		Requires: &pipeline.Requires{
-			Skills: []string{"nonexistent-skill-xyz"},
+			Skills: map[string]skill.SkillConfig{
+				"nonexistent-skill-xyz": {},
+			},
 		},
 		Steps: []pipeline.Step{
 			{
@@ -40,7 +43,6 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 			WorkspaceRoot:        ".wave/workspaces",
 			PipelineIDHashLength: 8,
 		},
-		Skills: map[string]manifest.SkillConfig{},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
 		},
@@ -98,7 +100,7 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 	// Verify recovery hints include skill install command
 	foundSkillHint := false
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave.yaml skills.") &&
+		if strings.Contains(hint.Command, "pipeline requires.skills.") &&
 			strings.Contains(hint.Command, "nonexistent-skill-xyz") {
 			foundSkillHint = true
 			if hint.Label != "Install missing skill" {
@@ -156,7 +158,6 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 			WorkspaceRoot:         ".wave/workspaces",
 			PipelineIDHashLength:  8,
 		},
-		Skills: map[string]manifest.SkillConfig{},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
 		},
@@ -255,7 +256,10 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 			Description: "Test pipeline for mixed preflight failures",
 		},
 		Requires: &pipeline.Requires{
-			Skills: []string{"missing-skill-alpha", "missing-skill-beta"},
+			Skills: map[string]skill.SkillConfig{
+				"missing-skill-alpha": {},
+				"missing-skill-beta": {},
+			},
 			Tools:  []string{"missing-tool-alpha", "missing-tool-beta"},
 		},
 		Steps: []pipeline.Step{
@@ -271,7 +275,6 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 			WorkspaceRoot:         ".wave/workspaces",
 			PipelineIDHashLength:  8,
 		},
-		Skills: map[string]manifest.SkillConfig{},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
 		},
@@ -307,8 +310,8 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 	// In reality, the preflight checker should report both in results,
 	// but the error returned is only for skills (prioritized)
 	// Let's verify we can extract both for recovery hints
-	checker := preflight.NewChecker(m.Skills)
-	results, _ := checker.Run(p.Requires.Tools, p.Requires.Skills)
+	checker := preflight.NewChecker(p.Requires.Skills)
+	results, _ := checker.Run(p.Requires.Tools, p.Requires.SkillNames())
 
 	// Extract missing skills and tools from results
 	var missingSkills, missingTools []string
@@ -339,7 +342,7 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 	// Verify hints include both skill install commands
 	skillHintCount := 0
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave.yaml skills.") {
+		if strings.Contains(hint.Command, "pipeline requires.skills.") {
 			skillHintCount++
 			// Verify it mentions one of our missing skills
 			if !strings.Contains(hint.Command, "missing-skill-alpha") &&
@@ -394,15 +397,17 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 	tests := []struct {
 		name         string
 		requirements *pipeline.Requires
-		skills       map[string]manifest.SkillConfig
+
 		wantErrType  string // "skill" or "tool"
 	}{
 		{
 			name: "skill failure only",
 			requirements: &pipeline.Requires{
-				Skills: []string{"nonexistent-skill"},
+				Skills: map[string]skill.SkillConfig{
+					"nonexistent-skill": {},
+				},
 			},
-			skills:      map[string]manifest.SkillConfig{},
+			
 			wantErrType: "skill",
 		},
 		{
@@ -410,16 +415,18 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 			requirements: &pipeline.Requires{
 				Tools: []string{"nonexistent-tool-xyz"},
 			},
-			skills:      map[string]manifest.SkillConfig{},
+			
 			wantErrType: "tool",
 		},
 		{
 			name: "both skill and tool failures",
 			requirements: &pipeline.Requires{
-				Skills: []string{"nonexistent-skill"},
+				Skills: map[string]skill.SkillConfig{
+					"nonexistent-skill": {},
+				},
 				Tools:  []string{"nonexistent-tool-xyz"},
 			},
-			skills:      map[string]manifest.SkillConfig{},
+			
 			wantErrType: "skill", // skill errors are prioritized
 		},
 	}
@@ -445,7 +452,6 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 					WorkspaceRoot:        ".wave/workspaces",
 					PipelineIDHashLength: 8,
 				},
-				Skills: tt.skills,
 				Adapters: map[string]manifest.Adapter{
 					"mock": {},
 				},
@@ -560,7 +566,9 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 			Description: "End-to-end test pipeline",
 		},
 		Requires: &pipeline.Requires{
-			Skills: []string{"speckit"},
+			Skills: map[string]skill.SkillConfig{
+				"speckit": {},
+			},
 			Tools:  []string{"nonexistent-cli-xyz-e2e"},
 		},
 		Steps: []pipeline.Step{
@@ -576,9 +584,6 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 		Runtime: manifest.Runtime{
 			WorkspaceRoot:        ".wave/workspaces",
 			PipelineIDHashLength: 8,
-		},
-		Skills: map[string]manifest.SkillConfig{
-			// speckit is not configured
 		},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
@@ -623,8 +628,8 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	var preflightMeta *recovery.PreflightMetadata
 	if errClass == recovery.ClassPreflight {
 		// Re-run the checker to get detailed results
-		checker := preflight.NewChecker(m.Skills)
-		results, _ := checker.Run(p.Requires.Tools, p.Requires.Skills)
+		checker := preflight.NewChecker(p.Requires.Skills)
+		results, _ := checker.Run(p.Requires.Tools, p.Requires.SkillNames())
 
 		// Extract missing skills and tools from results
 		var missingSkills, missingTools []string
@@ -676,7 +681,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	var hasResumeHint bool
 
 	for _, hint := range block.Hints {
-		if strings.Contains(hint.Command, "wave.yaml skills.speckit.install") {
+		if strings.Contains(hint.Command, "pipeline requires.skills.speckit.install") {
 			hasSkillHint = true
 		}
 		if strings.Contains(hint.Command, "nonexistent-cli-xyz-e2e") && strings.Contains(hint.Command, "package manager") {
@@ -731,7 +736,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	// Step 14: Verify all acceptance criteria
 	t.Run("acceptance_criteria", func(t *testing.T) {
 		// AC1: Recovery options suggest installing the missing skill
-		if !strings.Contains(formattedBlock, "wave.yaml skills.") {
+		if !strings.Contains(formattedBlock, "pipeline requires.skills.") {
 			t.Error("AC1 failed: recovery options should suggest installing the missing skill")
 		}
 
@@ -749,7 +754,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 		skillHintCount := 0
 		toolHintCount := 0
 		for _, hint := range block.Hints {
-			if strings.Contains(hint.Command, "wave.yaml skills.") {
+			if strings.Contains(hint.Command, "pipeline requires.skills.") {
 				skillHintCount++
 			}
 			if hint.Label == "Install missing tool" {

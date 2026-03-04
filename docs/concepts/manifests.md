@@ -19,7 +19,6 @@ graph TD
     M --> A[adapters]
     M --> P[personas]
     M --> R[runtime]
-    M --> S[skills]
     A --> A1[claude]
     A --> A2[opencode]
     P --> P1[navigator]
@@ -40,7 +39,6 @@ graph TD
 | `adapters` | LLM CLI configurations — binary paths, modes, default permissions | **yes** |
 | `personas` | Agent role definitions — prompts, temperatures, permissions, hooks | **yes** |
 | `runtime` | Execution settings — workspace root, concurrency, timeouts, relay | **yes** |
-| `skills` | Named skill configurations with install, check, and provisioning settings | no |
 
 ## Manifest Lifecycle
 

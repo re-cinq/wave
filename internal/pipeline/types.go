@@ -1,6 +1,11 @@
 package pipeline
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+
+	"github.com/recinq/wave/internal/skill"
+)
 
 const (
 	StatePending   = "pending"
@@ -20,8 +25,21 @@ type Pipeline struct {
 
 // Requires declares pipeline dependencies that must be satisfied before execution.
 type Requires struct {
-	Skills []string `yaml:"skills,omitempty"` // Skill names that must be installed
-	Tools  []string `yaml:"tools,omitempty"`  // CLI tools that must be on PATH
+	Skills map[string]skill.SkillConfig `yaml:"skills,omitempty"` // Skill configs keyed by name
+	Tools  []string                     `yaml:"tools,omitempty"`  // CLI tools that must be on PATH
+}
+
+// SkillNames returns the skill names in sorted order for deterministic iteration.
+func (r *Requires) SkillNames() []string {
+	if r == nil {
+		return nil
+	}
+	names := make([]string, 0, len(r.Skills))
+	for name := range r.Skills {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // PipelineName returns the logical pipeline name from metadata.

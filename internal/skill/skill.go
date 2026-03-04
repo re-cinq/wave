@@ -5,18 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/recinq/wave/internal/manifest"
 )
 
 // Provisioner discovers and copies skill command files into a workspace.
 type Provisioner struct {
-	skills   map[string]manifest.SkillConfig
+	skills   map[string]SkillConfig
 	repoRoot string // Project root where .claude/commands/ lives
 }
 
 // NewProvisioner creates a skill provisioner for the given project.
-func NewProvisioner(skills map[string]manifest.SkillConfig, repoRoot string) *Provisioner {
+func NewProvisioner(skills map[string]SkillConfig, repoRoot string) *Provisioner {
 	return &Provisioner{
 		skills:   skills,
 		repoRoot: repoRoot,
