@@ -22,6 +22,7 @@ type DoOptions struct {
 	Mock     bool
 	DryRun   bool
 	Output   OutputConfig
+	Model    string
 }
 
 func NewDoCmd() *cobra.Command {
@@ -54,6 +55,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be executed without running")
+	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 
 	return cmd
 }
@@ -141,6 +143,9 @@ func runDo(input string, opts DoOptions) error {
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
+	}
+	if opts.Model != "" {
+		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
