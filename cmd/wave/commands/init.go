@@ -2,8 +2,10 @@ package commands
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -68,6 +70,45 @@ type initAssets struct {
 	pipelines      map[string]string
 	contracts      map[string]string
 	prompts        map[string]string
+}
+
+// FileStatus represents the status of a file in the merge change summary.
+type FileStatus string
+
+const (
+	FileStatusNew       FileStatus = "new"        // File does not exist, will be created
+	FileStatusPreserved FileStatus = "preserved"  // File exists, differs from default
+	FileStatusUpToDate  FileStatus = "up_to_date" // File exists, matches default byte-for-byte
+)
+
+// FileChangeEntry represents a single file's status in the change summary.
+type FileChangeEntry struct {
+	RelPath  string
+	Category string
+	Status   FileStatus
+}
+
+// ManifestAction represents the type of change to a manifest key.
+type ManifestAction string
+
+const (
+	ManifestActionAdded     ManifestAction = "added"
+	ManifestActionPreserved ManifestAction = "preserved"
+)
+
+// ManifestChangeEntry represents a change to a manifest key.
+type ManifestChangeEntry struct {
+	KeyPath string
+	Action  ManifestAction
+}
+
+// ChangeSummary holds the complete pre-mutation change report.
+type ChangeSummary struct {
+	Files           []FileChangeEntry
+	ManifestChanges []ManifestChangeEntry
+	MergedManifest  map[string]interface{}
+	Assets          *initAssets
+	AlreadyUpToDate bool
 }
 
 // getFilteredAssets returns the asset maps for init, applying release filtering
@@ -250,7 +291,7 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		}
 
 		if !opts.Force && !opts.Yes {
-			// Prompt for confirmation
+			// Prompt for confirmation (FR-010)
 			confirmed, err := confirmOverwrite(cmd, absOutputPath)
 			if err != nil {
 				return fmt.Errorf("failed to read confirmation: %w", err)
@@ -258,8 +299,6 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 			if !confirmed {
 				return fmt.Errorf("aborted: %s already exists (use --force to overwrite or --merge to merge)", absOutputPath)
 			}
-		} else if !opts.Force {
-			return fmt.Errorf("%s already exists (use --force to overwrite or --merge to merge)", absOutputPath)
 		}
 
 		// Check file permissions before overwriting
@@ -337,12 +376,13 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 		return fmt.Errorf("failed to read existing manifest %s: %w", absOutputPath, err)
 	}
 
+	// Parse existing manifest — abort on parse failure (FR-013)
 	var existingManifest map[string]interface{}
 	if err := yaml.Unmarshal(existingData, &existingManifest); err != nil {
 		return fmt.Errorf("failed to parse existing manifest %s: %w", absOutputPath, err)
 	}
 
-	// Get filtered assets for persona configs
+	// Get filtered assets
 	project := detectProject()
 	assets, err := getFilteredAssets(cmd, opts)
 	if err != nil {
@@ -351,52 +391,30 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 
 	defaultManifest := createDefaultManifest(opts.Adapter, opts.Workspace, project, assets.personaConfigs)
 
-	// Merge manifests (existing values take precedence)
-	merged := mergeManifests(defaultManifest, existingManifest)
+	// Pre-mutation: compute all changes
+	summary := computeChangeSummary(assets, existingManifest, defaultManifest)
 
-	// Write merged manifest
-	mergedData, err := yaml.Marshal(merged)
+	// Check if already up to date (US1-AS4)
+	if summary.AlreadyUpToDate {
+		fmt.Fprintf(cmd.ErrOrStderr(), "\n  Already up to date — no changes needed.\n\n")
+		return nil
+	}
+
+	// Display change summary to stderr (FR-001, FR-006)
+	displayChangeSummary(cmd.ErrOrStderr(), summary)
+
+	// Confirm merge (FR-002, FR-007, FR-008, FR-014)
+	confirmed, err := confirmMerge(cmd, opts)
 	if err != nil {
-		return fmt.Errorf("failed to marshal merged manifest: %w", err)
+		return err
+	}
+	if !confirmed {
+		return fmt.Errorf("aborted: merge cancelled by user")
 	}
 
-	if err := os.WriteFile(opts.OutputPath, mergedData, 0644); err != nil {
-		return fmt.Errorf("failed to write merged manifest to %s: %w", absOutputPath, err)
-	}
-
-	// Create directories and files if they don't exist
-	waveDirs := []string{
-		".wave/personas",
-		".wave/pipelines",
-		".wave/contracts",
-		".wave/prompts",
-		".wave/traces",
-		".wave/workspaces",
-	}
-	for _, dir := range waveDirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			absDir, _ := filepath.Abs(dir)
-			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
-		}
-	}
-
-	// Create persona files only if they don't exist
-	if err := createExamplePersonasIfMissing(assets.personas); err != nil {
-		return fmt.Errorf("failed to create example personas: %w", err)
-	}
-
-	// Create pipeline files only if they don't exist
-	if err := createExamplePipelinesIfMissing(assets.pipelines); err != nil {
-		return fmt.Errorf("failed to create example pipelines: %w", err)
-	}
-
-	// Create contract files only if they don't exist
-	if err := createExampleContractsIfMissing(assets.contracts); err != nil {
-		return fmt.Errorf("failed to create example contracts: %w", err)
-	}
-
-	if err := createExamplePromptsIfMissing(assets.prompts); err != nil {
-		return fmt.Errorf("failed to create example prompts: %w", err)
+	// Apply changes (FR-003, FR-004, FR-005)
+	if err := applyChanges(summary, opts.OutputPath); err != nil {
+		return err
 	}
 
 	printMergeSuccess(cmd, opts.OutputPath)
@@ -470,6 +488,305 @@ func mergeMaps(defaults, existing map[string]interface{}) map[string]interface{}
 	return result
 }
 
+// computeChangeSummary builds a pre-mutation change report by comparing on-disk
+// files with embedded defaults and computing the manifest diff.
+func computeChangeSummary(assets *initAssets, existingManifest, defaultManifest map[string]interface{}) *ChangeSummary {
+	var files []FileChangeEntry
+
+	// Helper to classify a file
+	classifyFile := func(path, category, defaultContent string) FileChangeEntry {
+		entry := FileChangeEntry{
+			RelPath:  path,
+			Category: category,
+		}
+		existing, err := os.ReadFile(path)
+		if err != nil {
+			entry.Status = FileStatusNew
+		} else if bytes.Equal(existing, []byte(defaultContent)) {
+			entry.Status = FileStatusUpToDate
+		} else {
+			entry.Status = FileStatusPreserved
+		}
+		return entry
+	}
+
+	// Check personas
+	for filename, content := range assets.personas {
+		path := filepath.Join(".wave", "personas", filename)
+		files = append(files, classifyFile(path, "persona", content))
+	}
+
+	// Check pipelines
+	for filename, content := range assets.pipelines {
+		path := filepath.Join(".wave", "pipelines", filename)
+		files = append(files, classifyFile(path, "pipeline", content))
+	}
+
+	// Check contracts
+	for filename, content := range assets.contracts {
+		path := filepath.Join(".wave", "contracts", filename)
+		files = append(files, classifyFile(path, "contract", content))
+	}
+
+	// Check prompts
+	for relPath, content := range assets.prompts {
+		path := filepath.Join(".wave", "prompts", relPath)
+		files = append(files, classifyFile(path, "prompt", content))
+	}
+
+	// Sort for deterministic output
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].RelPath < files[j].RelPath
+	})
+
+	// Compute manifest diff
+	merged, manifestChanges := computeManifestDiff(defaultManifest, existingManifest)
+
+	// Determine if already up to date: no new files AND no added manifest keys
+	alreadyUpToDate := true
+	for _, f := range files {
+		if f.Status == FileStatusNew {
+			alreadyUpToDate = false
+			break
+		}
+	}
+	if alreadyUpToDate {
+		for _, mc := range manifestChanges {
+			if mc.Action == ManifestActionAdded {
+				alreadyUpToDate = false
+				break
+			}
+		}
+	}
+
+	return &ChangeSummary{
+		Files:           files,
+		ManifestChanges: manifestChanges,
+		MergedManifest:  merged,
+		Assets:          assets,
+		AlreadyUpToDate: alreadyUpToDate,
+	}
+}
+
+// computeManifestDiff performs the manifest merge and tracks what changed.
+func computeManifestDiff(defaults, existing map[string]interface{}) (map[string]interface{}, []ManifestChangeEntry) {
+	merged := mergeManifests(defaults, existing)
+	var changes []ManifestChangeEntry
+	collectManifestDiff("", defaults, existing, &changes)
+
+	sort.Slice(changes, func(i, j int) bool {
+		return changes[i].KeyPath < changes[j].KeyPath
+	})
+	return merged, changes
+}
+
+// collectManifestDiff recursively walks default and existing manifests, recording
+// keys that were added (from defaults) or preserved (user value kept).
+func collectManifestDiff(prefix string, defaults, existing map[string]interface{}, entries *[]ManifestChangeEntry) {
+	for key, defaultVal := range defaults {
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+
+		existingVal, exists := existing[key]
+		if !exists {
+			// Key in defaults but not in existing → added
+			*entries = append(*entries, ManifestChangeEntry{
+				KeyPath: path,
+				Action:  ManifestActionAdded,
+			})
+			continue
+		}
+
+		// Key exists in both — recurse if both are maps
+		defaultMap, defaultIsMap := defaultVal.(map[string]interface{})
+		existingMap, existingIsMap := existingVal.(map[string]interface{})
+
+		if defaultIsMap && existingIsMap {
+			collectManifestDiff(path, defaultMap, existingMap, entries)
+		} else if fmt.Sprintf("%v", defaultVal) != fmt.Sprintf("%v", existingVal) {
+			// Values differ → user value is preserved
+			*entries = append(*entries, ManifestChangeEntry{
+				KeyPath: path,
+				Action:  ManifestActionPreserved,
+			})
+		}
+	}
+
+	// User-only keys (not in defaults) are preserved
+	for key := range existing {
+		if _, inDefaults := defaults[key]; !inDefaults {
+			path := key
+			if prefix != "" {
+				path = prefix + "." + key
+			}
+			*entries = append(*entries, ManifestChangeEntry{
+				KeyPath: path,
+				Action:  ManifestActionPreserved,
+			})
+		}
+	}
+}
+
+// displayChangeSummary renders the ChangeSummary as a categorized table to the
+// given writer (typically stderr).
+func displayChangeSummary(w io.Writer, summary *ChangeSummary) {
+	fmt.Fprintf(w, "\n  Change Summary:\n\n")
+
+	categories := []struct {
+		name  string
+		label string
+	}{
+		{"persona", "Personas"},
+		{"pipeline", "Pipelines"},
+		{"contract", "Contracts"},
+		{"prompt", "Prompts"},
+	}
+
+	for _, cat := range categories {
+		var catFiles []FileChangeEntry
+		for _, f := range summary.Files {
+			if f.Category == cat.name {
+				catFiles = append(catFiles, f)
+			}
+		}
+		if len(catFiles) == 0 {
+			continue
+		}
+
+		fmt.Fprintf(w, "  %s:\n", cat.label)
+		for _, f := range catFiles {
+			var status string
+			switch f.Status {
+			case FileStatusNew:
+				status = "+ new"
+			case FileStatusPreserved:
+				status = "~ preserved"
+			case FileStatusUpToDate:
+				status = "= up to date"
+			}
+			fmt.Fprintf(w, "    %-14s %s\n", status, f.RelPath)
+		}
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Show manifest changes
+	added := 0
+	preserved := 0
+	for _, mc := range summary.ManifestChanges {
+		if mc.Action == ManifestActionAdded {
+			added++
+		} else {
+			preserved++
+		}
+	}
+
+	if len(summary.ManifestChanges) > 0 {
+		fmt.Fprintf(w, "  Manifest (wave.yaml):\n")
+		for _, mc := range summary.ManifestChanges {
+			var action string
+			switch mc.Action {
+			case ManifestActionAdded:
+				action = "+ added"
+			case ManifestActionPreserved:
+				action = "~ preserved"
+			}
+			fmt.Fprintf(w, "    %-14s %s\n", action, mc.KeyPath)
+		}
+		fmt.Fprintf(w, "\n")
+	}
+}
+
+// confirmMerge prompts the user for confirmation before applying merge changes.
+// Skips the prompt when --yes or --force is specified. Requires --yes or --force
+// in non-interactive terminals (FR-002, FR-014).
+func confirmMerge(cmd *cobra.Command, opts InitOptions) (bool, error) {
+	if opts.Yes || opts.Force {
+		return true, nil
+	}
+
+	if !isInitInteractive() {
+		return false, fmt.Errorf("non-interactive terminal detected: use --yes or --force to proceed without confirmation")
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "  Apply these changes? [y/N]: ")
+
+	reader := bufio.NewReader(cmd.InOrStdin())
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes", nil
+}
+
+// applyChanges writes only "new" files from the ChangeSummary and writes the
+// merged manifest. Files with status "preserved" or "up_to_date" are not touched.
+func applyChanges(summary *ChangeSummary, outputPath string) error {
+	// Ensure directories exist
+	waveDirs := []string{
+		".wave/personas",
+		".wave/pipelines",
+		".wave/contracts",
+		".wave/prompts",
+		".wave/traces",
+		".wave/workspaces",
+	}
+	for _, dir := range waveDirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			absDir, _ := filepath.Abs(dir)
+			return fmt.Errorf("failed to create directory %s: %w", absDir, err)
+		}
+	}
+
+	// Write only "new" files
+	for _, f := range summary.Files {
+		if f.Status != FileStatusNew {
+			continue
+		}
+
+		var content string
+		switch f.Category {
+		case "persona":
+			content = summary.Assets.personas[filepath.Base(f.RelPath)]
+		case "pipeline":
+			content = summary.Assets.pipelines[filepath.Base(f.RelPath)]
+		case "contract":
+			content = summary.Assets.contracts[filepath.Base(f.RelPath)]
+		case "prompt":
+			promptPrefix := filepath.Join(".wave", "prompts") + string(filepath.Separator)
+			relPath := strings.TrimPrefix(f.RelPath, promptPrefix)
+			content = summary.Assets.prompts[relPath]
+		}
+
+		// Ensure parent directory exists (for prompts with subdirs)
+		if err := os.MkdirAll(filepath.Dir(f.RelPath), 0755); err != nil {
+			absPath, _ := filepath.Abs(f.RelPath)
+			return fmt.Errorf("failed to create directory for %s: %w", absPath, err)
+		}
+
+		if err := os.WriteFile(f.RelPath, []byte(content), 0644); err != nil {
+			absPath, _ := filepath.Abs(f.RelPath)
+			return fmt.Errorf("failed to write %s: %w", absPath, err)
+		}
+	}
+
+	// Write merged manifest
+	mergedData, err := yaml.Marshal(summary.MergedManifest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal merged manifest: %w", err)
+	}
+
+	if err := os.WriteFile(outputPath, mergedData, 0644); err != nil {
+		absPath, _ := filepath.Abs(outputPath)
+		return fmt.Errorf("failed to write manifest to %s: %w", absPath, err)
+	}
+
+	return nil
+}
+
 func printInitSuccess(cmd *cobra.Command, outputPath string, assets *initAssets) {
 	out := cmd.OutOrStdout()
 
@@ -522,7 +839,8 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "    Created missing .wave/ directories and files\n")
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Next steps:\n")
-	fmt.Fprintf(out, "    Run 'wave validate' to check configuration\n")
+	fmt.Fprintf(out, "    1. Run 'wave migrate up' to apply pending migrations\n")
+	fmt.Fprintf(out, "    2. Run 'wave validate' to check configuration\n")
 	fmt.Fprintf(out, "\n")
 }
 

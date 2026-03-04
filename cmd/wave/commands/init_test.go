@@ -212,7 +212,7 @@ runtime:
 	err = os.WriteFile(".wave/personas/custom.md", []byte("# Custom Persona"), 0644)
 	require.NoError(t, err)
 
-	stdout, _, err := executeInitCmd("--merge")
+	stdout, _, err := executeInitCmd("--merge", "--yes")
 
 	// Verify successful execution
 	require.NoError(t, err, "init --merge should succeed")
@@ -511,7 +511,7 @@ runtime:
 	err := os.WriteFile("wave.yaml", []byte(minimalContent), 0644)
 	require.NoError(t, err)
 
-	_, _, err = executeInitCmd("--merge")
+	_, _, err = executeInitCmd("--merge", "--yes")
 	require.NoError(t, err)
 
 	manifest, err := readYAML("wave.yaml")
@@ -561,7 +561,7 @@ runtime:
 	err = os.WriteFile(".wave/personas/special.md", []byte("# Special"), 0644)
 	require.NoError(t, err)
 
-	_, _, err = executeInitCmd("--merge")
+	_, _, err = executeInitCmd("--merge", "--yes")
 	require.NoError(t, err)
 
 	manifest, err := readYAML("wave.yaml")
@@ -841,7 +841,7 @@ func TestInitAllMergeCompose(t *testing.T) {
 	filteredCount := len(filteredEntries)
 
 	// Then merge with --all
-	_, _, err = executeInitCmd("--merge", "--all")
+	_, _, err = executeInitCmd("--merge", "--all", "--yes")
 	require.NoError(t, err)
 
 	allEntries, err := os.ReadDir(".wave/pipelines")
@@ -870,7 +870,7 @@ func TestInitMergePreservesExistingNonReleasePipelines(t *testing.T) {
 	allCount := len(allEntries)
 
 	// Then merge without --all
-	_, _, err = executeInitCmd("--merge")
+	_, _, err = executeInitCmd("--merge", "--yes")
 	require.NoError(t, err)
 
 	// Files should still be there - merge doesn't delete
@@ -1197,4 +1197,616 @@ func TestInitPersonaManifestMatchesConfig(t *testing.T) {
 			assert.False(t, hasModel, "%s should not have model field", name)
 		}
 	}
+}
+
+// TestComputeChangeSummary tests the computeChangeSummary function with table-driven cases.
+func TestComputeChangeSummary(t *testing.T) {
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, assets *initAssets)
+		wantNewCount  int  // expected minimum count of FileStatusNew entries (-1 means all)
+		wantUpToDate  int  // expected minimum count of FileStatusUpToDate entries (-1 means all)
+		wantPreserved int  // expected minimum count of FileStatusPreserved entries
+		checkUpToDate bool // if true, assert summary.AlreadyUpToDate is true
+	}{
+		{
+			name: "all files new (fresh project)",
+			setup: func(t *testing.T, assets *initAssets) {
+				t.Helper()
+				// Only create wave.yaml — no .wave/ directory at all.
+				require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\n"), 0644))
+			},
+			wantNewCount: -1,
+		},
+		{
+			name: "all files up-to-date",
+			setup: func(t *testing.T, assets *initAssets) {
+				t.Helper()
+				// Run a full init so every default file is on disk with default content
+				_, _, err := executeInitCmd()
+				require.NoError(t, err)
+			},
+			wantUpToDate:  -1,
+			checkUpToDate: true,
+		},
+		{
+			name: "mixed states",
+			setup: func(t *testing.T, assets *initAssets) {
+				t.Helper()
+				// Run a full init first
+				_, _, err := executeInitCmd()
+				require.NoError(t, err)
+				// Modify one persona file to make it "preserved"
+				require.NoError(t, os.WriteFile(
+					".wave/personas/navigator.md",
+					[]byte("# My Custom Navigator"),
+					0644,
+				))
+				// Remove one pipeline to make it "new" on next check
+				for name := range assets.pipelines {
+					os.Remove(filepath.Join(".wave", "pipelines", name))
+					break // only remove one
+				}
+			},
+			wantPreserved: 1, // at least 1 preserved (the modified navigator.md)
+			wantNewCount:  1, // at least 1 new (the removed pipeline)
+		},
+		{
+			name: "empty persona file treated as preserved",
+			setup: func(t *testing.T, assets *initAssets) {
+				t.Helper()
+				// Run a full init first
+				_, _, err := executeInitCmd()
+				require.NoError(t, err)
+				// Overwrite navigator.md with empty content — it differs from the
+				// default so it should be classified as "preserved", not "up_to_date"
+				require.NoError(t, os.WriteFile(
+					".wave/personas/navigator.md",
+					[]byte{},
+					0644,
+				))
+			},
+			wantPreserved: 1, // the empty navigator.md
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			defer env.cleanup()
+
+			cmd := NewInitCmd()
+			assets, err := getFilteredAssets(cmd, InitOptions{})
+			require.NoError(t, err)
+
+			tc.setup(t, assets)
+
+			// Read existing manifest (or use empty)
+			var existingManifest map[string]interface{}
+			if data, readErr := os.ReadFile("wave.yaml"); readErr == nil {
+				_ = yaml.Unmarshal(data, &existingManifest)
+			}
+			if existingManifest == nil {
+				existingManifest = map[string]interface{}{}
+			}
+
+			defaultManifest := createDefaultManifest("claude", ".wave/workspaces", nil, assets.personaConfigs)
+			summary := computeChangeSummary(assets, existingManifest, defaultManifest)
+
+			require.NotNil(t, summary)
+			require.NotEmpty(t, summary.Files, "summary should contain file entries")
+
+			// Count statuses
+			var newCount, upToDateCount, preservedCount int
+			for _, f := range summary.Files {
+				switch f.Status {
+				case FileStatusNew:
+					newCount++
+				case FileStatusUpToDate:
+					upToDateCount++
+				case FileStatusPreserved:
+					preservedCount++
+				}
+			}
+
+			if tc.wantNewCount == -1 {
+				assert.Equal(t, len(summary.Files), newCount, "all files should be new")
+			} else if tc.wantNewCount > 0 {
+				assert.GreaterOrEqual(t, newCount, tc.wantNewCount, "expected at least %d new files", tc.wantNewCount)
+			}
+
+			if tc.wantUpToDate == -1 {
+				assert.Equal(t, len(summary.Files), upToDateCount, "all files should be up_to_date")
+			} else if tc.wantUpToDate > 0 {
+				assert.GreaterOrEqual(t, upToDateCount, tc.wantUpToDate, "expected at least %d up_to_date files", tc.wantUpToDate)
+			}
+
+			if tc.wantPreserved > 0 {
+				assert.GreaterOrEqual(t, preservedCount, tc.wantPreserved, "expected at least %d preserved files", tc.wantPreserved)
+			}
+
+			if tc.checkUpToDate {
+				assert.True(t, summary.AlreadyUpToDate, "summary should be marked AlreadyUpToDate")
+			}
+		})
+	}
+}
+
+// TestComputeManifestDiff tests the computeManifestDiff function directly with crafted maps.
+func TestComputeManifestDiff(t *testing.T) {
+	tests := []struct {
+		name             string
+		defaults         map[string]interface{}
+		existing         map[string]interface{}
+		wantAddedKeys    []string
+		wantPreserved    []string
+		checkMergedValue map[string]interface{} // dot-path -> expected value in merged result
+	}{
+		{
+			name: "nested key additions",
+			defaults: map[string]interface{}{
+				"runtime": map[string]interface{}{
+					"workspace_root":  ".wave/workspaces",
+					"timeout_minutes": 30,
+					"max_workers":     5,
+				},
+			},
+			existing: map[string]interface{}{
+				"runtime": map[string]interface{}{
+					"workspace_root": ".wave/workspaces",
+				},
+			},
+			wantAddedKeys: []string{"runtime.timeout_minutes", "runtime.max_workers"},
+		},
+		{
+			name: "array atomic preservation",
+			defaults: map[string]interface{}{
+				"personas": map[string]interface{}{
+					"navigator": map[string]interface{}{
+						"permissions": map[string]interface{}{
+							"allowed_tools": []string{"Read", "Write"},
+						},
+					},
+				},
+			},
+			existing: map[string]interface{}{
+				"personas": map[string]interface{}{
+					"navigator": map[string]interface{}{
+						"permissions": map[string]interface{}{
+							"allowed_tools": []string{"Read", "Write", "Bash"},
+						},
+					},
+				},
+			},
+			wantPreserved: []string{"personas.navigator.permissions.allowed_tools"},
+		},
+		{
+			name: "user key precedence",
+			defaults: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":        "wave-project",
+					"description": "A Wave project",
+				},
+			},
+			existing: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":        "my-custom-project",
+					"description": "My project",
+				},
+			},
+			wantPreserved: []string{"metadata.name", "metadata.description"},
+			checkMergedValue: map[string]interface{}{
+				"metadata.name": "my-custom-project",
+			},
+		},
+		{
+			name: "new subsection addition",
+			defaults: map[string]interface{}{
+				"adapters": map[string]interface{}{
+					"claude": map[string]interface{}{
+						"binary": "claude",
+					},
+				},
+				"runtime": map[string]interface{}{
+					"audit": map[string]interface{}{
+						"log_dir": ".wave/traces/",
+					},
+				},
+			},
+			existing: map[string]interface{}{
+				"adapters": map[string]interface{}{
+					"claude": map[string]interface{}{
+						"binary": "claude",
+					},
+				},
+			},
+			wantAddedKeys: []string{"runtime"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			merged, changes := computeManifestDiff(tc.defaults, tc.existing)
+
+			require.NotNil(t, merged)
+
+			// Build maps for easy lookup
+			addedKeys := make(map[string]bool)
+			preservedKeys := make(map[string]bool)
+			for _, c := range changes {
+				switch c.Action {
+				case ManifestActionAdded:
+					addedKeys[c.KeyPath] = true
+				case ManifestActionPreserved:
+					preservedKeys[c.KeyPath] = true
+				}
+			}
+
+			for _, key := range tc.wantAddedKeys {
+				assert.True(t, addedKeys[key], "expected key %q to be added, got changes: %+v", key, changes)
+			}
+
+			for _, key := range tc.wantPreserved {
+				assert.True(t, preservedKeys[key], "expected key %q to be preserved, got changes: %+v", key, changes)
+			}
+
+			// Verify merged values
+			for dotPath, expected := range tc.checkMergedValue {
+				parts := strings.Split(dotPath, ".")
+				var current interface{} = merged
+				for _, part := range parts {
+					m, ok := current.(map[string]interface{})
+					require.True(t, ok, "expected map at %q in merged result", dotPath)
+					current = m[part]
+				}
+				assert.Equal(t, expected, current, "merged value for %q should match", dotPath)
+			}
+		})
+	}
+}
+
+// TestInitMergeUpgradeLifecycle tests the full init -> customize -> merge lifecycle.
+func TestInitMergeUpgradeLifecycle(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// Step 1: Initial init
+	_, _, err := executeInitCmd()
+	require.NoError(t, err, "initial init should succeed")
+
+	// Step 2: Write a custom persona file
+	customPersonaContent := "# Custom Navigator\n\nMy custom navigator persona.\n"
+	require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte(customPersonaContent), 0644))
+
+	// Step 3: Modify wave.yaml with custom settings
+	manifestData, err := os.ReadFile("wave.yaml")
+	require.NoError(t, err)
+	var m map[string]interface{}
+	require.NoError(t, yaml.Unmarshal(manifestData, &m))
+
+	adapters := m["adapters"].(map[string]interface{})
+	adapters["my-adapter"] = map[string]interface{}{
+		"binary": "my-adapter-bin",
+		"mode":   "headless",
+	}
+	metadata := m["metadata"].(map[string]interface{})
+	metadata["name"] = "my-project"
+
+	updatedData, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile("wave.yaml", updatedData, 0644))
+
+	// Step 3b: Delete one pipeline to create a "new" entry for merge
+	cmd0 := NewInitCmd()
+	assets, err := getFilteredAssets(cmd0, InitOptions{})
+	require.NoError(t, err)
+	var removedPipeline string
+	for name := range assets.pipelines {
+		removed := filepath.Join(".wave", "pipelines", name)
+		os.Remove(removed)
+		removedPipeline = name
+		break
+	}
+	require.NotEmpty(t, removedPipeline, "should have removed at least one pipeline")
+
+	// Step 4: Run init --merge --yes and capture stderr
+	cmd := NewInitCmd()
+	cmd.SetArgs([]string{"--merge", "--yes"})
+	var outBuf, errBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetErr(&errBuf)
+
+	err = cmd.Execute()
+	require.NoError(t, err, "merge should succeed")
+
+	stderrStr := errBuf.String()
+	stdoutStr := outBuf.String()
+
+	// Verify change summary was displayed on stderr
+	assert.Contains(t, stderrStr, "Change Summary",
+		"stderr should contain change summary, got: %s", stderrStr)
+
+	// Verify success message on stdout
+	assert.Contains(t, stdoutStr, "merged successfully",
+		"stdout should contain merge success message")
+
+	// Step 5: Verify custom persona is preserved on disk
+	personaData, err := os.ReadFile(".wave/personas/navigator.md")
+	require.NoError(t, err)
+	assert.Equal(t, customPersonaContent, string(personaData),
+		"custom persona file should be preserved")
+
+	// Step 6: Verify the removed pipeline was re-created
+	assert.True(t, fileExists(filepath.Join(".wave", "pipelines", removedPipeline)),
+		"removed pipeline %s should be re-created by merge", removedPipeline)
+
+	// Step 7: Verify all default persona files exist
+	for _, name := range []string{"philosopher.md", "craftsman.md", "auditor.md", "summarizer.md"} {
+		assert.True(t, fileExists(filepath.Join(".wave", "personas", name)),
+			"default persona file %s should exist", name)
+	}
+
+	// Step 8: Verify manifest merge correctness
+	mergedManifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	mergedMetadata := mergedManifest["metadata"].(map[string]interface{})
+	assert.Equal(t, "my-project", mergedMetadata["name"], "custom name should be preserved")
+
+	mergedAdapters := mergedManifest["adapters"].(map[string]interface{})
+	_, hasCustomAdapter := mergedAdapters["my-adapter"]
+	assert.True(t, hasCustomAdapter, "custom adapter should be preserved")
+
+	_, hasClaude := mergedAdapters["claude"]
+	assert.True(t, hasClaude, "default claude adapter should still be present")
+}
+
+// TestInitMergeFlagCombinations tests all four flag combinations for init.
+func TestInitMergeFlagCombinations(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		envVars        map[string]string
+		stdin          string
+		setupCustom    bool
+		expectError    bool
+		errorContains  string
+		checkOverwrite bool // if true, verify custom persona was overwritten
+		checkPreserved bool // if true, verify custom persona was preserved
+		checkMerge     bool // if true, verify merge behavior
+	}{
+		{
+			name:          "init on existing prompts and user declines",
+			args:          []string{},
+			envVars:       map[string]string{},
+			stdin:         "n\n",
+			setupCustom:   true,
+			expectError:   true,
+			errorContains: "already exists",
+		},
+		{
+			name:           "force overwrites everything",
+			args:           []string{"--force"},
+			setupCustom:    true,
+			checkOverwrite: true,
+		},
+		{
+			name:           "merge with yes skips prompt and merges",
+			args:           []string{"--merge", "--yes"},
+			setupCustom:    true,
+			checkPreserved: true,
+			checkMerge:     true,
+		},
+		{
+			name:           "merge with force skips prompt and merges",
+			args:           []string{"--merge", "--force"},
+			setupCustom:    true,
+			checkPreserved: true,
+			checkMerge:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			defer env.cleanup()
+
+			// Set env vars
+			for k, v := range tc.envVars {
+				t.Setenv(k, v)
+			}
+
+			if tc.setupCustom {
+				// Run initial init
+				_, _, err := executeInitCmd()
+				require.NoError(t, err)
+
+				// Write a custom persona file that differs from defaults
+				require.NoError(t, os.WriteFile(
+					".wave/personas/navigator.md",
+					[]byte("# My Custom Navigator"),
+					0644,
+				))
+			}
+
+			cmd := NewInitCmd()
+			cmd.SetArgs(tc.args)
+
+			var outBuf, errBuf bytes.Buffer
+			cmd.SetOut(&outBuf)
+			cmd.SetErr(&errBuf)
+
+			if tc.stdin != "" {
+				cmd.SetIn(strings.NewReader(tc.stdin))
+			}
+
+			err := cmd.Execute()
+
+			if tc.expectError {
+				require.Error(t, err, "expected error")
+				if tc.errorContains != "" {
+					assert.Contains(t, err.Error(), tc.errorContains)
+				}
+				return
+			}
+
+			require.NoError(t, err, "expected no error, got: %v\nstderr: %s", err, errBuf.String())
+
+			if tc.checkOverwrite {
+				// Force should overwrite the custom persona with the default
+				data, err := os.ReadFile(".wave/personas/navigator.md")
+				require.NoError(t, err)
+				assert.NotEqual(t, "# My Custom Navigator", string(data),
+					"force should overwrite custom persona with default")
+				assert.True(t, len(data) > 0, "persona file should have content")
+			}
+
+			if tc.checkPreserved {
+				// Merge should preserve the custom persona file
+				data, err := os.ReadFile(".wave/personas/navigator.md")
+				require.NoError(t, err)
+				assert.Equal(t, "# My Custom Navigator", string(data),
+					"merge should preserve custom persona file")
+			}
+
+			if tc.checkMerge {
+				stderrStr := errBuf.String()
+				// Merge should display summary on stderr (or up-to-date)
+				assert.True(t,
+					strings.Contains(stderrStr, "Change Summary") || strings.Contains(stderrStr, "Already up to date"),
+					"stderr should contain change summary or up-to-date, got: %s", stderrStr)
+			}
+		})
+	}
+}
+
+// TestInitMergeEdgeCases tests edge cases for the merge workflow.
+func TestInitMergeEdgeCases(t *testing.T) {
+	t.Run("malformed YAML parse error", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		// Create a wave.yaml with invalid YAML
+		require.NoError(t, os.WriteFile("wave.yaml", []byte("invalid:\n  yaml: [\n  broken\n"), 0644))
+		require.NoError(t, os.MkdirAll(".wave/personas", 0755))
+
+		cmd := NewInitCmd()
+		cmd.SetArgs([]string{"--merge", "--yes"})
+		var outBuf, errBuf bytes.Buffer
+		cmd.SetOut(&outBuf)
+		cmd.SetErr(&errBuf)
+
+		err := cmd.Execute()
+		require.Error(t, err, "merge with malformed YAML should fail")
+		assert.Contains(t, err.Error(), "parse",
+			"error should mention parse failure, got: %v", err)
+	})
+
+	t.Run("empty persona file preserved", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		// Initial init
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+
+		// Create an empty persona file
+		require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte{}, 0644))
+
+		// Run merge
+		_, _, err = executeInitCmd("--merge", "--yes")
+		require.NoError(t, err)
+
+		// Verify the file still exists and is still empty
+		data, err := os.ReadFile(".wave/personas/navigator.md")
+		require.NoError(t, err)
+		assert.Empty(t, data, "empty persona file should be preserved (not overwritten)")
+	})
+
+	t.Run("read-only .wave/personas permission error", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("skipping permission test when running as root")
+		}
+
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		// Create minimal wave.yaml
+		require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .wave/workspaces\n"), 0644))
+
+		// Create .wave/personas as read-only (this will prevent writing new files)
+		require.NoError(t, os.MkdirAll(".wave/personas", 0755))
+		// Make personas directory read-only
+		require.NoError(t, os.Chmod(".wave/personas", 0555))
+		defer os.Chmod(".wave/personas", 0755) // restore for cleanup
+
+		cmd := NewInitCmd()
+		cmd.SetArgs([]string{"--merge", "--yes"})
+		var outBuf, errBuf bytes.Buffer
+		cmd.SetOut(&outBuf)
+		cmd.SetErr(&errBuf)
+
+		err := cmd.Execute()
+		// Should fail because it can't write persona files
+		assert.Error(t, err, "should fail when .wave/personas is read-only")
+	})
+
+	t.Run("already up-to-date short circuit", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		// Run init to create all files
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+
+		// Run merge — everything should already be up to date
+		cmd := NewInitCmd()
+		cmd.SetArgs([]string{"--merge", "--yes"})
+		var outBuf, errBuf bytes.Buffer
+		cmd.SetOut(&outBuf)
+		cmd.SetErr(&errBuf)
+
+		err = cmd.Execute()
+		require.NoError(t, err, "merge on up-to-date project should succeed")
+
+		stderrStr := errBuf.String()
+		assert.Contains(t, stderrStr, "Already up to date",
+			"should display up-to-date message on stderr, got: %s", stderrStr)
+	})
+
+	t.Run("non-interactive terminal without --yes", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		// Ensure WAVE_FORCE_TTY is not set (tests are non-interactive by default)
+		t.Setenv("WAVE_FORCE_TTY", "")
+
+		// Run init first
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+
+		// Modify a file so it's not up-to-date
+		require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte("# Modified"), 0644))
+
+		// Remove a pipeline to ensure there's a "new" entry
+		cmd0 := NewInitCmd()
+		assets, err := getFilteredAssets(cmd0, InitOptions{})
+		require.NoError(t, err)
+		for name := range assets.pipelines {
+			os.Remove(filepath.Join(".wave", "pipelines", name))
+			break // only remove one
+		}
+
+		// Run merge without --yes in non-interactive mode
+		cmd := NewInitCmd()
+		cmd.SetArgs([]string{"--merge"})
+		var outBuf, errBuf bytes.Buffer
+		cmd.SetOut(&outBuf)
+		cmd.SetErr(&errBuf)
+
+		err = cmd.Execute()
+		require.Error(t, err, "merge without --yes in non-interactive terminal should fail")
+		assert.Contains(t, err.Error(), "non-interactive",
+			"error should mention non-interactive terminal, got: %v", err)
+	})
 }
