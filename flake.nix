@@ -22,6 +22,7 @@
           sqlite
           bubblewrap
           nodejs_22  # Claude Code requires Node.js
+          uv         # Python package manager for skill installation
         ];
 
         # Bubblewrap sandbox wrapper — isolates the entire dev session
@@ -32,6 +33,7 @@
           mkdir -p "$HOME/.claude"
           mkdir -p "$HOME/.local/bin"
           mkdir -p "$HOME/go"
+          mkdir -p "$HOME/.local/share/uv"
           touch -a "$HOME/.local/bin/wave"
           touch -a "$HOME/.claude.json"
 
@@ -54,6 +56,9 @@
             # Writable: Claude Code config (session state, credentials)
             --bind "$HOME/.claude" "$HOME/.claude"
             --bind "$HOME/.claude.json" "$HOME/.claude.json"
+
+            # Writable: uv tool cache (persists installed skills like speckit)
+            --bind "$HOME/.local/share/uv" "$HOME/.local/share/uv"
 
             # Writable: Go module cache (avoids re-downloading on every step)
             --bind "$HOME/go" "$HOME/go"

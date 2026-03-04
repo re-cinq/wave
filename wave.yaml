@@ -644,6 +644,6 @@ runtime:
     workspace_root: .wave/workspaces
 skills:
     speckit:
-        check: specify --version
-        install: uv tool install git+https://github.com/github/spec-kit.git
+        check: specify check
+        install: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
         init: specify init
