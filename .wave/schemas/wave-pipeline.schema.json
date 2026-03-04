@@ -4,12 +4,19 @@
   "title": "WavePipeline",
   "description": "Wave multi-agent pipeline definition",
   "type": "object",
-  "required": ["kind", "metadata", "input", "steps"],
+  "required": [
+    "kind",
+    "metadata",
+    "input",
+    "steps"
+  ],
   "additionalProperties": false,
   "properties": {
     "kind": {
       "type": "string",
-      "enum": ["WavePipeline"],
+      "enum": [
+        "WavePipeline"
+      ],
       "description": "Must be 'WavePipeline'"
     },
     "metadata": {
@@ -33,7 +40,9 @@
   "definitions": {
     "PipelineMetadata": {
       "type": "object",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -62,24 +71,34 @@
       "properties": {
         "skills": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Skill names that must be installed before execution"
         },
         "tools": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "CLI tools that must be available on PATH"
         }
       }
     },
     "InputConfig": {
       "type": "object",
-      "required": ["source"],
+      "required": [
+        "source"
+      ],
       "additionalProperties": false,
       "properties": {
         "source": {
           "type": "string",
-          "enum": ["cli", "github_issues", "file"],
+          "enum": [
+            "cli",
+            "github_issues",
+            "file"
+          ],
           "description": "Where pipeline input comes from"
         },
         "schema": {
@@ -116,7 +135,11 @@
     },
     "Step": {
       "type": "object",
-      "required": ["id", "persona", "exec"],
+      "required": [
+        "id",
+        "persona",
+        "exec"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -130,7 +153,9 @@
         },
         "dependencies": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Step IDs that must complete before this step runs"
         },
         "memory": {
@@ -176,7 +201,9 @@
       "properties": {
         "strategy": {
           "type": "string",
-          "enum": ["fresh"],
+          "enum": [
+            "fresh"
+          ],
           "default": "fresh",
           "description": "Memory strategy — defaults to 'fresh' (no chat history inheritance)"
         },
@@ -191,7 +218,11 @@
     },
     "ArtifactRef": {
       "type": "object",
-      "required": ["step", "artifact", "as"],
+      "required": [
+        "step",
+        "artifact",
+        "as"
+      ],
       "additionalProperties": false,
       "properties": {
         "step": {
@@ -208,7 +239,12 @@
         },
         "type": {
           "type": "string",
-          "enum": ["json", "text", "markdown", "binary"],
+          "enum": [
+            "json",
+            "text",
+            "markdown",
+            "binary"
+          ],
           "description": "Expected artifact type for validation"
         },
         "schema_path": {
@@ -239,7 +275,10 @@
         },
         "type": {
           "type": "string",
-          "enum": ["worktree", ""],
+          "enum": [
+            "worktree",
+            ""
+          ],
           "description": "Workspace type: 'worktree' for git worktree isolation, empty for directory"
         },
         "branch": {
@@ -249,12 +288,19 @@
         "base": {
           "type": "string",
           "description": "Base branch for worktree creation (e.g., 'main'). Defaults to repository default branch."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Reference another step's workspace (shared worktree)"
         }
       }
     },
     "Mount": {
       "type": "object",
-      "required": ["source", "target"],
+      "required": [
+        "source",
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "source": {
@@ -267,7 +313,10 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["readonly", "readwrite"],
+          "enum": [
+            "readonly",
+            "readwrite"
+          ],
           "default": "readwrite",
           "description": "Mount access mode"
         }
@@ -275,12 +324,18 @@
     },
     "ExecConfig": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["prompt", "command", "slash_command"],
+          "enum": [
+            "prompt",
+            "command",
+            "slash_command"
+          ],
           "description": "Execution type"
         },
         "source": {
@@ -303,7 +358,9 @@
     },
     "ArtifactDef": {
       "type": "object",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -316,7 +373,12 @@
         },
         "type": {
           "type": "string",
-          "enum": ["json", "text", "markdown", "binary"],
+          "enum": [
+            "json",
+            "text",
+            "markdown",
+            "binary"
+          ],
           "description": "Artifact content type"
         },
         "required": {
@@ -326,7 +388,10 @@
         },
         "source": {
           "type": "string",
-          "enum": ["file", "stdout"],
+          "enum": [
+            "file",
+            "stdout"
+          ],
           "default": "file",
           "description": "Artifact source: 'file' (persona writes file) or 'stdout' (captured from process output)"
         }
@@ -344,7 +409,11 @@
         },
         "on_review_fail": {
           "type": "string",
-          "enum": ["retry", "fail", "skip"],
+          "enum": [
+            "retry",
+            "fail",
+            "skip"
+          ],
           "description": "Action when review fails"
         },
         "target_step": {
@@ -364,7 +433,14 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["json_schema", "test_suite", "typescript_interface", "markdown_spec", "template", "format"],
+          "enum": [
+            "json_schema",
+            "test_suite",
+            "typescript_interface",
+            "markdown_spec",
+            "template",
+            "format"
+          ],
           "description": "Contract validation type"
         },
         "schema": {
@@ -397,7 +473,10 @@
         },
         "on_failure": {
           "type": "string",
-          "enum": ["retry", "fail"],
+          "enum": [
+            "retry",
+            "fail"
+          ],
           "description": "Action on validation failure"
         },
         "max_retries": {
@@ -411,7 +490,11 @@
         },
         "recovery_level": {
           "type": "string",
-          "enum": ["conservative", "progressive", "aggressive"],
+          "enum": [
+            "conservative",
+            "progressive",
+            "aggressive"
+          ],
           "description": "JSON recovery aggressiveness"
         },
         "allow_recovery": {
@@ -436,7 +519,11 @@
     },
     "MatrixStrategy": {
       "type": "object",
-      "required": ["type", "items_source", "item_key"],
+      "required": [
+        "type",
+        "items_source",
+        "item_key"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -455,17 +542,42 @@
           "type": "integer",
           "minimum": 1,
           "description": "Maximum parallel executions"
+        },
+        "item_id_key": {
+          "type": "string",
+          "description": "JSON key in each item that provides the unique identifier (e.g., \"number\")"
+        },
+        "dependency_key": {
+          "type": "string",
+          "description": "JSON key in each item containing dependency list of item IDs (e.g., \"dependencies\")"
+        },
+        "child_pipeline": {
+          "type": "string",
+          "description": "Name of the child pipeline to invoke for each matrix item"
+        },
+        "input_template": {
+          "type": "string",
+          "description": "Go template string for constructing child pipeline input from item fields"
         }
       }
     },
     "OutcomeDef": {
       "type": "object",
-      "required": ["type", "extract_from", "json_path"],
+      "required": [
+        "type",
+        "extract_from",
+        "json_path"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["pr", "issue", "url", "deployment"],
+          "enum": [
+            "pr",
+            "issue",
+            "url",
+            "deployment"
+          ],
           "description": "Outcome type, determines how it is displayed in the summary"
         },
         "extract_from": {
@@ -479,12 +591,18 @@
         "label": {
           "type": "string",
           "description": "Human-readable label for display in the outcome summary"
+        },
+        "json_path_label": {
+          "type": "string",
+          "description": "Dot-notation path to extract a label from JSON for array [*] items"
         }
       }
     },
     "ValidationRule": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -501,7 +619,10 @@
         },
         "on_failure": {
           "type": "string",
-          "enum": ["retry", "fail"],
+          "enum": [
+            "retry",
+            "fail"
+          ],
           "description": "Action on failure"
         },
         "max_retries": {
