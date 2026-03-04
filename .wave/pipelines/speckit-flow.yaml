@@ -4,9 +4,12 @@ metadata:
   description: "Specification-driven feature development using the full speckit workflow"
   release: true
 
-requires: 
+requires:
   skills:
-    - speckit
+    speckit:
+      check: specify check
+      install: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+      init: specify init
   tools:
     - git
     - gh

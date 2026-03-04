@@ -90,7 +90,7 @@ func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
 		for _, skill := range opts.PreflightMeta.MissingSkills {
 			block.Hints = append(block.Hints, RecoveryHint{
 				Label:   "Install missing skill",
-				Command: fmt.Sprintf("Check wave.yaml skills.%s.install for the install command", skill),
+				Command: fmt.Sprintf("Check pipeline requires.skills.%s.install for the install command", skill),
 				Type:    HintType("preflight"),
 			})
 		}

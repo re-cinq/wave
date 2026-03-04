@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
 )
 
 func TestCheckTools_Found(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCheckSkills_Undeclared(t *testing.T) {
 }
 
 func TestCheckSkills_InstalledViaCheck(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {
 			Check: "true", // always succeeds
 		},
@@ -112,7 +112,7 @@ func TestCheckSkills_InstalledViaCheck(t *testing.T) {
 }
 
 func TestCheckSkills_CheckFails_NoInstall(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {
 			Check: "false", // always fails
 		},
@@ -131,7 +131,7 @@ func TestCheckSkills_CheckFails_NoInstall(t *testing.T) {
 
 func TestCheckSkills_AutoInstallSuccess(t *testing.T) {
 	callCount := 0
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {
 			Install: "echo installing",
 			Check:   "true",
@@ -155,7 +155,7 @@ func TestCheckSkills_AutoInstallSuccess(t *testing.T) {
 }
 
 func TestCheckSkills_AutoInstallFails(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {
 			Install: "exit 1",
 			Check:   "false",
@@ -178,7 +178,7 @@ func TestCheckSkills_AutoInstallFails(t *testing.T) {
 
 func TestCheckSkills_WithInit(t *testing.T) {
 	var commands []string
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {
 			Install: "install-cmd",
 			Init:    "init-cmd",
@@ -192,7 +192,7 @@ func TestCheckSkills_WithInit(t *testing.T) {
 		cmd := name + " " + fmt.Sprintf("%v", args)
 		commands = append(commands, cmd)
 		callNum++
-		// First call is check (fail), second is install, third is init, fourth is re-check
+		// First call is check (fail), second is install, third is re-check
 		if callNum == 1 {
 			return fmt.Errorf("not installed")
 		}
@@ -204,16 +204,16 @@ func TestCheckSkills_WithInit(t *testing.T) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 	if !results[0].OK {
-		t.Error("expected skill to be installed after install+init")
+		t.Error("expected skill to be installed after install")
 	}
-	// Should have 4 calls: check, install, init, re-check
-	if len(commands) != 4 {
-		t.Errorf("expected 4 commands, got %d: %v", len(commands), commands)
+	// Should have 3 calls: check, install, re-check (init runs in worktree, not preflight)
+	if len(commands) != 3 {
+		t.Errorf("expected 3 commands, got %d: %v", len(commands), commands)
 	}
 }
 
 func TestRun_AllPass(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"myskill": {Check: "true"},
 	}
 
@@ -355,7 +355,7 @@ func TestToolError_Unwrap(t *testing.T) {
 }
 
 func TestCheckSkills_ReturnsSkillError(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"speckit": {
 			Check: "false", // not installed
 		},
@@ -417,7 +417,7 @@ func TestCheckTools_ReturnsToolError(t *testing.T) {
 }
 
 func TestRun_PreservesSkillError(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"speckit": {Check: "false"},
 	}
 
@@ -457,7 +457,7 @@ func TestRun_PreservesToolError(t *testing.T) {
 }
 
 func TestRun_BothFailReturnsPreflightError(t *testing.T) {
-	skills := map[string]manifest.SkillConfig{
+	skills := map[string]skill.SkillConfig{
 		"speckit": {Check: "false"},
 	}
 

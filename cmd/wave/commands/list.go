@@ -188,7 +188,7 @@ func runList(opts ListOptions, filter string) error {
 				output.Personas = collectPersonas(m.Personas)
 			}
 			if showSkills {
-				output.Skills = collectSkills(m.Skills)
+				output.Skills = collectSkills(collectSkillsFromPipelines())
 			}
 		}
 
@@ -289,7 +289,7 @@ func runList(opts ListOptions, filter string) error {
 	}
 
 	if showSkills {
-		listSkillsTable(m.Skills)
+		listSkillsTable(collectSkillsFromPipelines())
 	}
 
 	return nil
@@ -311,12 +311,6 @@ type manifestData2 struct {
 			Deny         []string `yaml:"deny"`
 		} `yaml:"permissions"`
 	} `yaml:"personas"`
-	Skills map[string]struct {
-		Install      string `yaml:"install,omitempty"`
-		Init         string `yaml:"init,omitempty"`
-		Check        string `yaml:"check,omitempty"`
-		CommandsGlob string `yaml:"commands_glob,omitempty"`
-	} `yaml:"skills"`
 }
 
 func collectPipelines() ([]PipelineInfo, error) {
@@ -1378,6 +1372,59 @@ func listContractsTable(contracts []ContractInfo) {
 	fmt.Println()
 }
 
+// pipelineSkillConfig is the anonymous struct used when parsing skills from pipeline YAML.
+type pipelineSkillConfig struct {
+	Install      string `yaml:"install,omitempty"`
+	Init         string `yaml:"init,omitempty"`
+	Check        string `yaml:"check,omitempty"`
+	CommandsGlob string `yaml:"commands_glob,omitempty"`
+}
+
+// collectSkillsFromPipelines scans all pipeline YAML files and returns a merged
+// map of skill name to config. When multiple pipelines declare the same skill,
+// the first definition wins (pipelines are scanned in alphabetical order).
+func collectSkillsFromPipelines() map[string]pipelineSkillConfig {
+	merged := make(map[string]pipelineSkillConfig)
+
+	pipelineDir := ".wave/pipelines"
+	entries, err := os.ReadDir(pipelineDir)
+	if err != nil {
+		return merged
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		pipelinePath := filepath.Join(pipelineDir, entry.Name())
+
+		data, err := os.ReadFile(pipelinePath)
+		if err != nil {
+			continue
+		}
+
+		var p struct {
+			Requires *struct {
+				Skills map[string]pipelineSkillConfig `yaml:"skills"`
+			} `yaml:"requires"`
+		}
+		if err := yaml.Unmarshal(data, &p); err != nil {
+			continue
+		}
+
+		if p.Requires != nil {
+			for name, cfg := range p.Requires.Skills {
+				if _, exists := merged[name]; !exists {
+					merged[name] = cfg
+				}
+			}
+		}
+	}
+
+	return merged
+}
+
 // collectSkillPipelineUsage scans pipeline YAML files and returns a map of skill name to pipeline names that require it.
 func collectSkillPipelineUsage() map[string][]string {
 	usage := make(map[string][]string)
@@ -1403,7 +1450,7 @@ func collectSkillPipelineUsage() map[string][]string {
 
 		var p struct {
 			Requires *struct {
-				Skills []string `yaml:"skills"`
+				Skills map[string]pipelineSkillConfig `yaml:"skills"`
 			} `yaml:"requires"`
 		}
 		if err := yaml.Unmarshal(data, &p); err != nil {
@@ -1411,8 +1458,8 @@ func collectSkillPipelineUsage() map[string][]string {
 		}
 
 		if p.Requires != nil {
-			for _, skill := range p.Requires.Skills {
-				usage[skill] = append(usage[skill], pipelineName)
+			for skillName := range p.Requires.Skills {
+				usage[skillName] = append(usage[skillName], pipelineName)
 			}
 		}
 	}
@@ -1425,13 +1472,8 @@ func collectSkillPipelineUsage() map[string][]string {
 	return usage
 }
 
-// collectSkills collects skill information from the manifest's skills map.
-func collectSkills(skills map[string]struct {
-	Install      string `yaml:"install,omitempty"`
-	Init         string `yaml:"init,omitempty"`
-	Check        string `yaml:"check,omitempty"`
-	CommandsGlob string `yaml:"commands_glob,omitempty"`
-}) []SkillInfo {
+// collectSkills collects skill information from pipeline-scoped skills.
+func collectSkills(skills map[string]pipelineSkillConfig) []SkillInfo {
 	var result []SkillInfo
 
 	names := make([]string, 0, len(skills))
@@ -1467,12 +1509,7 @@ func collectSkills(skills map[string]struct {
 }
 
 // listSkillsTable displays skill information in table format.
-func listSkillsTable(skills map[string]struct {
-	Install      string `yaml:"install,omitempty"`
-	Init         string `yaml:"init,omitempty"`
-	Check        string `yaml:"check,omitempty"`
-	CommandsGlob string `yaml:"commands_glob,omitempty"`
-}) {
+func listSkillsTable(skills map[string]pipelineSkillConfig) {
 	f := display.NewFormatter()
 
 	// Header

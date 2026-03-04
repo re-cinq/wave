@@ -200,16 +200,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
-		checker := preflight.NewChecker(m.Skills)
-		var tools, skills []string
+		checker := preflight.NewChecker(p.Requires.Skills)
+		var tools []string
 		if len(p.Requires.Tools) > 0 {
 			tools = p.Requires.Tools
 		}
-		if len(p.Requires.Skills) > 0 {
-			skills = p.Requires.Skills
-		}
-		if len(tools) > 0 || len(skills) > 0 {
-			results, err := checker.Run(tools, skills)
+		skillNames := p.Requires.SkillNames()
+		if len(tools) > 0 || len(skillNames) > 0 {
+			results, err := checker.Run(tools, skillNames)
 			for _, r := range results {
 				e.emit(event.Event{
 					Timestamp: time.Now(),
@@ -648,13 +646,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Resolve skill commands directory for provisioning
 	var skillCommandsDir string
-	if execution.Pipeline.Requires != nil && len(execution.Pipeline.Requires.Skills) > 0 && len(execution.Manifest.Skills) > 0 {
-		provisioner := skill.NewProvisioner(execution.Manifest.Skills, "")
-		commands, _ := provisioner.DiscoverCommands(execution.Pipeline.Requires.Skills)
+	if execution.Pipeline.Requires != nil && len(execution.Pipeline.Requires.Skills) > 0 {
+		skillNames := execution.Pipeline.Requires.SkillNames()
+		provisioner := skill.NewProvisioner(execution.Pipeline.Requires.Skills, "")
+		commands, _ := provisioner.DiscoverCommands(skillNames)
 		// If we found any commands, provision them into a temp dir that the adapter can use
 		if len(commands) > 0 {
 			tmpDir := filepath.Join(workspacePath, ".wave-skill-commands")
-			if err := provisioner.Provision(tmpDir, execution.Pipeline.Requires.Skills); err != nil {
+			if err := provisioner.Provision(tmpDir, skillNames); err != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -1037,6 +1036,28 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
 		// don't get staged by git add -A in implement steps
 		exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "CLAUDE.md").Run()
+
+		// Run skill init commands inside the worktree (only on first creation)
+		if execution.Pipeline.Requires != nil {
+			for _, skillName := range execution.Pipeline.Requires.SkillNames() {
+				cfg := execution.Pipeline.Requires.Skills[skillName]
+				if cfg.Init == "" {
+					continue
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "skill_init",
+					Message:    fmt.Sprintf("running init for skill %q in worktree", skillName),
+				})
+				initCmd := exec.Command("sh", "-c", cfg.Init)
+				initCmd.Dir = absPath
+				if out, err := initCmd.CombinedOutput(); err != nil {
+					return "", fmt.Errorf("skill %q init failed in worktree: %w\noutput: %s", skillName, err, string(out))
+				}
+			}
+		}
 
 		return absPath, nil
 	}

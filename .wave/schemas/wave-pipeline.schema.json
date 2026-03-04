@@ -70,11 +70,11 @@
       "additionalProperties": false,
       "properties": {
         "skills": {
-          "type": "array",
-          "items": {
-            "type": "string"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/SkillConfig"
           },
-          "description": "Skill names that must be installed before execution"
+          "description": "Skill configurations keyed by name (check, install, init commands)"
         },
         "tools": {
           "type": "array",
@@ -205,7 +205,7 @@
             "fresh"
           ],
           "default": "fresh",
-          "description": "Memory strategy — defaults to 'fresh' (no chat history inheritance)"
+          "description": "Memory strategy \u2014 defaults to 'fresh' (no chat history inheritance)"
         },
         "inject_artifacts": {
           "type": "array",
@@ -628,6 +628,28 @@
         "max_retries": {
           "type": "integer",
           "minimum": 0
+        }
+      }
+    },
+    "SkillConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "install": {
+          "type": "string",
+          "description": "Command to install the skill"
+        },
+        "init": {
+          "type": "string",
+          "description": "Command to initialize the skill in the worktree after creation"
+        },
+        "check": {
+          "type": "string",
+          "description": "Command to verify the skill is installed"
+        },
+        "commands_glob": {
+          "type": "string",
+          "description": "Glob pattern for skill command files"
         }
       }
     }

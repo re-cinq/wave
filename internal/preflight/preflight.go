@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
 )
 
 // SkillError represents a preflight failure due to missing skills.
@@ -59,12 +59,12 @@ type Result struct {
 
 // Checker validates that pipeline dependencies are satisfied before execution.
 type Checker struct {
-	skills  map[string]manifest.SkillConfig
+	skills  map[string]skill.SkillConfig
 	runCmd  func(name string, args ...string) error // for testing
 }
 
 // NewChecker creates a preflight checker with the given skill configurations.
-func NewChecker(skills map[string]manifest.SkillConfig) *Checker {
+func NewChecker(skills map[string]skill.SkillConfig) *Checker {
 	return &Checker{
 		skills: skills,
 		runCmd: defaultRunCmd,
@@ -111,6 +111,7 @@ func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 }
 
 // CheckSkills verifies that all required skills are installed, attempting auto-install if configured.
+// Note: init commands are NOT run here — they run inside the worktree after creation.
 func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 	var results []Result
 	var failed []string
@@ -122,7 +123,7 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q not declared in wave.yaml skills section", name),
+				Message: fmt.Sprintf("skill %q not declared in pipeline requires.skills section", name),
 			})
 			failed = append(failed, name)
 			continue
@@ -163,20 +164,6 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 			continue
 		}
 
-		// Run init command if configured
-		if cfg.Init != "" {
-			if err := c.runShellCommand(cfg.Init); err != nil {
-				results = append(results, Result{
-					Name:    name,
-					Kind:    "skill",
-					OK:      false,
-					Message: fmt.Sprintf("skill %q init failed: %v", name, err),
-				})
-				failed = append(failed, name)
-				continue
-			}
-		}
-
 		// Re-check after install
 		if c.isSkillInstalled(cfg) {
 			results = append(results, Result{
@@ -205,7 +192,7 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 }
 
 // isSkillInstalled runs the skill's check command to verify installation.
-func (c *Checker) isSkillInstalled(cfg manifest.SkillConfig) bool {
+func (c *Checker) isSkillInstalled(cfg skill.SkillConfig) bool {
 	if cfg.Check == "" {
 		return false
 	}
