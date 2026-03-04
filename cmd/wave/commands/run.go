@@ -49,8 +49,8 @@ func NewRunCmd() *cobra.Command {
 		Long: `Execute a pipeline from the wave manifest.
 Supports dry-run mode, step resumption, custom timeouts, and model override.
 
-The --model flag overrides the adapter model for all steps in the run.
-Per-persona model pinning in wave.yaml takes precedence over --model.
+The --model flag overrides the adapter model for all steps in the run,
+including any per-persona model pinning in wave.yaml.
 
 Arguments can be provided as positional args or flags:
   wave run gh-pr-review "Review auth module"

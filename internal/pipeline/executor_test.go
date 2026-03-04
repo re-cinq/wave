@@ -2966,10 +2966,10 @@ func TestModelOverridePrecedence(t *testing.T) {
 			expectedModel: "haiku",
 		},
 		{
-			name:          "persona pinning takes precedence over override",
+			name:          "CLI override takes precedence over persona pinning",
 			personaModel:  "opus",
 			modelOverride: "haiku",
-			expectedModel: "opus",
+			expectedModel: "haiku",
 		},
 		{
 			name:          "no override and no persona model yields empty",
@@ -3099,9 +3099,9 @@ func TestModelOverrideIntegration(t *testing.T) {
 	assert.Equal(t, "haiku", capturer.getModel("navigate"),
 		"unpinned persona should use CLI model override")
 
-	// Craftsman has model pinned to "opus" — should NOT be overridden
-	assert.Equal(t, "opus", capturer.getModel("implement"),
-		"pinned persona model should take precedence over CLI override")
+	// Craftsman has model pinned to "opus" — CLI override takes precedence
+	assert.Equal(t, "haiku", capturer.getModel("implement"),
+		"CLI model override should take precedence over persona pinning")
 }
 
 // TestResolveModelMethod tests the resolveModel method directly
@@ -3112,9 +3112,9 @@ func TestResolveModelMethod(t *testing.T) {
 	p1 := &manifest.Persona{Model: ""}
 	assert.Equal(t, "haiku", executor.resolveModel(p1))
 
-	// Persona with pinned model — use persona model
+	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "opus", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
