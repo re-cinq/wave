@@ -942,14 +942,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 }
 
 // resolveModel applies three-tier model precedence:
-// 1. Per-persona model pinning (highest)
-// 2. CLI --model flag override
+// 1. CLI --model flag override (highest — explicit user intent)
+// 2. Per-persona model pinning
 // 3. Adapter default (empty string)
 func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
+	if e.modelOverride != "" {
+		return e.modelOverride
+	}
 	if persona.Model != "" {
 		return persona.Model
 	}
-	return e.modelOverride
+	return ""
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
