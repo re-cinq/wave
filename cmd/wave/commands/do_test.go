@@ -335,6 +335,10 @@ func TestNewDoCmd(t *testing.T) {
 	require.NotNil(t, dryRunFlag)
 	assert.Equal(t, "false", dryRunFlag.DefValue)
 
+	modelFlag := flags.Lookup("model")
+	require.NotNil(t, modelFlag)
+	assert.Equal(t, "", modelFlag.DefValue)
+
 	// Verify --save and --meta flags no longer exist (moved to wave meta command)
 	assert.Nil(t, flags.Lookup("save"), "save flag should not exist on do command")
 	assert.Nil(t, flags.Lookup("meta"), "meta flag should not exist on do command")
