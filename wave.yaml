@@ -631,7 +631,7 @@ runtime:
         log_all_file_operations: false
         log_all_tool_calls: true
         log_dir: .wave/traces/
-    default_timeout_minutes: 30
+    default_timeout_minutes: 90
     max_concurrent_workers: 5
     meta_pipeline:
         max_depth: 2
@@ -642,8 +642,3 @@ runtime:
         strategy: summarize_to_checkpoint
         token_threshold_percent: 80
     workspace_root: .wave/workspaces
-skills:
-    speckit:
-        check: specify check
-        install: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
-        init: specify init
