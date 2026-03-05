@@ -53,7 +53,7 @@ wave run flow "task" 2>/dev/null
 Human-friendly format with color and formatting.
 
 ```bash
-WAVE_LOG_FORMAT=text wave run flow "task"
+wave run flow "task" -o text
 ```
 
 Text output example:

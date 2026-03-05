@@ -24,7 +24,7 @@ Each pipeline is a **topologically-sorted DAG** of steps. For every step:
    - Contract compliance section (auto-generated from step contract schema)
    - Restriction section (denied/allowed tools, network domains from manifest permissions)
 4. **Adapter execution** — the persona runs in isolated context with fresh memory (no chat history inheritance)
-5. **Contract validation** — step output is validated against its contract (json_schema, test_suite, typescript, quality_gate) **before** marking the step successful. Hard failures block; soft failures log warnings
+5. **Contract validation** — step output is validated against its contract (json_schema, typescript_interface, test_suite, markdown_spec, format) **before** marking the step successful. Hard failures block; soft failures log warnings
 
 Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`, `internal/contract/`, `internal/workspace/`
 
@@ -55,17 +55,23 @@ internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
+├── defaults/     # Embedded default personas, pipelines, and contracts
 ├── deliverable/  # Pipeline deliverable tracking and output
 ├── display/      # Terminal progress display and formatting
 ├── event/        # Progress event emission and monitoring
 ├── github/       # GitHub API integration for issue enhancement
 ├── manifest/     # Configuration loading and validation
+├── onboarding/   # Interactive wave init flow
+├── pathfmt/      # Path formatting and normalization utilities
 ├── pipeline/     # Pipeline execution and step management
 ├── preflight/    # Pipeline dependency validation and auto-install
+├── recovery/     # Pipeline recovery hints and error guidance
 ├── relay/        # Context compaction and summarization
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
 ├── state/        # SQLite persistence and state management
+├── tui/          # Bubble Tea terminal UI
+├── webui/        # Web operations dashboard (embedded assets)
 ├── worktree/     # Git worktree lifecycle for isolated workspaces
 └── workspace/    # Ephemeral workspace management
 
