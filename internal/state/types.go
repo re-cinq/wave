@@ -15,6 +15,7 @@ type RunRecord struct {
 	CancelledAt  *time.Time
 	ErrorMessage string
 	Tags         []string // Tags for categorization and filtering
+	BranchName   string    // Worktree branch for this run
 }
 
 // ListRunsOptions specifies filters for listing runs.

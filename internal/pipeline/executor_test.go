@@ -163,6 +163,7 @@ func (m *MockStateStore) ListRecentPipelines(limit int) ([]state.PipelineStateRe
 func (m *MockStateStore) Close() error { return nil }
 func (m *MockStateStore) CreateRun(pipelineName string, input string) (string, error) { return "", nil }
 func (m *MockStateStore) UpdateRunStatus(runID string, status string, currentStep string, tokens int) error { return nil }
+func (m *MockStateStore) UpdateRunBranch(runID string, branch string) error { return nil }
 func (m *MockStateStore) GetRun(runID string) (*state.RunRecord, error) { return nil, nil }
 func (m *MockStateStore) GetRunningRuns() ([]state.RunRecord, error) { return nil, nil }
 func (m *MockStateStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error) { return nil, nil }
