@@ -68,6 +68,21 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			expected: "feature-worktree/test-step",
 		},
 		{
+			name:     "bare_pipeline_id",
+			template: "{{ pipeline_id }}",
+			expected: "test-pipeline",
+		},
+		{
+			name:     "bare_pipeline_id_unspaced",
+			template: "{{pipeline_id}}",
+			expected: "test-pipeline",
+		},
+		{
+			name:     "bare_step_id",
+			template: "{{ step_id }}",
+			expected: "test-step",
+		},
+		{
 			name:     "spaced_custom_variable",
 			template: "path/{{ custom_var }}/file.txt",
 			expected: "path/custom_value/file.txt",
