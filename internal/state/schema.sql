@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS pipeline_run (
     started_at INTEGER NOT NULL,
     completed_at INTEGER,
     cancelled_at INTEGER,
-    error_message TEXT
+    error_message TEXT,
+    branch_name TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_run_pipeline ON pipeline_run(pipeline_name);
