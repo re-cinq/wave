@@ -12,6 +12,7 @@ Complete field reference for `wave.yaml` — the single source of truth for all 
 | `adapters` | `map[string]`[`Adapter`](#adapter) | **yes** | Named adapter configurations. |
 | `personas` | `map[string]`[`Persona`](#persona) | **yes** | Named persona configurations. |
 | `runtime` | [`Runtime`](#runtime) | **yes** | Global runtime settings. |
+| `project` | [`Project`](#project) | no | Project metadata for language, test commands, and source globs. |
 | `skills` | `map[string]`[`SkillConfig`](#skillconfig) | no | Named skill configurations with install, check, and provisioning settings. |
 
 ### Minimal Example
@@ -30,7 +31,7 @@ personas:
     adapter: claude
     system_prompt_file: .wave/personas/navigator.md
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
 ```
 
 ---
@@ -48,6 +49,30 @@ metadata:
   name: acme-backend
   description: "Acme Corp backend API service"
   repo: https://github.com/acme/backend
+```
+
+---
+
+
+## Project
+
+Optional project-level settings used for build, test, and source discovery.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `language` | `string` | no | `""` | Project language (e.g., "go", "typescript"). Used for adapter heuristics. |
+| `test_command` | `string` | no | `""` | Command to run tests (e.g., "go test ./..."). Used by contract validation. |
+| `lint_command` | `string` | no | `""` | Command to run linting. |
+| `build_command` | `string` | no | `""` | Command to build the project. |
+| `source_glob` | `string` | no | `""` | Glob pattern matching source files (e.g., "**/*.go"). |
+
+```yaml
+project:
+  language: go
+  test_command: "go test ./..."
+  lint_command: "golangci-lint run"
+  build_command: "go build ./..."
+  source_glob: "**/*.go"
 ```
 
 ---
@@ -107,6 +132,7 @@ Agent configuration binding an adapter to a specific role. Personas enforce sepa
 | `system_prompt_file` | `string` | **yes** | — | Path to markdown file containing the persona's system prompt. Relative to project root. |
 | `temperature` | `float` | no | adapter default | LLM temperature setting. Range: `0.0` to `1.0`. Lower values produce more deterministic output. |
 | `permissions` | [`Permissions`](#permissions) | no | inherit from adapter | Tool permission overrides. Merged with adapter defaults; persona-level `deny` always takes precedence. |
+| `model` | `string` | no | adapter default | LLM model override for this persona (e.g., "opus", "sonnet"). |
 | `hooks` | [`HookConfig`](#hookconfig) | no | `{}` | Pre/post tool use hook definitions. |
 
 ### Built-in Persona Archetypes
@@ -261,12 +287,16 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `workspace_root` | `string` | no | `"/tmp/wave"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
+| `workspace_root` | `string` | no | `".wave/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
-| `default_timeout_minutes` | `int` | no | `30` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
+| `default_timeout_minutes` | `int` | no | `5` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
 | `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |
 | `audit` | [`AuditConfig`](#auditconfig) | no | see defaults | Audit logging settings. |
 | `meta_pipeline` | [`MetaPipelineConfig`](#metapipelineconfig) | no | see defaults | Meta-pipeline recursion and resource limits. |
+| `routing` | [`RoutingConfig`](#routingconfig) | no | see defaults | Pipeline routing rules for matching inputs to pipelines. |
+| `sandbox` | [`RuntimeSandbox`](#runtimesandbox) | no | see defaults | Sandbox settings including env passthrough and domain allowlisting. |
+| `artifacts` | [`RuntimeArtifactsConfig`](#runtimeartifactsconfig) | no | see defaults | Global artifact handling configuration. |
+| `pipeline_id_hash_length` | `int` | no | `4` | Length of hash suffix appended to pipeline workspace IDs. |
 
 ### RelayConfig
 
@@ -296,13 +326,43 @@ Audit logs **never** capture environment variable values or credential content. 
 | `max_total_tokens` | `int` | no | `500000` | Maximum total token consumption across all meta-pipeline levels. |
 | `timeout_minutes` | `int` | no | `60` | Hard timeout for entire meta-pipeline tree. |
 
+### RoutingConfig
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `default` | `string` | no | `""` | Pipeline to use when no routing rules match. |
+| `rules` | `[]RoutingRule` | no | `[]` | Routing rules evaluated in priority order. |
+
+#### RoutingRule
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `pattern` | `string` | no | `""` | Glob pattern for matching input strings. Supports `*`, `?`, `[abc]`, `[a-z]`. |
+| `pipeline` | `string` | **yes** | — | Pipeline name to route to when this rule matches. |
+| `priority` | `int` | no | `0` | Evaluation order. Higher priority rules are evaluated first. |
+
+### RuntimeSandbox
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `enabled` | `bool` | no | `false` | Enable sandbox mode for adapter subprocesses. |
+| `default_allowed_domains` | `[]string` | no | `[]` | Network domain allowlist applied to all personas. |
+| `env_passthrough` | `[]string` | no | `[]` | Environment variables passed through to adapter subprocesses. |
+
+### RuntimeArtifactsConfig
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `max_stdout_size` | `int` | no | `10485760` | Maximum bytes to capture from stdout (default: 10MB). |
+| `default_artifact_dir` | `string` | no | `".wave/artifacts"` | Base directory for artifacts. |
+
 ### Full Runtime Example
 
 ```yaml
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
   max_concurrent_workers: 5
-  default_timeout_minutes: 30
+  default_timeout_minutes: 5
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
@@ -532,9 +592,9 @@ personas:
       deny: ["Write(*)", "Bash(*)"]
 
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
   max_concurrent_workers: 5
-  default_timeout_minutes: 30
+  default_timeout_minutes: 5
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint

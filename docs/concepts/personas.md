@@ -23,7 +23,7 @@ personas:
 
 ## Built-in Personas
 
-Wave includes **14 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
+Wave includes **30 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
 
 <script setup>
 const builtInPersonas = [
@@ -292,9 +292,11 @@ flowchart TB
 
 ```yaml
 workspace:
-  type: ephemeral          # Always isolated
-  clone_depth: 1           # Shallow clone for speed
-  preserve_on_failure: true # Keep workspace for debugging
+  type: worktree           # Git worktree for full isolation
+  ref: my-shared-workspace # Optional: share workspace with another step
+  mounts:                  # Optional: mount paths into workspace
+    - path: ./config
+      mode: readonly
 ```
 
 ## Using Personas in Pipelines
