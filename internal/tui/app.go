@@ -27,21 +27,23 @@ type AppModel struct {
 }
 
 // NewAppModel creates a new root app model with default child components.
-func NewAppModel(provider MetadataProvider) AppModel {
+func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider) AppModel {
 	return AppModel{
-		header:    NewHeaderModel(provider),
-		content:   NewContentModel(),
+		header:    NewHeaderModel(metaProvider),
+		content:   NewContentModel(pipelineProvider),
 		statusBar: NewStatusBarModel(),
 	}
 }
 
-// Init implements tea.Model. Returns header init commands for async data loading.
+// Init implements tea.Model. Returns commands from header and content for async data loading.
 func (m AppModel) Init() tea.Cmd {
-	return m.header.Init()
+	return tea.Batch(m.header.Init(), m.content.Init())
 }
 
 // Update implements tea.Model. Handles key events and window resize.
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -52,7 +54,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.shuttingDown = true
 			return m, tea.Quit
 		default:
-			if msg.String() == "q" {
+			if msg.String() == "q" && !m.content.list.filtering {
 				return m, tea.Quit
 			}
 		}
@@ -75,8 +77,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Forward all messages to header for state updates
 	var headerCmd tea.Cmd
 	m.header, headerCmd = m.header.Update(msg)
+	if headerCmd != nil {
+		cmds = append(cmds, headerCmd)
+	}
 
-	return m, headerCmd
+	// Forward all messages to content for list updates
+	var contentCmd tea.Cmd
+	m.content, contentCmd = m.content.Update(msg)
+	if contentCmd != nil {
+		cmds = append(cmds, contentCmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 // View implements tea.Model. Renders the 3-row layout.
@@ -102,8 +114,8 @@ func (m AppModel) View() string {
 
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
 func RunTUI() error {
-	provider := &DefaultMetadataProvider{}
-	p := tea.NewProgram(NewAppModel(provider), tea.WithAltScreen())
+	metaProvider := &DefaultMetadataProvider{}
+	p := tea.NewProgram(NewAppModel(metaProvider, nil), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }
