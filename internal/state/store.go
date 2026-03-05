@@ -62,6 +62,7 @@ type StateStore interface {
 	// Run tracking (ops commands)
 	CreateRun(pipelineName string, input string) (string, error)
 	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+	UpdateRunBranch(runID string, branch string) error
 	GetRun(runID string) (*RunRecord, error)
 	GetRunningRuns() ([]RunRecord, error)
 	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
@@ -478,17 +479,34 @@ func (s *stateStore) UpdateRunStatus(runID string, status string, currentStep st
 	return nil
 }
 
+// UpdateRunBranch updates the branch_name for a pipeline run.
+func (s *stateStore) UpdateRunBranch(runID string, branch string) error {
+	query := `UPDATE pipeline_run SET branch_name = ? WHERE run_id = ?`
+	result, err := s.db.Exec(query, branch, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update run branch: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("run not found: %s", runID)
+	}
+	return nil
+}
+
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
 	var record RunRecord
 	var startedAt int64
 	var completedAt, cancelledAt sql.NullInt64
-	var input, currentStep, errorMessage, tagsJSON sql.NullString
+	var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -502,6 +520,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&cancelledAt,
 		&errorMessage,
 		&tagsJSON,
+		&branchName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -534,14 +553,18 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 			record.Tags = []string{}
 		}
 	}
+	if branchName.Valid {
+		record.BranchName = branchName.String
+	}
 
 	return &record, nil
 }
 
+
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
 	          FROM pipeline_run
 	          WHERE status = 'running'
 	          ORDER BY started_at DESC`
@@ -552,7 +575,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 // ListRuns returns runs matching the specified options.
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -861,7 +884,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var record RunRecord
 		var startedAt int64
 		var completedAt, cancelledAt sql.NullInt64
-		var input, currentStep, errorMessage, tagsJSON sql.NullString
+		var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 
 		err := rows.Scan(
 			&record.RunID,
@@ -875,6 +898,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&cancelledAt,
 			&errorMessage,
 			&tagsJSON,
+			&branchName,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -903,6 +927,9 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 				// If JSON parsing fails, treat as empty tags
 				record.Tags = []string{}
 			}
+		}
+		if branchName.Valid {
+			record.BranchName = branchName.String
 		}
 
 		records = append(records, record)
