@@ -39,7 +39,7 @@ func (m StatusBarModel) View() string {
 		PaddingRight(1)
 
 	label := labelStyle.Render(m.contextLabel)
-	hints := hintsStyle.Render("q: quit  ctrl+c: exit")
+	hints := hintsStyle.Render("↑↓: navigate  /: filter  q: quit  ctrl+c: exit")
 
 	// Calculate spacing between label and hints
 	labelWidth := lipgloss.Width(label)

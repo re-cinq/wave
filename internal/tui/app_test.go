@@ -25,8 +25,22 @@ func (m *mockProvider) FetchPipelineHealth() (HealthStatus, error) {
 	return HealthOK, nil
 }
 
+type mockPipelineDataProvider struct{}
+
+func (m *mockPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineDataProvider) FetchFinishedPipelines(limit int) ([]FinishedPipeline, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineDataProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
+	return nil, nil
+}
+
 func TestNewAppModel_InitialState(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	assert.False(t, m.ready)
 	assert.False(t, m.shuttingDown)
 	assert.Equal(t, 0, m.width)
@@ -35,14 +49,20 @@ func TestNewAppModel_InitialState(t *testing.T) {
 }
 
 func TestAppModel_Init_ReturnsCmds(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	cmd := m.Init()
 	// Header.Init() returns a batch of async fetch commands
 	assert.NotNil(t, cmd)
 }
 
+func TestAppModel_Init_IncludesContentCmds(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	cmd := m.Init()
+	assert.NotNil(t, cmd)
+}
+
 func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, _ := m.Update(msg)
@@ -57,8 +77,22 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 	assert.Equal(t, 40-headerHeight-statusBarHeight, model.content.height)
 }
 
+func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	updated, _ := m.Update(msg)
+	model := updated.(AppModel)
+
+	assert.Equal(t, 120, model.content.width)
+	contentHeight := 40 - headerHeight - statusBarHeight
+	assert.Equal(t, contentHeight, model.content.height)
+	// List should have received size too
+	assert.Greater(t, model.content.list.width, 0)
+	assert.Equal(t, contentHeight, model.content.list.height)
+}
+
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	_, cmd := m.Update(msg)
@@ -70,7 +104,7 @@ func TestAppModel_Update_QuitOnQ(t *testing.T) {
 }
 
 func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -83,13 +117,13 @@ func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
 }
 
 func TestAppModel_View_BeforeReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	view := m.View()
 	assert.Equal(t, "Initializing...", view)
 }
 
 func TestAppModel_View_AfterReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -100,7 +134,7 @@ func TestAppModel_View_AfterReady(t *testing.T) {
 	assert.Contains(t, view, "╦")
 	assert.Contains(t, view, "╚╩╝")
 	// Should contain content placeholder
-	assert.Contains(t, view, "Pipelines view coming soon")
+	assert.Contains(t, view, "Select a pipeline to view details")
 	// Should contain status bar hints
 	assert.Contains(t, view, "q: quit")
 	assert.Contains(t, view, "ctrl+c: exit")
@@ -119,7 +153,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewAppModel(&mockProvider{})
+			m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
 			updated, _ := m.Update(msg)
 			model := updated.(AppModel)
@@ -132,7 +166,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 }
 
 func TestAppModel_View_ExactMinimumSize(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	msg := tea.WindowSizeMsg{Width: 80, Height: 24}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -148,7 +182,7 @@ func TestAppModel_View_ExactMinimumSize(t *testing.T) {
 // --- T033: App integration tests for header message forwarding ---
 
 func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	// First, set up with a window size
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
@@ -173,7 +207,7 @@ func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -189,7 +223,7 @@ func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -201,7 +235,7 @@ func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -215,7 +249,7 @@ func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -230,7 +264,7 @@ func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
-	m := NewAppModel(&mockProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
 	model := updated.(AppModel)
 
