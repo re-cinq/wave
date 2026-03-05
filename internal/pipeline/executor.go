@@ -1030,6 +1030,20 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		execution.WorkspacePaths[step.ID+"__worktree_repo_root"] = mgr.RepoRoot()
 		execution.mu.Unlock()
 
+		// Persist worktree branch name for TUI header display
+		if e.store != nil {
+			if branchErr := e.store.UpdateRunBranch(e.runID, branch); branchErr != nil {
+				// Log warning but don't fail the step — branch display is non-critical
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "warn",
+					Message:    fmt.Sprintf("failed to persist branch name: %v", branchErr),
+				})
+			}
+		}
+
 		// Record branch creation as a deliverable for outcome tracking
 		e.deliverableTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
 
