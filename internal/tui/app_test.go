@@ -7,8 +7,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type mockProvider struct{}
+
+func (m *mockProvider) FetchGitState() (GitState, error) {
+	return GitState{Branch: "main"}, nil
+}
+
+func (m *mockProvider) FetchManifestInfo() (ManifestInfo, error) {
+	return ManifestInfo{ProjectName: "test"}, nil
+}
+
+func (m *mockProvider) FetchGitHubInfo(repo string) (GitHubInfo, error) {
+	return GitHubInfo{}, nil
+}
+
+func (m *mockProvider) FetchPipelineHealth() (HealthStatus, error) {
+	return HealthOK, nil
+}
+
 func TestNewAppModel_InitialState(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	assert.False(t, m.ready)
 	assert.False(t, m.shuttingDown)
 	assert.Equal(t, 0, m.width)
@@ -16,20 +34,20 @@ func TestNewAppModel_InitialState(t *testing.T) {
 	assert.Equal(t, "Dashboard", m.statusBar.contextLabel)
 }
 
-func TestAppModel_Init_ReturnsNil(t *testing.T) {
-	m := NewAppModel()
+func TestAppModel_Init_ReturnsCmds(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
 	cmd := m.Init()
-	assert.Nil(t, cmd)
+	// Header.Init() returns a batch of async fetch commands
+	assert.NotNil(t, cmd)
 }
 
 func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
-	updated, cmd := m.Update(msg)
+	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
 
-	assert.Nil(t, cmd)
 	assert.True(t, model.ready)
 	assert.Equal(t, 120, model.width)
 	assert.Equal(t, 40, model.height)
@@ -40,7 +58,7 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 }
 
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	_, cmd := m.Update(msg)
@@ -52,7 +70,7 @@ func TestAppModel_Update_QuitOnQ(t *testing.T) {
 }
 
 func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -65,21 +83,22 @@ func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
 }
 
 func TestAppModel_View_BeforeReady(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	view := m.View()
 	assert.Equal(t, "Initializing...", view)
 }
 
 func TestAppModel_View_AfterReady(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
 
 	view := model.View()
 
-	// Should contain header content
-	assert.Contains(t, view, "Pipeline Orchestrator")
+	// Should contain Wave logo ASCII art characters
+	assert.Contains(t, view, "╦")
+	assert.Contains(t, view, "╚╩╝")
 	// Should contain content placeholder
 	assert.Contains(t, view, "Pipelines view coming soon")
 	// Should contain status bar hints
@@ -100,7 +119,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewAppModel()
+			m := NewAppModel(&mockProvider{})
 			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
 			updated, _ := m.Update(msg)
 			model := updated.(AppModel)
@@ -113,7 +132,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 }
 
 func TestAppModel_View_ExactMinimumSize(t *testing.T) {
-	m := NewAppModel()
+	m := NewAppModel(&mockProvider{})
 	msg := tea.WindowSizeMsg{Width: 80, Height: 24}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -121,5 +140,114 @@ func TestAppModel_View_ExactMinimumSize(t *testing.T) {
 	view := model.View()
 	// At exactly minimum size, should render normally, not show degradation
 	assert.NotContains(t, view, "Terminal too small")
-	assert.Contains(t, view, "Pipeline Orchestrator")
+	// Should contain Wave logo ASCII art
+	assert.Contains(t, view, "╦")
+	assert.Contains(t, view, "╚╩╝")
+}
+
+// --- T033: App integration tests for header message forwarding ---
+
+func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	// First, set up with a window size
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Send a GitStateMsg through the app
+	gitMsg := GitStateMsg{
+		State: GitState{
+			Branch:     "feature/test",
+			CommitHash: "def5678",
+			IsDirty:    true,
+			RemoteName: "origin",
+		},
+		Err: nil,
+	}
+	updated, _ = model.Update(gitMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, "feature/test", model.header.metadata.Branch)
+	assert.Equal(t, "def5678", model.header.metadata.CommitHash)
+	assert.True(t, model.header.metadata.IsDirty)
+	assert.Equal(t, "origin", model.header.metadata.RemoteName)
+}
+
+func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	manifestMsg := ManifestInfoMsg{
+		Info: ManifestInfo{ProjectName: "wave", RepoName: "re-cinq/wave"},
+		Err:  nil,
+	}
+	updated, _ = model.Update(manifestMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, "wave", model.header.metadata.ProjectName)
+	assert.Equal(t, "re-cinq/wave", model.header.metadata.RepoName)
+}
+
+func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	healthMsg := PipelineHealthMsg{Health: HealthWarn, Err: nil}
+	updated, _ = model.Update(healthMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, HealthWarn, model.header.metadata.Health)
+}
+
+func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	countMsg := RunningCountMsg{Count: 3}
+	updated, cmd := model.Update(countMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, 3, model.header.metadata.RunningCount)
+	assert.True(t, model.header.logo.IsActive())
+	assert.NotNil(t, cmd, "should return logo tick command through app")
+}
+
+func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	selMsg := PipelineSelectedMsg{
+		RunID:      "run-123",
+		BranchName: "feature/login",
+	}
+	updated, _ = model.Update(selMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, "feature/login", model.header.metadata.OverrideBranch)
+}
+
+func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
+	m := NewAppModel(&mockProvider{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
+	model := updated.(AppModel)
+
+	// Forward metadata through the app model
+	updated, _ = model.Update(GitStateMsg{
+		State: GitState{Branch: "feature/tui", CommitHash: "aaa1111"},
+		Err:   nil,
+	})
+	model = updated.(AppModel)
+
+	updated, _ = model.Update(ManifestInfoMsg{
+		Info: ManifestInfo{ProjectName: "wave-project"},
+		Err:  nil,
+	})
+	model = updated.(AppModel)
+
+	view := model.View()
+	assert.Contains(t, view, "feature/tui")
+	assert.Contains(t, view, "wave-project")
 }
