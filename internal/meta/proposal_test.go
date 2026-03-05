@@ -160,38 +160,37 @@ func TestProposalEngine_OpenPRs_PipelineNotInList(t *testing.T) {
 	}
 }
 
-func TestProposalEngine_LowCommits(t *testing.T) {
+func TestProposalEngine_LowCommits_CatchAll(t *testing.T) {
 	report := makeReport("gh", 0, 0, 3, allToolsAvailable(), nil)
-	pipelines := []string{"gh-implement", "wave-evolve"}
+	pipelines := []string{"gh-implement", "improve"}
 
 	engine := NewProposalEngine(report, pipelines)
 	proposals := engine.GenerateProposals()
 
-	require.NotEmpty(t, proposals)
-
-	found := false
+	// No smart rules match (0 issues, 0 PRs), so catch-all offers all pipelines.
+	require.Len(t, proposals, 2)
 	for _, p := range proposals {
-		if p.Type == ProposalSingle && len(p.Pipelines) == 1 && p.Pipelines[0] == "wave-evolve" {
-			found = true
-			assert.Equal(t, 3, p.Priority)
-			assert.Contains(t, p.Rationale, "3 commits")
-		}
+		assert.Equal(t, 5, p.Priority)
+		assert.Equal(t, "Available pipeline", p.Rationale)
 	}
-	assert.True(t, found, "expected wave-evolve proposal for low commits")
 }
 
 func TestProposalEngine_NoActionableSignals(t *testing.T) {
 	report := makeReport("gh", 0, 0, 50, allToolsAvailable(), nil)
-	pipelines := []string{"gh-implement", "wave-evolve"}
+	pipelines := []string{"gh-implement", "improve"}
 
 	engine := NewProposalEngine(report, pipelines)
 	proposals := engine.GenerateProposals()
 
-	require.Len(t, proposals, 1)
-	assert.Equal(t, ProposalSingle, proposals[0].Type)
-	assert.Equal(t, []string{"wave-evolve"}, proposals[0].Pipelines)
-	assert.Equal(t, 4, proposals[0].Priority)
-	assert.Contains(t, proposals[0].Rationale, "No actionable signals")
+	// No smart rules match, catch-all offers all pipelines.
+	require.Len(t, proposals, 2)
+	for _, p := range proposals {
+		assert.Equal(t, ProposalSingle, p.Type)
+		assert.Equal(t, 5, p.Priority)
+	}
+	// Pipelines should be in discovery order.
+	assert.Equal(t, []string{"gh-implement"}, proposals[0].Pipelines)
+	assert.Equal(t, []string{"improve"}, proposals[1].Pipelines)
 }
 
 func TestProposalEngine_MissingDependencies(t *testing.T) {
@@ -240,13 +239,13 @@ func TestProposalEngine_PriorityOrdering(t *testing.T) {
 
 func TestProposalEngine_PipelineNotInAvailableList(t *testing.T) {
 	report := makeReport("gh", 2, 0, 20, allToolsAvailable(), nil)
-	// Only wave-evolve available, not gh-implement.
-	pipelines := []string{"wave-evolve"}
+	// Only improve available, not gh-implement.
+	pipelines := []string{"improve"}
 
 	engine := NewProposalEngine(report, pipelines)
 	proposals := engine.GenerateProposals()
 
-	// gh-implement should not be proposed since it's not in the list.
+	// gh-implement should not be proposed since it is not in the list.
 	for _, p := range proposals {
 		for _, name := range p.Pipelines {
 			assert.NotEqual(t, "gh-implement", name, "gh-implement should not appear when not in available list")

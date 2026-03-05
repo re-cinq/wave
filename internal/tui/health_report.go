@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"time"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -11,11 +12,11 @@ import (
 
 // Style palette — matches theme.go colors.
 var (
-	hrCyan  = lipgloss.Color("6")   // Wave primary
+	hrCyan  = lipgloss.Color("14")  // Wave primary
 	hrWhite = lipgloss.Color("7")   // Primary text
 	hrMuted = lipgloss.Color("244") // Secondary/description text
-	hrRed   = lipgloss.Color("1")   // Errors
-	hrGreen = lipgloss.Color("2")   // Success indicators
+	hrRed   = lipgloss.Color("9")   // Errors
+	hrGreen = lipgloss.Color("10")  // Success indicators
 )
 
 // Reusable lipgloss styles.
@@ -54,7 +55,7 @@ func RenderHealthReport(report *meta.HealthReport) string {
 	}
 
 	// Footer: duration.
-	footer := labelStyle.Render(fmt.Sprintf("Completed in %s", report.Duration.Round(1_000_000)))
+	footer := labelStyle.Render(fmt.Sprintf("Completed in %s", report.Duration.Round(time.Millisecond)))
 	sections = append(sections, footer)
 
 	return strings.Join(sections, "\n\n")

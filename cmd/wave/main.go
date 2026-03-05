@@ -6,6 +6,7 @@ import (
 
 	"github.com/recinq/wave/cmd/wave/commands"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -26,6 +27,14 @@ var rootCmd = &cobra.Command{
   Wave coordinates multiple AI personas through structured pipelines,
   enforcing permissions, contracts, and workspace isolation at every step.`,
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// When invoked without a subcommand in an interactive terminal,
+		// launch the mission control TUI.
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			return commands.RunMissionControl(cmd)
+		}
+		return cmd.Help()
+	},
 }
 
 func init() {

@@ -95,6 +95,9 @@ Arguments can be provided as positional args or flags:
 				return err
 			}
 
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
+
 			// Check for reserved "wave" keyword — dispatch to meta-orchestrator
 			if opts.Pipeline == "wave" {
 				waveOpts := WaveOptions{
@@ -107,8 +110,6 @@ Arguments can be provided as positional args or flags:
 				return runWave(waveOpts, debug)
 			}
 
-			cmd.SilenceUsage = true
-			cmd.SilenceErrors = true
 			return runRun(opts, debug)
 		},
 	}

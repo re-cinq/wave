@@ -111,24 +111,7 @@ func (e *ProposalEngine) GenerateProposals() []PipelineProposal {
 		}
 	}
 
-	// Rule 4: Low recent commits (< 5 in last 30 days) → propose wave-evolve
-	if e.report.Codebase.RecentCommits < 5 {
-		name := "wave-evolve"
-		if e.pipelineExists(name) {
-			counter++
-			depsReady, missingDeps := e.checkDeps(name)
-			proposals = append(proposals, PipelineProposal{
-				ID:             fmt.Sprintf("p%d", counter),
-				Type:           ProposalSingle,
-				Pipelines:      []string{name},
-				Rationale:      fmt.Sprintf("Low recent activity (%d commits in last 30 days) — evolve the project", e.report.Codebase.RecentCommits),
-				PrefilledInput: "Evolve project based on current state",
-				Priority:       3,
-				DepsReady:      depsReady,
-				MissingDeps:    missingDeps,
-			})
-		}
-	}
+
 
 	// Rule 5: Open issues > 0 AND both research and implement pipelines exist → propose sequence
 	if e.report.Codebase.OpenIssueCount > 0 {
@@ -153,19 +136,18 @@ func (e *ProposalEngine) GenerateProposals() []PipelineProposal {
 		}
 	}
 
-	// Rule 6: No actionable signals → propose wave-evolve as default
+	// Rule 6: No actionable signals → offer each available pipeline individually.
 	if len(proposals) == 0 {
-		name := "wave-evolve"
-		if e.pipelineExists(name) {
+		for _, name := range e.pipelines {
 			counter++
 			depsReady, missingDeps := e.checkDeps(name)
 			proposals = append(proposals, PipelineProposal{
 				ID:             fmt.Sprintf("p%d", counter),
 				Type:           ProposalSingle,
 				Pipelines:      []string{name},
-				Rationale:      "No actionable signals detected — evolve the project",
-				PrefilledInput: "Evolve project based on current state",
-				Priority:       4,
+				Rationale:      "Available pipeline",
+				PrefilledInput: "",
+				Priority:       5,
 				DepsReady:      depsReady,
 				MissingDeps:    missingDeps,
 			})

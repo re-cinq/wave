@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"io"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -280,9 +281,11 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	}
 
 	// Read stdout from the adapter result
-	buf := make([]byte, 1024*1024) // 1MB buffer
-	n, _ := result.Stdout.Read(buf)
-	output := string(buf[:n])
+	raw, readErr := io.ReadAll(result.Stdout)
+	if readErr != nil {
+		return nil, 0, fmt.Errorf("failed to read philosopher output: %w", readErr)
+	}
+	output := string(raw)
 
 	// Extract pipeline and schemas from the output
 	genResult, err := extractPipelineAndSchemas(output)

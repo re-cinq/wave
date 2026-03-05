@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -320,8 +321,15 @@ func (h *HealthCheckerImpl) checkCodebase(ctx context.Context, prof platform.Pla
 		// Fall through to git-local on API error.
 	}
 
-	// Git-local fallback.
-	metrics.Source = "git_local"
+	// Try CLI tool fallback for issue/PR counts (works without API client).
+	if prof.CLITool != "" && metrics.OpenIssueCount == 0 {
+		h.fillCLIMetrics(ctx, prof.CLITool, &metrics)
+	}
+
+	// Supplement with git-local data for commits/branches.
+	if metrics.Source == "" {
+		metrics.Source = "git_local"
+	}
 	h.fillGitLocalMetrics(ctx, &metrics)
 	return metrics
 }
@@ -356,6 +364,34 @@ func (h *HealthCheckerImpl) fillGitLocalMetrics(ctx context.Context, metrics *Co
 		if t, parseErr := time.Parse(time.RFC3339, dateStr); parseErr == nil {
 			metrics.LastCommitDate = t
 		}
+	}
+}
+
+// fillCLIMetrics uses the platform CLI tool (gh, glab, etc.) to get issue/PR counts.
+func (h *HealthCheckerImpl) fillCLIMetrics(ctx context.Context, cliTool string, metrics *CodebaseMetrics) {
+	_, err := h.lookPath(cliTool)
+	if err != nil {
+		return
+	}
+
+	switch cliTool {
+	case "gh":
+		// Count open issues.
+		cmd := exec.CommandContext(ctx, "gh", "issue", "list", "--state", "open", "--json", "number", "--jq", "length")
+		if out, err := cmd.Output(); err == nil {
+			if n, parseErr := strconv.Atoi(strings.TrimSpace(string(out))); parseErr == nil {
+				metrics.OpenIssueCount = n
+			}
+		}
+		// Count open PRs.
+		cmd = exec.CommandContext(ctx, "gh", "pr", "list", "--state", "open", "--json", "number", "--jq", "length")
+		if out, err := cmd.Output(); err == nil {
+			if n, parseErr := strconv.Atoi(strings.TrimSpace(string(out))); parseErr == nil {
+				metrics.OpenPRCount = n
+				metrics.PRsByStatus["open"] = n
+			}
+		}
+		metrics.Source = "gh_cli"
 	}
 }
 
@@ -464,20 +500,6 @@ func (h *HealthCheckerImpl) RunHealthChecks(ctx context.Context, opts HealthChec
 		return nil
 	})
 
-	// 4. Platform check.
-	g.Go(func() error {
-		platCtx, cancel := context.WithTimeout(gctx, opts.PlatformTimeout)
-		defer cancel()
-
-		select {
-		case <-platCtx.Done():
-			if platCtx.Err() == context.DeadlineExceeded {
-				addError("platform", "platform check timed out", true)
-			}
-		default:
-		}
-		return nil
-	})
 
 	_ = g.Wait()
 
@@ -499,7 +521,7 @@ func collectSkillsFromPipelines() map[string]skill.SkillConfig {
 		if entry.IsDir() || (!strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml")) {
 			continue
 		}
-		data, err := os.ReadFile(pipelineDir + "/" + entry.Name())
+		data, err := os.ReadFile(filepath.Join(pipelineDir, entry.Name()))
 		if err != nil {
 			continue
 		}

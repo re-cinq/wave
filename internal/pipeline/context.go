@@ -76,11 +76,19 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	ctx.mu.Unlock()
 
 	// Replace pipeline context variables (both spaced and unspaced)
+	// Support both prefixed (pipeline_context.pipeline_id) and bare (pipeline_id) forms
 	result = replaceBoth(result, "pipeline_context.branch_name", ctx.BranchName)
 	result = replaceBoth(result, "pipeline_context.feature_num", ctx.FeatureNum)
 	result = replaceBoth(result, "pipeline_context.pipeline_id", ctx.PipelineID)
 	result = replaceBoth(result, "pipeline_context.pipeline_name", ctx.PipelineName)
 	result = replaceBoth(result, "pipeline_context.step_id", ctx.StepID)
+
+	// Also resolve bare variable names ({{ pipeline_id }}, {{ step_id }}, etc.)
+	result = replaceBoth(result, "pipeline_id", ctx.PipelineID)
+	result = replaceBoth(result, "pipeline_name", ctx.PipelineName)
+	result = replaceBoth(result, "step_id", ctx.StepID)
+	result = replaceBoth(result, "branch_name", ctx.BranchName)
+	result = replaceBoth(result, "feature_num", ctx.FeatureNum)
 
 	// Replace artifact path references ({{ artifacts.<name> }})
 	for name, path := range artifactPathsCopy {

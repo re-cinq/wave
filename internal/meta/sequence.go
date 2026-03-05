@@ -172,7 +172,7 @@ func copyArtifacts(src map[string]string, destDir string) error {
 }
 
 // copyFile copies a single file from src to dst.
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (retErr error) {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -183,11 +183,12 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		if cerr := out.Close(); retErr == nil {
+			retErr = cerr
+		}
+	}()
 
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-
-	return out.Close()
+	_, retErr = io.Copy(out, in)
+	return
 }
