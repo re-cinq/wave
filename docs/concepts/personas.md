@@ -15,15 +15,15 @@ personas:
   navigator:
     adapter: claude
     system_prompt_file: .wave/personas/navigator.md
-    temperature: 0.1
+    #temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Glob", "Grep"]
-      deny: ["Write(*)", "Edit(*)"]
+      allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
+      deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 ```
 
 ## Built-in Personas
 
-Wave includes **14 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
+Wave includes **30 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
 
 <script setup>
 const builtInPersonas = [
@@ -34,18 +34,18 @@ const builtInPersonas = [
   },
   {
     persona: 'auditor',
-    description: 'Security and code review, read-only analysis with detailed reporting',
-    permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
+    description: 'Security and code review with go vet and npm audit',
+    permissions: { read: 'allow', write: 'deny', execute: 'conditional', network: 'deny' }
   },
   {
     persona: 'implementer',
-    description: 'Code generation and modification with scoped write access',
-    permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
+    description: 'Code generation and modification with full tool access',
+    permissions: { read: 'allow', write: 'allow', execute: 'allow', network: 'deny' }
   },
   {
     persona: 'craftsman',
-    description: 'Full implementation and testing with scoped write and execute access',
-    permissions: { read: 'allow', write: 'conditional', execute: 'conditional', network: 'deny' }
+    description: 'Full implementation and testing with broad tool access',
+    permissions: { read: 'allow', write: 'allow', execute: 'allow', network: 'deny' }
   }
 ]
 </script>
@@ -61,10 +61,10 @@ personas:
   navigator:
     adapter: claude
     system_prompt_file: .wave/personas/navigator.md
-    temperature: 0.1
+    #temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Glob", "Grep"]
-      deny: ["Write(*)", "Edit(*)", "Bash(*)"]
+      allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
+      deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 ```
 
 **Use cases:**
@@ -82,10 +82,10 @@ personas:
   auditor:
     adapter: claude
     system_prompt_file: .wave/personas/auditor.md
-    temperature: 0.2
+    #temperature: 0.1
     permissions:
-      allowed_tools: ["Read", "Glob", "Grep"]
-      deny: ["Write(*)", "Edit(*)", "Bash(*)"]
+      allowed_tools: ["Read", "Grep", "Bash(go vet*)", "Bash(npm audit*)"]
+      deny: ["Write(*)", "Edit(*)"]
 ```
 
 **Use cases:**
@@ -96,26 +96,25 @@ personas:
 
 ### Implementer
 
-The Implementer handles code generation and modification with scoped write access.
+The Implementer handles code generation and modification with full tool access.
 
 ```yaml
 personas:
   implementer:
     adapter: claude
     system_prompt_file: .wave/personas/implementer.md
-    temperature: 0.3
+    #temperature: 0.3
     permissions:
       allowed_tools:
-        - "Read"
-        - "Glob"
-        - "Grep"
-        - "Write(src/*)"
-        - "Edit(src/*)"
-        - "Bash(go build*)"
-        - "Bash(go fmt*)"
+        - Read
+        - Write
+        - Edit
+        - Bash
+        - Glob
+        - Grep
       deny:
-        - "Write(*.env)"
-        - "Bash(rm -rf *)"
+        - "Bash(rm -rf /*)"
+        - "Bash(sudo *)"
 ```
 
 **Use cases:**
@@ -133,20 +132,15 @@ personas:
   craftsman:
     adapter: claude
     system_prompt_file: .wave/personas/craftsman.md
-    temperature: 0.3
+    #temperature: 0.3
     permissions:
       allowed_tools:
-        - "Read"
-        - "Glob"
-        - "Grep"
-        - "Write(src/*)"
-        - "Write(*_test.go)"
-        - "Edit(src/*)"
-        - "Bash(go test*)"
-        - "Bash(go build*)"
+        - Read
+        - Write
+        - Edit
+        - Bash
       deny:
-        - "Write(*.env)"
-        - "Bash(rm -rf *)"
+        - "Bash(rm -rf /*)"
 ```
 
 **Use cases:**
@@ -333,6 +327,8 @@ pipelines:
 ```
 
 ## Next Steps
+
+> **Complete persona list:** Run `wave list personas` to see all 30 built-in personas with their permissions, or browse the definitions in [`wave.yaml`](../../wave.yaml).
 
 - [Custom Personas Guide](/guides/custom-personas) - Create specialized personas for your workflows
 - [Pipelines](/concepts/pipelines) - Use personas in multi-step workflows

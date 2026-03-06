@@ -137,7 +137,7 @@ Use "wave [command] --help" for more information about a command.
 | Command | Description |
 |---------|-------------|
 | `wave init` | Initialize project with personas and pipelines |
-| `wave run --pipeline <name>` | Execute a pipeline |
+| `wave run <pipeline>` | Execute a pipeline |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
 | `wave meta "<task>"` | Generate custom multi-step pipeline with schemas |
 | `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
@@ -297,13 +297,13 @@ wave clean --all --keep-last 5
 personas:
   navigator:
     adapter: claude
-    temperature: 0.1
+    #temperature: 0.1
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write(*), Edit(*)]
 ```
 
-**14 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
+**30 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
 
 > Explore all personas in [`.wave/personas/`](.wave/personas/)
 
@@ -321,7 +321,7 @@ steps:
     dependencies: [implement]
 ```
 
-**23 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**47 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -333,7 +333,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 23 built-in pipelines:
+A selection of the 47 built-in pipelines:
 
 ### Development
 
@@ -363,10 +363,11 @@ A selection of the 23 built-in pipelines:
 
 | Pipeline | Description |
 |----------|-------------|
-| `github-issue-enhancer` | Analyze and enhance poorly documented issues |
-| `doc-audit` | Documentation impact analysis before merge |
+| `gh-implement` | Implement a GitHub issue end-to-end |
+| `gh-pr-review` | Comprehensive code review for pull requests |
+| `doc-audit` | Documentation consistency gate |
 
-> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`
+> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `changelog`, `adr`, `wave-land`, `recinq`, `supervise`, plus platform variants for GitLab (gl-*), Gitea (gt-*), and Bitbucket (bb-*)
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -374,19 +375,19 @@ A selection of the 23 built-in pipelines:
 
 ## Personas
 
-A selection of the 14 built-in personas:
+A selection of the 30 built-in personas:
 
-| Persona | Temp | Purpose | Key Permissions |
-|---------|------|---------|--------------------|
-| `navigator` | 0.1 | Codebase exploration | Read-only |
-| `philosopher` | 0.3 | Architecture & specs | Read + write specs |
-| `planner` | 0.3 | Task breakdown | Read-only |
-| `craftsman` | 0.7 | Implementation | Full access |
-| `debugger` | 0.2 | Root cause analysis | Read + git bisect |
-| `auditor` | 0.1 | Security review | Read + audit tools |
-| `summarizer` | 0.0 | Context compaction | Read-only |
+| Persona | Purpose | Key Permissions |
+|---------|---------|-----------------|
+| `navigator` | Codebase exploration | Read, Glob, Grep, git log/status |
+| `philosopher` | Architecture & specs | Read, Write, Edit, Bash, Glob, Grep |
+| `planner` | Task breakdown | Read, Write, Edit, Bash, Glob, Grep |
+| `craftsman` | Implementation | Read, Write, Edit, Bash |
+| `debugger` | Root cause analysis | Read, Grep, Glob, go test, git bisect |
+| `auditor` | Security review | Read, Grep, go vet, npm audit |
+| `summarizer` | Context compaction | Read, Write, Edit, Bash, Glob, Grep |
 
-> **More personas:** `implementer`, `researcher`, `reviewer`, `github-analyst`, `github-commenter`, `github-enhancer`, `github-pr-creator`
+> **More personas:** `implementer`, `researcher`, `reviewer`, `supervisor`, `validator`, `synthesizer`, `provocateur`, plus platform-specific personas for GitHub, GitLab, Gitea, and Bitbucket
 >
 > Explore all in [`.wave/personas/`](.wave/personas/)
 

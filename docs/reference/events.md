@@ -11,12 +11,45 @@ Every event contains these fields:
 | `timestamp` | `string` | **yes** | ISO 8601 timestamp with timezone. |
 | `pipeline_id` | `string` | **yes** | UUID for this pipeline execution instance. |
 | `step_id` | `string` | no | Step identifier within the pipeline. |
-| `state` | `string` | **yes** | New state: `started`, `running`, `completed`, `failed`, `retrying`. |
+| `state` | `string` | **yes** | Event state (see Event States below). |
 | `duration_ms` | `int` | no | Milliseconds elapsed since step started. |
 | `message` | `string` | no | Human-readable status message. |
 | `persona` | `string` | no | Persona executing the step. |
 | `artifacts` | `[]string` | when completed | List of output artifact paths. |
-| `tokens_used` | `int` | when completed | Token count for the step. |
+| `tokens_used` | `int` | when completed | Total token count for the step. |
+| `tokens_in` | `int` | when completed | Input token count. |
+| `tokens_out` | `int` | when completed | Output token count. |
+| `progress` | `int` | no | Percentage progress (0-100). |
+| `current_action` | `string` | no | Current action description. |
+| `total_steps` | `int` | when started | Total pipeline steps. |
+| `completed_steps` | `int` | no | Number of completed steps. |
+| `estimated_time_ms` | `int` | no | Estimated remaining time in milliseconds. |
+| `validation_phase` | `string` | no | Current contract validation phase. |
+| `compaction_stats` | `string` | no | Relay compaction statistics. |
+| `failure_reason` | `string` | when failed | Detailed failure reason. |
+| `remediation` | `string` | when failed | Suggested fix for the failure. |
+| `tool_name` | `string` | no | Tool being used (for stream_activity events). |
+| `tool_target` | `string` | no | Tool target path or argument. |
+| `model` | `string` | no | LLM model used for the step. |
+| `adapter` | `string` | no | Adapter used (e.g., "claude"). |
+| `temperature` | `float` | no | Temperature setting used. |
+| `recovery_hints` | `[]object` | when failed | Recovery hint suggestions. |
+| `outcomes` | `object` | when completed | Step outcome summary. |
+
+## Event States
+
+| State | Description |
+|-------|-------------|
+| `started` | Pipeline or step has begun execution. |
+| `running` | Step is actively executing. |
+| `completed` | Step or pipeline finished successfully. |
+| `failed` | Step or pipeline failed. |
+| `retrying` | Step is being retried after validation failure. |
+| `step_progress` | Progress update within a running step. |
+| `eta_updated` | Estimated time of completion updated. |
+| `contract_validating` | Contract validation is in progress. |
+| `compaction_progress` | Relay compaction is in progress. |
+| `stream_activity` | Real-time tool activity from the adapter. |
 
 ## Event Examples
 

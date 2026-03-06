@@ -23,6 +23,14 @@ Configuration values are resolved in this order (highest priority first):
 3. Manifest values (`wave.yaml`)
 4. Built-in defaults
 
+### Default Step Timeout
+
+The default step timeout depends on context:
+- **wave.yaml manifest**: `default_timeout_minutes: 90` (90 minutes)
+- **Onboarding wizard** (`wave init`): defaults to 30 minutes if not specified
+
+The manifest value takes precedence once configured.
+
 ## Display & Terminal Variables
 
 These variables influence Wave's terminal display behavior:
@@ -32,8 +40,8 @@ These variables influence Wave's terminal display behavior:
 | `COLUMNS` | `int` | _(auto)_ | Override terminal width detection. |
 | `LINES` | `int` | _(auto)_ | Override terminal height detection. |
 | `COLORTERM` | `string` | _(auto)_ | Color support hint. `truecolor` or `24bit` enables 24-bit color. |
-| `NO_UNICODE` | `bool` | `false` | Disable Unicode characters in output. Falls back to ASCII. |
-| `NERD_FONT` | `bool` | `false` | Enable Nerd Font icons in deliverable output. |
+| `NO_UNICODE` | `string` | `""` | Disable Unicode characters in output. Any non-empty value enables ASCII fallback. |
+| `NERD_FONT` | `string` | `""` | Enable Nerd Font icons in deliverable output. Set to `"1"` to enable. Also auto-detected for kitty, alacritty, and JetBrains terminals. |
 
 ## CI/CD Detection Variables
 

@@ -10,7 +10,6 @@ Contracts validate step output before dependent steps begin. This page documents
 | `json_schema` | JSON structure | Ensuring data format and required fields |
 | `typescript_interface` | TypeScript compiles | Validating generated type definitions |
 | `markdown_spec` | Markdown structure | Checking documentation format |
-| `template` | Structured templates | Validating JSON/Markdown/YAML templates (experimental) |
 | `format` | Domain-specific formats | Validating GitHub issues, PRs, analysis outputs (experimental) |
 
 ---
@@ -328,23 +327,6 @@ steps:
 
 ---
 
-## template
-
-Validate structured templates with required fields and constraints. Supports JSON, Markdown, and YAML formats.
-
-```yaml
-handover:
-  contract:
-    type: template
-    source: .wave/output/template.json
-```
-
-**Use when:** Ensuring generated templates contain required fields and meet format constraints.
-
-**Status:** Experimental. Supports required field checking, min/max length constraints, pattern matching, and enum validation.
-
----
-
 ## format
 
 Production-ready format validation for domain-specific outputs like GitHub issues, pull requests, and code analysis.
@@ -359,6 +341,23 @@ handover:
 **Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
 
 **Status:** Experimental. Infers format type from content and applies domain-specific validation rules including placeholder detection.
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `source` | **yes** | - | Path to file to validate |
+| `must_pass` | no | `true` | Whether failure blocks progression |
+| `on_failure` | no | `retry` | `retry` or `halt` |
+| `max_retries` | no | `2` | Maximum retry attempts |
+
+### Supported Formats
+
+The format validator auto-detects content type and applies domain-specific rules:
+- **GitHub issues** — checks for title, body, labels structure
+- **Pull requests** — validates description, linked issues
+- **Analysis outputs** — ensures structured sections are present
+- **Placeholder detection** — flags unfilled template placeholders
 
 ---
 
