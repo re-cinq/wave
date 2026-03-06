@@ -72,3 +72,46 @@ func TestStatusBarModel_Update_FocusChangedBackToLeft(t *testing.T) {
 	assert.Contains(t, view, "Enter: view")
 	assert.Contains(t, view, "/: filter")
 }
+
+// ===========================================================================
+// T019: Status bar form hint tests
+// ===========================================================================
+
+func TestStatusBarModel_FormActiveMsg_SetsFormActive(t *testing.T) {
+	sb := NewStatusBarModel()
+
+	sb, _ = sb.Update(FormActiveMsg{Active: true})
+	assert.True(t, sb.formActive)
+}
+
+func TestStatusBarModel_FormActive_RightPane_ShowsFormHints(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	// Set form active and focus to right pane
+	sb, _ = sb.Update(FormActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	assert.Contains(t, view, "Tab: next")
+	assert.Contains(t, view, "Enter: launch")
+	assert.Contains(t, view, "Esc: cancel")
+}
+
+func TestStatusBarModel_FormInactive_RevertsToDefault(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	// Activate form
+	sb, _ = sb.Update(FormActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+	assert.True(t, sb.formActive)
+
+	// Deactivate form and switch back to left
+	sb, _ = sb.Update(FormActiveMsg{Active: false})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneLeft})
+
+	view := sb.View()
+	assert.Contains(t, view, "Enter: view")
+	assert.Contains(t, view, "/: filter")
+}
