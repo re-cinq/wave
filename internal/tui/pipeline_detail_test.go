@@ -184,6 +184,7 @@ func TestPipelineDetailModel_FinishedFailed(t *testing.T) {
 
 func TestPipelineDetailModel_BranchDeleted(t *testing.T) {
 	detail := fullFinishedDetail("completed")
+	detail.BranchDeleted = true
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
@@ -583,4 +584,365 @@ func TestPipelineDetailModel_Form_ResizeUpdatesFormDimensions(t *testing.T) {
 	m.SetSize(60, 20)
 	view2 := m.View()
 	assert.NotEmpty(t, view2, "form should render after smaller resize")
+}
+
+// ===========================================================================
+// T014: Chat session (Enter key) tests
+// ===========================================================================
+
+func TestPipelineDetailModel_EnterOnFinishedDetail_EmptyWorkspace_SetsActionError(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = "" // No workspace
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press Enter
+	enterMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	m, cmd = m.Update(enterMsg)
+
+	assert.Contains(t, m.actionError, "Workspace directory no longer exists")
+	assert.Nil(t, cmd)
+}
+
+func TestPipelineDetailModel_EnterOnFinishedDetail_ValidWorkspace_ReturnsExecCmd(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = "/tmp/test-ws"
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press Enter
+	enterMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	m, cmd = m.Update(enterMsg)
+
+	assert.NotNil(t, cmd, "should return tea.Exec command for chat session")
+	assert.Empty(t, m.actionError)
+}
+
+func TestPipelineDetailModel_ChatSessionEndedMsg_TriggersRefetch(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Set up state
+	m.selectedRunID = "run-123"
+	m.paneState = stateFinishedDetail
+	m.finishedDetail = detail
+
+	// Send ChatSessionEndedMsg
+	m, cmd := m.Update(ChatSessionEndedMsg{})
+
+	assert.NotNil(t, cmd, "should return batch cmd for re-fetch and git refresh")
+}
+
+// ===========================================================================
+// T017: Branch checkout (b key) tests
+// ===========================================================================
+
+func TestPipelineDetailModel_BKey_ValidBranch_ReturnsCheckoutCmd(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = "/tmp/test-ws"
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press b
+	bMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}
+	m, cmd = m.Update(bMsg)
+
+	assert.NotNil(t, cmd, "should return checkout command")
+}
+
+func TestPipelineDetailModel_BKey_BranchDeleted_IsNoOp(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchDeleted = true
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press b
+	bMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}
+	m, cmd = m.Update(bMsg)
+
+	assert.Nil(t, cmd, "should be no-op when branch is deleted")
+}
+
+func TestPipelineDetailModel_BKey_EmptyBranch_IsNoOp(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchName = ""
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press b
+	bMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}
+	m, cmd = m.Update(bMsg)
+
+	assert.Nil(t, cmd, "should be no-op when branch name is empty")
+}
+
+func TestPipelineDetailModel_BranchCheckoutMsg_Success_ClearsError(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.actionError = "previous error"
+	m.paneState = stateFinishedDetail
+
+	m, cmd := m.Update(BranchCheckoutMsg{BranchName: "feat/test", Success: true})
+
+	assert.Empty(t, m.actionError)
+	assert.NotNil(t, cmd, "should return git refresh command")
+}
+
+func TestPipelineDetailModel_BranchCheckoutMsg_Failure_SetsActionError(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	m := newTestDetailModel(&mockDetailProvider{finishedDetail: detail})
+	m.paneState = stateFinishedDetail
+	m.finishedDetail = detail
+
+	m, _ = m.Update(BranchCheckoutMsg{
+		BranchName: "feat/test",
+		Success:    false,
+		Err:        errors.New("your local changes would be overwritten"),
+	})
+
+	assert.Contains(t, m.actionError, "Branch checkout failed")
+	assert.Contains(t, m.actionError, "your local changes would be overwritten")
+}
+
+// ===========================================================================
+// T020: Diff view (d key) tests
+// ===========================================================================
+
+func TestPipelineDetailModel_DKey_ValidBranch_ReturnsExecCmd(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = "/tmp/test-ws"
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press d
+	dMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+	m, cmd = m.Update(dMsg)
+
+	assert.NotNil(t, cmd, "should return tea.Exec command for diff view")
+}
+
+func TestPipelineDetailModel_DKey_BranchDeleted_IsNoOp(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchDeleted = true
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press d
+	dMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+	m, cmd = m.Update(dMsg)
+
+	assert.Nil(t, cmd, "should be no-op when branch is deleted")
+}
+
+func TestPipelineDetailModel_DKey_EmptyBranch_IsNoOp(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchName = ""
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press d
+	dMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+	m, cmd = m.Update(dMsg)
+
+	assert.Nil(t, cmd, "should be no-op when branch name is empty")
+}
+
+func TestPipelineDetailModel_DiffViewEndedMsg_IsHandled(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateFinishedDetail
+
+	m, cmd := m.Update(DiffViewEndedMsg{})
+
+	assert.Nil(t, cmd, "DiffViewEndedMsg should be no-op")
+}
+
+// ===========================================================================
+// T027: Rendering tests for action hints
+// ===========================================================================
+
+func TestPipelineDetailModel_ActionHints_DiffFaintedWhenBranchDeleted(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchDeleted = true
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow", BranchDeleted: true}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// Verify both [b] and [d] hints are still present (just fainted)
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "[b] Checkout branch")
+	assert.Contains(t, view, "[d] View diff")
+}
+
+func TestPipelineDetailModel_ActionHints_EnterFaintedWhenNoWorkspace(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = ""
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// [Enter] hint should still be present in the view (just fainted)
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "[Enter] Open chat")
+}
+
+func TestPipelineDetailModel_ActionError_RenderedInRed(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = ""
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press Enter to trigger workspace error
+	enterMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	m, _ = m.Update(enterMsg)
+
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "Workspace directory no longer exists")
+	// When actionError is set, action hints should NOT be displayed
+	assert.NotContains(t, view, "[Esc] Back")
+}
+
+func TestPipelineDetailModel_ActionError_ClearsOnNextKeypress(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = ""
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press Enter to trigger workspace error
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.NotEmpty(t, m.actionError)
+
+	// Press any key to clear the error
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	assert.Empty(t, m.actionError, "action error should clear on next keypress")
+}
+
+func TestPipelineDetailModel_ActionKeysIgnoredWhenNotFocused(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.WorkspacePath = "/tmp/test-ws"
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail but DON'T focus
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(false)
+
+	// Press b - should be no-op when not focused
+	bMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}
+	m, cmd = m.Update(bMsg)
+	assert.Nil(t, cmd, "action keys should be ignored when not focused")
+}
+
+func TestPipelineDetailModel_ActionKeysIgnoredInOtherStates(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateAvailableDetail
+	m.SetFocused(true)
+
+	// Press b - should be no-op in stateAvailableDetail
+	bMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}
+	_, cmd := m.Update(bMsg)
+	// In stateAvailableDetail, the viewport handles the key, so cmd may or may not be nil.
+	// The important thing is that no checkout command is returned.
+	if cmd != nil {
+		msg := cmd()
+		_, isBranchCheckout := msg.(BranchCheckoutMsg)
+		assert.False(t, isBranchCheckout, "should not return BranchCheckoutMsg in non-finished state")
+	}
+}
+
+func TestPipelineDetailModel_BranchDeletedUpdatedFromFinishedDetail(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	detail.BranchDeleted = true
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Selection does NOT set branchDeleted
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow", BranchDeleted: false}
+	m, cmd := m.Update(selMsg)
+	assert.False(t, m.branchDeleted)
+
+	// DetailDataMsg with BranchDeleted=true should update branchDeleted
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	assert.True(t, m.branchDeleted, "branchDeleted should be updated from FinishedDetail")
 }

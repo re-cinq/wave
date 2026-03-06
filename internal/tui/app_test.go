@@ -363,3 +363,36 @@ func TestAppModel_Update_ForwardsFormActiveMsgToStatusBar(t *testing.T) {
 
 	assert.True(t, model.statusBar.formActive)
 }
+
+// ===========================================================================
+// T039: App model tests for FinishedDetailActiveMsg forwarding
+// ===========================================================================
+
+func TestAppModel_Update_ForwardsFinishedDetailActiveMsgToStatusBar(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Send FinishedDetailActiveMsg
+	finishedMsg := FinishedDetailActiveMsg{Active: true}
+	updated, _ = model.Update(finishedMsg)
+	model = updated.(AppModel)
+
+	assert.True(t, model.statusBar.finishedDetailActive)
+}
+
+func TestAppModel_Update_ForwardsFinishedDetailActiveFalseToStatusBar(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Set active first
+	updated, _ = model.Update(FinishedDetailActiveMsg{Active: true})
+	model = updated.(AppModel)
+	assert.True(t, model.statusBar.finishedDetailActive)
+
+	// Now set inactive
+	updated, _ = model.Update(FinishedDetailActiveMsg{Active: false})
+	model = updated.(AppModel)
+	assert.False(t, model.statusBar.finishedDetailActive)
+}
