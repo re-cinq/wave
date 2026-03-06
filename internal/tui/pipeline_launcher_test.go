@@ -5,13 +5,16 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/recinq/wave/internal/event"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewPipelineLauncher_InitializesEmptyCancelMap(t *testing.T) {
+func TestNewPipelineLauncher_InitializesEmptyMaps(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
 	assert.NotNil(t, launcher.cancelFns)
 	assert.Empty(t, launcher.cancelFns)
+	assert.NotNil(t, launcher.buffers)
+	assert.Empty(t, launcher.buffers)
 }
 
 func TestPipelineLauncher_Cancel_UnknownRunID_IsNoOp(t *testing.T) {
@@ -63,24 +66,30 @@ func TestPipelineLauncher_CancelAll_EmptyMap_IsNoOp(t *testing.T) {
 	assert.Empty(t, launcher.cancelFns)
 }
 
-func TestPipelineLauncher_Cleanup_RemovesEntry(t *testing.T) {
+func TestPipelineLauncher_Cleanup_RemovesCancelAndBuffer(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
 
 	_, cancel := context.WithCancel(context.Background())
 	launcher.mu.Lock()
 	launcher.cancelFns["run-to-clean"] = cancel
 	launcher.cancelFns["run-to-keep"] = cancel
+	launcher.buffers["run-to-clean"] = NewEventBuffer(10)
+	launcher.buffers["run-to-keep"] = NewEventBuffer(10)
 	launcher.mu.Unlock()
 
 	launcher.Cleanup("run-to-clean")
 
 	launcher.mu.Lock()
-	_, exists := launcher.cancelFns["run-to-clean"]
-	_, kept := launcher.cancelFns["run-to-keep"]
+	_, cancelExists := launcher.cancelFns["run-to-clean"]
+	_, cancelKept := launcher.cancelFns["run-to-keep"]
+	_, bufExists := launcher.buffers["run-to-clean"]
+	_, bufKept := launcher.buffers["run-to-keep"]
 	launcher.mu.Unlock()
 
-	assert.False(t, exists, "cleaned up entry should be gone")
-	assert.True(t, kept, "other entries should remain")
+	assert.False(t, cancelExists, "cleaned up cancel entry should be gone")
+	assert.True(t, cancelKept, "other cancel entries should remain")
+	assert.False(t, bufExists, "cleaned up buffer entry should be gone")
+	assert.True(t, bufKept, "other buffer entries should remain")
 }
 
 func TestPipelineLauncher_Cleanup_NonexistentRunID_IsNoOp(t *testing.T) {
@@ -129,4 +138,48 @@ func TestPipelineLauncher_Launch_MissingPipelineDir_ReturnsError(t *testing.T) {
 	errMsg, ok := msg.(LaunchErrorMsg)
 	assert.True(t, ok, "should return LaunchErrorMsg")
 	assert.Contains(t, errMsg.Err.Error(), "loading pipeline")
+}
+
+func TestPipelineLauncher_SetProgram(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	assert.Nil(t, launcher.program)
+
+	// SetProgram with nil should not panic
+	launcher.SetProgram(nil)
+	assert.Nil(t, launcher.program)
+}
+
+func TestPipelineLauncher_GetBuffer_ReturnsNilForUnknown(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	buf := launcher.GetBuffer("nonexistent")
+	assert.Nil(t, buf)
+}
+
+func TestPipelineLauncher_GetBuffer_ReturnsBuffer(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	expected := NewEventBuffer(100)
+	launcher.mu.Lock()
+	launcher.buffers["run-1"] = expected
+	launcher.mu.Unlock()
+
+	buf := launcher.GetBuffer("run-1")
+	assert.Equal(t, expected, buf)
+}
+
+func TestPipelineLauncher_HasBuffer(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	assert.False(t, launcher.HasBuffer("run-1"))
+
+	launcher.mu.Lock()
+	launcher.buffers["run-1"] = NewEventBuffer(100)
+	launcher.mu.Unlock()
+
+	assert.True(t, launcher.HasBuffer("run-1"))
+}
+
+func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
+	emitter := &TUIProgressEmitter{program: nil, runID: "run-1"}
+	// Should not panic with nil program
+	err := emitter.EmitProgress(event.Event{State: event.StateStarted})
+	assert.NoError(t, err)
 }

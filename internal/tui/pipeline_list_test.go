@@ -188,8 +188,8 @@ func TestPipelineListModel_View_RunningItemsShowElapsedTime(t *testing.T) {
 	m := newTestListModel(running, nil, nil)
 	view := listStripAnsi(m.View())
 
-	// 150 seconds = 2m30s
-	assert.Contains(t, view, "2m30s")
+	// 150 seconds = 02:30 (formatElapsed produces MM:SS)
+	assert.Contains(t, view, "02:30")
 }
 
 func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T) {
