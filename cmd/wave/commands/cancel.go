@@ -61,6 +61,7 @@ Examples:
 			if len(args) > 0 {
 				opts.RunID = args[0]
 			}
+			opts.Format = ResolveFormat(cmd, opts.Format)
 			return runCancel(opts)
 		},
 	}
