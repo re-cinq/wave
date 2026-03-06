@@ -85,6 +85,7 @@ handover:
 | `json_schema` | JSON structure | Ensuring data format |
 | `typescript_interface` | TypeScript compiles | Validating generated types |
 | `markdown_spec` | Markdown structure | Checking documentation |
+| `format` | Output format rules (e.g., GitHub issue, PR, code) | Ensuring production-ready formatting |
 
 ## Contract Fields
 

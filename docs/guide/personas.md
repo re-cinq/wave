@@ -4,7 +4,7 @@ Personas define how agents behave in Wave. Each persona binds an adapter to a sp
 
 ## Built-in Personas
 
-Wave ships with 14 built-in personas:
+Wave ships with 30 built-in personas:
 
 | Persona | Purpose | Permissions |
 |---------|---------|-------------|
@@ -21,7 +21,7 @@ Wave ships with 14 built-in personas:
 | `github-analyst` | GitHub issue analysis | Read, Grep, Bash(gh *) |
 | `github-enhancer` | GitHub issue enhancement | Read, Bash(gh *) |
 | `github-commenter` | GitHub issue commenting | Read, Bash(gh *) |
-| `github-pr-creator` | Pull request creation | Read, Bash(gh *), Bash(git *) |
+| `github-scoper` | Epic decomposition and issue scoping | Read, Bash(gh *), Bash(git *) |
 
 ## Persona Definitions
 
@@ -194,9 +194,9 @@ Enhances poorly documented GitHub issues with structured details, reproduction s
 
 Posts analysis results and recommendations as comments on GitHub issues.
 
-### GitHub PR Creator
+### GitHub Scoper
 
-Creates pull requests with proper descriptions, linking related issues and summarizing changes.
+Analyzes epic/umbrella issues and decomposes them into well-scoped child issues for implementation.
 
 ## Defining Custom Personas
 
