@@ -101,6 +101,33 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 	case PipelineRefreshTickMsg:
 		return m, tea.Batch(m.fetchPipelineData, m.refreshTick())
 
+	case PipelineLaunchedMsg:
+		// Insert synthetic running entry at the top
+		newRunning := RunningPipeline{
+			RunID:     msg.RunID,
+			Name:      msg.PipelineName,
+			StartedAt: time.Now(),
+		}
+		m.running = append([]RunningPipeline{newRunning}, m.running...)
+		m.buildNavigableItems()
+
+		// Move cursor to the new running entry
+		for i, item := range m.navigable {
+			if item.kind == itemKindRunning {
+				m.cursor = i
+				break
+			}
+		}
+
+		// Emit running count and selection messages
+		cmds := []tea.Cmd{
+			func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
+		}
+		if cmd := m.emitSelectionMsg(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
+
 	case tea.KeyMsg:
 		if !m.focused {
 			return m, nil

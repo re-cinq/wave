@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,7 +40,7 @@ func DiscoverPipelines(dir string) ([]PipelineInfo, error) {
 
 		info, err := parsePipelineFile(filepath.Join(dir, entry.Name()))
 		if err != nil {
-			// Skip malformed files — don't block discovery.
+			// Skip malformed files — don’t block discovery.
 			continue
 		}
 		pipelines = append(pipelines, info)
@@ -71,4 +72,39 @@ func parsePipelineFile(path string) (PipelineInfo, error) {
 		Release:      p.Metadata.Release,
 		Category:     p.Metadata.Category,
 	}, nil
+}
+
+// LoadPipelineByName scans the given directory for pipeline YAML files
+// and returns the full Pipeline struct for the first match on metadata name.
+func LoadPipelineByName(dir, name string) (*pipeline.Pipeline, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := filepath.Ext(entry.Name())
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			continue
+		}
+
+		var p pipeline.Pipeline
+		if err := yaml.Unmarshal(data, &p); err != nil {
+			continue
+		}
+
+		if p.Metadata.Name == name {
+			return &p, nil
+		}
+	}
+
+	return nil, fmt.Errorf("pipeline not found: %s", name)
 }

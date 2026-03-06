@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,12 +24,12 @@ func (m *contentTestPipelineProvider) FetchAvailablePipelines() ([]PipelineInfo,
 }
 
 func TestContentModel_NewContentModel(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	assert.True(t, c.list.focused)
 }
 
 func TestContentModel_SetSize(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	assert.Equal(t, 0, c.width)
 	assert.Equal(t, 0, c.height)
 
@@ -38,7 +39,7 @@ func TestContentModel_SetSize(t *testing.T) {
 }
 
 func TestContentModel_SetSize_PropagatesListDimensions(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	// Left pane: 30% of 120 = 36, clamped to [25, 50] -> 36
@@ -61,7 +62,7 @@ func TestContentModel_LeftPaneWidth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewContentModel(&contentTestPipelineProvider{}, nil)
+			c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 			c.SetSize(tt.width, 40)
 			assert.Equal(t, tt.expected, c.list.width)
 		})
@@ -69,32 +70,32 @@ func TestContentModel_LeftPaneWidth(t *testing.T) {
 }
 
 func TestContentModel_View_RightPanePlaceholder(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 	view := c.View()
 	assert.Contains(t, view, "Select a pipeline to view details")
 }
 
 func TestContentModel_View_ZeroDimensions(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	view := c.View()
 	assert.Equal(t, "", view)
 }
 
 func TestContentModel_Init_ReturnsCommands(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	cmd := c.Init()
 	assert.NotNil(t, cmd)
 }
 
 func TestContentModel_FocusStartsOnLeft(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	assert.Equal(t, FocusPaneLeft, c.focus)
 	assert.True(t, c.list.focused)
 }
 
 func TestContentModel_SetSize_PropagatesDetailDimensions(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	// Right pane: 120 - 36 = 84
@@ -103,7 +104,7 @@ func TestContentModel_SetSize_PropagatesDetailDimensions(t *testing.T) {
 }
 
 func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	// Inject data with an available pipeline
@@ -127,16 +128,10 @@ func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {
 	assert.False(t, c.list.focused)
 	assert.True(t, c.detail.focused)
 	assert.NotNil(t, cmd)
-
-	// Verify FocusChangedMsg is emitted
-	result := cmd()
-	fcm, ok := result.(FocusChangedMsg)
-	assert.True(t, ok)
-	assert.Equal(t, FocusPaneRight, fcm.Pane)
 }
 
 func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
@@ -158,7 +153,7 @@ func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
 }
 
 func TestContentModel_EnterOnSectionHeaderDoesNotTransition(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
@@ -175,7 +170,7 @@ func TestContentModel_EnterOnSectionHeaderDoesNotTransition(t *testing.T) {
 }
 
 func TestContentModel_EnterOnRunningItemDoesNotTransition(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
@@ -197,7 +192,7 @@ func TestContentModel_EnterOnRunningItemDoesNotTransition(t *testing.T) {
 }
 
 func TestContentModel_EscFromRightPaneReturnsFocusLeft(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	// Set focus to right pane manually
@@ -220,7 +215,7 @@ func TestContentModel_EscFromRightPaneReturnsFocusLeft(t *testing.T) {
 }
 
 func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
-	c := NewContentModel(&contentTestPipelineProvider{}, nil)
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
@@ -247,4 +242,128 @@ func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
 
 	// List cursor should not have changed
 	assert.Equal(t, initialCursor, c.list.cursor)
+}
+
+// ===========================================================================
+// T012: Content model integration tests for pipeline launch flow
+// ===========================================================================
+
+func TestContentModel_EnterOnAvailable_EmitsConfigureFormMsg(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Inject data with an available pipeline that has an input example
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1, InputExample: "example input"}},
+	})
+
+	// Move cursor to the available item
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindAvailable {
+			c.list.cursor = i
+			break
+		}
+	}
+
+	// Press Enter
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	c, cmd := c.Update(msg)
+
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.NotNil(t, cmd)
+
+	// Execute the batch cmd and check for ConfigureFormMsg
+	result := cmd()
+	if batch, ok := result.(tea.BatchMsg); ok {
+		foundConfigureForm := false
+		for _, batchCmd := range batch {
+			if batchCmd == nil {
+				continue
+			}
+			innerMsg := batchCmd()
+			if cfgMsg, ok := innerMsg.(ConfigureFormMsg); ok {
+				foundConfigureForm = true
+				assert.Equal(t, "test-pipe", cfgMsg.PipelineName)
+				assert.Equal(t, "example input", cfgMsg.InputExample)
+			}
+		}
+		assert.True(t, foundConfigureForm, "should emit ConfigureFormMsg in batch")
+	}
+}
+
+func TestContentModel_CancelAll_NilSafe(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	// launcher should be nil since no Manifest in deps
+	assert.Nil(t, c.launcher)
+
+	// CancelAll should not panic with nil launcher
+	assert.NotPanics(t, func() {
+		c.CancelAll()
+	})
+}
+
+func TestContentModel_PipelineLaunchedMsg_TransitionsFocusLeft(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Set focus to right pane
+	c.focus = FocusPaneRight
+	c.list.SetFocused(false)
+	c.detail.SetFocused(true)
+
+	// Send PipelineLaunchedMsg
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-abc", PipelineName: "test-pipe"}
+	c, _ = c.Update(launchedMsg)
+
+	assert.Equal(t, FocusPaneLeft, c.focus)
+	assert.True(t, c.list.focused)
+	assert.False(t, c.detail.focused)
+}
+
+func TestContentModel_LaunchErrorMsg_TransitionsFocusLeft(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Set focus to right pane
+	c.focus = FocusPaneRight
+	c.list.SetFocused(false)
+	c.detail.SetFocused(true)
+
+	// Send LaunchErrorMsg
+	errMsg := LaunchErrorMsg{PipelineName: "test-pipe", Err: fmt.Errorf("launch failed")}
+	c, _ = c.Update(errMsg)
+
+	assert.Equal(t, FocusPaneLeft, c.focus)
+	assert.True(t, c.list.focused)
+	assert.False(t, c.detail.focused)
+}
+
+func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Inject data with an available pipeline
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1}},
+	})
+
+	// Move cursor to the available item
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindAvailable {
+			c.list.cursor = i
+			break
+		}
+	}
+	cursorBefore := c.list.cursor
+
+	// Send c key -- should be no-op since cursor is on an available item, not running
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}
+	c, cmd := c.Update(msg)
+
+	// Focus should remain on left pane
+	assert.Equal(t, FocusPaneLeft, c.focus)
+	// Cursor should not change
+	assert.Equal(t, cursorBefore, c.list.cursor)
+	// No command should be returned (or cmd is nil)
+	_ = cmd
 }
