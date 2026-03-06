@@ -68,6 +68,7 @@ Use --format json for machine-readable output.`,
 			if len(args) > 0 {
 				opts.RunID = args[0]
 			}
+			opts.Format = ResolveFormat(cmd, opts.Format)
 			return runArtifacts(opts)
 		},
 	}
@@ -286,11 +287,11 @@ func scanDirectoryForArtifacts(dir string, stepID string) []ArtifactOutput {
 // outputArtifactsTable prints artifacts in table format
 func outputArtifactsTable(runID string, artifacts []ArtifactOutput) error {
 	if runID != "" {
-		fmt.Printf("Artifacts for run: %s\n\n", runID)
+		fmt.Fprintf(os.Stderr, "Artifacts for run: %s\n\n", runID)
 	}
 
 	if len(artifacts) == 0 {
-		fmt.Println("No artifacts found")
+		fmt.Fprintln(os.Stderr, "No artifacts found")
 		return nil
 	}
 

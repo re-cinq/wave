@@ -32,6 +32,25 @@ var rootCmd = &cobra.Command{
   Wave coordinates multiple AI personas through structured pipelines,
   enforcing permissions, contracts, and workspace isolation at every step.`,
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		rf, err := commands.ResolveOutputConfig(cmd)
+		if err != nil {
+			return err
+		}
+		commands.StoreResolvedFlags(cmd, rf)
+
+		// --no-color sets NO_COLOR env var for downstream code
+		if rf.Output.NoColor {
+			os.Setenv("NO_COLOR", "1")
+		}
+
+		// TERM=dumb implies --no-color and --no-tui
+		if os.Getenv("TERM") == "dumb" {
+			os.Setenv("NO_COLOR", "1")
+		}
+
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if shouldLaunchTUI(cmd) {
 			deps := tui.LaunchDependencies{}
@@ -73,6 +92,9 @@ func init() {
 	rootCmd.PersistentFlags().StringP("output", "o", "auto", "Output format: auto, json, text, quiet")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Include real-time tool activity")
 	rootCmd.PersistentFlags().Bool("no-tui", false, "Disable TUI and print help text")
+	rootCmd.PersistentFlags().Bool("json", false, "Output in JSON format (equivalent to --output json)")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress non-essential output (equivalent to --output quiet)")
+	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
 
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewValidateCmd())
@@ -97,6 +119,16 @@ func shouldLaunchTUI(cmd *cobra.Command) bool {
 		return false
 	}
 
+	// --json and --quiet suppress TUI
+	jsonFlag, _ := cmd.Root().PersistentFlags().GetBool("json")
+	if jsonFlag {
+		return false
+	}
+	quietFlag, _ := cmd.Root().PersistentFlags().GetBool("quiet")
+	if quietFlag {
+		return false
+	}
+
 	// Check WAVE_FORCE_TTY override
 	if forceTTY := os.Getenv("WAVE_FORCE_TTY"); forceTTY != "" {
 		switch strings.ToLower(forceTTY) {
@@ -117,7 +149,16 @@ func shouldLaunchTUI(cmd *cobra.Command) bool {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// Determine output mode from root flags for error rendering
+		debug, _ := rootCmd.PersistentFlags().GetBool("debug")
+		jsonMode, _ := rootCmd.PersistentFlags().GetBool("json")
+		outputMode, _ := rootCmd.PersistentFlags().GetString("output")
+
+		if jsonMode || outputMode == "json" {
+			commands.RenderJSONError(os.Stderr, err, debug)
+		} else {
+			commands.RenderTextError(os.Stderr, err, debug)
+		}
 		os.Exit(1)
 	}
 }
