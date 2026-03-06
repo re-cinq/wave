@@ -115,3 +115,79 @@ func TestStatusBarModel_FormInactive_RevertsToDefault(t *testing.T) {
 	assert.Contains(t, view, "Enter: view")
 	assert.Contains(t, view, "/: filter")
 }
+
+// ===========================================================================
+// T037: Status bar finished detail hint tests
+// ===========================================================================
+
+func TestStatusBarModel_FinishedDetailActiveMsg_SetsField(t *testing.T) {
+	sb := NewStatusBarModel()
+
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	assert.True(t, sb.finishedDetailActive)
+
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: false})
+	assert.False(t, sb.finishedDetailActive)
+}
+
+func TestStatusBarModel_FinishedDetailActive_RightPane_ShowsFinishedHints(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	assert.Contains(t, view, "[Enter] Chat")
+	assert.Contains(t, view, "[b] Branch")
+	assert.Contains(t, view, "[d] Diff")
+	assert.Contains(t, view, "[Esc] Back")
+}
+
+func TestStatusBarModel_HintPriority_FormOverFinishedDetail(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	// Both form and finished detail active
+	sb, _ = sb.Update(FormActiveMsg{Active: true})
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	// Form hints should take priority
+	assert.Contains(t, view, "Tab: next")
+	assert.Contains(t, view, "Enter: launch")
+	assert.NotContains(t, view, "[Enter] Chat")
+}
+
+func TestStatusBarModel_HintPriority_LiveOutputOverFinishedDetail(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	// Both live output and finished detail active
+	sb, _ = sb.Update(LiveOutputActiveMsg{Active: true})
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	// Live output hints should take priority
+	assert.Contains(t, view, "v: verbose")
+	assert.NotContains(t, view, "[Enter] Chat")
+}
+
+func TestStatusBarModel_FinishedDetailInactive_RevertsToGeneric(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	// Activate finished detail
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+	view := sb.View()
+	assert.Contains(t, view, "[Enter] Chat")
+
+	// Deactivate
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: false})
+	view = sb.View()
+	assert.Contains(t, view, "↑↓: scroll")
+	assert.NotContains(t, view, "[Enter] Chat")
+}

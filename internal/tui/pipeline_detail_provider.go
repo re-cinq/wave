@@ -3,7 +3,10 @@ package tui
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/pipeline"
@@ -48,17 +51,19 @@ type ArtifactInfo struct {
 
 // FinishedDetail is the data projection for rendering a finished pipeline's execution summary.
 type FinishedDetail struct {
-	RunID        string
-	Name         string
-	Status       string // "completed", "failed", "cancelled"
-	Duration     time.Duration
-	BranchName   string
-	StartedAt    time.Time
-	CompletedAt  time.Time
-	ErrorMessage string // Non-empty for failed runs
-	FailedStep   string // Step ID that failed
-	Steps        []StepResult
-	Artifacts    []ArtifactInfo
+	RunID         string
+	Name          string
+	Status        string // "completed", "failed", "cancelled"
+	Duration      time.Duration
+	BranchName    string
+	StartedAt     time.Time
+	CompletedAt   time.Time
+	ErrorMessage  string // Non-empty for failed runs
+	FailedStep    string // Step ID that failed
+	Steps         []StepResult
+	Artifacts     []ArtifactInfo
+	WorkspacePath string // Filesystem path to pipeline workspace, empty if deleted
+	BranchDeleted bool   // True if the branch no longer exists
 }
 
 // DetailDataProvider is the interface for fetching detailed pipeline data.
@@ -76,6 +81,18 @@ type DefaultDetailDataProvider struct {
 // NewDefaultDetailDataProvider creates a new provider.
 func NewDefaultDetailDataProvider(store state.StateStore, pipelinesDir string) *DefaultDetailDataProvider {
 	return &DefaultDetailDataProvider{store: store, pipelinesDir: pipelinesDir}
+}
+
+// sanitizeBranch sanitizes a branch name for use in filesystem paths.
+// Mirrors the logic in internal/pipeline/context.go:sanitizeBranchName().
+func sanitizeBranch(branchName string) string {
+	sanitized := regexp.MustCompile(`[^a-zA-Z0-9\-_]`).ReplaceAllString(branchName, "-")
+	sanitized = regexp.MustCompile(`-+`).ReplaceAllString(sanitized, "-")
+	sanitized = strings.Trim(sanitized, "-")
+	if len(sanitized) > 50 {
+		sanitized = sanitized[:50]
+	}
+	return sanitized
 }
 
 // FetchAvailableDetail reads all YAML files from pipelinesDir, finds the pipeline with the
@@ -209,7 +226,7 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 		completedAt = *run.CancelledAt
 	}
 
-	return &FinishedDetail{
+	detail := &FinishedDetail{
 		RunID:        run.RunID,
 		Name:         run.PipelineName,
 		Status:       run.Status,
@@ -221,5 +238,32 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 		FailedStep:   failedStep,
 		Steps:        steps,
 		Artifacts:    artifacts,
-	}, nil
+	}
+
+	// Derive workspace path from RunID and BranchName.
+	if run.BranchName != "" {
+		sanitized := sanitizeBranch(run.BranchName)
+		wsPath := filepath.Join(".wave", "workspaces", run.RunID, "__wt_"+sanitized)
+		if _, err := os.Stat(wsPath); err == nil {
+			detail.WorkspacePath = wsPath
+		}
+	} else {
+		// Fallback: try glob for any worktree under this run.
+		matches, _ := filepath.Glob(filepath.Join(".wave", "workspaces", run.RunID, "__wt_*"))
+		if len(matches) > 0 {
+			if info, err := os.Stat(matches[0]); err == nil && info.IsDir() {
+				detail.WorkspacePath = matches[0]
+			}
+		}
+	}
+
+	// Check if the branch still exists.
+	if run.BranchName != "" {
+		cmd := exec.Command("git", "rev-parse", "--verify", run.BranchName)
+		if err := cmd.Run(); err != nil {
+			detail.BranchDeleted = true
+		}
+	}
+
+	return detail, nil
 }
