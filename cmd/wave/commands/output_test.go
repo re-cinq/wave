@@ -6,6 +6,7 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,4 +170,180 @@ func TestCreateEmitter_JSONFormatNoThrottle(t *testing.T) {
 	if result.Progress != nil {
 		t.Errorf("json format should have nil Progress, got %T", result.Progress)
 	}
+}
+
+func TestResolveOutputConfig_JsonAlone(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("json", "true")
+
+	rf, err := ResolveOutputConfig(root)
+	require.NoError(t, err)
+	assert.Equal(t, OutputFormatJSON, rf.Output.Format)
+	assert.True(t, rf.NoTUI, "json implies no TUI")
+}
+
+func TestResolveOutputConfig_QuietAlone(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("quiet", "true")
+
+	rf, err := ResolveOutputConfig(root)
+	require.NoError(t, err)
+	assert.Equal(t, OutputFormatQuiet, rf.Output.Format)
+	assert.True(t, rf.NoTUI, "quiet implies no TUI")
+}
+
+func TestResolveOutputConfig_JsonOutputConflict(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("json", "true")
+	root.PersistentFlags().Set("output", "text")
+
+	_, err := ResolveOutputConfig(root)
+	require.Error(t, err)
+	var cliErr *CLIError
+	require.ErrorAs(t, err, &cliErr)
+	assert.Equal(t, CodeFlagConflict, cliErr.Code)
+}
+
+func TestResolveOutputConfig_QuietOutputConflict(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("quiet", "true")
+	root.PersistentFlags().Set("output", "json")
+
+	_, err := ResolveOutputConfig(root)
+	require.Error(t, err)
+	var cliErr *CLIError
+	require.ErrorAs(t, err, &cliErr)
+	assert.Equal(t, CodeFlagConflict, cliErr.Code)
+}
+
+func TestResolveOutputConfig_JsonQuietNoConflict(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("json", "true")
+	root.PersistentFlags().Set("quiet", "true")
+
+	rf, err := ResolveOutputConfig(root)
+	require.NoError(t, err)
+	assert.Equal(t, OutputFormatJSON, rf.Output.Format, "json takes precedence over quiet")
+}
+
+func TestResolveOutputConfig_NoColor(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("no-color", "true")
+
+	rf, err := ResolveOutputConfig(root)
+	require.NoError(t, err)
+	assert.True(t, rf.Output.NoColor)
+}
+
+func TestResolveOutputConfig_QuietVerbose(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	root.PersistentFlags().Set("quiet", "true")
+	root.PersistentFlags().Set("verbose", "true")
+
+	rf, err := ResolveOutputConfig(root)
+	require.NoError(t, err)
+	assert.Equal(t, OutputFormatQuiet, rf.Output.Format)
+	assert.False(t, rf.Output.Verbose, "quiet should win over verbose")
+}
+
+func TestResolveFormat_RootJsonOverridesLocal(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+
+	root.PersistentFlags().Set("json", "true")
+
+	result := ResolveFormat(root, "table")
+	assert.Equal(t, "json", result)
+}
+
+func TestResolveFormat_RootQuietOverridesLocal(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+
+	root.PersistentFlags().Set("quiet", "true")
+
+	result := ResolveFormat(root, "json")
+	assert.Equal(t, "quiet", result)
+}
+
+func TestResolveFormat_DefaultPreservesLocal(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+
+	result := ResolveFormat(root, "table")
+	assert.Equal(t, "table", result)
+}
+
+func TestResolveFormat_OutputTextMapsToTable(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+
+	root.PersistentFlags().Set("output", "text")
+
+	result := ResolveFormat(root, "json")
+	assert.Equal(t, "table", result)
 }

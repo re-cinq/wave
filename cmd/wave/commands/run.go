@@ -118,7 +118,9 @@ func runRun(opts RunOptions, debug bool) error {
 	// Gate on onboarding completion — skip when --force is set
 	if !opts.Force {
 		if err := checkOnboarding(); err != nil {
-			return err
+			return NewCLIError(CodeOnboardingRequired,
+				"onboarding not complete",
+				"Run 'wave init' to complete setup before running pipelines")
 		}
 	}
 
@@ -134,12 +136,16 @@ func runRun(opts RunOptions, debug bool) error {
 
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
-		return fmt.Errorf("failed to read manifest: %w", err)
+		return NewCLIError(CodeManifestMissing,
+			fmt.Sprintf("manifest file not found: %s", opts.Manifest),
+			"Run 'wave init' to create a manifest")
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
+		return NewCLIError(CodeManifestInvalid,
+			fmt.Sprintf("failed to parse manifest: %s", err),
+			"Check wave.yaml syntax — run 'wave validate' to diagnose")
 	}
 
 	p, err := loadPipeline(opts.Pipeline, &m)
@@ -156,10 +162,14 @@ func runRun(opts RunOptions, debug bool) error {
 			applySelection(&opts, sel, &debug)
 			p, err = loadPipeline(opts.Pipeline, &m)
 			if err != nil {
-				return fmt.Errorf("failed to load pipeline: %w", err)
+				return NewCLIError(CodePipelineNotFound,
+					fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
+					"Run 'wave list pipelines' to see available pipelines")
 			}
 		} else {
-			return fmt.Errorf("failed to load pipeline: %w", err)
+			return NewCLIError(CodePipelineNotFound,
+				fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
+				"Run 'wave list pipelines' to see available pipelines")
 		}
 	}
 
@@ -499,63 +509,63 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 }
 
 func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
-	fmt.Printf("Dry run for pipeline: %s\n", p.Metadata.Name)
-	fmt.Printf("Description: %s\n", p.Metadata.Description)
-	fmt.Printf("Steps: %d\n\n", len(p.Steps))
-	fmt.Printf("Execution plan:\n")
+	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
+	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
+	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
+	fmt.Fprintf(os.Stderr, "Execution plan:\n")
 
 	for i, step := range p.Steps {
-		fmt.Printf("  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
+		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
 
 		if len(step.Dependencies) > 0 {
-			fmt.Printf("     Dependencies: %v\n", step.Dependencies)
+			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
 		}
 
 		persona := m.GetPersona(step.Persona)
 		if persona != nil {
-			fmt.Printf("     Adapter: %s  Temp: %.1f\n", persona.Adapter, persona.Temperature)
-			fmt.Printf("     System prompt: %s\n", persona.SystemPromptFile)
+			fmt.Fprintf(os.Stderr, "     Adapter: %s  Temp: %.1f\n", persona.Adapter, persona.Temperature)
+			fmt.Fprintf(os.Stderr, "     System prompt: %s\n", persona.SystemPromptFile)
 			if len(persona.Permissions.AllowedTools) > 0 {
-				fmt.Printf("     Allowed tools: %v\n", persona.Permissions.AllowedTools)
+				fmt.Fprintf(os.Stderr, "     Allowed tools: %v\n", persona.Permissions.AllowedTools)
 			}
 			if len(persona.Permissions.Deny) > 0 {
-				fmt.Printf("     Denied tools: %v\n", persona.Permissions.Deny)
+				fmt.Fprintf(os.Stderr, "     Denied tools: %v\n", persona.Permissions.Deny)
 			}
 		}
 
 		if len(step.Workspace.Mount) > 0 {
 			for _, mount := range step.Workspace.Mount {
-				fmt.Printf("     Mount: %s → %s (%s)\n", mount.Source, mount.Target, mount.Mode)
+				fmt.Fprintf(os.Stderr, "     Mount: %s → %s (%s)\n", mount.Source, mount.Target, mount.Mode)
 			}
 		}
 
-		fmt.Printf("     Workspace: .wave/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
+		fmt.Fprintf(os.Stderr, "     Workspace: .wave/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
 
 		if step.Memory.Strategy != "" {
-			fmt.Printf("     Memory: %s\n", step.Memory.Strategy)
+			fmt.Fprintf(os.Stderr, "     Memory: %s\n", step.Memory.Strategy)
 		}
 
 		if len(step.Memory.InjectArtifacts) > 0 {
 			for _, art := range step.Memory.InjectArtifacts {
-				fmt.Printf("     Inject: %s:%s as %s\n", art.Step, art.Artifact, art.As)
+				fmt.Fprintf(os.Stderr, "     Inject: %s:%s as %s\n", art.Step, art.Artifact, art.As)
 			}
 		}
 
 		if len(step.OutputArtifacts) > 0 {
 			for _, art := range step.OutputArtifacts {
-				fmt.Printf("     Output: %s → %s (%s)\n", art.Name, art.Path, art.Type)
+				fmt.Fprintf(os.Stderr, "     Output: %s → %s (%s)\n", art.Name, art.Path, art.Type)
 			}
 		}
 
 		if step.Handover.Contract.Type != "" {
-			fmt.Printf("     Contract: %s", step.Handover.Contract.Type)
+			fmt.Fprintf(os.Stderr, "     Contract: %s", step.Handover.Contract.Type)
 			if step.Handover.Contract.OnFailure != "" {
-				fmt.Printf(" (on_failure: %s, max_retries: %d)", step.Handover.Contract.OnFailure, step.Handover.Contract.MaxRetries)
+				fmt.Fprintf(os.Stderr, " (on_failure: %s, max_retries: %d)", step.Handover.Contract.OnFailure, step.Handover.Contract.MaxRetries)
 			}
-			fmt.Println()
+			fmt.Fprintln(os.Stderr)
 		}
 
-		fmt.Println()
+		fmt.Fprintln(os.Stderr)
 	}
 
 	return nil

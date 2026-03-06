@@ -136,15 +136,25 @@ func executeStatusCmd(args ...string) (stdout, stderr string, err error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Capture stderr since informational messages now go to os.Stderr
+	oldStderr := os.Stderr
+	re, we, _ := os.Pipe()
+	os.Stderr = we
+
 	err = cmd.Execute()
 
 	w.Close()
 	os.Stdout = oldStdout
+	we.Close()
+	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 
-	return buf.String(), errBuf.String(), err
+	var stderrBuf bytes.Buffer
+	stderrBuf.ReadFrom(re)
+
+	return buf.String(), stderrBuf.String(), err
 }
 
 // TestStatusCmd_NoDatabase tests when no state database exists.
@@ -156,9 +166,9 @@ func TestStatusCmd_NoDatabase(t *testing.T) {
 	// Remove the database
 	os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
 
-	stdout, _, err := executeStatusCmd()
+	_, stderr, err := executeStatusCmd()
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "No pipelines found")
+	assert.Contains(t, stderr, "No pipelines found")
 }
 
 // TestStatusCmd_NoRunningPipelines tests when no pipelines are running.
@@ -171,9 +181,9 @@ func TestStatusCmd_NoRunningPipelines(t *testing.T) {
 	completed := time.Now().Add(-1 * time.Minute)
 	h.createRun("test-run-001", "test-pipeline", "completed", "", 1000, completed.Add(-2*time.Minute), &completed)
 
-	stdout, _, err := executeStatusCmd()
+	_, stderr, err := executeStatusCmd()
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "No running pipelines")
+	assert.Contains(t, stderr, "No running pipelines")
 }
 
 // TestStatusCmd_RunningPipeline tests showing a running pipeline.
@@ -482,4 +492,19 @@ func TestStatusCmd_TruncatesLongRunID(t *testing.T) {
 	require.NoError(t, err)
 	// Should contain truncated version with ...
 	assert.Contains(t, stdout, "...")
+}
+
+// TestStatusCmd_NoColor tests that NO_COLOR suppresses ANSI escape sequences.
+func TestStatusCmd_NoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	// The conditionalColor function should return empty strings when NO_COLOR is set
+	result := conditionalColor("\033[32m")
+	assert.Equal(t, "", result, "NO_COLOR should suppress ANSI codes")
+
+	// statusColor should return empty when NO_COLOR is set
+	assert.Equal(t, "", statusColor("running"))
+	assert.Equal(t, "", statusColor("completed"))
+	assert.Equal(t, "", statusColor("failed"))
+	assert.Equal(t, "", statusColor("cancelled"))
 }
