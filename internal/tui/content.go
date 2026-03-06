@@ -5,6 +5,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ContentProviders holds data providers for alternative views.
+type ContentProviders struct {
+	PersonaProvider  PersonaDataProvider
+	ContractProvider ContractDataProvider
+	SkillProvider    SkillDataProvider
+	HealthProvider   HealthDataProvider
+}
+
 // ContentModel is the main content area component composing a left pipeline list pane and a right detail pane.
 type ContentModel struct {
 	width    int
@@ -13,20 +21,66 @@ type ContentModel struct {
 	detail   PipelineDetailModel
 	focus    FocusPane
 	launcher *PipelineLauncher
+
+	// View switching
+	currentView ViewType
+
+	// Lazy-initialized alternative view models (nil until first access)
+	personaList    *PersonaListModel
+	personaDetail  *PersonaDetailModel
+	contractList   *ContractListModel
+	contractDetail *ContractDetailModel
+	skillList      *SkillListModel
+	skillDetail    *SkillDetailModel
+	healthList     *HealthListModel
+	healthDetail   *HealthDetailModel
+
+	// Data providers for alternative views
+	personaProvider  PersonaDataProvider
+	contractProvider ContractDataProvider
+	skillProvider    SkillDataProvider
+	healthProvider   HealthDataProvider
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
-func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies) ContentModel {
+func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies, providers ...ContentProviders) ContentModel {
 	var launcher *PipelineLauncher
 	if deps.Manifest != nil {
 		launcher = NewPipelineLauncher(deps)
 	}
-	return ContentModel{
-		list:     NewPipelineListModel(provider),
-		detail:   NewPipelineDetailModel(detailProvider),
-		focus:    FocusPaneLeft,
-		launcher: launcher,
+
+	m := ContentModel{
+		list:        NewPipelineListModel(provider),
+		detail:      NewPipelineDetailModel(detailProvider),
+		focus:       FocusPaneLeft,
+		launcher:    launcher,
+		currentView: ViewPipelines,
 	}
+
+	if len(providers) > 0 {
+		p := providers[0]
+		m.personaProvider = p.PersonaProvider
+		m.contractProvider = p.ContractProvider
+		m.skillProvider = p.SkillProvider
+		m.healthProvider = p.HealthProvider
+	}
+
+	return m
+}
+
+// IsFiltering returns true if the active view's list is in filter mode.
+func (m ContentModel) IsFiltering() bool {
+	switch m.currentView {
+	case ViewPipelines:
+		return m.list.filtering
+	case ViewPersonas:
+		return m.personaList != nil && m.personaList.filtering
+	case ViewContracts:
+		return m.contractList != nil && m.contractList.filtering
+	case ViewSkills:
+		return m.skillList != nil && m.skillList.filtering
+	}
+	return false
 }
 
 // CancelAll cancels all running pipelines managed by the launcher.
@@ -47,10 +101,131 @@ func (m *ContentModel) SetSize(w, h int) {
 	m.height = h
 
 	leftWidth := m.leftPaneWidth()
-	m.list.SetSize(leftWidth, h)
-
 	rightWidth := w - leftWidth
+
+	m.list.SetSize(leftWidth, h)
 	m.detail.SetSize(rightWidth, h)
+
+	// Propagate to non-nil alternative view models
+	if m.personaList != nil {
+		m.personaList.SetSize(leftWidth, h)
+	}
+	if m.personaDetail != nil {
+		m.personaDetail.SetSize(rightWidth, h)
+	}
+	if m.contractList != nil {
+		m.contractList.SetSize(leftWidth, h)
+	}
+	if m.contractDetail != nil {
+		m.contractDetail.SetSize(rightWidth, h)
+	}
+	if m.skillList != nil {
+		m.skillList.SetSize(leftWidth, h)
+	}
+	if m.skillDetail != nil {
+		m.skillDetail.SetSize(rightWidth, h)
+	}
+	if m.healthList != nil {
+		m.healthList.SetSize(leftWidth, h)
+	}
+	if m.healthDetail != nil {
+		m.healthDetail.SetSize(rightWidth, h)
+	}
+}
+
+// cycleView moves to the next view and returns init commands if the view was just created.
+func (m *ContentModel) cycleView() tea.Cmd {
+	m.currentView = (m.currentView + 1) % 5
+	m.focus = FocusPaneLeft
+
+	var initCmd tea.Cmd
+
+	leftWidth := m.leftPaneWidth()
+	rightWidth := m.width - leftWidth
+
+	switch m.currentView {
+	case ViewPipelines:
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+
+	case ViewPersonas:
+		if m.personaList == nil && m.personaProvider != nil {
+			pl := NewPersonaListModel(m.personaProvider)
+			pl.SetSize(leftWidth, m.height)
+			m.personaList = &pl
+			pd := NewPersonaDetailModel(m.personaProvider)
+			pd.SetSize(rightWidth, m.height)
+			m.personaDetail = &pd
+			initCmd = m.personaList.Init()
+		}
+		if m.personaList != nil {
+			m.personaList.SetFocused(true)
+		}
+		if m.personaDetail != nil {
+			m.personaDetail.SetFocused(false)
+		}
+
+	case ViewContracts:
+		if m.contractList == nil && m.contractProvider != nil {
+			cl := NewContractListModel(m.contractProvider)
+			cl.SetSize(leftWidth, m.height)
+			m.contractList = &cl
+			cd := NewContractDetailModel()
+			cd.SetSize(rightWidth, m.height)
+			m.contractDetail = &cd
+			initCmd = m.contractList.Init()
+		}
+		if m.contractList != nil {
+			m.contractList.SetFocused(true)
+		}
+		if m.contractDetail != nil {
+			m.contractDetail.SetFocused(false)
+		}
+
+	case ViewSkills:
+		if m.skillList == nil && m.skillProvider != nil {
+			sl := NewSkillListModel(m.skillProvider)
+			sl.SetSize(leftWidth, m.height)
+			m.skillList = &sl
+			sd := NewSkillDetailModel()
+			sd.SetSize(rightWidth, m.height)
+			m.skillDetail = &sd
+			initCmd = m.skillList.Init()
+		}
+		if m.skillList != nil {
+			m.skillList.SetFocused(true)
+		}
+		if m.skillDetail != nil {
+			m.skillDetail.SetFocused(false)
+		}
+
+	case ViewHealth:
+		if m.healthList == nil && m.healthProvider != nil {
+			hl := NewHealthListModel(m.healthProvider)
+			hl.SetSize(leftWidth, m.height)
+			m.healthList = &hl
+			hd := NewHealthDetailModel()
+			hd.SetSize(rightWidth, m.height)
+			m.healthDetail = &hd
+			initCmd = m.healthList.Init()
+		}
+		if m.healthList != nil {
+			m.healthList.SetFocused(true)
+		}
+		if m.healthDetail != nil {
+			m.healthDetail.SetFocused(false)
+		}
+	}
+
+	batchCmds := []tea.Cmd{
+		func() tea.Msg { return ViewChangedMsg{View: m.currentView} },
+		func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+	}
+	if initCmd != nil {
+		batchCmds = append(batchCmds, initCmd)
+	}
+
+	return tea.Batch(batchCmds...)
 }
 
 // Update handles messages by forwarding to child components with focus-aware routing.
@@ -59,7 +234,41 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering {
+		// Intercept Tab for view cycling BEFORE focus-based child routing
+		if msg.Type == tea.KeyTab {
+			// Only forward Tab to form if pipeline detail is in stateConfiguring
+			if m.currentView == ViewPipelines && m.detail.paneState == stateConfiguring {
+				var cmd tea.Cmd
+				m.detail, cmd = m.detail.Update(msg)
+				return m, cmd
+			}
+			// Otherwise, cycle view
+			cmd := m.cycleView()
+			return m, cmd
+		}
+
+		// Handle Enter for alternative views — focus right pane
+		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && m.currentView != ViewPipelines {
+			return m.handleAlternativeViewEnter()
+		}
+
+		// Handle Escape for alternative views — return to left pane
+		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight && m.currentView != ViewPipelines {
+			return m.handleAlternativeViewEscape()
+		}
+
+		// Handle '/' filter for alternative views
+		if msg.String() == "/" && m.focus == FocusPaneLeft && m.currentView != ViewPipelines && m.currentView != ViewHealth {
+			return m.routeToActiveList(msg)
+		}
+
+		// Handle 'r' for health view recheck
+		if msg.String() == "r" && m.currentView == ViewHealth && m.focus == FocusPaneLeft {
+			return m.routeToActiveList(msg)
+		}
+
+		// Pipeline view Enter handling
+		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering && m.currentView == ViewPipelines {
 			if m.cursorOnFocusableItem() {
 				item := m.list.navigable[m.list.cursor]
 				m.focus = FocusPaneRight
@@ -111,7 +320,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, cmd
 		}
 
-		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight {
+		// Pipeline view Escape handling
+		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight && m.currentView == ViewPipelines {
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
@@ -122,8 +332,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			)
 		}
 
-		// Cancel running pipeline with 'c' key
-		if msg.String() == "c" && m.focus == FocusPaneLeft && m.launcher != nil {
+		// Cancel running pipeline with 'c' key — only in pipeline view
+		if msg.String() == "c" && m.focus == FocusPaneLeft && m.launcher != nil && m.currentView == ViewPipelines {
 			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
 				item := m.list.navigable[m.list.cursor]
 				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
@@ -134,17 +344,136 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, nil
 		}
 
-		// Route key messages to the focused child only
+		// Route key messages to the focused child
 		if m.focus == FocusPaneRight {
-			var cmd tea.Cmd
-			m.detail, cmd = m.detail.Update(msg)
-			return m, cmd
+			return m.routeToActiveDetail(msg)
 		}
 
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
+		// Route to active list (left pane)
+		return m.routeToActiveList(msg)
 
+	// Route alternative view messages
+	case PersonaDataMsg:
+		if m.personaList != nil {
+			var cmd tea.Cmd
+			*m.personaList, cmd = m.personaList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case PersonaSelectedMsg:
+		if m.personaList != nil {
+			var listCmd tea.Cmd
+			*m.personaList, listCmd = m.personaList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.personaDetail != nil {
+			// Find the matching persona and set it on the detail model
+			if m.personaList != nil {
+				for i := range m.personaList.navigable {
+					if m.personaList.navigable[i].Name == msg.Name {
+						m.personaDetail.SetPersona(&m.personaList.navigable[i])
+						break
+					}
+				}
+			}
+			var detailCmd tea.Cmd
+			*m.personaDetail, detailCmd = m.personaDetail.Update(msg)
+			if detailCmd != nil {
+				cmds = append(cmds, detailCmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case PersonaStatsMsg:
+		if m.personaDetail != nil {
+			var cmd tea.Cmd
+			*m.personaDetail, cmd = m.personaDetail.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case ContractDataMsg:
+		if m.contractList != nil {
+			var cmd tea.Cmd
+			*m.contractList, cmd = m.contractList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case ContractSelectedMsg:
+		if m.contractList != nil {
+			var listCmd tea.Cmd
+			*m.contractList, listCmd = m.contractList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.contractDetail != nil && m.contractList != nil {
+			for i := range m.contractList.navigable {
+				if m.contractList.navigable[i].Label == msg.Label {
+					m.contractDetail.SetContract(&m.contractList.navigable[i])
+					break
+				}
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case SkillDataMsg:
+		if m.skillList != nil {
+			var cmd tea.Cmd
+			*m.skillList, cmd = m.skillList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case SkillSelectedMsg:
+		if m.skillList != nil {
+			var listCmd tea.Cmd
+			*m.skillList, listCmd = m.skillList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.skillDetail != nil && m.skillList != nil {
+			for i := range m.skillList.navigable {
+				if m.skillList.navigable[i].Name == msg.Name {
+					m.skillDetail.SetSkill(&m.skillList.navigable[i])
+					break
+				}
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case HealthCheckResultMsg:
+		if m.healthList != nil {
+			var listCmd tea.Cmd
+			*m.healthList, listCmd = m.healthList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.healthDetail != nil {
+			var detailCmd tea.Cmd
+			*m.healthDetail, detailCmd = m.healthDetail.Update(msg)
+			if detailCmd != nil {
+				cmds = append(cmds, detailCmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case HealthSelectedMsg:
+		if m.healthList != nil && msg.Index < len(m.healthList.checks) {
+			check := m.healthList.checks[msg.Index]
+			if m.healthDetail != nil {
+				m.healthDetail.SetCheck(&check)
+			}
+		}
+		return m, nil
+
+	// Pipeline-specific messages — always route to pipeline models
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
@@ -256,7 +585,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 	}
 
-	// Default: forward to both children
+	// Default: forward to both pipeline children
 	var listCmd, detailCmd tea.Cmd
 	m.list, listCmd = m.list.Update(msg)
 	m.detail, detailCmd = m.detail.Update(msg)
@@ -269,6 +598,152 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// handleAlternativeViewEnter handles Enter key in alternative view left panes.
+func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
+	m.focus = FocusPaneRight
+
+	switch m.currentView {
+	case ViewPersonas:
+		if m.personaList != nil {
+			m.personaList.SetFocused(false)
+		}
+		if m.personaDetail != nil {
+			m.personaDetail.SetFocused(true)
+		}
+	case ViewContracts:
+		if m.contractList != nil {
+			m.contractList.SetFocused(false)
+		}
+		if m.contractDetail != nil {
+			m.contractDetail.SetFocused(true)
+		}
+	case ViewSkills:
+		if m.skillList != nil {
+			m.skillList.SetFocused(false)
+		}
+		if m.skillDetail != nil {
+			m.skillDetail.SetFocused(true)
+		}
+	case ViewHealth:
+		if m.healthList != nil {
+			m.healthList.SetFocused(false)
+		}
+		if m.healthDetail != nil {
+			m.healthDetail.SetFocused(true)
+		}
+	}
+
+	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
+}
+
+// handleAlternativeViewEscape handles Escape key in alternative view right panes.
+func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
+	m.focus = FocusPaneLeft
+
+	switch m.currentView {
+	case ViewPersonas:
+		if m.personaList != nil {
+			m.personaList.SetFocused(true)
+		}
+		if m.personaDetail != nil {
+			m.personaDetail.SetFocused(false)
+		}
+	case ViewContracts:
+		if m.contractList != nil {
+			m.contractList.SetFocused(true)
+		}
+		if m.contractDetail != nil {
+			m.contractDetail.SetFocused(false)
+		}
+	case ViewSkills:
+		if m.skillList != nil {
+			m.skillList.SetFocused(true)
+		}
+		if m.skillDetail != nil {
+			m.skillDetail.SetFocused(false)
+		}
+	case ViewHealth:
+		if m.healthList != nil {
+			m.healthList.SetFocused(true)
+		}
+		if m.healthDetail != nil {
+			m.healthDetail.SetFocused(false)
+		}
+	}
+
+	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+}
+
+// routeToActiveList routes a key message to the active view's list model.
+func (m ContentModel) routeToActiveList(msg tea.Msg) (ContentModel, tea.Cmd) {
+	switch m.currentView {
+	case ViewPipelines:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+	case ViewPersonas:
+		if m.personaList != nil {
+			var cmd tea.Cmd
+			*m.personaList, cmd = m.personaList.Update(msg)
+			return m, cmd
+		}
+	case ViewContracts:
+		if m.contractList != nil {
+			var cmd tea.Cmd
+			*m.contractList, cmd = m.contractList.Update(msg)
+			return m, cmd
+		}
+	case ViewSkills:
+		if m.skillList != nil {
+			var cmd tea.Cmd
+			*m.skillList, cmd = m.skillList.Update(msg)
+			return m, cmd
+		}
+	case ViewHealth:
+		if m.healthList != nil {
+			var cmd tea.Cmd
+			*m.healthList, cmd = m.healthList.Update(msg)
+			return m, cmd
+		}
+	}
+	return m, nil
+}
+
+// routeToActiveDetail routes a key message to the active view's detail model.
+func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
+	switch m.currentView {
+	case ViewPipelines:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+	case ViewPersonas:
+		if m.personaDetail != nil {
+			var cmd tea.Cmd
+			*m.personaDetail, cmd = m.personaDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewContracts:
+		if m.contractDetail != nil {
+			var cmd tea.Cmd
+			*m.contractDetail, cmd = m.contractDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewSkills:
+		if m.skillDetail != nil {
+			var cmd tea.Cmd
+			*m.skillDetail, cmd = m.skillDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewHealth:
+		if m.healthDetail != nil {
+			var cmd tea.Cmd
+			*m.healthDetail, cmd = m.healthDetail.Update(msg)
+			return m, cmd
+		}
+	}
+	return m, nil
+}
+
 // cursorOnFocusableItem returns true if the cursor is on an available, finished, or running item.
 func (m ContentModel) cursorOnFocusableItem() bool {
 	if len(m.list.navigable) == 0 || m.list.cursor >= len(m.list.navigable) {
@@ -278,14 +753,67 @@ func (m ContentModel) cursorOnFocusableItem() bool {
 	return kind == itemKindAvailable || kind == itemKindFinished || kind == itemKindRunning
 }
 
-// View renders the content area with left pipeline list and right detail pane.
+// View renders the content area with left list and right detail pane.
 func (m ContentModel) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
 
-	leftView := m.list.View()
-	rightView := m.detail.View()
+	var leftView, rightView string
+
+	switch m.currentView {
+	case ViewPipelines:
+		leftView = m.list.View()
+		rightView = m.detail.View()
+
+	case ViewPersonas:
+		if m.personaList != nil {
+			leftView = m.personaList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "Select a persona to view details")
+		}
+		if m.personaDetail != nil {
+			rightView = m.personaDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a persona to view details")
+		}
+
+	case ViewContracts:
+		if m.contractList != nil {
+			leftView = m.contractList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "Select a contract to view details")
+		}
+		if m.contractDetail != nil {
+			rightView = m.contractDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a contract to view details")
+		}
+
+	case ViewSkills:
+		if m.skillList != nil {
+			leftView = m.skillList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "Select a skill to view details")
+		}
+		if m.skillDetail != nil {
+			rightView = m.skillDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a skill to view details")
+		}
+
+	case ViewHealth:
+		if m.healthList != nil {
+			leftView = m.healthList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "Select a health check to view details")
+		}
+		if m.healthDetail != nil {
+			rightView = m.healthDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a health check to view details")
+		}
+	}
 
 	// Apply dimming when focus is on the right pane
 	if m.focus == FocusPaneRight {
@@ -295,6 +823,14 @@ func (m ContentModel) View() string {
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
+}
+
+// renderPlaceholder renders a centered placeholder message.
+func renderPlaceholder(width, height int, message string) string {
+	content := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("244")).
+		Render(message)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
 
 // leftPaneWidth computes the left pane width: 30% of total, min 25, max 50.
