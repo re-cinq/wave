@@ -27,10 +27,10 @@ type AppModel struct {
 }
 
 // NewAppModel creates a new root app model with default child components.
-func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider) AppModel {
+func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider) AppModel {
 	return AppModel{
 		header:    NewHeaderModel(metaProvider),
-		content:   NewContentModel(pipelineProvider),
+		content:   NewContentModel(pipelineProvider, detailProvider),
 		statusBar: NewStatusBarModel(),
 	}
 }
@@ -81,11 +81,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, headerCmd)
 	}
 
-	// Forward all messages to content for list updates
+	// Forward all messages to content for list and detail updates
 	var contentCmd tea.Cmd
 	m.content, contentCmd = m.content.Update(msg)
 	if contentCmd != nil {
 		cmds = append(cmds, contentCmd)
+	}
+
+	// Forward FocusChangedMsg to status bar
+	if _, ok := msg.(FocusChangedMsg); ok {
+		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
 	return m, tea.Batch(cmds...)
@@ -115,7 +120,7 @@ func (m AppModel) View() string {
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
 func RunTUI() error {
 	metaProvider := &DefaultMetadataProvider{}
-	p := tea.NewProgram(NewAppModel(metaProvider, nil), tea.WithAltScreen())
+	p := tea.NewProgram(NewAppModel(metaProvider, nil, nil), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }
