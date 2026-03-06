@@ -72,6 +72,7 @@ Examples:
 			if len(args) > 0 {
 				opts.RunID = args[0]
 			}
+			opts.Format = ResolveFormat(cmd, opts.Format)
 			return runLogs(opts)
 		},
 	}
@@ -557,19 +558,19 @@ func renderPerformanceSummary(db *sql.DB, runID string) {
 		return
 	}
 
-	fmt.Println("\n--- Performance Summary ---")
-	fmt.Printf("Total Steps: %d\n", totalEvents)
+	fmt.Fprintln(os.Stderr, "\n--- Performance Summary ---")
+	fmt.Fprintf(os.Stderr, "Total Steps: %d\n", totalEvents)
 
 	if totalTokens > 0 {
-		fmt.Printf("Total Tokens: %s\n", formatTokens(totalTokens))
+		fmt.Fprintf(os.Stderr, "Total Tokens: %s\n", formatTokens(totalTokens))
 	}
 
 	if avgDuration.Valid && avgDuration.Float64 > 0 {
-		fmt.Printf("Avg Duration: %.1fs\n", avgDuration.Float64/1000.0)
+		fmt.Fprintf(os.Stderr, "Avg Duration: %.1fs\n", avgDuration.Float64/1000.0)
 	}
 
 	if minDuration.Valid && maxDuration.Valid && minDuration.Float64 > 0 {
-		fmt.Printf("Duration Range: %.1fs - %.1fs\n",
+		fmt.Fprintf(os.Stderr, "Duration Range: %.1fs - %.1fs\n",
 			minDuration.Float64/1000.0,
 			maxDuration.Float64/1000.0)
 	}
@@ -579,7 +580,7 @@ func renderPerformanceSummary(db *sql.DB, runID string) {
 		totalDuration := avgDuration.Float64 * float64(totalEvents)
 		burnRate := float64(totalTokens) / (totalDuration / 1000.0)
 		if burnRate >= 1.0 {
-			fmt.Printf("Token Burn Rate: %.1f tokens/s\n", burnRate)
+			fmt.Fprintf(os.Stderr, "Token Burn Rate: %.1f tokens/s\n", burnRate)
 		}
 	}
 }

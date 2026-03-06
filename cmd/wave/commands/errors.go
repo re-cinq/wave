@@ -1,0 +1,118 @@
+package commands
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+
+	"github.com/recinq/wave/internal/recovery"
+)
+
+// Error code constants for machine-parseable error classification.
+const (
+	CodePipelineNotFound   = "pipeline_not_found"
+	CodeManifestMissing    = "manifest_missing"
+	CodeManifestInvalid    = "manifest_invalid"
+	CodeContractViolation  = "contract_violation"
+	CodeAdapterNotFound    = "adapter_not_found"
+	CodeFlagConflict       = "flag_conflict"
+	CodeOnboardingRequired = "onboarding_required"
+	CodeStepNotFound       = "step_not_found"
+	CodeRunNotFound        = "run_not_found"
+	CodePreflightFailed    = "preflight_failed"
+	CodeTimeout            = "timeout"
+	CodeCancelled          = "cancelled"
+	CodeInternalError      = "internal_error"
+	CodeSecurityViolation  = "security_violation"
+)
+
+// CLIError represents a structured error for CLI output.
+// In JSON mode, this is rendered as a JSON object to stderr.
+// In text mode, it renders as a human-readable error with suggestion.
+type CLIError struct {
+	Message    string `json:"error"`
+	Code       string `json:"code"`
+	Suggestion string `json:"suggestion"`
+	Debug      string `json:"debug,omitempty"`
+}
+
+// NewCLIError creates a new CLIError with the given code, message, and suggestion.
+func NewCLIError(code, message, suggestion string) *CLIError {
+	return &CLIError{
+		Code:       code,
+		Message:    message,
+		Suggestion: suggestion,
+	}
+}
+
+func (e *CLIError) Error() string {
+	return e.Message
+}
+
+// RenderJSONError marshals an error as a JSON object to the writer.
+// If the error is a *CLIError, it is serialized directly.
+// Plain errors are wrapped as CLIError with code "internal_error".
+func RenderJSONError(w io.Writer, err error, debug bool) {
+	var cliErr *CLIError
+	switch e := err.(type) {
+	case *CLIError:
+		cliErr = &CLIError{
+			Message:    e.Message,
+			Code:       e.Code,
+			Suggestion: e.Suggestion,
+			Debug:      e.Debug,
+		}
+	default:
+		cliErr = &CLIError{
+			Message:    err.Error(),
+			Code:       CodeInternalError,
+			Suggestion: "",
+		}
+	}
+
+	if !debug {
+		cliErr.Debug = ""
+	}
+
+	data, marshalErr := json.Marshal(cliErr)
+	if marshalErr != nil {
+		fmt.Fprintf(w, `{"error":%q,"code":"internal_error","suggestion":""}`, err.Error())
+		fmt.Fprintln(w)
+		return
+	}
+	fmt.Fprintln(w, string(data))
+}
+
+// RenderTextError formats an error for human-readable text output.
+// CLIErrors include suggestion lines; plain errors show just the message.
+// Debug details are included only when debug=true.
+func RenderTextError(w io.Writer, err error, debug bool) {
+	switch e := err.(type) {
+	case *CLIError:
+		fmt.Fprintf(w, "Error: %s\n", e.Message)
+		if e.Suggestion != "" {
+			fmt.Fprintf(w, "  Suggestion: %s\n", e.Suggestion)
+		}
+		if debug && e.Debug != "" {
+			fmt.Fprintf(w, "  Debug: %s\n", e.Debug)
+		}
+	default:
+		fmt.Fprintf(w, "Error: %s\n", err.Error())
+	}
+}
+
+// ErrorClassToCode maps a recovery.ErrorClass to a CLIError code string.
+func ErrorClassToCode(class recovery.ErrorClass) string {
+	switch class {
+	case recovery.ClassContractValidation:
+		return CodeContractViolation
+	case recovery.ClassPreflight:
+		return CodePreflightFailed
+	case recovery.ClassSecurityViolation:
+		return CodeSecurityViolation
+	case recovery.ClassRuntimeError:
+		return CodeInternalError
+	default:
+		return CodeInternalError
+	}
+}
