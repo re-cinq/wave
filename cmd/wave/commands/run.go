@@ -230,9 +230,13 @@ func runRun(opts RunOptions, debug bool) error {
 
 	// Initialize event emitter based on output format
 	result := CreateEmitter(opts.Output, runID, p.Metadata.Name, p.Steps, &m)
-	emitter := result.Emitter
 	progressDisplay := result.Progress
 	defer result.Cleanup()
+	// Wrap with DB logging so "wave logs <run-id>" returns full history for CLI runs.
+	var emitter event.EventEmitter = result.Emitter
+	if store != nil {
+		emitter = &dbLoggingEmitter{inner: result.Emitter, store: store, runID: runID}
+	}
 
 	// Initialize workspace manager under .wave/workspaces
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -287,6 +291,11 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	pipelineStart := time.Now()
+
+	// Transition run from pending → running so dashboards and wave status reflect active execution.
+	if store != nil {
+		store.UpdateRunStatus(runID, "running", "", 0)
+	}
 
 	var execErr error
 	if opts.FromStep != "" {
@@ -577,4 +586,22 @@ func extractPreflightMetadata(err error) *recovery.PreflightMetadata {
 	}
 
 	return meta
+}
+
+// dbLoggingEmitter wraps an EventEmitter and also persists each event to the
+// state database so that "wave logs <run-id>" returns a complete history for
+// CLI-launched runs (mirrors the loggingEmitter used by the WebUI server).
+type dbLoggingEmitter struct {
+	inner event.EventEmitter
+	store state.StateStore
+	runID string
+}
+
+func (d *dbLoggingEmitter) Emit(ev event.Event) {
+	d.inner.Emit(ev)
+	// Skip empty heartbeat ticks — they carry no useful information.
+	if ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0 {
+		return
+	}
+	d.store.LogEvent(d.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs)
 }
