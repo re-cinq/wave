@@ -9,10 +9,11 @@ import (
 
 // StatusBarModel is the bottom status bar component.
 type StatusBarModel struct {
-	width        int
-	contextLabel string
-	focusPane    FocusPane
-	formActive   bool
+	width            int
+	contextLabel     string
+	focusPane        FocusPane
+	formActive       bool
+	liveOutputActive bool
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -34,6 +35,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.focusPane = msg.Pane
 	case FormActiveMsg:
 		m.formActive = msg.Active
+	case LiveOutputActiveMsg:
+		m.liveOutputActive = msg.Active
 	}
 	return m, nil
 }
@@ -57,6 +60,8 @@ func (m StatusBarModel) View() string {
 	var hintsText string
 	if m.formActive && m.focusPane == FocusPaneRight {
 		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
+	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
+		hintsText = "v: verbose  d: debug  o: output-only  ↑↓: scroll  Esc: back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
 	} else {

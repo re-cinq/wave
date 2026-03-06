@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 )
@@ -27,6 +28,7 @@ const (
 	stateAvailableDetail                       // Available pipeline config
 	stateFinishedDetail                        // Finished pipeline results
 	stateRunningInfo                           // Running pipeline info
+	stateRunningLive                           // Live output for running pipeline
 	stateConfiguring                           // Argument form active
 	stateLaunching                             // Brief "Starting..." indicator
 	stateError                                 // Launch error display
@@ -81,5 +83,25 @@ type ConfigureFormMsg struct {
 
 // FormActiveMsg signals the status bar whether a form is active for hint switching.
 type FormActiveMsg struct {
+	Active bool
+}
+
+// PipelineEventMsg carries an executor event for a specific pipeline run.
+// Delivered via program.Send() from the progress emitter callback.
+type PipelineEventMsg struct {
+	RunID string
+	Event event.Event
+}
+
+// ElapsedTickMsg drives elapsed time updates for running pipelines in the left pane.
+type ElapsedTickMsg struct{}
+
+// TransitionTimerMsg signals that the completion transition delay has elapsed.
+type TransitionTimerMsg struct {
+	RunID string
+}
+
+// LiveOutputActiveMsg signals the status bar to switch to live output hints.
+type LiveOutputActiveMsg struct {
 	Active bool
 }
