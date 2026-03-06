@@ -137,6 +137,7 @@ For 'list runs', additional flags are available:
 			if len(args) > 0 {
 				filter = args[0]
 			}
+			opts.Format = ResolveFormat(cmd, opts.Format)
 			return runList(opts, filter)
 		},
 	}

@@ -127,7 +127,7 @@ func executeCleanCmd(args ...string) (stdout, stderr string, err error) {
 	return outBuf.String(), errBuf.String(), err
 }
 
-// executeCleanCmdCapturingStdout runs the clean command and captures real stdout
+// executeCleanCmdCapturingStdout runs the clean command and captures real stdout and stderr
 func executeCleanCmdCapturingStdout(args ...string) (string, error) {
 	cmd := NewCleanCmd()
 	cmd.SetArgs(args)
@@ -137,13 +137,21 @@ func executeCleanCmdCapturingStdout(args ...string) (string, error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Capture stderr since informational messages now go to os.Stderr
+	oldStderr := os.Stderr
+	re, we, _ := os.Pipe()
+	os.Stderr = we
+
 	err := cmd.Execute()
 
 	w.Close()
 	os.Stdout = oldStdout
+	we.Close()
+	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
+	io.Copy(&buf, re)
 	return buf.String(), err
 }
 
