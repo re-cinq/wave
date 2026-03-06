@@ -7,19 +7,32 @@ import (
 
 // ContentModel is the main content area component composing a left pipeline list pane and a right detail pane.
 type ContentModel struct {
-	width  int
-	height int
-	list   PipelineListModel
-	detail PipelineDetailModel
-	focus  FocusPane
+	width    int
+	height   int
+	list     PipelineListModel
+	detail   PipelineDetailModel
+	focus    FocusPane
+	launcher *PipelineLauncher
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
-func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataProvider) ContentModel {
+func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies) ContentModel {
+	var launcher *PipelineLauncher
+	if deps.Manifest != nil {
+		launcher = NewPipelineLauncher(deps)
+	}
 	return ContentModel{
-		list:   NewPipelineListModel(provider),
-		detail: NewPipelineDetailModel(detailProvider),
-		focus:  FocusPaneLeft,
+		list:     NewPipelineListModel(provider),
+		detail:   NewPipelineDetailModel(detailProvider),
+		focus:    FocusPaneLeft,
+		launcher: launcher,
+	}
+}
+
+// CancelAll cancels all running pipelines managed by the launcher.
+func (m *ContentModel) CancelAll() {
+	if m.launcher != nil {
+		m.launcher.CancelAll()
 	}
 }
 
@@ -48,10 +61,27 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering {
 			if m.cursorOnFocusableItem() {
+				item := m.list.navigable[m.list.cursor]
 				m.focus = FocusPaneRight
 				m.list.SetFocused(false)
 				m.detail.SetFocused(true)
-				return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
+
+				enterCmds := []tea.Cmd{
+					func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} },
+				}
+
+				// For available items, also send ConfigureFormMsg to show the launch form
+				if item.kind == itemKindAvailable && item.dataIndex >= 0 && item.dataIndex < len(m.list.available) {
+					a := m.list.available[item.dataIndex]
+					enterCmds = append(enterCmds, func() tea.Msg {
+						return ConfigureFormMsg{PipelineName: a.Name, InputExample: a.InputExample}
+					})
+					enterCmds = append(enterCmds, func() tea.Msg {
+						return FormActiveMsg{Active: true}
+					})
+				}
+
+				return m, tea.Batch(enterCmds...)
 			}
 			// Section header or running item — forward to list for collapse/no-op
 			var cmd tea.Cmd
@@ -64,6 +94,18 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
 			return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		}
+
+		// Cancel running pipeline with 'c' key
+		if msg.String() == "c" && m.focus == FocusPaneLeft && m.launcher != nil {
+			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
+				item := m.list.navigable[m.list.cursor]
+				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
+					r := m.list.running[item.dataIndex]
+					m.launcher.Cancel(r.RunID)
+				}
+			}
+			return m, nil
 		}
 
 		// Route key messages to the focused child only
@@ -98,6 +140,63 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
+
+	case ConfigureFormMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case LaunchRequestMsg:
+		if m.launcher != nil {
+			cmd := m.launcher.Launch(msg.Config)
+			return m, cmd
+		}
+		return m, nil
+
+	case PipelineLaunchedMsg:
+		// Forward to list for running entry insertion
+		var listCmd tea.Cmd
+		m.list, listCmd = m.list.Update(msg)
+		// Transition focus to left pane
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
+		batchCmds := []tea.Cmd{focusCmd, formCmd}
+		if listCmd != nil {
+			batchCmds = append(batchCmds, listCmd)
+		}
+		return m, tea.Batch(batchCmds...)
+
+	case PipelineLaunchResultMsg:
+		if m.launcher != nil {
+			m.launcher.Cleanup(msg.RunID)
+		}
+		return m, nil
+
+	case LaunchErrorMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		// Transition focus to left pane
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
+		batchCmds := []tea.Cmd{focusCmd, formCmd}
+		if cmd != nil {
+			batchCmds = append(batchCmds, cmd)
+		}
+		return m, tea.Batch(batchCmds...)
+
+	case FocusChangedMsg:
+		if msg.Pane == FocusPaneLeft {
+			m.focus = FocusPaneLeft
+			m.list.SetFocused(true)
+			m.detail.SetFocused(false)
+		}
+		return m, nil
 	}
 
 	// Default: forward to both children
