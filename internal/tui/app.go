@@ -92,7 +92,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Forward FocusChangedMsg, FormActiveMsg, and LiveOutputActiveMsg to status bar
 	switch msg.(type) {
-	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg:
+	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 

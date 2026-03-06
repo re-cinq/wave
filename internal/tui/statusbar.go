@@ -14,6 +14,7 @@ type StatusBarModel struct {
 	focusPane        FocusPane
 	formActive       bool
 	liveOutputActive bool
+	finishedDetailActive bool
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -35,6 +36,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.focusPane = msg.Pane
 	case FormActiveMsg:
 		m.formActive = msg.Active
+	case FinishedDetailActiveMsg:
+		m.finishedDetailActive = msg.Active
 	case LiveOutputActiveMsg:
 		m.liveOutputActive = msg.Active
 	}
@@ -62,6 +65,8 @@ func (m StatusBarModel) View() string {
 		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
 		hintsText = "v: verbose  d: debug  o: output-only  ↑↓: scroll  Esc: back"
+	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
+		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
 	} else {

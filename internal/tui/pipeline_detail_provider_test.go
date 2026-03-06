@@ -267,3 +267,77 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_NotFound(t *testing.T) {
 	assert.Nil(t, got)
 	assert.EqualError(t, err, "run not found: run-missing")
 }
+
+func TestDefaultDetailDataProvider_FetchFinishedDetail_WorkspacePath(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	completedAt := timePtr(timeAt(10, 30))
+	store := &detailMockStore{
+		run: &state.RunRecord{
+			RunID:        "run-ws-test",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			BranchName:   "feat/my-feature",
+			StartedAt:    timeAt(10, 0),
+			CompletedAt:  completedAt,
+		},
+		metrics: []state.PerformanceMetricRecord{},
+	}
+
+	// Create the expected workspace directory.
+	wsDir := filepath.Join(".wave", "workspaces", "run-ws-test", "__wt_feat-my-feature")
+	require.NoError(t, os.MkdirAll(wsDir, 0755))
+
+	provider := NewDefaultDetailDataProvider(store, "")
+	got, err := provider.FetchFinishedDetail("run-ws-test")
+	require.NoError(t, err)
+	assert.Equal(t, wsDir, got.WorkspacePath)
+}
+
+func TestDefaultDetailDataProvider_FetchFinishedDetail_WorkspacePathMissing(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	completedAt := timePtr(timeAt(10, 30))
+	store := &detailMockStore{
+		run: &state.RunRecord{
+			RunID:        "run-no-ws",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			BranchName:   "feat/gone",
+			StartedAt:    timeAt(10, 0),
+			CompletedAt:  completedAt,
+		},
+		metrics: []state.PerformanceMetricRecord{},
+	}
+
+	provider := NewDefaultDetailDataProvider(store, "")
+	got, err := provider.FetchFinishedDetail("run-no-ws")
+	require.NoError(t, err)
+	assert.Empty(t, got.WorkspacePath)
+}
+
+func TestDefaultDetailDataProvider_FetchFinishedDetail_EmptyBranchGlob(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	completedAt := timePtr(timeAt(10, 30))
+	store := &detailMockStore{
+		run: &state.RunRecord{
+			RunID:        "run-glob-test",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			BranchName:   "",
+			StartedAt:    timeAt(10, 0),
+			CompletedAt:  completedAt,
+		},
+		metrics: []state.PerformanceMetricRecord{},
+	}
+
+	// Create a worktree directory with any name.
+	wsDir := filepath.Join(".wave", "workspaces", "run-glob-test", "__wt_some-branch")
+	require.NoError(t, os.MkdirAll(wsDir, 0755))
+
+	provider := NewDefaultDetailDataProvider(store, "")
+	got, err := provider.FetchFinishedDetail("run-glob-test")
+	require.NoError(t, err)
+	assert.Equal(t, wsDir, got.WorkspacePath)
+}
