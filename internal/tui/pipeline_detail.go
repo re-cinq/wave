@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -27,6 +28,7 @@ type PipelineDetailModel struct {
 
 	// State machine for right pane rendering
 	paneState   DetailPaneState
+	actionError string // Transient error for action keys
 	launchError string // Error message for stateError
 
 	// Launch form state
@@ -176,6 +178,7 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			m.paneState = stateAvailableDetail
 		} else if msg.FinishedDetail != nil {
 			m.finishedDetail = msg.FinishedDetail
+			m.branchDeleted = msg.FinishedDetail.BranchDeleted
 			m.paneState = stateFinishedDetail
 		}
 		m.updateViewportContent()
@@ -240,6 +243,35 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 		return m, nil
 
+	case ChatSessionEndedMsg:
+		// Re-fetch finished detail to reflect changes made during chat
+		if m.selectedRunID != "" {
+			runID := m.selectedRunID
+			provider := m.provider
+			return m, tea.Batch(
+				func() tea.Msg {
+					detail, err := provider.FetchFinishedDetail(runID)
+					return DetailDataMsg{FinishedDetail: detail, Err: err}
+				},
+				func() tea.Msg { return GitRefreshTickMsg{} },
+			)
+		}
+		return m, nil
+
+	case BranchCheckoutMsg:
+		if msg.Success {
+			m.actionError = ""
+			return m, func() tea.Msg { return GitRefreshTickMsg{} }
+		}
+		if msg.Err != nil {
+			m.actionError = fmt.Sprintf("Branch checkout failed: %s", msg.Err)
+		}
+		m.updateViewportContent()
+		return m, nil
+
+	case DiffViewEndedMsg:
+		return m, nil
+
 	case tea.KeyMsg:
 		// Handle Esc from live output state
 		if m.paneState == stateRunningLive && msg.Type == tea.KeyEscape {
@@ -270,6 +302,53 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			return m, cmd
 		}
 
+		// Handle action keys in stateFinishedDetail
+		if m.paneState == stateFinishedDetail && m.focused {
+			// Clear transient error on any key press (T021)
+			m.actionError = ""
+
+			switch msg.Type {
+			case tea.KeyEnter:
+				// Open chat session (T012)
+				if m.finishedDetail == nil || m.finishedDetail.WorkspacePath == "" {
+					m.actionError = "Workspace directory no longer exists — the worktree may have been cleaned up"
+					m.updateViewportContent()
+					return m, nil
+				}
+				cmd := exec.Command("claude")
+				cmd.Dir = m.finishedDetail.WorkspacePath
+				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+					return ChatSessionEndedMsg{Err: err}
+				})
+			default:
+				switch msg.String() {
+				case "b":
+					// Branch checkout (T015)
+					if m.branchDeleted || m.finishedDetail == nil || m.finishedDetail.BranchName == "" {
+						return m, nil
+					}
+					branch := m.finishedDetail.BranchName
+					return m, func() tea.Msg {
+						out, err := exec.Command("git", "checkout", branch).CombinedOutput()
+						if err != nil {
+							return BranchCheckoutMsg{BranchName: branch, Success: false, Err: fmt.Errorf("%s", strings.TrimSpace(string(out)))}
+						}
+						return BranchCheckoutMsg{BranchName: branch, Success: true}
+					}
+				case "d":
+					// Diff view (T018)
+					if m.branchDeleted || m.finishedDetail == nil || m.finishedDetail.BranchName == "" {
+						return m, nil
+					}
+					diffCmd := exec.Command("git", "diff", "main..."+m.finishedDetail.BranchName)
+					return m, tea.ExecProcess(diffCmd, func(err error) tea.Msg {
+						return DiffViewEndedMsg{Err: err}
+					})
+				}
+			}
+			m.updateViewportContent()
+		}
+
 		if m.focused {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -289,7 +368,7 @@ func (m *PipelineDetailModel) updateViewportContent() {
 		}
 	case stateFinishedDetail:
 		if m.finishedDetail != nil {
-			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted))
+			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted, m.actionError))
 		}
 	case stateRunningInfo:
 		if m.selectedName != "" {
@@ -423,7 +502,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 }
 
 // renderFinishedDetail renders the detail view for a finished pipeline run.
-func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool) string {
+func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
@@ -524,14 +603,26 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool)
 
 	// Action hints
 	sb.WriteString("\n")
-	enterHint := mutedStyle.Render("[Enter] Open chat")
-	branchHint := mutedStyle.Render("[b] Checkout branch")
-	if branchDeleted {
-		branchHint = mutedStyle.Faint(true).Render("[b] Checkout branch")
+	if actionError != "" {
+		sb.WriteString(redStyle.Render(actionError))
+		sb.WriteString("\n")
+	} else {
+		branchDisabled := branchDeleted || detail.BranchName == ""
+		enterHint := mutedStyle.Render("[Enter] Open chat")
+		if detail.WorkspacePath == "" {
+			enterHint = mutedStyle.Faint(true).Render("[Enter] Open chat")
+		}
+		branchHint := mutedStyle.Render("[b] Checkout branch")
+		if branchDisabled {
+			branchHint = mutedStyle.Faint(true).Render("[b] Checkout branch")
+		}
+		diffHint := mutedStyle.Render("[d] View diff")
+		if branchDisabled {
+			diffHint = mutedStyle.Faint(true).Render("[d] View diff")
+		}
+		escHint := mutedStyle.Render("[Esc] Back")
+		sb.WriteString(fmt.Sprintf("%s  %s  %s  %s\n", enterHint, branchHint, diffHint, escHint))
 	}
-	diffHint := mutedStyle.Render("[d] View diff")
-	escHint := mutedStyle.Render("[Esc] Back")
-	sb.WriteString(fmt.Sprintf("%s  %s  %s  %s\n", enterHint, branchHint, diffHint, escHint))
 
 	return sb.String()
 }
