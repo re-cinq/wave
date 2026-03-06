@@ -90,9 +90,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, contentCmd)
 	}
 
-	// Forward FocusChangedMsg and FormActiveMsg to status bar
+	// Forward FocusChangedMsg, FormActiveMsg, and LiveOutputActiveMsg to status bar
 	switch msg.(type) {
-	case FocusChangedMsg, FormActiveMsg:
+	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
@@ -123,7 +123,11 @@ func (m AppModel) View() string {
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
 func RunTUI(deps LaunchDependencies) error {
 	metaProvider := &DefaultMetadataProvider{}
-	p := tea.NewProgram(NewAppModel(metaProvider, nil, nil, deps), tea.WithAltScreen())
+	model := NewAppModel(metaProvider, nil, nil, deps)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	if model.content.launcher != nil {
+		model.content.launcher.SetProgram(p)
+	}
 	_, err := p.Run()
 	return err
 }

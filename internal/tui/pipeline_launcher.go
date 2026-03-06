@@ -17,6 +17,8 @@ import (
 type PipelineLauncher struct {
 	deps      LaunchDependencies
 	cancelFns map[string]context.CancelFunc
+	buffers   map[string]*EventBuffer
+	program   *tea.Program
 	mu        sync.Mutex
 }
 
@@ -25,7 +27,30 @@ func NewPipelineLauncher(deps LaunchDependencies) *PipelineLauncher {
 	return &PipelineLauncher{
 		deps:      deps,
 		cancelFns: make(map[string]context.CancelFunc),
+		buffers:   make(map[string]*EventBuffer),
 	}
+}
+
+// SetProgram sets the Bubble Tea program reference for sending messages.
+func (l *PipelineLauncher) SetProgram(p *tea.Program) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.program = p
+}
+
+// GetBuffer returns the event buffer for a pipeline run (nil for external pipelines).
+func (l *PipelineLauncher) GetBuffer(runID string) *EventBuffer {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buffers[runID]
+}
+
+// HasBuffer returns true if the pipeline was TUI-launched and has an event buffer.
+func (l *PipelineLauncher) HasBuffer(runID string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, ok := l.buffers[runID]
+	return ok
 }
 
 // Launch starts a pipeline in a background goroutine and returns tea.Cmds
@@ -83,8 +108,21 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	l.cancelFns[runID] = cancel
 	l.mu.Unlock()
 
-	// Build executor options
-	emitter := event.NewNDJSONEmitter()
+	// Create event buffer for this pipeline
+	buffer := NewEventBuffer(1000)
+	l.mu.Lock()
+	l.buffers[runID] = buffer
+	prog := l.program
+	l.mu.Unlock()
+
+	// Build emitter — use progress-only emitter for TUI to avoid corrupting stdout
+	var emitter event.EventEmitter
+	if prog != nil {
+		tuiEmitter := &TUIProgressEmitter{program: prog, runID: runID}
+		emitter = event.NewProgressOnlyEmitter(tuiEmitter)
+	} else {
+		emitter = event.NewNDJSONEmitter()
+	}
 
 	var execOpts []pipeline.ExecutorOption
 	execOpts = append(execOpts, pipeline.WithEmitter(emitter))
@@ -180,9 +218,25 @@ func (l *PipelineLauncher) CancelAll() {
 	l.cancelFns = make(map[string]context.CancelFunc)
 }
 
-// Cleanup removes a cancel function entry after a pipeline finishes.
+// Cleanup removes a cancel function entry and buffer after a pipeline finishes.
 func (l *PipelineLauncher) Cleanup(runID string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.cancelFns, runID)
+	delete(l.buffers, runID)
+}
+
+// TUIProgressEmitter implements event.ProgressEmitter to bridge executor events
+// into the Bubble Tea event loop via program.Send().
+type TUIProgressEmitter struct {
+	program *tea.Program
+	runID   string
+}
+
+// EmitProgress sends the event as a PipelineEventMsg to the TUI program.
+func (e *TUIProgressEmitter) EmitProgress(evt event.Event) error {
+	if e.program != nil {
+		e.program.Send(PipelineEventMsg{RunID: e.runID, Event: evt})
+	}
+	return nil
 }
