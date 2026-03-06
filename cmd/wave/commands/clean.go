@@ -246,7 +246,7 @@ func runClean(opts CleanOptions) error {
 
 	if len(existingTargets) == 0 {
 		if !opts.Quiet {
-			fmt.Printf("Nothing to clean\n")
+			fmt.Fprintf(os.Stderr, "Nothing to clean\n")
 		}
 		return nil
 	}
@@ -263,21 +263,21 @@ func runClean(opts CleanOptions) error {
 	if !opts.Force && !opts.DryRun {
 		if !isTTY() {
 			if !opts.Quiet {
-				fmt.Printf("Stdin is not a TTY. Use --force to proceed with cleanup.\n")
-				fmt.Printf("Would clean %d item(s), total size: %s\n", workspaceCount, formatSize(totalSize))
+				fmt.Fprintf(os.Stderr, "Stdin is not a TTY. Use --force to proceed with cleanup.\n")
+				fmt.Fprintf(os.Stderr, "Would clean %d item(s), total size: %s\n", workspaceCount, formatSize(totalSize))
 			}
 			return nil
 		}
 
 		// Show confirmation prompt
-		fmt.Printf("About to remove %d item(s), total size: %s\n", workspaceCount, formatSize(totalSize))
-		fmt.Printf("Continue? [y/N] ")
+		fmt.Fprintf(os.Stderr, "About to remove %d item(s), total size: %s\n", workspaceCount, formatSize(totalSize))
+		fmt.Fprintf(os.Stderr, "Continue? [y/N] ")
 
 		var response string
 		fmt.Scanln(&response)
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
 			if !opts.Quiet {
-				fmt.Printf("Aborted\n")
+				fmt.Fprintf(os.Stderr, "Aborted\n")
 			}
 			return nil
 		}
@@ -285,11 +285,11 @@ func runClean(opts CleanOptions) error {
 
 	if opts.DryRun {
 		if !opts.Quiet {
-			fmt.Printf("(dry-run) The following would be removed:\n")
-			fmt.Printf("  Total: %d item(s), %s\n", workspaceCount, formatSize(totalSize))
+			fmt.Fprintf(os.Stderr, "(dry-run) The following would be removed:\n")
+			fmt.Fprintf(os.Stderr, "  Total: %d item(s), %s\n", workspaceCount, formatSize(totalSize))
 			for _, target := range existingTargets {
 				size, _ := calculateDirectorySize(target)
-				fmt.Printf("  Would remove %s (%s)\n", target, formatSize(size))
+				fmt.Fprintf(os.Stderr, "  Would remove %s (%s)\n", target, formatSize(size))
 			}
 		}
 		return nil
@@ -322,29 +322,29 @@ func runClean(opts CleanOptions) error {
 			if err := os.RemoveAll(target); err != nil {
 				failed++
 				if !opts.Quiet {
-					fmt.Printf("  Failed to remove %s: %s\n", target, err)
+					fmt.Fprintf(os.Stderr, "  Failed to remove %s: %s\n", target, err)
 				}
 				continue
 			}
 			if !opts.Quiet {
-				fmt.Printf("  Removed %s\n", target)
+				fmt.Fprintf(os.Stderr, "  Removed %s\n", target)
 			}
 			cleaned++
 		}
 
 		// Show progress for large cleanups
 		if showProgress && end < len(existingTargets) {
-			fmt.Printf("  Progress: %d/%d items processed\n", end, len(existingTargets))
+			fmt.Fprintf(os.Stderr, "  Progress: %d/%d items processed\n", end, len(existingTargets))
 		}
 	}
 
 	if !opts.Quiet {
 		if cleaned == 0 && failed == 0 {
-			fmt.Printf("Nothing to clean\n")
+			fmt.Fprintf(os.Stderr, "Nothing to clean\n")
 		} else if failed > 0 {
-			fmt.Printf("\nCleaned %d item(s), failed to clean %d item(s)\n", cleaned, failed)
+			fmt.Fprintf(os.Stderr, "\nCleaned %d item(s), failed to clean %d item(s)\n", cleaned, failed)
 		} else {
-			fmt.Printf("\nCleaned %d item(s)\n", cleaned)
+			fmt.Fprintf(os.Stderr, "\nCleaned %d item(s)\n", cleaned)
 		}
 	}
 

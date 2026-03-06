@@ -94,15 +94,25 @@ func executeArtifactsCmd(args ...string) (stdout, stderr string, err error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Capture stderr since informational messages now go to os.Stderr
+	oldStderr := os.Stderr
+	re, we, _ := os.Pipe()
+	os.Stderr = we
+
 	err = cmd.Execute()
 
 	w.Close()
 	os.Stdout = oldStdout
+	we.Close()
+	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 
-	return buf.String(), errBuf.String(), err
+	var stderrBuf bytes.Buffer
+	stderrBuf.ReadFrom(re)
+
+	return buf.String(), stderrBuf.String(), err
 }
 
 // Test: List artifacts from workspace
@@ -301,10 +311,10 @@ func TestArtifactsCmd_NoArtifacts(t *testing.T) {
 	// Create pipeline with no artifacts
 	env.createPipelineWorkspace("empty", []string{"step1"})
 
-	stdout, _, err := executeArtifactsCmd()
+	_, stderr, err := executeArtifactsCmd()
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "No artifacts found")
+	assert.Contains(t, stderr, "No artifacts found")
 }
 
 // Test: No workspaces at all
@@ -314,10 +324,10 @@ func TestArtifactsCmd_NoWorkspaces(t *testing.T) {
 
 	// Don't create any workspace structure
 
-	stdout, _, err := executeArtifactsCmd()
+	_, stderr, err := executeArtifactsCmd()
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "No artifacts found")
+	assert.Contains(t, stderr, "No artifacts found")
 }
 
 // Test: Different artifact types
