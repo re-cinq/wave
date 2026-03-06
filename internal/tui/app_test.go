@@ -40,7 +40,7 @@ func (m *mockPipelineDataProvider) FetchAvailablePipelines() ([]PipelineInfo, er
 }
 
 func TestNewAppModel_InitialState(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	assert.False(t, m.ready)
 	assert.False(t, m.shuttingDown)
 	assert.Equal(t, 0, m.width)
@@ -49,20 +49,20 @@ func TestNewAppModel_InitialState(t *testing.T) {
 }
 
 func TestAppModel_Init_ReturnsCmds(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	cmd := m.Init()
 	// Header.Init() returns a batch of async fetch commands
 	assert.NotNil(t, cmd)
 }
 
 func TestAppModel_Init_IncludesContentCmds(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	cmd := m.Init()
 	assert.NotNil(t, cmd)
 }
 
 func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, _ := m.Update(msg)
@@ -78,7 +78,7 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 }
 
 func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -92,7 +92,7 @@ func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
 }
 
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	_, cmd := m.Update(msg)
@@ -104,7 +104,7 @@ func TestAppModel_Update_QuitOnQ(t *testing.T) {
 }
 
 func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -117,13 +117,13 @@ func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
 }
 
 func TestAppModel_View_BeforeReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	view := m.View()
 	assert.Equal(t, "Initializing...", view)
 }
 
 func TestAppModel_View_AfterReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -153,7 +153,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+			m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
 			updated, _ := m.Update(msg)
 			model := updated.(AppModel)
@@ -166,7 +166,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 }
 
 func TestAppModel_View_ExactMinimumSize(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	msg := tea.WindowSizeMsg{Width: 80, Height: 24}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -182,7 +182,7 @@ func TestAppModel_View_ExactMinimumSize(t *testing.T) {
 // --- T033: App integration tests for header message forwarding ---
 
 func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	// First, set up with a window size
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
@@ -207,7 +207,7 @@ func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -223,7 +223,7 @@ func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -235,7 +235,7 @@ func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -249,7 +249,7 @@ func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -264,7 +264,7 @@ func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{})
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
 	model := updated.(AppModel)
 
@@ -284,4 +284,17 @@ func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
 	view := model.View()
 	assert.Contains(t, view, "feature/tui")
 	assert.Contains(t, view, "wave-project")
+}
+
+func TestAppModel_Update_ForwardsFocusChangedMsgToStatusBar(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Send FocusChangedMsg
+	focusMsg := FocusChangedMsg{Pane: FocusPaneRight}
+	updated, _ = model.Update(focusMsg)
+	model = updated.(AppModel)
+
+	assert.Equal(t, FocusPaneRight, model.statusBar.focusPane)
 }

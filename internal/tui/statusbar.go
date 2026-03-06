@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -10,6 +11,7 @@ import (
 type StatusBarModel struct {
 	width        int
 	contextLabel string
+	focusPane    FocusPane
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -22,6 +24,15 @@ func NewStatusBarModel() StatusBarModel {
 // SetWidth updates the status bar width for reflow.
 func (m *StatusBarModel) SetWidth(w int) {
 	m.width = w
+}
+
+// Update handles messages to update status bar state.
+func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case FocusChangedMsg:
+		m.focusPane = msg.Pane
+	}
+	return m, nil
 }
 
 // View renders the status bar as a single line.
@@ -39,7 +50,14 @@ func (m StatusBarModel) View() string {
 		PaddingRight(1)
 
 	label := labelStyle.Render(m.contextLabel)
-	hints := hintsStyle.Render("↑↓: navigate  /: filter  q: quit  ctrl+c: exit")
+
+	var hintsText string
+	if m.focusPane == FocusPaneRight {
+		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
+	} else {
+		hintsText = "↑↓: navigate  Enter: view  /: filter  q: quit  ctrl+c: exit"
+	}
+	hints := hintsStyle.Render(hintsText)
 
 	// Calculate spacing between label and hints
 	labelWidth := lipgloss.Width(label)

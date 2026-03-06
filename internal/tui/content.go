@@ -10,18 +10,22 @@ type ContentModel struct {
 	width  int
 	height int
 	list   PipelineListModel
+	detail PipelineDetailModel
+	focus  FocusPane
 }
 
-// NewContentModel creates a new content model with the given pipeline data provider.
-func NewContentModel(provider PipelineDataProvider) ContentModel {
+// NewContentModel creates a new content model with the given pipeline data providers.
+func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataProvider) ContentModel {
 	return ContentModel{
-		list: NewPipelineListModel(provider),
+		list:   NewPipelineListModel(provider),
+		detail: NewPipelineDetailModel(detailProvider),
+		focus:  FocusPaneLeft,
 	}
 }
 
 // Init returns commands from child components.
 func (m ContentModel) Init() tea.Cmd {
-	return m.list.Init()
+	return tea.Batch(m.list.Init(), m.detail.Init())
 }
 
 // SetSize updates the content area dimensions and propagates to children.
@@ -31,31 +35,108 @@ func (m *ContentModel) SetSize(w, h int) {
 
 	leftWidth := m.leftPaneWidth()
 	m.list.SetSize(leftWidth, h)
+
+	rightWidth := w - leftWidth
+	m.detail.SetSize(rightWidth, h)
 }
 
-// Update handles messages by forwarding to child components.
+// Update handles messages by forwarding to child components with focus-aware routing.
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering {
+			if m.cursorOnFocusableItem() {
+				m.focus = FocusPaneRight
+				m.list.SetFocused(false)
+				m.detail.SetFocused(true)
+				return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
+			}
+			// Section header or running item — forward to list for collapse/no-op
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		}
+
+		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight {
+			m.focus = FocusPaneLeft
+			m.list.SetFocused(true)
+			m.detail.SetFocused(false)
+			return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		}
+
+		// Route key messages to the focused child only
+		if m.focus == FocusPaneRight {
+			var cmd tea.Cmd
+			m.detail, cmd = m.detail.Update(msg)
+			return m, cmd
+		}
+
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+
+	case PipelineSelectedMsg:
+		var listCmd, detailCmd tea.Cmd
+		m.list, listCmd = m.list.Update(msg)
+		m.detail, detailCmd = m.detail.Update(msg)
+		if listCmd != nil {
+			cmds = append(cmds, listCmd)
+		}
+		if detailCmd != nil {
+			cmds = append(cmds, detailCmd)
+		}
+		return m, tea.Batch(cmds...)
+
+	case DetailDataMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case PipelineDataMsg, PipelineRefreshTickMsg:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+	}
+
+	// Default: forward to both children
+	var listCmd, detailCmd tea.Cmd
+	m.list, listCmd = m.list.Update(msg)
+	m.detail, detailCmd = m.detail.Update(msg)
+	if listCmd != nil {
+		cmds = append(cmds, listCmd)
+	}
+	if detailCmd != nil {
+		cmds = append(cmds, detailCmd)
+	}
+	return m, tea.Batch(cmds...)
 }
 
-// View renders the content area with left pipeline list and right detail placeholder.
+// cursorOnFocusableItem returns true if the cursor is on an available or finished item.
+func (m ContentModel) cursorOnFocusableItem() bool {
+	if len(m.list.navigable) == 0 || m.list.cursor >= len(m.list.navigable) {
+		return false
+	}
+	kind := m.list.navigable[m.list.cursor].kind
+	return kind == itemKindAvailable || kind == itemKindFinished
+}
+
+// View renders the content area with left pipeline list and right detail pane.
 func (m ContentModel) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
 
-	leftWidth := m.leftPaneWidth()
-	rightWidth := m.width - leftWidth
-
 	leftView := m.list.View()
+	rightView := m.detail.View()
 
-	rightPlaceholder := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("244"))
-	rightContent := rightPlaceholder.Render("Select a pipeline to view details")
-
-	rightView := lipgloss.Place(rightWidth, m.height, lipgloss.Center, lipgloss.Center, rightContent)
+	// Apply dimming when focus is on the right pane
+	if m.focus == FocusPaneRight {
+		leftView = lipgloss.NewStyle().
+			Faint(true).
+			Render(leftView)
+	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
 }
