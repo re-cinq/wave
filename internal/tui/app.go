@@ -27,10 +27,10 @@ type AppModel struct {
 }
 
 // NewAppModel creates a new root app model with default child components.
-func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider) AppModel {
+func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies) AppModel {
 	return AppModel{
 		header:    NewHeaderModel(metaProvider),
-		content:   NewContentModel(pipelineProvider, detailProvider),
+		content:   NewContentModel(pipelineProvider, detailProvider, deps),
 		statusBar: NewStatusBarModel(),
 	}
 }
@@ -52,9 +52,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				os.Exit(0)
 			}
 			m.shuttingDown = true
+			m.content.CancelAll()
 			return m, tea.Quit
 		default:
-			if msg.String() == "q" && !m.content.list.filtering {
+			if msg.String() == "q" && !m.content.list.filtering && m.content.focus == FocusPaneLeft {
+				m.content.CancelAll()
 				return m, tea.Quit
 			}
 		}
@@ -88,8 +90,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, contentCmd)
 	}
 
-	// Forward FocusChangedMsg to status bar
-	if _, ok := msg.(FocusChangedMsg); ok {
+	// Forward FocusChangedMsg and FormActiveMsg to status bar
+	switch msg.(type) {
+	case FocusChangedMsg, FormActiveMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
@@ -118,9 +121,9 @@ func (m AppModel) View() string {
 }
 
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
-func RunTUI() error {
+func RunTUI(deps LaunchDependencies) error {
 	metaProvider := &DefaultMetadataProvider{}
-	p := tea.NewProgram(NewAppModel(metaProvider, nil, nil), tea.WithAltScreen())
+	p := tea.NewProgram(NewAppModel(metaProvider, nil, nil, deps), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
 }
