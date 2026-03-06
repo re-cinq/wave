@@ -9,12 +9,13 @@ import (
 
 // StatusBarModel is the bottom status bar component.
 type StatusBarModel struct {
-	width            int
-	contextLabel     string
-	focusPane        FocusPane
-	formActive       bool
-	liveOutputActive bool
+	width                int
+	contextLabel         string
+	focusPane            FocusPane
+	formActive           bool
+	liveOutputActive     bool
 	finishedDetailActive bool
+	currentView          ViewType
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -40,6 +41,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.finishedDetailActive = msg.Active
 	case LiveOutputActiveMsg:
 		m.liveOutputActive = msg.Active
+	case ViewChangedMsg:
+		m.currentView = msg.View
 	}
 	return m, nil
 }
@@ -58,7 +61,11 @@ func (m StatusBarModel) View() string {
 		Background(bg).
 		PaddingRight(1)
 
-	label := labelStyle.Render(m.contextLabel)
+	viewLabel := m.contextLabel
+	if m.currentView > 0 {
+		viewLabel = m.currentView.String()
+	}
+	label := labelStyle.Render(viewLabel)
 
 	var hintsText string
 	if m.formActive && m.focusPane == FocusPaneRight {
@@ -69,8 +76,10 @@ func (m StatusBarModel) View() string {
 		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
+	} else if m.currentView == ViewHealth {
+		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab: switch view  q: quit"
 	} else {
-		hintsText = "↑↓: navigate  Enter: view  /: filter  q: quit  ctrl+c: exit"
+		hintsText = "↑↓: navigate  Enter: view  /: filter  Tab: switch view  q: quit"
 	}
 	hints := hintsStyle.Render(hintsText)
 
