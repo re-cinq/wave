@@ -40,7 +40,7 @@ func (m *mockPipelineDataProvider) FetchAvailablePipelines() ([]PipelineInfo, er
 }
 
 func TestNewAppModel_InitialState(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	assert.False(t, m.ready)
 	assert.False(t, m.shuttingDown)
 	assert.Equal(t, 0, m.width)
@@ -49,20 +49,20 @@ func TestNewAppModel_InitialState(t *testing.T) {
 }
 
 func TestAppModel_Init_ReturnsCmds(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	cmd := m.Init()
 	// Header.Init() returns a batch of async fetch commands
 	assert.NotNil(t, cmd)
 }
 
 func TestAppModel_Init_IncludesContentCmds(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	cmd := m.Init()
 	assert.NotNil(t, cmd)
 }
 
 func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 
 	updated, _ := m.Update(msg)
@@ -78,7 +78,7 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 }
 
 func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -92,7 +92,7 @@ func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
 }
 
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
 
 	_, cmd := m.Update(msg)
@@ -104,7 +104,7 @@ func TestAppModel_Update_QuitOnQ(t *testing.T) {
 }
 
 func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
 
 	updated, cmd := m.Update(msg)
@@ -117,13 +117,13 @@ func TestAppModel_Update_CtrlC_SetsShuttingDown(t *testing.T) {
 }
 
 func TestAppModel_View_BeforeReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	view := m.View()
 	assert.Equal(t, "Initializing...", view)
 }
 
 func TestAppModel_View_AfterReady(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -153,7 +153,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+			m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
 			updated, _ := m.Update(msg)
 			model := updated.(AppModel)
@@ -166,7 +166,7 @@ func TestAppModel_View_TooSmall(t *testing.T) {
 }
 
 func TestAppModel_View_ExactMinimumSize(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	msg := tea.WindowSizeMsg{Width: 80, Height: 24}
 	updated, _ := m.Update(msg)
 	model := updated.(AppModel)
@@ -182,7 +182,7 @@ func TestAppModel_View_ExactMinimumSize(t *testing.T) {
 // --- T033: App integration tests for header message forwarding ---
 
 func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	// First, set up with a window size
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
@@ -207,7 +207,7 @@ func TestAppModel_Update_ForwardsGitStateMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -223,7 +223,7 @@ func TestAppModel_Update_ForwardsManifestInfoMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -235,7 +235,7 @@ func TestAppModel_Update_ForwardsPipelineHealthMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -249,7 +249,7 @@ func TestAppModel_Update_ForwardsRunningCountMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -264,7 +264,7 @@ func TestAppModel_Update_ForwardsPipelineSelectedMsgToHeader(t *testing.T) {
 }
 
 func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 40})
 	model := updated.(AppModel)
 
@@ -287,7 +287,7 @@ func TestAppModel_View_HeaderRendersForwardedData(t *testing.T) {
 }
 
 func TestAppModel_Update_ForwardsFocusChangedMsgToStatusBar(t *testing.T) {
-	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil)
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
@@ -297,4 +297,69 @@ func TestAppModel_Update_ForwardsFocusChangedMsgToStatusBar(t *testing.T) {
 	model = updated.(AppModel)
 
 	assert.Equal(t, FocusPaneRight, model.statusBar.focusPane)
+}
+
+// ===========================================================================
+// T019: App model tests for pipeline launch flow
+// ===========================================================================
+
+func TestAppModel_Update_QKeyWithFocusRight_DoesNotQuit(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	// Set up with a window size so the app is ready
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Set focus to right pane
+	model.content.focus = FocusPaneRight
+	model.content.list.SetFocused(false)
+	model.content.detail.SetFocused(true)
+
+	// Send q key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	updated, cmd := model.Update(msg)
+	_ = updated
+
+	// Should NOT return a quit command
+	if cmd != nil {
+		result := cmd()
+		_, isQuit := result.(tea.QuitMsg)
+		assert.False(t, isQuit, "q key with right pane focus should not quit")
+	}
+}
+
+func TestAppModel_Update_QKeyWithFocusLeft_Quits(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+
+	_, cmd := m.Update(msg)
+	assert.NotNil(t, cmd)
+
+	quitMsg := cmd()
+	assert.IsType(t, tea.QuitMsg{}, quitMsg)
+}
+
+func TestAppModel_Update_CancelAllCalledOnCtrlC(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+
+	// CancelAll is called inside Update for CtrlC. Verify the method
+	// does not panic when launcher is nil (no deps.Manifest provided).
+	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	updated, cmd := m.Update(msg)
+	model := updated.(AppModel)
+
+	assert.True(t, model.shuttingDown)
+	assert.NotNil(t, cmd)
+}
+
+func TestAppModel_Update_ForwardsFormActiveMsgToStatusBar(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Send FormActiveMsg
+	formMsg := FormActiveMsg{Active: true}
+	updated, _ = model.Update(formMsg)
+	model = updated.(AppModel)
+
+	assert.True(t, model.statusBar.formActive)
 }

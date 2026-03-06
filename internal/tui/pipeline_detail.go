@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -23,8 +24,17 @@ type PipelineDetailModel struct {
 	availableDetail *AvailableDetail
 	finishedDetail  *FinishedDetail
 	branchDeleted   bool
-	loading         bool
-	errorMsg        string
+
+	// State machine for right pane rendering
+	paneState   DetailPaneState
+	launchError string // Error message for stateError
+
+	// Launch form state
+	launchForm       *huh.Form
+	launchInput      string   // Bound to form input field
+	launchModel      string   // Bound to form model override field
+	launchFlags      []string // Bound to form flag multi-select
+	launchErrorTitle string   // "Launch Failed" for launch errors, empty for detail load errors
 
 	provider DetailDataProvider
 }
@@ -32,8 +42,9 @@ type PipelineDetailModel struct {
 // NewPipelineDetailModel creates a new pipeline detail model with the given provider.
 func NewPipelineDetailModel(provider DetailDataProvider) PipelineDetailModel {
 	return PipelineDetailModel{
-		viewport: viewport.New(0, 0),
-		provider: provider,
+		viewport:  viewport.New(0, 0),
+		provider:  provider,
+		paneState: stateEmpty,
 	}
 }
 
@@ -43,6 +54,9 @@ func (m *PipelineDetailModel) SetSize(w, h int) {
 	m.height = h
 	m.viewport.Width = w
 	m.viewport.Height = h
+	if m.launchForm != nil {
+		m.launchForm.WithWidth(w).WithHeight(h)
+	}
 	m.updateViewportContent()
 }
 
@@ -58,6 +72,48 @@ func (m PipelineDetailModel) Init() tea.Cmd {
 
 // Update handles messages to update model state.
 func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) {
+	// When the form is active, forward ALL messages to it before any other handler.
+	// This ensures the form receives tick messages, key messages, etc.
+	if m.paneState == stateConfiguring && m.launchForm != nil {
+		model, cmd := m.launchForm.Update(msg)
+		m.launchForm = model.(*huh.Form)
+
+		switch m.launchForm.State {
+		case huh.StateCompleted:
+			// Extract bound values and build LaunchConfig
+			config := LaunchConfig{
+				PipelineName:  m.selectedName,
+				Input:         m.launchInput,
+				ModelOverride: m.launchModel,
+				Flags:         m.launchFlags,
+			}
+			// Check for --dry-run in flags
+			for _, f := range m.launchFlags {
+				if f == "--dry-run" {
+					config.DryRun = true
+					break
+				}
+			}
+			m.paneState = stateLaunching
+			m.launchForm = nil
+			return m, tea.Batch(cmd, func() tea.Msg {
+				return LaunchRequestMsg{Config: config}
+			})
+
+		case huh.StateAborted:
+			m.launchForm = nil
+			m.paneState = stateAvailableDetail
+			m.updateViewportContent()
+			return m, tea.Batch(cmd, func() tea.Msg {
+				return FocusChangedMsg{Pane: FocusPaneLeft}
+			}, func() tea.Msg {
+				return FormActiveMsg{Active: false}
+			})
+		}
+
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case PipelineSelectedMsg:
 		m.selectedName = msg.Name
@@ -66,22 +122,24 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.branchDeleted = msg.BranchDeleted
 		m.availableDetail = nil
 		m.finishedDetail = nil
-		m.errorMsg = ""
+		m.launchError = ""
+		m.launchErrorTitle = ""
+		m.launchForm = nil
 
 		if msg.Kind == itemKindSectionHeader {
 			m.selectedName = ""
-			m.loading = false
+			m.paneState = stateEmpty
 			m.viewport.SetContent("")
 			return m, nil
 		}
 
 		if msg.Kind == itemKindRunning {
-			m.loading = false
+			m.paneState = stateRunningInfo
 			m.updateViewportContent()
 			return m, nil
 		}
 
-		m.loading = true
+		m.paneState = stateLoading
 
 		if msg.Kind == itemKindAvailable {
 			name := msg.Name
@@ -102,18 +160,66 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 
 	case DetailDataMsg:
-		m.loading = false
 		if msg.Err != nil {
-			m.errorMsg = msg.Err.Error()
-		} else {
+			m.launchError = msg.Err.Error()
+			m.launchErrorTitle = ""
+			m.paneState = stateError
+		} else if msg.AvailableDetail != nil {
 			m.availableDetail = msg.AvailableDetail
+			m.paneState = stateAvailableDetail
+		} else if msg.FinishedDetail != nil {
 			m.finishedDetail = msg.FinishedDetail
+			m.paneState = stateFinishedDetail
 		}
 		m.updateViewportContent()
 		m.viewport.GotoTop()
 		return m, nil
 
+	case ConfigureFormMsg:
+		// Reset form-bound values
+		m.launchInput = ""
+		m.launchModel = ""
+		m.launchFlags = nil
+
+		// Create the form with input, model override, and flag fields
+		m.launchForm = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Input").
+					Placeholder(msg.InputExample).
+					Value(&m.launchInput),
+				huh.NewInput().
+					Title("Model override (optional)").
+					Value(&m.launchModel),
+				huh.NewMultiSelect[string]().
+					Title("Options").
+					Options(buildFlagOptions(DefaultFlags())...).
+					Value(&m.launchFlags),
+			),
+		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height)
+
+		m.paneState = stateConfiguring
+		return m, m.launchForm.Init()
+
+	case LaunchErrorMsg:
+		m.launchError = msg.Err.Error()
+		m.launchErrorTitle = "Launch Failed"
+		m.paneState = stateError
+		m.launchForm = nil
+		return m, nil
+
 	case tea.KeyMsg:
+		// Handle Esc from error state
+		if m.paneState == stateError && msg.Type == tea.KeyEscape {
+			m.paneState = stateAvailableDetail
+			m.launchError = ""
+			m.launchErrorTitle = ""
+			m.updateViewportContent()
+			return m, func() tea.Msg {
+				return FocusChangedMsg{Pane: FocusPaneLeft}
+			}
+		}
+
 		if m.focused {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -126,12 +232,19 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 
 // updateViewportContent re-renders the appropriate content and sets it on the viewport.
 func (m *PipelineDetailModel) updateViewportContent() {
-	if m.availableDetail != nil {
-		m.viewport.SetContent(renderAvailableDetail(m.availableDetail, m.width))
-	} else if m.finishedDetail != nil {
-		m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted))
-	} else if m.selectedKind == itemKindRunning && m.selectedName != "" {
-		m.viewport.SetContent(renderRunningInfo(m.selectedName, m.width))
+	switch m.paneState {
+	case stateAvailableDetail:
+		if m.availableDetail != nil {
+			m.viewport.SetContent(renderAvailableDetail(m.availableDetail, m.width))
+		}
+	case stateFinishedDetail:
+		if m.finishedDetail != nil {
+			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted))
+		}
+	case stateRunningInfo:
+		if m.selectedName != "" {
+			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.width))
+		}
 	}
 }
 
@@ -141,25 +254,44 @@ func (m PipelineDetailModel) View() string {
 		return ""
 	}
 
-	if m.selectedName == "" {
+	switch m.paneState {
+	case stateEmpty:
 		content := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244")).
 			Render("Select a pipeline to view details")
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
 
-	if m.loading {
+	case stateLoading:
 		content := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244")).
 			Render("Loading...")
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
 
-	if m.errorMsg != "" {
+	case stateConfiguring:
+		if m.launchForm != nil {
+			return m.launchForm.View()
+		}
+
+	case stateLaunching:
 		content := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("1")).
-			Render(fmt.Sprintf("Failed to load pipeline details: %s", m.errorMsg))
+			Foreground(lipgloss.Color("244")).
+			Render("Starting pipeline...")
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+
+	case stateError:
+		if m.launchError != "" {
+			redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+			mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+			var content string
+			if m.launchErrorTitle != "" {
+				content = redStyle.Bold(true).Render(m.launchErrorTitle) + "\n\n" +
+					redStyle.Render(m.launchError) + "\n\n" +
+					mutedStyle.Render("[Esc] Back")
+			} else {
+				content = redStyle.Render(fmt.Sprintf("Failed to load pipeline details: %s", m.launchError))
+			}
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+		}
 	}
 
 	return m.viewport.View()

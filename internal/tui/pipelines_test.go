@@ -150,3 +150,100 @@ func TestDiscoverPipelines_SkipsDirectories(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got)
 }
+
+// ===========================================================================
+// T004: LoadPipelineByName Tests
+// ===========================================================================
+
+func TestLoadPipelineByName_ValidPipeline(t *testing.T) {
+	dir := t.TempDir()
+	content := `kind: WavePipeline
+metadata:
+  name: feature
+  description: "Plan and implement a feature"
+input:
+  source: cli
+  example: "add dark mode"
+steps:
+  - id: explore
+    persona: navigator
+  - id: implement
+    persona: craftsman
+`
+	err := os.WriteFile(filepath.Join(dir, "feature.yaml"), []byte(content), 0644)
+	require.NoError(t, err)
+
+	p, err := LoadPipelineByName(dir, "feature")
+	require.NoError(t, err)
+	assert.NotNil(t, p)
+	assert.Equal(t, "feature", p.Metadata.Name)
+	assert.Equal(t, "Plan and implement a feature", p.Metadata.Description)
+	assert.Equal(t, 2, len(p.Steps))
+	assert.Equal(t, "explore", p.Steps[0].ID)
+	assert.Equal(t, "implement", p.Steps[1].ID)
+}
+
+func TestLoadPipelineByName_NonexistentName(t *testing.T) {
+	dir := t.TempDir()
+	content := `kind: WavePipeline
+metadata:
+  name: feature
+steps: []
+`
+	err := os.WriteFile(filepath.Join(dir, "feature.yaml"), []byte(content), 0644)
+	require.NoError(t, err)
+
+	_, err = LoadPipelineByName(dir, "nonexistent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "pipeline not found: nonexistent")
+}
+
+func TestLoadPipelineByName_EmptyDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := LoadPipelineByName(dir, "anything")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "pipeline not found")
+}
+
+func TestLoadPipelineByName_MalformedYAML_Skipped(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write a malformed YAML file
+	err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte(`not: valid: yaml: [[[`), 0644)
+	require.NoError(t, err)
+
+	// Write a valid pipeline
+	content := `kind: WavePipeline
+metadata:
+  name: good-pipeline
+steps: []
+`
+	err = os.WriteFile(filepath.Join(dir, "good.yaml"), []byte(content), 0644)
+	require.NoError(t, err)
+
+	// Should find the good pipeline, skipping the bad one
+	p, err := LoadPipelineByName(dir, "good-pipeline")
+	require.NoError(t, err)
+	assert.Equal(t, "good-pipeline", p.Metadata.Name)
+}
+
+func TestLoadPipelineByName_NonexistentDirectory(t *testing.T) {
+	_, err := LoadPipelineByName("/nonexistent/path", "anything")
+	assert.Error(t, err)
+}
+
+func TestLoadPipelineByName_YmlExtension(t *testing.T) {
+	dir := t.TempDir()
+	content := `kind: WavePipeline
+metadata:
+  name: yml-pipeline
+steps: []
+`
+	err := os.WriteFile(filepath.Join(dir, "test.yml"), []byte(content), 0644)
+	require.NoError(t, err)
+
+	p, err := LoadPipelineByName(dir, "yml-pipeline")
+	require.NoError(t, err)
+	assert.Equal(t, "yml-pipeline", p.Metadata.Name)
+}

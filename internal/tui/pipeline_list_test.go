@@ -739,3 +739,86 @@ func TestPipelineListModel_View_ZeroDimensions(t *testing.T) {
 	view := m.View()
 	assert.Equal(t, "", view)
 }
+
+// ===========================================================================
+// T014: List integration tests for pipeline launch flow
+// ===========================================================================
+
+func TestPipelineListModel_PipelineLaunchedMsg_PrependsRunningEntry(t *testing.T) {
+	m := newTestListModel(nil, nil, sampleAvailable(2))
+
+	require.Equal(t, 0, len(m.running))
+
+	// Send PipelineLaunchedMsg
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-new", PipelineName: "launched-pipe"}
+	m, _ = m.Update(launchedMsg)
+
+	require.Equal(t, 1, len(m.running))
+	assert.Equal(t, "run-new", m.running[0].RunID)
+	assert.Equal(t, "launched-pipe", m.running[0].Name)
+}
+
+func TestPipelineListModel_PipelineLaunchedMsg_RebuildNavigableItems(t *testing.T) {
+	m := newTestListModel(nil, nil, sampleAvailable(1))
+	navBefore := len(m.navigable)
+
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-new", PipelineName: "launched-pipe"}
+	m, _ = m.Update(launchedMsg)
+
+	// Should have more navigable items now (a running item was added)
+	assert.Greater(t, len(m.navigable), navBefore)
+
+	// Verify the new running item is in navigable
+	foundRunning := false
+	for _, item := range m.navigable {
+		if item.kind == itemKindRunning && item.label == "launched-pipe" {
+			foundRunning = true
+			break
+		}
+	}
+	assert.True(t, foundRunning, "navigable should include the new running item")
+}
+
+func TestPipelineListModel_PipelineLaunchedMsg_MovesCursorToRunningEntry(t *testing.T) {
+	m := newTestListModel(nil, nil, sampleAvailable(2))
+
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-new", PipelineName: "launched-pipe"}
+	m, _ = m.Update(launchedMsg)
+
+	// Cursor should be on the first running item
+	require.Less(t, m.cursor, len(m.navigable))
+	assert.Equal(t, itemKindRunning, m.navigable[m.cursor].kind)
+}
+
+func TestPipelineListModel_PipelineLaunchedMsg_EmitsRunningCount(t *testing.T) {
+	m := newTestListModel(nil, nil, sampleAvailable(1))
+
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-new", PipelineName: "launched-pipe"}
+	_, cmd := m.Update(launchedMsg)
+
+	rcm := extractRunningCountMsg(cmd)
+	require.NotNil(t, rcm, "should emit RunningCountMsg")
+	assert.Equal(t, 1, rcm.Count)
+}
+
+func TestPipelineListModel_PipelineLaunchedMsg_PreservesExistingRunning(t *testing.T) {
+	existing := sampleRunning(2)
+	m := newTestListModel(existing, nil, sampleAvailable(1))
+	require.Equal(t, 2, len(m.running))
+
+	launchedMsg := PipelineLaunchedMsg{RunID: "run-new", PipelineName: "launched-pipe"}
+	m, cmd := m.Update(launchedMsg)
+
+	// Should have 3 running entries (2 existing + 1 new)
+	assert.Equal(t, 3, len(m.running))
+	// New entry is at index 0 (prepended)
+	assert.Equal(t, "run-new", m.running[0].RunID)
+	// Existing entries are still there
+	assert.Equal(t, existing[0].RunID, m.running[1].RunID)
+	assert.Equal(t, existing[1].RunID, m.running[2].RunID)
+
+	// Running count should reflect all 3
+	rcm := extractRunningCountMsg(cmd)
+	require.NotNil(t, rcm)
+	assert.Equal(t, 3, rcm.Count)
+}
