@@ -96,6 +96,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					}
 				}
 
+				// For finished items, activate finished detail hints
+				if item.kind == itemKindFinished {
+					enterCmds = append(enterCmds, func() tea.Msg {
+						return FinishedDetailActiveMsg{Active: true}
+					})
+				}
+
 				return m, tea.Batch(enterCmds...)
 			}
 			// Section header or non-focusable — forward to list for collapse/no-op
@@ -111,6 +118,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, tea.Batch(
 				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
 				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
+				func() tea.Msg { return FinishedDetailActiveMsg{Active: false} },
 			)
 		}
 
@@ -165,6 +173,21 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, cmd
 
 	case TransitionTimerMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case ChatSessionEndedMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case BranchCheckoutMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case DiffViewEndedMsg:
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
