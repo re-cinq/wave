@@ -6,9 +6,12 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/cmd/wave/commands"
+	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -31,7 +34,32 @@ var rootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if shouldLaunchTUI(cmd) {
-			return tui.RunTUI()
+			deps := tui.LaunchDependencies{}
+
+			// Attempt to load manifest for pipeline launching
+			manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")
+			if manifestPath == "" {
+				manifestPath = "wave.yaml"
+			}
+			data, err := os.ReadFile(manifestPath)
+			if err == nil {
+				var m manifest.Manifest
+				if yamlErr := yaml.Unmarshal(data, &m); yamlErr == nil {
+					deps.Manifest = &m
+				}
+			}
+
+			// Attempt to open state store
+			store, err := state.NewStateStore(".wave/state.db")
+			if err == nil {
+				deps.Store = store
+				defer store.Close()
+			}
+
+			// Determine pipelines directory (default .wave/pipelines)
+			deps.PipelinesDir = ".wave/pipelines"
+
+			return tui.RunTUI(deps)
 		}
 		return cmd.Help()
 	},

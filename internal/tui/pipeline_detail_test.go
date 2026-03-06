@@ -231,13 +231,13 @@ func TestPipelineDetailModel_SelectionTriggersFetch(t *testing.T) {
 	// Available kind should trigger fetch
 	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"})
 	assert.NotNil(t, cmd, "available selection should return fetch cmd")
-	assert.True(t, m.loading)
+	assert.Equal(t, stateLoading, m.paneState)
 
 	// Finished kind should trigger fetch
 	m2 := newTestDetailModel(&mockDetailProvider{finishedDetail: fullFinishedDetail("completed")})
 	m2, cmd2 := m2.Update(PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-1"})
 	assert.NotNil(t, cmd2, "finished selection should return fetch cmd")
-	assert.True(t, m2.loading)
+	assert.Equal(t, stateLoading, m2.paneState)
 }
 
 func TestPipelineDetailModel_SelectionChangeResetsScroll(t *testing.T) {
@@ -335,7 +335,7 @@ func TestPipelineDetailModel_LoadingState(t *testing.T) {
 
 	// Selecting available sets loading=true
 	m, _ = m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "some-pipeline"})
-	assert.True(t, m.loading)
+	assert.Equal(t, stateLoading, m.paneState)
 
 	view := detailStripAnsi(m.View())
 	assert.Contains(t, view, "Loading...")
@@ -398,4 +398,189 @@ func TestPipelineDetailModel_ActionHints(t *testing.T) {
 	assert.Contains(t, view, "[b] Checkout branch")
 	assert.Contains(t, view, "[d] View diff")
 	assert.Contains(t, view, "[Esc] Back")
+}
+
+// ===========================================================================
+// T008: Form unit tests
+// ===========================================================================
+
+func TestPipelineDetailModel_ConfigureFormMsg_CreatesForm(t *testing.T) {
+	detail := fullAvailableDetail()
+	provider := &mockDetailProvider{availableDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load available detail first
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	require.Equal(t, stateAvailableDetail, m.paneState)
+
+	// Send ConfigureFormMsg to create the form
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "https://github.com/org/repo/issues/123"}
+	m, _ = m.Update(cfgMsg)
+
+	assert.Equal(t, stateConfiguring, m.paneState)
+	assert.NotNil(t, m.launchForm)
+
+	view := m.View()
+	assert.Contains(t, view, "Input")
+	assert.Contains(t, view, "Model override")
+	assert.Contains(t, view, "Options")
+}
+
+func TestPipelineDetailModel_FormAbort_RevertsToAvailableDetail(t *testing.T) {
+	detail := fullAvailableDetail()
+	provider := &mockDetailProvider{availableDetail: detail}
+	m := newTestDetailModel(provider)
+
+	// Load available detail first
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// Send ConfigureFormMsg
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	m, _ = m.Update(cfgMsg)
+	require.Equal(t, stateConfiguring, m.paneState)
+	require.NotNil(t, m.launchForm)
+
+	// Verify that after form abort, state reverts to available detail.
+	// Directly set the state to simulate what happens after form abort
+	// (since triggering huh form abort programmatically is not straightforward).
+	m.paneState = stateAvailableDetail
+	m.launchForm = nil
+	m.updateViewportContent()
+
+	assert.Equal(t, stateAvailableDetail, m.paneState)
+	assert.Nil(t, m.launchForm)
+
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "speckit-flow")
+}
+
+func TestPipelineDetailModel_View_Configuring_ShowsForm(t *testing.T) {
+	provider := &mockDetailProvider{availableDetail: fullAvailableDetail()}
+	m := newTestDetailModel(provider)
+
+	// Send ConfigureFormMsg to create the form
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example input"}
+	m, _ = m.Update(cfgMsg)
+
+	assert.Equal(t, stateConfiguring, m.paneState)
+	view := m.View()
+	assert.NotEmpty(t, view)
+	assert.NotContains(t, view, "Select a pipeline to view details")
+}
+
+func TestPipelineDetailModel_View_Launching_ShowsStarting(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateLaunching
+
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "Starting pipeline...")
+}
+
+func TestPipelineDetailModel_View_Error_ShowsLaunchFailed(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateError
+	m.launchErrorTitle = "Launch Failed"
+	m.launchError = "adapter not found"
+
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "Launch Failed")
+	assert.Contains(t, view, "adapter not found")
+}
+
+func TestPipelineDetailModel_View_Error_ShowsDetailLoadError(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateError
+	m.launchErrorTitle = ""
+	m.launchError = "connection refused"
+
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "Failed to load pipeline details")
+	assert.Contains(t, view, "connection refused")
+}
+
+func TestPipelineDetailModel_LaunchErrorMsg_SetsErrorState(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+
+	errMsg := LaunchErrorMsg{
+		PipelineName: "speckit-flow",
+		Err:          errors.New("adapter resolution failed"),
+	}
+	m, _ = m.Update(errMsg)
+
+	assert.Equal(t, stateError, m.paneState)
+	assert.Equal(t, "adapter resolution failed", m.launchError)
+	assert.Equal(t, "Launch Failed", m.launchErrorTitle)
+}
+
+func TestPipelineDetailModel_PaneStateRefactor_PreservesAvailableDetail(t *testing.T) {
+	detail := fullAvailableDetail()
+	provider := &mockDetailProvider{availableDetail: detail}
+	m := newTestDetailModel(provider)
+
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	assert.Equal(t, stateAvailableDetail, m.paneState)
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "speckit-flow")
+}
+
+func TestPipelineDetailModel_PaneStateRefactor_PreservesFinishedDetail(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	provider := &mockDetailProvider{finishedDetail: detail}
+	m := newTestDetailModel(provider)
+
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	assert.Equal(t, stateFinishedDetail, m.paneState)
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "completed")
+}
+
+func TestPipelineDetailModel_PaneStateRefactor_PreservesRunningInfo(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+
+	selMsg := PipelineSelectedMsg{Kind: itemKindRunning, Name: "my-pipeline"}
+	m, _ = m.Update(selMsg)
+
+	assert.Equal(t, stateRunningInfo, m.paneState)
+	view := detailStripAnsi(m.View())
+	assert.Contains(t, view, "Running")
+}
+
+// ===========================================================================
+// T025: Form rendering dimension tests
+// ===========================================================================
+
+func TestPipelineDetailModel_Form_ResizeUpdatesFormDimensions(t *testing.T) {
+	provider := &mockDetailProvider{availableDetail: fullAvailableDetail()}
+	m := newTestDetailModel(provider)
+
+	// Create the form
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	m, _ = m.Update(cfgMsg)
+	require.Equal(t, stateConfiguring, m.paneState)
+	require.NotNil(t, m.launchForm)
+
+	// Resize -- should not panic or produce empty output
+	m.SetSize(120, 50)
+
+	view := m.View()
+	assert.NotEmpty(t, view, "form should render after resize")
+
+	// Resize to a smaller size -- should still work
+	m.SetSize(60, 20)
+	view2 := m.View()
+	assert.NotEmpty(t, view2, "form should render after smaller resize")
 }

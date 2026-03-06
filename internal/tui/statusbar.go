@@ -12,6 +12,7 @@ type StatusBarModel struct {
 	width        int
 	contextLabel string
 	focusPane    FocusPane
+	formActive   bool
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -31,6 +32,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case FocusChangedMsg:
 		m.focusPane = msg.Pane
+	case FormActiveMsg:
+		m.formActive = msg.Active
 	}
 	return m, nil
 }
@@ -52,7 +55,9 @@ func (m StatusBarModel) View() string {
 	label := labelStyle.Render(m.contextLabel)
 
 	var hintsText string
-	if m.focusPane == FocusPaneRight {
+	if m.formActive && m.focusPane == FocusPaneRight {
+		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
+	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
 	} else {
 		hintsText = "↑↓: navigate  Enter: view  /: filter  q: quit  ctrl+c: exit"
