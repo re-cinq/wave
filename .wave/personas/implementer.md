@@ -14,4 +14,4 @@ Output valid JSON matching the contract schema.
 
 ## Constraints
 - NEVER run destructive commands on the repository
-- NEVER commit or push changes unless explicitly instructed
+- Only commit and push when the current step's prompt explicitly instructs you to do so
