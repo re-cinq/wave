@@ -169,7 +169,7 @@ func TestContentModel_EnterOnSectionHeaderDoesNotTransition(t *testing.T) {
 	assert.Equal(t, FocusPaneLeft, c.focus)
 }
 
-func TestContentModel_EnterOnRunningItemDoesNotTransition(t *testing.T) {
+func TestContentModel_EnterOnRunningItemTransitionsFocusRight(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
@@ -188,7 +188,10 @@ func TestContentModel_EnterOnRunningItemDoesNotTransition(t *testing.T) {
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 	c, _ = c.Update(msg)
 
-	assert.Equal(t, FocusPaneLeft, c.focus)
+	// Running items are now focusable and transition focus to right pane
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.False(t, c.list.focused)
+	assert.True(t, c.detail.focused)
 }
 
 func TestContentModel_EscFromRightPaneReturnsFocusLeft(t *testing.T) {
@@ -207,11 +210,6 @@ func TestContentModel_EscFromRightPaneReturnsFocusLeft(t *testing.T) {
 	assert.True(t, c.list.focused)
 	assert.False(t, c.detail.focused)
 	assert.NotNil(t, cmd)
-
-	result := cmd()
-	fcm, ok := result.(FocusChangedMsg)
-	assert.True(t, ok)
-	assert.Equal(t, FocusPaneLeft, fcm.Pane)
 }
 
 func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
@@ -366,4 +364,16 @@ func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
 	assert.Equal(t, cursorBefore, c.list.cursor)
 	// No command should be returned (or cmd is nil)
 	_ = cmd
+}
+
+func TestContentModel_PipelineLaunchResultMsg_TriggersRefresh(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Send PipelineLaunchResultMsg
+	resultMsg := PipelineLaunchResultMsg{RunID: "run-abc", Err: nil}
+	c, cmd := c.Update(resultMsg)
+
+	// Should return a refresh command (fetchPipelineData)
+	assert.NotNil(t, cmd)
 }

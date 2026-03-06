@@ -61,6 +61,9 @@ type PipelineListModel struct {
 
 	// Scroll state
 	scrollOffset int
+
+	// Elapsed ticker state
+	tickerActive bool
 }
 
 // NewPipelineListModel creates a new pipeline list model with the given data provider.
@@ -126,7 +129,23 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 		if cmd := m.emitSelectionMsg(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+		// Start elapsed ticker if not already running
+		if !m.tickerActive && len(m.running) > 0 {
+			m.tickerActive = true
+			cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg {
+				return ElapsedTickMsg{}
+			}))
+		}
 		return m, tea.Batch(cmds...)
+
+	case ElapsedTickMsg:
+		if len(m.running) > 0 {
+			return m, tea.Tick(time.Second, func(time.Time) tea.Msg {
+				return ElapsedTickMsg{}
+			})
+		}
+		m.tickerActive = false
+		return m, nil
 
 	case tea.KeyMsg:
 		if !m.focused {
@@ -221,6 +240,16 @@ func (m PipelineListModel) handleDataMsg(msg PipelineDataMsg) (PipelineListModel
 	// Re-emit PipelineSelectedMsg if cursor is on a pipeline item
 	if cmd := m.emitSelectionMsg(); cmd != nil {
 		cmds = append(cmds, cmd)
+	}
+
+	// Start/stop elapsed ticker based on running pipeline count
+	if len(m.running) > 0 && !m.tickerActive {
+		m.tickerActive = true
+		cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg {
+			return ElapsedTickMsg{}
+		}))
+	} else if len(m.running) == 0 {
+		m.tickerActive = false
 	}
 
 	return m, tea.Batch(cmds...)
@@ -525,7 +554,7 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 	}
 	r := m.running[item.dataIndex]
 
-	elapsed := formatDuration(time.Since(r.StartedAt))
+	elapsed := formatElapsed(time.Since(r.StartedAt))
 	// Reserve space: prefix (3) + elapsed + padding
 	nameMaxWidth := maxWidth - 3 - len(elapsed) - 3
 	name := truncateName(r.Name, nameMaxWidth)

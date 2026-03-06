@@ -37,6 +37,9 @@ type PipelineDetailModel struct {
 	launchErrorTitle string   // "Launch Failed" for launch errors, empty for detail load errors
 
 	provider DetailDataProvider
+
+	// Live output state
+	liveOutput *LiveOutputModel
 }
 
 // NewPipelineDetailModel creates a new pipeline detail model with the given provider.
@@ -56,6 +59,9 @@ func (m *PipelineDetailModel) SetSize(w, h int) {
 	m.viewport.Height = h
 	if m.launchForm != nil {
 		m.launchForm.WithWidth(w).WithHeight(h)
+	}
+	if m.liveOutput != nil {
+		m.liveOutput.SetSize(w, h)
 	}
 	m.updateViewportContent()
 }
@@ -134,6 +140,7 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 
 		if msg.Kind == itemKindRunning {
+			m.liveOutput = nil // Clear any previous live output
 			m.paneState = stateRunningInfo
 			m.updateViewportContent()
 			return m, nil
@@ -208,7 +215,43 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.launchForm = nil
 		return m, nil
 
+	case PipelineEventMsg:
+		if m.paneState == stateRunningLive && m.liveOutput != nil && msg.RunID == m.liveOutput.runID {
+			var cmd tea.Cmd
+			*m.liveOutput, cmd = m.liveOutput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case TransitionTimerMsg:
+		if m.paneState == stateRunningLive && m.liveOutput != nil && msg.RunID == m.liveOutput.runID {
+			// Transition to loading state to fetch finished detail
+			m.paneState = stateLoading
+			m.liveOutput = nil
+			runID := m.selectedRunID
+			provider := m.provider
+			return m, tea.Batch(
+				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
+				func() tea.Msg {
+					detail, err := provider.FetchFinishedDetail(runID)
+					return DetailDataMsg{FinishedDetail: detail, Err: err}
+				},
+			)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
+		// Handle Esc from live output state
+		if m.paneState == stateRunningLive && msg.Type == tea.KeyEscape {
+			m.liveOutput = nil
+			m.paneState = stateRunningInfo
+			m.updateViewportContent()
+			return m, tea.Batch(
+				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
+				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+			)
+		}
+
 		// Handle Esc from error state
 		if m.paneState == stateError && msg.Type == tea.KeyEscape {
 			m.paneState = stateAvailableDetail
@@ -218,6 +261,13 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			return m, func() tea.Msg {
 				return FocusChangedMsg{Pane: FocusPaneLeft}
 			}
+		}
+
+		// Forward keys to liveOutput when in stateRunningLive
+		if m.paneState == stateRunningLive && m.liveOutput != nil && m.focused {
+			var cmd tea.Cmd
+			*m.liveOutput, cmd = m.liveOutput.Update(msg)
+			return m, cmd
 		}
 
 		if m.focused {
@@ -291,6 +341,11 @@ func (m PipelineDetailModel) View() string {
 				content = redStyle.Render(fmt.Sprintf("Failed to load pipeline details: %s", m.launchError))
 			}
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+		}
+
+	case stateRunningLive:
+		if m.liveOutput != nil {
+			return m.liveOutput.View()
 		}
 	}
 
@@ -494,7 +549,7 @@ func renderRunningInfo(name string, width int) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Status:"), greenStyle.Render("\u25b6 Running")))
 	sb.WriteString("\n")
-	sb.WriteString("Real-time progress monitoring planned for #258.\n")
+	sb.WriteString("Started externally — live output not available.\n")
 
 	return sb.String()
 }
