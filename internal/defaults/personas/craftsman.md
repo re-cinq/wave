@@ -41,4 +41,4 @@ write valid JSON to the artifact path.
 - Stay within specification scope — no feature creep
 - Never delete or overwrite test fixtures without explicit instruction
 - NEVER run destructive commands on the repository
-- NEVER commit or push changes unless explicitly instructed
+- Only commit and push when the current step's prompt explicitly instructs you to do so
