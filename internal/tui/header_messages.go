@@ -29,11 +29,34 @@ type RunningCountMsg struct {
 	Count int
 }
 
-// PipelineSelectedMsg signals that a finished pipeline was selected in the UI.
+// PipelineSelectedMsg signals that a pipeline (running, finished, or available) was selected in the UI.
+// For available pipelines, RunID is empty and Kind is itemKindAvailable.
 type PipelineSelectedMsg struct {
 	RunID         string
-	BranchName    string // Empty means no finished pipeline selected
-	BranchDeleted bool   // True if the branch no longer exists
+	Name          string   // Pipeline or run name
+	BranchName    string   // Empty means no finished pipeline selected
+	BranchDeleted bool     // True if the branch no longer exists
+	Kind          itemKind // itemKindRunning, itemKindFinished, or itemKindAvailable
+}
+
+// FocusPane identifies which pane has keyboard focus.
+type FocusPane int
+
+const (
+	FocusPaneLeft  FocusPane = iota // Default: focus on left pane (pipeline list)
+	FocusPaneRight                  // Focus on right pane (pipeline detail)
+)
+
+// FocusChangedMsg signals that the focus pane has changed.
+type FocusChangedMsg struct {
+	Pane FocusPane
+}
+
+// DetailDataMsg carries fetched pipeline detail data.
+type DetailDataMsg struct {
+	AvailableDetail *AvailableDetail
+	FinishedDetail  *FinishedDetail
+	Err             error
 }
 
 // LogoTickMsg is an internal timer message for logo animation.

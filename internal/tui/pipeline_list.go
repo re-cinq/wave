@@ -87,6 +87,11 @@ func (m *PipelineListModel) SetSize(w, h int) {
 	m.height = h
 }
 
+// SetFocused updates the focused state of the list model.
+func (m *PipelineListModel) SetFocused(focused bool) {
+	m.focused = focused
+}
+
 // Update handles messages to update list state.
 func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -297,20 +302,35 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 		if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
 			r := m.running[item.dataIndex]
 			return func() tea.Msg {
-				return PipelineSelectedMsg{RunID: r.RunID, BranchName: r.BranchName}
+				return PipelineSelectedMsg{
+					RunID:      r.RunID,
+					Name:       r.Name,
+					BranchName: r.BranchName,
+					Kind:       itemKindRunning,
+				}
 			}
 		}
 	case itemKindFinished:
 		if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
 			f := m.finished[item.dataIndex]
 			return func() tea.Msg {
-				return PipelineSelectedMsg{RunID: f.RunID, BranchName: f.BranchName}
+				return PipelineSelectedMsg{
+					RunID:      f.RunID,
+					Name:       f.Name,
+					BranchName: f.BranchName,
+					Kind:       itemKindFinished,
+				}
 			}
 		}
 	case itemKindAvailable:
 		if item.dataIndex >= 0 && item.dataIndex < len(m.available) {
+			a := m.available[item.dataIndex]
 			return func() tea.Msg {
-				return PipelineSelectedMsg{RunID: "", BranchName: ""}
+				return PipelineSelectedMsg{
+					RunID: "",
+					Name:  a.Name,
+					Kind:  itemKindAvailable,
+				}
 			}
 		}
 	}
