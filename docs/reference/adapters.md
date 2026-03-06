@@ -257,7 +257,7 @@ Credentials are **never** written to disk. They flow via curated process environ
 
 ## Timeout Handling
 
-- Default timeout: 10 minutes per step
+- Default timeout: 5 minutes per step
 - Override via `runtime.default_timeout_minutes` or `--timeout` flag
 - On timeout, entire process group receives `SIGKILL`
 - Timeout counts as step failure, triggering retry logic
