@@ -81,9 +81,24 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					})
 				}
 
+				// For running items with TUI buffer, activate live output
+				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
+					r := m.list.running[item.dataIndex]
+					if m.launcher != nil && m.launcher.HasBuffer(r.RunID) {
+						buf := m.launcher.GetBuffer(r.RunID)
+						liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
+						liveModel.SetSize(m.detail.width, m.detail.height)
+						m.detail.liveOutput = &liveModel
+						m.detail.paneState = stateRunningLive
+						enterCmds = append(enterCmds, func() tea.Msg {
+							return LiveOutputActiveMsg{Active: true}
+						})
+					}
+				}
+
 				return m, tea.Batch(enterCmds...)
 			}
-			// Section header or running item — forward to list for collapse/no-op
+			// Section header or non-focusable — forward to list for collapse/no-op
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
 			return m, cmd
@@ -93,7 +108,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
-			return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+			return m, tea.Batch(
+				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
+			)
 		}
 
 		// Cancel running pipeline with 'c' key
@@ -141,6 +159,21 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
 
+	case PipelineEventMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case TransitionTimerMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
+	case ElapsedTickMsg:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+
 	case ConfigureFormMsg:
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
@@ -173,7 +206,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.launcher != nil {
 			m.launcher.Cleanup(msg.RunID)
 		}
-		return m, nil
+		// Trigger data refresh so the pipeline moves from Running to Finished
+		return m, m.list.fetchPipelineData
 
 	case LaunchErrorMsg:
 		var cmd tea.Cmd
@@ -212,13 +246,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// cursorOnFocusableItem returns true if the cursor is on an available or finished item.
+// cursorOnFocusableItem returns true if the cursor is on an available, finished, or running item.
 func (m ContentModel) cursorOnFocusableItem() bool {
 	if len(m.list.navigable) == 0 || m.list.cursor >= len(m.list.navigable) {
 		return false
 	}
 	kind := m.list.navigable[m.list.cursor].kind
-	return kind == itemKindAvailable || kind == itemKindFinished
+	return kind == itemKindAvailable || kind == itemKindFinished || kind == itemKindRunning
 }
 
 // View renders the content area with left pipeline list and right detail pane.
