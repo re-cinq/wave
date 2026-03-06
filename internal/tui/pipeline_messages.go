@@ -105,3 +105,27 @@ type TransitionTimerMsg struct {
 type LiveOutputActiveMsg struct {
 	Active bool
 }
+
+// ChatSessionEndedMsg signals that an interactive chat session has ended.
+// Triggers data refresh (re-fetch finished detail, git state) to reflect changes
+// the user may have made during the session.
+type ChatSessionEndedMsg struct {
+	Err error
+}
+
+// BranchCheckoutMsg signals the result of a branch checkout attempt.
+type BranchCheckoutMsg struct {
+	BranchName string
+	Success    bool
+	Err        error
+}
+
+// DiffViewEndedMsg signals that the diff pager has exited.
+type DiffViewEndedMsg struct {
+	Err error
+}
+
+// FinishedDetailActiveMsg signals the status bar to switch to finished detail hints.
+type FinishedDetailActiveMsg struct {
+	Active bool
+}

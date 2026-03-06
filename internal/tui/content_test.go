@@ -377,3 +377,104 @@ func TestContentModel_PipelineLaunchResultMsg_TriggersRefresh(t *testing.T) {
 	// Should return a refresh command (fetchPipelineData)
 	assert.NotNil(t, cmd)
 }
+
+// ===========================================================================
+// T033: Content model tests for finished detail message routing
+// ===========================================================================
+
+func TestContentModel_EnterOnFinishedItem_EmitsFinishedDetailActiveMsg(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed", BranchName: "feat/test"}},
+	})
+
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindFinished {
+			c.list.cursor = i
+			break
+		}
+	}
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	c, cmd := c.Update(msg)
+
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.NotNil(t, cmd)
+
+	// Execute the batch cmd and check for FinishedDetailActiveMsg
+	result := cmd()
+	if batch, ok := result.(tea.BatchMsg); ok {
+		foundFinishedActive := false
+		for _, batchCmd := range batch {
+			if batchCmd == nil {
+				continue
+			}
+			innerMsg := batchCmd()
+			if faMsg, ok := innerMsg.(FinishedDetailActiveMsg); ok {
+				foundFinishedActive = true
+				assert.True(t, faMsg.Active)
+			}
+		}
+		assert.True(t, foundFinishedActive, "should emit FinishedDetailActiveMsg{Active: true} in batch")
+	}
+}
+
+func TestContentModel_EscFromFinishedDetail_EmitsFinishedDetailActiveInactive(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// Set focus to right pane
+	c.focus = FocusPaneRight
+	c.list.SetFocused(false)
+	c.detail.SetFocused(true)
+
+	msg := tea.KeyMsg{Type: tea.KeyEscape}
+	c, cmd := c.Update(msg)
+
+	assert.Equal(t, FocusPaneLeft, c.focus)
+	assert.NotNil(t, cmd)
+
+	// Execute the batch cmd and check for FinishedDetailActiveMsg{Active: false}
+	result := cmd()
+	if batch, ok := result.(tea.BatchMsg); ok {
+		foundFinishedInactive := false
+		for _, batchCmd := range batch {
+			if batchCmd == nil {
+				continue
+			}
+			innerMsg := batchCmd()
+			if faMsg, ok := innerMsg.(FinishedDetailActiveMsg); ok {
+				foundFinishedInactive = true
+				assert.False(t, faMsg.Active)
+			}
+		}
+		assert.True(t, foundFinishedInactive, "should emit FinishedDetailActiveMsg{Active: false} in batch")
+	}
+}
+
+func TestContentModel_ChatSessionEndedMsg_ForwardedToDetail(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	// The message should be forwarded without error
+	c, _ = c.Update(ChatSessionEndedMsg{})
+	// Just verify it doesn't panic
+}
+
+func TestContentModel_BranchCheckoutMsg_ForwardedToDetail(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	c, _ = c.Update(BranchCheckoutMsg{BranchName: "feat/test", Success: true})
+	// Just verify it doesn't panic
+}
+
+func TestContentModel_DiffViewEndedMsg_ForwardedToDetail(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	c, _ = c.Update(DiffViewEndedMsg{})
+	// Just verify it doesn't panic
+}
