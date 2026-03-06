@@ -46,6 +46,8 @@ Project initialized. Run 'wave validate' to check configuration.
 wave init --adapter opencode    # Use different adapter
 wave init --force               # Overwrite existing files
 wave init --merge               # Merge into existing config
+wave init --reconfigure         # Re-run onboarding wizard with current settings as defaults
+wave init --all                 # Include all pipelines regardless of release status
 wave init --workspace ./ws      # Custom workspace directory path
 wave init --output config.yaml  # Custom output path for wave.yaml
 wave init -y                    # Answer yes to all confirmation prompts
@@ -257,6 +259,13 @@ wave cancel run-abc123 -f              # Short flag for --force
 ```
 Force cancellation sent to run-abc123 (gh-pr-review)
 Process terminated.
+```
+
+### Options
+
+```bash
+wave cancel --format json       # Output cancellation result as JSON
+wave cancel -f --format text    # Force cancel with text output (default)
 ```
 
 ---
@@ -596,6 +605,7 @@ All commands support:
 | `--debug` | `-d` | Enable debug mode |
 | `--output` | `-o` | Output format: auto, json, text, quiet (default: auto) |
 | `--verbose` | `-v` | Include real-time tool activity |
+| `--no-tui` | | Disable TUI and use text output |
 
 ---
 
