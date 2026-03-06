@@ -27,10 +27,10 @@ type AppModel struct {
 }
 
 // NewAppModel creates a new root app model with default child components.
-func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies) AppModel {
+func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies, providers ...ContentProviders) AppModel {
 	return AppModel{
 		header:    NewHeaderModel(metaProvider),
-		content:   NewContentModel(pipelineProvider, detailProvider, deps),
+		content:   NewContentModel(pipelineProvider, detailProvider, deps, providers...),
 		statusBar: NewStatusBarModel(),
 	}
 }
@@ -55,7 +55,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.content.CancelAll()
 			return m, tea.Quit
 		default:
-			if msg.String() == "q" && !m.content.list.filtering && m.content.focus == FocusPaneLeft {
+			if msg.String() == "q" && !m.content.IsFiltering() && m.content.focus == FocusPaneLeft {
 				m.content.CancelAll()
 				return m, tea.Quit
 			}
@@ -92,7 +92,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Forward FocusChangedMsg, FormActiveMsg, and LiveOutputActiveMsg to status bar
 	switch msg.(type) {
-	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg:
+	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg, ViewChangedMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
@@ -123,7 +123,21 @@ func (m AppModel) View() string {
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
 func RunTUI(deps LaunchDependencies) error {
 	metaProvider := &DefaultMetadataProvider{}
-	model := NewAppModel(metaProvider, nil, nil, deps)
+
+	// Build content providers from launch dependencies
+	cp := ContentProviders{}
+	if deps.Manifest != nil {
+		cp.PersonaProvider = NewDefaultPersonaDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+	}
+	if deps.PipelinesDir != "" {
+		cp.ContractProvider = NewDefaultContractDataProvider(deps.PipelinesDir)
+		cp.SkillProvider = NewDefaultSkillDataProvider(deps.PipelinesDir)
+	}
+	if deps.Manifest != nil || deps.Store != nil {
+		cp.HealthProvider = NewDefaultHealthDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+	}
+
+	model := NewAppModel(metaProvider, nil, nil, deps, cp)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if model.content.launcher != nil {
 		model.content.launcher.SetProgram(p)
