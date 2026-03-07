@@ -84,6 +84,7 @@ func NewPipelineListModel(provider PipelineDataProvider) PipelineListModel {
 		provider:    provider,
 		filterInput: ti,
 		focused:     true,
+		collapsed:   [3]bool{false, false, true}, // Finished collapsed by default
 	}
 }
 
@@ -120,6 +121,7 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 			StartedAt: time.Now(),
 		}
 		m.running = append([]RunningPipeline{newRunning}, m.running...)
+		m.collapsed[0] = false // Ensure Running section is expanded
 		m.buildNavigableItems()
 
 		// Move cursor to the new running entry
@@ -421,7 +423,7 @@ func (m *PipelineListModel) buildNavigableItems() {
 			dataIndex:    -1,
 			label:        fmt.Sprintf("Running (%d)", len(filteredRunning)),
 		})
-		if !m.collapsed[0] {
+		if !m.collapsed[0] || query != "" {
 			for _, idx := range filteredRunning {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindRunning,
@@ -447,7 +449,7 @@ func (m *PipelineListModel) buildNavigableItems() {
 			dataIndex:    -1,
 			label:        fmt.Sprintf("Available (%d)", len(filteredAvailable)),
 		})
-		if !m.collapsed[1] {
+		if !m.collapsed[1] || query != "" {
 			for _, idx := range filteredAvailable {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindAvailable,
@@ -473,7 +475,7 @@ func (m *PipelineListModel) buildNavigableItems() {
 			dataIndex:    -1,
 			label:        fmt.Sprintf("Finished (%d)", len(filteredFinished)),
 		})
-		if !m.collapsed[2] {
+		if !m.collapsed[2] || query != "" {
 			for _, idx := range filteredFinished {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindFinished,
@@ -533,9 +535,9 @@ func (m PipelineListModel) renderItem(item navigableItem, isSelected bool) strin
 // renderSectionHeader renders a section header line with a separator bar.
 func (m PipelineListModel) renderSectionHeader(item navigableItem, isSelected bool, maxWidth int) string {
 	// Collapse indicator
-	indicator := "▾"
+	indicator := "▼"
 	if m.collapsed[item.sectionIndex] {
-		indicator = "▸"
+		indicator = "▶"
 	}
 
 	text := fmt.Sprintf("%s %s", indicator, item.label)
