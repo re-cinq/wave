@@ -75,7 +75,7 @@ func shouldFormat(evt event.Event, flags DisplayFlags) bool {
 	}
 	switch evt.State {
 	case event.StateStarted, event.StateRunning, event.StateCompleted,
-		event.StateFailed, event.StateContractValidating:
+		event.StateFailed, event.StateContractValidating, "preflight":
 		return true
 	case event.StateStreamActivity:
 		return flags.Verbose

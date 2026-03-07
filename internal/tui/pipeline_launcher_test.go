@@ -183,3 +183,55 @@ func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
 	err := emitter.EmitProgress(event.Event{State: event.StateStarted})
 	assert.NoError(t, err)
 }
+
+func TestPipelineLauncher_DismissRun_ActiveRun_CallsCancel(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	launcher.mu.Lock()
+	launcher.cancelFns["test-run"] = cancel
+	launcher.mu.Unlock()
+
+	launcher.DismissRun("test-run")
+
+	assert.Error(t, ctx.Err())
+	assert.Equal(t, context.Canceled, ctx.Err())
+}
+
+func TestPipelineLauncher_DismissRun_StaleRun_NilStore_IsNoOp(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+
+	// No cancel function and no store — should not panic
+	assert.NotPanics(t, func() {
+		launcher.DismissRun("stale-run")
+	})
+}
+
+func TestPipelineLauncher_DismissRun_UnknownRun_IsNoOp(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	// Should not panic
+	launcher.DismissRun("nonexistent")
+}
+
+func TestDBLoggingEmitter_SkipsEmptyHeartbeats(t *testing.T) {
+	var emitted []event.Event
+	inner := &captureEmitter{events: &emitted}
+	d := &dbLoggingEmitter{
+		inner: inner,
+		store: nil, // nil store — LogEvent won't be called
+		runID: "run-1",
+	}
+
+	// Empty heartbeat — should still call inner.Emit but skip LogEvent
+	d.Emit(event.Event{State: "step_progress"})
+	assert.Len(t, emitted, 1, "inner.Emit should still be called")
+}
+
+// captureEmitter is a test helper that captures emitted events.
+type captureEmitter struct {
+	events *[]event.Event
+}
+
+func (c *captureEmitter) Emit(ev event.Event) {
+	*c.events = append(*c.events, ev)
+}
