@@ -130,14 +130,14 @@ func (m HeaderModel) View() string {
 
 	// Build 3 metadata rows matching spec layout
 	// Row 1: Health │ GitHub │ Remote
-	// Row 2: Pipes  │ Branch │ Clean
-	// Row 3: Steps  │ Issues │ Commit
+	// Row 2: Clean  │ Commit │ Branch  (branch last — variable length)
+	// Row 3: Running │ Issues │ (reserved)
 	var row1, row2, row3 string
 
 	if availableWidth >= 20 {
 		row1Parts := []string{labelStyle.Render("Health: ") + m.renderHealth()}
-		row2Parts := []string{labelStyle.Render("Branch: ") + m.renderBranch(branch)}
-		row3Parts := []string{}
+		row2Parts := []string{labelStyle.Render("Clean: ") + m.renderDirty()}
+		row3Parts := []string{labelStyle.Render("Running: ") + m.renderRunningCount()}
 
 		if availableWidth >= 40 {
 			repoLabel := "GitHub: "
@@ -145,12 +145,12 @@ func (m HeaderModel) View() string {
 				repoLabel = "Project: "
 			}
 			row1Parts = append(row1Parts, labelStyle.Render(repoLabel)+m.renderRepoName())
-			row2Parts = append(row2Parts, labelStyle.Render("Clean: ")+m.renderDirty())
+			row2Parts = append(row2Parts, labelStyle.Render("Commit: ")+m.renderCommitValue())
 			row3Parts = append(row3Parts, labelStyle.Render("Issues: ")+m.renderIssuesValue())
 		}
 		if availableWidth >= 60 {
 			row1Parts = append(row1Parts, labelStyle.Render("Remote: ")+m.renderRemoteValue())
-			row2Parts = append(row2Parts, labelStyle.Render("Commit: ")+m.renderCommitValue())
+			row2Parts = append(row2Parts, labelStyle.Render("Branch: ")+m.renderBranch(branch))
 		}
 
 		row1 = strings.Join(row1Parts, sep)
@@ -236,6 +236,16 @@ func (m HeaderModel) renderRepoName() string {
 	}
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	return style.Render(name)
+}
+
+func (m HeaderModel) renderRunningCount() string {
+	count := m.metadata.RunningCount
+	if count == 0 {
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+		return style.Render("—")
+	}
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
+	return style.Render(fmt.Sprintf("%d", count))
 }
 
 func (m HeaderModel) renderDirty() string {

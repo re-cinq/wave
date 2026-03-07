@@ -199,6 +199,8 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 		{RunID: "f3", Name: "cancel-pipe", Status: "cancelled", Duration: 1 * time.Minute},
 	}
 	m := newTestListModel(nil, finished, nil)
+	m.collapsed[2] = false // Expand Finished (collapsed by default)
+	m.buildNavigableItems()
 	view := listStripAnsi(m.View())
 
 	// Completed shows checkmark
@@ -318,6 +320,8 @@ func TestPipelineListModel_Navigation_DownAtBottomStays(t *testing.T) {
 
 func TestPipelineListModel_Navigation_CrossSectionTraversal(t *testing.T) {
 	m := newTestListModel(sampleRunning(1), sampleFinished(1), nil)
+	m.collapsed[2] = false // Expand Finished (collapsed by default)
+	m.buildNavigableItems()
 
 	// navigable should include (order: Running, Available, Finished):
 	// 0: Running (1) header
@@ -675,12 +679,12 @@ func TestPipelineListModel_Collapse_IndicatorRendering(t *testing.T) {
 
 	// Expanded: should show ▾
 	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "▾")
+	assert.Contains(t, view, "▼")
 
 	// Collapse
 	m, _ = sendKey(m, tea.KeyEnter)
 	view = listStripAnsi(m.View())
-	assert.Contains(t, view, "▸")
+	assert.Contains(t, view, "▶")
 }
 
 // ===========================================================================

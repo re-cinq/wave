@@ -69,7 +69,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.header.SetWidth(m.width)
 		m.statusBar.SetWidth(m.width)
 
-		contentHeight := m.height - headerHeight - statusBarHeight
+		contentHeight := m.height - headerHeight - 2*statusBarHeight
 		if contentHeight < 0 {
 			contentHeight = 0
 		}
@@ -115,6 +115,7 @@ func (m AppModel) View() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.header.View(),
+		m.statusBar.View(),
 		m.content.View(),
 		m.statusBar.View(),
 	)

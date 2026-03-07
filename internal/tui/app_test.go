@@ -74,7 +74,7 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 	assert.Equal(t, 120, model.header.width)
 	assert.Equal(t, 120, model.statusBar.width)
 	assert.Equal(t, 120, model.content.width)
-	assert.Equal(t, 40-headerHeight-statusBarHeight, model.content.height)
+	assert.Equal(t, 40-headerHeight-2*statusBarHeight, model.content.height)
 }
 
 func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
@@ -84,7 +84,7 @@ func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
 	model := updated.(AppModel)
 
 	assert.Equal(t, 120, model.content.width)
-	contentHeight := 40 - headerHeight - statusBarHeight
+	contentHeight := 40 - headerHeight - 2*statusBarHeight
 	assert.Equal(t, contentHeight, model.content.height)
 	// List should have received size too
 	assert.Greater(t, model.content.list.width, 0)
