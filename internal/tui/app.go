@@ -90,9 +90,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, contentCmd)
 	}
 
-	// Forward FocusChangedMsg, FormActiveMsg, and LiveOutputActiveMsg to status bar
+	// Forward FocusChangedMsg, FormActiveMsg, ComposeActiveMsg, and LiveOutputActiveMsg to status bar
 	switch msg.(type) {
-	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg, ViewChangedMsg:
+	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg, ViewChangedMsg, ComposeActiveMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
