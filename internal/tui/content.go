@@ -623,6 +623,22 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
+		// Wire live output buffer for TUI-launched running pipelines on hover
+		if msg.Kind == itemKindRunning && msg.RunID != "" && m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
+			buf := m.launcher.GetBuffer(msg.RunID)
+			if m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID {
+				var startedAt time.Time
+				for _, r := range m.list.running {
+					if r.RunID == msg.RunID {
+						startedAt = r.StartedAt
+						break
+					}
+				}
+				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
+				liveModel.SetSize(m.detail.width, m.detail.height)
+				m.detail.liveOutput = &liveModel
+			}
+		}
 		m.detail, detailCmd = m.detail.Update(msg)
 		if listCmd != nil {
 			cmds = append(cmds, listCmd)
