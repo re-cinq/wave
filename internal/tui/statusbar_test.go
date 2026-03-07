@@ -12,7 +12,7 @@ func TestStatusBarModel_View_ContainsHints(t *testing.T) {
 	view := sb.View()
 
 	assert.Contains(t, view, "q: quit")
-	assert.Contains(t, view, "Tab: switch view")
+	assert.Contains(t, view, "Tab/Shift+Tab: views")
 }
 
 func TestStatusBarModel_View_ContainsContextLabel(t *testing.T) {
