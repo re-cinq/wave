@@ -88,7 +88,7 @@ func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
 	assert.Equal(t, contentHeight, model.content.height)
 	// List should have received size too
 	assert.Greater(t, model.content.list.width, 0)
-	assert.Equal(t, contentHeight, model.content.list.height)
+	assert.Equal(t, contentHeight-1, model.content.list.height)
 }
 
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
