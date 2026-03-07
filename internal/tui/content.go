@@ -40,6 +40,11 @@ type ContentModel struct {
 	contractProvider ContractDataProvider
 	skillProvider    SkillDataProvider
 	healthProvider   HealthDataProvider
+
+	// Compose mode (nil when inactive)
+	composing     bool
+	composeList   *ComposeListModel
+	composeDetail *ComposeDetailModel
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -130,6 +135,12 @@ func (m *ContentModel) SetSize(w, h int) {
 	}
 	if m.healthDetail != nil {
 		m.healthDetail.SetSize(rightWidth, h)
+	}
+	if m.composeList != nil {
+		m.composeList.SetSize(leftWidth, h)
+	}
+	if m.composeDetail != nil {
+		m.composeDetail.SetSize(rightWidth, h)
 	}
 }
 
@@ -236,6 +247,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case tea.KeyMsg:
 		// Intercept Tab for view cycling BEFORE focus-based child routing
 		if msg.Type == tea.KeyTab {
+			// Block Tab cycling during compose mode
+			if m.composing {
+				return m, nil
+			}
 			// Only forward Tab to form if pipeline detail is in stateConfiguring
 			if m.currentView == ViewPipelines && m.detail.paneState == stateConfiguring {
 				var cmd tea.Cmd
@@ -344,6 +359,57 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, nil
 		}
 
+		// Enter compose mode with 's' key — only for available pipelines
+		if msg.String() == "s" && m.currentView == ViewPipelines && m.focus == FocusPaneLeft && !m.list.filtering && !m.composing {
+			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
+				item := m.list.navigable[m.list.cursor]
+				if item.kind == itemKindAvailable && item.dataIndex >= 0 && item.dataIndex < len(m.list.available) {
+					selectedPipeline := m.list.available[item.dataIndex]
+					loadedPipeline, err := LoadPipelineByName(m.launcher.deps.PipelinesDir, selectedPipeline.Name)
+					if err == nil {
+						cl := NewComposeListModel(selectedPipeline, loadedPipeline, m.list.available)
+						cd := NewComposeDetailModel()
+						m.composing = true
+						m.composeList = &cl
+						m.composeDetail = &cd
+
+						leftWidth := m.leftPaneWidth()
+						rightWidth := m.width - leftWidth
+						m.composeList.SetSize(leftWidth, m.height)
+						m.composeDetail.SetSize(rightWidth, m.height)
+
+						seq := cl.sequence
+						val := cl.validation
+						return m, tea.Batch(
+							func() tea.Msg { return ComposeActiveMsg{Active: true} },
+							func() tea.Msg {
+								return ComposeSequenceChangedMsg{
+									Sequence:   seq,
+									Validation: val,
+								}
+							},
+						)
+					}
+				}
+			}
+			return m, nil
+		}
+
+		// When composing, route keys to compose models
+		if m.composing {
+			if m.focus == FocusPaneLeft && m.composeList != nil {
+				var cmd tea.Cmd
+				*m.composeList, cmd = m.composeList.Update(msg)
+				return m, cmd
+			}
+			if m.focus == FocusPaneRight && m.composeDetail != nil {
+				var cmd tea.Cmd
+				*m.composeDetail, cmd = m.composeDetail.Update(msg)
+				return m, cmd
+			}
+			return m, nil
+		}
+
 		// Route key messages to the focused child
 		if m.focus == FocusPaneRight {
 			return m.routeToActiveDetail(msg)
@@ -351,6 +417,66 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 		// Route to active list (left pane)
 		return m.routeToActiveList(msg)
+
+	// Compose mode messages
+	case ComposeCancelMsg:
+		m.composing = false
+		m.composeList = nil
+		m.composeDetail = nil
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		return m, tea.Batch(
+			func() tea.Msg { return ComposeActiveMsg{Active: false} },
+			func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+		)
+
+	case ComposeStartMsg:
+		if msg.Sequence.IsSingle() {
+			// Single-pipeline sequence delegates to normal launch.
+			m.composing = false
+			m.composeList = nil
+			m.composeDetail = nil
+			entry := msg.Sequence.Entries[0]
+			return m, tea.Batch(
+				func() tea.Msg { return ComposeActiveMsg{Active: false} },
+				func() tea.Msg {
+					return LaunchRequestMsg{Config: LaunchConfig{PipelineName: entry.PipelineName}}
+				},
+			)
+		}
+		// T031: Multi-pipeline sequence — show informational message in the
+		// compose detail pane. Keep compose mode active so the user can read
+		// the message and press Esc to exit.
+		if m.composeDetail != nil {
+			infoMsg := "Sequential pipeline execution requires cross-pipeline " +
+				"artifact handoff (#249). Build and validate your sequence now " +
+				"— execution will be enabled in a future release."
+			m.composeDetail.viewport.SetContent(infoMsg)
+			m.composeDetail.viewport.GotoTop()
+		}
+		return m, nil
+
+	case ComposeSequenceChangedMsg:
+		if m.composeList != nil {
+			m.composeList.validation = msg.Validation
+		}
+		if m.composeDetail != nil {
+			var cmd tea.Cmd
+			*m.composeDetail, cmd = m.composeDetail.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case ComposeFocusDetailMsg:
+		m.focus = FocusPaneRight
+		if m.composeList != nil {
+			m.composeList.SetFocused(false)
+		}
+		if m.composeDetail != nil {
+			m.composeDetail.SetFocused(true)
+		}
+		return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 
 	// Route alternative view messages
 	case PersonaDataMsg:
@@ -763,8 +889,13 @@ func (m ContentModel) View() string {
 
 	switch m.currentView {
 	case ViewPipelines:
-		leftView = m.list.View()
-		rightView = m.detail.View()
+		if m.composing && m.composeList != nil && m.composeDetail != nil {
+			leftView = m.composeList.View()
+			rightView = m.composeDetail.View()
+		} else {
+			leftView = m.list.View()
+			rightView = m.detail.View()
+		}
 
 	case ViewPersonas:
 		if m.personaList != nil {

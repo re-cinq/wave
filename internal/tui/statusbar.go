@@ -13,6 +13,7 @@ type StatusBarModel struct {
 	contextLabel         string
 	focusPane            FocusPane
 	formActive           bool
+	composeActive        bool
 	liveOutputActive     bool
 	finishedDetailActive bool
 	currentView          ViewType
@@ -37,6 +38,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.focusPane = msg.Pane
 	case FormActiveMsg:
 		m.formActive = msg.Active
+	case ComposeActiveMsg:
+		m.composeActive = msg.Active
 	case FinishedDetailActiveMsg:
 		m.finishedDetailActive = msg.Active
 	case LiveOutputActiveMsg:
@@ -70,6 +73,8 @@ func (m StatusBarModel) View() string {
 	var hintsText string
 	if m.formActive && m.focusPane == FocusPaneRight {
 		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
+	} else if m.composeActive {
+		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
 		hintsText = "v: verbose  d: debug  o: output-only  ↑↓: scroll  Esc: back"
 	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {

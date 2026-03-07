@@ -2,11 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type contentTestPipelineProvider struct{}
@@ -477,4 +481,248 @@ func TestContentModel_DiffViewEndedMsg_ForwardedToDetail(t *testing.T) {
 
 	c, _ = c.Update(DiffViewEndedMsg{})
 	// Just verify it doesn't panic
+}
+
+// ===========================================================================
+// T017: Content model integration tests for compose mode entry/exit
+// ===========================================================================
+
+// newTestContentModel creates a ContentModel with a temp pipeline YAML file
+// and pre-loaded available pipeline data, with cursor on the available item.
+func newTestContentModel(t *testing.T) ContentModel {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	pipelineYAML := `kind: pipeline
+metadata:
+  name: test-pipeline
+  description: "A test pipeline"
+input:
+  source: cli
+steps:
+  - id: step1
+    persona: craftsman
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "test"
+    output_artifacts:
+      - name: test-output
+        path: output.json
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0644)
+	require.NoError(t, err)
+
+	deps := LaunchDependencies{
+		PipelinesDir: tmpDir,
+		Manifest:     &manifest.Manifest{},
+	}
+
+	m := NewContentModel(nil, nil, deps)
+
+	// Populate the list with pipeline data
+	m.list.available = []PipelineInfo{{
+		Name:        "test-pipeline",
+		Description: "A test pipeline",
+		StepCount:   1,
+	}}
+	m.list.buildNavigableItems()
+
+	// Set sizes
+	m.SetSize(160, 40)
+
+	// Move cursor to the available item
+	for i, item := range m.list.navigable {
+		if item.kind == itemKindAvailable {
+			m.list.cursor = i
+			break
+		}
+	}
+
+	return m
+}
+
+// extractMsgFromBatch executes a tea.Cmd and collects all messages produced,
+// unwrapping tea.BatchMsg recursively.
+func extractMsgFromBatch(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	if msg == nil {
+		return nil
+	}
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		var msgs []tea.Msg
+		for _, c := range batch {
+			msgs = append(msgs, extractMsgFromBatch(c)...)
+		}
+		return msgs
+	}
+	return []tea.Msg{msg}
+}
+
+func TestContentModel_SKey_OnAvailablePipeline_EntersComposeMode(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Verify preconditions
+	require.False(t, m.composing)
+	require.Nil(t, m.composeList)
+	require.Nil(t, m.composeDetail)
+	require.Equal(t, ViewPipelines, m.currentView)
+	require.Equal(t, FocusPaneLeft, m.focus)
+	require.Equal(t, itemKindAvailable, m.list.navigable[m.list.cursor].kind)
+
+	// Press 's'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, cmd := m.Update(msg)
+
+	// Verify compose mode is active
+	assert.True(t, m.composing, "composing flag should be true")
+	assert.NotNil(t, m.composeList, "composeList should be initialized")
+	assert.NotNil(t, m.composeDetail, "composeDetail should be initialized")
+
+	// Verify the returned command produces ComposeActiveMsg{Active: true}
+	require.NotNil(t, cmd)
+	msgs := extractMsgFromBatch(cmd)
+	foundComposeActive := false
+	for _, msg := range msgs {
+		if caMsg, ok := msg.(ComposeActiveMsg); ok && caMsg.Active {
+			foundComposeActive = true
+		}
+	}
+	assert.True(t, foundComposeActive, "should emit ComposeActiveMsg{Active: true}")
+}
+
+func TestContentModel_SKey_OnNonAvailableItem_DoesNothing(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Move cursor to a section header (index 0 is always a section header)
+	m.list.cursor = 0
+	require.Equal(t, itemKindSectionHeader, m.list.navigable[m.list.cursor].kind)
+
+	// Press 's'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(msg)
+
+	assert.False(t, m.composing, "composing should remain false on section header")
+	assert.Nil(t, m.composeList)
+	assert.Nil(t, m.composeDetail)
+}
+
+func TestContentModel_SKey_WhenNotInViewPipelines_DoesNothing(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Switch to a different view
+	m.currentView = ViewPersonas
+
+	// Press 's'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(msg)
+
+	assert.False(t, m.composing, "composing should remain false when not in ViewPipelines")
+	assert.Nil(t, m.composeList)
+	assert.Nil(t, m.composeDetail)
+}
+
+func TestContentModel_SKey_WhenRightPaneFocused_DoesNothing(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Switch focus to right pane
+	m.focus = FocusPaneRight
+
+	// Press 's'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(msg)
+
+	assert.False(t, m.composing, "composing should remain false when right pane focused")
+	assert.Nil(t, m.composeList)
+	assert.Nil(t, m.composeDetail)
+}
+
+func TestContentModel_ComposeCancelMsg_ExitsComposeMode(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Enter compose mode
+	sMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(sMsg)
+	require.True(t, m.composing)
+	require.NotNil(t, m.composeList)
+	require.NotNil(t, m.composeDetail)
+
+	// Send ComposeCancelMsg
+	m, cmd := m.Update(ComposeCancelMsg{})
+
+	assert.False(t, m.composing, "composing should be false after cancel")
+	assert.Nil(t, m.composeList, "composeList should be nil after cancel")
+	assert.Nil(t, m.composeDetail, "composeDetail should be nil after cancel")
+	assert.Equal(t, FocusPaneLeft, m.focus)
+	assert.True(t, m.list.focused)
+
+	// Verify the returned command produces ComposeActiveMsg{Active: false}
+	require.NotNil(t, cmd)
+	msgs := extractMsgFromBatch(cmd)
+	foundComposeInactive := false
+	for _, msg := range msgs {
+		if caMsg, ok := msg.(ComposeActiveMsg); ok && !caMsg.Active {
+			foundComposeInactive = true
+		}
+	}
+	assert.True(t, foundComposeInactive, "should emit ComposeActiveMsg{Active: false}")
+}
+
+func TestContentModel_TabKey_BlockedDuringComposeMode(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Enter compose mode
+	sMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(sMsg)
+	require.True(t, m.composing)
+
+	viewBefore := m.currentView
+
+	// Press Tab
+	tabMsg := tea.KeyMsg{Type: tea.KeyTab}
+	m, cmd := m.Update(tabMsg)
+
+	assert.Equal(t, viewBefore, m.currentView, "view should not change during compose mode")
+	assert.Nil(t, cmd, "Tab during compose should return nil cmd")
+}
+
+func TestContentModel_ComposeStartMsg_SingleEntry_DelegatesToLaunch(t *testing.T) {
+	m := newTestContentModel(t)
+
+	// Enter compose mode
+	sMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	m, _ = m.Update(sMsg)
+	require.True(t, m.composing)
+
+	// Build a single-entry sequence
+	seq := Sequence{}
+	seq.Add("test-pipeline", testPipeline("test-pipeline", nil, nil))
+
+	// Send ComposeStartMsg with single entry
+	m, cmd := m.Update(ComposeStartMsg{Sequence: seq})
+
+	assert.False(t, m.composing, "composing should be false after start")
+	assert.Nil(t, m.composeList, "composeList should be nil after start")
+	assert.Nil(t, m.composeDetail, "composeDetail should be nil after start")
+
+	// Verify the returned command produces LaunchRequestMsg and ComposeActiveMsg{Active: false}
+	require.NotNil(t, cmd)
+	msgs := extractMsgFromBatch(cmd)
+	foundLaunchRequest := false
+	foundComposeInactive := false
+	for _, msg := range msgs {
+		if lrMsg, ok := msg.(LaunchRequestMsg); ok {
+			foundLaunchRequest = true
+			assert.Equal(t, "test-pipeline", lrMsg.Config.PipelineName)
+		}
+		if caMsg, ok := msg.(ComposeActiveMsg); ok && !caMsg.Active {
+			foundComposeInactive = true
+		}
+	}
+	assert.True(t, foundLaunchRequest, "should emit LaunchRequestMsg for single-entry sequence")
+	assert.True(t, foundComposeInactive, "should emit ComposeActiveMsg{Active: false}")
 }
