@@ -137,7 +137,7 @@ func TestAppModel_View_AfterReady(t *testing.T) {
 	assert.Contains(t, view, "Select a pipeline to view details")
 	// Should contain status bar hints
 	assert.Contains(t, view, "q: quit")
-	assert.Contains(t, view, "Tab: switch view")
+	assert.Contains(t, view, "Tab/Shift+Tab: views")
 }
 
 func TestAppModel_View_TooSmall(t *testing.T) {
