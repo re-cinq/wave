@@ -142,9 +142,14 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 
 		if msg.Kind == itemKindRunning {
-			m.liveOutput = nil // Clear any previous live output
-			m.paneState = stateRunningInfo
-			m.updateViewportContent()
+			// Preserve live output if it matches this run (set by PipelineLaunchedMsg)
+			if m.liveOutput != nil && m.liveOutput.runID == msg.RunID {
+				m.paneState = stateRunningLive
+			} else {
+				m.liveOutput = nil
+				m.paneState = stateRunningInfo
+				m.updateViewportContent()
+			}
 			return m, nil
 		}
 
@@ -398,7 +403,13 @@ func (m PipelineDetailModel) View() string {
 
 	case stateConfiguring:
 		if m.launchForm != nil {
-			return m.launchForm.View()
+			formView := m.launchForm.View()
+			// Clamp form output to allocated height to prevent overflow
+			lines := strings.Split(formView, "\n")
+			if len(lines) > m.height {
+				lines = lines[:m.height]
+			}
+			return strings.Join(lines, "\n")
 		}
 
 	case stateLaunching:
@@ -597,7 +608,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("  %s\n", mutedStyle.Render("No artifacts produced")))
 	} else {
 		for _, a := range detail.Artifacts {
-			sb.WriteString(fmt.Sprintf("  * %s  %s  (%s)\n", a.Name, a.Path, a.Type))
+			sb.WriteString(fmt.Sprintf("  * %s  (%s)\n", a.Name, a.Type))
 		}
 	}
 
