@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -112,61 +113,85 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the header bar as a 3-line string.
+// View renders the header bar as a 3-line string with labeled metadata grid.
 func (m HeaderModel) View() string {
 	logo := m.logo.View()
 	logoWidth := lipgloss.Width(logo)
 
-	// Build metadata columns in priority order (FR-009)
-	// Priority: logo > branch > health > repo > dirty > remote > issues > commit
-	type column struct {
-		content  string
-		minWidth int
-	}
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
 
-	branch := m.displayBranch()
-	columns := []column{
-		{content: m.renderBranch(branch), minWidth: 10},
-		{content: m.renderHealth(), minWidth: 6},
-		{content: m.renderRepo(), minWidth: 10},
-		{content: m.renderDirty(), minWidth: 3},
-		{content: m.renderRemote(), minWidth: 8},
-		{content: m.renderIssues(), minWidth: 5},
-		{content: m.renderCommit(), minWidth: 9},
-	}
-
-	availableWidth := m.width - logoWidth - 2 // 2 for spacing
+	availableWidth := m.width - logoWidth - 4 // 4 for padding
 	if availableWidth < 0 {
 		availableWidth = 0
 	}
 
-	// Add columns that fit within available width
-	var visibleColumns []string
-	usedWidth := 0
-	for _, col := range columns {
-		colWidth := lipgloss.Width(col.content)
-		if colWidth == 0 {
-			continue
+	branch := m.displayBranch()
+
+	// Build 3 metadata rows matching spec layout
+	// Row 1: Health │ GitHub │ Remote
+	// Row 2: Pipes  │ Branch │ Clean
+	// Row 3: Steps  │ Issues │ Commit
+	var row1, row2, row3 string
+
+	if availableWidth >= 20 {
+		row1Parts := []string{labelStyle.Render("Health: ") + m.renderHealth()}
+		row2Parts := []string{labelStyle.Render("Branch: ") + m.renderBranch(branch)}
+		row3Parts := []string{}
+
+		if availableWidth >= 40 {
+			repoLabel := "GitHub: "
+			if m.metadata.RepoName == "" {
+				repoLabel = "Project: "
+			}
+			row1Parts = append(row1Parts, labelStyle.Render(repoLabel)+m.renderRepoName())
+			row2Parts = append(row2Parts, labelStyle.Render("Clean: ")+m.renderDirty())
+			row3Parts = append(row3Parts, labelStyle.Render("Issues: ")+m.renderIssuesValue())
 		}
-		if usedWidth+colWidth+2 <= availableWidth { // +2 for separator spacing
-			visibleColumns = append(visibleColumns, col.content)
-			usedWidth += colWidth + 2
+		if availableWidth >= 60 {
+			row1Parts = append(row1Parts, labelStyle.Render("Remote: ")+m.renderRemoteValue())
+			row2Parts = append(row2Parts, labelStyle.Render("Commit: ")+m.renderCommitValue())
+		}
+
+		row1 = strings.Join(row1Parts, sep)
+		row2 = strings.Join(row2Parts, sep)
+		if len(row3Parts) > 0 {
+			row3 = strings.Join(row3Parts, sep)
 		}
 	}
 
-	// Build the metadata section - stack on first line
-	metadataStyle := lipgloss.NewStyle().PaddingLeft(2)
 	metadataBlock := ""
-	if len(visibleColumns) > 0 {
-		metadataBlock = metadataStyle.Render(
-			lipgloss.JoinHorizontal(lipgloss.Top, joinWithSep(visibleColumns)...),
+	if row1 != "" {
+		lines := []string{row1, row2}
+		if row3 != "" {
+			lines = append(lines, row3)
+		} else {
+			lines = append(lines, "") // keep 3-line height
+		}
+		metadataBlock = lipgloss.NewStyle().PaddingLeft(2).Render(
+			lipgloss.JoinVertical(lipgloss.Left, lines...),
 		)
 	}
 
 	header := lipgloss.JoinHorizontal(lipgloss.Top, logo, metadataBlock)
 
+	// Force exactly 3 lines — avoid MaxHeight which can clip the top line
 	if m.width > 0 {
-		header = lipgloss.NewStyle().Width(m.width).MaxHeight(3).Render(header)
+		lines := strings.Split(header, "\n")
+		for len(lines) < headerHeight {
+			lines = append(lines, "")
+		}
+		if len(lines) > headerHeight {
+			lines = lines[:headerHeight]
+		}
+		// Pad each line to full width
+		for i, line := range lines {
+			w := lipgloss.Width(line)
+			if w < m.width {
+				lines[i] = line + strings.Repeat(" ", m.width-w)
+			}
+		}
+		header = strings.Join(lines, "\n")
 	}
 
 	return header
@@ -185,7 +210,7 @@ func (m HeaderModel) displayBranch() string {
 
 func (m HeaderModel) renderBranch(branch string) string {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
-	return style.Render(fmt.Sprintf(" %s", branch))
+	return style.Render(branch)
 }
 
 func (m HeaderModel) renderHealth() string {
@@ -201,10 +226,10 @@ func (m HeaderModel) renderHealth() string {
 	return style.Render(m.metadata.Health.String())
 }
 
-func (m HeaderModel) renderRepo() string {
-	name := m.metadata.ProjectName
+func (m HeaderModel) renderRepoName() string {
+	name := m.metadata.RepoName
 	if name == "" {
-		name = m.metadata.RepoName
+		name = m.metadata.ProjectName
 	}
 	if name == "" {
 		name = "…"
@@ -223,33 +248,33 @@ func (m HeaderModel) renderDirty() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("✓")
 }
 
-func (m HeaderModel) renderRemote() string {
+func (m HeaderModel) renderRemoteValue() string {
 	name := m.metadata.RemoteName
 	if name == "" {
 		name = "—"
 	}
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	return style.Render(name)
 }
 
-func (m HeaderModel) renderIssues() string {
+func (m HeaderModel) renderIssuesValue() string {
 	switch m.metadata.GitHubState {
 	case GitHubConnected:
-		style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-		return style.Render(fmt.Sprintf("⚑ %d", m.metadata.IssuesCount))
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
+		return style.Render(fmt.Sprintf("%d open", m.metadata.IssuesCount))
 	case GitHubOffline:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("[offline]")
 	default:
-		return "" // Not configured — don't show anything
+		return "—"
 	}
 }
 
-func (m HeaderModel) renderCommit() string {
+func (m HeaderModel) renderCommitValue() string {
 	hash := m.metadata.CommitHash
 	if hash == "" {
 		hash = "…"
 	}
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	return style.Render(hash)
 }
 
