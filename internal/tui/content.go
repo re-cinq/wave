@@ -103,12 +103,12 @@ func (m ContentModel) Init() tea.Cmd {
 }
 
 // SetSize updates the content area dimensions and propagates to children.
-// childHeight returns the usable height for child models (minus top padding line).
+// childHeight returns the usable height for child models (minus top and bottom padding lines).
 func (m ContentModel) childHeight() int {
-	if m.height <= 1 {
+	if m.height <= 2 {
 		return 0
 	}
-	return m.height - 1
+	return m.height - 2
 }
 
 func (m *ContentModel) SetSize(w, h int) {

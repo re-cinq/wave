@@ -644,6 +644,7 @@ func renderRunningInfo(name string, width int) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 
 	var sb strings.Builder
 
@@ -651,7 +652,13 @@ func renderRunningInfo(name string, width int) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Status:"), greenStyle.Render("\u25b6 Running")))
 	sb.WriteString("\n")
-	sb.WriteString("Started externally — live output not available.\n")
+	sb.WriteString(labelStyle.Render("Live output is only available for pipelines"))
+	sb.WriteString("\n")
+	sb.WriteString(labelStyle.Render("launched in the current TUI session."))
+	sb.WriteString("\n\n")
+	sb.WriteString(warnStyle.Render("If this pipeline was started in a previous session,"))
+	sb.WriteString("\n")
+	sb.WriteString(warnStyle.Render("it may be stale. Use [c] to cancel it."))
 
 	return sb.String()
 }
