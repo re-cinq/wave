@@ -256,8 +256,9 @@ type LiveOutputModel struct {
 	width        int
 	height       int
 
-	buffer   *EventBuffer
-	viewport viewport.Model
+	buffer    *EventBuffer
+	rawEvents []event.Event
+	viewport  viewport.Model
 
 	autoScroll bool
 
@@ -314,6 +315,27 @@ func (m *LiveOutputModel) updateViewportContent() {
 	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
+
+// rebuildBuffer clears and rebuilds the display buffer from raw events using current flags.
+func (m *LiveOutputModel) rebuildBuffer() {
+	m.buffer.head = 0
+	m.buffer.count = 0
+	for _, evt := range m.rawEvents {
+		if shouldFormat(evt, m.flags) {
+			if evt.State == event.StateFailed {
+				errorBlock := formatErrorBlock(evt)
+				for _, line := range strings.Split(errorBlock, "\n") {
+					if line != "" {
+						m.buffer.Append(line)
+					}
+				}
+			} else {
+				m.buffer.Append(formatEventLine(evt))
+			}
+		}
+	}
+	m.updateViewportContent()
+}
 // Update handles messages for the live output model.
 func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -337,6 +359,7 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 
 		// Handle terminal events
 		if evt.State == event.StateCompleted && evt.StepID == "" {
+			m.rawEvents = append(m.rawEvents, evt)
 			// Pipeline-level completion
 			duration := time.Since(m.startedAt)
 			var summaryLine string
@@ -359,6 +382,7 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		}
 
 		if evt.State == event.StateFailed && evt.StepID == "" {
+			m.rawEvents = append(m.rawEvents, evt)
 			// Pipeline-level failure
 			errorBlock := formatErrorBlock(evt)
 			for _, line := range strings.Split(errorBlock, "\n") {
@@ -377,6 +401,9 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 			m.completionPending = true
 			return m, nil
 		}
+
+		// Store raw event for flag-toggle rebuilds
+		m.rawEvents = append(m.rawEvents, evt)
 
 		// Format and append event line
 		if shouldFormat(evt, m.flags) {
@@ -403,12 +430,24 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		switch msg.String() {
 		case "v":
 			m.flags.Verbose = !m.flags.Verbose
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "d":
 			m.flags.Debug = !m.flags.Debug
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "o":
 			m.flags.OutputOnly = !m.flags.OutputOnly
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "up", "down", "pgup", "pgdown":
 			m.autoScroll = false
