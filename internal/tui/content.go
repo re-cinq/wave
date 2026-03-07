@@ -375,14 +375,21 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			)
 		}
 
-		// Cancel running pipeline with 'c' key — only in pipeline view
-		if msg.String() == "c" && m.focus == FocusPaneLeft && m.launcher != nil && m.currentView == ViewPipelines {
-			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
-				item := m.list.navigable[m.list.cursor]
-				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
-					r := m.list.running[item.dataIndex]
-					m.launcher.Cancel(r.RunID)
+		// Cancel running pipeline with 'c' key — pipeline view, both panes
+		if msg.String() == "c" && m.launcher != nil && m.currentView == ViewPipelines {
+			var cancelRunID string
+			if m.focus == FocusPaneRight && m.detail.paneState == stateRunningLive && m.detail.selectedRunID != "" {
+				cancelRunID = m.detail.selectedRunID
+			} else if m.focus == FocusPaneLeft {
+				if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
+					item := m.list.navigable[m.list.cursor]
+					if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
+						cancelRunID = m.list.running[item.dataIndex].RunID
+					}
 				}
+			}
+			if cancelRunID != "" {
+				m.launcher.Cancel(cancelRunID)
 			}
 			return m, nil
 		}
