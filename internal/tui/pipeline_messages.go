@@ -32,6 +32,7 @@ const (
 	stateConfiguring                           // Argument form active
 	stateLaunching                             // Brief "Starting..." indicator
 	stateError                                 // Launch error display
+	stateComposing                             // Compose mode artifact flow
 )
 
 // LaunchDependencies holds the dependencies needed to launch pipelines from the TUI.
