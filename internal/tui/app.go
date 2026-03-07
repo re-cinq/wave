@@ -137,7 +137,15 @@ func RunTUI(deps LaunchDependencies) error {
 		cp.HealthProvider = NewDefaultHealthDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
 	}
 
-	model := NewAppModel(metaProvider, nil, nil, deps, cp)
+	// Build pipeline and detail providers from dependencies
+	var pipelineProvider PipelineDataProvider
+	var detailProvider DetailDataProvider
+	if deps.Store != nil {
+		pipelineProvider = NewDefaultPipelineDataProvider(deps.Store, deps.PipelinesDir)
+		detailProvider = NewDefaultDetailDataProvider(deps.Store, deps.PipelinesDir)
+	}
+
+	model := NewAppModel(metaProvider, pipelineProvider, detailProvider, deps, cp)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if model.content.launcher != nil {
 		model.content.launcher.SetProgram(p)

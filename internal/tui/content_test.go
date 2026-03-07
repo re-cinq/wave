@@ -102,8 +102,8 @@ func TestContentModel_SetSize_PropagatesDetailDimensions(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
-	// Right pane: 120 - 36 = 84
-	assert.Equal(t, 84, c.detail.width)
+	// Right pane: 120 - 36 - 3 = 81 (separator + padding)
+	assert.Equal(t, 81, c.detail.width)
 	assert.Equal(t, 40, c.detail.height)
 }
 

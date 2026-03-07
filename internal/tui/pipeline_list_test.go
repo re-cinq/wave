@@ -319,19 +319,20 @@ func TestPipelineListModel_Navigation_DownAtBottomStays(t *testing.T) {
 func TestPipelineListModel_Navigation_CrossSectionTraversal(t *testing.T) {
 	m := newTestListModel(sampleRunning(1), sampleFinished(1), nil)
 
-	// navigable should include:
+	// navigable should include (order: Running, Available, Finished):
 	// 0: Running (1) header
 	// 1: running-a
-	// 2: Finished (1) header
-	// 3: finished-a
-	// 4: Available (0) header  (empty sections still get headers)
-	require.GreaterOrEqual(t, len(m.navigable), 4)
+	// 2: Available (0) header  (empty sections still get headers)
+	// 3: Finished (1) header
+	// 4: finished-a
+	require.GreaterOrEqual(t, len(m.navigable), 5)
 
 	// Navigate from top to finished item
 	m, _ = sendKey(m, tea.KeyDown) // cursor=1 running item
-	m, _ = sendKey(m, tea.KeyDown) // cursor=2 finished header
-	m, _ = sendKey(m, tea.KeyDown) // cursor=3 finished item
-	assert.Equal(t, 3, m.cursor)
+	m, _ = sendKey(m, tea.KeyDown) // cursor=2 available header (empty)
+	m, _ = sendKey(m, tea.KeyDown) // cursor=3 finished header
+	m, _ = sendKey(m, tea.KeyDown) // cursor=4 finished item
+	assert.Equal(t, 4, m.cursor)
 	assert.Equal(t, itemKindFinished, m.navigable[m.cursor].kind)
 }
 
