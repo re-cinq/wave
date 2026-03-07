@@ -493,3 +493,91 @@ func TestLiveOutputModel_StepProgressUpdatesHeader(t *testing.T) {
 	assert.Equal(t, "plan", m.currentStep)
 	assert.Equal(t, 2, m.stepNumber)
 }
+
+func TestLiveOutputModel_FlagToggle_RebuildBuffer_ShowsHiddenEvents(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a stream_activity event (hidden by default, shown with verbose)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStreamActivity, ToolName: "Read", ToolTarget: "file.go"},
+	})
+	// Should not be in buffer (verbose is off)
+	assert.Equal(t, 0, buf.Len(), "stream_activity should be hidden by default")
+
+	// Toggle verbose ON — buffer should rebuild with the event
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.True(t, m.flags.Verbose)
+	assert.Equal(t, 1, buf.Len(), "stream_activity should appear after verbose toggle")
+	lines := buf.Lines()
+	assert.Contains(t, lines[0], "Read")
+
+	// Toggle verbose OFF — buffer should rebuild without the event
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.False(t, m.flags.Verbose)
+	assert.Equal(t, 0, buf.Len(), "stream_activity should disappear after verbose toggle off")
+}
+
+func TestLiveOutputModel_FlagToggle_DebugRebuild(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a step_progress event with tokens (hidden by default, shown with debug)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStepProgress, TokensIn: 1000, TokensOut: 500},
+	})
+	assert.Equal(t, 0, buf.Len(), "step_progress should be hidden by default")
+
+	// Toggle debug ON
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	assert.Equal(t, 1, buf.Len(), "step_progress should appear after debug toggle")
+
+	// Toggle debug OFF
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	assert.Equal(t, 0, buf.Len(), "step_progress should disappear after debug toggle off")
+}
+
+func TestLiveOutputModel_OutputOnly_RebuildFilters(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a started event (visible by default, hidden in output-only)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStarted, Persona: "nav"},
+	})
+	assert.Equal(t, 1, buf.Len(), "started should be visible by default")
+
+	// Toggle output-only ON
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.Equal(t, 0, buf.Len(), "started should be hidden in output-only mode")
+
+	// Toggle output-only OFF
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.Equal(t, 1, buf.Len(), "started should reappear after output-only toggle off")
+}
+
+func TestLiveOutputModel_RawEvents_StoredForAllEvents(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send various events
+	events := []event.Event{
+		{StepID: "s1", State: event.StateStarted},
+		{StepID: "s1", State: event.StateStreamActivity, ToolName: "Read"},
+		{StepID: "s1", State: event.StateStepProgress, TokensIn: 100},
+		{StepID: "s1", State: event.StateCompleted, DurationMs: 5000},
+	}
+	for _, evt := range events {
+		m, _ = m.Update(PipelineEventMsg{RunID: "run-1", Event: evt})
+	}
+
+	// All raw events should be stored regardless of flags
+	assert.Equal(t, 4, len(m.rawEvents), "all events should be stored in rawEvents")
+}
