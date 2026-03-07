@@ -238,3 +238,54 @@ func TestStatusBarModel_ComposeHints_ContainExpectedKeybindings(t *testing.T) {
 	assert.Contains(t, view, "Enter: start", "compose hints should contain 'Enter: start'")
 	assert.Contains(t, view, "Esc: cancel", "compose hints should contain 'Esc: cancel'")
 }
+
+// ===========================================================================
+// Running info and event log hint tests
+// ===========================================================================
+
+func TestStatusBarModel_RunningInfoActiveMsg_SetsField(t *testing.T) {
+	sb := NewStatusBarModel()
+
+	sb, _ = sb.Update(RunningInfoActiveMsg{Active: true})
+	assert.True(t, sb.runningInfoActive)
+
+	sb, _ = sb.Update(RunningInfoActiveMsg{Active: false})
+	assert.False(t, sb.runningInfoActive)
+}
+
+func TestStatusBarModel_RunningInfoActive_RightPane_ShowsDismissHint(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	sb, _ = sb.Update(RunningInfoActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	assert.Contains(t, view, "c: dismiss")
+	assert.Contains(t, view, "l: logs")
+}
+
+func TestStatusBarModel_FinishedDetailHints_IncludesLogs(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	sb, _ = sb.Update(FinishedDetailActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	assert.Contains(t, view, "[l] Logs")
+}
+
+func TestStatusBarModel_HintPriority_LiveOutputOverRunningInfo(t *testing.T) {
+	sb := NewStatusBarModel()
+	sb.SetWidth(120)
+
+	sb, _ = sb.Update(LiveOutputActiveMsg{Active: true})
+	sb, _ = sb.Update(RunningInfoActiveMsg{Active: true})
+	sb, _ = sb.Update(FocusChangedMsg{Pane: FocusPaneRight})
+
+	view := sb.View()
+	// Live output hints should take priority
+	assert.Contains(t, view, "v: verbose")
+	assert.NotContains(t, view, "c: dismiss")
+}

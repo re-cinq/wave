@@ -130,3 +130,15 @@ type DiffViewEndedMsg struct {
 type FinishedDetailActiveMsg struct {
 	Active bool
 }
+
+// RunEventsMsg carries persisted event log records fetched from the state store.
+type RunEventsMsg struct {
+	RunID  string
+	Events []state.LogRecord
+	Err    error
+}
+
+// RunningInfoActiveMsg signals the status bar when stateRunningInfo pane is active.
+type RunningInfoActiveMsg struct {
+	Active bool
+}

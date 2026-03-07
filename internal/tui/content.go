@@ -338,6 +338,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						enterCmds = append(enterCmds, func() tea.Msg {
 							return LiveOutputActiveMsg{Active: true}
 						})
+					} else {
+						enterCmds = append(enterCmds, func() tea.Msg {
+							return RunningInfoActiveMsg{Active: true}
+						})
 					}
 				}
 
@@ -372,13 +376,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				func() tea.Msg { return FormActiveMsg{Active: false} },
 				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
 				func() tea.Msg { return FinishedDetailActiveMsg{Active: false} },
+				func() tea.Msg { return RunningInfoActiveMsg{Active: false} },
 			)
 		}
 
-		// Cancel running pipeline with 'c' key — pipeline view, both panes
+		// Cancel/dismiss running pipeline with 'c' key — pipeline view, both panes
 		if msg.String() == "c" && m.launcher != nil && m.currentView == ViewPipelines {
 			var cancelRunID string
-			if m.focus == FocusPaneRight && m.detail.paneState == stateRunningLive && m.detail.selectedRunID != "" {
+			if m.focus == FocusPaneRight && (m.detail.paneState == stateRunningLive || m.detail.paneState == stateRunningInfo) && m.detail.selectedRunID != "" {
 				cancelRunID = m.detail.selectedRunID
 			} else if m.focus == FocusPaneLeft {
 				if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
@@ -389,7 +394,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				}
 			}
 			if cancelRunID != "" {
-				m.launcher.Cancel(cancelRunID)
+				m.launcher.DismissRun(cancelRunID)
+				return m, m.list.fetchPipelineData
 			}
 			return m, nil
 		}
@@ -776,6 +782,15 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		m.list.running = newRunning
 		m.list.buildNavigableItems()
+		// If the pipeline failed and the detail pane still shows live output,
+		// let the live output display the error (failure event was already sent).
+		// If no live output is active, show the error in the detail pane directly.
+		if msg.Err != nil && (m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID) {
+			m.detail.launchError = msg.Err.Error()
+			m.detail.launchErrorTitle = "Pipeline Failed"
+			m.detail.paneState = stateError
+			m.detail.updateViewportContent()
+		}
 		// Trigger data refresh so the pipeline appears in Finished
 		return m, m.list.fetchPipelineData
 
@@ -801,6 +816,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.detail.SetFocused(false)
 		}
 		return m, nil
+
+	case RunEventsMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
 	}
 
 	// Default: forward to both pipeline children

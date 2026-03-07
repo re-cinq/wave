@@ -750,3 +750,77 @@ func TestContentModel_ComposeStartMsg_SingleEntry_DelegatesToLaunch(t *testing.T
 	assert.True(t, foundLaunchRequest, "should emit LaunchRequestMsg for single-entry sequence")
 	assert.True(t, foundComposeInactive, "should emit ComposeActiveMsg{Active: false}")
 }
+
+// ===========================================================================
+// Cancel/dismiss from stateRunningInfo and RunEventsMsg routing tests
+// ===========================================================================
+
+func TestContentModel_CKey_FromRunningInfoRightPane_DismissesRun(t *testing.T) {
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	// Set up: right pane showing stateRunningInfo
+	c.detail.paneState = stateRunningInfo
+	c.detail.selectedRunID = "stale-run"
+	c.detail.selectedKind = itemKindRunning
+	c.focus = FocusPaneRight
+	c.list.SetFocused(false)
+	c.detail.SetFocused(true)
+
+	// Press 'c'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}
+	c, cmd := c.Update(msg)
+
+	// Should return a refresh command (not nil)
+	assert.NotNil(t, cmd, "dismiss should return refresh cmd")
+}
+
+func TestContentModel_RunEventsMsg_RoutedToDetail(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	c, _ = c.Update(RunEventsMsg{RunID: "run-1", Events: nil})
+	// Just verify it doesn't panic
+}
+
+func TestContentModel_EnterOnRunningItem_NoBuffer_EmitsRunningInfoActive(t *testing.T) {
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "running-pipe"}},
+	})
+
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	c, cmd := c.Update(msg)
+
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.NotNil(t, cmd)
+
+	// Execute the batch cmd and check for RunningInfoActiveMsg
+	msgs := extractMsgFromBatch(cmd)
+	foundRunningInfoActive := false
+	for _, m := range msgs {
+		if riMsg, ok := m.(RunningInfoActiveMsg); ok && riMsg.Active {
+			foundRunningInfoActive = true
+		}
+	}
+	assert.True(t, foundRunningInfoActive, "should emit RunningInfoActiveMsg{Active: true}")
+}

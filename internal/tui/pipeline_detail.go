@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/state"
 )
 
 // PipelineDetailModel is the Bubble Tea model for the right pane.
@@ -39,6 +40,9 @@ type PipelineDetailModel struct {
 	launchErrorTitle string   // "Launch Failed" for launch errors, empty for detail load errors
 
 	provider DetailDataProvider
+
+	// Persisted event log (for stale/finished runs)
+	persistedEvents []state.LogRecord
 
 	// Live output state
 	liveOutput *LiveOutputModel
@@ -133,6 +137,7 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.launchError = ""
 		m.launchErrorTitle = ""
 		m.launchForm = nil
+		m.persistedEvents = nil
 
 		if msg.Kind == itemKindSectionHeader {
 			m.selectedName = ""
@@ -149,6 +154,15 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				m.liveOutput = nil
 				m.paneState = stateRunningInfo
 				m.updateViewportContent()
+				// Auto-fetch persisted events for stale runs
+				if m.provider != nil {
+					runID := msg.RunID
+					provider := m.provider
+					return m, func() tea.Msg {
+						events, err := provider.FetchRunEvents(runID)
+						return RunEventsMsg{RunID: runID, Events: events, Err: err}
+					}
+				}
 			}
 			return m, nil
 		}
@@ -274,6 +288,13 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.updateViewportContent()
 		return m, nil
 
+	case RunEventsMsg:
+		if msg.Err == nil {
+			m.persistedEvents = msg.Events
+			m.updateViewportContent()
+		}
+		return m, nil
+
 	case DiffViewEndedMsg:
 		return m, nil
 
@@ -305,6 +326,18 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			var cmd tea.Cmd
 			*m.liveOutput, cmd = m.liveOutput.Update(msg)
 			return m, cmd
+		}
+
+		// Handle 'l' key for event logs in stateRunningInfo
+		if m.paneState == stateRunningInfo && m.focused {
+			if msg.String() == "l" && m.provider != nil && m.selectedRunID != "" {
+				runID := m.selectedRunID
+				provider := m.provider
+				return m, func() tea.Msg {
+					events, err := provider.FetchRunEvents(runID)
+					return RunEventsMsg{RunID: runID, Events: events, Err: err}
+				}
+			}
 		}
 
 		// Handle action keys in stateFinishedDetail
@@ -340,6 +373,16 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 						}
 						return BranchCheckoutMsg{BranchName: branch, Success: true}
 					}
+				case "l":
+					// Fetch event logs
+					if m.provider != nil && m.selectedRunID != "" {
+						runID := m.selectedRunID
+						provider := m.provider
+						return m, func() tea.Msg {
+							events, err := provider.FetchRunEvents(runID)
+							return RunEventsMsg{RunID: runID, Events: events, Err: err}
+						}
+					}
 				case "d":
 					// Diff view (T018)
 					if m.branchDeleted || m.finishedDetail == nil || m.finishedDetail.BranchName == "" {
@@ -373,11 +416,11 @@ func (m *PipelineDetailModel) updateViewportContent() {
 		}
 	case stateFinishedDetail:
 		if m.finishedDetail != nil {
-			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted, m.actionError))
+			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted, m.actionError, m.persistedEvents))
 		}
 	case stateRunningInfo:
 		if m.selectedName != "" {
-			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.width))
+			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.width, m.persistedEvents))
 		}
 	}
 }
@@ -513,7 +556,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 }
 
 // renderFinishedDetail renders the detail view for a finished pipeline run.
-func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string) string {
+func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string, events []state.LogRecord) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
@@ -612,6 +655,17 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		}
 	}
 
+	// Event log (if loaded)
+	if len(events) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Event Log:"))
+		sb.WriteString("\n")
+		for _, ev := range events {
+			sb.WriteString(formatLogRecord(ev))
+			sb.WriteString("\n")
+		}
+	}
+
 	// Action hints
 	sb.WriteString("\n")
 	if actionError != "" {
@@ -639,12 +693,13 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 }
 
 // renderRunningInfo renders a brief info view for a running pipeline.
-func renderRunningInfo(name string, width int) string {
+func renderRunningInfo(name string, width int, events []state.LogRecord) string {
 	_ = width
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 
 	var sb strings.Builder
 
@@ -658,7 +713,31 @@ func renderRunningInfo(name string, width int) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(warnStyle.Render("If this pipeline was started in a previous session,"))
 	sb.WriteString("\n")
-	sb.WriteString(warnStyle.Render("it may be stale. Use [c] to cancel it."))
+	sb.WriteString(warnStyle.Render("it may be stale. Use [c] to dismiss it."))
+
+	if len(events) > 0 {
+		sb.WriteString("\n\n")
+		sb.WriteString(sectionStyle.Render("Event Log:"))
+		sb.WriteString("\n")
+		for _, ev := range events {
+			sb.WriteString(formatLogRecord(ev))
+			sb.WriteString("\n")
+		}
+	}
 
 	return sb.String()
+}
+
+
+// formatLogRecord formats a single persisted log record for display.
+func formatLogRecord(rec state.LogRecord) string {
+	ts := rec.Timestamp.Format("15:04:05")
+	stepID := rec.StepID
+	if stepID == "" {
+		stepID = "pipeline"
+	}
+	if rec.Message != "" {
+		return fmt.Sprintf("  %s [%s] %s: %s", ts, rec.State, stepID, rec.Message)
+	}
+	return fmt.Sprintf("  %s [%s] %s", ts, rec.State, stepID)
 }
