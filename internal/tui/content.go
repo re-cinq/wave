@@ -719,11 +719,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.detail.selectedKind = itemKindRunning
 		}
 
-		// Keep focus on left pane
-		m.focus = FocusPaneLeft
-		m.list.SetFocused(true)
-		m.detail.SetFocused(false)
-		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		// Switch focus to right pane for live output
+		m.focus = FocusPaneRight
+		m.list.SetFocused(false)
+		m.detail.SetFocused(true)
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }
 		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd}
@@ -755,7 +755,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
-		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		batchCmds := []tea.Cmd{focusCmd, formCmd}
 		if cmd != nil {
@@ -1006,6 +1006,10 @@ func (m ContentModel) View() string {
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a health check to view details")
 		}
 	}
+
+	// Add top padding (blank line) for visual separation from status bar divider
+	leftView = "\n" + leftView
+	rightView = "\n" + rightView
 
 	// L5: Apply focus styling to panes
 	separator := lipgloss.NewStyle().

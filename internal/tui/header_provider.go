@@ -83,6 +83,11 @@ func (p *DefaultMetadataProvider) FetchManifestInfo() (ManifestInfo, error) {
 		info.ProjectName = "[no project]"
 	}
 
+	// Auto-detect repo slug from git remote if not set in manifest
+	if info.RepoName == "" {
+		info.RepoName = detectRepoFromGitRemote()
+	}
+
 	return info, nil
 }
 
@@ -132,4 +137,32 @@ func (p *DefaultMetadataProvider) FetchPipelineHealth() (HealthStatus, error) {
 		return p.HealthCheckFunc()
 	}
 	return HealthOK, nil
+}
+
+// detectRepoFromGitRemote extracts owner/repo from the origin remote URL.
+// Supports both SSH (git@github.com:owner/repo.git) and HTTPS formats.
+func detectRepoFromGitRemote() string {
+	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	if err != nil {
+		return ""
+	}
+	url := strings.TrimSpace(string(out))
+
+	// SSH format: git@github.com:owner/repo.git
+	if strings.Contains(url, ":") && strings.Contains(url, "@") {
+		parts := strings.SplitN(url, ":", 2)
+		if len(parts) == 2 {
+			slug := strings.TrimSuffix(parts[1], ".git")
+			return slug
+		}
+	}
+
+	// HTTPS format: https://github.com/owner/repo.git
+	url = strings.TrimSuffix(url, ".git")
+	parts := strings.Split(url, "/")
+	if len(parts) >= 2 {
+		return parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	}
+
+	return ""
 }

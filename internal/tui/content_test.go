@@ -142,6 +142,10 @@ func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed"}},
 	})
 
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
 			c.list.cursor = i
@@ -182,6 +186,10 @@ func TestContentModel_EnterOnRunningItemTransitionsFocusRight(t *testing.T) {
 	})
 
 	// Move to the running item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindRunning {
 			c.list.cursor = i
@@ -225,6 +233,10 @@ func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
 	})
 
 	// Move cursor to first available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -260,6 +272,10 @@ func TestContentModel_EnterOnAvailable_EmitsConfigureFormMsg(t *testing.T) {
 	})
 
 	// Move cursor to the available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -304,7 +320,7 @@ func TestContentModel_CancelAll_NilSafe(t *testing.T) {
 	})
 }
 
-func TestContentModel_PipelineLaunchedMsg_TransitionsFocusLeft(t *testing.T) {
+func TestContentModel_PipelineLaunchedMsg_TransitionsFocusRight(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
@@ -317,9 +333,9 @@ func TestContentModel_PipelineLaunchedMsg_TransitionsFocusLeft(t *testing.T) {
 	launchedMsg := PipelineLaunchedMsg{RunID: "run-abc", PipelineName: "test-pipe"}
 	c, _ = c.Update(launchedMsg)
 
-	assert.Equal(t, FocusPaneLeft, c.focus)
-	assert.True(t, c.list.focused)
-	assert.False(t, c.detail.focused)
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.False(t, c.list.focused)
+	assert.True(t, c.detail.focused)
 }
 
 func TestContentModel_LaunchErrorMsg_TransitionsFocusLeft(t *testing.T) {
@@ -350,6 +366,10 @@ func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
 	})
 
 	// Move cursor to the available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -393,6 +413,10 @@ func TestContentModel_EnterOnFinishedItem_EmitsFinishedDetailActiveMsg(t *testin
 	c.list, _ = c.list.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed", BranchName: "feat/test"}},
 	})
+
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
 
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
