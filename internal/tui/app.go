@@ -3,6 +3,9 @@ package tui
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/recinq/wave/internal/state"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -125,6 +128,11 @@ func (m AppModel) View() string {
 func RunTUI(deps LaunchDependencies) error {
 	metaProvider := &DefaultMetadataProvider{}
 
+	// Clean up orphaned runs from previous sessions
+	if deps.Store != nil {
+		cleanStaleRuns(deps.Store)
+	}
+
 	// Build content providers from launch dependencies
 	cp := ContentProviders{}
 	if deps.Manifest != nil {
@@ -153,4 +161,28 @@ func RunTUI(deps LaunchDependencies) error {
 	}
 	_, err := p.Run()
 	return err
+}
+
+// cleanStaleRuns marks old pending/running runs as failed on TUI startup.
+// These are orphaned runs from previous sessions whose processes died.
+func cleanStaleRuns(store interface{}) {
+	type staleRunCleaner interface {
+		ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
+		UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+	}
+	s, ok := store.(staleRunCleaner)
+	if !ok {
+		return
+	}
+
+	runs, err := s.ListRuns(state.ListRunsOptions{Status: "pending", Limit: 100})
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-5 * time.Minute)
+	for _, r := range runs {
+		if r.StartedAt.Before(cutoff) {
+			_ = s.UpdateRunStatus(r.RunID, "failed", "orphaned — previous session exited", 0)
+		}
+	}
 }
