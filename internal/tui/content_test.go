@@ -48,7 +48,7 @@ func TestContentModel_SetSize_PropagatesListDimensions(t *testing.T) {
 
 	// Left pane: 30% of 120 = 36, clamped to [25, 50] -> 36
 	assert.Equal(t, 36, c.list.width)
-	assert.Equal(t, 40, c.list.height)
+	assert.Equal(t, 39, c.list.height)
 }
 
 func TestContentModel_LeftPaneWidth(t *testing.T) {
@@ -104,7 +104,7 @@ func TestContentModel_SetSize_PropagatesDetailDimensions(t *testing.T) {
 
 	// Right pane: 120 - 36 - 3 = 81 (separator + padding)
 	assert.Equal(t, 81, c.detail.width)
-	assert.Equal(t, 40, c.detail.height)
+	assert.Equal(t, 39, c.detail.height)
 }
 
 func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {

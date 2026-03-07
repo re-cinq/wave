@@ -103,6 +103,14 @@ func (m ContentModel) Init() tea.Cmd {
 }
 
 // SetSize updates the content area dimensions and propagates to children.
+// childHeight returns the usable height for child models (minus top padding line).
+func (m ContentModel) childHeight() int {
+	if m.height <= 1 {
+		return 0
+	}
+	return m.height - 1
+}
+
 func (m *ContentModel) SetSize(w, h int) {
 	m.width = w
 	m.height = h
@@ -110,39 +118,39 @@ func (m *ContentModel) SetSize(w, h int) {
 	leftWidth := m.leftPaneWidth()
 	rightWidth := w - leftWidth - 3 // 3 chars for separator: space + │ + space
 
-	m.list.SetSize(leftWidth, h)
-	m.detail.SetSize(rightWidth, h)
+	m.list.SetSize(leftWidth, m.childHeight())
+	m.detail.SetSize(rightWidth, m.childHeight())
 
 	// Propagate to non-nil alternative view models
 	if m.personaList != nil {
-		m.personaList.SetSize(leftWidth, h)
+		m.personaList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.personaDetail != nil {
-		m.personaDetail.SetSize(rightWidth, h)
+		m.personaDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.contractList != nil {
-		m.contractList.SetSize(leftWidth, h)
+		m.contractList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.contractDetail != nil {
-		m.contractDetail.SetSize(rightWidth, h)
+		m.contractDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.skillList != nil {
-		m.skillList.SetSize(leftWidth, h)
+		m.skillList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.skillDetail != nil {
-		m.skillDetail.SetSize(rightWidth, h)
+		m.skillDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.healthList != nil {
-		m.healthList.SetSize(leftWidth, h)
+		m.healthList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.healthDetail != nil {
-		m.healthDetail.SetSize(rightWidth, h)
+		m.healthDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.composeList != nil {
-		m.composeList.SetSize(leftWidth, h)
+		m.composeList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.composeDetail != nil {
-		m.composeDetail.SetSize(rightWidth, h)
+		m.composeDetail.SetSize(rightWidth, m.childHeight())
 	}
 }
 
@@ -164,10 +172,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewPersonas:
 		if m.personaList == nil && m.personaProvider != nil {
 			pl := NewPersonaListModel(m.personaProvider)
-			pl.SetSize(leftWidth, m.height)
+			pl.SetSize(leftWidth, m.childHeight())
 			m.personaList = &pl
 			pd := NewPersonaDetailModel(m.personaProvider)
-			pd.SetSize(rightWidth, m.height)
+			pd.SetSize(rightWidth, m.childHeight())
 			m.personaDetail = &pd
 			initCmd = m.personaList.Init()
 		}
@@ -181,10 +189,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewContracts:
 		if m.contractList == nil && m.contractProvider != nil {
 			cl := NewContractListModel(m.contractProvider)
-			cl.SetSize(leftWidth, m.height)
+			cl.SetSize(leftWidth, m.childHeight())
 			m.contractList = &cl
 			cd := NewContractDetailModel()
-			cd.SetSize(rightWidth, m.height)
+			cd.SetSize(rightWidth, m.childHeight())
 			m.contractDetail = &cd
 			initCmd = m.contractList.Init()
 		}
@@ -198,10 +206,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewSkills:
 		if m.skillList == nil && m.skillProvider != nil {
 			sl := NewSkillListModel(m.skillProvider)
-			sl.SetSize(leftWidth, m.height)
+			sl.SetSize(leftWidth, m.childHeight())
 			m.skillList = &sl
 			sd := NewSkillDetailModel()
-			sd.SetSize(rightWidth, m.height)
+			sd.SetSize(rightWidth, m.childHeight())
 			m.skillDetail = &sd
 			initCmd = m.skillList.Init()
 		}
@@ -215,10 +223,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewHealth:
 		if m.healthList == nil && m.healthProvider != nil {
 			hl := NewHealthListModel(m.healthProvider)
-			hl.SetSize(leftWidth, m.height)
+			hl.SetSize(leftWidth, m.childHeight())
 			m.healthList = &hl
 			hd := NewHealthDetailModel()
-			hd.SetSize(rightWidth, m.height)
+			hd.SetSize(rightWidth, m.childHeight())
 			m.healthDetail = &hd
 			initCmd = m.healthList.Init()
 		}
@@ -395,8 +403,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 						leftWidth := m.leftPaneWidth()
 						rightWidth := m.width - leftWidth - 3
-						m.composeList.SetSize(leftWidth, m.height)
-						m.composeDetail.SetSize(rightWidth, m.height)
+						m.composeList.SetSize(leftWidth, m.childHeight())
+						m.composeDetail.SetSize(rightWidth, m.childHeight())
 
 						seq := cl.sequence
 						val := cl.validation
