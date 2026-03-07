@@ -723,6 +723,20 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), 0, 0, 0, err.Error())
 		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				Success:      false,
+				ErrorMessage: err.Error(),
+			})
+		}
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 
@@ -744,6 +758,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if result.FailureReason == adapter.FailureReasonRateLimit {
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      false,
+				ErrorMessage: "rate limited: " + result.ResultContent,
+			})
 		}
 		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
 	}
@@ -881,6 +910,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
 					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
 				}
+				if e.store != nil {
+					completedAt := time.Now()
+					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+						RunID:        pipelineID,
+						StepID:       step.ID,
+						PipelineName: execution.Status.PipelineName,
+						Persona:      step.Persona,
+						StartedAt:    stepStart,
+						CompletedAt:  &completedAt,
+						DurationMs:   time.Since(stepStart).Milliseconds(),
+						TokensUsed:   result.TokensUsed,
+						Success:      false,
+						ErrorMessage: "contract validation failed: " + err.Error(),
+					})
+				}
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
 			// Soft failure: log the validation error but continue execution
@@ -935,6 +979,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	if e.logger != nil {
 		e.logger.LogStepEnd(pipelineID, step.ID, "success", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
+	}
+
+	// Record performance metric for TUI step breakdown
+	if e.store != nil {
+		completedAt := time.Now()
+		e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			RunID:              pipelineID,
+			StepID:             step.ID,
+			PipelineName:       execution.Status.PipelineName,
+			Persona:            step.Persona,
+			StartedAt:          stepStart,
+			CompletedAt:        &completedAt,
+			DurationMs:         stepDuration,
+			TokensUsed:         result.TokensUsed,
+			ArtifactsGenerated: len(stepArtifacts),
+			Success:            true,
+		})
 	}
 
 	return nil
