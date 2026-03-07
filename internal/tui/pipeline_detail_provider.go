@@ -70,6 +70,7 @@ type FinishedDetail struct {
 type DetailDataProvider interface {
 	FetchAvailableDetail(name string) (*AvailableDetail, error)
 	FetchFinishedDetail(runID string) (*FinishedDetail, error)
+	FetchRunEvents(runID string) ([]state.LogRecord, error)
 }
 
 // DefaultDetailDataProvider implements DetailDataProvider using state store and pipeline directory.
@@ -266,4 +267,9 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 	}
 
 	return detail, nil
+}
+
+// FetchRunEvents retrieves persisted event log records for a pipeline run.
+func (d *DefaultDetailDataProvider) FetchRunEvents(runID string) ([]state.LogRecord, error) {
+	return d.store.GetEvents(runID, state.EventQueryOptions{Limit: 500})
 }
