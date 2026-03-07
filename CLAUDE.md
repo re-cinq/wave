@@ -2,6 +2,19 @@
 
 **Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and relay/compaction into a continuous development system.
 
+## ACCOUNTABILITY — YOU FOUND IT, YOU FIX IT
+
+> **URGENT — NON-NEGOTIABLE**: This is the single most important rule in this file. It survives context compaction. Re-read it if you are unsure.
+
+If you discover a problem — any problem — you own it. Fix it immediately.
+
+There is NO concept of "pre-existing issue" in this project.
+If you touched it or saw it break — fix it.
+
+If a validation step reveals issues in files you didn't modify — fix those too.
+
+Never argue about whether something is your responsibility.
+
 ## Critical Constraints
 
 1. **Single static binary** — no runtime dependencies except adapter binaries
