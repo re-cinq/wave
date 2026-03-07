@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"time"
+	"strings"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -106,7 +108,7 @@ func (m *ContentModel) SetSize(w, h int) {
 	m.height = h
 
 	leftWidth := m.leftPaneWidth()
-	rightWidth := w - leftWidth
+	rightWidth := w - leftWidth - 3 // 3 chars for separator: space + │ + space
 
 	m.list.SetSize(leftWidth, h)
 	m.detail.SetSize(rightWidth, h)
@@ -152,7 +154,7 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	var initCmd tea.Cmd
 
 	leftWidth := m.leftPaneWidth()
-	rightWidth := m.width - leftWidth
+	rightWidth := m.width - leftWidth - 3
 
 	switch m.currentView {
 	case ViewPipelines:
@@ -245,6 +247,17 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Intercept Shift+Tab for reverse view cycling
+		if msg.Type == tea.KeyShiftTab {
+			if m.composing {
+				return m, nil
+			}
+			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
+			m.currentView = (m.currentView + 3) % 5 // net effect: -1 after cycleView adds +1
+			cmd := m.cycleView()
+			return m, cmd
+		}
+
 		// Intercept Tab for view cycling BEFORE focus-based child routing
 		if msg.Type == tea.KeyTab {
 			// Block Tab cycling during compose mode
@@ -337,11 +350,18 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 		// Pipeline view Escape handling
 		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight && m.currentView == ViewPipelines {
+			// Clear form if it was active (content intercepts Escape before the form sees it)
+			if m.detail.paneState == stateConfiguring {
+				m.detail.launchForm = nil
+				m.detail.paneState = stateAvailableDetail
+				m.detail.updateViewportContent()
+			}
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
 			return m, tea.Batch(
 				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+				func() tea.Msg { return FormActiveMsg{Active: false} },
 				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
 				func() tea.Msg { return FinishedDetailActiveMsg{Active: false} },
 			)
@@ -374,7 +394,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						m.composeDetail = &cd
 
 						leftWidth := m.leftPaneWidth()
-						rightWidth := m.width - leftWidth
+						rightWidth := m.width - leftWidth - 3
 						m.composeList.SetSize(leftWidth, m.height)
 						m.composeDetail.SetSize(rightWidth, m.height)
 
@@ -617,7 +637,25 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
 
-	case PipelineDataMsg, PipelineRefreshTickMsg:
+	case PipelineRefreshTickMsg:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+
+	case PipelineDataMsg:
+		// Merge TUI-launched running entries that still have active buffers
+		// so periodic refreshes don't wipe out synthetic entries
+		if m.launcher != nil && msg.Err == nil {
+			dbRunIDs := make(map[string]bool)
+			for _, r := range msg.Running {
+				dbRunIDs[r.RunID] = true
+			}
+			for _, r := range m.list.running {
+				if !dbRunIDs[r.RunID] && m.launcher.HasBuffer(r.RunID) {
+					msg.Running = append(msg.Running, r)
+				}
+			}
+		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
@@ -668,13 +706,27 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Forward to list for running entry insertion
 		var listCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
-		// Transition focus to left pane
+
+		// B2: Create live output model if launcher has a buffer for this run
+		if m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
+			buffer := m.launcher.GetBuffer(msg.RunID)
+			live := NewLiveOutputModel(msg.RunID, msg.PipelineName, buffer, time.Now(), 0)
+			live.SetSize(m.detail.width, m.detail.height)
+			m.detail.liveOutput = &live
+			m.detail.paneState = stateRunningLive
+			m.detail.selectedRunID = msg.RunID
+			m.detail.selectedName = msg.PipelineName
+			m.detail.selectedKind = itemKindRunning
+		}
+
+		// Keep focus on left pane
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
 		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
-		batchCmds := []tea.Cmd{focusCmd, formCmd}
+		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }
+		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd}
 		if listCmd != nil {
 			batchCmds = append(batchCmds, listCmd)
 		}
@@ -684,7 +736,16 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.launcher != nil {
 			m.launcher.Cleanup(msg.RunID)
 		}
-		// Trigger data refresh so the pipeline moves from Running to Finished
+		// Remove synthetic running entry so it doesn't ghost after completion
+		var newRunning []RunningPipeline
+		for _, r := range m.list.running {
+			if r.RunID != msg.RunID {
+				newRunning = append(newRunning, r)
+			}
+		}
+		m.list.running = newRunning
+		m.list.buildNavigableItems()
+		// Trigger data refresh so the pipeline appears in Finished
 		return m, m.list.fetchPipelineData
 
 	case LaunchErrorMsg:
@@ -906,7 +967,7 @@ func (m ContentModel) View() string {
 		if m.personaDetail != nil {
 			rightView = m.personaDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a persona to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a persona to view details")
 		}
 
 	case ViewContracts:
@@ -918,7 +979,7 @@ func (m ContentModel) View() string {
 		if m.contractDetail != nil {
 			rightView = m.contractDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a contract to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a contract to view details")
 		}
 
 	case ViewSkills:
@@ -930,7 +991,7 @@ func (m ContentModel) View() string {
 		if m.skillDetail != nil {
 			rightView = m.skillDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a skill to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a skill to view details")
 		}
 
 	case ViewHealth:
@@ -942,18 +1003,46 @@ func (m ContentModel) View() string {
 		if m.healthDetail != nil {
 			rightView = m.healthDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a health check to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a health check to view details")
 		}
 	}
 
-	// Apply dimming when focus is on the right pane
+	// L5: Apply focus styling to panes
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(strings.Repeat("│\n", m.height))
+	separatorLines := strings.Split(separator, "\n")
+	if len(separatorLines) > m.height {
+		separatorLines = separatorLines[:m.height]
+	}
+	separator = strings.Join(separatorLines, "\n")
+
 	if m.focus == FocusPaneRight {
 		leftView = lipgloss.NewStyle().
 			Faint(true).
 			Render(leftView)
+	} else if m.focus == FocusPaneLeft {
+		rightView = lipgloss.NewStyle().
+			Faint(true).
+			Render(rightView)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
+	// L1: Add padding via separator between panes
+	result := lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().PaddingLeft(1).Render(leftView),
+		separator,
+		lipgloss.NewStyle().PaddingLeft(1).Render(rightView),
+	)
+
+	// Enforce exact height to prevent header clipping from stray extra lines
+	resultLines := strings.Split(result, "\n")
+	for len(resultLines) < m.height {
+		resultLines = append(resultLines, "")
+	}
+	if len(resultLines) > m.height {
+		resultLines = resultLines[:m.height]
+	}
+	return strings.Join(resultLines, "\n")
 }
 
 // renderPlaceholder renders a centered placeholder message.
