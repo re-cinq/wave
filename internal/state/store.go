@@ -566,7 +566,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
 	          FROM pipeline_run
-	          WHERE status = 'running'
+	          WHERE status IN ('running', 'pending')
 	          ORDER BY started_at DESC`
 
 	return s.queryRuns(query)
