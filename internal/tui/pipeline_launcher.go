@@ -250,11 +250,17 @@ func (l *PipelineLauncher) DismissRun(runID string) {
 	}
 }
 // CancelAll cancels all running pipelines (called on TUI exit).
+// Also updates DB status since the executor goroutines may not have time
+// to run their completion handlers before the process exits.
 func (l *PipelineLauncher) CancelAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for _, cancel := range l.cancelFns {
+	for runID, cancel := range l.cancelFns {
 		cancel()
+		if l.deps.Store != nil {
+			_ = l.deps.Store.UpdateRunStatus(runID, "cancelled", "TUI session exited", 0)
+			_ = l.deps.Store.ClearCancellation(runID)
+		}
 	}
 	l.cancelFns = make(map[string]context.CancelFunc)
 }
