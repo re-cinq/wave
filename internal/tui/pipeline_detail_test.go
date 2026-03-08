@@ -1046,7 +1046,7 @@ func TestRenderRunningInfo_WithEvents(t *testing.T) {
 		{State: "completed", StepID: "step1", Message: "Done", Timestamp: time.Date(2026, 1, 15, 10, 1, 0, 0, time.UTC)},
 	}
 
-	view := renderRunningInfo("test-pipeline", 80, events)
+	view := renderRunningInfo("test-pipeline", "some input", 80, events)
 	stripped := detailStripAnsi(view)
 
 	assert.Contains(t, stripped, "test-pipeline")
@@ -1057,7 +1057,7 @@ func TestRenderRunningInfo_WithEvents(t *testing.T) {
 }
 
 func TestRenderRunningInfo_WithoutEvents(t *testing.T) {
-	view := renderRunningInfo("test-pipeline", 80, nil)
+	view := renderRunningInfo("test-pipeline", "", 80, nil)
 	stripped := detailStripAnsi(view)
 
 	assert.Contains(t, stripped, "test-pipeline")
