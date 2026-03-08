@@ -228,6 +228,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
+	// Start cancellation poller for cross-process cancel support.
+	// When another process (TUI, webui) writes a cancellation record to the DB,
+	// this goroutine detects it and cancels the executor's context.
+	if e.store != nil && pipelineID != "" {
+		var pollCancel context.CancelFunc
+		ctx, pollCancel = context.WithCancel(ctx)
+		defer pollCancel()
+		go e.pollCancellation(ctx, pipelineID, pollCancel)
+	}
+
 	// Initialize deliverable tracker for this pipeline (only if not already set)
 	if e.deliverableTracker == nil {
 		e.deliverableTracker = deliverable.NewTracker(pipelineID)
@@ -1535,6 +1545,26 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipel
 	}
 
 	return cancel
+}
+
+// pollCancellation checks the database for cross-process cancellation requests.
+// When another process (TUI, webui, CLI) writes a cancellation record, this
+// goroutine detects it and cancels the executor's context to stop execution.
+func (e *DefaultPipelineExecutor) pollCancellation(ctx context.Context, runID string, cancel context.CancelFunc) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if rec, err := e.store.CheckCancellation(runID); err == nil && rec != nil {
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 // checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.
