@@ -198,6 +198,7 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 				errMsg = ctx.Err().Error()
 			}
 			_ = store.UpdateRunStatus(runID, status, errMsg, executor.GetTotalTokens())
+			_ = store.ClearCancellation(runID)
 		}
 
 		// Emit pipeline-level failure event so live output shows the error
@@ -243,9 +244,11 @@ func (l *PipelineLauncher) DismissRun(runID string) {
 		return
 	}
 
-	// Stale run from a previous session — update DB directly
+	// Cross-process run (CLI or previous session) — request cancellation via DB.
+	// The executor's pollCancellation goroutine will pick this up and cancel the context.
+	// If the process is already dead, the stale run status will be cleaned up on next list refresh.
 	if l.deps.Store != nil {
-		_ = l.deps.Store.UpdateRunStatus(runID, "failed", "manually dismissed from TUI", 0)
+		_ = l.deps.Store.RequestCancellation(runID, false)
 	}
 }
 // CancelAll cancels all running pipelines (called on TUI exit).
