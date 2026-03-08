@@ -94,7 +94,10 @@ func TestShouldFormat_DefaultMode(t *testing.T) {
 	flags := DisplayFlags{}
 
 	// Default mode shows lifecycle events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, TotalSteps: 3}, flags))
+	// Pipeline-level started without TotalSteps is a duplicate info event — skip it
+	assert.False(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateRunning}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateCompleted}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateFailed}, flags))
@@ -112,7 +115,7 @@ func TestShouldFormat_VerboseMode(t *testing.T) {
 
 	assert.True(t, shouldFormat(event.Event{State: event.StateStreamActivity}, flags))
 	// Still shows default events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
 	// Still hides debug events
 	assert.False(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
 }
@@ -129,7 +132,7 @@ func TestShouldFormat_DebugMode(t *testing.T) {
 	assert.True(t, shouldFormat(event.Event{State: event.StateETAUpdated}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateCompactionProgress}, flags))
 	// Still shows default events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
 	// Still hides verbose events
 	assert.False(t, shouldFormat(event.Event{State: event.StateStreamActivity}, flags))
 }

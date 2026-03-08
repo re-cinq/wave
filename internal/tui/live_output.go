@@ -74,7 +74,15 @@ func shouldFormat(evt event.Event, flags DisplayFlags) bool {
 		return evt.State == event.StateCompleted || evt.State == event.StateFailed
 	}
 	switch evt.State {
-	case event.StateStarted, event.StateRunning, event.StateCompleted,
+	case event.StateStarted:
+		// Skip duplicate pipeline-level started events (e.g. workspace root info).
+		// The first started event carries TotalSteps; subsequent ones are info-only
+		// and would render as a redundant "Starting..." line.
+		if evt.StepID == "" && evt.TotalSteps == 0 {
+			return false
+		}
+		return true
+	case event.StateRunning, event.StateCompleted,
 		event.StateFailed, event.StateRetrying, event.StateContractValidating,
 		"warning", "preflight", "contract_passed", "contract_failed", "contract_soft_failure":
 		return true
