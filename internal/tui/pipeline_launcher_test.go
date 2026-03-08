@@ -213,6 +213,27 @@ func TestPipelineLauncher_DismissRun_UnknownRun_IsNoOp(t *testing.T) {
 	launcher.DismissRun("nonexistent")
 }
 
+func TestPipelineLauncher_DismissRun_StaleRun_RequestsCancellation(t *testing.T) {
+	store := &dismissMockStore{}
+	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
+
+	// No cancel function — simulates a CLI-started run
+	launcher.DismissRun("cli-run-1")
+
+	assert.Equal(t, "cli-run-1", store.cancelledRunID, "should call RequestCancellation for cross-process run")
+}
+
+// dismissMockStore records RequestCancellation calls.
+type dismissMockStore struct {
+	baseStateStore
+	cancelledRunID string
+}
+
+func (d *dismissMockStore) RequestCancellation(runID string, force bool) error {
+	d.cancelledRunID = runID
+	return nil
+}
+
 func TestDBLoggingEmitter_SkipsEmptyHeartbeats(t *testing.T) {
 	var emitted []event.Event
 	inner := &captureEmitter{events: &emitted}

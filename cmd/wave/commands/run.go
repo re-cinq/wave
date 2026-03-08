@@ -318,7 +318,10 @@ func runRun(opts RunOptions, debug bool) error {
 	// Update the pipeline_run record so the dashboard reflects final status
 	if store != nil {
 		tokens := executor.GetTotalTokens()
-		if execErr != nil {
+		if ctx.Err() != nil {
+			store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
+			store.ClearCancellation(runID)
+		} else if execErr != nil {
 			store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
 		} else {
 			store.UpdateRunStatus(runID, "completed", "", tokens)
