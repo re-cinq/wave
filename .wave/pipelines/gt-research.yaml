@@ -26,7 +26,14 @@ steps:
       source: |
         Fetch the Gitea issue specified in the input: {{ input }}
 
-        The input format is "owner/repo issue_number" (e.g., "re-cinq/CFOAgent 112").
+        CRITICAL: If the input above is empty, blank, or missing, you MUST immediately fail.
+        Write an error JSON to .wave/output/issue-content.json with issue_number: 0 and
+        title: "ERROR: No input provided — expected a Gitea issue URL or owner/repo number".
+        Do NOT guess, infer, or use any example. Stop here.
+
+        Accepted input formats (parse the actual input, never fabricate values):
+        - Full URL: https://gitea.example.com/owner/repo/issues/123
+        - Short form: owner/repo 123
 
         Parse the input to extract the repository and issue number.
         Use the tea CLI to fetch the issue:

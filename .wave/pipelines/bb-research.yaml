@@ -27,7 +27,14 @@ steps:
       source: |
         Fetch the Bitbucket issue specified in the input: {{ input }}
 
-        The input format is "workspace/repo issue_number" (e.g., "recinq/wave 112").
+        CRITICAL: If the input above is empty, blank, or missing, you MUST immediately fail.
+        Write an error JSON to .wave/output/issue-content.json with issue_number: 0 and
+        title: "ERROR: No input provided — expected a Bitbucket issue URL or workspace/repo number".
+        Do NOT guess, infer, or use any example. Stop here.
+
+        Accepted input formats (parse the actual input, never fabricate values):
+        - Full URL: https://bitbucket.org/workspace/repo/issues/123
+        - Short form: workspace/repo 123
 
         Parse the input to extract the WORKSPACE/REPO and issue NUMBER.
         Use the Bitbucket REST API to fetch the issue:
