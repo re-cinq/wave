@@ -105,6 +105,11 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		runID = pipeline.GenerateRunID(p.Metadata.Name, 8)
 	}
 
+	// Transition run from pending → running so `wave status` picks it up
+	if l.deps.Store != nil {
+		_ = l.deps.Store.UpdateRunStatus(runID, "running", "", 0)
+	}
+
 	// Store cancel function for later cancellation
 	l.mu.Lock()
 	l.cancelFns[runID] = cancel
