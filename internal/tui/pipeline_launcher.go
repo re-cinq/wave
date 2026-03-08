@@ -150,9 +150,9 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
 
-	// Always enable debug mode in TUI — the live output view controls
-	// visibility via display flags (v/d/o), so we want all events emitted.
-	execOpts = append(execOpts, pipeline.WithDebug(true))
+	// NOTE: Do NOT enable WithDebug(true) here — the executor's debug flag
+	// writes [DEBUG]/[SECURITY] lines directly to stdout/stderr, which corrupts
+	// Bubble Tea's alternate screen. Events are emitted regardless of the debug flag.
 
 	if config.ModelOverride != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(config.ModelOverride))
