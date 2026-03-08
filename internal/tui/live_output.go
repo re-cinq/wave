@@ -68,18 +68,25 @@ type DisplayFlags struct {
 }
 
 // shouldFormat determines whether an event should be formatted into the buffer
-// based on the current display flags.
+// based on the current display flags. Mirrors BasicProgressDisplay.EmitProgress filtering.
 func shouldFormat(evt event.Event, flags DisplayFlags) bool {
 	if flags.OutputOnly {
 		return evt.State == event.StateCompleted || evt.State == event.StateFailed
 	}
 	switch evt.State {
 	case event.StateStarted, event.StateRunning, event.StateCompleted,
-		event.StateFailed, event.StateContractValidating, "preflight":
+		event.StateFailed, event.StateRetrying, event.StateContractValidating,
+		"warning", "preflight", "contract_passed", "contract_failed", "contract_soft_failure":
 		return true
 	case event.StateStreamActivity:
 		return flags.Verbose
-	case event.StateStepProgress, event.StateETAUpdated, event.StateCompactionProgress:
+	case event.StateStepProgress:
+		if !flags.Debug {
+			return false
+		}
+		// Skip empty heartbeats — only show progress with actual data (matches CLI behavior)
+		return evt.TokensIn > 0 || evt.TokensOut > 0 || evt.CurrentAction != "" || evt.Progress > 0
+	case event.StateETAUpdated, event.StateCompactionProgress:
 		return flags.Debug
 	default:
 		return false
@@ -93,6 +100,7 @@ func noColor() bool {
 }
 
 // formatEventLine formats a single event into a display line.
+// Mirrors the formatting in BasicProgressDisplay.EmitProgress for CLI parity.
 func formatEventLine(evt event.Event) string {
 	stepID := evt.StepID
 	if stepID == "" {
@@ -105,25 +113,31 @@ func formatEventLine(evt event.Event) string {
 		if evt.Persona != "" || evt.Model != "" {
 			parts := []string{}
 			if evt.Persona != "" {
-				parts = append(parts, "persona: "+evt.Persona)
+				parts = append(parts, evt.Persona)
 			}
 			if evt.Model != "" {
-				parts = append(parts, "model: "+evt.Model)
+				parts = append(parts, evt.Model)
 			}
 			meta = " (" + strings.Join(parts, ", ") + ")"
 		}
 		return fmt.Sprintf("[%s] Starting...%s", stepID, meta)
 
 	case event.StateCompleted:
-		duration := ""
+		suffix := ""
 		if evt.DurationMs > 0 {
 			d := time.Duration(evt.DurationMs) * time.Millisecond
-			duration = fmt.Sprintf(" (%s)", formatCompactDuration(d))
+			tokenInfo := ""
+			if evt.TokensIn > 0 || evt.TokensOut > 0 {
+				tokenInfo = fmt.Sprintf(", %s in / %s out", formatTokenCount(evt.TokensIn), formatTokenCount(evt.TokensOut))
+			} else if evt.TokensUsed > 0 {
+				tokenInfo = fmt.Sprintf(", %s tokens", formatTokenCount(evt.TokensUsed))
+			}
+			suffix = fmt.Sprintf(" (%s%s)", formatCompactDuration(d), tokenInfo)
 		}
 		if noColor() {
-			return fmt.Sprintf("[%s] Completed%s", stepID, duration)
+			return fmt.Sprintf("[%s] Completed%s", stepID, suffix)
 		}
-		return fmt.Sprintf("[%s] ✓ Completed%s", stepID, duration)
+		return fmt.Sprintf("[%s] ✓ Completed%s", stepID, suffix)
 
 	case event.StateFailed:
 		if noColor() {
@@ -131,18 +145,45 @@ func formatEventLine(evt event.Event) string {
 		}
 		return fmt.Sprintf("[%s] ✗ Failed: %s", stepID, evt.Message)
 
+	case event.StateRetrying:
+		if evt.Message != "" {
+			return fmt.Sprintf("[%s] Retrying: %s", stepID, evt.Message)
+		}
+		return fmt.Sprintf("[%s] Retrying...", stepID)
+
 	case event.StateRunning:
 		if evt.Message != "" {
 			return fmt.Sprintf("[%s] %s", stepID, evt.Message)
 		}
 		return fmt.Sprintf("[%s] Running...", stepID)
 
+	case "warning":
+		if noColor() {
+			return fmt.Sprintf("[%s] Warning: %s", stepID, evt.Message)
+		}
+		return fmt.Sprintf("[%s] ⚠ %s", stepID, evt.Message)
+
 	case event.StateContractValidating:
 		phase := evt.ValidationPhase
 		if phase == "" {
 			phase = "validating"
 		}
-		return fmt.Sprintf("[%s] Contract validation: %s", stepID, phase)
+		return fmt.Sprintf("[%s] Contract: %s", stepID, phase)
+
+	case "contract_passed":
+		if noColor() {
+			return fmt.Sprintf("[%s] Contract: passed", stepID)
+		}
+		return fmt.Sprintf("[%s] ✓ Contract: passed", stepID)
+
+	case "contract_failed":
+		if noColor() {
+			return fmt.Sprintf("[%s] Contract: failed", stepID)
+		}
+		return fmt.Sprintf("[%s] ✗ Contract: failed", stepID)
+
+	case "contract_soft_failure":
+		return fmt.Sprintf("[%s] Contract: soft failure (continuing)", stepID)
 
 	case event.StateStreamActivity:
 		target := evt.ToolTarget
@@ -152,13 +193,16 @@ func formatEventLine(evt event.Event) string {
 		return fmt.Sprintf("[%s] %s %s", stepID, evt.ToolName, target)
 
 	case event.StateStepProgress:
-		if evt.TokensIn > 0 || evt.TokensOut > 0 {
-			if noColor() {
-				return fmt.Sprintf("[%s] heartbeat (tokens: %d/%d)", stepID, evt.TokensOut, evt.TokensIn)
-			}
-			return fmt.Sprintf("[%s] ♡ heartbeat (tokens: %d/%d)", stepID, evt.TokensOut, evt.TokensIn)
+		if evt.CurrentAction != "" {
+			return fmt.Sprintf("[%s] %s", stepID, evt.CurrentAction)
 		}
-		return fmt.Sprintf("[%s] progress: %d%%", stepID, evt.Progress)
+		if evt.TokensIn > 0 || evt.TokensOut > 0 {
+			return fmt.Sprintf("[%s] tokens: %s in / %s out", stepID, formatTokenCount(evt.TokensIn), formatTokenCount(evt.TokensOut))
+		}
+		if evt.Progress > 0 {
+			return fmt.Sprintf("[%s] progress: %d%%", stepID, evt.Progress)
+		}
+		return fmt.Sprintf("[%s] heartbeat", stepID)
 
 	case event.StateETAUpdated:
 		if evt.EstimatedTimeMs > 0 {
@@ -176,6 +220,17 @@ func formatEventLine(evt event.Event) string {
 		}
 		return fmt.Sprintf("[%s] %s", stepID, evt.State)
 	}
+}
+
+// formatTokenCount formats a token count to human-readable form (e.g., "1.2k", "45.0k").
+func formatTokenCount(tokens int) string {
+	if tokens < 1000 {
+		return fmt.Sprintf("%d", tokens)
+	}
+	if tokens < 1_000_000 {
+		return fmt.Sprintf("%.1fk", float64(tokens)/1_000.0)
+	}
+	return fmt.Sprintf("%.1fM", float64(tokens)/1_000_000.0)
 }
 
 // formatCompactDuration formats a duration as a compact string (e.g., "42s", "1m23s").
@@ -346,14 +401,16 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		evt := msg.Event
 
 		// Update step tracking on started events
-		if evt.State == event.StateStarted && evt.StepID != "" {
-			m.currentStep = evt.StepID
-			m.stepNumber++
-			if evt.Model != "" {
-				m.model = evt.Model
-			}
+		if evt.State == event.StateStarted {
 			if evt.TotalSteps > 0 {
 				m.totalSteps = evt.TotalSteps
+			}
+			if evt.StepID != "" {
+				m.currentStep = evt.StepID
+				m.stepNumber++
+				if evt.Model != "" {
+					m.model = evt.Model
+				}
 			}
 		}
 
