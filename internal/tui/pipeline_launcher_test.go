@@ -59,6 +59,40 @@ func TestPipelineLauncher_CancelAll_InvokesAllCancelFuncs(t *testing.T) {
 	assert.Empty(t, launcher.cancelFns, "map should be cleared after CancelAll")
 }
 
+func TestPipelineLauncher_CancelAll_UpdatesDBStatus(t *testing.T) {
+	store := &cancelAllMockStore{}
+	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
+
+	_, cancel1 := context.WithCancel(context.Background())
+	_, cancel2 := context.WithCancel(context.Background())
+
+	launcher.mu.Lock()
+	launcher.cancelFns["run-a"] = cancel1
+	launcher.cancelFns["run-b"] = cancel2
+	launcher.mu.Unlock()
+
+	launcher.CancelAll()
+
+	assert.Len(t, store.updatedRuns, 2, "should update DB status for all cancelled runs")
+	for _, status := range store.updatedRuns {
+		assert.Equal(t, "cancelled", status)
+	}
+}
+
+// cancelAllMockStore records UpdateRunStatus calls.
+type cancelAllMockStore struct {
+	baseStateStore
+	updatedRuns map[string]string
+}
+
+func (c *cancelAllMockStore) UpdateRunStatus(runID string, status string, _ string, _ int) error {
+	if c.updatedRuns == nil {
+		c.updatedRuns = make(map[string]string)
+	}
+	c.updatedRuns[runID] = status
+	return nil
+}
+
 func TestPipelineLauncher_CancelAll_EmptyMap_IsNoOp(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
 	// Should not panic
