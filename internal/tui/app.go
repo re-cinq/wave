@@ -163,8 +163,8 @@ func RunTUI(deps LaunchDependencies) error {
 	return err
 }
 
-// cleanStaleRuns marks old pending/running runs as failed on TUI startup.
-// These are orphaned runs from previous sessions whose processes died.
+// cleanStaleRuns marks orphaned pending/running runs as failed on TUI startup.
+// These are runs from previous sessions whose processes died without updating the DB.
 func cleanStaleRuns(store interface{}) {
 	type staleRunCleaner interface {
 		ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
@@ -175,14 +175,16 @@ func cleanStaleRuns(store interface{}) {
 		return
 	}
 
-	runs, err := s.ListRuns(state.ListRunsOptions{Status: "pending", Limit: 100})
-	if err != nil {
-		return
-	}
 	cutoff := time.Now().Add(-5 * time.Minute)
-	for _, r := range runs {
-		if r.StartedAt.Before(cutoff) {
-			_ = s.UpdateRunStatus(r.RunID, "failed", "orphaned — previous session exited", 0)
+	for _, status := range []string{"pending", "running"} {
+		runs, err := s.ListRuns(state.ListRunsOptions{Status: status, Limit: 100})
+		if err != nil {
+			continue
+		}
+		for _, r := range runs {
+			if r.StartedAt.Before(cutoff) {
+				_ = s.UpdateRunStatus(r.RunID, "failed", "orphaned — previous session exited", 0)
+			}
 		}
 	}
 }
