@@ -128,16 +128,25 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 
 	switch msg := msg.(type) {
 	case PipelineSelectedMsg:
+		// If re-selecting the same item (e.g. from a periodic refresh tick),
+		// preserve expensive state like fetched detail and event logs.
+		sameItem := msg.RunID != "" && msg.RunID == m.selectedRunID && msg.Kind == m.selectedKind
+		if !sameItem {
+			sameItem = msg.RunID == "" && msg.Name == m.selectedName && msg.Kind == m.selectedKind
+		}
+
 		m.selectedName = msg.Name
 		m.selectedKind = msg.Kind
 		m.selectedRunID = msg.RunID
 		m.branchDeleted = msg.BranchDeleted
-		m.availableDetail = nil
-		m.finishedDetail = nil
+		if !sameItem {
+			m.availableDetail = nil
+			m.finishedDetail = nil
+			m.persistedEvents = nil
+		}
 		m.launchError = ""
 		m.launchErrorTitle = ""
 		m.launchForm = nil
-		m.persistedEvents = nil
 
 		if msg.Kind == itemKindSectionHeader {
 			m.selectedName = ""
@@ -154,8 +163,8 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				m.liveOutput = nil
 				m.paneState = stateRunningInfo
 				m.updateViewportContent()
-				// Auto-fetch persisted events for stale runs
-				if m.provider != nil {
+				// Auto-fetch persisted events for stale runs (skip if already loaded)
+				if m.provider != nil && m.persistedEvents == nil {
 					runID := msg.RunID
 					provider := m.provider
 					return m, func() tea.Msg {
@@ -164,6 +173,12 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 					}
 				}
 			}
+			return m, nil
+		}
+
+		// Skip redundant fetch if we already have detail for this item
+		if sameItem {
+			m.updateViewportContent()
 			return m, nil
 		}
 
