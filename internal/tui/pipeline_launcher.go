@@ -150,16 +150,9 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
 
-	// Apply flags
-	isDebug := false
-	for _, f := range config.Flags {
-		if f == "--debug" {
-			isDebug = true
-		}
-	}
-	if isDebug {
-		execOpts = append(execOpts, pipeline.WithDebug(true))
-	}
+	// Always enable debug mode in TUI — the live output view controls
+	// visibility via display flags (v/d/o), so we want all events emitted.
+	execOpts = append(execOpts, pipeline.WithDebug(true))
 
 	if config.ModelOverride != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(config.ModelOverride))

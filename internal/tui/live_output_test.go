@@ -120,7 +120,12 @@ func TestShouldFormat_VerboseMode(t *testing.T) {
 func TestShouldFormat_DebugMode(t *testing.T) {
 	flags := DisplayFlags{Debug: true}
 
-	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
+	// Empty heartbeats are skipped even in debug mode (matches CLI behavior)
+	assert.False(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
+	// Heartbeats with data are shown
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, TokensIn: 100}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, CurrentAction: "Executing"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, Progress: 50}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateETAUpdated}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateCompactionProgress}, flags))
 	// Still shows default events
@@ -157,8 +162,8 @@ func TestFormatEventLine_Started(t *testing.T) {
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[specify]")
 	assert.Contains(t, line, "Starting...")
-	assert.Contains(t, line, "persona: navigator")
-	assert.Contains(t, line, "model: opus")
+	assert.Contains(t, line, "navigator")
+	assert.Contains(t, line, "opus")
 }
 
 func TestFormatEventLine_Completed(t *testing.T) {
@@ -220,8 +225,9 @@ func TestFormatEventLine_StepProgress_WithTokens(t *testing.T) {
 	}
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[specify]")
-	assert.Contains(t, line, "heartbeat")
-	assert.Contains(t, line, "1234/200000")
+	assert.Contains(t, line, "tokens:")
+	assert.Contains(t, line, "200.0k in")
+	assert.Contains(t, line, "1.2k out")
 }
 
 func TestFormatEventLine_ContractValidating(t *testing.T) {
@@ -232,8 +238,76 @@ func TestFormatEventLine_ContractValidating(t *testing.T) {
 	}
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[plan]")
-	assert.Contains(t, line, "Contract validation")
+	assert.Contains(t, line, "Contract:")
 	assert.Contains(t, line, "PASSED")
+}
+
+func TestFormatEventLine_Warning(t *testing.T) {
+	evt := event.Event{
+		StepID:  "plan",
+		State:   "warning",
+		Message: "workspace cleanup failed",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "workspace cleanup failed")
+}
+
+func TestFormatEventLine_Retrying(t *testing.T) {
+	evt := event.Event{
+		StepID:  "plan",
+		State:   event.StateRetrying,
+		Message: "attempt 2/3",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Retrying")
+	assert.Contains(t, line, "attempt 2/3")
+}
+
+func TestFormatEventLine_ContractPassed(t *testing.T) {
+	line := formatEventLine(event.Event{StepID: "plan", State: "contract_passed"})
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Contract: passed")
+}
+
+func TestFormatEventLine_ContractFailed(t *testing.T) {
+	line := formatEventLine(event.Event{StepID: "plan", State: "contract_failed"})
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Contract: failed")
+}
+
+func TestFormatEventLine_Completed_WithTokens(t *testing.T) {
+	evt := event.Event{
+		StepID:     "plan",
+		State:      event.StateCompleted,
+		DurationMs: 42000,
+		TokensIn:   50000,
+		TokensOut:  3200,
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "Completed")
+	assert.Contains(t, line, "50.0k in")
+	assert.Contains(t, line, "3.2k out")
+}
+
+func TestFormatEventLine_StepProgress_WithAction(t *testing.T) {
+	evt := event.Event{
+		StepID:        "specify",
+		State:         event.StateStepProgress,
+		CurrentAction: "Executing agent",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[specify]")
+	assert.Contains(t, line, "Executing agent")
+}
+
+func TestShouldFormat_WarningAndRetrying(t *testing.T) {
+	flags := DisplayFlags{}
+	assert.True(t, shouldFormat(event.Event{State: "warning"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateRetrying}, flags))
+	assert.True(t, shouldFormat(event.Event{State: "contract_passed"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: "contract_failed"}, flags))
 }
 
 func TestFormatEventLine_NoColor(t *testing.T) {
