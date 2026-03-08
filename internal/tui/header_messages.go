@@ -34,6 +34,7 @@ type RunningCountMsg struct {
 type PipelineSelectedMsg struct {
 	RunID         string
 	Name          string   // Pipeline or run name
+	Input         string   // User-provided input for this run
 	BranchName    string   // Empty means no finished pipeline selected
 	BranchDeleted bool     // True if the branch no longer exists
 	Kind          itemKind // itemKindRunning, itemKindFinished, or itemKindAvailable
