@@ -371,6 +371,7 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 				return PipelineSelectedMsg{
 					RunID:      r.RunID,
 					Name:       r.Name,
+					Input:      r.Input,
 					BranchName: r.BranchName,
 					Kind:       itemKindRunning,
 				}
@@ -383,6 +384,7 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 				return PipelineSelectedMsg{
 					RunID:      f.RunID,
 					Name:       f.Name,
+					Input:      f.Input,
 					BranchName: f.BranchName,
 					Kind:       itemKindFinished,
 				}

@@ -53,6 +53,7 @@ type ArtifactInfo struct {
 type FinishedDetail struct {
 	RunID         string
 	Name          string
+	Input         string
 	Status        string // "completed", "failed", "cancelled"
 	Duration      time.Duration
 	BranchName    string
@@ -230,6 +231,7 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 	detail := &FinishedDetail{
 		RunID:        run.RunID,
 		Name:         run.PipelineName,
+		Input:        run.Input,
 		Status:       run.Status,
 		Duration:     duration,
 		BranchName:   run.BranchName,
