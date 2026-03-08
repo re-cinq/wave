@@ -188,6 +188,10 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	// Start cancellation poller: polls store.CheckCancellation every 5s (FR-006)
+	ctx, stopCancelPoller := e.startCancellationPoller(ctx)
+	defer stopCancelPoller()
+
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
@@ -1474,6 +1478,43 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipel
 	}
 
 	return cancel
+}
+
+// startCancellationPoller polls store.CheckCancellation every 5 seconds (FR-006).
+// When cancellation is detected, it cancels the derived context to trigger graceful shutdown.
+// Returns the derived context and a stop function.
+func (e *DefaultPipelineExecutor) startCancellationPoller(ctx context.Context) (context.Context, context.CancelFunc) {
+	if e.store == nil || e.runID == "" {
+		return ctx, func() {}
+	}
+
+	pollerCtx, pollerCancel := context.WithCancel(ctx)
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-pollerCtx.Done():
+				return
+			case <-ticker.C:
+				cancel, err := e.store.CheckCancellation(e.runID)
+				if err == nil && cancel != nil {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: e.runID,
+						State:      "cancelling",
+						Message:    "cancellation requested via store",
+					})
+					pollerCancel()
+					return
+				}
+			}
+		}
+	}()
+
+	return pollerCtx, pollerCancel
 }
 
 // checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.

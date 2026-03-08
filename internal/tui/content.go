@@ -1,8 +1,13 @@
 package tui
 
 import (
+	"fmt"
+	"syscall"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/state"
 )
 
 // ContentProviders holds data providers for alternative views.
@@ -45,6 +50,10 @@ type ContentModel struct {
 	composing     bool
 	composeList   *ComposeListModel
 	composeDetail *ComposeDetailModel
+
+	// Detached pipeline event polling
+	detachedPollRunID  string // Run ID currently being polled for events
+	detachedPollOffset int    // Offset for fetching new events
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -305,19 +314,35 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					})
 				}
 
-				// For running items with TUI buffer, activate live output
+				// For running items, load historical events from store and activate live output
 				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
 					r := m.list.running[item.dataIndex]
-					if m.launcher != nil && m.launcher.HasBuffer(r.RunID) {
-						buf := m.launcher.GetBuffer(r.RunID)
-						liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
-						liveModel.SetSize(m.detail.width, m.detail.height)
-						m.detail.liveOutput = &liveModel
-						m.detail.paneState = stateRunningLive
-						enterCmds = append(enterCmds, func() tea.Msg {
-							return LiveOutputActiveMsg{Active: true}
-						})
+					buf := NewEventBuffer(1000)
+					// Load historical events from SQLite
+					var eventCount int
+					if m.launcher != nil && m.launcher.deps.Store != nil {
+						events, err := m.launcher.deps.Store.GetEvents(r.RunID, state.EventQueryOptions{})
+						if err == nil {
+							eventCount = len(events)
+							for _, ev := range events {
+								buf.Append(formatStoredEvent(ev))
+							}
+						}
 					}
+					liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
+					liveModel.SetSize(m.detail.width, m.detail.height)
+					m.detail.liveOutput = &liveModel
+					m.detail.paneState = stateRunningLive
+					m.detachedPollRunID = r.RunID
+					m.detachedPollOffset = eventCount
+					enterCmds = append(enterCmds, func() tea.Msg {
+						return LiveOutputActiveMsg{Active: true}
+					})
+					// Start event polling for detached pipeline
+					capturedRunID := r.RunID
+					enterCmds = append(enterCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+						return DetachedEventPollTickMsg{RunID: capturedRunID}
+					}))
 				}
 
 				// For finished items, activate finished detail hints
@@ -337,6 +362,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 		// Pipeline view Escape handling
 		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight && m.currentView == ViewPipelines {
+			m.detachedPollRunID = "" // Stop event polling
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
@@ -354,6 +380,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
 					r := m.list.running[item.dataIndex]
 					m.launcher.Cancel(r.RunID)
+					// Start 30s force-kill timer for detached pipelines (SC-003)
+					if r.Detached && r.PID > 0 {
+						capturedRunID := r.RunID
+						capturedPID := r.PID
+						return m, tea.Tick(30*time.Second, func(time.Time) tea.Msg {
+							return CancelForceKillMsg{RunID: capturedRunID, PID: capturedPID}
+						})
+					}
 				}
 			}
 			return m, nil
@@ -617,6 +651,36 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
 
+	case DetachedEventPollTickMsg:
+		// Poll for new events from detached pipeline
+		if m.detachedPollRunID != msg.RunID || m.detail.paneState != stateRunningLive {
+			// Stop polling — user navigated away or run changed
+			m.detachedPollRunID = ""
+			return m, nil
+		}
+		if m.launcher != nil && m.launcher.deps.Store != nil {
+			events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{
+				Offset: m.detachedPollOffset,
+			})
+			if err == nil && len(events) > 0 {
+				m.detachedPollOffset += len(events)
+				if m.detail.liveOutput != nil {
+					for _, ev := range events {
+						m.detail.liveOutput.buffer.Append(formatStoredEvent(ev))
+					}
+					m.detail.liveOutput.updateViewportContent()
+					if m.detail.liveOutput.autoScroll {
+						m.detail.liveOutput.viewport.GotoBottom()
+					}
+				}
+			}
+		}
+		// Schedule next poll
+		capturedRunID := msg.RunID
+		return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+			return DetachedEventPollTickMsg{RunID: capturedRunID}
+		})
+
 	case PipelineDataMsg, PipelineRefreshTickMsg:
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
@@ -626,6 +690,20 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
+
+	case CancelForceKillMsg:
+		// Force-kill escalation after 30s cancellation grace period (SC-003)
+		if msg.PID > 0 && IsProcessAlive(msg.PID) {
+			// Kill the entire process group
+			_ = syscall.Kill(-msg.PID, syscall.SIGKILL)
+			// Update run status to failed
+			if m.launcher != nil && m.launcher.deps.Store != nil {
+				_ = m.launcher.deps.Store.UpdateRunStatus(msg.RunID, "failed",
+					"cancellation timeout — force killed", 0)
+			}
+		}
+		// Refresh the list to reflect the status change
+		return m, m.list.fetchPipelineData
 
 	case TransitionTimerMsg:
 		var cmd tea.Cmd
@@ -977,4 +1055,16 @@ func (m ContentModel) leftPaneWidth() int {
 		w = m.width
 	}
 	return w
+}
+
+// formatStoredEvent converts a persisted LogRecord into a display line for the event buffer.
+func formatStoredEvent(ev state.LogRecord) string {
+	prefix := ""
+	if ev.StepID != "" {
+		prefix = fmt.Sprintf("[%s] ", ev.StepID)
+	}
+	if ev.Message != "" {
+		return prefix + ev.Message
+	}
+	return fmt.Sprintf("%s%s", prefix, ev.State)
 }

@@ -52,6 +52,10 @@ Supports dry-run mode, step resumption, custom timeouts, and model override.
 The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
 
+The --run flag reuses a pre-created run ID instead of generating a new one.
+This is used by the TUI to launch detached subprocess pipelines that share
+the same run record created before spawn.
+
 Arguments can be provided as positional args or flags:
   wave run gh-pr-review "Review auth module"
   wave run --pipeline gh-pr-review --input "Review auth module"
@@ -60,7 +64,8 @@ Arguments can be provided as positional args or flags:
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate
-  wave run my-pipeline --model haiku`,
+  wave run my-pipeline --model haiku
+  wave run my-pipeline --run my-pipeline-20260308-120000-a1b2 --input "data"`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -108,7 +113,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
-	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
+	cmd.Flags().StringVar(&opts.RunID, "run", "", "Reuse a pre-created run ID (for TUI subprocess launch or resume)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 
 	return cmd
@@ -226,9 +231,13 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	// Generate run ID — prefer CreateRun() so CLI runs appear in the dashboard.
+	// When --run is set without --from-step, reuse the pre-created run ID (TUI subprocess).
 	// Falls back to GenerateRunID() if the state store is unavailable.
 	var runID string
-	if store != nil {
+	if opts.RunID != "" && opts.FromStep == "" {
+		// Reuse pre-created run ID from TUI subprocess launch
+		runID = opts.RunID
+	} else if store != nil {
 		runID, err = store.CreateRun(p.Metadata.Name, opts.Input)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", err)

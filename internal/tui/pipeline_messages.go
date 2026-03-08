@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"context"
-
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -61,7 +59,6 @@ type LaunchRequestMsg struct {
 type PipelineLaunchedMsg struct {
 	RunID        string
 	PipelineName string
-	CancelFunc   context.CancelFunc
 }
 
 // PipelineLaunchResultMsg signals that a launched pipeline has finished execution.
@@ -129,4 +126,22 @@ type DiffViewEndedMsg struct {
 // FinishedDetailActiveMsg signals the status bar to switch to finished detail hints.
 type FinishedDetailActiveMsg struct {
 	Active bool
+}
+
+// CancelForceKillMsg is sent after the 30s grace period for cancellation (SC-003).
+// If the subprocess is still alive, it will be force-killed.
+type CancelForceKillMsg struct {
+	RunID string
+	PID   int
+}
+
+// DetachedEventPollMsg carries new events polled from the store for a detached pipeline.
+type DetachedEventPollMsg struct {
+	RunID  string
+	Events []state.LogRecord
+}
+
+// DetachedEventPollTickMsg triggers periodic event polling for detached pipeline live output.
+type DetachedEventPollTickMsg struct {
+	RunID string
 }

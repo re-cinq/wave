@@ -15,7 +15,8 @@ type RunRecord struct {
 	CancelledAt  *time.Time
 	ErrorMessage string
 	Tags         []string // Tags for categorization and filtering
-	BranchName   string    // Worktree branch for this run
+	BranchName   string   // Worktree branch for this run
+	PID          int      // OS process ID of detached subprocess (0 = in-process or unknown)
 }
 
 // ListRunsOptions specifies filters for listing runs.

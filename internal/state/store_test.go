@@ -1977,3 +1977,61 @@ func TestListRunsWithTags(t *testing.T) {
 		assert.Empty(t, runs)
 	})
 }
+
+func TestUpdateRunPID(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("test-pipeline", "test-input")
+	require.NoError(t, err)
+
+	t.Run("default PID is 0", func(t *testing.T) {
+		pid, err := store.GetRunPID(runID)
+		require.NoError(t, err)
+		assert.Equal(t, 0, pid)
+	})
+
+	t.Run("update and retrieve PID", func(t *testing.T) {
+		err := store.UpdateRunPID(runID, 12345)
+		require.NoError(t, err)
+
+		pid, err := store.GetRunPID(runID)
+		require.NoError(t, err)
+		assert.Equal(t, 12345, pid)
+	})
+
+	t.Run("PID included in GetRun", func(t *testing.T) {
+		run, err := store.GetRun(runID)
+		require.NoError(t, err)
+		assert.Equal(t, 12345, run.PID)
+	})
+
+	t.Run("PID included in GetRunningRuns", func(t *testing.T) {
+		err := store.UpdateRunStatus(runID, "running", "", 0)
+		require.NoError(t, err)
+
+		runs, err := store.GetRunningRuns()
+		require.NoError(t, err)
+		require.Len(t, runs, 1)
+		assert.Equal(t, 12345, runs[0].PID)
+	})
+
+	t.Run("PID included in ListRuns", func(t *testing.T) {
+		runs, err := store.ListRuns(ListRunsOptions{PipelineName: "test-pipeline"})
+		require.NoError(t, err)
+		require.Len(t, runs, 1)
+		assert.Equal(t, 12345, runs[0].PID)
+	})
+
+	t.Run("update PID for nonexistent run returns error", func(t *testing.T) {
+		err := store.UpdateRunPID("nonexistent-run", 999)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "run not found")
+	})
+
+	t.Run("get PID for nonexistent run returns error", func(t *testing.T) {
+		_, err := store.GetRunPID("nonexistent-run")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "run not found")
+	})
+}

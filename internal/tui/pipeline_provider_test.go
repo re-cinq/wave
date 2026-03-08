@@ -34,6 +34,8 @@ func (b baseStateStore) Close() error                                      { ret
 func (b baseStateStore) CreateRun(string, string) (string, error)          { return "", nil }
 func (b baseStateStore) UpdateRunStatus(string, string, string, int) error { return nil }
 func (b baseStateStore) UpdateRunBranch(string, string) error              { return nil }
+func (b baseStateStore) UpdateRunPID(string, int) error                    { return nil }
+func (b baseStateStore) GetRunPID(string) (int, error)                     { return 0, nil }
 func (b baseStateStore) GetRun(string) (*state.RunRecord, error)           { return nil, nil }
 func (b baseStateStore) GetRunningRuns() ([]state.RunRecord, error)        { return nil, nil }
 func (b baseStateStore) ListRuns(state.ListRunsOptions) ([]state.RunRecord, error) {

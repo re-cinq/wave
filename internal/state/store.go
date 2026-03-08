@@ -99,6 +99,10 @@ type StateStore interface {
 	SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error
 	GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRecord, error)
 
+	// PID tracking (detached subprocess)
+	UpdateRunPID(runID string, pid int) error
+	GetRunPID(runID string) (int, error)
+
 	// Tags support
 	SetRunTags(runID string, tags []string) error
 	GetRunTags(runID string) ([]string, error)
@@ -496,10 +500,44 @@ func (s *stateStore) UpdateRunBranch(runID string, branch string) error {
 	return nil
 }
 
+// UpdateRunPID sets the PID for a pipeline run after subprocess spawn.
+func (s *stateStore) UpdateRunPID(runID string, pid int) error {
+	query := `UPDATE pipeline_run SET pid = ? WHERE run_id = ?`
+	result, err := s.db.Exec(query, pid, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update run PID: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("run not found: %s", runID)
+	}
+	return nil
+}
+
+// GetRunPID returns the PID for a pipeline run (0 if not set or in-process).
+func (s *stateStore) GetRunPID(runID string) (int, error) {
+	query := `SELECT pid FROM pipeline_run WHERE run_id = ?`
+	var pid sql.NullInt64
+	err := s.db.QueryRow(query, runID).Scan(&pid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("run not found: %s", runID)
+		}
+		return 0, fmt.Errorf("failed to get run PID: %w", err)
+	}
+	if pid.Valid {
+		return int(pid.Int64), nil
+	}
+	return 0, nil
+}
+
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
@@ -507,6 +545,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	var startedAt int64
 	var completedAt, cancelledAt sql.NullInt64
 	var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
+	var pid sql.NullInt64
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -521,6 +560,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&errorMessage,
 		&tagsJSON,
 		&branchName,
+		&pid,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -556,6 +596,9 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if branchName.Valid {
 		record.BranchName = branchName.String
 	}
+	if pid.Valid {
+		record.PID = int(pid.Int64)
+	}
 
 	return &record, nil
 }
@@ -564,7 +607,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
 	          WHERE status = 'running'
 	          ORDER BY started_at DESC`
@@ -575,7 +618,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 // ListRuns returns runs matching the specified options.
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -885,6 +928,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var startedAt int64
 		var completedAt, cancelledAt sql.NullInt64
 		var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
+		var pid sql.NullInt64
 
 		err := rows.Scan(
 			&record.RunID,
@@ -899,6 +943,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&errorMessage,
 			&tagsJSON,
 			&branchName,
+			&pid,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -930,6 +975,9 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if branchName.Valid {
 			record.BranchName = branchName.String
+		}
+		if pid.Valid {
+			record.PID = int(pid.Int64)
 		}
 
 		records = append(records, record)

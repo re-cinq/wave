@@ -563,27 +563,32 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 	r := m.running[item.dataIndex]
 
 	elapsed := formatElapsed(time.Since(r.StartedAt))
-	// Reserve space: prefix (3) + elapsed + padding
-	nameMaxWidth := maxWidth - 3 - len(elapsed) - 3
+	// Add detached indicator for subprocess-launched pipelines
+	detachLabel := ""
+	if r.Detached {
+		detachLabel = " [detached]"
+	}
+	// Reserve space: prefix (3) + elapsed + detach label + padding
+	nameMaxWidth := maxWidth - 3 - len(elapsed) - len(detachLabel) - 3
 	name := truncateName(r.Name, nameMaxWidth)
 
 	if isSelected {
-		spacer := maxWidth - lipgloss.Width("▶ "+name) - lipgloss.Width(elapsed) - 1
+		spacer := maxWidth - lipgloss.Width("▶ "+name+detachLabel) - lipgloss.Width(elapsed) - 1
 		if spacer < 1 {
 			spacer = 1
 		}
-		text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), elapsed)
+		text := fmt.Sprintf("▶ %s%s%s%s", name, detachLabel, strings.Repeat(" ", spacer), elapsed)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
 
-	spacer := maxWidth - lipgloss.Width("  "+name) - lipgloss.Width(elapsed) - 1
+	spacer := maxWidth - lipgloss.Width("  "+name+detachLabel) - lipgloss.Width(elapsed) - 1
 	if spacer < 1 {
 		spacer = 1
 	}
-	text := fmt.Sprintf("  %s%s%s", name, strings.Repeat(" ", spacer), elapsed)
+	text := fmt.Sprintf("  %s%s%s%s", name, detachLabel, strings.Repeat(" ", spacer), elapsed)
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)

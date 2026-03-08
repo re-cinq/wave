@@ -13,6 +13,8 @@ type RunningPipeline struct {
 	Name       string
 	BranchName string
 	StartedAt  time.Time
+	PID        int  // Process ID for liveness checking
+	Detached   bool // True if launched as a subprocess (vs in-process)
 }
 
 // FinishedPipeline is a TUI-specific projection of a completed pipeline run.
@@ -48,7 +50,12 @@ func NewDefaultPipelineDataProvider(store state.StateStore, pipelinesDir string)
 }
 
 // FetchRunningPipelines returns currently running pipelines, sorted newest-first.
+// Runs stale detection before returning to transition dead subprocesses to "failed".
 func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline, error) {
+	// Detect and transition stale runs before fetching
+	detector := NewStaleRunDetector(p.store)
+	_, _ = detector.DetectStaleRuns()
+
 	records, err := p.store.GetRunningRuns()
 	if err != nil {
 		return nil, err
@@ -61,6 +68,8 @@ func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline
 			Name:       r.PipelineName,
 			BranchName: r.BranchName,
 			StartedAt:  r.StartedAt,
+			PID:        r.PID,
+			Detached:   r.PID > 0,
 		}
 	}
 
