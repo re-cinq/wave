@@ -22,14 +22,10 @@ type Flag struct {
 }
 
 // DefaultFlags returns the flags presented in the interactive selector.
+// Only flags that are actually wired in PipelineLauncher.Launch() should appear here.
 func DefaultFlags() []Flag {
 	return []Flag{
-		{Name: "--verbose", Description: "Real-time tool activity"},
-		{Name: "--output json", Description: "JSON output format"},
-		{Name: "--output text", Description: "Plain text output"},
-		{Name: "--dry-run", Description: "Preview without executing"},
 		{Name: "--mock", Description: "Use mock adapter"},
-		{Name: "--debug", Description: "Debug logging"},
 	}
 }
 

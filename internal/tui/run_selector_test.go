@@ -91,15 +91,15 @@ func TestComposeCommand(t *testing.T) {
 		{
 			name:     "with flags",
 			pipeline: "debug",
-			flags:    []string{"--verbose", "--dry-run"},
-			want:     "wave run debug --verbose --dry-run",
+			flags:    []string{"--mock"},
+			want:     "wave run debug --mock",
 		},
 		{
 			name:     "with input and flags",
 			pipeline: "feature",
 			input:    "add dark mode",
-			flags:    []string{"--verbose", "--output json"},
-			want:     `wave run feature "add dark mode" --verbose --output json`,
+			flags:    []string{"--mock"},
+			want:     `wave run feature "add dark mode" --mock`,
 		},
 		{
 			name:     "empty input excluded",
@@ -142,33 +142,17 @@ func TestBuildPipelineOptions(t *testing.T) {
 func TestBuildFlagOptions(t *testing.T) {
 	flags := DefaultFlags()
 	options := buildFlagOptions(flags)
-	assert.Len(t, options, 6)
+	assert.Len(t, options, 1)
 
-	// All options should have the flag name as value.
-	assert.Equal(t, "--verbose", options[0].Value)
-	assert.Equal(t, "--output json", options[1].Value)
-	assert.Equal(t, "--output text", options[2].Value)
-	assert.Equal(t, "--dry-run", options[3].Value)
-	assert.Equal(t, "--mock", options[4].Value)
-	assert.Equal(t, "--debug", options[5].Value)
+	assert.Equal(t, "--mock", options[0].Value)
 }
 
 func TestDefaultFlags(t *testing.T) {
 	flags := DefaultFlags()
-	assert.Len(t, flags, 6)
+	assert.Len(t, flags, 1)
 
-	names := make([]string, len(flags))
-	for i, f := range flags {
-		names[i] = f.Name
-		assert.NotEmpty(t, f.Description, "flag %s should have a description", f.Name)
-	}
-
-	assert.Contains(t, names, "--verbose")
-	assert.Contains(t, names, "--output json")
-	assert.Contains(t, names, "--output text")
-	assert.Contains(t, names, "--dry-run")
-	assert.Contains(t, names, "--mock")
-	assert.Contains(t, names, "--debug")
+	assert.Equal(t, "--mock", flags[0].Name)
+	assert.NotEmpty(t, flags[0].Description)
 }
 
 func TestSelectionStruct(t *testing.T) {
