@@ -193,6 +193,7 @@ func (m *MockStateStore) SetRunTags(runID string, tags []string) error { return 
 func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil, nil }
 func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
 func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
+func (m *MockStateStore) UpdateRunPID(runID string, pid int) error    { return nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
