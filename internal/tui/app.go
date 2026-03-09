@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/recinq/wave/internal/github"
 	"github.com/recinq/wave/internal/state"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -144,6 +145,13 @@ func RunTUI(deps LaunchDependencies) error {
 	}
 	if deps.Manifest != nil || deps.Store != nil {
 		cp.HealthProvider = NewDefaultHealthDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+	}
+	if deps.Manifest != nil && deps.Manifest.Metadata.Repo != "" {
+		token := resolveGitHubToken()
+		if token != "" {
+			ghClient := github.NewClient(github.ClientConfig{Token: token})
+			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, deps.Manifest)
+		}
 	}
 
 	// Build pipeline and detail providers from dependencies
