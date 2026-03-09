@@ -3,6 +3,7 @@ package pipeline
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/recinq/wave/internal/skill"
 )
@@ -13,6 +14,7 @@ const (
 	StateCompleted = "completed"
 	StateFailed    = "failed"
 	StateRetrying  = "retrying"
+	StateSkipped   = "skipped"
 )
 
 type Pipeline struct {
@@ -68,6 +70,60 @@ type InputSchema struct {
 	Description string `yaml:"description,omitempty"`
 }
 
+// RetryConfig controls step retry behavior on failure.
+type RetryConfig struct {
+	MaxAttempts int    `yaml:"max_attempts,omitempty"` // Total attempts. Default 1 = no retry
+	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
+	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
+	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
+	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue". Default: "fail"
+}
+
+// EffectiveMaxAttempts returns the number of retry attempts, falling back to 1.
+func (r RetryConfig) EffectiveMaxAttempts() int {
+	if r.MaxAttempts > 0 {
+		return r.MaxAttempts
+	}
+	return 1
+}
+
+// ParseBaseDelay returns the base delay duration, defaulting to 1 second.
+func (r RetryConfig) ParseBaseDelay() time.Duration {
+	if r.BaseDelay != "" {
+		d, err := time.ParseDuration(r.BaseDelay)
+		if err == nil {
+			return d
+		}
+	}
+	return time.Second
+}
+
+// ComputeDelay returns the delay for a given attempt number (1-based).
+func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
+	base := r.ParseBaseDelay()
+	switch r.Backoff {
+	case "fixed":
+		return base
+	case "exponential":
+		d := base * time.Duration(1<<uint(attempt-1))
+		if d > 60*time.Second {
+			return 60 * time.Second
+		}
+		return d
+	default: // "linear" or empty
+		return base * time.Duration(attempt)
+	}
+}
+
+// AttemptContext holds failure context from a prior retry attempt for prompt adaptation.
+type AttemptContext struct {
+	Attempt      int
+	MaxAttempts  int
+	PriorError   string
+	FailureClass string
+	PriorStdout  string // last 2000 chars
+}
+
 type Step struct {
 	ID              string           `yaml:"id"`
 	Persona         string           `yaml:"persona"`
@@ -78,6 +134,7 @@ type Step struct {
 	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
 	Outcomes        []OutcomeDef     `yaml:"outcomes,omitempty"`
 	Handover        HandoverConfig   `yaml:"handover,omitempty"`
+	Retry           RetryConfig      `yaml:"retry,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 }

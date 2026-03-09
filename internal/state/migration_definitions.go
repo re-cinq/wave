@@ -371,5 +371,33 @@ CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
 CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
 `,
 		},
+		{
+			Version:     9,
+			Description: "Add step_attempt table for retry/recovery tracking",
+			Up: `
+CREATE TABLE IF NOT EXISTS step_attempt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    attempt INTEGER NOT NULL,
+    state TEXT NOT NULL,
+    error_message TEXT DEFAULT '',
+    failure_class TEXT DEFAULT '',
+    stdout_tail TEXT DEFAULT '',
+    tokens_used INTEGER DEFAULT 0,
+    duration_ms INTEGER DEFAULT 0,
+    started_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_attempt_run ON step_attempt(run_id);
+CREATE INDEX IF NOT EXISTS idx_attempt_step ON step_attempt(step_id);
+`,
+			Down: `
+DROP INDEX IF EXISTS idx_attempt_step;
+DROP INDEX IF EXISTS idx_attempt_run;
+DROP TABLE IF EXISTS step_attempt;
+`,
+		},
 	}
 }
