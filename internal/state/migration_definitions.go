@@ -332,5 +332,44 @@ CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
 CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
 `,
 		},
+		{
+			Version:     8,
+			Description: "Add pid column to pipeline_run for detached subprocess tracking",
+			Up: `
+ALTER TABLE pipeline_run ADD COLUMN pid INTEGER DEFAULT 0;
+`,
+			Down: `
+-- SQLite doesn't support DROP COLUMN directly before 3.35.0
+-- Recreate table without pid column
+CREATE TABLE pipeline_run_backup (
+    run_id TEXT PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+    input TEXT,
+    current_step TEXT,
+    total_tokens INTEGER DEFAULT 0,
+    started_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    cancelled_at INTEGER,
+    error_message TEXT,
+    tags_json TEXT DEFAULT '[]',
+    branch_name TEXT DEFAULT ''
+);
+
+INSERT INTO pipeline_run_backup SELECT
+    run_id, pipeline_name, status, input, current_step, total_tokens,
+    started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+FROM pipeline_run;
+
+DROP TABLE pipeline_run;
+
+ALTER TABLE pipeline_run_backup RENAME TO pipeline_run;
+
+CREATE INDEX IF NOT EXISTS idx_run_pipeline ON pipeline_run(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_run_status ON pipeline_run(status);
+CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
+CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
+`,
+		},
 	}
 }

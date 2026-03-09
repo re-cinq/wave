@@ -185,7 +185,7 @@ func TestPartialRollbackAndReapply(t *testing.T) {
 
 	finalVersion, err := manager.GetCurrentVersion()
 	require.NoError(t, err)
-	assert.Equal(t, 7, finalVersion)
+	assert.Equal(t, 8, finalVersion)
 
 	// Verify all tables exist again
 	expectedTables := []string{
