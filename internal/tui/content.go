@@ -539,15 +539,20 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				},
 			)
 		}
-		// T031: Multi-pipeline sequence — show informational message in the
-		// compose detail pane. Keep compose mode active so the user can read
-		// the message and press Esc to exit.
-		if m.composeDetail != nil {
-			infoMsg := "Sequential pipeline execution requires cross-pipeline " +
-				"artifact handoff (#249). Build and validate your sequence now " +
-				"— execution will be enabled in a future release."
-			m.composeDetail.viewport.SetContent(infoMsg)
-			m.composeDetail.viewport.GotoTop()
+		// Multi-pipeline sequence — launch the first pipeline to start the
+		// sequence. Full TUI sequence orchestration (chaining subsequent
+		// pipelines on completion) is deferred to a follow-up.
+		if len(msg.Sequence.Entries) > 0 {
+			m.composing = false
+			m.composeList = nil
+			m.composeDetail = nil
+			first := msg.Sequence.Entries[0]
+			return m, tea.Batch(
+				func() tea.Msg { return ComposeActiveMsg{Active: false} },
+				func() tea.Msg {
+					return LaunchRequestMsg{Config: LaunchConfig{PipelineName: first.PipelineName}}
+				},
+			)
 		}
 		return m, nil
 
