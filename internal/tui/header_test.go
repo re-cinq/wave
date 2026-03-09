@@ -84,8 +84,8 @@ func TestHeaderModel_RenderIssues_NotConfigured(t *testing.T) {
 	h := NewHeaderModel(nil)
 	h.metadata.GitHubState = GitHubNotConfigured
 
-	result := h.renderIssues()
-	assert.Equal(t, "", result)
+	result := h.renderIssuesValue()
+	assert.Equal(t, "—", result)
 }
 
 func TestHeaderModel_RenderIssues_Connected(t *testing.T) {
@@ -93,7 +93,7 @@ func TestHeaderModel_RenderIssues_Connected(t *testing.T) {
 	h.metadata.GitHubState = GitHubConnected
 	h.metadata.IssuesCount = 42
 
-	result := h.renderIssues()
+	result := h.renderIssuesValue()
 	assert.Contains(t, stripAnsi(result), "42")
 }
 
@@ -428,17 +428,17 @@ func TestHeaderModel_Update_RunningCountMsg_AlreadyActive(t *testing.T) {
 	assert.Nil(t, cmd, "should not return a new tick when logo is already active")
 }
 
-func TestHeaderModel_Update_RunningCountMsg_DeactivateResetsColorIndex(t *testing.T) {
+func TestHeaderModel_Update_RunningCountMsg_DeactivateResetsFrame(t *testing.T) {
 	h := NewHeaderModel(nil)
 	// Activate and advance a few times
 	h, _ = h.Update(RunningCountMsg{Count: 1})
 	h.logo.Advance()
 	h.logo.Advance()
-	require.Equal(t, 2, h.logo.colorIndex)
+	require.Equal(t, 2, h.logo.frame)
 
 	// Deactivate
 	h, _ = h.Update(RunningCountMsg{Count: 0})
-	assert.Equal(t, 0, h.logo.colorIndex, "color index should reset to 0 on deactivation")
+	assert.Equal(t, 0, h.logo.frame, "frame should reset to 0 on deactivation")
 }
 
 // --- T027: View() rendering tests at widths 80, 120, 200 ---
@@ -534,7 +534,7 @@ func TestHeaderModel_View_WiderWidthShowsMoreColumns(t *testing.T) {
 func TestLogoAnimator_NewStartsInactive(t *testing.T) {
 	logo := NewLogoAnimator()
 	assert.False(t, logo.IsActive(), "new logo should start inactive")
-	assert.Equal(t, 0, logo.colorIndex, "new logo should start at color index 0")
+	assert.Equal(t, 0, logo.frame, "new logo should start at frame 0")
 }
 
 func TestLogoAnimator_SetActive(t *testing.T) {
@@ -545,38 +545,37 @@ func TestLogoAnimator_SetActive(t *testing.T) {
 
 	logo.SetActive(false)
 	assert.False(t, logo.IsActive())
-	assert.Equal(t, 0, logo.colorIndex, "SetActive(false) should reset colorIndex to 0")
+	assert.Equal(t, 0, logo.frame, "SetActive(false) should reset frame to 0")
 }
 
-func TestLogoAnimator_SetActive_ResetsColorIndex(t *testing.T) {
+func TestLogoAnimator_SetActive_ResetsFrame(t *testing.T) {
 	logo := NewLogoAnimator()
 	logo.SetActive(true)
 	logo.Advance()
 	logo.Advance()
-	require.Equal(t, 2, logo.colorIndex)
+	require.Equal(t, 2, logo.frame)
 
 	logo.SetActive(false)
-	assert.Equal(t, 0, logo.colorIndex, "deactivation should reset color index to 0")
+	assert.Equal(t, 0, logo.frame, "deactivation should reset frame to 0")
 
 	logo.SetActive(true)
-	assert.Equal(t, 0, logo.colorIndex, "reactivation should start from 0")
+	assert.Equal(t, 0, logo.frame, "reactivation should start from 0")
 }
 
-func TestLogoAnimator_Advance_CyclesPalette(t *testing.T) {
+func TestLogoAnimator_Advance_IncrementsFrame(t *testing.T) {
 	logo := NewLogoAnimator()
 	logo.SetActive(true)
 
-	// Palette is ["6", "4", "5"] — 3 colors
-	assert.Equal(t, 0, logo.colorIndex) // cyan
+	assert.Equal(t, 0, logo.frame)
 
 	logo.Advance()
-	assert.Equal(t, 1, logo.colorIndex) // blue
+	assert.Equal(t, 1, logo.frame)
 
 	logo.Advance()
-	assert.Equal(t, 2, logo.colorIndex) // magenta
+	assert.Equal(t, 2, logo.frame)
 
 	logo.Advance()
-	assert.Equal(t, 0, logo.colorIndex) // wraps back to cyan
+	assert.Equal(t, 3, logo.frame)
 }
 
 func TestLogoAnimator_Tick_ReturnsNonNilCommand(t *testing.T) {
@@ -602,39 +601,30 @@ func TestLogoAnimator_View_RendersLogo(t *testing.T) {
 	assert.Contains(t, view, "╚╩╝")
 }
 
-func TestLogoAnimator_View_DifferentColorsAtDifferentIndices(t *testing.T) {
+func TestLogoAnimator_View_DifferentFramesRenderSameText(t *testing.T) {
 	logo := NewLogoAnimator()
+	logo.SetActive(true)
 
-	// Verify the logo uses different palette colors at different indices.
-	// In non-TTY test environments, lipgloss strips ANSI codes, so we verify
-	// the colorIndex state and that each view renders the same text content.
-	assert.Equal(t, 0, logo.colorIndex)
+	// Verify frames advance and each view renders the same text content.
+	assert.Equal(t, 0, logo.frame)
 	view0 := logo.View()
 	assert.Contains(t, stripAnsi(view0), "╦")
 
 	logo.Advance()
-	assert.Equal(t, 1, logo.colorIndex)
+	assert.Equal(t, 1, logo.frame)
 	view1 := logo.View()
 	assert.Contains(t, stripAnsi(view1), "╦")
 
 	logo.Advance()
-	assert.Equal(t, 2, logo.colorIndex)
+	assert.Equal(t, 2, logo.frame)
 	view2 := logo.View()
 	assert.Contains(t, stripAnsi(view2), "╦")
 
-	// Verify the underlying palette has distinct colors
-	assert.NotEqual(t, logo.palette[0], logo.palette[1],
-		"palette colors 0 and 1 should differ")
-	assert.NotEqual(t, logo.palette[1], logo.palette[2],
-		"palette colors 1 and 2 should differ")
-	assert.NotEqual(t, logo.palette[0], logo.palette[2],
-		"palette colors 0 and 2 should differ")
-
-	// Stripped text content should be identical across all indices
+	// Stripped text content should be identical across all frames
 	assert.Equal(t, stripAnsi(view0), stripAnsi(view1),
-		"stripped logo text should be the same regardless of color")
+		"stripped logo text should be the same regardless of frame")
 	assert.Equal(t, stripAnsi(view1), stripAnsi(view2),
-		"stripped logo text should be the same regardless of color")
+		"stripped logo text should be the same regardless of frame")
 }
 
 // --- T029: PipelineSelectedMsg tests ---
@@ -799,8 +789,8 @@ func TestHeaderModel_EdgeCase_GitHubNotConfigured_IssuesHidden(t *testing.T) {
 	}
 	h, _ = h.Update(ghMsg)
 
-	result := h.renderIssues()
-	assert.Equal(t, "", result, "issues section should be empty when GitHub is not configured")
+	result := h.renderIssuesValue()
+	assert.Equal(t, "—", result, "issues section should show dash when GitHub is not configured")
 }
 
 func TestHeaderModel_EdgeCase_PlaceholderBeforeAsyncData(t *testing.T) {
@@ -825,7 +815,7 @@ func TestHeaderModel_EdgeCase_GitHubOffline(t *testing.T) {
 	}
 	h, _ = h.Update(ghMsg)
 
-	result := stripAnsi(h.renderIssues())
+	result := stripAnsi(h.renderIssuesValue())
 	assert.Contains(t, result, "[offline]", "should show [offline] when GitHub is unreachable")
 }
 
@@ -843,10 +833,10 @@ func TestHeaderModel_Update_GitRefreshTickMsg(t *testing.T) {
 func TestHeaderModel_Update_LogoTickMsg_Active(t *testing.T) {
 	h := NewHeaderModel(nil)
 	h.logo.SetActive(true)
-	initialIndex := h.logo.colorIndex
+	initialIndex := h.logo.frame
 
 	h, cmd := h.Update(LogoTickMsg{})
-	assert.NotEqual(t, initialIndex, h.logo.colorIndex, "color index should advance on tick")
+	assert.NotEqual(t, initialIndex, h.logo.frame, "frame should advance on tick")
 	assert.NotNil(t, cmd, "should return another tick command when active")
 }
 
@@ -855,7 +845,7 @@ func TestHeaderModel_Update_LogoTickMsg_Inactive(t *testing.T) {
 	h.logo.SetActive(false)
 
 	h, cmd := h.Update(LogoTickMsg{})
-	assert.Equal(t, 0, h.logo.colorIndex, "color index should not change when inactive")
+	assert.Equal(t, 0, h.logo.frame, "frame should not change when inactive")
 	assert.Nil(t, cmd, "should not return a command when logo is inactive")
 }
 
@@ -884,32 +874,32 @@ func TestHeaderModel_RenderHealth_AllStatuses(t *testing.T) {
 
 func TestHeaderModel_RenderRemote_NoRemote(t *testing.T) {
 	h := NewHeaderModel(nil)
-	result := stripAnsi(h.renderRemote())
+	result := stripAnsi(h.renderRemoteValue())
 	assert.Equal(t, "—", result, "should show dash when no remote")
 }
 
 func TestHeaderModel_RenderRemote_WithRemote(t *testing.T) {
 	h := NewHeaderModel(nil)
 	h.metadata.RemoteName = "origin"
-	result := stripAnsi(h.renderRemote())
+	result := stripAnsi(h.renderRemoteValue())
 	assert.Equal(t, "origin", result)
 }
 
 func TestHeaderModel_RenderRepo_FallbackToRepoName(t *testing.T) {
 	h := NewHeaderModel(nil)
 	h.metadata.RepoName = "re-cinq/wave"
-	result := stripAnsi(h.renderRepo())
+	result := stripAnsi(h.renderRepoName())
 	assert.Equal(t, "re-cinq/wave", result,
 		"should fall back to repo name when project name is empty")
 }
 
-func TestHeaderModel_RenderRepo_PreferProjectName(t *testing.T) {
+func TestHeaderModel_RenderRepo_PreferRepoName(t *testing.T) {
 	h := NewHeaderModel(nil)
 	h.metadata.ProjectName = "wave"
 	h.metadata.RepoName = "re-cinq/wave"
-	result := stripAnsi(h.renderRepo())
-	assert.Equal(t, "wave", result,
-		"should prefer project name over repo name")
+	result := stripAnsi(h.renderRepoName())
+	assert.Equal(t, "re-cinq/wave", result,
+		"should prefer repo name over project name")
 }
 
 func TestHeaderModel_Init_ReturnsCmd(t *testing.T) {

@@ -59,6 +59,40 @@ func TestPipelineLauncher_CancelAll_InvokesAllCancelFuncs(t *testing.T) {
 	assert.Empty(t, launcher.cancelFns, "map should be cleared after CancelAll")
 }
 
+func TestPipelineLauncher_CancelAll_UpdatesDBStatus(t *testing.T) {
+	store := &cancelAllMockStore{}
+	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
+
+	_, cancel1 := context.WithCancel(context.Background())
+	_, cancel2 := context.WithCancel(context.Background())
+
+	launcher.mu.Lock()
+	launcher.cancelFns["run-a"] = cancel1
+	launcher.cancelFns["run-b"] = cancel2
+	launcher.mu.Unlock()
+
+	launcher.CancelAll()
+
+	assert.Len(t, store.updatedRuns, 2, "should update DB status for all cancelled runs")
+	for _, status := range store.updatedRuns {
+		assert.Equal(t, "cancelled", status)
+	}
+}
+
+// cancelAllMockStore records UpdateRunStatus calls.
+type cancelAllMockStore struct {
+	baseStateStore
+	updatedRuns map[string]string
+}
+
+func (c *cancelAllMockStore) UpdateRunStatus(runID string, status string, _ string, _ int) error {
+	if c.updatedRuns == nil {
+		c.updatedRuns = make(map[string]string)
+	}
+	c.updatedRuns[runID] = status
+	return nil
+}
+
 func TestPipelineLauncher_CancelAll_EmptyMap_IsNoOp(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
 	// Should not panic
@@ -182,4 +216,77 @@ func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
 	// Should not panic with nil program
 	err := emitter.EmitProgress(event.Event{State: event.StateStarted})
 	assert.NoError(t, err)
+}
+
+func TestPipelineLauncher_DismissRun_ActiveRun_CallsCancel(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	launcher.mu.Lock()
+	launcher.cancelFns["test-run"] = cancel
+	launcher.mu.Unlock()
+
+	launcher.DismissRun("test-run")
+
+	assert.Error(t, ctx.Err())
+	assert.Equal(t, context.Canceled, ctx.Err())
+}
+
+func TestPipelineLauncher_DismissRun_StaleRun_NilStore_IsNoOp(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+
+	// No cancel function and no store — should not panic
+	assert.NotPanics(t, func() {
+		launcher.DismissRun("stale-run")
+	})
+}
+
+func TestPipelineLauncher_DismissRun_UnknownRun_IsNoOp(t *testing.T) {
+	launcher := NewPipelineLauncher(LaunchDependencies{})
+	// Should not panic
+	launcher.DismissRun("nonexistent")
+}
+
+func TestPipelineLauncher_DismissRun_StaleRun_RequestsCancellation(t *testing.T) {
+	store := &dismissMockStore{}
+	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
+
+	// No cancel function — simulates a CLI-started run
+	launcher.DismissRun("cli-run-1")
+
+	assert.Equal(t, "cli-run-1", store.cancelledRunID, "should call RequestCancellation for cross-process run")
+}
+
+// dismissMockStore records RequestCancellation calls.
+type dismissMockStore struct {
+	baseStateStore
+	cancelledRunID string
+}
+
+func (d *dismissMockStore) RequestCancellation(runID string, force bool) error {
+	d.cancelledRunID = runID
+	return nil
+}
+
+func TestDBLoggingEmitter_SkipsEmptyHeartbeats(t *testing.T) {
+	var emitted []event.Event
+	inner := &captureEmitter{events: &emitted}
+	d := &dbLoggingEmitter{
+		inner: inner,
+		store: nil, // nil store — LogEvent won't be called
+		runID: "run-1",
+	}
+
+	// Empty heartbeat — should still call inner.Emit but skip LogEvent
+	d.Emit(event.Event{State: "step_progress"})
+	assert.Len(t, emitted, 1, "inner.Emit should still be called")
+}
+
+// captureEmitter is a test helper that captures emitted events.
+type captureEmitter struct {
+	events *[]event.Event
+}
+
+func (c *captureEmitter) Emit(ev event.Event) {
+	*c.events = append(*c.events, ev)
 }

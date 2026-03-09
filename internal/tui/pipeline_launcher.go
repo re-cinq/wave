@@ -2,12 +2,14 @@ package tui
 
 import (
 	"context"
+	"time"
 	"fmt"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
 )
@@ -103,6 +105,11 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		runID = pipeline.GenerateRunID(p.Metadata.Name, 8)
 	}
 
+	// Transition run from pending → running so `wave status` picks it up
+	if l.deps.Store != nil {
+		_ = l.deps.Store.UpdateRunStatus(runID, "running", "", 0)
+	}
+
 	// Store cancel function for later cancellation
 	l.mu.Lock()
 	l.cancelFns[runID] = cancel
@@ -124,6 +131,11 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		emitter = event.NewNDJSONEmitter()
 	}
 
+	// Wrap emitter with DB logging so events persist across TUI sessions
+	if l.deps.Store != nil {
+		emitter = &dbLoggingEmitter{inner: emitter, store: l.deps.Store, runID: runID}
+	}
+
 	var execOpts []pipeline.ExecutorOption
 	execOpts = append(execOpts, pipeline.WithEmitter(emitter))
 	execOpts = append(execOpts, pipeline.WithRunID(runID))
@@ -138,16 +150,9 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
 
-	// Apply flags
-	isDebug := false
-	for _, f := range config.Flags {
-		if f == "--debug" {
-			isDebug = true
-		}
-	}
-	if isDebug {
-		execOpts = append(execOpts, pipeline.WithDebug(true))
-	}
+	// NOTE: Do NOT enable WithDebug(true) here — the executor's debug flag
+	// writes [DEBUG]/[SECURITY] lines directly to stdout/stderr, which corrupts
+	// Bubble Tea's alternate screen. Events are emitted regardless of the debug flag.
 
 	if config.ModelOverride != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(config.ModelOverride))
@@ -191,6 +196,21 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 				errMsg = ctx.Err().Error()
 			}
 			_ = store.UpdateRunStatus(runID, status, errMsg, executor.GetTotalTokens())
+			_ = store.ClearCancellation(runID)
+		}
+
+		// Emit pipeline-level failure event so live output shows the error
+		if execErr != nil && prog != nil {
+			prog.Send(PipelineEventMsg{
+				RunID: runID,
+				Event: event.Event{
+					Timestamp:     time.Now(),
+					PipelineID:    pipelineName,
+					State:         event.StateFailed,
+					Message:       execErr.Error(),
+					FailureReason: "execution",
+				},
+			})
 		}
 
 		return PipelineLaunchResultMsg{RunID: runID, Err: execErr}
@@ -208,12 +228,39 @@ func (l *PipelineLauncher) Cancel(runID string) {
 	}
 }
 
+
+// DismissRun cancels or dismisses a pipeline run.
+// For active TUI-launched runs, it calls the in-memory cancel function.
+// For stale previous-session runs, it updates the DB status directly.
+func (l *PipelineLauncher) DismissRun(runID string) {
+	l.mu.Lock()
+	cancel, hasCancel := l.cancelFns[runID]
+	l.mu.Unlock()
+
+	if hasCancel {
+		cancel()
+		return
+	}
+
+	// Cross-process run (CLI or previous session) — request cancellation via DB.
+	// The executor's pollCancellation goroutine will pick this up and cancel the context.
+	// If the process is already dead, the stale run status will be cleaned up on next list refresh.
+	if l.deps.Store != nil {
+		_ = l.deps.Store.RequestCancellation(runID, false)
+	}
+}
 // CancelAll cancels all running pipelines (called on TUI exit).
+// Also updates DB status since the executor goroutines may not have time
+// to run their completion handlers before the process exits.
 func (l *PipelineLauncher) CancelAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for _, cancel := range l.cancelFns {
+	for runID, cancel := range l.cancelFns {
 		cancel()
+		if l.deps.Store != nil {
+			_ = l.deps.Store.UpdateRunStatus(runID, "cancelled", "TUI session exited", 0)
+			_ = l.deps.Store.ClearCancellation(runID)
+		}
 	}
 	l.cancelFns = make(map[string]context.CancelFunc)
 }
@@ -239,4 +286,21 @@ func (e *TUIProgressEmitter) EmitProgress(evt event.Event) error {
 		e.program.Send(PipelineEventMsg{RunID: e.runID, Event: evt})
 	}
 	return nil
+}
+
+// dbLoggingEmitter wraps an EventEmitter and persists each event to the state
+// database so event logs survive TUI exit. Mirrors the pattern in cmd/wave/commands/run.go.
+type dbLoggingEmitter struct {
+	inner event.EventEmitter
+	store state.StateStore
+	runID string
+}
+
+func (d *dbLoggingEmitter) Emit(ev event.Event) {
+	d.inner.Emit(ev)
+	// Skip empty heartbeat ticks — they carry no useful information.
+	if ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0 {
+		return
+	}
+	d.store.LogEvent(d.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs)
 }

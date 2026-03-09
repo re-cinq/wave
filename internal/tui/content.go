@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"time"
+	"strings"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -101,46 +103,54 @@ func (m ContentModel) Init() tea.Cmd {
 }
 
 // SetSize updates the content area dimensions and propagates to children.
+// childHeight returns the usable height for child models (minus top and bottom padding lines).
+func (m ContentModel) childHeight() int {
+	if m.height <= 2 {
+		return 0
+	}
+	return m.height - 2
+}
+
 func (m *ContentModel) SetSize(w, h int) {
 	m.width = w
 	m.height = h
 
 	leftWidth := m.leftPaneWidth()
-	rightWidth := w - leftWidth
+	rightWidth := w - leftWidth - 3 // 3 chars for separator: space + │ + space
 
-	m.list.SetSize(leftWidth, h)
-	m.detail.SetSize(rightWidth, h)
+	m.list.SetSize(leftWidth, m.childHeight())
+	m.detail.SetSize(rightWidth, m.childHeight())
 
 	// Propagate to non-nil alternative view models
 	if m.personaList != nil {
-		m.personaList.SetSize(leftWidth, h)
+		m.personaList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.personaDetail != nil {
-		m.personaDetail.SetSize(rightWidth, h)
+		m.personaDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.contractList != nil {
-		m.contractList.SetSize(leftWidth, h)
+		m.contractList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.contractDetail != nil {
-		m.contractDetail.SetSize(rightWidth, h)
+		m.contractDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.skillList != nil {
-		m.skillList.SetSize(leftWidth, h)
+		m.skillList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.skillDetail != nil {
-		m.skillDetail.SetSize(rightWidth, h)
+		m.skillDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.healthList != nil {
-		m.healthList.SetSize(leftWidth, h)
+		m.healthList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.healthDetail != nil {
-		m.healthDetail.SetSize(rightWidth, h)
+		m.healthDetail.SetSize(rightWidth, m.childHeight())
 	}
 	if m.composeList != nil {
-		m.composeList.SetSize(leftWidth, h)
+		m.composeList.SetSize(leftWidth, m.childHeight())
 	}
 	if m.composeDetail != nil {
-		m.composeDetail.SetSize(rightWidth, h)
+		m.composeDetail.SetSize(rightWidth, m.childHeight())
 	}
 }
 
@@ -152,7 +162,7 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	var initCmd tea.Cmd
 
 	leftWidth := m.leftPaneWidth()
-	rightWidth := m.width - leftWidth
+	rightWidth := m.width - leftWidth - 3
 
 	switch m.currentView {
 	case ViewPipelines:
@@ -162,10 +172,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewPersonas:
 		if m.personaList == nil && m.personaProvider != nil {
 			pl := NewPersonaListModel(m.personaProvider)
-			pl.SetSize(leftWidth, m.height)
+			pl.SetSize(leftWidth, m.childHeight())
 			m.personaList = &pl
 			pd := NewPersonaDetailModel(m.personaProvider)
-			pd.SetSize(rightWidth, m.height)
+			pd.SetSize(rightWidth, m.childHeight())
 			m.personaDetail = &pd
 			initCmd = m.personaList.Init()
 		}
@@ -179,10 +189,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewContracts:
 		if m.contractList == nil && m.contractProvider != nil {
 			cl := NewContractListModel(m.contractProvider)
-			cl.SetSize(leftWidth, m.height)
+			cl.SetSize(leftWidth, m.childHeight())
 			m.contractList = &cl
 			cd := NewContractDetailModel()
-			cd.SetSize(rightWidth, m.height)
+			cd.SetSize(rightWidth, m.childHeight())
 			m.contractDetail = &cd
 			initCmd = m.contractList.Init()
 		}
@@ -196,10 +206,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewSkills:
 		if m.skillList == nil && m.skillProvider != nil {
 			sl := NewSkillListModel(m.skillProvider)
-			sl.SetSize(leftWidth, m.height)
+			sl.SetSize(leftWidth, m.childHeight())
 			m.skillList = &sl
 			sd := NewSkillDetailModel()
-			sd.SetSize(rightWidth, m.height)
+			sd.SetSize(rightWidth, m.childHeight())
 			m.skillDetail = &sd
 			initCmd = m.skillList.Init()
 		}
@@ -213,10 +223,10 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	case ViewHealth:
 		if m.healthList == nil && m.healthProvider != nil {
 			hl := NewHealthListModel(m.healthProvider)
-			hl.SetSize(leftWidth, m.height)
+			hl.SetSize(leftWidth, m.childHeight())
 			m.healthList = &hl
 			hd := NewHealthDetailModel()
-			hd.SetSize(rightWidth, m.height)
+			hd.SetSize(rightWidth, m.childHeight())
 			m.healthDetail = &hd
 			initCmd = m.healthList.Init()
 		}
@@ -245,6 +255,17 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Intercept Shift+Tab for reverse view cycling
+		if msg.Type == tea.KeyShiftTab {
+			if m.composing {
+				return m, nil
+			}
+			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
+			m.currentView = (m.currentView + 3) % 5 // net effect: -1 after cycleView adds +1
+			cmd := m.cycleView()
+			return m, cmd
+		}
+
 		// Intercept Tab for view cycling BEFORE focus-based child routing
 		if msg.Type == tea.KeyTab {
 			// Block Tab cycling during compose mode
@@ -317,6 +338,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						enterCmds = append(enterCmds, func() tea.Msg {
 							return LiveOutputActiveMsg{Active: true}
 						})
+					} else {
+						enterCmds = append(enterCmds, func() tea.Msg {
+							return RunningInfoActiveMsg{Active: true}
+						})
 					}
 				}
 
@@ -337,24 +362,40 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 		// Pipeline view Escape handling
 		if msg.Type == tea.KeyEscape && m.focus == FocusPaneRight && m.currentView == ViewPipelines {
+			// Clear form if it was active (content intercepts Escape before the form sees it)
+			if m.detail.paneState == stateConfiguring {
+				m.detail.launchForm = nil
+				m.detail.paneState = stateAvailableDetail
+				m.detail.updateViewportContent()
+			}
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
 			return m, tea.Batch(
 				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+				func() tea.Msg { return FormActiveMsg{Active: false} },
 				func() tea.Msg { return LiveOutputActiveMsg{Active: false} },
 				func() tea.Msg { return FinishedDetailActiveMsg{Active: false} },
+				func() tea.Msg { return RunningInfoActiveMsg{Active: false} },
 			)
 		}
 
-		// Cancel running pipeline with 'c' key — only in pipeline view
-		if msg.String() == "c" && m.focus == FocusPaneLeft && m.launcher != nil && m.currentView == ViewPipelines {
-			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
-				item := m.list.navigable[m.list.cursor]
-				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
-					r := m.list.running[item.dataIndex]
-					m.launcher.Cancel(r.RunID)
+		// Cancel/dismiss running pipeline with 'c' key — pipeline view, both panes
+		if msg.String() == "c" && m.launcher != nil && m.currentView == ViewPipelines {
+			var cancelRunID string
+			if m.focus == FocusPaneRight && (m.detail.paneState == stateRunningLive || m.detail.paneState == stateRunningInfo) && m.detail.selectedRunID != "" {
+				cancelRunID = m.detail.selectedRunID
+			} else if m.focus == FocusPaneLeft {
+				if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
+					item := m.list.navigable[m.list.cursor]
+					if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
+						cancelRunID = m.list.running[item.dataIndex].RunID
+					}
 				}
+			}
+			if cancelRunID != "" {
+				m.launcher.DismissRun(cancelRunID)
+				return m, m.list.fetchPipelineData
 			}
 			return m, nil
 		}
@@ -374,9 +415,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						m.composeDetail = &cd
 
 						leftWidth := m.leftPaneWidth()
-						rightWidth := m.width - leftWidth
-						m.composeList.SetSize(leftWidth, m.height)
-						m.composeDetail.SetSize(rightWidth, m.height)
+						rightWidth := m.width - leftWidth - 3
+						m.composeList.SetSize(leftWidth, m.childHeight())
+						m.composeDetail.SetSize(rightWidth, m.childHeight())
 
 						seq := cl.sequence
 						val := cl.validation
@@ -603,6 +644,22 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
+		// Wire live output buffer for TUI-launched running pipelines on hover
+		if msg.Kind == itemKindRunning && msg.RunID != "" && m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
+			buf := m.launcher.GetBuffer(msg.RunID)
+			if m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID {
+				var startedAt time.Time
+				for _, r := range m.list.running {
+					if r.RunID == msg.RunID {
+						startedAt = r.StartedAt
+						break
+					}
+				}
+				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
+				liveModel.SetSize(m.detail.width, m.detail.height)
+				m.detail.liveOutput = &liveModel
+			}
+		}
 		m.detail, detailCmd = m.detail.Update(msg)
 		if listCmd != nil {
 			cmds = append(cmds, listCmd)
@@ -617,7 +674,25 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
 
-	case PipelineDataMsg, PipelineRefreshTickMsg:
+	case PipelineRefreshTickMsg:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+
+	case PipelineDataMsg:
+		// Merge TUI-launched running entries that still have active buffers
+		// so periodic refreshes don't wipe out synthetic entries
+		if m.launcher != nil && msg.Err == nil {
+			dbRunIDs := make(map[string]bool)
+			for _, r := range msg.Running {
+				dbRunIDs[r.RunID] = true
+			}
+			for _, r := range m.list.running {
+				if !dbRunIDs[r.RunID] && m.launcher.HasBuffer(r.RunID) {
+					msg.Running = append(msg.Running, r)
+				}
+			}
+		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
@@ -668,13 +743,27 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Forward to list for running entry insertion
 		var listCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
-		// Transition focus to left pane
-		m.focus = FocusPaneLeft
-		m.list.SetFocused(true)
-		m.detail.SetFocused(false)
-		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+
+		// B2: Create live output model if launcher has a buffer for this run
+		if m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
+			buffer := m.launcher.GetBuffer(msg.RunID)
+			live := NewLiveOutputModel(msg.RunID, msg.PipelineName, buffer, time.Now(), 0)
+			live.SetSize(m.detail.width, m.detail.height)
+			m.detail.liveOutput = &live
+			m.detail.paneState = stateRunningLive
+			m.detail.selectedRunID = msg.RunID
+			m.detail.selectedName = msg.PipelineName
+			m.detail.selectedKind = itemKindRunning
+		}
+
+		// Switch focus to right pane for live output
+		m.focus = FocusPaneRight
+		m.list.SetFocused(false)
+		m.detail.SetFocused(true)
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
-		batchCmds := []tea.Cmd{focusCmd, formCmd}
+		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }
+		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd}
 		if listCmd != nil {
 			batchCmds = append(batchCmds, listCmd)
 		}
@@ -684,7 +773,25 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.launcher != nil {
 			m.launcher.Cleanup(msg.RunID)
 		}
-		// Trigger data refresh so the pipeline moves from Running to Finished
+		// Remove synthetic running entry so it doesn't ghost after completion
+		var newRunning []RunningPipeline
+		for _, r := range m.list.running {
+			if r.RunID != msg.RunID {
+				newRunning = append(newRunning, r)
+			}
+		}
+		m.list.running = newRunning
+		m.list.buildNavigableItems()
+		// If the pipeline failed and the detail pane still shows live output,
+		// let the live output display the error (failure event was already sent).
+		// If no live output is active, show the error in the detail pane directly.
+		if msg.Err != nil && (m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID) {
+			m.detail.launchError = msg.Err.Error()
+			m.detail.launchErrorTitle = "Pipeline Failed"
+			m.detail.paneState = stateError
+			m.detail.updateViewportContent()
+		}
+		// Trigger data refresh so the pipeline appears in Finished
 		return m, m.list.fetchPipelineData
 
 	case LaunchErrorMsg:
@@ -694,7 +801,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
-		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
+		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		batchCmds := []tea.Cmd{focusCmd, formCmd}
 		if cmd != nil {
@@ -709,6 +816,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.detail.SetFocused(false)
 		}
 		return m, nil
+
+	case RunEventsMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
 	}
 
 	// Default: forward to both pipeline children
@@ -906,7 +1018,7 @@ func (m ContentModel) View() string {
 		if m.personaDetail != nil {
 			rightView = m.personaDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a persona to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a persona to view details")
 		}
 
 	case ViewContracts:
@@ -918,7 +1030,7 @@ func (m ContentModel) View() string {
 		if m.contractDetail != nil {
 			rightView = m.contractDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a contract to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a contract to view details")
 		}
 
 	case ViewSkills:
@@ -930,7 +1042,7 @@ func (m ContentModel) View() string {
 		if m.skillDetail != nil {
 			rightView = m.skillDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a skill to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a skill to view details")
 		}
 
 	case ViewHealth:
@@ -942,18 +1054,50 @@ func (m ContentModel) View() string {
 		if m.healthDetail != nil {
 			rightView = m.healthDetail.View()
 		} else {
-			rightView = renderPlaceholder(m.width-m.leftPaneWidth(), m.height, "Select a health check to view details")
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a health check to view details")
 		}
 	}
 
-	// Apply dimming when focus is on the right pane
+	// Add top padding (blank line) for visual separation from status bar divider
+	leftView = "\n" + leftView
+	rightView = "\n" + rightView
+
+	// L5: Apply focus styling to panes
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(strings.Repeat("│\n", m.height))
+	separatorLines := strings.Split(separator, "\n")
+	if len(separatorLines) > m.height {
+		separatorLines = separatorLines[:m.height]
+	}
+	separator = strings.Join(separatorLines, "\n")
+
 	if m.focus == FocusPaneRight {
 		leftView = lipgloss.NewStyle().
 			Faint(true).
 			Render(leftView)
+	} else if m.focus == FocusPaneLeft {
+		rightView = lipgloss.NewStyle().
+			Faint(true).
+			Render(rightView)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
+	// L1: Add padding via separator between panes
+	result := lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().PaddingLeft(1).Render(leftView),
+		separator,
+		lipgloss.NewStyle().PaddingLeft(1).Render(rightView),
+	)
+
+	// Enforce exact height to prevent header clipping from stray extra lines
+	resultLines := strings.Split(result, "\n")
+	for len(resultLines) < m.height {
+		resultLines = append(resultLines, "")
+	}
+	if len(resultLines) > m.height {
+		resultLines = resultLines[:m.height]
+	}
+	return strings.Join(resultLines, "\n")
 }
 
 // renderPlaceholder renders a centered placeholder message.
