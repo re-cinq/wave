@@ -11,6 +11,7 @@ import (
 type RunningPipeline struct {
 	RunID      string
 	Name       string
+	Input      string
 	BranchName string
 	StartedAt  time.Time
 }
@@ -19,6 +20,7 @@ type RunningPipeline struct {
 type FinishedPipeline struct {
 	RunID       string
 	Name        string
+	Input       string
 	BranchName  string
 	Status      string
 	StartedAt   time.Time
@@ -59,6 +61,7 @@ func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline
 		result[i] = RunningPipeline{
 			RunID:      r.RunID,
 			Name:       r.PipelineName,
+			Input:      r.Input,
 			BranchName: r.BranchName,
 			StartedAt:  r.StartedAt,
 		}
@@ -89,6 +92,7 @@ func (p *DefaultPipelineDataProvider) FetchFinishedPipelines(limit int) ([]Finis
 		fp := FinishedPipeline{
 			RunID:      r.RunID,
 			Name:       r.PipelineName,
+			Input:      r.Input,
 			BranchName: r.BranchName,
 			Status:     r.Status,
 			StartedAt:  r.StartedAt,

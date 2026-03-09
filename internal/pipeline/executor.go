@@ -228,6 +228,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
+	// Start cancellation poller for cross-process cancel support.
+	// When another process (TUI, webui) writes a cancellation record to the DB,
+	// this goroutine detects it and cancels the executor's context.
+	if e.store != nil && pipelineID != "" {
+		var pollCancel context.CancelFunc
+		ctx, pollCancel = context.WithCancel(ctx)
+		defer pollCancel()
+		go e.pollCancellation(ctx, pipelineID, pollCancel)
+	}
+
 	// Initialize deliverable tracker for this pipeline (only if not already set)
 	if e.deliverableTracker == nil {
 		e.deliverableTracker = deliverable.NewTracker(pipelineID)
@@ -723,6 +733,20 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), 0, 0, 0, err.Error())
 		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				Success:      false,
+				ErrorMessage: err.Error(),
+			})
+		}
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 
@@ -744,6 +768,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if result.FailureReason == adapter.FailureReasonRateLimit {
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      false,
+				ErrorMessage: "rate limited: " + result.ResultContent,
+			})
 		}
 		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
 	}
@@ -881,6 +920,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
 					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
 				}
+				if e.store != nil {
+					completedAt := time.Now()
+					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+						RunID:        pipelineID,
+						StepID:       step.ID,
+						PipelineName: execution.Status.PipelineName,
+						Persona:      step.Persona,
+						StartedAt:    stepStart,
+						CompletedAt:  &completedAt,
+						DurationMs:   time.Since(stepStart).Milliseconds(),
+						TokensUsed:   result.TokensUsed,
+						Success:      false,
+						ErrorMessage: "contract validation failed: " + err.Error(),
+					})
+				}
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
 			// Soft failure: log the validation error but continue execution
@@ -935,6 +989,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	if e.logger != nil {
 		e.logger.LogStepEnd(pipelineID, step.ID, "success", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
+	}
+
+	// Record performance metric for TUI step breakdown
+	if e.store != nil {
+		completedAt := time.Now()
+		e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			RunID:              pipelineID,
+			StepID:             step.ID,
+			PipelineName:       execution.Status.PipelineName,
+			Persona:            step.Persona,
+			StartedAt:          stepStart,
+			CompletedAt:        &completedAt,
+			DurationMs:         stepDuration,
+			TokensUsed:         result.TokensUsed,
+			ArtifactsGenerated: len(stepArtifacts),
+			Success:            true,
+		})
 	}
 
 	return nil
@@ -1474,6 +1545,26 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipel
 	}
 
 	return cancel
+}
+
+// pollCancellation checks the database for cross-process cancellation requests.
+// When another process (TUI, webui, CLI) writes a cancellation record, this
+// goroutine detects it and cancels the executor's context to stop execution.
+func (e *DefaultPipelineExecutor) pollCancellation(ctx context.Context, runID string, cancel context.CancelFunc) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if rec, err := e.store.CheckCancellation(runID); err == nil && rec != nil {
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 // checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.

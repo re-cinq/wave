@@ -94,7 +94,10 @@ func TestShouldFormat_DefaultMode(t *testing.T) {
 	flags := DisplayFlags{}
 
 	// Default mode shows lifecycle events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, TotalSteps: 3}, flags))
+	// Pipeline-level started without TotalSteps is a duplicate info event — skip it
+	assert.False(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateRunning}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateCompleted}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateFailed}, flags))
@@ -112,7 +115,7 @@ func TestShouldFormat_VerboseMode(t *testing.T) {
 
 	assert.True(t, shouldFormat(event.Event{State: event.StateStreamActivity}, flags))
 	// Still shows default events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
 	// Still hides debug events
 	assert.False(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
 }
@@ -120,11 +123,16 @@ func TestShouldFormat_VerboseMode(t *testing.T) {
 func TestShouldFormat_DebugMode(t *testing.T) {
 	flags := DisplayFlags{Debug: true}
 
-	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
+	// Empty heartbeats are skipped even in debug mode (matches CLI behavior)
+	assert.False(t, shouldFormat(event.Event{State: event.StateStepProgress}, flags))
+	// Heartbeats with data are shown
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, TokensIn: 100}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, CurrentAction: "Executing"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStepProgress, Progress: 50}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateETAUpdated}, flags))
 	assert.True(t, shouldFormat(event.Event{State: event.StateCompactionProgress}, flags))
 	// Still shows default events
-	assert.True(t, shouldFormat(event.Event{State: event.StateStarted}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateStarted, StepID: "step-1"}, flags))
 	// Still hides verbose events
 	assert.False(t, shouldFormat(event.Event{State: event.StateStreamActivity}, flags))
 }
@@ -157,8 +165,8 @@ func TestFormatEventLine_Started(t *testing.T) {
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[specify]")
 	assert.Contains(t, line, "Starting...")
-	assert.Contains(t, line, "persona: navigator")
-	assert.Contains(t, line, "model: opus")
+	assert.Contains(t, line, "navigator")
+	assert.Contains(t, line, "opus")
 }
 
 func TestFormatEventLine_Completed(t *testing.T) {
@@ -220,8 +228,9 @@ func TestFormatEventLine_StepProgress_WithTokens(t *testing.T) {
 	}
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[specify]")
-	assert.Contains(t, line, "heartbeat")
-	assert.Contains(t, line, "1234/200000")
+	assert.Contains(t, line, "tokens:")
+	assert.Contains(t, line, "200.0k in")
+	assert.Contains(t, line, "1.2k out")
 }
 
 func TestFormatEventLine_ContractValidating(t *testing.T) {
@@ -232,8 +241,76 @@ func TestFormatEventLine_ContractValidating(t *testing.T) {
 	}
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[plan]")
-	assert.Contains(t, line, "Contract validation")
+	assert.Contains(t, line, "Contract:")
 	assert.Contains(t, line, "PASSED")
+}
+
+func TestFormatEventLine_Warning(t *testing.T) {
+	evt := event.Event{
+		StepID:  "plan",
+		State:   "warning",
+		Message: "workspace cleanup failed",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "workspace cleanup failed")
+}
+
+func TestFormatEventLine_Retrying(t *testing.T) {
+	evt := event.Event{
+		StepID:  "plan",
+		State:   event.StateRetrying,
+		Message: "attempt 2/3",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Retrying")
+	assert.Contains(t, line, "attempt 2/3")
+}
+
+func TestFormatEventLine_ContractPassed(t *testing.T) {
+	line := formatEventLine(event.Event{StepID: "plan", State: "contract_passed"})
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Contract: passed")
+}
+
+func TestFormatEventLine_ContractFailed(t *testing.T) {
+	line := formatEventLine(event.Event{StepID: "plan", State: "contract_failed"})
+	assert.Contains(t, line, "[plan]")
+	assert.Contains(t, line, "Contract: failed")
+}
+
+func TestFormatEventLine_Completed_WithTokens(t *testing.T) {
+	evt := event.Event{
+		StepID:     "plan",
+		State:      event.StateCompleted,
+		DurationMs: 42000,
+		TokensIn:   50000,
+		TokensOut:  3200,
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "Completed")
+	assert.Contains(t, line, "50.0k in")
+	assert.Contains(t, line, "3.2k out")
+}
+
+func TestFormatEventLine_StepProgress_WithAction(t *testing.T) {
+	evt := event.Event{
+		StepID:        "specify",
+		State:         event.StateStepProgress,
+		CurrentAction: "Executing agent",
+	}
+	line := formatEventLine(evt)
+	assert.Contains(t, line, "[specify]")
+	assert.Contains(t, line, "Executing agent")
+}
+
+func TestShouldFormat_WarningAndRetrying(t *testing.T) {
+	flags := DisplayFlags{}
+	assert.True(t, shouldFormat(event.Event{State: "warning"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: event.StateRetrying}, flags))
+	assert.True(t, shouldFormat(event.Event{State: "contract_passed"}, flags))
+	assert.True(t, shouldFormat(event.Event{State: "contract_failed"}, flags))
 }
 
 func TestFormatEventLine_NoColor(t *testing.T) {
@@ -492,4 +569,92 @@ func TestLiveOutputModel_StepProgressUpdatesHeader(t *testing.T) {
 	})
 	assert.Equal(t, "plan", m.currentStep)
 	assert.Equal(t, 2, m.stepNumber)
+}
+
+func TestLiveOutputModel_FlagToggle_RebuildBuffer_ShowsHiddenEvents(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a stream_activity event (hidden by default, shown with verbose)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStreamActivity, ToolName: "Read", ToolTarget: "file.go"},
+	})
+	// Should not be in buffer (verbose is off)
+	assert.Equal(t, 0, buf.Len(), "stream_activity should be hidden by default")
+
+	// Toggle verbose ON — buffer should rebuild with the event
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.True(t, m.flags.Verbose)
+	assert.Equal(t, 1, buf.Len(), "stream_activity should appear after verbose toggle")
+	lines := buf.Lines()
+	assert.Contains(t, lines[0], "Read")
+
+	// Toggle verbose OFF — buffer should rebuild without the event
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.False(t, m.flags.Verbose)
+	assert.Equal(t, 0, buf.Len(), "stream_activity should disappear after verbose toggle off")
+}
+
+func TestLiveOutputModel_FlagToggle_DebugRebuild(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a step_progress event with tokens (hidden by default, shown with debug)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStepProgress, TokensIn: 1000, TokensOut: 500},
+	})
+	assert.Equal(t, 0, buf.Len(), "step_progress should be hidden by default")
+
+	// Toggle debug ON
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	assert.Equal(t, 1, buf.Len(), "step_progress should appear after debug toggle")
+
+	// Toggle debug OFF
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	assert.Equal(t, 0, buf.Len(), "step_progress should disappear after debug toggle off")
+}
+
+func TestLiveOutputModel_OutputOnly_RebuildFilters(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send a started event (visible by default, hidden in output-only)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "step1", State: event.StateStarted, Persona: "nav"},
+	})
+	assert.Equal(t, 1, buf.Len(), "started should be visible by default")
+
+	// Toggle output-only ON
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.Equal(t, 0, buf.Len(), "started should be hidden in output-only mode")
+
+	// Toggle output-only OFF
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.Equal(t, 1, buf.Len(), "started should reappear after output-only toggle off")
+}
+
+func TestLiveOutputModel_RawEvents_StoredForAllEvents(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Send various events
+	events := []event.Event{
+		{StepID: "s1", State: event.StateStarted},
+		{StepID: "s1", State: event.StateStreamActivity, ToolName: "Read"},
+		{StepID: "s1", State: event.StateStepProgress, TokensIn: 100},
+		{StepID: "s1", State: event.StateCompleted, DurationMs: 5000},
+	}
+	for _, evt := range events {
+		m, _ = m.Update(PipelineEventMsg{RunID: "run-1", Event: evt})
+	}
+
+	// All raw events should be stored regardless of flags
+	assert.Equal(t, 4, len(m.rawEvents), "all events should be stored in rawEvents")
 }

@@ -216,7 +216,7 @@ func TestStatusBarModel_TabHint_ShowsInDefaultView(t *testing.T) {
 	sb.SetWidth(120)
 
 	view := sb.View()
-	assert.Contains(t, view, "Tab: switch view")
+	assert.Contains(t, view, "Tab/Shift+Tab: views")
 }
 
 func TestStatusBarModel_HealthView_ShowsRecheckHint(t *testing.T) {
