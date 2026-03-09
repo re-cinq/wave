@@ -26,6 +26,7 @@ const (
 	StateCompleted StepState = "completed"
 	StateFailed    StepState = "failed"
 	StateRetrying  StepState = "retrying"
+	StateSkipped   StepState = "skipped"
 )
 
 // PipelineStateRecord holds persisted pipeline state.
@@ -107,6 +108,10 @@ type StateStore interface {
 
 	// Process tracking (detached subprocess execution)
 	UpdateRunPID(runID string, pid int) error
+
+	// Step attempt tracking (retry/recovery)
+	RecordStepAttempt(record *StepAttemptRecord) error
+	GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error)
 }
 
 type stateStore struct {
@@ -1767,4 +1772,48 @@ func (s *stateStore) RemoveRunTag(runID string, tag string) error {
 	}
 
 	return s.SetRunTags(runID, newTags)
+}
+
+// RecordStepAttempt inserts a step attempt record into the step_attempt table.
+func (s *stateStore) RecordStepAttempt(record *StepAttemptRecord) error {
+	var completedAt *int64
+	if record.CompletedAt != nil {
+		t := record.CompletedAt.Unix()
+		completedAt = &t
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO step_attempt (run_id, step_id, attempt, state, error_message, failure_class, stdout_tail, tokens_used, duration_ms, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		record.RunID, record.StepID, record.Attempt, record.State, record.ErrorMessage, record.FailureClass, record.StdoutTail, record.TokensUsed, record.DurationMs, record.StartedAt.Unix(), completedAt,
+	)
+	return err
+}
+
+// GetStepAttempts retrieves all attempt records for a step, ordered by attempt number.
+func (s *stateStore) GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT id, run_id, step_id, attempt, state, error_message, failure_class, stdout_tail, tokens_used, duration_ms, started_at, completed_at FROM step_attempt WHERE run_id = ? AND step_id = ? ORDER BY attempt ASC`,
+		runID, stepID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []StepAttemptRecord
+	for rows.Next() {
+		var r StepAttemptRecord
+		var startedAt int64
+		var completedAtNull *int64
+		err := rows.Scan(&r.ID, &r.RunID, &r.StepID, &r.Attempt, &r.State, &r.ErrorMessage, &r.FailureClass, &r.StdoutTail, &r.TokensUsed, &r.DurationMs, &startedAt, &completedAtNull)
+		if err != nil {
+			return nil, err
+		}
+		r.StartedAt = time.Unix(startedAt, 0)
+		if completedAtNull != nil {
+			t := time.Unix(*completedAtNull, 0)
+			r.CompletedAt = &t
+		}
+		records = append(records, r)
+	}
+	return records, nil
 }
