@@ -17,6 +17,8 @@
           go
           gh
           git
+	  tea
+	  glab
           jq
           curl
           sqlite
