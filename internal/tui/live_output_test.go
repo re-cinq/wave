@@ -658,3 +658,141 @@ func TestLiveOutputModel_RawEvents_StoredForAllEvents(t *testing.T) {
 	// All raw events should be stored regardless of flags
 	assert.Equal(t, 4, len(m.rawEvents), "all events should be stored in rawEvents")
 }
+
+func TestLiveOutputModel_HandoverMetadata_OnStepCompletion(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.SetSize(120, 40)
+
+	// Step 1 starts
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	// Step 2 starts (so handover target can be resolved)
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	// Contract validation for step 1
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateContractValidating, ValidationPhase: "json_schema"},
+	})
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: "contract_passed"},
+	})
+
+	// Step 1 completes with artifacts
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{
+			StepID:     "specify",
+			State:      event.StateCompleted,
+			DurationMs: 42000,
+			Artifacts:  []string{".wave/artifacts/spec.md"},
+		},
+	})
+
+	// Verify handover info was accumulated
+	assert.Contains(t, m.handoverInfo, "specify")
+	assert.Equal(t, "passed", m.handoverInfo["specify"].ContractStatus)
+	assert.Equal(t, "json_schema", m.handoverInfo["specify"].ContractSchema)
+
+	// Verify tree lines were appended to buffer
+	lines := buf.Lines()
+	found := false
+	for _, line := range lines {
+		if strings.Contains(line, "artifact:") && strings.Contains(line, "spec.md") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Expected artifact tree line in buffer, got: %v", lines)
+
+	// Check for contract line
+	contractFound := false
+	for _, line := range lines {
+		if strings.Contains(line, "contract:") && strings.Contains(line, "valid") {
+			contractFound = true
+			break
+		}
+	}
+	assert.True(t, contractFound, "Expected contract tree line in buffer, got: %v", lines)
+
+	// Check for handover line
+	handoverFound := false
+	for _, line := range lines {
+		if strings.Contains(line, "handover") && strings.Contains(line, "plan") {
+			handoverFound = true
+			break
+		}
+	}
+	assert.True(t, handoverFound, "Expected handover tree line in buffer, got: %v", lines)
+}
+
+func TestLiveOutputModel_HandoverMetadata_ContractFailed(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	// Step starts
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "implement", State: event.StateStarted},
+	})
+
+	// Contract fails
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "implement", State: "contract_failed"},
+	})
+
+	// Step completes
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "implement", State: event.StateCompleted, DurationMs: 5000},
+	})
+
+	// Verify failed contract shows in output
+	lines := buf.Lines()
+	failedFound := false
+	for _, line := range lines {
+		if strings.Contains(line, "failed") && strings.Contains(line, "contract") {
+			failedFound = true
+			break
+		}
+	}
+	assert.True(t, failedFound, "Expected contract failed line in buffer, got: %v", lines)
+}
+
+func TestLiveOutputModel_StepOrder_TracksCorrectly(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+
+	// Three steps start in order
+	for _, step := range []string{"specify", "plan", "implement"} {
+		m, _ = m.Update(PipelineEventMsg{
+			RunID: "run-1",
+			Event: event.Event{StepID: step, State: event.StateStarted},
+		})
+	}
+
+	assert.Equal(t, []string{"specify", "plan", "implement"}, m.stepOrder)
+
+	// Duplicate start should not add again
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted},
+	})
+	assert.Equal(t, []string{"specify", "plan", "implement"}, m.stepOrder)
+}
