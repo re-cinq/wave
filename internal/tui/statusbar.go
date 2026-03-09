@@ -88,6 +88,10 @@ func (m StatusBarModel) View() string {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
 	} else if m.currentView == ViewHealth {
 		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
+	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneLeft {
+		hintsText = "↑↓: navigate  Enter: view  /: filter  Tab/Shift+Tab: views  q: quit"
+	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneRight {
+		hintsText = "Enter: launch pipeline  ↑↓: scroll  Esc: back"
 	} else {
 		hintsText = "↑↓: navigate  Enter: view  /: filter  s: compose  c: cancel  Tab/Shift+Tab: views  q: quit"
 	}
