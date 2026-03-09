@@ -22,6 +22,7 @@ func TestViewType_String(t *testing.T) {
 		{ViewContracts, "Contracts"},
 		{ViewSkills, "Skills"},
 		{ViewHealth, "Health"},
+		{ViewIssues, "Issues"},
 	}
 
 	for _, tt := range tests {
@@ -60,11 +61,12 @@ func TestContentModel_TabCyclesThroughAllViews(t *testing.T) {
 			ContractProvider: &mockContractDataProvider{},
 			SkillProvider:    &mockSkillDataProvider{},
 			HealthProvider:   &mockHealthDataProvider{},
+			IssueProvider:    &mockIssueDataProvider{},
 		},
 	)
 	c.SetSize(120, 40)
 
-	views := []ViewType{ViewPersonas, ViewContracts, ViewSkills, ViewHealth, ViewPipelines}
+	views := []ViewType{ViewPersonas, ViewContracts, ViewSkills, ViewHealth, ViewIssues, ViewPipelines}
 	msg := tea.KeyMsg{Type: tea.KeyTab}
 
 	for _, expected := range views {
