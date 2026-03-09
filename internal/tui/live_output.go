@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 )
 
@@ -335,6 +336,10 @@ type LiveOutputModel struct {
 
 	completed         bool
 	completionPending bool
+
+	// Handover tracking for rich output (tree-formatted metadata on step completion)
+	handoverInfo map[string]*display.HandoverInfo
+	stepOrder    []string
 }
 
 const (
@@ -352,6 +357,7 @@ func NewLiveOutputModel(runID, pipelineName string, buffer *EventBuffer, started
 		autoScroll:   true,
 		startedAt:    startedAt,
 		totalSteps:   totalSteps,
+		handoverInfo: make(map[string]*display.HandoverInfo),
 	}
 }
 
@@ -395,6 +401,14 @@ func (m *LiveOutputModel) rebuildBuffer() {
 			} else {
 				m.buffer.Append(formatEventLine(evt))
 			}
+			// Re-inject handover tree lines after step completion
+			if evt.State == event.StateCompleted && evt.StepID != "" {
+				if info, exists := m.handoverInfo[evt.StepID]; exists {
+					for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
+						m.buffer.Append("  " + hl)
+					}
+				}
+			}
 		}
 	}
 	m.updateViewportContent()
@@ -419,6 +433,43 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 				if evt.Model != "" {
 					m.model = evt.Model
 				}
+				// Track step order for handover target resolution
+				found := false
+				for _, sid := range m.stepOrder {
+					if sid == evt.StepID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					m.stepOrder = append(m.stepOrder, evt.StepID)
+				}
+			}
+		}
+
+		// Accumulate handover metadata from contract events
+		if evt.StepID != "" {
+			switch evt.State {
+			case event.StateContractValidating:
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractSchema = evt.ValidationPhase
+			case "contract_passed":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "passed"
+			case "contract_failed":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "failed"
+			case "contract_soft_failure":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "soft_failure"
 			}
 		}
 
@@ -483,6 +534,22 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 				line := formatEventLine(evt)
 				m.buffer.Append(line)
 			}
+
+			// On step completion, capture artifacts and render handover tree
+			if evt.State == event.StateCompleted && evt.StepID != "" {
+				if len(evt.Artifacts) > 0 {
+					if _, exists := m.handoverInfo[evt.StepID]; !exists {
+						m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+					}
+					m.handoverInfo[evt.StepID].ArtifactPaths = evt.Artifacts
+				}
+				if info, exists := m.handoverInfo[evt.StepID]; exists {
+					for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
+						m.buffer.Append("  " + hl)
+					}
+				}
+			}
+
 			m.updateViewportContent()
 			if m.autoScroll {
 				m.viewport.GotoBottom()
