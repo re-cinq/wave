@@ -99,6 +99,7 @@ const (
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
+	StateSkipped            = "skipped"             // Step was skipped (on_failure: "skip")
 )
 
 type EventEmitter interface {

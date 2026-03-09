@@ -152,6 +152,22 @@ type PipelineProgressRecord struct {
 	UpdatedAt             time.Time
 }
 
+// StepAttemptRecord holds an individual retry attempt for a pipeline step.
+type StepAttemptRecord struct {
+	ID           int64
+	RunID        string
+	StepID       string
+	Attempt      int
+	State        string // "failed", "succeeded"
+	ErrorMessage string
+	FailureClass string
+	StdoutTail   string
+	TokensUsed   int
+	DurationMs   int64
+	StartedAt    time.Time
+	CompletedAt  *time.Time
+}
+
 // ArtifactMetadataRecord holds extended artifact metadata for visualization.
 type ArtifactMetadataRecord struct {
 	ArtifactID   int64

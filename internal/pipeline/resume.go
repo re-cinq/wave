@@ -145,15 +145,16 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 	// Create new execution with preserved artifacts and state
 	execution := &PipelineExecution{
-		Pipeline:       resumePipeline,
-		Manifest:       m,
-		States:         resumeState.States,
-		Results:        resumeState.Results,
-		ArtifactPaths:  resumeState.ArtifactPaths,
-		WorkspacePaths: resumeState.WorkspacePaths,
-		WorktreePaths:  make(map[string]*WorktreeInfo),
-		Input:          input,
-		Context:        newContextWithProject(pipelineID, pipelineName, fromStep, m),
+		Pipeline:        resumePipeline,
+		Manifest:        m,
+		States:          resumeState.States,
+		Results:         resumeState.Results,
+		ArtifactPaths:   resumeState.ArtifactPaths,
+		WorkspacePaths:  resumeState.WorkspacePaths,
+		WorktreePaths:   make(map[string]*WorktreeInfo),
+		AttemptContexts: make(map[string]*AttemptContext),
+		Input:           input,
+		Context:         newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,

@@ -194,6 +194,8 @@ func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil
 func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
 func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
 func (m *MockStateStore) UpdateRunPID(runID string, pid int) error    { return nil }
+func (m *MockStateStore) RecordStepAttempt(record *state.StepAttemptRecord) error { return nil }
+func (m *MockStateStore) GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error) { return nil, nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
@@ -3200,4 +3202,303 @@ func TestPollCancellation_StopsWhenContextCancelled(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("pollCancellation did not exit after context cancellation")
 	}
+}
+
+// countingFailAdapter fails the first N calls then succeeds.
+type countingFailAdapter struct {
+	mu           sync.Mutex
+	failCount    int // how many calls should fail
+	callCount    int
+	failError    error
+	successMock  *adapter.MockAdapter
+	lastConfigs  []adapter.AdapterRunConfig
+}
+
+func newCountingFailAdapter(failCount int, failErr error) *countingFailAdapter {
+	return &countingFailAdapter{
+		failCount:   failCount,
+		failError:   failErr,
+		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+	}
+}
+
+func (a *countingFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.callCount++
+	call := a.callCount
+	a.lastConfigs = append(a.lastConfigs, cfg)
+	a.mu.Unlock()
+	if call <= a.failCount {
+		return nil, a.failError
+	}
+	return a.successMock.Run(ctx, cfg)
+}
+
+func (a *countingFailAdapter) getCallCount() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.callCount
+}
+
+func (a *countingFailAdapter) getLastConfigs() []adapter.AdapterRunConfig {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	dst := make([]adapter.AdapterRunConfig, len(a.lastConfigs))
+	copy(dst, a.lastConfigs)
+	return dst
+}
+
+// attemptTrackingStore extends MockStateStore to track RecordStepAttempt calls.
+type attemptTrackingStore struct {
+	*MockStateStore
+	mu       sync.Mutex
+	attempts []state.StepAttemptRecord
+}
+
+func newAttemptTrackingStore() *attemptTrackingStore {
+	return &attemptTrackingStore{
+		MockStateStore: NewMockStateStore(),
+	}
+}
+
+func (s *attemptTrackingStore) RecordStepAttempt(record *state.StepAttemptRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempts = append(s.attempts, *record)
+	return nil
+}
+
+func (s *attemptTrackingStore) getAttempts() []state.StepAttemptRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dst := make([]state.StepAttemptRecord, len(s.attempts))
+	copy(dst, s.attempts)
+	return dst
+}
+
+// TestExecuteStep_RetryConfig_MaxAttempts verifies that the retry count is respected.
+func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
+	failAdapter := newCountingFailAdapter(2, errors.New("step failure"))
+	collector := newTestEventCollector()
+	store := newAttemptTrackingStore()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "retry-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms", // fast for tests
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on third attempt")
+	assert.Equal(t, 3, failAdapter.getCallCount(), "adapter should have been called 3 times")
+
+	// Verify attempt records
+	attempts := store.getAttempts()
+	// We expect: running(1), failed(1), running(2), failed(2), running(3), succeeded(3)
+	assert.GreaterOrEqual(t, len(attempts), 3, "should have at least 3 attempt records")
+}
+
+// TestExecuteStep_RetryConfig_OnFailureSkip verifies that on_failure=skip skips the step.
+func TestExecuteStep_RetryConfig_OnFailureSkip(t *testing.T) {
+	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "skip-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+					OnFailure:   "skip",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed because step is skipped")
+
+	// Verify the skip event was emitted
+	events := collector.GetEvents()
+	foundSkip := false
+	for _, evt := range events {
+		if evt.State == "skipped" && evt.StepID == "step-1" {
+			foundSkip = true
+			break
+		}
+	}
+	assert.True(t, foundSkip, "should have emitted a skipped event")
+}
+
+// TestExecuteStep_RetryConfig_OnFailureContinue verifies that on_failure=continue continues.
+func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
+	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "continue-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "continue",
+				},
+			},
+			{
+				ID:           "step-2",
+				Persona:      "navigator",
+				Dependencies: []string{"step-1"},
+				Exec:         ExecConfig{Source: "do something else"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Pipeline should not return an error because on_failure=continue
+	err := executor.Execute(ctx, p, m, "test input")
+	// step-2 may fail because step-1 failed but pipeline should try to continue
+	// The main thing: executor.Execute should NOT fail on step-1
+	// step-2 depends on step-1, so whether step-2 runs depends on DAG validation
+	_ = err
+
+	// Verify a failed event was emitted for step-1 with "continues" message
+	events := collector.GetEvents()
+	foundContinue := false
+	for _, evt := range events {
+		if evt.State == "failed" && evt.StepID == "step-1" && strings.Contains(evt.Message, "continues") {
+			foundContinue = true
+			break
+		}
+	}
+	assert.True(t, foundContinue, "should have emitted a failed-but-continues event")
+}
+
+// TestExecuteStep_RetryConfig_BackwardCompat verifies that handover.max_retries still works.
+func TestExecuteStep_RetryConfig_BackwardCompat(t *testing.T) {
+	failAdapter := newCountingFailAdapter(1, errors.New("transient failure"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "compat-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				// No Retry config — use legacy handover.max_retries
+				Handover: HandoverConfig{
+					MaxRetries: 2,
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on second attempt via backward compat")
+	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should have been called 2 times")
+}
+
+// TestExecuteStep_AdaptPrompt_InjectsFailureContext verifies prompt adaptation on retry.
+func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
+	failAdapter := newCountingFailAdapter(1, errors.New("contract validation failed: missing field"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "adapt-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "implement the feature"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+					AdaptPrompt: true,
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on second attempt")
+
+	// Verify that the second call got retry context injected
+	configs := failAdapter.getLastConfigs()
+	require.Len(t, configs, 2, "should have captured 2 adapter configs")
+
+	// First call should have the original prompt
+	assert.NotContains(t, configs[0].Prompt, "RETRY CONTEXT")
+
+	// Second call should have retry context prepended
+	assert.Contains(t, configs[1].Prompt, "RETRY CONTEXT")
+	assert.Contains(t, configs[1].Prompt, "attempt 2 of 2")
+	assert.Contains(t, configs[1].Prompt, "contract validation failed: missing field")
+	assert.Contains(t, configs[1].Prompt, "implement the feature")
 }
