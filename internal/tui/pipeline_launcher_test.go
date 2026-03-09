@@ -1,163 +1,60 @@
 package tui
 
 import (
-	"context"
-	"sync"
+	"os"
 	"testing"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewPipelineLauncher_InitializesEmptyMaps(t *testing.T) {
+func TestNewPipelineLauncher_InitializesFields(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
-	assert.NotNil(t, launcher.cancelFns)
-	assert.Empty(t, launcher.cancelFns)
-	assert.NotNil(t, launcher.buffers)
-	assert.Empty(t, launcher.buffers)
+	assert.NotNil(t, launcher)
+	assert.Nil(t, launcher.program)
 }
 
-func TestPipelineLauncher_Cancel_UnknownRunID_IsNoOp(t *testing.T) {
+func TestPipelineLauncher_Cancel_NilStore_IsNoOp(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
-	// Should not panic
+	// Should not panic even with no store
 	launcher.Cancel("nonexistent-run-id")
 }
 
-func TestPipelineLauncher_Cancel_InvokesStoredCancelFunc(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	launcher.mu.Lock()
-	launcher.cancelFns["test-run-1"] = cancel
-	launcher.mu.Unlock()
+func TestPipelineLauncher_Cancel_CallsRequestCancellation(t *testing.T) {
+	store := &cancelMockStore{}
+	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
 
 	launcher.Cancel("test-run-1")
 
-	// Context should be cancelled
-	assert.Error(t, ctx.Err())
-	assert.Equal(t, context.Canceled, ctx.Err())
+	assert.Equal(t, "test-run-1", store.cancelledRunID, "should call RequestCancellation via store")
 }
 
-func TestPipelineLauncher_CancelAll_InvokesAllCancelFuncs(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-
-	ctx1, cancel1 := context.WithCancel(context.Background())
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	ctx3, cancel3 := context.WithCancel(context.Background())
-
-	launcher.mu.Lock()
-	launcher.cancelFns["run-1"] = cancel1
-	launcher.cancelFns["run-2"] = cancel2
-	launcher.cancelFns["run-3"] = cancel3
-	launcher.mu.Unlock()
-
-	launcher.CancelAll()
-
-	assert.Error(t, ctx1.Err())
-	assert.Error(t, ctx2.Err())
-	assert.Error(t, ctx3.Err())
-	assert.Empty(t, launcher.cancelFns, "map should be cleared after CancelAll")
-}
-
-func TestPipelineLauncher_CancelAll_UpdatesDBStatus(t *testing.T) {
-	store := &cancelAllMockStore{}
-	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
-
-	_, cancel1 := context.WithCancel(context.Background())
-	_, cancel2 := context.WithCancel(context.Background())
-
-	launcher.mu.Lock()
-	launcher.cancelFns["run-a"] = cancel1
-	launcher.cancelFns["run-b"] = cancel2
-	launcher.mu.Unlock()
-
-	launcher.CancelAll()
-
-	assert.Len(t, store.updatedRuns, 2, "should update DB status for all cancelled runs")
-	for _, status := range store.updatedRuns {
-		assert.Equal(t, "cancelled", status)
-	}
-}
-
-// cancelAllMockStore records UpdateRunStatus calls.
-type cancelAllMockStore struct {
+// cancelMockStore records RequestCancellation calls.
+type cancelMockStore struct {
 	baseStateStore
-	updatedRuns map[string]string
+	cancelledRunID string
 }
 
-func (c *cancelAllMockStore) UpdateRunStatus(runID string, status string, _ string, _ int) error {
-	if c.updatedRuns == nil {
-		c.updatedRuns = make(map[string]string)
-	}
-	c.updatedRuns[runID] = status
+func (c *cancelMockStore) RequestCancellation(runID string, force bool) error {
+	c.cancelledRunID = runID
 	return nil
 }
 
-func TestPipelineLauncher_CancelAll_EmptyMap_IsNoOp(t *testing.T) {
+func TestPipelineLauncher_CancelAll_IsNoOp(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
-	// Should not panic
-	launcher.CancelAll()
-	assert.Empty(t, launcher.cancelFns)
+	// CancelAll is a no-op for detached pipelines — should not panic
+	assert.NotPanics(t, func() {
+		launcher.CancelAll()
+	})
 }
 
-func TestPipelineLauncher_Cleanup_RemovesCancelAndBuffer(t *testing.T) {
+func TestPipelineLauncher_Cleanup_IsNoOp(t *testing.T) {
 	launcher := NewPipelineLauncher(LaunchDependencies{})
-
-	_, cancel := context.WithCancel(context.Background())
-	launcher.mu.Lock()
-	launcher.cancelFns["run-to-clean"] = cancel
-	launcher.cancelFns["run-to-keep"] = cancel
-	launcher.buffers["run-to-clean"] = NewEventBuffer(10)
-	launcher.buffers["run-to-keep"] = NewEventBuffer(10)
-	launcher.mu.Unlock()
-
-	launcher.Cleanup("run-to-clean")
-
-	launcher.mu.Lock()
-	_, cancelExists := launcher.cancelFns["run-to-clean"]
-	_, cancelKept := launcher.cancelFns["run-to-keep"]
-	_, bufExists := launcher.buffers["run-to-clean"]
-	_, bufKept := launcher.buffers["run-to-keep"]
-	launcher.mu.Unlock()
-
-	assert.False(t, cancelExists, "cleaned up cancel entry should be gone")
-	assert.True(t, cancelKept, "other cancel entries should remain")
-	assert.False(t, bufExists, "cleaned up buffer entry should be gone")
-	assert.True(t, bufKept, "other buffer entries should remain")
-}
-
-func TestPipelineLauncher_Cleanup_NonexistentRunID_IsNoOp(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-	// Should not panic
-	launcher.Cleanup("nonexistent-run-id")
-}
-
-func TestPipelineLauncher_ConcurrentCancelAndCleanup(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-
-	// Add several cancel functions
-	for i := 0; i < 10; i++ {
-		_, cancel := context.WithCancel(context.Background())
-		launcher.mu.Lock()
-		launcher.cancelFns[string(rune('A'+i))] = cancel
-		launcher.mu.Unlock()
-	}
-
-	// Concurrently cancel and cleanup
-	var wg sync.WaitGroup
-	wg.Add(20)
-	for i := 0; i < 10; i++ {
-		id := string(rune('A' + i))
-		go func() {
-			defer wg.Done()
-			launcher.Cancel(id)
-		}()
-		go func() {
-			defer wg.Done()
-			launcher.Cleanup(id)
-		}()
-	}
-	wg.Wait()
+	// Cleanup is a no-op for detached pipelines — should not panic
+	assert.NotPanics(t, func() {
+		launcher.Cleanup("nonexistent-run-id")
+	})
 }
 
 func TestPipelineLauncher_Launch_MissingPipelineDir_ReturnsError(t *testing.T) {
@@ -183,34 +80,6 @@ func TestPipelineLauncher_SetProgram(t *testing.T) {
 	assert.Nil(t, launcher.program)
 }
 
-func TestPipelineLauncher_GetBuffer_ReturnsNilForUnknown(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-	buf := launcher.GetBuffer("nonexistent")
-	assert.Nil(t, buf)
-}
-
-func TestPipelineLauncher_GetBuffer_ReturnsBuffer(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-	expected := NewEventBuffer(100)
-	launcher.mu.Lock()
-	launcher.buffers["run-1"] = expected
-	launcher.mu.Unlock()
-
-	buf := launcher.GetBuffer("run-1")
-	assert.Equal(t, expected, buf)
-}
-
-func TestPipelineLauncher_HasBuffer(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-	assert.False(t, launcher.HasBuffer("run-1"))
-
-	launcher.mu.Lock()
-	launcher.buffers["run-1"] = NewEventBuffer(100)
-	launcher.mu.Unlock()
-
-	assert.True(t, launcher.HasBuffer("run-1"))
-}
-
 func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
 	emitter := &TUIProgressEmitter{program: nil, runID: "run-1"}
 	// Should not panic with nil program
@@ -218,75 +87,43 @@ func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestPipelineLauncher_DismissRun_ActiveRun_CallsCancel(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
+func TestBuildPassthroughEnv_MinimalEnv(t *testing.T) {
+	deps := LaunchDependencies{}
+	env := buildPassthroughEnv(deps)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	launcher.mu.Lock()
-	launcher.cancelFns["test-run"] = cancel
-	launcher.mu.Unlock()
-
-	launcher.DismissRun("test-run")
-
-	assert.Error(t, ctx.Err())
-	assert.Equal(t, context.Canceled, ctx.Err())
+	// Should always include HOME and PATH
+	assert.Contains(t, env, "HOME="+os.Getenv("HOME"))
+	assert.Contains(t, env, "PATH="+os.Getenv("PATH"))
+	assert.Len(t, env, 2)
 }
 
-func TestPipelineLauncher_DismissRun_StaleRun_NilStore_IsNoOp(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
+func TestBuildPassthroughEnv_WithManifestPassthrough(t *testing.T) {
+	// Set a test env var to verify passthrough
+	t.Setenv("WAVE_TEST_VAR", "test-value")
 
-	// No cancel function and no store — should not panic
-	assert.NotPanics(t, func() {
-		launcher.DismissRun("stale-run")
-	})
-}
-
-func TestPipelineLauncher_DismissRun_UnknownRun_IsNoOp(t *testing.T) {
-	launcher := NewPipelineLauncher(LaunchDependencies{})
-	// Should not panic
-	launcher.DismissRun("nonexistent")
-}
-
-func TestPipelineLauncher_DismissRun_StaleRun_RequestsCancellation(t *testing.T) {
-	store := &dismissMockStore{}
-	launcher := NewPipelineLauncher(LaunchDependencies{Store: store})
-
-	// No cancel function — simulates a CLI-started run
-	launcher.DismissRun("cli-run-1")
-
-	assert.Equal(t, "cli-run-1", store.cancelledRunID, "should call RequestCancellation for cross-process run")
-}
-
-// dismissMockStore records RequestCancellation calls.
-type dismissMockStore struct {
-	baseStateStore
-	cancelledRunID string
-}
-
-func (d *dismissMockStore) RequestCancellation(runID string, force bool) error {
-	d.cancelledRunID = runID
-	return nil
-}
-
-func TestDBLoggingEmitter_SkipsEmptyHeartbeats(t *testing.T) {
-	var emitted []event.Event
-	inner := &captureEmitter{events: &emitted}
-	d := &dbLoggingEmitter{
-		inner: inner,
-		store: nil, // nil store — LogEvent won't be called
-		runID: "run-1",
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{
+			Runtime: manifest.Runtime{
+				Sandbox: manifest.RuntimeSandbox{
+					EnvPassthrough: []string{"WAVE_TEST_VAR", "NONEXISTENT_VAR"},
+				},
+			},
+		},
 	}
+	env := buildPassthroughEnv(deps)
 
-	// Empty heartbeat — should still call inner.Emit but skip LogEvent
-	d.Emit(event.Event{State: "step_progress"})
-	assert.Len(t, emitted, 1, "inner.Emit should still be called")
+	// Should include HOME, PATH, and the passthrough var
+	assert.Contains(t, env, "HOME="+os.Getenv("HOME"))
+	assert.Contains(t, env, "PATH="+os.Getenv("PATH"))
+	assert.Contains(t, env, "WAVE_TEST_VAR=test-value")
+	// NONEXISTENT_VAR should not be included since it's not set
+	assert.Len(t, env, 3)
 }
 
-// captureEmitter is a test helper that captures emitted events.
-type captureEmitter struct {
-	events *[]event.Event
-}
-
-func (c *captureEmitter) Emit(ev event.Event) {
-	*c.events = append(*c.events, ev)
+func TestBuildPassthroughEnv_NilManifest(t *testing.T) {
+	deps := LaunchDependencies{
+		Manifest: nil,
+	}
+	env := buildPassthroughEnv(deps)
+	assert.Len(t, env, 2, "should only include HOME and PATH")
 }

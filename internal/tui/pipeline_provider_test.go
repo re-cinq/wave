@@ -101,6 +101,7 @@ func (b baseStateStore) SetRunTags(string, []string) error { return nil }
 func (b baseStateStore) GetRunTags(string) ([]string, error) { return nil, nil }
 func (b baseStateStore) AddRunTag(string, string) error      { return nil }
 func (b baseStateStore) RemoveRunTag(string, string) error   { return nil }
+func (b baseStateStore) UpdateRunPID(string, int) error      { return nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

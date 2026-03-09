@@ -14,6 +14,8 @@ type RunningPipeline struct {
 	Input      string
 	BranchName string
 	StartedAt  time.Time
+	PID        int  // OS process ID of detached executor (0 = unknown)
+	Detached   bool // True when running as a detached subprocess
 }
 
 // FinishedPipeline is a TUI-specific projection of a completed pipeline run.
@@ -64,6 +66,8 @@ func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline
 			Input:      r.Input,
 			BranchName: r.BranchName,
 			StartedAt:  r.StartedAt,
+			PID:        r.PID,
+			Detached:   r.PID > 0,
 		}
 	}
 

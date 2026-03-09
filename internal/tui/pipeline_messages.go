@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"context"
-
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -61,7 +59,6 @@ type LaunchRequestMsg struct {
 type PipelineLaunchedMsg struct {
 	RunID        string
 	PipelineName string
-	CancelFunc   context.CancelFunc
 }
 
 // PipelineLaunchResultMsg signals that a launched pipeline has finished execution.
@@ -141,4 +138,9 @@ type RunEventsMsg struct {
 // RunningInfoActiveMsg signals the status bar when stateRunningInfo pane is active.
 type RunningInfoActiveMsg struct {
 	Active bool
+}
+
+// DetachedEventPollTickMsg triggers periodic event polling for detached pipeline live output.
+type DetachedEventPollTickMsg struct {
+	RunID string
 }
