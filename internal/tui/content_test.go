@@ -786,7 +786,7 @@ func TestContentModel_RunEventsMsg_RoutedToDetail(t *testing.T) {
 	// Just verify it doesn't panic
 }
 
-func TestContentModel_EnterOnRunningItem_NoBuffer_EmitsRunningInfoActive(t *testing.T) {
+func TestContentModel_EnterOnRunningItem_EmitsLiveOutputActive(t *testing.T) {
 	deps := LaunchDependencies{
 		Manifest: &manifest.Manifest{},
 	}
@@ -814,13 +814,16 @@ func TestContentModel_EnterOnRunningItem_NoBuffer_EmitsRunningInfoActive(t *test
 	assert.Equal(t, FocusPaneRight, c.focus)
 	assert.NotNil(t, cmd)
 
-	// Execute the batch cmd and check for RunningInfoActiveMsg
+	// With detached execution, entering a running item always shows live output
+	// (loading events from SQLite), so it emits LiveOutputActiveMsg, not RunningInfoActiveMsg
 	msgs := extractMsgFromBatch(cmd)
-	foundRunningInfoActive := false
+	foundLiveOutputActive := false
 	for _, m := range msgs {
-		if riMsg, ok := m.(RunningInfoActiveMsg); ok && riMsg.Active {
-			foundRunningInfoActive = true
+		if loMsg, ok := m.(LiveOutputActiveMsg); ok && loMsg.Active {
+			foundLiveOutputActive = true
 		}
 	}
-	assert.True(t, foundRunningInfoActive, "should emit RunningInfoActiveMsg{Active: true}")
+	assert.True(t, foundLiveOutputActive, "should emit LiveOutputActiveMsg{Active: true}")
+	assert.Equal(t, stateRunningLive, c.detail.paneState, "detail pane should be in live output state")
+	assert.Equal(t, "r1", c.detachedPollRunID, "should start detached polling for the run")
 }

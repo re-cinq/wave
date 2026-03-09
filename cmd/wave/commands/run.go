@@ -225,10 +225,14 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 
-	// Generate run ID — prefer CreateRun() so CLI runs appear in the dashboard.
+	// Generate run ID — use pre-created ID from TUI subprocess (--run flag without --from-step),
+	// or prefer CreateRun() so CLI runs appear in the dashboard.
 	// Falls back to GenerateRunID() if the state store is unavailable.
 	var runID string
-	if store != nil {
+	if opts.RunID != "" && opts.FromStep == "" {
+		// TUI subprocess passes a pre-created run ID — reuse it instead of creating a new one
+		runID = opts.RunID
+	} else if store != nil {
 		runID, err = store.CreateRun(p.Metadata.Name, opts.Input)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", err)
