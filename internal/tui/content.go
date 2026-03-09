@@ -1,10 +1,13 @@
 package tui
 
 import (
-	"time"
+	"fmt"
 	"strings"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/state"
 )
 
 // ContentProviders holds data providers for alternative views.
@@ -47,6 +50,10 @@ type ContentModel struct {
 	composing     bool
 	composeList   *ComposeListModel
 	composeDetail *ComposeDetailModel
+
+	// Detached pipeline event polling
+	detachedPollRunID  string
+	detachedPollOffset int
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -326,23 +333,33 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					})
 				}
 
-				// For running items with TUI buffer, activate live output
+				// For running items, load historical events from SQLite and start polling
 				if item.kind == itemKindRunning && item.dataIndex >= 0 && item.dataIndex < len(m.list.running) {
 					r := m.list.running[item.dataIndex]
-					if m.launcher != nil && m.launcher.HasBuffer(r.RunID) {
-						buf := m.launcher.GetBuffer(r.RunID)
-						liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
-						liveModel.SetSize(m.detail.width, m.detail.height)
-						m.detail.liveOutput = &liveModel
-						m.detail.paneState = stateRunningLive
-						enterCmds = append(enterCmds, func() tea.Msg {
-							return LiveOutputActiveMsg{Active: true}
-						})
-					} else {
-						enterCmds = append(enterCmds, func() tea.Msg {
-							return RunningInfoActiveMsg{Active: true}
-						})
+					buf := NewEventBuffer(1000)
+					var eventCount int
+					if m.launcher != nil && m.launcher.deps.Store != nil {
+						events, err := m.launcher.deps.Store.GetEvents(r.RunID, state.EventQueryOptions{})
+						if err == nil {
+							eventCount = len(events)
+							for _, ev := range events {
+								buf.Append(formatStoredEvent(ev))
+							}
+						}
 					}
+					liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
+					liveModel.SetSize(m.detail.width, m.detail.height)
+					m.detail.liveOutput = &liveModel
+					m.detail.paneState = stateRunningLive
+					m.detachedPollRunID = r.RunID
+					m.detachedPollOffset = eventCount
+					capturedRunID := r.RunID
+					enterCmds = append(enterCmds, func() tea.Msg {
+						return LiveOutputActiveMsg{Active: true}
+					})
+					enterCmds = append(enterCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+						return DetachedEventPollTickMsg{RunID: capturedRunID}
+					}))
 				}
 
 				// For finished items, activate finished detail hints
@@ -368,6 +385,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.detail.paneState = stateAvailableDetail
 				m.detail.updateViewportContent()
 			}
+			// Stop detached event polling
+			m.detachedPollRunID = ""
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
@@ -394,7 +413,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				}
 			}
 			if cancelRunID != "" {
-				m.launcher.DismissRun(cancelRunID)
+				m.launcher.Cancel(cancelRunID)
 				return m, m.list.fetchPipelineData
 			}
 			return m, nil
@@ -644,9 +663,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
-		// Wire live output buffer for TUI-launched running pipelines on hover
-		if msg.Kind == itemKindRunning && msg.RunID != "" && m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
-			buf := m.launcher.GetBuffer(msg.RunID)
+		// Wire live output from SQLite events for running pipelines on hover
+		if msg.Kind == itemKindRunning && msg.RunID != "" && m.launcher != nil {
 			if m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID {
 				var startedAt time.Time
 				for _, r := range m.list.running {
@@ -655,9 +673,22 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						break
 					}
 				}
+				buf := NewEventBuffer(1000)
+				var eventCount int
+				if m.launcher.deps.Store != nil {
+					events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{})
+					if err == nil {
+						eventCount = len(events)
+						for _, ev := range events {
+							buf.Append(formatStoredEvent(ev))
+						}
+					}
+				}
 				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
 				liveModel.SetSize(m.detail.width, m.detail.height)
 				m.detail.liveOutput = &liveModel
+				m.detachedPollRunID = msg.RunID
+				m.detachedPollOffset = eventCount
 			}
 		}
 		m.detail, detailCmd = m.detail.Update(msg)
@@ -680,19 +711,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, cmd
 
 	case PipelineDataMsg:
-		// Merge TUI-launched running entries that still have active buffers
-		// so periodic refreshes don't wipe out synthetic entries
-		if m.launcher != nil && msg.Err == nil {
-			dbRunIDs := make(map[string]bool)
-			for _, r := range msg.Running {
-				dbRunIDs[r.RunID] = true
-			}
-			for _, r := range m.list.running {
-				if !dbRunIDs[r.RunID] && m.launcher.HasBuffer(r.RunID) {
-					msg.Running = append(msg.Running, r)
-				}
-			}
-		}
+		// Detached pipelines are tracked via SQLite — no in-memory merge needed.
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
@@ -744,17 +763,27 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		var listCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
 
-		// B2: Create live output model if launcher has a buffer for this run
-		if m.launcher != nil && m.launcher.HasBuffer(msg.RunID) {
-			buffer := m.launcher.GetBuffer(msg.RunID)
-			live := NewLiveOutputModel(msg.RunID, msg.PipelineName, buffer, time.Now(), 0)
-			live.SetSize(m.detail.width, m.detail.height)
-			m.detail.liveOutput = &live
-			m.detail.paneState = stateRunningLive
-			m.detail.selectedRunID = msg.RunID
-			m.detail.selectedName = msg.PipelineName
-			m.detail.selectedKind = itemKindRunning
+		// Create live output model from SQLite events (will be empty for just-launched pipeline)
+		buf := NewEventBuffer(1000)
+		var eventCount int
+		if m.launcher != nil && m.launcher.deps.Store != nil {
+			events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{})
+			if err == nil {
+				eventCount = len(events)
+				for _, ev := range events {
+					buf.Append(formatStoredEvent(ev))
+				}
+			}
 		}
+		live := NewLiveOutputModel(msg.RunID, msg.PipelineName, buf, time.Now(), 0)
+		live.SetSize(m.detail.width, m.detail.height)
+		m.detail.liveOutput = &live
+		m.detail.paneState = stateRunningLive
+		m.detail.selectedRunID = msg.RunID
+		m.detail.selectedName = msg.PipelineName
+		m.detail.selectedKind = itemKindRunning
+		m.detachedPollRunID = msg.RunID
+		m.detachedPollOffset = eventCount
 
 		// Switch focus to right pane for live output
 		m.focus = FocusPaneRight
@@ -763,7 +792,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }
-		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd}
+		capturedRunID := msg.RunID
+		pollCmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+			return DetachedEventPollTickMsg{RunID: capturedRunID}
+		})
+		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd, pollCmd}
 		if listCmd != nil {
 			batchCmds = append(batchCmds, listCmd)
 		}
@@ -821,6 +854,36 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
+
+	case DetachedEventPollTickMsg:
+		// Stop polling if the run ID changed or we left the live output pane
+		if m.detachedPollRunID != msg.RunID || m.detail.paneState != stateRunningLive {
+			m.detachedPollRunID = ""
+			return m, nil
+		}
+		// Fetch new events since our last offset
+		if m.launcher != nil && m.launcher.deps.Store != nil {
+			events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{
+				Limit:  1000,
+				Offset: m.detachedPollOffset,
+			})
+			if err == nil && len(events) > 0 {
+				m.detachedPollOffset += len(events)
+				if m.detail.liveOutput != nil {
+					for _, ev := range events {
+						m.detail.liveOutput.buffer.Append(formatStoredEvent(ev))
+					}
+					m.detail.liveOutput.updateViewportContent()
+					if m.detail.liveOutput.autoScroll {
+						m.detail.liveOutput.viewport.GotoBottom()
+					}
+				}
+			}
+		}
+		capturedRunID := msg.RunID
+		return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+			return DetachedEventPollTickMsg{RunID: capturedRunID}
+		})
 	}
 
 	// Default: forward to both pipeline children
@@ -1121,4 +1184,12 @@ func (m ContentModel) leftPaneWidth() int {
 		w = m.width
 	}
 	return w
+}
+
+// formatStoredEvent formats a persisted LogRecord for display in the live output buffer.
+func formatStoredEvent(ev state.LogRecord) string {
+	if ev.StepID != "" {
+		return fmt.Sprintf("[%s] %s", ev.StepID, ev.Message)
+	}
+	return ev.Message
 }
