@@ -74,7 +74,7 @@ func TestAppModel_Update_WindowSizeMsg(t *testing.T) {
 	assert.Equal(t, 120, model.header.width)
 	assert.Equal(t, 120, model.statusBar.width)
 	assert.Equal(t, 120, model.content.width)
-	assert.Equal(t, 40-headerHeight-statusBarHeight, model.content.height)
+	assert.Equal(t, 40-headerHeight-2*statusBarHeight, model.content.height)
 }
 
 func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
@@ -84,11 +84,11 @@ func TestAppModel_Update_WindowSizeMsg_PropagatesContent(t *testing.T) {
 	model := updated.(AppModel)
 
 	assert.Equal(t, 120, model.content.width)
-	contentHeight := 40 - headerHeight - statusBarHeight
+	contentHeight := 40 - headerHeight - 2*statusBarHeight
 	assert.Equal(t, contentHeight, model.content.height)
 	// List should have received size too
 	assert.Greater(t, model.content.list.width, 0)
-	assert.Equal(t, contentHeight, model.content.list.height)
+	assert.Equal(t, contentHeight-2, model.content.list.height)
 }
 
 func TestAppModel_Update_QuitOnQ(t *testing.T) {
@@ -137,7 +137,7 @@ func TestAppModel_View_AfterReady(t *testing.T) {
 	assert.Contains(t, view, "Select a pipeline to view details")
 	// Should contain status bar hints
 	assert.Contains(t, view, "q: quit")
-	assert.Contains(t, view, "Tab: switch view")
+	assert.Contains(t, view, "Tab/Shift+Tab: views")
 }
 
 func TestAppModel_View_TooSmall(t *testing.T) {

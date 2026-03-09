@@ -16,6 +16,7 @@ type StatusBarModel struct {
 	composeActive        bool
 	liveOutputActive     bool
 	finishedDetailActive bool
+	runningInfoActive    bool
 	currentView          ViewType
 }
 
@@ -44,6 +45,8 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.finishedDetailActive = msg.Active
 	case LiveOutputActiveMsg:
 		m.liveOutputActive = msg.Active
+	case RunningInfoActiveMsg:
+		m.runningInfoActive = msg.Active
 	case ViewChangedMsg:
 		m.currentView = msg.View
 	}
@@ -76,15 +79,17 @@ func (m StatusBarModel) View() string {
 	} else if m.composeActive {
 		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
-		hintsText = "v: verbose  d: debug  o: output-only  ↑↓: scroll  Esc: back"
+		hintsText = "v: verbose  d: debug  o: output-only  c: cancel  ↑↓: scroll  Esc: back"
+	} else if m.runningInfoActive && m.focusPane == FocusPaneRight {
+		hintsText = "c: dismiss  l: logs  ↑↓: scroll  Esc: back"
 	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
-		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [Esc] Back"
+		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [l] Logs  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
 	} else if m.currentView == ViewHealth {
-		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab: switch view  q: quit"
+		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
 	} else {
-		hintsText = "↑↓: navigate  Enter: view  /: filter  Tab: switch view  q: quit"
+		hintsText = "↑↓: navigate  Enter: view  /: filter  s: compose  c: cancel  Tab/Shift+Tab: views  q: quit"
 	}
 	hints := hintsStyle.Render(hintsText)
 

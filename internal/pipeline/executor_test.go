@@ -3122,3 +3122,81 @@ func TestResolveModelMethod(t *testing.T) {
 	p3 := &manifest.Persona{Model: ""}
 	assert.Equal(t, "", executor2.resolveModel(p3))
 }
+
+// cancellableMockStore embeds MockStateStore and adds configurable CheckCancellation.
+type cancellableMockStore struct {
+	MockStateStore
+	mu        sync.Mutex
+	cancelled bool
+}
+
+func (c *cancellableMockStore) CheckCancellation(runID string) (*state.CancellationRecord, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cancelled {
+		return &state.CancellationRecord{RunID: runID, RequestedAt: time.Now()}, nil
+	}
+	return nil, nil
+}
+
+func (c *cancellableMockStore) setCancelled() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cancelled = true
+}
+
+func TestPollCancellation_CancelsContext(t *testing.T) {
+	store := &cancellableMockStore{}
+	executor := &DefaultPipelineExecutor{store: store}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start polling
+	go executor.pollCancellation(ctx, "test-run", cancel)
+
+	// Context should still be active
+	assert.NoError(t, ctx.Err())
+
+	// Trigger cancellation in the DB
+	store.setCancelled()
+
+	// Wait for the poller to pick it up (polls every 2s, give it 5s)
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case <-deadline:
+			t.Fatal("pollCancellation did not cancel context within 5s")
+		default:
+			if ctx.Err() != nil {
+				// Success — context was cancelled by the poller
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func TestPollCancellation_StopsWhenContextCancelled(t *testing.T) {
+	store := &cancellableMockStore{}
+	executor := &DefaultPipelineExecutor{store: store}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		executor.pollCancellation(ctx, "test-run", cancel)
+		close(done)
+	}()
+
+	// Cancel the context externally
+	cancel()
+
+	// Goroutine should exit promptly
+	select {
+	case <-done:
+		// Good — goroutine exited
+	case <-time.After(3 * time.Second):
+		t.Fatal("pollCancellation did not exit after context cancellation")
+	}
+}

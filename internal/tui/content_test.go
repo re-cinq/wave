@@ -48,7 +48,7 @@ func TestContentModel_SetSize_PropagatesListDimensions(t *testing.T) {
 
 	// Left pane: 30% of 120 = 36, clamped to [25, 50] -> 36
 	assert.Equal(t, 36, c.list.width)
-	assert.Equal(t, 40, c.list.height)
+	assert.Equal(t, 38, c.list.height)
 }
 
 func TestContentModel_LeftPaneWidth(t *testing.T) {
@@ -102,9 +102,9 @@ func TestContentModel_SetSize_PropagatesDetailDimensions(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
-	// Right pane: 120 - 36 = 84
-	assert.Equal(t, 84, c.detail.width)
-	assert.Equal(t, 40, c.detail.height)
+	// Right pane: 120 - 36 - 3 = 81 (separator + padding)
+	assert.Equal(t, 81, c.detail.width)
+	assert.Equal(t, 38, c.detail.height)
 }
 
 func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {
@@ -141,6 +141,10 @@ func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
 	c.list, _ = c.list.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed"}},
 	})
+
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
 
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
@@ -182,6 +186,10 @@ func TestContentModel_EnterOnRunningItemTransitionsFocusRight(t *testing.T) {
 	})
 
 	// Move to the running item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindRunning {
 			c.list.cursor = i
@@ -225,6 +233,10 @@ func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
 	})
 
 	// Move cursor to first available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -260,6 +272,10 @@ func TestContentModel_EnterOnAvailable_EmitsConfigureFormMsg(t *testing.T) {
 	})
 
 	// Move cursor to the available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -304,7 +320,7 @@ func TestContentModel_CancelAll_NilSafe(t *testing.T) {
 	})
 }
 
-func TestContentModel_PipelineLaunchedMsg_TransitionsFocusLeft(t *testing.T) {
+func TestContentModel_PipelineLaunchedMsg_TransitionsFocusRight(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
@@ -317,9 +333,9 @@ func TestContentModel_PipelineLaunchedMsg_TransitionsFocusLeft(t *testing.T) {
 	launchedMsg := PipelineLaunchedMsg{RunID: "run-abc", PipelineName: "test-pipe"}
 	c, _ = c.Update(launchedMsg)
 
-	assert.Equal(t, FocusPaneLeft, c.focus)
-	assert.True(t, c.list.focused)
-	assert.False(t, c.detail.focused)
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.False(t, c.list.focused)
+	assert.True(t, c.detail.focused)
 }
 
 func TestContentModel_LaunchErrorMsg_TransitionsFocusLeft(t *testing.T) {
@@ -350,6 +366,10 @@ func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
 	})
 
 	// Move cursor to the available item
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindAvailable {
 			c.list.cursor = i
@@ -393,6 +413,10 @@ func TestContentModel_EnterOnFinishedItem_EmitsFinishedDetailActiveMsg(t *testin
 	c.list, _ = c.list.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed", BranchName: "feat/test"}},
 	})
+
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
 
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
@@ -725,4 +749,78 @@ func TestContentModel_ComposeStartMsg_SingleEntry_DelegatesToLaunch(t *testing.T
 	}
 	assert.True(t, foundLaunchRequest, "should emit LaunchRequestMsg for single-entry sequence")
 	assert.True(t, foundComposeInactive, "should emit ComposeActiveMsg{Active: false}")
+}
+
+// ===========================================================================
+// Cancel/dismiss from stateRunningInfo and RunEventsMsg routing tests
+// ===========================================================================
+
+func TestContentModel_CKey_FromRunningInfoRightPane_DismissesRun(t *testing.T) {
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	// Set up: right pane showing stateRunningInfo
+	c.detail.paneState = stateRunningInfo
+	c.detail.selectedRunID = "stale-run"
+	c.detail.selectedKind = itemKindRunning
+	c.focus = FocusPaneRight
+	c.list.SetFocused(false)
+	c.detail.SetFocused(true)
+
+	// Press 'c'
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}
+	c, cmd := c.Update(msg)
+
+	// Should return a refresh command (not nil)
+	assert.NotNil(t, cmd, "dismiss should return refresh cmd")
+}
+
+func TestContentModel_RunEventsMsg_RoutedToDetail(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(120, 40)
+
+	c, _ = c.Update(RunEventsMsg{RunID: "run-1", Events: nil})
+	// Just verify it doesn't panic
+}
+
+func TestContentModel_EnterOnRunningItem_NoBuffer_EmitsRunningInfoActive(t *testing.T) {
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "running-pipe"}},
+	})
+
+	// Expand the Finished section (collapsed by default)
+	c.list.collapsed[2] = false
+	c.list.buildNavigableItems()
+
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	c, cmd := c.Update(msg)
+
+	assert.Equal(t, FocusPaneRight, c.focus)
+	assert.NotNil(t, cmd)
+
+	// Execute the batch cmd and check for RunningInfoActiveMsg
+	msgs := extractMsgFromBatch(cmd)
+	foundRunningInfoActive := false
+	for _, m := range msgs {
+		if riMsg, ok := m.(RunningInfoActiveMsg); ok && riMsg.Active {
+			foundRunningInfoActive = true
+		}
+	}
+	assert.True(t, foundRunningInfoActive, "should emit RunningInfoActiveMsg{Active: true}")
 }
