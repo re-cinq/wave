@@ -185,13 +185,14 @@ func TestPartialRollbackAndReapply(t *testing.T) {
 
 	finalVersion, err := manager.GetCurrentVersion()
 	require.NoError(t, err)
-	assert.Equal(t, 8, finalVersion)
+	assert.Equal(t, 9, finalVersion)
 
 	// Verify all tables exist again
 	expectedTables := []string{
 		"pipeline_state", "step_state", "pipeline_run", "event_log", "artifact",
 		"cancellation", "performance_metric", "progress_snapshot",
 		"step_progress", "pipeline_progress", "artifact_metadata",
+		"step_attempt",
 	}
 
 	for _, tableName := range expectedTables {
