@@ -17,6 +17,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
 | `wave serve` | Start the web dashboard server |
+| `wave chat` | Interactive chat session with a persona |
 | `wave migrate` | Database migrations |
 
 ---
@@ -614,12 +615,8 @@ All commands support:
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | General error |
-| 2 | Usage error |
-| 3 | Pipeline failed |
-| 4 | Validation error |
-| 5 | Timeout |
-| 130 | Interrupted (Ctrl+C) |
+| 1 | General error (includes pipeline failures, timeouts, validation errors) |
+| 2 | Usage error (invalid arguments or configuration) |
 
 ---
 
