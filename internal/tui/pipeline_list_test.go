@@ -206,16 +206,16 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 	// Completed shows checkmark
 	assert.Contains(t, view, "✓")
 	assert.Contains(t, view, "completed")
-	assert.Contains(t, view, "5m00s")
+	assert.Contains(t, view, "5m 0s")
 
 	// Failed shows cross
 	assert.Contains(t, view, "✗")
 	assert.Contains(t, view, "failed")
-	assert.Contains(t, view, "3m00s")
+	assert.Contains(t, view, "3m 0s")
 
 	// Cancelled shows cross
 	assert.Contains(t, view, "cancelled")
-	assert.Contains(t, view, "1m00s")
+	assert.Contains(t, view, "1m 0s")
 }
 
 func TestPipelineListModel_View_AvailableItemsShowNameOnly(t *testing.T) {
