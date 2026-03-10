@@ -19,9 +19,9 @@ Wave ships with 30 built-in personas:
 | `researcher` | Research & analysis | Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch |
 | `summarizer` | Context compaction | Read, Write, Edit, Bash, Glob, Grep (full access) |
 | `supervisor` | Work quality review | Read, Glob, Grep, Bash(git \*), Bash(go test\*) |
-| `validator` | Output validation | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
-| `synthesizer` | Content synthesis | Read, Write, Edit, Bash, Glob, Grep (full access) |
-| `provocateur` | Critical analysis | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
+| `validator` | Skeptical verification against source | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
+| `synthesizer` | Structured synthesis into JSON proposals | Read, Write, Edit, Bash, Glob, Grep (full access) |
+| `provocateur` | Divergent thinking & complexity hunting | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
 | `github-analyst` | GitHub issue analysis | Read, Bash(gh issue\*), Bash(gh pr\*), Bash(git log\*) |
 | `github-enhancer` | GitHub issue enhancement | Read, Bash(gh issue edit\*) |
 | `github-commenter` | GitHub commenting | Read, Bash(gh issue comment\*), Bash(gh pr\*), Bash(git push\*) |
@@ -48,9 +48,9 @@ Read-only codebase exploration. Finds files, analyzes patterns, maps architectur
 ```yaml
 navigator:
   adapter: claude
-  description: "Read-only codebase exploration"
+  description: "Read-only codebase exploration and analysis"
   system_prompt_file: .wave/personas/navigator.md
-  #temperature: 0.1
+  #temperature: 0.3
   permissions:
     allowed_tools:
       - Read
