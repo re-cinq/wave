@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -87,10 +88,20 @@ func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
 	return result, nil
 }
 
-// resolveGitHubToken returns a GitHub token from environment variables.
+// resolveGitHubToken returns a GitHub token from environment variables,
+// falling back to `gh auth token` if available.
 func resolveGitHubToken() string {
 	if token := os.Getenv("GH_TOKEN"); token != "" {
 		return token
 	}
-	return os.Getenv("GITHUB_TOKEN")
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		return token
+	}
+	out, err := exec.Command("gh", "auth", "token").Output()
+	if err == nil {
+		if token := strings.TrimSpace(string(out)); token != "" {
+			return token
+		}
+	}
+	return ""
 }
