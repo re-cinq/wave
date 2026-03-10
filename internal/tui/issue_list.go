@@ -300,7 +300,7 @@ func (m *IssueListModel) buildNavigableItems() {
 			m.navigable = append(m.navigable, issue)
 			continue
 		}
-		// Match against title, number, and labels
+		// Match against title, number, labels, and assignees
 		if strings.Contains(strings.ToLower(issue.Title), query) {
 			m.navigable = append(m.navigable, issue)
 			continue
@@ -309,11 +309,25 @@ func (m *IssueListModel) buildNavigableItems() {
 			m.navigable = append(m.navigable, issue)
 			continue
 		}
+		matched := false
 		for _, l := range issue.Labels {
 			if strings.Contains(strings.ToLower(l), query) {
-				m.navigable = append(m.navigable, issue)
+				matched = true
 				break
 			}
+		}
+		if matched {
+			m.navigable = append(m.navigable, issue)
+			continue
+		}
+		for _, a := range issue.Assignees {
+			if strings.Contains(strings.ToLower(a), query) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			m.navigable = append(m.navigable, issue)
 		}
 	}
 }

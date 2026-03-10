@@ -232,3 +232,48 @@ func TestIssueListModel_NilProvider(t *testing.T) {
 	assert.Nil(t, dataMsg.Err)
 	assert.Nil(t, dataMsg.Issues)
 }
+
+func TestIssueListModel_FilterByAssignee(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(60, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix bug", Assignees: []string{"alice"}},
+			{Number: 2, Title: "Add feature", Assignees: []string{"bob"}},
+			{Number: 3, Title: "Refactor code", Assignees: []string{"alice", "charlie"}},
+		},
+	})
+
+	// Activate filter and search for "bob"
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	for _, r := range "bob" {
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	assert.Equal(t, 1, len(m.navigable))
+	assert.Equal(t, "Add feature", m.navigable[0].Title)
+}
+
+func TestIssueListModel_FilterByAssignee_Partial(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(60, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix bug", Assignees: []string{"alice"}},
+			{Number: 2, Title: "Add feature", Assignees: []string{"bob"}},
+			{Number: 3, Title: "Refactor code", Assignees: []string{"alice", "charlie"}},
+		},
+	})
+
+	// Activate filter and search for "ali" (partial match for alice)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	for _, r := range "ali" {
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	assert.Equal(t, 2, len(m.navigable))
+	assert.Equal(t, "Fix bug", m.navigable[0].Title)
+	assert.Equal(t, "Refactor code", m.navigable[1].Title)
+}
