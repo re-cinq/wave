@@ -28,8 +28,8 @@ steps:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, `template`, or `format` |
-| `schema` | - | Schema file path (for json_schema) |
+| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, or `format` |
+| `schema_path` | - | Schema file path (for json_schema) |
 | `source` | - | File to validate |
 | `command` | - | Test command (for test_suite) |
 | `dir` | workspace | Working directory for test_suite: `project_root`, absolute, or relative |

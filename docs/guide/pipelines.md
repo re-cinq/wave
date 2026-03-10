@@ -4,50 +4,100 @@ Pipelines are DAGs (Directed Acyclic Graphs) that orchestrate multi-step agent w
 
 ## Built-in Pipelines
 
-Wave ships with 18 pipelines organized by use case:
+Wave ships with 47 pipelines organized by use case:
 
 ### Development
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
 | `speckit-flow` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
+| `feature` | explore → plan → implement → publish | Feature planning and implementation |
 | `hotfix` | investigate → fix → verify | Production bugs |
 | `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
-| `prototype` | spec → docs → dummy → implement → pr | Prototype-driven development |
-| `docs-to-impl` | docs → implement | Documentation to implementation |
+| `prototype` | spec → docs → dummy → implement → pr-create → pr-review → pr-respond → pr-fix → pr-merge | Prototype-driven development |
+| `improve` | assess → implement → verify | Targeted code improvements |
 
-### Quality
+### Quality & Debugging
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `gh-pr-review` | diff → security + quality → summary | PR reviews |
-| `test-gen` | analyze-coverage → generate → verify | Test coverage |
+| `gh-pr-review` | diff-analysis → security-review + quality-review → summary → publish | PR reviews |
+| `test-gen` | analyze-coverage → generate-tests → verify-coverage | Test coverage |
 | `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+| `security-scan` | scan → deep-dive → report | Security vulnerability audit |
+| `dead-code` | scan → clean → verify → create-pr | Dead code removal |
+| `supervise` | gather → evaluate → verdict | Work and process quality review |
+| `smoke-test` | analyze → summarize | Configuration validation |
 
 ### Planning & Documentation
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
 | `plan` | explore → breakdown → review | Task planning |
-| `docs` | discover → generate → review | Documentation |
-| `migrate` | impact → plan → implement → review | Migrations |
-| `doc-audit` | analyze → report | Documentation impact analysis |
+| `doc-audit` | scan-changes → analyze-consistency → compose-report → publish | Documentation consistency gate |
+| `doc-fix` | scan-changes → analyze → fix-docs → create-pr | Documentation fix and commit |
+| `explain` | explore → analyze → document | Code explanation deep-dive |
+| `adr` | explore-context → analyze-options → draft-record → publish | Architecture Decision Records |
+| `changelog` | analyze-commits → categorize → format | Changelog generation |
+| `onboard` | survey → guide | New contributor onboarding |
 
-### GitHub Automation
+### GitHub Automation (gh-*)
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `github-issue-enhancer` | analyze → enhance | Issue enhancement |
-| `gh-poor-issues` | scan → enhance | Bulk issue improvement |
-| `issue-research` | research → report | Issue research and analysis |
+| `gh-implement` | fetch-assess → plan → implement → create-pr | Implement GitHub issue end-to-end |
+| `gh-implement-epic` | fetch-scope → implement-subissues → report | Implement all subissues from an epic |
+| `gh-research` | fetch-issue → analyze-topics → research-topics → synthesize-report → post-comment | Research and report on issues |
+| `gh-rewrite` | scan-and-score → apply-enhancements | Rewrite poorly documented issues |
+| `gh-refresh` | gather-context → draft-update → apply-update | Refresh stale issues |
+| `gh-scope` | fetch-epic → scope-and-create → verify-report | Decompose epics into child issues |
+
+### GitLab Automation (gl-*)
+
+GitLab pipeline variants mirror the GitHub automation family using `glab` CLI:
+
+| Pipeline | Use Case |
+|----------|----------|
+| `gl-implement` | Implement GitLab issue end-to-end |
+| `gl-implement-epic` | Implement all subissues from an epic |
+| `gl-research` | Research and report on issues |
+| `gl-rewrite` | Rewrite poorly documented issues |
+| `gl-refresh` | Refresh stale issues |
+| `gl-scope` | Decompose epics into child issues |
+
+### Gitea Automation (gt-*)
+
+Gitea pipeline variants use the `tea` CLI:
+
+| Pipeline | Use Case |
+|----------|----------|
+| `gt-implement` | Implement Gitea issue end-to-end |
+| `gt-implement-epic` | Implement all subissues from an epic |
+| `gt-research` | Research and report on issues |
+| `gt-rewrite` | Rewrite poorly documented issues |
+| `gt-refresh` | Refresh stale issues |
+| `gt-scope` | Decompose epics into child issues |
+
+### Bitbucket Automation (bb-*)
+
+Bitbucket pipeline variants use the Bitbucket REST API via `curl`:
+
+| Pipeline | Use Case |
+|----------|----------|
+| `bb-implement` | Implement Bitbucket issue end-to-end |
+| `bb-implement-epic` | Implement all subissues from an epic |
+| `bb-research` | Research and report on issues |
+| `bb-rewrite` | Rewrite poorly documented issues |
+| `bb-refresh` | Refresh stale issues |
+| `bb-scope` | Decompose epics into child issues |
 
 ### Utility
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `hello-world` | greet | Smoke test / example |
-| `smoke-test` | test | Configuration validation |
-| `umami` | analyze | Analytics integration |
+| `hello-world` | greet → verify | Smoke test / example |
+| `wave-land` | commit → ship | Branch, commit, push, PR, merge |
+| `recinq` | gather → diverge → converge → probe → distill → simplify → report → publish | Double Diamond code simplification |
 
 ## Running Pipelines
 
@@ -299,7 +349,7 @@ steps:
       source: "Fix the issue with regression test"
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [fix]
     exec:
       source: "Verify fix is safe for production"

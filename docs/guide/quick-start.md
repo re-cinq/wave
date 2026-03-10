@@ -60,21 +60,21 @@ Expected output:
 ## 4. Run First Pipeline
 
 ```bash
-wave run speckit-flow "add user authentication"
+wave run hello-world "testing Wave"
 ```
 
 The default TUI shows a progress bar and spinners. For text output, use `-o text`:
 
 ```bash
-wave run speckit-flow "add user authentication" -o text
+wave run hello-world "testing Wave" -o text
 ```
 
 ```
-[10:00:01] → navigate (navigator)
-[10:00:01]   navigate: Executing agent
-[10:01:30] ✓ navigate completed (90.0s, 2.0k tokens)
-[10:01:31] → implement (craftsman)
-...
+[10:00:01] → greet (craftsman)
+[10:00:01]   greet: Executing agent
+[10:00:05] ✓ greet completed (4.0s, 0k tokens)
+[10:00:05] → verify (navigator)
+[10:00:12] ✓ verify completed (6.9s, 0k tokens)
 ```
 
 ## 5. Check Results
