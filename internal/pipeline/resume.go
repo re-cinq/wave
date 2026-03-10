@@ -128,6 +128,15 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 				Message:    "Resume: no prior state found — starting fresh",
 			})
 		}
+		if ctx, ok := resumeState.FailureContexts[fromStep]; ok {
+			r.executor.emitter.Emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineName,
+				StepID:     fromStep,
+				State:      "resuming",
+				Message:    fmt.Sprintf("Resume: loaded failure context from attempt %d — %s", ctx.Attempt, ctx.PriorError),
+			})
+		}
 
 		// Emit synthetic completion events for prior steps so the display
 		// marks them as completed (✓) instead of pending (○).
@@ -149,7 +158,12 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	hashLength := m.Runtime.PipelineIDHashLength
 	pipelineID := r.executor.createRunID(pipelineName, hashLength, input)
 
-	// Create new execution with preserved artifacts and state
+	// Create new execution with preserved artifacts, state, and failure context
+	attemptContexts := make(map[string]*AttemptContext)
+	for k, v := range resumeState.FailureContexts {
+		attemptContexts[k] = v
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:        resumePipeline,
 		Manifest:        m,
@@ -158,7 +172,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		ArtifactPaths:   resumeState.ArtifactPaths,
 		WorkspacePaths:  resumeState.WorkspacePaths,
 		WorktreePaths:   make(map[string]*WorktreeInfo),
-		AttemptContexts: make(map[string]*AttemptContext),
+		AttemptContexts: attemptContexts,
 		Input:           input,
 		Context:         newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
@@ -182,11 +196,12 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 // ResumeState holds state information needed for resumption
 type ResumeState struct {
-	States         map[string]string
-	Results        map[string]map[string]interface{}
-	ArtifactPaths  map[string]string
-	WorkspacePaths map[string]string
-	CompletedSteps []string
+	States          map[string]string
+	Results         map[string]map[string]interface{}
+	ArtifactPaths   map[string]string
+	WorkspacePaths  map[string]string
+	CompletedSteps  []string
+	FailureContexts map[string]*AttemptContext // stepID -> failure context from prior run
 }
 
 // lookupStepPersona finds the persona for a step by ID in the full pipeline.
@@ -205,11 +220,12 @@ func (r *ResumeManager) lookupStepPersona(p *Pipeline, stepID string) string {
 // the most recent match is used.
 func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID ...string) (*ResumeState, error) {
 	state := &ResumeState{
-		States:         make(map[string]string),
-		Results:        make(map[string]map[string]interface{}),
-		ArtifactPaths:  make(map[string]string),
-		WorkspacePaths: make(map[string]string),
-		CompletedSteps: []string{},
+		States:          make(map[string]string),
+		Results:         make(map[string]map[string]interface{}),
+		ArtifactPaths:   make(map[string]string),
+		WorkspacePaths:  make(map[string]string),
+		CompletedSteps:  []string{},
+		FailureContexts: make(map[string]*AttemptContext),
 	}
 
 	wsRoot := ".wave/workspaces"
@@ -302,6 +318,24 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 					artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
 					artifactPath := filepath.Join(stepWorkspace, artifact.Path)
 					state.ArtifactPaths[artifactKey] = artifactPath
+				}
+			}
+		}
+	}
+
+	// Load failure context from the prior run's step attempts so retry prompts have context
+	if resolvedRunID != "" && r.executor.store != nil {
+		// Query step attempts for the step being resumed
+		attempts, err := r.executor.store.GetStepAttempts(resolvedRunID, fromStep)
+		if err == nil && len(attempts) > 0 {
+			last := attempts[len(attempts)-1]
+			if last.State == "failed" {
+				state.FailureContexts[fromStep] = &AttemptContext{
+					Attempt:      last.Attempt,
+					MaxAttempts:  last.Attempt + 1, // at least one more attempt
+					PriorError:   last.ErrorMessage,
+					FailureClass: last.FailureClass,
+					PriorStdout:  last.StdoutTail,
 				}
 			}
 		}
