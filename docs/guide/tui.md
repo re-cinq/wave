@@ -9,11 +9,12 @@ The TUI is enabled by default when running in an interactive terminal. Wave auto
 ### Detection Logic
 
 1. **`--no-tui` flag** (highest priority) — disables the TUI
-2. **`WAVE_FORCE_TTY` env var** — override TTY detection:
+2. **`--json` or `--quiet` flags** — suppress TUI in favor of structured/minimal output
+3. **`WAVE_FORCE_TTY` env var** — override TTY detection:
    - `"1"` or `"true"` → force TUI on
    - `"0"` or `"false"` → force TUI off
-3. **Dumb terminals** — TUI disabled when `TERM=dumb`
-4. **TTY check** — TUI enabled only when stdout is a terminal
+4. **Dumb terminals** — TUI disabled when `TERM=dumb`
+5. **TTY check** — TUI enabled only when stdout is a terminal
 
 ### Examples
 

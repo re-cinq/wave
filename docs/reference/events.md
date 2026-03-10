@@ -12,7 +12,7 @@ Every event contains these fields:
 | `pipeline_id` | `string` | **yes** | UUID for this pipeline execution instance. |
 | `step_id` | `string` | no | Step identifier within the pipeline. |
 | `state` | `string` | **yes** | Event state (see Event States below). |
-| `duration_ms` | `int` | no | Milliseconds elapsed since step started. |
+| `duration_ms` | `int64` | no | Milliseconds elapsed since step started. |
 | `message` | `string` | no | Human-readable status message. |
 | `persona` | `string` | no | Persona executing the step. |
 | `artifacts` | `[]string` | when completed | List of output artifact paths. |
@@ -23,7 +23,7 @@ Every event contains these fields:
 | `current_action` | `string` | no | Current action description. |
 | `total_steps` | `int` | when started | Total pipeline steps. |
 | `completed_steps` | `int` | no | Number of completed steps. |
-| `estimated_time_ms` | `int` | no | Estimated remaining time in milliseconds. |
+| `estimated_time_ms` | `int64` | **yes** (0 = no estimate) | Estimated remaining time in milliseconds. |
 | `validation_phase` | `string` | no | Current contract validation phase. |
 | `compaction_stats` | `string` | no | Relay compaction statistics. |
 | `failure_reason` | `string` | when failed | Detailed failure reason. |
@@ -50,6 +50,7 @@ Every event contains these fields:
 | `contract_validating` | Contract validation is in progress. |
 | `compaction_progress` | Relay compaction is in progress. |
 | `stream_activity` | Real-time tool activity from the adapter. |
+| `skipped` | Step was skipped (condition not met or dependency failed). |
 
 ## Event Examples
 
@@ -86,7 +87,7 @@ wave run flow "task" 2>/dev/null
 Human-friendly format with color and formatting.
 
 ```bash
-WAVE_LOG_FORMAT=text wave run flow "task"
+wave run flow "task" -o text
 ```
 
 Text output example:
