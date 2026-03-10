@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/github"
-	"github.com/recinq/wave/internal/manifest"
 )
 
 // IssueData is a TUI-specific projection of a GitHub issue.
@@ -34,20 +33,20 @@ type IssueDataProvider interface {
 // DefaultIssueDataProvider uses the GitHub client to fetch issues.
 type DefaultIssueDataProvider struct {
 	client   *github.Client
-	manifest *manifest.Manifest
+	repoSlug string // owner/repo format
 }
 
 // NewDefaultIssueDataProvider creates a new issue data provider.
-func NewDefaultIssueDataProvider(client *github.Client, m *manifest.Manifest) *DefaultIssueDataProvider {
-	return &DefaultIssueDataProvider{client: client, manifest: m}
+func NewDefaultIssueDataProvider(client *github.Client, repoSlug string) *DefaultIssueDataProvider {
+	return &DefaultIssueDataProvider{client: client, repoSlug: repoSlug}
 }
 
 // FetchIssues retrieves open issues from the configured repository.
 func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
-	if p.manifest == nil || p.manifest.Metadata.Repo == "" {
+	if p.repoSlug == "" {
 		return nil, nil
 	}
-	owner, repo, ok := strings.Cut(p.manifest.Metadata.Repo, "/")
+	owner, repo, ok := strings.Cut(p.repoSlug, "/")
 	if !ok {
 		return nil, nil
 	}
