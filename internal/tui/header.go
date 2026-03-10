@@ -85,6 +85,7 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 
 	case RunningCountMsg:
 		m.metadata.RunningCount = msg.Count
+		m.metadata.TotalPipes = msg.TotalPipes
 		wasActive := m.logo.IsActive()
 		m.logo.SetActive(msg.Count > 0)
 		if msg.Count > 0 && !wasActive {
@@ -130,14 +131,14 @@ func (m HeaderModel) View() string {
 
 	// Build 3 metadata rows matching spec layout
 	// Row 1: Health │ GitHub │ Remote
-	// Row 2: Clean  │ Commit │ Branch  (branch last — variable length)
-	// Row 3: Running │ Issues │ (reserved)
+	// Row 2: Pipes  │ Branch │ Clean
+	// Row 3: Steps  │ Issues │ Commit
 	var row1, row2, row3 string
 
 	if availableWidth >= 20 {
 		row1Parts := []string{labelStyle.Render("Health: ") + m.renderHealth()}
-		row2Parts := []string{labelStyle.Render("Clean: ") + m.renderDirty()}
-		row3Parts := []string{labelStyle.Render("Running: ") + m.renderRunningCount()}
+		row2Parts := []string{labelStyle.Render("Pipes: ") + m.renderPipesValue()}
+		row3Parts := []string{labelStyle.Render("Steps: ") + m.renderStepsValue()}
 
 		if availableWidth >= 40 {
 			repoLabel := "GitHub: "
@@ -145,12 +146,13 @@ func (m HeaderModel) View() string {
 				repoLabel = "Project: "
 			}
 			row1Parts = append(row1Parts, labelStyle.Render(repoLabel)+m.renderRepoName())
-			row2Parts = append(row2Parts, labelStyle.Render("Commit: ")+m.renderCommitValue())
+			row2Parts = append(row2Parts, labelStyle.Render("Branch: ")+m.renderBranch(branch))
 			row3Parts = append(row3Parts, labelStyle.Render("Issues: ")+m.renderIssuesValue())
 		}
 		if availableWidth >= 60 {
 			row1Parts = append(row1Parts, labelStyle.Render("Remote: ")+m.renderRemoteValue())
-			row2Parts = append(row2Parts, labelStyle.Render("Branch: ")+m.renderBranch(branch))
+			row2Parts = append(row2Parts, labelStyle.Render("Clean: ")+m.renderDirty())
+			row3Parts = append(row3Parts, labelStyle.Render("Commit: ")+m.renderCommitValue())
 		}
 
 		row1 = strings.Join(row1Parts, sep)
@@ -238,14 +240,28 @@ func (m HeaderModel) renderRepoName() string {
 	return style.Render(name)
 }
 
-func (m HeaderModel) renderRunningCount() string {
-	count := m.metadata.RunningCount
-	if count == 0 {
+func (m HeaderModel) renderPipesValue() string {
+	running := m.metadata.RunningCount
+	total := m.metadata.TotalPipes
+	if running == 0 && total == 0 {
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 		return style.Render("—")
 	}
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
-	return style.Render(fmt.Sprintf("%d", count))
+	if running > 0 {
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
+		return style.Render(fmt.Sprintf("%d/%d", running, total))
+	}
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
+	return style.Render(fmt.Sprintf("%d/%d", running, total))
+}
+
+func (m HeaderModel) renderStepsValue() string {
+	if m.metadata.StepCount == 0 {
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+		return style.Render("—")
+	}
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
+	return style.Render(fmt.Sprintf("%d", m.metadata.StepCount))
 }
 
 func (m HeaderModel) renderDirty() string {
