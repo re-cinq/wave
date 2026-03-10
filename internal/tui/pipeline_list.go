@@ -286,7 +286,12 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			return m.handleNavigation(msg)
 
 		case tea.KeyEnter:
-			// Enter while filtering: deactivate filter but keep results
+			// Enter while filtering: deactivate filter but keep results.
+			// If the filter matches nothing, stay in filter mode so the
+			// user can edit or Escape instead of getting stuck.
+			if len(m.navigable) == 0 {
+				return m, nil
+			}
 			m.filtering = false
 			return m, nil
 
@@ -296,10 +301,15 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			newQuery := m.filterInput.Value()
 			if newQuery != m.filterQuery {
 				m.filterQuery = newQuery
-				oldCursor := m.cursor
 				m.buildNavigableItems()
-				if oldCursor >= len(m.navigable) {
+				// Clamp cursor to valid range after filter narrows results
+				if len(m.navigable) == 0 {
 					m.cursor = 0
+				} else if m.cursor >= len(m.navigable) {
+					m.cursor = len(m.navigable) - 1
+				}
+				if selCmd := m.emitSelectionMsg(); selCmd != nil {
+					cmd = tea.Batch(cmd, selCmd)
 				}
 			}
 			return m, cmd
@@ -332,6 +342,8 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			m.filterInput.SetValue("")
 			m.filterQuery = ""
 			m.filterInput.Focus()
+			m.buildNavigableItems()
+			m.cursor = 0
 			return m, m.filterInput.Cursor.BlinkCmd()
 		}
 	}
@@ -377,6 +389,7 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 					Input:      r.Input,
 					BranchName: r.BranchName,
 					Kind:       itemKindRunning,
+					StartedAt:  r.StartedAt,
 				}
 			}
 		}
@@ -390,6 +403,7 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 					Input:      f.Input,
 					BranchName: f.BranchName,
 					Kind:       itemKindFinished,
+					StartedAt:  f.StartedAt,
 				}
 			}
 		}

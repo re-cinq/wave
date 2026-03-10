@@ -51,16 +51,24 @@ func NewDefaultPipelineDataProvider(store state.StateStore, pipelinesDir string)
 	}
 }
 
+// staleRunCutoff is the age threshold after which a running/pending run
+// with no live process is considered stale and filtered from the fleet list.
+const staleRunCutoff = 1 * time.Hour
+
 // FetchRunningPipelines returns currently running pipelines, sorted newest-first.
+// Runs whose executor process is no longer alive (detached with a dead PID) or
+// that are older than staleRunCutoff with no PID are filtered out to prevent
+// stale queued/pending/running entries from persisting indefinitely.
 func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline, error) {
 	records, err := p.store.GetRunningRuns()
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]RunningPipeline, len(records))
-	for i, r := range records {
-		result[i] = RunningPipeline{
+	now := time.Now()
+	var result []RunningPipeline
+	for _, r := range records {
+		rp := RunningPipeline{
 			RunID:      r.RunID,
 			Name:       r.PipelineName,
 			Input:      r.Input,
@@ -69,6 +77,20 @@ func (p *DefaultPipelineDataProvider) FetchRunningPipelines() ([]RunningPipeline
 			PID:        r.PID,
 			Detached:   r.PID > 0,
 		}
+
+		// If the run has a PID, check whether the process is still alive.
+		// Dead-process runs are stale leftovers from crashed sessions.
+		if rp.PID > 0 && !IsProcessAlive(rp.PID) {
+			continue
+		}
+
+		// Runs without a PID that are older than staleRunCutoff are almost
+		// certainly orphaned from a previous session that exited ungracefully.
+		if rp.PID == 0 && now.Sub(rp.StartedAt) > staleRunCutoff {
+			continue
+		}
+
+		result = append(result, rp)
 	}
 
 	// Sort newest-first (GetRunningRuns already does this, but be explicit)

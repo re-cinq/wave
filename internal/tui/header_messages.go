@@ -1,5 +1,7 @@
 package tui
 
+import "time"
+
 // GitStateMsg carries the result of an async git state fetch.
 type GitStateMsg struct {
 	State GitState
@@ -34,11 +36,12 @@ type RunningCountMsg struct {
 // For available pipelines, RunID is empty and Kind is itemKindAvailable.
 type PipelineSelectedMsg struct {
 	RunID         string
-	Name          string   // Pipeline or run name
-	Input         string   // User-provided input for this run
-	BranchName    string   // Empty means no finished pipeline selected
-	BranchDeleted bool     // True if the branch no longer exists
-	Kind          itemKind // itemKindRunning, itemKindFinished, or itemKindAvailable
+	Name          string    // Pipeline or run name
+	Input         string    // User-provided input for this run
+	BranchName    string    // Empty means no finished pipeline selected
+	BranchDeleted bool      // True if the branch no longer exists
+	Kind          itemKind  // itemKindRunning, itemKindFinished, or itemKindAvailable
+	StartedAt     time.Time // When the run was started (zero for available pipelines)
 }
 
 // FocusPane identifies which pane has keyboard focus.

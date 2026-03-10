@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,10 +20,11 @@ type PipelineDetailModel struct {
 	focused  bool
 	viewport viewport.Model
 
-	selectedName  string
-	selectedInput string
-	selectedKind  itemKind
-	selectedRunID string
+	selectedName      string
+	selectedInput     string
+	selectedKind      itemKind
+	selectedRunID     string
+	selectedStartedAt time.Time
 
 	availableDetail *AvailableDetail
 	finishedDetail  *FinishedDetail
@@ -101,11 +103,15 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				ModelOverride: *m.launchModel,
 				Flags:         *m.launchFlags,
 			}
-			// Check for --dry-run in flags
+			// Extract convenience booleans from flags
 			for _, f := range config.Flags {
-				if f == "--dry-run" {
+				switch f {
+				case "--dry-run":
 					config.DryRun = true
-					break
+				case "--verbose":
+					config.Verbose = true
+				case "--debug":
+					config.Debug = true
 				}
 			}
 			m.paneState = stateLaunching
@@ -141,6 +147,7 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.selectedInput = msg.Input
 		m.selectedKind = msg.Kind
 		m.selectedRunID = msg.RunID
+		m.selectedStartedAt = msg.StartedAt
 		m.branchDeleted = msg.BranchDeleted
 		if !sameItem {
 			m.availableDetail = nil
@@ -438,7 +445,7 @@ func (m *PipelineDetailModel) updateViewportContent() {
 		}
 	case stateRunningInfo:
 		if m.selectedName != "" {
-			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.selectedInput, m.width, m.persistedEvents))
+			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.selectedInput, m.selectedStartedAt, m.width, m.persistedEvents))
 		}
 	}
 }
@@ -722,7 +729,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 }
 
 // renderRunningInfo renders a brief info view for a running pipeline.
-func renderRunningInfo(name string, input string, width int, events []state.LogRecord) string {
+func renderRunningInfo(name string, input string, startedAt time.Time, width int, events []state.LogRecord) string {
 	_ = width
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
@@ -738,14 +745,17 @@ func renderRunningInfo(name string, input string, width int, events []state.LogR
 	if input != "" {
 		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Input:"), input))
 	}
+	if !startedAt.IsZero() {
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Started:"), startedAt.Format("2006-01-02 15:04:05")))
+	}
 	sb.WriteString("\n")
 	sb.WriteString(labelStyle.Render("Live output is only available for pipelines"))
 	sb.WriteString("\n")
 	sb.WriteString(labelStyle.Render("launched in the current TUI session."))
 	sb.WriteString("\n\n")
-	sb.WriteString(warnStyle.Render("If this pipeline was started in a previous session,"))
+	sb.WriteString(warnStyle.Render("This run appears stale — it may have been started in a"))
 	sb.WriteString("\n")
-	sb.WriteString(warnStyle.Render("it may be stale. Use [c] to dismiss it."))
+	sb.WriteString(warnStyle.Render("previous session. Use [c] to dismiss it."))
 
 	if len(events) > 0 {
 		sb.WriteString("\n\n")

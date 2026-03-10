@@ -49,6 +49,8 @@ type LaunchConfig struct {
 	ModelOverride string
 	Flags         []string // e.g., "--verbose", "--debug", "--dry-run"
 	DryRun        bool     // Extracted from Flags for convenience
+	Verbose       bool     // Extracted from Flags for convenience
+	Debug         bool     // Extracted from Flags for convenience
 }
 
 // LaunchRequestMsg is emitted when the argument form is submitted.

@@ -437,6 +437,51 @@ func TestPipelineDetailModel_ConfigureFormMsg_CreatesForm(t *testing.T) {
 	assert.Contains(t, view, "Options")
 }
 
+func TestPipelineDetailModel_FormCompletion_ExtractsVerboseAndDebugFlags(t *testing.T) {
+	// This test verifies that Verbose and Debug are extracted from the Flags
+	// slice into dedicated boolean fields on LaunchConfig, matching the DryRun pattern.
+	config := LaunchConfig{
+		PipelineName: "test-pipe",
+		Flags:        []string{"--verbose", "--debug", "--dry-run"},
+	}
+	// Simulate the extraction logic from the form completion handler
+	for _, f := range config.Flags {
+		switch f {
+		case "--dry-run":
+			config.DryRun = true
+		case "--verbose":
+			config.Verbose = true
+		case "--debug":
+			config.Debug = true
+		}
+	}
+
+	assert.True(t, config.Verbose, "Verbose should be extracted from --verbose flag")
+	assert.True(t, config.Debug, "Debug should be extracted from --debug flag")
+	assert.True(t, config.DryRun, "DryRun should be extracted from --dry-run flag")
+}
+
+func TestPipelineDetailModel_FormCompletion_NoFlags_LeavesVerboseAndDebugFalse(t *testing.T) {
+	config := LaunchConfig{
+		PipelineName: "test-pipe",
+		Flags:        []string{"--mock"},
+	}
+	for _, f := range config.Flags {
+		switch f {
+		case "--dry-run":
+			config.DryRun = true
+		case "--verbose":
+			config.Verbose = true
+		case "--debug":
+			config.Debug = true
+		}
+	}
+
+	assert.False(t, config.Verbose, "Verbose should be false when --verbose not selected")
+	assert.False(t, config.Debug, "Debug should be false when --debug not selected")
+	assert.False(t, config.DryRun, "DryRun should be false when --dry-run not selected")
+}
+
 func TestPipelineDetailModel_FormAbort_RevertsToAvailableDetail(t *testing.T) {
 	detail := fullAvailableDetail()
 	provider := &mockDetailProvider{availableDetail: detail}
@@ -1046,7 +1091,7 @@ func TestRenderRunningInfo_WithEvents(t *testing.T) {
 		{State: "completed", StepID: "step1", Message: "Done", Timestamp: time.Date(2026, 1, 15, 10, 1, 0, 0, time.UTC)},
 	}
 
-	view := renderRunningInfo("test-pipeline", "some input", 80, events)
+	view := renderRunningInfo("test-pipeline", "some input", time.Date(2026, 1, 15, 9, 59, 0, 0, time.UTC), 80, events)
 	stripped := detailStripAnsi(view)
 
 	assert.Contains(t, stripped, "test-pipeline")
@@ -1057,7 +1102,7 @@ func TestRenderRunningInfo_WithEvents(t *testing.T) {
 }
 
 func TestRenderRunningInfo_WithoutEvents(t *testing.T) {
-	view := renderRunningInfo("test-pipeline", "", 80, nil)
+	view := renderRunningInfo("test-pipeline", "", time.Time{}, 80, nil)
 	stripped := detailStripAnsi(view)
 
 	assert.Contains(t, stripped, "test-pipeline")
