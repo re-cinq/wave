@@ -146,11 +146,19 @@ func RunTUI(deps LaunchDependencies) error {
 	if deps.Manifest != nil || deps.Store != nil {
 		cp.HealthProvider = NewDefaultHealthDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
 	}
-	if deps.Manifest != nil && deps.Manifest.Metadata.Repo != "" {
+	// Resolve repo slug: prefer manifest, fall back to git remote
+	repoSlug := ""
+	if deps.Manifest != nil {
+		repoSlug = deps.Manifest.Metadata.Repo
+	}
+	if repoSlug == "" {
+		repoSlug = detectRepoFromGitRemote()
+	}
+	if repoSlug != "" {
 		token := resolveGitHubToken()
 		if token != "" {
 			ghClient := github.NewClient(github.ClientConfig{Token: token})
-			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, deps.Manifest)
+			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, repoSlug)
 		}
 	}
 
