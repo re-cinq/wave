@@ -36,9 +36,10 @@ const (
 // LaunchDependencies holds the dependencies needed to launch pipelines from the TUI.
 // Passed at TUI construction time; executor infrastructure is created on demand.
 type LaunchDependencies struct {
-	Manifest     *manifest.Manifest
-	Store        state.StateStore
-	PipelinesDir string
+	Manifest        *manifest.Manifest
+	Store           state.StateStore
+	PipelinesDir    string
+	SuggestProvider SuggestDataProvider
 }
 
 // LaunchConfig holds the user's pipeline launch configuration from the argument form.

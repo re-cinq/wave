@@ -295,6 +295,44 @@ func (c *Client) CreatePullRequest(ctx context.Context, owner, repo string, pr C
 	return &pullRequest, nil
 }
 
+// ListPullRequests retrieves pull requests for a repository
+func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, opts ListPullRequestsOptions) ([]*PullRequest, error) {
+	params := url.Values{}
+	if opts.State != "" {
+		params.Set("state", opts.State)
+	}
+	if opts.Sort != "" {
+		params.Set("sort", opts.Sort)
+	}
+	if opts.Direction != "" {
+		params.Set("direction", opts.Direction)
+	}
+	if opts.PerPage > 0 {
+		params.Set("per_page", strconv.Itoa(opts.PerPage))
+	}
+	if opts.Page > 0 {
+		params.Set("page", strconv.Itoa(opts.Page))
+	}
+
+	path := fmt.Sprintf("/repos/%s/%s/pulls", owner, repo)
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var prs []*PullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&prs); err != nil {
+		return nil, fmt.Errorf("failed to decode pull requests: %w", err)
+	}
+
+	return prs, nil
+}
+
 // GetRepository retrieves repository information
 func (c *Client) GetRepository(ctx context.Context, owner, repo string) (*Repository, error) {
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)

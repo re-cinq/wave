@@ -17,6 +17,7 @@ type ContentProviders struct {
 	SkillProvider    SkillDataProvider
 	HealthProvider   HealthDataProvider
 	IssueProvider    IssueDataProvider
+	SuggestProvider  SuggestDataProvider
 }
 
 // ContentModel is the main content area component composing a left pipeline list pane and a right detail pane.
@@ -42,6 +43,8 @@ type ContentModel struct {
 	healthDetail   *HealthDetailModel
 	issueList      *IssueListModel
 	issueDetail    *IssueDetailModel
+	suggestList    *SuggestListModel
+	suggestDetail  *SuggestDetailModel
 
 	// Data providers for alternative views
 	personaProvider  PersonaDataProvider
@@ -49,6 +52,7 @@ type ContentModel struct {
 	skillProvider    SkillDataProvider
 	healthProvider   HealthDataProvider
 	issueProvider    IssueDataProvider
+	suggestProvider  SuggestDataProvider
 
 	// Compose mode (nil when inactive)
 	composing     bool
@@ -82,6 +86,7 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.skillProvider = p.SkillProvider
 		m.healthProvider = p.HealthProvider
 		m.issueProvider = p.IssueProvider
+		m.suggestProvider = p.SuggestProvider
 	}
 
 	return m
@@ -100,6 +105,8 @@ func (m ContentModel) IsFiltering() bool {
 		return m.skillList != nil && m.skillList.filtering
 	case ViewIssues:
 		return m.issueList != nil && m.issueList.filtering
+	case ViewSuggest:
+		return m.suggestList != nil && m.suggestList.filtering
 	}
 	return false
 }
@@ -166,6 +173,12 @@ func (m *ContentModel) SetSize(w, h int) {
 	if m.issueDetail != nil {
 		m.issueDetail.SetSize(rightWidth, m.childHeight())
 	}
+	if m.suggestList != nil {
+		m.suggestList.SetSize(leftWidth, m.childHeight())
+	}
+	if m.suggestDetail != nil {
+		m.suggestDetail.SetSize(rightWidth, m.childHeight())
+	}
 	if m.composeList != nil {
 		m.composeList.SetSize(leftWidth, m.childHeight())
 	}
@@ -176,7 +189,7 @@ func (m *ContentModel) SetSize(w, h int) {
 
 // cycleView moves to the next view and returns init commands if the view was just created.
 func (m *ContentModel) cycleView() tea.Cmd {
-	m.currentView = (m.currentView + 1) % 6
+	m.currentView = (m.currentView + 1) % 7
 	m.focus = FocusPaneLeft
 
 	var initCmd tea.Cmd
@@ -277,6 +290,23 @@ func (m *ContentModel) cycleView() tea.Cmd {
 		if m.issueDetail != nil {
 			m.issueDetail.SetFocused(false)
 		}
+
+	case ViewSuggest:
+		if m.suggestList == nil && m.suggestProvider != nil {
+			sl := NewSuggestListModel(m.suggestProvider)
+			sl.SetSize(leftWidth, m.childHeight())
+			m.suggestList = &sl
+			sd := NewSuggestDetailModel()
+			sd.SetSize(rightWidth, m.childHeight())
+			m.suggestDetail = &sd
+			initCmd = m.suggestList.Init()
+		}
+		if m.suggestList != nil {
+			m.suggestList.SetFocused(true)
+		}
+		if m.suggestDetail != nil {
+			m.suggestDetail.SetFocused(false)
+		}
 	}
 
 	batchCmds := []tea.Cmd{
@@ -302,7 +332,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, nil
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
-			m.currentView = (m.currentView + 4) % 6 // net effect: -1 after cycleView adds +1
+			m.currentView = (m.currentView + 5) % 7 // net effect: -1 after cycleView adds +1
 			cmd := m.cycleView()
 			return m, cmd
 		}
@@ -716,6 +746,51 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
 
+	case SuggestDataMsg:
+		if m.suggestList != nil {
+			var cmd tea.Cmd
+			*m.suggestList, cmd = m.suggestList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case SuggestSelectedMsg:
+		if m.suggestList != nil {
+			var listCmd tea.Cmd
+			*m.suggestList, listCmd = m.suggestList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.suggestDetail != nil {
+			var detailCmd tea.Cmd
+			*m.suggestDetail, detailCmd = m.suggestDetail.Update(msg)
+			if detailCmd != nil {
+				cmds = append(cmds, detailCmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case SuggestLaunchMsg:
+		// Switch to Pipelines view and launch the suggested pipeline
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		launchCmd := func() tea.Msg {
+			return LaunchRequestMsg{Config: LaunchConfig{
+				PipelineName: msg.Pipeline.Name,
+				Input:        msg.Pipeline.Input,
+			}}
+		}
+		viewCmd := func() tea.Msg {
+			return ViewChangedMsg{View: ViewPipelines}
+		}
+		focusCmd := func() tea.Msg {
+			return FocusChangedMsg{Pane: FocusPaneLeft}
+		}
+		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
+
 	case HealthCheckResultMsg:
 		if m.healthList != nil {
 			var listCmd tea.Cmd
@@ -1031,6 +1106,13 @@ func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
 		if m.issueDetail != nil {
 			m.issueDetail.SetFocused(true)
 		}
+	case ViewSuggest:
+		if m.suggestList != nil {
+			m.suggestList.SetFocused(false)
+		}
+		if m.suggestDetail != nil {
+			m.suggestDetail.SetFocused(true)
+		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
@@ -1076,6 +1158,13 @@ func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
 		if m.issueDetail != nil {
 			m.issueDetail.SetFocused(false)
 		}
+	case ViewSuggest:
+		if m.suggestList != nil {
+			m.suggestList.SetFocused(true)
+		}
+		if m.suggestDetail != nil {
+			m.suggestDetail.SetFocused(false)
+		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
@@ -1118,6 +1207,12 @@ func (m ContentModel) routeToActiveList(msg tea.Msg) (ContentModel, tea.Cmd) {
 			*m.issueList, cmd = m.issueList.Update(msg)
 			return m, cmd
 		}
+	case ViewSuggest:
+		if m.suggestList != nil {
+			var cmd tea.Cmd
+			*m.suggestList, cmd = m.suggestList.Update(msg)
+			return m, cmd
+		}
 	}
 	return m, nil
 }
@@ -1157,6 +1252,12 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.issueDetail != nil {
 			var cmd tea.Cmd
 			*m.issueDetail, cmd = m.issueDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewSuggest:
+		if m.suggestDetail != nil {
+			var cmd tea.Cmd
+			*m.suggestDetail, cmd = m.suggestDetail.Update(msg)
 			return m, cmd
 		}
 	}
@@ -1248,6 +1349,18 @@ func (m ContentModel) View() string {
 			rightView = m.issueDetail.View()
 		} else {
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select an issue to view details")
+		}
+
+	case ViewSuggest:
+		if m.suggestList != nil {
+			leftView = m.suggestList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "No suggest provider configured")
+		}
+		if m.suggestDetail != nil {
+			rightView = m.suggestDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a suggestion to view details")
 		}
 	}
 
