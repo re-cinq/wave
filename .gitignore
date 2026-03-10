@@ -11,6 +11,7 @@
 .wave/artifacts/
 .wave/output/
 .wave/chat/
+.wave/logs/
 .wave/wave.db*
 
 # Claude Code local config (persona-generated, not committed)
