@@ -12,7 +12,7 @@ Reference for all environment variables that control Wave behavior, and the cred
 | `WAVE_AUTO_MIGRATE` | `bool` | `true` | Automatically apply pending migrations on startup. |
 | `WAVE_SKIP_MIGRATION_VALIDATION` | `bool` | `false` | Skip migration checksum validation (development only). |
 | `WAVE_MAX_MIGRATION_VERSION` | `int` | `0` | Limit migrations to this version (0 = unlimited). Useful for gradual rollout. |
-| `NO_COLOR` | `bool` | `false` | Disable colored output. Follows the [NO_COLOR](https://no-color.org) standard. |
+| `NO_COLOR` | `string` | _(unset)_ | Disable colored output. Any non-empty value disables color. Follows the [NO_COLOR](https://no-color.org) standard. |
 
 ### Precedence Order
 
@@ -23,6 +23,14 @@ Configuration values are resolved in this order (highest priority first):
 3. Manifest values (`wave.yaml`)
 4. Built-in defaults
 
+### Default Step Timeout
+
+The default step timeout depends on context:
+- **wave.yaml manifest**: `default_timeout_minutes: 90` (90 minutes)
+- **Onboarding wizard** (`wave init`): defaults to 30 minutes if not specified
+
+The manifest value takes precedence once configured.
+
 ## Display & Terminal Variables
 
 These variables influence Wave's terminal display behavior:
@@ -32,8 +40,8 @@ These variables influence Wave's terminal display behavior:
 | `COLUMNS` | `int` | _(auto)_ | Override terminal width detection. |
 | `LINES` | `int` | _(auto)_ | Override terminal height detection. |
 | `COLORTERM` | `string` | _(auto)_ | Color support hint. `truecolor` or `24bit` enables 24-bit color. |
-| `NO_UNICODE` | `bool` | `false` | Disable Unicode characters in output. Falls back to ASCII. |
-| `NERD_FONT` | `bool` | `false` | Enable Nerd Font icons in deliverable output. |
+| `NO_UNICODE` | `string` | `""` | Disable Unicode characters in output. Any non-empty value enables ASCII fallback. |
+| `NERD_FONT` | `string` | `""` | Enable Nerd Font icons in deliverable output. Set to `"1"` to enable. Also auto-detected for kitty, alacritty, and JetBrains terminals. |
 
 ## CI/CD Detection Variables
 
@@ -91,13 +99,16 @@ The Claude adapter constructs a curated environment for each subprocess. Only ba
 
 Audit logs automatically redact values for environment variables matching these patterns:
 
-| Pattern | Examples |
+| Pattern (regex) | Examples |
 |---------|----------|
-| `*_KEY` | `ANTHROPIC_API_KEY`, `AWS_ACCESS_KEY` |
-| `*_TOKEN` | `GITHUB_TOKEN`, `NPM_TOKEN` |
-| `*_SECRET` | `AWS_SECRET_ACCESS_KEY`, `JWT_SECRET` |
-| `*_PASSWORD` | `DATABASE_PASSWORD`, `SMTP_PASSWORD` |
-| `*_CREDENTIAL*` | `GCP_CREDENTIAL_FILE` |
+| `API[_-]?KEY` | `ANTHROPIC_API_KEY`, `OPENAI_APIKEY` |
+| `TOKEN` | `GITHUB_TOKEN`, `NPM_TOKEN` |
+| `SECRET` | `AWS_SECRET_ACCESS_KEY`, `JWT_SECRET` |
+| `PASSWORD` | `DATABASE_PASSWORD`, `SMTP_PASSWORD` |
+| `CREDENTIAL` | `GCP_CREDENTIAL_FILE` |
+| `AUTH` | `BASIC_AUTH`, `AUTH_TOKEN` |
+| `PRIVATE[_-]?KEY` | `SSH_PRIVATE_KEY` |
+| `ACCESS[_-]?KEY` | `AWS_ACCESS_KEY` |
 
 Redacted values appear as `[REDACTED]` in audit logs.
 

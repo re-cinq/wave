@@ -139,7 +139,7 @@ Use "wave [command] --help" for more information about a command.
 | Command | Description |
 |---------|-------------|
 | `wave init` | Initialize project with personas and pipelines |
-| `wave run --pipeline <name>` | Execute a pipeline |
+| `wave run <pipeline>` | Execute a pipeline |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
 | `wave meta "<task>"` | Generate custom multi-step pipeline with schemas |
 | `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
@@ -299,10 +299,10 @@ wave clean --all --keep-last 5
 personas:
   navigator:
     adapter: claude
-    temperature: 0.1
+    #temperature: 0.3
     permissions:
-      allowed_tools: [Read, Glob, Grep]
-      deny: [Write(*), Edit(*)]
+      allowed_tools: [Read, Glob, Grep, "Bash(git log*)", "Bash(git status*)"]
+      deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 ```
 
 **30 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
@@ -323,7 +323,7 @@ steps:
     dependencies: [implement]
 ```
 
-**42 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**47 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -335,13 +335,14 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 42 built-in pipelines:
+A selection of the 47 built-in pipelines:
 
 ### Development
 
 | Pipeline | Description |
 |----------|-------------|
 | `speckit-flow` | Specification-driven feature development |
+| `feature` | Feature planning and implementation |
 | `hotfix` | Quick investigation and fix for production issues |
 | `refactor` | Safe refactoring with comprehensive test coverage |
 | `prototype` | Prototype-driven development (spec → docs → dummy → implement → pr) |
@@ -360,15 +361,17 @@ A selection of the 42 built-in pipelines:
 |----------|-------------|
 | `plan` | Break down a feature into actionable tasks |
 | `doc-fix` | Generate or update documentation |
+| `doc-audit` | Documentation consistency gate |
 
 ### GitHub Automation
 
 | Pipeline | Description |
 |----------|-------------|
-| `github-issue-enhancer` | Analyze and enhance poorly documented issues |
-| `doc-audit` | Documentation impact analysis before merge |
+| `gh-implement` | Implement a GitHub issue end-to-end |
+| `gh-scope` | Decompose epics into child issues |
+| `gh-research` | Research and report on issues |
 
-> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `adr`, `changelog`, `feature`, `recinq`, `supervise`, plus `bb-*` (Bitbucket), `gl-*` (GitLab), and `gt-*` (Gitea) platform variants
+> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `changelog`, `adr`, `wave-land`, `recinq`, `supervise`, plus platform variants for GitHub (gh-\*), GitLab (gl-\*), Gitea (gt-\*), and Bitbucket (bb-\*)
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -378,17 +381,17 @@ A selection of the 42 built-in pipelines:
 
 A selection of the 30 built-in personas:
 
-| Persona | Temp | Purpose | Key Permissions |
-|---------|------|---------|--------------------|
-| `navigator` | 0.1 | Codebase exploration | Read-only |
-| `philosopher` | 0.3 | Architecture & specs | Read + write specs |
-| `planner` | 0.3 | Task breakdown | Read-only |
-| `craftsman` | 0.7 | Implementation | Full access |
-| `debugger` | 0.2 | Root cause analysis | Read + git bisect |
-| `auditor` | 0.1 | Security review | Read + audit tools |
-| `summarizer` | 0.0 | Context compaction | Read-only |
+| Persona | Purpose | Key Permissions |
+|---------|---------|-----------------|
+| `navigator` | Codebase exploration | Read, Glob, Grep, git log/status |
+| `philosopher` | Architecture & specs | Read, Write, Edit, Bash, Glob, Grep |
+| `planner` | Task breakdown | Read, Write, Edit, Bash, Glob, Grep |
+| `craftsman` | Implementation | Read, Write, Edit, Bash |
+| `debugger` | Root cause analysis | Read, Grep, Glob, go test, git log/diff/bisect |
+| `auditor` | Security review | Read, Grep, go vet, npm audit |
+| `summarizer` | Context compaction | Read, Write, Edit, Bash, Glob, Grep |
 
-> **More personas:** `implementer`, `researcher`, `reviewer`, `provocateur`, `supervisor`, `synthesizer`, `validator`, `github-analyst`, `github-commenter`, `github-enhancer`, `github-scoper`, plus `bitbucket-*`, `gitea-*`, and `gitlab-*` platform variants
+> **More personas:** `implementer`, `researcher`, `reviewer`, `supervisor`, `validator`, `synthesizer`, `provocateur`, plus platform-specific personas for GitHub, GitLab, Gitea, and Bitbucket
 >
 > Explore all in [`.wave/personas/`](.wave/personas/)
 
@@ -459,8 +462,8 @@ Persona permissions from `wave.yaml` are projected into Claude Code's `settings.
 personas:
   navigator:
     permissions:
-      allowed_tools: [Read, Glob, Grep]
-      deny: [Write(*), Edit(*)]
+      allowed_tools: [Read, Glob, Grep, "Bash(git log*)", "Bash(git status*)"]
+      deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
     sandbox:
       allowed_domains: [api.anthropic.com]
 
