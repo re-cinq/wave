@@ -82,7 +82,7 @@ func ClassifyFailure(subtype string, resultContent string, ctxErr error) string 
 func remediationFor(reason string) string {
 	switch reason {
 	case FailureReasonTimeout:
-		return "Consider increasing the step timeout with --timeout or breaking the task into smaller steps."
+		return "Consider increasing the step timeout with timeout_minutes in the pipeline YAML, --timeout on the CLI, or breaking the task into smaller steps."
 	case FailureReasonContextExhaustion:
 		return "The context window was exhausted. Consider breaking the task into smaller steps or adjusting relay compaction thresholds (relay.token_threshold_percent)."
 	case FailureReasonRateLimit:

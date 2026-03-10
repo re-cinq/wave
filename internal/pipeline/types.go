@@ -128,6 +128,7 @@ type Step struct {
 	ID              string           `yaml:"id"`
 	Persona         string           `yaml:"persona"`
 	Dependencies    []string         `yaml:"dependencies,omitempty"`
+	TimeoutMinutes  int              `yaml:"timeout_minutes,omitempty"`
 	Memory          MemoryConfig     `yaml:"memory"`
 	Workspace       WorkspaceConfig  `yaml:"workspace"`
 	Exec            ExecConfig       `yaml:"exec"`
@@ -137,6 +138,15 @@ type Step struct {
 	Retry           RetryConfig      `yaml:"retry,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
+}
+
+// GetTimeout returns the step-level timeout duration.
+// Returns zero if no step-level timeout is configured.
+func (s *Step) GetTimeout() time.Duration {
+	if s.TimeoutMinutes > 0 {
+		return time.Duration(s.TimeoutMinutes) * time.Minute
+	}
+	return 0
 }
 
 type MemoryConfig struct {

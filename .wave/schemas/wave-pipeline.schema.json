@@ -158,6 +158,11 @@
           },
           "description": "Step IDs that must complete before this step runs"
         },
+        "timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Per-step timeout in minutes. Overrides CLI --timeout and runtime.default_timeout_minutes."
+        },
         "memory": {
           "$ref": "#/definitions/MemoryConfig"
         },

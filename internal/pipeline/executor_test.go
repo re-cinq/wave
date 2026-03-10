@@ -3502,3 +3502,252 @@ func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
 	assert.Contains(t, configs[1].Prompt, "contract validation failed: missing field")
 	assert.Contains(t, configs[1].Prompt, "implement the feature")
 }
+
+// TestStepTimeoutMinutes_OverridesManifestDefault verifies that step-level timeout_minutes
+// takes precedence over runtime.default_timeout_minutes from the manifest.
+func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 10 // manifest says 10 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-test"},
+		Steps: []Step{
+			{
+				ID:             "long-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 90, // step says 90 minutes
+				Exec:           ExecConfig{Source: "implement feature"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 90*time.Minute, cfg.Timeout,
+		"step-level timeout_minutes should override manifest default_timeout_minutes")
+}
+
+// TestStepTimeoutMinutes_OverridesCLITimeout verifies that step-level timeout_minutes
+// takes precedence over the CLI --timeout flag.
+func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter,
+		WithStepTimeout(15*time.Minute), // CLI says 15 minutes
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-cli-test"},
+		Steps: []Step{
+			{
+				ID:             "override-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 60, // step says 60 minutes — wins
+				Exec:           ExecConfig{Source: "do work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 60*time.Minute, cfg.Timeout,
+		"step-level timeout_minutes should override CLI --timeout flag")
+}
+
+// TestStepTimeoutMinutes_FallsBackToCLIWhenUnset verifies that when no step-level
+// timeout is configured, the CLI --timeout flag is used.
+func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter,
+		WithStepTimeout(20*time.Minute), // CLI says 20 minutes
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-fallback-test"},
+		Steps: []Step{
+			{
+				ID:      "default-step",
+				Persona: "navigator",
+				// No timeout_minutes set
+				Exec: ExecConfig{Source: "quick task"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 20*time.Minute, cfg.Timeout,
+		"when no step-level timeout, CLI --timeout should be used")
+}
+
+// TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI verifies that when neither
+// step-level timeout nor CLI --timeout is set, the manifest default is used.
+func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 8 // manifest says 8 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-manifest-test"},
+		Steps: []Step{
+			{
+				ID:      "manifest-step",
+				Persona: "navigator",
+				// No timeout_minutes, no CLI override
+				Exec: ExecConfig{Source: "default task"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 8*time.Minute, cfg.Timeout,
+		"when no step-level or CLI timeout, manifest default should be used")
+}
+
+// TestStepTimeoutMinutes_PerStepDifferentTimeouts verifies that different steps
+// in the same pipeline can have different timeouts.
+func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
+	var mu sync.Mutex
+	configs := make(map[string]adapter.AdapterRunConfig)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	// Custom adapter that captures configs per step
+	wrappedAdapter := &perStepCapturingAdapter{
+		MockAdapter: mockAdapter,
+		configs:     configs,
+		mu:          &mu,
+	}
+
+	executor := NewDefaultPipelineExecutor(wrappedAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 10
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "multi-timeout-test"},
+		Steps: []Step{
+			{
+				ID:             "quick-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 5,
+				Exec:           ExecConfig{Source: "quick"},
+			},
+			{
+				ID:             "long-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 90,
+				Dependencies:   []string{"quick-step"},
+				Exec:           ExecConfig{Source: "long"},
+			},
+			{
+				ID:           "default-step",
+				Persona:      "navigator",
+				Dependencies: []string{"long-step"},
+				Exec:         ExecConfig{Source: "default"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	assert.Equal(t, 5*time.Minute, configs["quick-step"].Timeout,
+		"quick-step should use its step-level timeout")
+	assert.Equal(t, 90*time.Minute, configs["long-step"].Timeout,
+		"long-step should use its step-level timeout")
+	assert.Equal(t, 10*time.Minute, configs["default-step"].Timeout,
+		"default-step should fall back to manifest default")
+}
+
+// perStepCapturingAdapter captures AdapterRunConfig per step based on prompt content.
+type perStepCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      *sync.Mutex
+	configs map[string]adapter.AdapterRunConfig
+}
+
+func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	// Use the Persona field to identify step — but that's the same for all.
+	// Instead, use Prompt which matches exec.source.
+	switch {
+	case strings.Contains(cfg.Prompt, "quick"):
+		a.configs["quick-step"] = cfg
+	case strings.Contains(cfg.Prompt, "long"):
+		a.configs["long-step"] = cfg
+	case strings.Contains(cfg.Prompt, "default"):
+		a.configs["default-step"] = cfg
+	}
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
