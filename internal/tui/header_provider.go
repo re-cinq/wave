@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -140,29 +141,11 @@ func (p *DefaultMetadataProvider) FetchPipelineHealth() (HealthStatus, error) {
 }
 
 // detectRepoFromGitRemote extracts owner/repo from the origin remote URL.
-// Supports both SSH (git@github.com:owner/repo.git) and HTTPS formats.
+// Delegates to the forge package for URL parsing.
 func detectRepoFromGitRemote() string {
-	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	fi, err := forge.DetectFromGitRemotes()
 	if err != nil {
 		return ""
 	}
-	url := strings.TrimSpace(string(out))
-
-	// SSH format: git@github.com:owner/repo.git
-	if strings.Contains(url, ":") && strings.Contains(url, "@") {
-		parts := strings.SplitN(url, ":", 2)
-		if len(parts) == 2 {
-			slug := strings.TrimSuffix(parts[1], ".git")
-			return slug
-		}
-	}
-
-	// HTTPS format: https://github.com/owner/repo.git
-	url = strings.TrimSuffix(url, ".git")
-	parts := strings.Split(url, "/")
-	if len(parts) >= 2 {
-		return parts[len(parts)-2] + "/" + parts[len(parts)-1]
-	}
-
-	return ""
+	return fi.Slug()
 }

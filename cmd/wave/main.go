@@ -5,9 +5,13 @@ import (
 	"os"
 	"strings"
 
+	"context"
+
 	"github.com/recinq/wave/cmd/wave/commands"
+	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -78,6 +82,39 @@ var rootCmd = &cobra.Command{
 			// Determine pipelines directory (default .wave/pipelines)
 			deps.PipelinesDir = ".wave/pipelines"
 
+			// Wire suggest provider (constructed here to avoid import cycle tui→doctor→onboarding→tui)
+			pipelinesDir := deps.PipelinesDir
+			deps.SuggestProvider = &tui.FuncSuggestDataProvider{
+				Fn: func() (*tui.SuggestProposal, error) {
+					report, err := doctor.RunChecks(context.Background(), doctor.Options{
+						PipelinesDir: pipelinesDir,
+						SkipCodebase: false,
+					})
+					if err != nil {
+						return nil, err
+					}
+					proposal, err := suggest.Suggest(suggest.EngineOptions{
+						Report:       report,
+						PipelinesDir: pipelinesDir,
+						Limit:        10,
+					})
+					if err != nil {
+						return nil, err
+					}
+					// Convert suggest types to TUI types to avoid import cycle
+					result := &tui.SuggestProposal{Rationale: proposal.Rationale}
+					for _, p := range proposal.Pipelines {
+						result.Pipelines = append(result.Pipelines, tui.SuggestProposedPipeline{
+							Name:     p.Name,
+							Reason:   p.Reason,
+							Input:    p.Input,
+							Priority: p.Priority,
+						})
+					}
+					return result, nil
+				},
+			}
+
 			return tui.RunTUI(deps)
 		}
 		return cmd.Help()
@@ -111,6 +148,8 @@ func init() {
 	rootCmd.AddCommand(commands.NewServeCmd())
 	rootCmd.AddCommand(commands.NewChatCmd())
 	rootCmd.AddCommand(commands.NewComposeCmd())
+	rootCmd.AddCommand(commands.NewDoctorCmd())
+	rootCmd.AddCommand(commands.NewSuggestCmd())
 }
 
 // shouldLaunchTUI determines whether to launch the Bubble Tea TUI.

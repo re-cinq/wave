@@ -3,11 +3,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"golang.org/x/sync/errgroup"
 )
 
 // SequenceResult holds the outcome of a sequence execution.
@@ -146,6 +148,174 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 	})
 
 	return result, nil
+}
+
+// Stage groups pipelines that can run together.
+type Stage struct {
+	Pipelines []*Pipeline
+	Parallel  bool
+}
+
+// ExecutionPlan is an ordered list of stages.
+type ExecutionPlan struct {
+	Stages   []Stage
+	FailFast bool // stop on first failure (default true)
+}
+
+// ExecutePlan runs an execution plan with support for parallel stages.
+// Sequential stages run pipelines one after another (same as Execute).
+// Parallel stages run all pipelines concurrently using errgroup.
+func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, m *manifest.Manifest, input string) (*SequenceResult, error) {
+	result := &SequenceResult{}
+
+	totalPipelines := 0
+	for _, stage := range plan.Stages {
+		totalPipelines += len(stage.Pipelines)
+	}
+	if totalPipelines == 0 {
+		return result, nil
+	}
+
+	s.emit(event.Event{
+		Timestamp: time.Now(),
+		State:     event.StateSequenceStarted,
+		Message:   fmt.Sprintf("Starting execution plan: %d stages, %d pipelines", len(plan.Stages), totalPipelines),
+	})
+
+	for stageIdx, stage := range plan.Stages {
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		default:
+		}
+
+		if stage.Parallel && len(stage.Pipelines) > 1 {
+			stageResults, err := s.executeParallelStage(ctx, stage, stageIdx, m, input, plan.FailFast)
+			result.PipelineResults = append(result.PipelineResults, stageResults...)
+			for _, pr := range stageResults {
+				result.TotalTokens += pr.TokensUsed
+			}
+			if err != nil {
+				return result, err
+			}
+		} else {
+			for _, p := range stage.Pipelines {
+				pr, err := s.executeSinglePipeline(ctx, p, m, input)
+				result.PipelineResults = append(result.PipelineResults, pr)
+				result.TotalTokens += pr.TokensUsed
+				if err != nil && plan.FailFast {
+					s.emit(event.Event{
+						Timestamp:     time.Now(),
+						State:         event.StateSequenceFailed,
+						PipelineID:    p.Metadata.Name,
+						Message:       fmt.Sprintf("Plan stopped: %s failed", p.Metadata.Name),
+						FailureReason: "pipeline_failed",
+					})
+					return result, err
+				}
+			}
+		}
+	}
+
+	s.emit(event.Event{
+		Timestamp: time.Now(),
+		State:     event.StateSequenceCompleted,
+		Message:   fmt.Sprintf("Plan completed: %d pipelines, %d total tokens", len(result.PipelineResults), result.TotalTokens),
+	})
+
+	return result, nil
+}
+
+// executeParallelStage runs all pipelines in a stage concurrently.
+func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage, stageIdx int, m *manifest.Manifest, input string, failFast bool) ([]PipelineResult, error) {
+	names := make([]string, len(stage.Pipelines))
+	for i, p := range stage.Pipelines {
+		names[i] = p.Metadata.Name
+	}
+
+	s.emit(event.Event{
+		Timestamp: time.Now(),
+		State:     event.StateParallelStageStarted,
+		Message:   fmt.Sprintf("Parallel stage %d: %d pipelines", stageIdx+1, len(stage.Pipelines)),
+	})
+
+	var mu sync.Mutex
+	results := make([]PipelineResult, len(stage.Pipelines))
+
+	g, gctx := errgroup.WithContext(ctx)
+	for i, p := range stage.Pipelines {
+		g.Go(func() error {
+			pr, err := s.executeSinglePipeline(gctx, p, m, input)
+			mu.Lock()
+			results[i] = pr
+			mu.Unlock()
+			if err != nil && failFast {
+				return err
+			}
+			return nil
+		})
+	}
+
+	err := g.Wait()
+
+	s.emit(event.Event{
+		Timestamp: time.Now(),
+		State:     event.StateParallelStageCompleted,
+		Message:   fmt.Sprintf("Parallel stage %d completed", stageIdx+1),
+	})
+
+	return results, err
+}
+
+// executeSinglePipeline runs one pipeline and returns its result.
+func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) (PipelineResult, error) {
+	pipelineName := p.Metadata.Name
+
+	s.emit(event.Event{
+		Timestamp:  time.Now(),
+		State:      event.StateSequenceProgress,
+		PipelineID: pipelineName,
+		Message:    fmt.Sprintf("Starting pipeline: %s", pipelineName),
+	})
+
+	opts := make([]ExecutorOption, len(s.baseOpts))
+	copy(opts, s.baseOpts)
+
+	runID := GenerateRunID(pipelineName, 8)
+	if s.store != nil {
+		if storeRunID, err := s.store.CreateRun(pipelineName, input); err == nil {
+			runID = storeRunID
+		}
+	}
+	opts = append(opts, WithRunID(runID))
+	if s.emitter != nil {
+		opts = append(opts, WithEmitter(s.emitter))
+	}
+	if s.store != nil {
+		opts = append(opts, WithStateStore(s.store))
+	}
+
+	executor := s.newExecutor(opts...)
+
+	startTime := time.Now()
+	execErr := executor.Execute(ctx, p, m, input)
+	duration := time.Since(startTime)
+
+	pr := PipelineResult{
+		PipelineName: pipelineName,
+		RunID:        runID,
+		TokensUsed:   executor.GetTotalTokens(),
+		Duration:     duration,
+	}
+
+	if execErr != nil {
+		pr.Status = "failed"
+		pr.Error = execErr
+		return pr, execErr
+	}
+
+	pr.Status = "completed"
+	return pr, nil
 }
 
 func (s *SequenceExecutor) emit(ev event.Event) {

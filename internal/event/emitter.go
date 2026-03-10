@@ -106,6 +106,10 @@ const (
 	StateSequenceProgress  = "sequence_progress"  // Individual pipeline within sequence starting
 	StateSequenceCompleted = "sequence_completed" // All pipelines in sequence completed
 	StateSequenceFailed    = "sequence_failed"    // Sequence stopped due to pipeline failure
+
+	// Parallel execution states
+	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
+	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
 )
 
 type EventEmitter interface {

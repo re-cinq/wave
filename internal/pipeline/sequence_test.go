@@ -266,3 +266,112 @@ func TestSequenceExecutor_ResultTracksTokens(t *testing.T) {
 	// Verify the sequence completed event mentions token count
 	assert.True(t, collector.HasEventWithState(event.StateSequenceCompleted))
 }
+
+func TestSequenceExecutor_ExecutePlan_Sequential(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		newSequenceTestExecutorFactory(mockAdapter),
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{
+		Stages: []Stage{
+			{Pipelines: []*Pipeline{newMinimalPipeline("a")}, Parallel: false},
+			{Pipelines: []*Pipeline{newMinimalPipeline("b")}, Parallel: false},
+		},
+		FailFast: true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "plan test")
+	require.NoError(t, err)
+	require.Len(t, result.PipelineResults, 2)
+	assert.Equal(t, "a", result.PipelineResults[0].PipelineName)
+	assert.Equal(t, "b", result.PipelineResults[1].PipelineName)
+	assert.True(t, collector.HasEventWithState(event.StateSequenceCompleted))
+}
+
+func TestSequenceExecutor_ExecutePlan_Parallel(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(200),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		newSequenceTestExecutorFactory(mockAdapter),
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{
+		Stages: []Stage{
+			{
+				Pipelines: []*Pipeline{
+					newMinimalPipeline("p1"),
+					newMinimalPipeline("p2"),
+				},
+				Parallel: true,
+			},
+			{Pipelines: []*Pipeline{newMinimalPipeline("p3")}, Parallel: false},
+		},
+		FailFast: true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "parallel test")
+	require.NoError(t, err)
+	require.Len(t, result.PipelineResults, 3)
+
+	// All should be completed
+	for _, pr := range result.PipelineResults {
+		assert.Equal(t, "completed", pr.Status)
+	}
+
+	// Parallel stage events should be emitted
+	assert.True(t, collector.HasEventWithState(event.StateParallelStageStarted))
+	assert.True(t, collector.HasEventWithState(event.StateParallelStageCompleted))
+	assert.True(t, collector.HasEventWithState(event.StateSequenceCompleted))
+}
+
+func TestSequenceExecutor_ExecutePlan_Empty(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter()
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		newSequenceTestExecutorFactory(mockAdapter),
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "empty plan")
+	require.NoError(t, err)
+	assert.Empty(t, result.PipelineResults)
+}

@@ -10,6 +10,7 @@ const (
 	ViewSkills
 	ViewHealth
 	ViewIssues
+	ViewSuggest
 )
 
 // String returns the display name for the view (used as status bar label).
@@ -27,6 +28,8 @@ func (v ViewType) String() string {
 		return "Health"
 	case ViewIssues:
 		return "Issues"
+	case ViewSuggest:
+		return "Suggest"
 	default:
 		return "Unknown"
 	}

@@ -154,12 +154,18 @@ func RunTUI(deps LaunchDependencies) error {
 	if repoSlug == "" {
 		repoSlug = detectRepoFromGitRemote()
 	}
+	var ghClient *github.Client
 	if repoSlug != "" {
 		token := resolveGitHubToken()
 		if token != "" {
-			ghClient := github.NewClient(github.ClientConfig{Token: token})
+			ghClient = github.NewClient(github.ClientConfig{Token: token})
 			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, repoSlug)
 		}
+	}
+
+	// SuggestProvider is wired externally to avoid import cycles (tui → doctor → onboarding → tui).
+	if deps.SuggestProvider != nil {
+		cp.SuggestProvider = deps.SuggestProvider
 	}
 
 	// Build pipeline and detail providers from dependencies
