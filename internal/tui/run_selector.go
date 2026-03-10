@@ -24,12 +24,12 @@ type Flag struct {
 // DefaultFlags returns the flags presented in the interactive selector.
 func DefaultFlags() []Flag {
 	return []Flag{
-		{Name: "--verbose", Description: "Real-time tool activity"},
-		{Name: "--output json", Description: "JSON output format"},
-		{Name: "--output text", Description: "Plain text output"},
-		{Name: "--dry-run", Description: "Preview without executing"},
+		{Name: "--verbose", Description: "Verbose output"},
+		{Name: "--debug", Description: "Debug output"},
+		{Name: "--output text", Description: "Show only pipeline output"},
+		{Name: "--output json", Description: "Machine-readable JSON output"},
+		{Name: "--dry-run", Description: "Show what would run"},
 		{Name: "--mock", Description: "Use mock adapter"},
-		{Name: "--debug", Description: "Debug logging"},
 	}
 }
 

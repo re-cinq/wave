@@ -150,7 +150,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the created sub-issues and post a summary comment on the epic.
+        Verify the created sub-issues and compile a verification report.
 
         Input: {{ input }}
         Parse the repo (first token) and epic number (second token).

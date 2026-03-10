@@ -9,12 +9,15 @@ import (
 
 // StatusBarModel is the bottom status bar component.
 type StatusBarModel struct {
-	width            int
-	contextLabel     string
-	focusPane        FocusPane
-	formActive       bool
-	liveOutputActive bool
+	width                int
+	contextLabel         string
+	focusPane            FocusPane
+	formActive           bool
+	composeActive        bool
+	liveOutputActive     bool
 	finishedDetailActive bool
+	runningInfoActive    bool
+	currentView          ViewType
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -36,10 +39,16 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		m.focusPane = msg.Pane
 	case FormActiveMsg:
 		m.formActive = msg.Active
+	case ComposeActiveMsg:
+		m.composeActive = msg.Active
 	case FinishedDetailActiveMsg:
 		m.finishedDetailActive = msg.Active
 	case LiveOutputActiveMsg:
 		m.liveOutputActive = msg.Active
+	case RunningInfoActiveMsg:
+		m.runningInfoActive = msg.Active
+	case ViewChangedMsg:
+		m.currentView = msg.View
 	}
 	return m, nil
 }
@@ -58,19 +67,33 @@ func (m StatusBarModel) View() string {
 		Background(bg).
 		PaddingRight(1)
 
-	label := labelStyle.Render(m.contextLabel)
+	viewLabel := m.contextLabel
+	if m.currentView > 0 {
+		viewLabel = m.currentView.String()
+	}
+	label := labelStyle.Render(viewLabel)
 
 	var hintsText string
 	if m.formActive && m.focusPane == FocusPaneRight {
 		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
+	} else if m.composeActive {
+		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
-		hintsText = "v: verbose  d: debug  o: output-only  ↑↓: scroll  Esc: back"
+		hintsText = "v: verbose  d: debug  o: output-only  c: cancel  ↑↓: scroll  Esc: back"
+	} else if m.runningInfoActive && m.focusPane == FocusPaneRight {
+		hintsText = "c: dismiss  l: logs  ↑↓: scroll  Esc: back"
 	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
-		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [Esc] Back"
+		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [l] Logs  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
+	} else if m.currentView == ViewHealth {
+		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
+	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneLeft {
+		hintsText = "↑↓: navigate  Enter: view  /: filter  Tab/Shift+Tab: views  q: quit"
+	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneRight {
+		hintsText = "Enter: launch pipeline  ↑↓: scroll  Esc: back"
 	} else {
-		hintsText = "↑↓: navigate  Enter: view  /: filter  q: quit  ctrl+c: exit"
+		hintsText = "↑↓: navigate  Enter: view  /: filter  s: compose  c: cancel  Tab/Shift+Tab: views  q: quit"
 	}
 	hints := hintsStyle.Render(hintsText)
 

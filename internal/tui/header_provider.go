@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -83,6 +84,11 @@ func (p *DefaultMetadataProvider) FetchManifestInfo() (ManifestInfo, error) {
 		info.ProjectName = "[no project]"
 	}
 
+	// Auto-detect repo slug from git remote if not set in manifest
+	if info.RepoName == "" {
+		info.RepoName = detectRepoFromGitRemote()
+	}
+
 	return info, nil
 }
 
@@ -132,4 +138,14 @@ func (p *DefaultMetadataProvider) FetchPipelineHealth() (HealthStatus, error) {
 		return p.HealthCheckFunc()
 	}
 	return HealthOK, nil
+}
+
+// detectRepoFromGitRemote extracts owner/repo from the origin remote URL.
+// Delegates to the forge package for URL parsing.
+func detectRepoFromGitRemote() string {
+	fi, err := forge.DetectFromGitRemotes()
+	if err != nil {
+		return ""
+	}
+	return fi.Slug()
 }

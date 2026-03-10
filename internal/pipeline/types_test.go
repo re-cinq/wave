@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -394,6 +395,88 @@ func TestOutcomeDef_JSONPathLabel_YAMLParsing(t *testing.T) {
 			}
 			if def.JSONPathLabel != tt.wantJSONPathLabel {
 				t.Errorf("JSONPathLabel = %q, want %q", def.JSONPathLabel, tt.wantJSONPathLabel)
+			}
+		})
+	}
+}
+
+func TestStep_TimeoutMinutes_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name               string
+		yaml               string
+		wantTimeoutMinutes int
+	}{
+		{
+			name:               "timeout_minutes set to 90",
+			yaml:               "id: implement\npersona: craftsman\ntimeout_minutes: 90\nexec:\n  type: prompt\n  source: \"do work\"\n",
+			wantTimeoutMinutes: 90,
+		},
+		{
+			name:               "timeout_minutes omitted defaults to zero",
+			yaml:               "id: specify\npersona: navigator\nexec:\n  type: prompt\n  source: \"analyze\"\n",
+			wantTimeoutMinutes: 0,
+		},
+		{
+			name:               "timeout_minutes set to 5",
+			yaml:               "id: quick-step\npersona: navigator\ntimeout_minutes: 5\nexec:\n  type: prompt\n  source: \"quick task\"\n",
+			wantTimeoutMinutes: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var step Step
+			err := yaml.Unmarshal([]byte(tt.yaml), &step)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+
+			if step.TimeoutMinutes != tt.wantTimeoutMinutes {
+				t.Errorf("TimeoutMinutes = %d, want %d", step.TimeoutMinutes, tt.wantTimeoutMinutes)
+			}
+		})
+	}
+}
+
+func TestStep_GetTimeout(t *testing.T) {
+	tests := []struct {
+		name           string
+		timeoutMinutes int
+		wantDuration   time.Duration
+	}{
+		{
+			name:           "zero returns zero duration",
+			timeoutMinutes: 0,
+			wantDuration:   0,
+		},
+		{
+			name:           "positive value returns minutes duration",
+			timeoutMinutes: 30,
+			wantDuration:   30 * time.Minute,
+		},
+		{
+			name:           "one minute",
+			timeoutMinutes: 1,
+			wantDuration:   1 * time.Minute,
+		},
+		{
+			name:           "large value",
+			timeoutMinutes: 120,
+			wantDuration:   120 * time.Minute,
+		},
+		{
+			name:           "negative value returns zero",
+			timeoutMinutes: -5,
+			wantDuration:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step := &Step{TimeoutMinutes: tt.timeoutMinutes}
+			got := step.GetTimeout()
+			if got != tt.wantDuration {
+				t.Errorf("GetTimeout() = %v, want %v", got, tt.wantDuration)
 			}
 		})
 	}

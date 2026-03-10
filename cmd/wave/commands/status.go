@@ -43,14 +43,14 @@ type StatusRunInfo struct {
 	Error       string `json:"error,omitempty"`
 }
 
-// ANSI color codes for terminal output.
-const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorGray   = "\033[90m"
-)
+// conditionalColor returns the ANSI color code if NO_COLOR is not set,
+// or an empty string when colors are disabled.
+func conditionalColor(code string) string {
+	if os.Getenv("NO_COLOR") != "" {
+		return ""
+	}
+	return code
+}
 
 // NewStatusCmd creates the status command.
 func NewStatusCmd() *cobra.Command {
@@ -75,6 +75,7 @@ Examples:
 			if len(args) > 0 {
 				opts.RunID = args[0]
 			}
+			opts.Format = ResolveFormat(cmd, opts.Format)
 			return runStatus(opts)
 		},
 	}
@@ -95,7 +96,7 @@ func runStatus(opts StatusOptions) error {
 			fmt.Println(`{"runs":[]}`)
 			return nil
 		}
-		fmt.Println("No pipelines found")
+		fmt.Fprintln(os.Stderr, "No pipelines found")
 		return nil
 	}
 
@@ -147,7 +148,7 @@ func showRunDetails(db *sql.DB, opts StatusOptions) error {
 	// Detailed table view for single run
 	fmt.Printf("Run ID:     %s\n", run.RunID)
 	fmt.Printf("Pipeline:   %s\n", run.Pipeline)
-	fmt.Printf("Status:     %s%s%s\n", statusColor(run.Status), run.Status, colorReset)
+	fmt.Printf("Status:     %s%s%s\n", statusColor(run.Status), run.Status, conditionalColor("\033[0m"))
 	if run.CurrentStep != "" {
 		fmt.Printf("Step:       %s\n", run.CurrentStep)
 	}
@@ -184,7 +185,7 @@ func showRunningRuns(db *sql.DB, opts StatusOptions) error {
 			fmt.Println(`{"runs":[]}`)
 			return nil
 		}
-		fmt.Println("No running pipelines")
+		fmt.Fprintln(os.Stderr, "No running pipelines")
 		return nil
 	}
 
@@ -203,7 +204,7 @@ func showAllRuns(db *sql.DB, opts StatusOptions, limit int) error {
 			fmt.Println(`{"runs":[]}`)
 			return nil
 		}
-		fmt.Println("No pipelines found")
+		fmt.Fprintln(os.Stderr, "No pipelines found")
 		return nil
 	}
 
@@ -276,7 +277,7 @@ func outputRuns(runs []StatusRunInfo, opts StatusOptions) error {
 			step = step[:stepWidth-3] + "..."
 		}
 
-		statusColored := fmt.Sprintf("%s%-*s%s", statusColor(run.Status), statusWidth, run.Status, colorReset)
+		statusColored := fmt.Sprintf("%s%-*s%s", statusColor(run.Status), statusWidth, run.Status, conditionalColor("\033[0m"))
 
 		fmt.Printf("%-*s %-*s %s %-*s %-*s %s\n",
 			runIDWidth, runID, pipelineWidth, pipeline, statusColored,
@@ -448,13 +449,13 @@ func scanRuns(rows *sql.Rows) ([]StatusRunInfo, error) {
 func statusColor(status string) string {
 	switch status {
 	case "running":
-		return colorYellow
+		return conditionalColor("\033[33m")
 	case "completed":
-		return colorGreen
+		return conditionalColor("\033[32m")
 	case "failed":
-		return colorRed
+		return conditionalColor("\033[31m")
 	case "cancelled":
-		return colorGray
+		return conditionalColor("\033[90m")
 	default:
 		return ""
 	}

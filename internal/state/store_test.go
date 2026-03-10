@@ -1977,3 +1977,119 @@ func TestListRunsWithTags(t *testing.T) {
 		assert.Empty(t, runs)
 	})
 }
+
+// TestRecordStepAttempt_Success tests inserting and retrieving step attempts.
+func TestRecordStepAttempt_Success(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Create a run first (foreign key constraint)
+	runID, err := store.CreateRun("test-pipeline", "test input")
+	require.NoError(t, err)
+
+	startedAt := time.Now().Truncate(time.Second)
+	completedAt := startedAt.Add(10 * time.Second)
+
+	record := &StepAttemptRecord{
+		RunID:        runID,
+		StepID:       "step-1",
+		Attempt:      1,
+		State:        "failed",
+		ErrorMessage: "contract validation failed",
+		FailureClass: "contract_error",
+		StdoutTail:   "last lines of output",
+		TokensUsed:   500,
+		DurationMs:   10000,
+		StartedAt:    startedAt,
+		CompletedAt:  &completedAt,
+	}
+
+	err = store.RecordStepAttempt(record)
+	require.NoError(t, err)
+
+	// Retrieve and verify
+	attempts, err := store.GetStepAttempts(runID, "step-1")
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+
+	a := attempts[0]
+	assert.Equal(t, runID, a.RunID)
+	assert.Equal(t, "step-1", a.StepID)
+	assert.Equal(t, 1, a.Attempt)
+	assert.Equal(t, "failed", a.State)
+	assert.Equal(t, "contract validation failed", a.ErrorMessage)
+	assert.Equal(t, "contract_error", a.FailureClass)
+	assert.Equal(t, "last lines of output", a.StdoutTail)
+	assert.Equal(t, 500, a.TokensUsed)
+	assert.Equal(t, int64(10000), a.DurationMs)
+	assert.Equal(t, startedAt.Unix(), a.StartedAt.Unix())
+	require.NotNil(t, a.CompletedAt)
+	assert.Equal(t, completedAt.Unix(), a.CompletedAt.Unix())
+}
+
+// TestGetStepAttempts_OrdersByAttempt verifies attempts are returned in order.
+func TestGetStepAttempts_OrdersByAttempt(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("test-pipeline", "test input")
+	require.NoError(t, err)
+
+	now := time.Now().Truncate(time.Second)
+
+	// Insert attempts out of order
+	for _, attempt := range []int{3, 1, 2} {
+		err = store.RecordStepAttempt(&StepAttemptRecord{
+			RunID:     runID,
+			StepID:    "step-1",
+			Attempt:   attempt,
+			State:     "failed",
+			StartedAt: now,
+		})
+		require.NoError(t, err)
+	}
+
+	attempts, err := store.GetStepAttempts(runID, "step-1")
+	require.NoError(t, err)
+	require.Len(t, attempts, 3)
+
+	// Verify ordering
+	assert.Equal(t, 1, attempts[0].Attempt)
+	assert.Equal(t, 2, attempts[1].Attempt)
+	assert.Equal(t, 3, attempts[2].Attempt)
+}
+
+// TestGetStepAttempts_EmptyResult verifies empty result when no attempts exist.
+func TestGetStepAttempts_EmptyResult(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	attempts, err := store.GetStepAttempts("nonexistent-run", "nonexistent-step")
+	require.NoError(t, err)
+	assert.Empty(t, attempts)
+}
+
+// TestRecordStepAttempt_NilCompletedAt verifies handling of nil CompletedAt.
+func TestRecordStepAttempt_NilCompletedAt(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("test-pipeline", "test input")
+	require.NoError(t, err)
+
+	now := time.Now().Truncate(time.Second)
+
+	err = store.RecordStepAttempt(&StepAttemptRecord{
+		RunID:     runID,
+		StepID:    "step-1",
+		Attempt:   1,
+		State:     "running",
+		StartedAt: now,
+	})
+	require.NoError(t, err)
+
+	attempts, err := store.GetStepAttempts(runID, "step-1")
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+	assert.Nil(t, attempts[0].CompletedAt)
+}

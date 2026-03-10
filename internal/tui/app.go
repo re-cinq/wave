@@ -3,6 +3,10 @@ package tui
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/state"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,10 +31,10 @@ type AppModel struct {
 }
 
 // NewAppModel creates a new root app model with default child components.
-func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies) AppModel {
+func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies, providers ...ContentProviders) AppModel {
 	return AppModel{
 		header:    NewHeaderModel(metaProvider),
-		content:   NewContentModel(pipelineProvider, detailProvider, deps),
+		content:   NewContentModel(pipelineProvider, detailProvider, deps, providers...),
 		statusBar: NewStatusBarModel(),
 	}
 }
@@ -55,7 +59,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.content.CancelAll()
 			return m, tea.Quit
 		default:
-			if msg.String() == "q" && !m.content.list.filtering && m.content.focus == FocusPaneLeft {
+			if msg.String() == "q" && !m.content.IsInputActive() {
 				m.content.CancelAll()
 				return m, tea.Quit
 			}
@@ -69,7 +73,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.header.SetWidth(m.width)
 		m.statusBar.SetWidth(m.width)
 
-		contentHeight := m.height - headerHeight - statusBarHeight
+		contentHeight := m.height - headerHeight - 2*statusBarHeight
 		if contentHeight < 0 {
 			contentHeight = 0
 		}
@@ -90,9 +94,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, contentCmd)
 	}
 
-	// Forward FocusChangedMsg, FormActiveMsg, and LiveOutputActiveMsg to status bar
+	// Forward FocusChangedMsg, FormActiveMsg, ComposeActiveMsg, and LiveOutputActiveMsg to status bar
 	switch msg.(type) {
-	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg:
+	case FocusChangedMsg, FormActiveMsg, LiveOutputActiveMsg, FinishedDetailActiveMsg, ViewChangedMsg, ComposeActiveMsg:
 		m.statusBar, _ = m.statusBar.Update(msg)
 	}
 
@@ -115,6 +119,7 @@ func (m AppModel) View() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.header.View(),
+		m.statusBar.View(),
 		m.content.View(),
 		m.statusBar.View(),
 	)
@@ -123,11 +128,85 @@ func (m AppModel) View() string {
 // RunTUI creates and runs the Bubble Tea program with alternate screen.
 func RunTUI(deps LaunchDependencies) error {
 	metaProvider := &DefaultMetadataProvider{}
-	model := NewAppModel(metaProvider, nil, nil, deps)
+
+	// Clean up orphaned runs from previous sessions
+	if deps.Store != nil {
+		cleanStaleRuns(deps.Store)
+	}
+
+	// Build content providers from launch dependencies
+	cp := ContentProviders{}
+	if deps.Manifest != nil {
+		cp.PersonaProvider = NewDefaultPersonaDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+	}
+	if deps.PipelinesDir != "" {
+		cp.ContractProvider = NewDefaultContractDataProvider(deps.PipelinesDir)
+		cp.SkillProvider = NewDefaultSkillDataProvider(deps.PipelinesDir)
+	}
+	if deps.Manifest != nil || deps.Store != nil {
+		cp.HealthProvider = NewDefaultHealthDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+	}
+	// Resolve repo slug: prefer manifest, fall back to git remote
+	repoSlug := ""
+	if deps.Manifest != nil {
+		repoSlug = deps.Manifest.Metadata.Repo
+	}
+	if repoSlug == "" {
+		repoSlug = detectRepoFromGitRemote()
+	}
+	var ghClient *github.Client
+	if repoSlug != "" {
+		token := resolveGitHubToken()
+		if token != "" {
+			ghClient = github.NewClient(github.ClientConfig{Token: token})
+			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, repoSlug)
+		}
+	}
+
+	// SuggestProvider is wired externally to avoid import cycles (tui → doctor → onboarding → tui).
+	if deps.SuggestProvider != nil {
+		cp.SuggestProvider = deps.SuggestProvider
+	}
+
+	// Build pipeline and detail providers from dependencies
+	var pipelineProvider PipelineDataProvider
+	var detailProvider DetailDataProvider
+	if deps.Store != nil {
+		pipelineProvider = NewDefaultPipelineDataProvider(deps.Store, deps.PipelinesDir)
+		detailProvider = NewDefaultDetailDataProvider(deps.Store, deps.PipelinesDir)
+	}
+
+	model := NewAppModel(metaProvider, pipelineProvider, detailProvider, deps, cp)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if model.content.launcher != nil {
 		model.content.launcher.SetProgram(p)
 	}
 	_, err := p.Run()
 	return err
+}
+
+// cleanStaleRuns marks orphaned pending/running runs as failed on TUI startup.
+// These are runs from previous sessions whose processes died without updating the DB.
+func cleanStaleRuns(store interface{}) {
+	type staleRunCleaner interface {
+		ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
+		UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+	}
+	s, ok := store.(staleRunCleaner)
+	if !ok {
+		return
+	}
+
+	cutoff := time.Now().Add(-5 * time.Minute)
+	for _, status := range []string{"pending", "running"} {
+		runs, err := s.ListRuns(state.ListRunsOptions{Status: status, Limit: 100})
+		if err != nil {
+			continue
+		}
+		for _, r := range runs {
+			if r.StartedAt.Before(cutoff) {
+				_ = s.UpdateRunStatus(r.RunID, "failed", "orphaned — previous session exited", 0)
+			}
+		}
+	}
 }

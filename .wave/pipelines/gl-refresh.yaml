@@ -138,13 +138,13 @@ steps:
 
         Apply the update:
         - If title_changed is true:
-          glab issue update <NUMBER> --title "<updated_title>"
+          glab issue update <NUMBER> --repo <PROJECT> --title "<updated_title>"
         - Write the updated_body to a temp file, then apply it:
-          glab issue update <NUMBER> --description "$(cat <temp_file>)"
+          glab issue update <NUMBER> --repo <PROJECT> --description "$(cat <temp_file>)"
         - Clean up the temp file after applying.
 
         Verify the update was applied:
-        glab issue view <NUMBER>
+        glab issue view <NUMBER> --repo <PROJECT>
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 

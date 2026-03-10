@@ -31,9 +31,9 @@ personas:                  # Required
     hooks: {}               # Optional - Pre/Post hooks
 
 runtime:                    # Required
-  workspace_root: string         # Optional - Default "/tmp/wave"
+  workspace_root: string         # Optional - Default ".wave/workspaces"
   max_concurrent_workers: int   # Optional - Default 5
-  default_timeout_minutes: int   # Optional - Default 30
+  default_timeout_minutes: int   # Optional - Default 5
   relay: {}                   # Optional - Relay config
   audit: {}                   # Optional - Audit config
   meta_pipeline: {}            # Optional - Meta pipeline limits
@@ -104,7 +104,7 @@ personas:
 
 ```yaml
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
   max_concurrent_workers: 3
   default_timeout_minutes: 30
 ```
@@ -197,7 +197,7 @@ runtime:
 
 # Production
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true

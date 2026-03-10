@@ -630,6 +630,9 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 		case "failed":
 			bpd.stepStates[ev.StepID] = "failed"
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
+		case "retrying":
+			bpd.stepStates[ev.StepID] = "running"
+			fmt.Fprintf(bpd.writer, "[%s] ↻ %s retrying: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
 			if ev.CurrentAction != "" {
 				fmt.Fprintf(bpd.writer, "[%s]   %s %s\n", timestamp, ev.StepID, ev.CurrentAction)
@@ -697,8 +700,10 @@ func (bpd *BasicProgressDisplay) renderHandoverMetadata(timestamp, stepID string
 	}
 }
 
-// buildHandoverLines constructs the tree-formatted handover metadata lines.
-func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *HandoverInfo) []string {
+// BuildHandoverLines constructs tree-formatted handover metadata lines.
+// stepID is the completing step, stepOrder is the ordered list of step IDs
+// seen so far (used to resolve handover targets when info.TargetStep is empty).
+func BuildHandoverLines(stepID string, info *HandoverInfo, stepOrder []string) []string {
 	var items []string
 
 	// Artifact lines
@@ -726,16 +731,16 @@ func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *Handove
 	targetStepNum := 0
 	if targetStep == "" {
 		// Determine from step order
-		for i, sid := range bpd.stepOrder {
-			if sid == stepID && i+1 < len(bpd.stepOrder) {
-				targetStep = bpd.stepOrder[i+1]
+		for i, sid := range stepOrder {
+			if sid == stepID && i+1 < len(stepOrder) {
+				targetStep = stepOrder[i+1]
 				targetStepNum = i + 2 // 1-based, and it's the next step
 				break
 			}
 		}
 	} else {
 		// Find targetStep's position in stepOrder
-		for i, sid := range bpd.stepOrder {
+		for i, sid := range stepOrder {
 			if sid == targetStep {
 				targetStepNum = i + 1 // 1-based
 				break
@@ -756,6 +761,11 @@ func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *Handove
 		lines = append(lines, fmt.Sprintf("%s %s", connector, item))
 	}
 	return lines
+}
+
+// buildHandoverLines delegates to the shared BuildHandoverLines function.
+func (bpd *BasicProgressDisplay) buildHandoverLines(stepID string, info *HandoverInfo) []string {
+	return BuildHandoverLines(stepID, info, bpd.stepOrder)
 }
 
 // QuietProgressDisplay only renders pipeline-level completed/failed events.

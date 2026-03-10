@@ -4,8 +4,9 @@ permissions:
   allowed_tools:
     - Read
     - Write
-    - "Bash(glab issue edit*)"
+    - "Bash(glab issue update*)"
     - "Bash(glab issue view*)"
+    - "Bash(glab label create*)"
     - "Bash(glab --version)"
   deny:
     - "Bash(glab issue create*)"

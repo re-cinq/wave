@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 )
 
@@ -68,18 +69,33 @@ type DisplayFlags struct {
 }
 
 // shouldFormat determines whether an event should be formatted into the buffer
-// based on the current display flags.
+// based on the current display flags. Mirrors BasicProgressDisplay.EmitProgress filtering.
 func shouldFormat(evt event.Event, flags DisplayFlags) bool {
 	if flags.OutputOnly {
 		return evt.State == event.StateCompleted || evt.State == event.StateFailed
 	}
 	switch evt.State {
-	case event.StateStarted, event.StateRunning, event.StateCompleted,
-		event.StateFailed, event.StateContractValidating:
+	case event.StateStarted:
+		// Skip duplicate pipeline-level started events (e.g. workspace root info).
+		// The first started event carries TotalSteps; subsequent ones are info-only
+		// and would render as a redundant "Starting..." line.
+		if evt.StepID == "" && evt.TotalSteps == 0 {
+			return false
+		}
+		return true
+	case event.StateRunning, event.StateCompleted,
+		event.StateFailed, event.StateRetrying, event.StateContractValidating,
+		"warning", "preflight", "contract_passed", "contract_failed", "contract_soft_failure":
 		return true
 	case event.StateStreamActivity:
 		return flags.Verbose
-	case event.StateStepProgress, event.StateETAUpdated, event.StateCompactionProgress:
+	case event.StateStepProgress:
+		if !flags.Debug {
+			return false
+		}
+		// Skip empty heartbeats — only show progress with actual data (matches CLI behavior)
+		return evt.TokensIn > 0 || evt.TokensOut > 0 || evt.CurrentAction != "" || evt.Progress > 0
+	case event.StateETAUpdated, event.StateCompactionProgress:
 		return flags.Debug
 	default:
 		return false
@@ -93,6 +109,7 @@ func noColor() bool {
 }
 
 // formatEventLine formats a single event into a display line.
+// Mirrors the formatting in BasicProgressDisplay.EmitProgress for CLI parity.
 func formatEventLine(evt event.Event) string {
 	stepID := evt.StepID
 	if stepID == "" {
@@ -105,25 +122,31 @@ func formatEventLine(evt event.Event) string {
 		if evt.Persona != "" || evt.Model != "" {
 			parts := []string{}
 			if evt.Persona != "" {
-				parts = append(parts, "persona: "+evt.Persona)
+				parts = append(parts, evt.Persona)
 			}
 			if evt.Model != "" {
-				parts = append(parts, "model: "+evt.Model)
+				parts = append(parts, evt.Model)
 			}
 			meta = " (" + strings.Join(parts, ", ") + ")"
 		}
 		return fmt.Sprintf("[%s] Starting...%s", stepID, meta)
 
 	case event.StateCompleted:
-		duration := ""
+		suffix := ""
 		if evt.DurationMs > 0 {
 			d := time.Duration(evt.DurationMs) * time.Millisecond
-			duration = fmt.Sprintf(" (%s)", formatCompactDuration(d))
+			tokenInfo := ""
+			if evt.TokensIn > 0 || evt.TokensOut > 0 {
+				tokenInfo = fmt.Sprintf(", %s in / %s out", formatTokenCount(evt.TokensIn), formatTokenCount(evt.TokensOut))
+			} else if evt.TokensUsed > 0 {
+				tokenInfo = fmt.Sprintf(", %s tokens", formatTokenCount(evt.TokensUsed))
+			}
+			suffix = fmt.Sprintf(" (%s%s)", formatCompactDuration(d), tokenInfo)
 		}
 		if noColor() {
-			return fmt.Sprintf("[%s] Completed%s", stepID, duration)
+			return fmt.Sprintf("[%s] Completed%s", stepID, suffix)
 		}
-		return fmt.Sprintf("[%s] ✓ Completed%s", stepID, duration)
+		return fmt.Sprintf("[%s] ✓ Completed%s", stepID, suffix)
 
 	case event.StateFailed:
 		if noColor() {
@@ -131,18 +154,45 @@ func formatEventLine(evt event.Event) string {
 		}
 		return fmt.Sprintf("[%s] ✗ Failed: %s", stepID, evt.Message)
 
+	case event.StateRetrying:
+		if evt.Message != "" {
+			return fmt.Sprintf("[%s] Retrying: %s", stepID, evt.Message)
+		}
+		return fmt.Sprintf("[%s] Retrying...", stepID)
+
 	case event.StateRunning:
 		if evt.Message != "" {
 			return fmt.Sprintf("[%s] %s", stepID, evt.Message)
 		}
 		return fmt.Sprintf("[%s] Running...", stepID)
 
+	case "warning":
+		if noColor() {
+			return fmt.Sprintf("[%s] Warning: %s", stepID, evt.Message)
+		}
+		return fmt.Sprintf("[%s] ⚠ %s", stepID, evt.Message)
+
 	case event.StateContractValidating:
 		phase := evt.ValidationPhase
 		if phase == "" {
 			phase = "validating"
 		}
-		return fmt.Sprintf("[%s] Contract validation: %s", stepID, phase)
+		return fmt.Sprintf("[%s] Contract: %s", stepID, phase)
+
+	case "contract_passed":
+		if noColor() {
+			return fmt.Sprintf("[%s] Contract: passed", stepID)
+		}
+		return fmt.Sprintf("[%s] ✓ Contract: passed", stepID)
+
+	case "contract_failed":
+		if noColor() {
+			return fmt.Sprintf("[%s] Contract: failed", stepID)
+		}
+		return fmt.Sprintf("[%s] ✗ Contract: failed", stepID)
+
+	case "contract_soft_failure":
+		return fmt.Sprintf("[%s] Contract: soft failure (continuing)", stepID)
 
 	case event.StateStreamActivity:
 		target := evt.ToolTarget
@@ -152,13 +202,16 @@ func formatEventLine(evt event.Event) string {
 		return fmt.Sprintf("[%s] %s %s", stepID, evt.ToolName, target)
 
 	case event.StateStepProgress:
-		if evt.TokensIn > 0 || evt.TokensOut > 0 {
-			if noColor() {
-				return fmt.Sprintf("[%s] heartbeat (tokens: %d/%d)", stepID, evt.TokensOut, evt.TokensIn)
-			}
-			return fmt.Sprintf("[%s] ♡ heartbeat (tokens: %d/%d)", stepID, evt.TokensOut, evt.TokensIn)
+		if evt.CurrentAction != "" {
+			return fmt.Sprintf("[%s] %s", stepID, evt.CurrentAction)
 		}
-		return fmt.Sprintf("[%s] progress: %d%%", stepID, evt.Progress)
+		if evt.TokensIn > 0 || evt.TokensOut > 0 {
+			return fmt.Sprintf("[%s] tokens: %s in / %s out", stepID, formatTokenCount(evt.TokensIn), formatTokenCount(evt.TokensOut))
+		}
+		if evt.Progress > 0 {
+			return fmt.Sprintf("[%s] progress: %d%%", stepID, evt.Progress)
+		}
+		return fmt.Sprintf("[%s] heartbeat", stepID)
 
 	case event.StateETAUpdated:
 		if evt.EstimatedTimeMs > 0 {
@@ -178,19 +231,14 @@ func formatEventLine(evt event.Event) string {
 	}
 }
 
-// formatCompactDuration formats a duration as a compact string (e.g., "42s", "1m23s").
+// formatTokenCount delegates to the shared display.FormatTokenCount formatter.
+func formatTokenCount(tokens int) string {
+	return display.FormatTokenCount(tokens)
+}
+
+// formatCompactDuration wraps display.FormatDuration converting time.Duration to milliseconds.
 func formatCompactDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%02ds", m, s)
-	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%02dm", h, m)
+	return display.FormatDuration(d.Milliseconds())
 }
 
 // formatErrorBlock formats a failure event as a multi-line error block.
@@ -256,8 +304,9 @@ type LiveOutputModel struct {
 	width        int
 	height       int
 
-	buffer   *EventBuffer
-	viewport viewport.Model
+	buffer    *EventBuffer
+	rawEvents []event.Event
+	viewport  viewport.Model
 
 	autoScroll bool
 
@@ -271,6 +320,10 @@ type LiveOutputModel struct {
 
 	completed         bool
 	completionPending bool
+
+	// Handover tracking for rich output (tree-formatted metadata on step completion)
+	handoverInfo map[string]*display.HandoverInfo
+	stepOrder    []string
 }
 
 const (
@@ -288,6 +341,7 @@ func NewLiveOutputModel(runID, pipelineName string, buffer *EventBuffer, started
 		autoScroll:   true,
 		startedAt:    startedAt,
 		totalSteps:   totalSteps,
+		handoverInfo: make(map[string]*display.HandoverInfo),
 	}
 }
 
@@ -314,6 +368,35 @@ func (m *LiveOutputModel) updateViewportContent() {
 	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
+
+// rebuildBuffer clears and rebuilds the display buffer from raw events using current flags.
+func (m *LiveOutputModel) rebuildBuffer() {
+	m.buffer.head = 0
+	m.buffer.count = 0
+	for _, evt := range m.rawEvents {
+		if shouldFormat(evt, m.flags) {
+			if evt.State == event.StateFailed {
+				errorBlock := formatErrorBlock(evt)
+				for _, line := range strings.Split(errorBlock, "\n") {
+					if line != "" {
+						m.buffer.Append(line)
+					}
+				}
+			} else {
+				m.buffer.Append(formatEventLine(evt))
+			}
+			// Re-inject handover tree lines after step completion
+			if evt.State == event.StateCompleted && evt.StepID != "" {
+				if info, exists := m.handoverInfo[evt.StepID]; exists {
+					for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
+						m.buffer.Append("  " + hl)
+					}
+				}
+			}
+		}
+	}
+	m.updateViewportContent()
+}
 // Update handles messages for the live output model.
 func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -324,19 +407,59 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		evt := msg.Event
 
 		// Update step tracking on started events
-		if evt.State == event.StateStarted && evt.StepID != "" {
-			m.currentStep = evt.StepID
-			m.stepNumber++
-			if evt.Model != "" {
-				m.model = evt.Model
-			}
+		if evt.State == event.StateStarted {
 			if evt.TotalSteps > 0 {
 				m.totalSteps = evt.TotalSteps
+			}
+			if evt.StepID != "" {
+				m.currentStep = evt.StepID
+				m.stepNumber++
+				if evt.Model != "" {
+					m.model = evt.Model
+				}
+				// Track step order for handover target resolution
+				found := false
+				for _, sid := range m.stepOrder {
+					if sid == evt.StepID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					m.stepOrder = append(m.stepOrder, evt.StepID)
+				}
+			}
+		}
+
+		// Accumulate handover metadata from contract events
+		if evt.StepID != "" {
+			switch evt.State {
+			case event.StateContractValidating:
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractSchema = evt.ValidationPhase
+			case "contract_passed":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "passed"
+			case "contract_failed":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "failed"
+			case "contract_soft_failure":
+				if _, exists := m.handoverInfo[evt.StepID]; !exists {
+					m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+				}
+				m.handoverInfo[evt.StepID].ContractStatus = "soft_failure"
 			}
 		}
 
 		// Handle terminal events
 		if evt.State == event.StateCompleted && evt.StepID == "" {
+			m.rawEvents = append(m.rawEvents, evt)
 			// Pipeline-level completion
 			duration := time.Since(m.startedAt)
 			var summaryLine string
@@ -359,6 +482,7 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		}
 
 		if evt.State == event.StateFailed && evt.StepID == "" {
+			m.rawEvents = append(m.rawEvents, evt)
 			// Pipeline-level failure
 			errorBlock := formatErrorBlock(evt)
 			for _, line := range strings.Split(errorBlock, "\n") {
@@ -378,6 +502,9 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 			return m, nil
 		}
 
+		// Store raw event for flag-toggle rebuilds
+		m.rawEvents = append(m.rawEvents, evt)
+
 		// Format and append event line
 		if shouldFormat(evt, m.flags) {
 			if evt.State == event.StateFailed {
@@ -391,6 +518,22 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 				line := formatEventLine(evt)
 				m.buffer.Append(line)
 			}
+
+			// On step completion, capture artifacts and render handover tree
+			if evt.State == event.StateCompleted && evt.StepID != "" {
+				if len(evt.Artifacts) > 0 {
+					if _, exists := m.handoverInfo[evt.StepID]; !exists {
+						m.handoverInfo[evt.StepID] = &display.HandoverInfo{}
+					}
+					m.handoverInfo[evt.StepID].ArtifactPaths = evt.Artifacts
+				}
+				if info, exists := m.handoverInfo[evt.StepID]; exists {
+					for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
+						m.buffer.Append("  " + hl)
+					}
+				}
+			}
+
 			m.updateViewportContent()
 			if m.autoScroll {
 				m.viewport.GotoBottom()
@@ -403,12 +546,24 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		switch msg.String() {
 		case "v":
 			m.flags.Verbose = !m.flags.Verbose
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "d":
 			m.flags.Debug = !m.flags.Debug
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "o":
 			m.flags.OutputOnly = !m.flags.OutputOnly
+			m.rebuildBuffer()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
 			return m, nil
 		case "up", "down", "pgup", "pgdown":
 			m.autoScroll = false

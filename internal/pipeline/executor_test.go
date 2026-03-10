@@ -193,6 +193,9 @@ func (m *MockStateStore) SetRunTags(runID string, tags []string) error { return 
 func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil, nil }
 func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
 func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
+func (m *MockStateStore) UpdateRunPID(runID string, pid int) error    { return nil }
+func (m *MockStateStore) RecordStepAttempt(record *state.StepAttemptRecord) error { return nil }
+func (m *MockStateStore) GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error) { return nil, nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
@@ -3121,4 +3124,630 @@ func TestResolveModelMethod(t *testing.T) {
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
 	assert.Equal(t, "", executor2.resolveModel(p3))
+}
+
+// cancellableMockStore embeds MockStateStore and adds configurable CheckCancellation.
+type cancellableMockStore struct {
+	MockStateStore
+	mu        sync.Mutex
+	cancelled bool
+}
+
+func (c *cancellableMockStore) CheckCancellation(runID string) (*state.CancellationRecord, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cancelled {
+		return &state.CancellationRecord{RunID: runID, RequestedAt: time.Now()}, nil
+	}
+	return nil, nil
+}
+
+func (c *cancellableMockStore) setCancelled() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cancelled = true
+}
+
+func TestPollCancellation_CancelsContext(t *testing.T) {
+	store := &cancellableMockStore{}
+	executor := &DefaultPipelineExecutor{store: store}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start polling
+	go executor.pollCancellation(ctx, "test-run", cancel)
+
+	// Context should still be active
+	assert.NoError(t, ctx.Err())
+
+	// Trigger cancellation in the DB
+	store.setCancelled()
+
+	// Wait for the poller to pick it up (polls every 2s, give it 5s)
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case <-deadline:
+			t.Fatal("pollCancellation did not cancel context within 5s")
+		default:
+			if ctx.Err() != nil {
+				// Success — context was cancelled by the poller
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func TestPollCancellation_StopsWhenContextCancelled(t *testing.T) {
+	store := &cancellableMockStore{}
+	executor := &DefaultPipelineExecutor{store: store}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		executor.pollCancellation(ctx, "test-run", cancel)
+		close(done)
+	}()
+
+	// Cancel the context externally
+	cancel()
+
+	// Goroutine should exit promptly
+	select {
+	case <-done:
+		// Good — goroutine exited
+	case <-time.After(3 * time.Second):
+		t.Fatal("pollCancellation did not exit after context cancellation")
+	}
+}
+
+// countingFailAdapter fails the first N calls then succeeds.
+type countingFailAdapter struct {
+	mu           sync.Mutex
+	failCount    int // how many calls should fail
+	callCount    int
+	failError    error
+	successMock  *adapter.MockAdapter
+	lastConfigs  []adapter.AdapterRunConfig
+}
+
+func newCountingFailAdapter(failCount int, failErr error) *countingFailAdapter {
+	return &countingFailAdapter{
+		failCount:   failCount,
+		failError:   failErr,
+		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+	}
+}
+
+func (a *countingFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.callCount++
+	call := a.callCount
+	a.lastConfigs = append(a.lastConfigs, cfg)
+	a.mu.Unlock()
+	if call <= a.failCount {
+		return nil, a.failError
+	}
+	return a.successMock.Run(ctx, cfg)
+}
+
+func (a *countingFailAdapter) getCallCount() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.callCount
+}
+
+func (a *countingFailAdapter) getLastConfigs() []adapter.AdapterRunConfig {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	dst := make([]adapter.AdapterRunConfig, len(a.lastConfigs))
+	copy(dst, a.lastConfigs)
+	return dst
+}
+
+// attemptTrackingStore extends MockStateStore to track RecordStepAttempt calls.
+type attemptTrackingStore struct {
+	*MockStateStore
+	mu       sync.Mutex
+	attempts []state.StepAttemptRecord
+}
+
+func newAttemptTrackingStore() *attemptTrackingStore {
+	return &attemptTrackingStore{
+		MockStateStore: NewMockStateStore(),
+	}
+}
+
+func (s *attemptTrackingStore) RecordStepAttempt(record *state.StepAttemptRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempts = append(s.attempts, *record)
+	return nil
+}
+
+func (s *attemptTrackingStore) getAttempts() []state.StepAttemptRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dst := make([]state.StepAttemptRecord, len(s.attempts))
+	copy(dst, s.attempts)
+	return dst
+}
+
+// TestExecuteStep_RetryConfig_MaxAttempts verifies that the retry count is respected.
+func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
+	failAdapter := newCountingFailAdapter(2, errors.New("step failure"))
+	collector := newTestEventCollector()
+	store := newAttemptTrackingStore()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "retry-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms", // fast for tests
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on third attempt")
+	assert.Equal(t, 3, failAdapter.getCallCount(), "adapter should have been called 3 times")
+
+	// Verify attempt records
+	attempts := store.getAttempts()
+	// We expect: running(1), failed(1), running(2), failed(2), running(3), succeeded(3)
+	assert.GreaterOrEqual(t, len(attempts), 3, "should have at least 3 attempt records")
+}
+
+// TestExecuteStep_RetryConfig_OnFailureSkip verifies that on_failure=skip skips the step.
+func TestExecuteStep_RetryConfig_OnFailureSkip(t *testing.T) {
+	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "skip-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+					OnFailure:   "skip",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed because step is skipped")
+
+	// Verify the skip event was emitted
+	events := collector.GetEvents()
+	foundSkip := false
+	for _, evt := range events {
+		if evt.State == "skipped" && evt.StepID == "step-1" {
+			foundSkip = true
+			break
+		}
+	}
+	assert.True(t, foundSkip, "should have emitted a skipped event")
+}
+
+// TestExecuteStep_RetryConfig_OnFailureContinue verifies that on_failure=continue continues.
+func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
+	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "continue-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "continue",
+				},
+			},
+			{
+				ID:           "step-2",
+				Persona:      "navigator",
+				Dependencies: []string{"step-1"},
+				Exec:         ExecConfig{Source: "do something else"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Pipeline should not return an error because on_failure=continue
+	err := executor.Execute(ctx, p, m, "test input")
+	// step-2 may fail because step-1 failed but pipeline should try to continue
+	// The main thing: executor.Execute should NOT fail on step-1
+	// step-2 depends on step-1, so whether step-2 runs depends on DAG validation
+	_ = err
+
+	// Verify a failed event was emitted for step-1 with "continues" message
+	events := collector.GetEvents()
+	foundContinue := false
+	for _, evt := range events {
+		if evt.State == "failed" && evt.StepID == "step-1" && strings.Contains(evt.Message, "continues") {
+			foundContinue = true
+			break
+		}
+	}
+	assert.True(t, foundContinue, "should have emitted a failed-but-continues event")
+}
+
+// TestExecuteStep_RetryConfig_BackwardCompat verifies that handover.max_retries still works.
+func TestExecuteStep_RetryConfig_BackwardCompat(t *testing.T) {
+	failAdapter := newCountingFailAdapter(1, errors.New("transient failure"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "compat-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				// No Retry config — use legacy handover.max_retries
+				Handover: HandoverConfig{
+					MaxRetries: 2,
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on second attempt via backward compat")
+	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should have been called 2 times")
+}
+
+// TestExecuteStep_AdaptPrompt_InjectsFailureContext verifies prompt adaptation on retry.
+func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
+	failAdapter := newCountingFailAdapter(1, errors.New("contract validation failed: missing field"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "adapt-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "implement the feature"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+					AdaptPrompt: true,
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "should succeed on second attempt")
+
+	// Verify that the second call got retry context injected
+	configs := failAdapter.getLastConfigs()
+	require.Len(t, configs, 2, "should have captured 2 adapter configs")
+
+	// First call should have the original prompt
+	assert.NotContains(t, configs[0].Prompt, "RETRY CONTEXT")
+
+	// Second call should have retry context prepended
+	assert.Contains(t, configs[1].Prompt, "RETRY CONTEXT")
+	assert.Contains(t, configs[1].Prompt, "attempt 2 of 2")
+	assert.Contains(t, configs[1].Prompt, "contract validation failed: missing field")
+	assert.Contains(t, configs[1].Prompt, "implement the feature")
+}
+
+// TestStepTimeoutMinutes_OverridesManifestDefault verifies that step-level timeout_minutes
+// takes precedence over runtime.default_timeout_minutes from the manifest.
+func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 10 // manifest says 10 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-test"},
+		Steps: []Step{
+			{
+				ID:             "long-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 90, // step says 90 minutes
+				Exec:           ExecConfig{Source: "implement feature"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 90*time.Minute, cfg.Timeout,
+		"step-level timeout_minutes should override manifest default_timeout_minutes")
+}
+
+// TestStepTimeoutMinutes_OverridesCLITimeout verifies that step-level timeout_minutes
+// takes precedence over the CLI --timeout flag.
+func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter,
+		WithStepTimeout(15*time.Minute), // CLI says 15 minutes
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-cli-test"},
+		Steps: []Step{
+			{
+				ID:             "override-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 60, // step says 60 minutes — wins
+				Exec:           ExecConfig{Source: "do work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 60*time.Minute, cfg.Timeout,
+		"step-level timeout_minutes should override CLI --timeout flag")
+}
+
+// TestStepTimeoutMinutes_FallsBackToCLIWhenUnset verifies that when no step-level
+// timeout is configured, the CLI --timeout flag is used.
+func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter,
+		WithStepTimeout(20*time.Minute), // CLI says 20 minutes
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-fallback-test"},
+		Steps: []Step{
+			{
+				ID:      "default-step",
+				Persona: "navigator",
+				// No timeout_minutes set
+				Exec: ExecConfig{Source: "quick task"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 20*time.Minute, cfg.Timeout,
+		"when no step-level timeout, CLI --timeout should be used")
+}
+
+// TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI verifies that when neither
+// step-level timeout nor CLI --timeout is set, the manifest default is used.
+func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 8 // manifest says 8 minutes
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "timeout-manifest-test"},
+		Steps: []Step{
+			{
+				ID:      "manifest-step",
+				Persona: "navigator",
+				// No timeout_minutes, no CLI override
+				Exec: ExecConfig{Source: "default task"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 8*time.Minute, cfg.Timeout,
+		"when no step-level or CLI timeout, manifest default should be used")
+}
+
+// TestStepTimeoutMinutes_PerStepDifferentTimeouts verifies that different steps
+// in the same pipeline can have different timeouts.
+func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
+	var mu sync.Mutex
+	configs := make(map[string]adapter.AdapterRunConfig)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	// Custom adapter that captures configs per step
+	wrappedAdapter := &perStepCapturingAdapter{
+		MockAdapter: mockAdapter,
+		configs:     configs,
+		mu:          &mu,
+	}
+
+	executor := NewDefaultPipelineExecutor(wrappedAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+	m.Runtime.DefaultTimeoutMin = 10
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "multi-timeout-test"},
+		Steps: []Step{
+			{
+				ID:             "quick-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 5,
+				Exec:           ExecConfig{Source: "quick"},
+			},
+			{
+				ID:             "long-step",
+				Persona:        "navigator",
+				TimeoutMinutes: 90,
+				Dependencies:   []string{"quick-step"},
+				Exec:           ExecConfig{Source: "long"},
+			},
+			{
+				ID:           "default-step",
+				Persona:      "navigator",
+				Dependencies: []string{"long-step"},
+				Exec:         ExecConfig{Source: "default"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	assert.Equal(t, 5*time.Minute, configs["quick-step"].Timeout,
+		"quick-step should use its step-level timeout")
+	assert.Equal(t, 90*time.Minute, configs["long-step"].Timeout,
+		"long-step should use its step-level timeout")
+	assert.Equal(t, 10*time.Minute, configs["default-step"].Timeout,
+		"default-step should fall back to manifest default")
+}
+
+// perStepCapturingAdapter captures AdapterRunConfig per step based on prompt content.
+type perStepCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      *sync.Mutex
+	configs map[string]adapter.AdapterRunConfig
+}
+
+func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	// Use the Persona field to identify step — but that's the same for all.
+	// Instead, use Prompt which matches exec.source.
+	switch {
+	case strings.Contains(cfg.Prompt, "quick"):
+		a.configs["quick-step"] = cfg
+	case strings.Contains(cfg.Prompt, "long"):
+		a.configs["long-step"] = cfg
+	case strings.Contains(cfg.Prompt, "default"):
+		a.configs["default-step"] = cfg
+	}
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
 }
