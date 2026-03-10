@@ -92,6 +92,21 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 	return m
 }
 
+// IsInputActive returns true if any text input is active (filter, form, compose) and
+// printable key events should be consumed rather than treated as shortcuts.
+func (m ContentModel) IsInputActive() bool {
+	if m.IsFiltering() {
+		return true
+	}
+	if m.currentView == ViewPipelines && m.detail.paneState == stateConfiguring {
+		return true
+	}
+	if m.composing {
+		return true
+	}
+	return false
+}
+
 // IsFiltering returns true if the active view's list is in filter mode.
 func (m ContentModel) IsFiltering() bool {
 	switch m.currentView {
