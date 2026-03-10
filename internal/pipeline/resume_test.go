@@ -10,6 +10,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/state"
 )
 
 func TestResumeManager_ValidateResumePoint(t *testing.T) {
@@ -1024,6 +1025,153 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	// Wire a mock store with step attempt data
+	store := &resumeMockStore{
+		attempts: map[string][]state.StepAttemptRecord{
+			"prior-run:implement": {
+				{
+					RunID:        "prior-run",
+					StepID:       "implement",
+					Attempt:      1,
+					State:        "failed",
+					ErrorMessage: "contract validation failed: missing field 'status'",
+					FailureClass: "contract_failure",
+					StdoutTail:   "wrote file.go\nran tests\nfailed at validation",
+				},
+			},
+		},
+	}
+	executor.store = store
+
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "speckit-flow"},
+		Steps: []Step{
+			{ID: "specify"},
+			{ID: "implement", Dependencies: []string{"specify"}},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	// Create workspace for specify step
+	specDir := filepath.Join(tmpDir, ".wave/workspaces/prior-run/specify")
+	os.MkdirAll(specDir, 0755)
+
+	rs, err := manager.loadResumeState(p, "implement", "prior-run")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Verify failure context was loaded
+	ctx, ok := rs.FailureContexts["implement"]
+	if !ok {
+		t.Fatal("Expected failure context for 'implement' step, got none")
+	}
+	if ctx.Attempt != 1 {
+		t.Errorf("Expected attempt 1, got %d", ctx.Attempt)
+	}
+	if ctx.PriorError != "contract validation failed: missing field 'status'" {
+		t.Errorf("Expected prior error, got %q", ctx.PriorError)
+	}
+	if ctx.FailureClass != "contract_failure" {
+		t.Errorf("Expected failure class 'contract_failure', got %q", ctx.FailureClass)
+	}
+	if ctx.PriorStdout != "wrote file.go\nran tests\nfailed at validation" {
+		t.Errorf("Expected prior stdout, got %q", ctx.PriorStdout)
+	}
+}
+
+func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+	// No store set — executor.store is nil
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-pipeline"},
+		Steps: []Step{
+			{ID: "step1"},
+			{ID: "step2", Dependencies: []string{"step1"}},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	rs, err := manager.loadResumeState(p, "step2", "some-run")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(rs.FailureContexts) != 0 {
+		t.Errorf("Expected empty failure contexts without store, got %d", len(rs.FailureContexts))
+	}
+}
+
+func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	store := &resumeMockStore{
+		attempts: map[string][]state.StepAttemptRecord{
+			"prior-run:implement": {
+				{
+					RunID:    "prior-run",
+					StepID:   "implement",
+					Attempt:  1,
+					State:    "succeeded",
+				},
+			},
+		},
+	}
+	executor.store = store
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-pipeline"},
+		Steps: []Step{
+			{ID: "step1"},
+			{ID: "implement", Dependencies: []string{"step1"}},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	rs, err := manager.loadResumeState(p, "implement", "prior-run")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if _, ok := rs.FailureContexts["implement"]; ok {
+		t.Error("Should not load failure context when last attempt succeeded")
+	}
+}
+
+// resumeMockStore implements state.StateStore for resume failure context tests.
+type resumeMockStore struct {
+	MockStateStore
+	attempts map[string][]state.StepAttemptRecord // key: "runID:stepID"
+}
+
+func (s *resumeMockStore) GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error) {
+	key := runID + ":" + stepID
+	return s.attempts[key], nil
 }
 
 func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
