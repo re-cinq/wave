@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/display"
 )
 
 const (
@@ -133,8 +134,9 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 		}
 
 		// Emit running count and selection messages
+		totalPipes := len(m.running) + len(m.available) + len(m.finished)
 		cmds := []tea.Cmd{
-			func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
+			func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
 		}
 		if cmd := m.emitSelectionMsg(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -243,8 +245,9 @@ func (m PipelineListModel) handleDataMsg(msg PipelineDataMsg) (PipelineListModel
 		m.cursor = len(m.navigable) - 1
 	}
 
+	totalPipes := len(m.running) + len(m.available) + len(m.finished)
 	cmds := []tea.Cmd{
-		func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
+		func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
 	}
 
 	// Re-emit PipelineSelectedMsg if cursor is on a pipeline item
@@ -624,11 +627,11 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	name := truncateName(displayName, nameMaxWidth)
 
 	if isSelected {
-		spacer := maxWidth - lipgloss.Width("▶ "+name) - lipgloss.Width(suffix) - 1
+		spacer := maxWidth - lipgloss.Width("› "+name) - lipgloss.Width(suffix) - 1
 		if spacer < 1 {
 			spacer = 1
 		}
-		text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), suffix)
+		text := fmt.Sprintf("› %s%s%s", name, strings.Repeat(" ", spacer), suffix)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
@@ -656,7 +659,7 @@ func (m PipelineListModel) renderAvailableItem(item navigableItem, isSelected bo
 	name := truncateName(a.Name, nameMaxWidth)
 
 	if isSelected {
-		text := fmt.Sprintf("▶ %s", name)
+		text := fmt.Sprintf("› %s", name)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
@@ -683,22 +686,12 @@ func truncateName(name string, maxWidth int) string {
 	return name[:maxWidth-1] + "…"
 }
 
-// formatDuration formats a duration in a compact human-readable form.
+// formatDuration wraps display.FormatDuration converting time.Duration to milliseconds.
 func formatDuration(d time.Duration) string {
 	if d < 0 {
 		d = 0
 	}
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%02ds", m, s)
-	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%02dm", h, m)
+	return display.FormatDuration(d.Milliseconds())
 }
 
 // Async command factories
