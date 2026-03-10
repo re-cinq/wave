@@ -155,6 +155,15 @@ type ListIssuesOptions struct {
 	Page      int        // Page number
 }
 
+// ListPullRequestsOptions specifies options for listing pull requests
+type ListPullRequestsOptions struct {
+	State     string // open, closed, all
+	Sort      string // created, updated, popularity, long-running
+	Direction string // asc, desc
+	PerPage   int    // Results per page (max 100)
+	Page      int    // Page number
+}
+
 // IssueUpdate represents fields that can be updated on an issue
 type IssueUpdate struct {
 	Title     *string   `json:"title,omitempty"`
