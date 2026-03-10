@@ -231,30 +231,14 @@ func formatEventLine(evt event.Event) string {
 	}
 }
 
-// formatTokenCount formats a token count to human-readable form (e.g., "1.2k", "45.0k").
+// formatTokenCount delegates to the shared display.FormatTokenCount formatter.
 func formatTokenCount(tokens int) string {
-	if tokens < 1000 {
-		return fmt.Sprintf("%d", tokens)
-	}
-	if tokens < 1_000_000 {
-		return fmt.Sprintf("%.1fk", float64(tokens)/1_000.0)
-	}
-	return fmt.Sprintf("%.1fM", float64(tokens)/1_000_000.0)
+	return display.FormatTokenCount(tokens)
 }
 
-// formatCompactDuration formats a duration as a compact string (e.g., "42s", "1m23s").
+// formatCompactDuration wraps display.FormatDuration converting time.Duration to milliseconds.
 func formatCompactDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%02ds", m, s)
-	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%02dm", h, m)
+	return display.FormatDuration(d.Milliseconds())
 }
 
 // formatErrorBlock formats a failure event as a multi-line error block.
