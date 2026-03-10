@@ -1,0 +1,35 @@
+kind: WavePipeline
+metadata:
+  name: release-harden
+  description: "Security scan, branch on severity, apply hotfixes, generate changelog"
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "v1.0.0"
+  schema:
+    type: string
+    description: "Release version or branch to harden"
+
+steps:
+  - id: scan
+    pipeline: security-scan
+    input: "{{input}}"
+
+  - id: triage
+    dependencies: [scan]
+    branch:
+      on: "{{scan.output.risk_level}}"
+      cases:
+        critical: hotfix
+        high: hotfix
+        medium: improve
+        low: skip
+
+  - id: gate
+    dependencies: [triage]
+    gate:
+      type: approval
+      message: "Review security fixes before release"
+      timeout: "4h"
