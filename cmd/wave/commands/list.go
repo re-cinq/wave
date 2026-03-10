@@ -113,17 +113,18 @@ func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
 	cmd := &cobra.Command{
-		Use:   "list [adapters|runs|pipelines|personas|contracts|skills]",
+		Use:   "list [adapters|runs|pipelines|personas|contracts|skills|compositions]",
 		Short: "List Wave configuration and resources",
 		Long: `List Wave configuration, resources, and execution history.
 
 Arguments:
-  adapters    List configured LLM adapters with availability status
-  runs        List recent pipeline executions
-  pipelines   List available pipelines with step flows
-  personas    List configured personas with permissions
-  contracts   List contract schemas and their usage in pipelines
-  skills      List declared skills with installation status
+  adapters       List configured LLM adapters with availability status
+  runs           List recent pipeline executions
+  pipelines      List available pipelines with step flows
+  personas       List configured personas with permissions
+  contracts      List contract schemas and their usage in pipelines
+  skills         List declared skills with installation status
+  compositions   List composition pipelines with sub-pipeline and step type details
 
 With no arguments, lists all categories.
 
@@ -131,7 +132,7 @@ For 'list runs', additional flags are available:
   --limit N           Maximum number of runs to show (default 10)
   --run-pipeline P    Filter to specific pipeline
   --run-status S      Filter by status (running, completed, failed, cancelled)`,
-		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts", "skills"},
+		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts", "skills", "compositions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := ""
 			if len(args) > 0 {
@@ -170,6 +171,11 @@ func runList(opts ListOptions, filter string) error {
 			Status:   listRunsStatus,
 			Format:   opts.Format,
 		})
+	}
+
+	// Handle compositions filter separately
+	if filter == "compositions" {
+		return listCompositions(".wave/pipelines", opts.Format)
 	}
 
 	// For JSON output, collect all data first
@@ -1561,6 +1567,120 @@ func listSkillsTable(skills map[string]pipelineSkillConfig) {
 	}
 
 	fmt.Println()
+}
+
+// listCompositions lists composition pipelines with their sub-pipelines and step types.
+func listCompositions(pipelinesDir string, format string) error {
+	pipelines, err := tui.DiscoverPipelines(pipelinesDir)
+	if err != nil {
+		return fmt.Errorf("failed to discover pipelines: %w", err)
+	}
+
+	type CompositionInfo struct {
+		Name         string   `json:"name"`
+		Description  string   `json:"description"`
+		SubPipelines []string `json:"sub_pipelines"`
+		StepTypes    []string `json:"step_types"`
+	}
+
+	var compositions []CompositionInfo
+	for _, info := range pipelines {
+		// Load full pipeline to check for composition steps
+		p, err := tui.LoadPipelineByName(pipelinesDir, info.Name)
+		if err != nil {
+			continue
+		}
+
+		isComposition := info.Category == "composition"
+		var subPipelines []string
+		stepTypeSet := make(map[string]bool)
+
+		for _, step := range p.Steps {
+			if step.SubPipeline != "" {
+				subPipelines = append(subPipelines, step.SubPipeline)
+			}
+			if step.Iterate != nil {
+				stepTypeSet["iterate"] = true
+				isComposition = true
+			}
+			if step.Branch != nil {
+				stepTypeSet["branch"] = true
+				isComposition = true
+			}
+			if step.Gate != nil {
+				stepTypeSet["gate"] = true
+				isComposition = true
+			}
+			if step.Loop != nil {
+				stepTypeSet["loop"] = true
+				isComposition = true
+			}
+			if step.Aggregate != nil {
+				stepTypeSet["aggregate"] = true
+				isComposition = true
+			}
+			if step.SubPipeline != "" && step.Iterate == nil && step.Branch == nil {
+				stepTypeSet["sub-pipeline"] = true
+				isComposition = true
+			}
+		}
+
+		if !isComposition {
+			continue
+		}
+
+		var stepTypes []string
+		for st := range stepTypeSet {
+			stepTypes = append(stepTypes, st)
+		}
+		sort.Strings(stepTypes)
+
+		compositions = append(compositions, CompositionInfo{
+			Name:         info.Name,
+			Description:  info.Description,
+			SubPipelines: subPipelines,
+			StepTypes:    stepTypes,
+		})
+	}
+
+	if format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(compositions)
+	}
+
+	printLogo()
+
+	if len(compositions) == 0 {
+		fmt.Println("No composition pipelines found.")
+		return nil
+	}
+
+	f := display.NewFormatter()
+
+	fmt.Println()
+	fmt.Printf("%s\n", f.Colorize("Composition Pipelines", "\033[1;37m"))
+	sepWidth := display.GetTerminalWidth()
+	if sepWidth < 40 {
+		sepWidth = 40
+	}
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("\u2500", sepWidth)))
+
+	for _, c := range compositions {
+		fmt.Printf("\n  %s\n", f.Primary(c.Name))
+		if c.Description != "" {
+			fmt.Printf("    %s\n", f.Muted(c.Description))
+		}
+		if len(c.SubPipelines) > 0 {
+			fmt.Printf("    %s %s\n", f.Muted("sub-pipelines:"), strings.Join(c.SubPipelines, ", "))
+		}
+		if len(c.StepTypes) > 0 {
+			fmt.Printf("    %s %s\n", f.Muted("step types:"), strings.Join(c.StepTypes, ", "))
+		}
+	}
+
+	fmt.Println()
+	return nil
 }
 
 // formatDuration formats a duration into a human-readable string

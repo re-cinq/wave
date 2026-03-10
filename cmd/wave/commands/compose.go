@@ -78,8 +78,29 @@ Use --validate-only to check compatibility without executing.`,
 			// Validate artifact compatibility across the sequence
 			result := tui.ValidateSequence(seq)
 
+			// Add template validation for composition pipelines
+			var templateErrors []string
+			for _, entry := range seq.Entries {
+				errs := pipeline.ValidateCompositionTemplates(entry.Pipeline)
+				for _, e := range errs {
+					templateErrors = append(templateErrors, fmt.Sprintf("[%s] %s", entry.PipelineName, e))
+				}
+			}
+
 			if validateOnly {
-				return renderValidationReport(args, result)
+				if err := renderValidationReport(args, result); err != nil {
+					return err
+				}
+				if len(templateErrors) > 0 {
+					fmt.Fprintln(os.Stdout, "Template validation errors:")
+					for _, e := range templateErrors {
+						fmt.Fprintf(os.Stdout, "  ✗ %s\n", e)
+					}
+					return NewCLIError(CodeContractViolation,
+						"composition template validation failed",
+						"Fix template references to point to valid step IDs")
+				}
+				return nil
 			}
 
 			// Not validate-only: check for errors before execution

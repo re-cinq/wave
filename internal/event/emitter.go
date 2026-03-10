@@ -110,6 +110,17 @@ const (
 	// Parallel execution states
 	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
 	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
+
+	// Composition primitive states
+	StateIterationStarted   = "iteration_started"   // Iterate step begun
+	StateIterationProgress  = "iteration_progress"  // Individual item processing
+	StateIterationCompleted = "iteration_completed"  // All items processed
+	StateBranchEvaluated    = "branch_evaluated"     // Branch condition resolved
+	StateGateWaiting        = "gate_waiting"         // Gate step blocking
+	StateGateResolved       = "gate_resolved"        // Gate condition met
+	StateLoopIteration      = "loop_iteration"       // Loop iteration started
+	StateLoopCompleted      = "loop_completed"       // Loop terminated
+	StateAggregateCompleted = "aggregate_completed"  // Aggregation finished
 )
 
 type EventEmitter interface {
