@@ -303,27 +303,43 @@ func TestAppModel_Update_ForwardsFocusChangedMsgToStatusBar(t *testing.T) {
 // T019: App model tests for pipeline launch flow
 // ===========================================================================
 
-func TestAppModel_Update_QKeyWithFocusRight_DoesNotQuit(t *testing.T) {
+func TestAppModel_Update_QKeyWithFocusRight_Quits(t *testing.T) {
 	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
 	// Set up with a window size so the app is ready
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := updated.(AppModel)
 
-	// Set focus to right pane
+	// Set focus to right pane (no form/filter active)
 	model.content.focus = FocusPaneRight
 	model.content.list.SetFocused(false)
 	model.content.detail.SetFocused(true)
 
-	// Send q key
+	// Send q key — should quit since no input is active
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
-	updated, cmd := model.Update(msg)
-	_ = updated
+	_, cmd := model.Update(msg)
+	assert.NotNil(t, cmd, "q key should produce a quit command from right pane")
 
-	// Should NOT return a quit command
+	quitMsg := cmd()
+	assert.IsType(t, tea.QuitMsg{}, quitMsg, "q key with right pane focus should quit when no input is active")
+}
+
+func TestAppModel_Update_QKeyWhileConfiguring_DoesNotQuit(t *testing.T) {
+	m := NewAppModel(&mockProvider{}, &mockPipelineDataProvider{}, nil, LaunchDependencies{})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := updated.(AppModel)
+
+	// Simulate form/configuring state
+	model.content.detail.paneState = stateConfiguring
+	model.content.focus = FocusPaneRight
+
+	// Send q key — should NOT quit because form input is active
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	_, cmd := model.Update(msg)
+
 	if cmd != nil {
 		result := cmd()
 		_, isQuit := result.(tea.QuitMsg)
-		assert.False(t, isQuit, "q key with right pane focus should not quit")
+		assert.False(t, isQuit, "q key should not quit when form is active")
 	}
 }
 

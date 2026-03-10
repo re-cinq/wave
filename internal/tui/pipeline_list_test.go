@@ -529,6 +529,88 @@ func TestPipelineListModel_Filter_NavigationInFilteredResults(t *testing.T) {
 	assert.GreaterOrEqual(t, m.cursor, 0)
 }
 
+func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
+	// Start with many available pipelines, navigate cursor to a high index,
+	// then filter so that fewer items remain — cursor must be clamped.
+	avail := []PipelineInfo{
+		{Name: "alpha-pipeline"},
+		{Name: "beta-pipeline"},
+		{Name: "gamma-pipeline"},
+		{Name: "delta-pipeline"},
+		{Name: "epsilon-pipeline"},
+	}
+	m := newTestListModel(nil, nil, avail)
+
+	// Navigate cursor deep into the list (past all available items)
+	for range 6 {
+		m, _ = sendKey(m, tea.KeyDown)
+	}
+	require.GreaterOrEqual(t, m.cursor, 4, "cursor should be deep in the list")
+
+	// Activate filter and type something that matches only one item
+	m, _ = sendRune(m, '/')
+	for _, ch := range "epsilon" {
+		m, _ = sendRune(m, ch)
+	}
+
+	// Cursor must be clamped to valid range (not out of bounds)
+	assert.Less(t, m.cursor, len(m.navigable),
+		"cursor must be clamped to navigable bounds after filter narrows results")
+	assert.GreaterOrEqual(t, m.cursor, 0, "cursor must not be negative")
+}
+
+func TestPipelineListModel_Filter_EnterWithZeroResults_StaysInFilterMode(t *testing.T) {
+	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	m := newTestListModel(nil, nil, avail)
+
+	// Activate filter and type a query that matches nothing
+	m, _ = sendRune(m, '/')
+	for _, ch := range "zzzzzzz" {
+		m, _ = sendRune(m, ch)
+	}
+	require.True(t, m.filtering)
+	require.Equal(t, 0, len(m.navigable))
+
+	// Press Enter — should NOT deactivate filter mode
+	m, _ = sendKey(m, tea.KeyEnter)
+	assert.True(t, m.filtering, "filter should remain active when no results match")
+
+	// User can still press Escape to dismiss filter and restore list
+	m, _ = sendKey(m, tea.KeyEscape)
+	assert.False(t, m.filtering)
+	assert.Greater(t, len(m.navigable), 0, "all items should be restored after Escape")
+}
+
+func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testing.T) {
+	avail := []PipelineInfo{
+		{Name: "speckit-flow"},
+		{Name: "wave-evolve"},
+	}
+	m := newTestListModel(nil, nil, avail)
+
+	// Activate filter, type "spec", then confirm with Enter
+	m, _ = sendRune(m, '/')
+	for _, ch := range "spec" {
+		m, _ = sendRune(m, ch)
+	}
+	m, _ = sendKey(m, tea.KeyEnter)
+	require.False(t, m.filtering)
+
+	// Only speckit-flow should be visible
+	view := listStripAnsi(m.View())
+	assert.Contains(t, view, "speckit-flow")
+	assert.NotContains(t, view, "wave-evolve")
+
+	// Press '/' to start new filter — should restore full list immediately
+	m, _ = sendRune(m, '/')
+	assert.True(t, m.filtering)
+	assert.Equal(t, "", m.filterQuery)
+
+	view = listStripAnsi(m.View())
+	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "wave-evolve")
+}
+
 // ===========================================================================
 // T020: Scrolling Tests
 // ===========================================================================

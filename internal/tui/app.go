@@ -59,7 +59,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.content.CancelAll()
 			return m, tea.Quit
 		default:
-			if msg.String() == "q" && !m.content.IsFiltering() && m.content.focus == FocusPaneLeft {
+			if msg.String() == "q" && !m.content.IsInputActive() {
 				m.content.CancelAll()
 				return m, tea.Quit
 			}
