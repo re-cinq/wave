@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -64,15 +65,6 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		_ = l.deps.Store.UpdateRunStatus(runID, "running", "", 0)
 	}
 
-	// Check for --mock flag
-	isMock := false
-	for _, f := range config.Flags {
-		if f == "--mock" {
-			isMock = true
-			break
-		}
-	}
-
 	// Build subprocess command: wave run --pipeline <name> --run <runID> --input <input> [flags...]
 	args := []string{"run", "--pipeline", config.PipelineName, "--run", runID}
 	if config.Input != "" {
@@ -81,8 +73,11 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	if config.ModelOverride != "" {
 		args = append(args, "--model", config.ModelOverride)
 	}
-	if isMock {
-		args = append(args, "--mock")
+	// Pass through user-selected flags to the subprocess.
+	// Compound flags like "--output text" are split into separate args.
+	for _, f := range config.Flags {
+		parts := strings.SplitN(f, " ", 2)
+		args = append(args, parts...)
 	}
 
 	cmd := exec.Command(os.Args[0], args...)
