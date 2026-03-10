@@ -349,7 +349,7 @@ steps:
       source: "Fix the issue with regression test"
 
   - id: verify
-    persona: auditor
+    persona: reviewer
     dependencies: [fix]
     exec:
       source: "Verify fix is safe for production"

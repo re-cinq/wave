@@ -335,29 +335,35 @@ Production-ready format validation for domain-specific outputs like GitHub issue
 handover:
   contract:
     type: format
-    source: .wave/output/issue.md
+    source: .wave/output/issue.json
+    schema_path: .wave/contracts/github-issue-analysis.schema.json
 ```
 
-**Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
+**Use when:** Validating that generated JSON content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
 
-**Status:** Experimental. Infers format type from content and applies domain-specific validation rules including placeholder detection.
+**Status:** Experimental. Infers format type from `schema_path` filename and applies domain-specific validation rules including placeholder detection. Source file must be valid JSON.
 
 ### Fields
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `source` | **yes** | - | Path to file to validate |
+| `source` | **yes** | - | Path to JSON file to validate |
+| `schema_path` | no | - | Schema path used to infer format type (e.g., `github-issue-analysis.schema.json` → `github_issue`) |
 | `must_pass` | no | `true` | Whether failure blocks progression |
 | `on_failure` | no | `retry` | `retry` or `halt` |
 | `max_retries` | no | `2` | Maximum retry attempts |
 
 ### Supported Formats
 
-The format validator auto-detects content type and applies domain-specific rules:
-- **GitHub issues** — checks for title, body, labels structure
-- **Pull requests** — validates description, linked issues
-- **Analysis outputs** — ensures structured sections are present
-- **Placeholder detection** — flags unfilled template placeholders
+The format validator infers the format type from the `schema_path` filename and applies domain-specific rules. Without a `schema_path`, it falls back to generic validation.
+
+| Schema name pattern | Format type | Validation |
+|---------------------|-------------|------------|
+| `github-issue-*` | `github_issue` | Title length/quality, body structure, labels, placeholder detection |
+| `github-pr-*` | `github_pr` | Description quality, linked issues, placeholder detection |
+| `implementation-results` | `implementation_results` | Structured result sections |
+| `analysis`, `findings` | `analysis` | Structured analysis sections |
+| _(other)_ | `generic` | Basic structure and placeholder detection |
 
 ---
 

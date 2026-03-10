@@ -12,7 +12,7 @@ Reference for all environment variables that control Wave behavior, and the cred
 | `WAVE_AUTO_MIGRATE` | `bool` | `true` | Automatically apply pending migrations on startup. |
 | `WAVE_SKIP_MIGRATION_VALIDATION` | `bool` | `false` | Skip migration checksum validation (development only). |
 | `WAVE_MAX_MIGRATION_VERSION` | `int` | `0` | Limit migrations to this version (0 = unlimited). Useful for gradual rollout. |
-| `NO_COLOR` | `bool` | `false` | Disable colored output. Follows the [NO_COLOR](https://no-color.org) standard. |
+| `NO_COLOR` | `string` | _(unset)_ | Disable colored output. Any non-empty value disables color. Follows the [NO_COLOR](https://no-color.org) standard. |
 
 ### Precedence Order
 
@@ -99,13 +99,16 @@ The Claude adapter constructs a curated environment for each subprocess. Only ba
 
 Audit logs automatically redact values for environment variables matching these patterns:
 
-| Pattern | Examples |
+| Pattern (regex) | Examples |
 |---------|----------|
-| `*_KEY` | `ANTHROPIC_API_KEY`, `AWS_ACCESS_KEY` |
-| `*_TOKEN` | `GITHUB_TOKEN`, `NPM_TOKEN` |
-| `*_SECRET` | `AWS_SECRET_ACCESS_KEY`, `JWT_SECRET` |
-| `*_PASSWORD` | `DATABASE_PASSWORD`, `SMTP_PASSWORD` |
-| `*_CREDENTIAL*` | `GCP_CREDENTIAL_FILE` |
+| `API[_-]?KEY` | `ANTHROPIC_API_KEY`, `OPENAI_APIKEY` |
+| `TOKEN` | `GITHUB_TOKEN`, `NPM_TOKEN` |
+| `SECRET` | `AWS_SECRET_ACCESS_KEY`, `JWT_SECRET` |
+| `PASSWORD` | `DATABASE_PASSWORD`, `SMTP_PASSWORD` |
+| `CREDENTIAL` | `GCP_CREDENTIAL_FILE` |
+| `AUTH` | `BASIC_AUTH`, `AUTH_TOKEN` |
+| `PRIVATE[_-]?KEY` | `SSH_PRIVATE_KEY` |
+| `ACCESS[_-]?KEY` | `AWS_ACCESS_KEY` |
 
 Redacted values appear as `[REDACTED]` in audit logs.
 
