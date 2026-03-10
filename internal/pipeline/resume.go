@@ -34,7 +34,9 @@ func NewResumeManager(executor *DefaultPipelineExecutor) *ResumeManager {
 
 // ResumeFromStep resumes pipeline execution from a specific step with enhanced validation.
 // When force is true, phase validation and stale artifact checks are skipped.
-func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
+// When priorRunID is non-empty, artifact paths are resolved from that specific run's
+// workspace directory instead of scanning all runs for the most recent match.
+func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool, priorRunID ...string) error {
 	if fromStep == "" {
 		return fmt.Errorf("fromStep cannot be empty for resume operation")
 	}
@@ -87,7 +89,11 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	resumePipeline := r.createResumeSubpipeline(p, fromStep)
 
 	// Initialize resume context with preserved state
-	resumeState, err := r.loadResumeState(p, fromStep)
+	var runIDForResume string
+	if len(priorRunID) > 0 {
+		runIDForResume = priorRunID[0]
+	}
+	resumeState, err := r.loadResumeState(p, fromStep, runIDForResume)
 	if err != nil {
 		return fmt.Errorf("failed to load resume state: %w", err)
 	}
@@ -193,8 +199,11 @@ func (r *ResumeManager) lookupStepPersona(p *Pipeline, stepID string) string {
 	return ""
 }
 
-// loadResumeState loads state from previous execution for resumption
-func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeState, error) {
+// loadResumeState loads state from previous execution for resumption.
+// When priorRunID is non-empty, only that run's workspace directory is searched
+// for artifact paths. Otherwise, all matching run directories are scanned and
+// the most recent match is used.
+func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID ...string) (*ResumeState, error) {
 	state := &ResumeState{
 		States:         make(map[string]string),
 		Results:        make(map[string]map[string]interface{}),
@@ -205,13 +214,31 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string) (*ResumeSt
 
 	wsRoot := ".wave/workspaces"
 
-	// Find the most recent run directory for this pipeline.
-	// Run dirs are named <pipelineName>-<timestamp>-<hash> and sorted
-	// lexicographically so the last match is the most recent.
-	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
-	// Also check for an exact-name dir (no hash suffix, legacy)
-	if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
-		runDirs = append([]string{filepath.Join(wsRoot, p.Metadata.Name)}, runDirs...)
+	var runDirs []string
+
+	// When a specific run ID is provided, look only in that run's workspace.
+	resolvedRunID := ""
+	if len(priorRunID) > 0 {
+		resolvedRunID = priorRunID[0]
+	}
+	if resolvedRunID != "" {
+		candidate := filepath.Join(wsRoot, resolvedRunID)
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			runDirs = []string{candidate}
+		}
+		// If the exact run ID dir doesn't exist, fall through to the glob scan
+		// so we don't silently lose all state.
+	}
+
+	if len(runDirs) == 0 {
+		// Find the most recent run directory for this pipeline.
+		// Run dirs are named <pipelineName>-<timestamp>-<hash> and sorted
+		// lexicographically so the last match is the most recent.
+		runDirs, _ = filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
+		// Also check for an exact-name dir (no hash suffix, legacy)
+		if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
+			runDirs = append([]string{filepath.Join(wsRoot, p.Metadata.Name)}, runDirs...)
+		}
 	}
 
 	// Load completed steps state from workspace
