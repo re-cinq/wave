@@ -35,7 +35,7 @@ steps:
         1. tea --version
 
         2. Fetch the full issue:
-           tea issues view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+           tea issues view NUMBER --repo REPO --output json
 
         3. Get commits since the issue was created (cap at 100):
            git log --since="<createdAt>" --oneline -100
@@ -157,7 +157,7 @@ steps:
         - Clean up /tmp/issue-body.md after applying.
 
         Step 4: Verify the update was applied:
-        tea issues view <NUMBER> --repo <REPO> --json number,title,body,url
+        tea issues view <NUMBER> --repo <REPO> --output json
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 

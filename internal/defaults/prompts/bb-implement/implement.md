@@ -1,60 +1,98 @@
-You are implementing the planned changes for the Bitbucket issue.
+You are implementing a Bitbucket issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
 ## Working Directory
 
-You are running in an **isolated git worktree**. Your working directory IS the
-project root. The feature branch is already checked out.
-
-Read the issue assessment and implementation plan artifacts.
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by the
+plan step and is already checked out. All git operations here are isolated from
+the main working tree.
 
 ## Instructions
 
 ### Step 1: Load Context
 
-From the artifacts, understand:
-- Issue requirements
-- Implementation plan (files to modify/create, test strategy)
-- Branch name
+1. Get the issue details and branch name from the issue assessment artifact
+2. Get the task breakdown, file changes, and feature directory from the plan artifact
 
-### Step 2: Implement Changes
+### Step 2: Read Plan Files
 
-Follow the implementation plan:
-1. Make code changes as specified
-2. Add/modify tests
-3. Update documentation if needed
-4. Run tests to verify changes
+Navigate to the feature directory and read:
+- `spec.md` — the full specification
+- `plan.md` — the implementation plan
+- `tasks.md` — the phased task breakdown
 
-### Step 3: Commit Changes
+### Step 3: Execute Implementation
 
-Create atomic commits following conventional commit format:
+Follow the task breakdown phase by phase:
+
+**Setup first**: Initialize project structure, dependencies, configuration
+
+**Tests before code (TDD)**:
+- Write tests that define expected behavior
+- Run tests to confirm they fail for the right reason
+- Implement the code to make tests pass
+
+**Core development**: Implement the changes specified in the plan
+
+**Integration**: Wire components together, update imports, middleware
+
+**Polish**: Edge cases, error handling, documentation updates
+
+### Step 4: Validate Between Phases
+
+After each phase, run:
 ```bash
-git add <files>
-git commit -m "feat: <description>
-
-<detailed explanation>
-
-Refs: #<ISSUE_NUMBER>"
+{{ project.test_command }}
 ```
 
-### Step 4: Verify
+If tests fail, fix the issue before proceeding to the next phase.
 
-Run the test suite to ensure everything passes:
-```bash
-go test ./...
-```
+### Step 5: Mark Completed Tasks
 
-If tests fail, fix the issues and commit the fixes.
+As you complete each task, mark it as `[X]` in `tasks.md`.
 
-## CONSTRAINTS
+### Step 6: Final Validation
 
-- Do NOT spawn Task subagents — work directly in the main context
+After all tasks are complete:
+1. Run `{{ project.test_command }}` one final time
+2. Verify all tasks in `tasks.md` are marked complete
+3. Stage and commit all changes:
+   ```bash
+   git add -A
+   git reset HEAD -- .wave/artifacts .wave/output .claude CLAUDE.md 2>/dev/null || true
+   git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
+   ```
+
+Commit changes to the worktree branch.
+
+## Tool Usage
+
+- Use the Edit tool for file modifications. Do NOT use perl, sed, or awk
+- Use the Write tool for new files. Do NOT use cat heredocs or echo redirection
+- Use the Read tool for reading files. Do NOT use cat, head, or tail
+- Use the Grep tool for searching. Do NOT use grep or rg via Bash
 - Do NOT push to remote — that happens in the create-pr step
-- Do NOT create the PR yet — that's the next step
-- Follow the project's conventional commit format
 - Do NOT include Co-Authored-By or AI attribution in commits
 
-## Output
+These rules apply to both the main context AND any Task subagents you spawn.
 
-The test suite contract will validate that all tests pass.
+## Agent Usage
+
+Maximize parallelism with up to 6 Task agents for independent work:
+- Agents 1-2: Setup and foundational tasks (Phase 1-2)
+- Agents 3-4: Core implementation tasks (parallelizable [P] tasks)
+- Agent 5: Test writing and validation
+- Agent 6: Integration and polish tasks
+
+Coordinate agents to respect task dependencies:
+- Sequential tasks (no [P] marker) must complete before dependents start
+- Parallel tasks [P] affecting different files can run simultaneously
+- Run test validation between phases
+
+## Error Handling
+
+- If a task fails, halt dependent tasks but continue independent ones
+- Provide clear error context for debugging
+- If tests fail, fix the issue before proceeding to the next phase
