@@ -700,6 +700,44 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 	}
 }
 
+func TestBasicProgressDisplay_RetryingEvent(t *testing.T) {
+	var buf bytes.Buffer
+	bpd := NewBasicProgressDisplay()
+	bpd.writer = &buf
+
+	now := time.Now()
+
+	// Emit a retrying event
+	err := bpd.EmitProgress(event.Event{
+		Timestamp:  now,
+		PipelineID: "test-pipeline",
+		StepID:     "implement",
+		State:      "retrying",
+		Message:    "attempt 2/3",
+	})
+	if err != nil {
+		t.Fatalf("EmitProgress failed: %v", err)
+	}
+
+	output := buf.String()
+
+	// Should contain retry indicator and message
+	if !strings.Contains(output, "implement") {
+		t.Errorf("Output should contain step ID, got:\n%s", output)
+	}
+	if !strings.Contains(output, "retrying") {
+		t.Errorf("Output should contain 'retrying', got:\n%s", output)
+	}
+	if !strings.Contains(output, "attempt 2/3") {
+		t.Errorf("Output should contain attempt message, got:\n%s", output)
+	}
+
+	// Should update step state to running
+	if bpd.stepStates["implement"] != "running" {
+		t.Errorf("Step state should be 'running' after retrying, got %q", bpd.stepStates["implement"])
+	}
+}
+
 func TestBasicProgressDisplay_StreamActivityGuard(t *testing.T) {
 	tests := []struct {
 		name       string

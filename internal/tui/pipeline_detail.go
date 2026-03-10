@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/state"
 )
 
 // PipelineDetailModel is the Bubble Tea model for the right pane.
@@ -18,9 +20,11 @@ type PipelineDetailModel struct {
 	focused  bool
 	viewport viewport.Model
 
-	selectedName  string
-	selectedKind  itemKind
-	selectedRunID string
+	selectedName      string
+	selectedInput     string
+	selectedKind      itemKind
+	selectedRunID     string
+	selectedStartedAt time.Time
 
 	availableDetail *AvailableDetail
 	finishedDetail  *FinishedDetail
@@ -31,14 +35,18 @@ type PipelineDetailModel struct {
 	actionError string // Transient error for action keys
 	launchError string // Error message for stateError
 
-	// Launch form state
+	// Launch form state — pointers are heap-allocated so huh bindings survive
+	// across Bubble Tea's value-copy Update cycles.
 	launchForm       *huh.Form
-	launchInput      string   // Bound to form input field
-	launchModel      string   // Bound to form model override field
-	launchFlags      []string // Bound to form flag multi-select
-	launchErrorTitle string   // "Launch Failed" for launch errors, empty for detail load errors
+	launchInput      *string   // Bound to form input field
+	launchModel      *string   // Bound to form model override field
+	launchFlags      *[]string // Bound to form flag multi-select
+	launchErrorTitle string    // "Launch Failed" for launch errors, empty for detail load errors
 
 	provider DetailDataProvider
+
+	// Persisted event log (for stale/finished runs)
+	persistedEvents []state.LogRecord
 
 	// Live output state
 	liveOutput *LiveOutputModel
@@ -91,15 +99,19 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			// Extract bound values and build LaunchConfig
 			config := LaunchConfig{
 				PipelineName:  m.selectedName,
-				Input:         m.launchInput,
-				ModelOverride: m.launchModel,
-				Flags:         m.launchFlags,
+				Input:         *m.launchInput,
+				ModelOverride: *m.launchModel,
+				Flags:         *m.launchFlags,
 			}
-			// Check for --dry-run in flags
-			for _, f := range m.launchFlags {
-				if f == "--dry-run" {
+			// Extract convenience booleans from flags
+			for _, f := range config.Flags {
+				switch f {
+				case "--dry-run":
 					config.DryRun = true
-					break
+				case "--verbose":
+					config.Verbose = true
+				case "--debug":
+					config.Debug = true
 				}
 			}
 			m.paneState = stateLaunching
@@ -124,12 +136,24 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 
 	switch msg := msg.(type) {
 	case PipelineSelectedMsg:
+		// If re-selecting the same item (e.g. from a periodic refresh tick),
+		// preserve expensive state like fetched detail and event logs.
+		sameItem := msg.RunID != "" && msg.RunID == m.selectedRunID && msg.Kind == m.selectedKind
+		if !sameItem {
+			sameItem = msg.RunID == "" && msg.Name == m.selectedName && msg.Kind == m.selectedKind
+		}
+
 		m.selectedName = msg.Name
+		m.selectedInput = msg.Input
 		m.selectedKind = msg.Kind
 		m.selectedRunID = msg.RunID
+		m.selectedStartedAt = msg.StartedAt
 		m.branchDeleted = msg.BranchDeleted
-		m.availableDetail = nil
-		m.finishedDetail = nil
+		if !sameItem {
+			m.availableDetail = nil
+			m.finishedDetail = nil
+			m.persistedEvents = nil
+		}
 		m.launchError = ""
 		m.launchErrorTitle = ""
 		m.launchForm = nil
@@ -142,8 +166,28 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 
 		if msg.Kind == itemKindRunning {
-			m.liveOutput = nil // Clear any previous live output
-			m.paneState = stateRunningInfo
+			// Preserve live output if it matches this run (set by PipelineLaunchedMsg)
+			if m.liveOutput != nil && m.liveOutput.runID == msg.RunID {
+				m.paneState = stateRunningLive
+			} else {
+				m.liveOutput = nil
+				m.paneState = stateRunningInfo
+				m.updateViewportContent()
+				// Auto-fetch persisted events for stale runs (skip if already loaded)
+				if m.provider != nil && m.persistedEvents == nil {
+					runID := msg.RunID
+					provider := m.provider
+					return m, func() tea.Msg {
+						events, err := provider.FetchRunEvents(runID)
+						return RunEventsMsg{RunID: runID, Events: events, Err: err}
+					}
+				}
+			}
+			return m, nil
+		}
+
+		// Skip redundant fetch if we already have detail for this item
+		if sameItem {
 			m.updateViewportContent()
 			return m, nil
 		}
@@ -186,10 +230,10 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		return m, nil
 
 	case ConfigureFormMsg:
-		// Reset form-bound values
-		m.launchInput = ""
-		m.launchModel = ""
-		m.launchFlags = nil
+		// Allocate fresh heap pointers so huh bindings survive value-copy Update cycles.
+		m.launchInput = new(string)
+		m.launchModel = new(string)
+		m.launchFlags = new([]string)
 
 		// Create the form with input, model override, and flag fields
 		m.launchForm = huh.NewForm(
@@ -197,14 +241,14 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				huh.NewInput().
 					Title("Input").
 					Placeholder(msg.InputExample).
-					Value(&m.launchInput),
+					Value(m.launchInput),
 				huh.NewInput().
 					Title("Model override (optional)").
-					Value(&m.launchModel),
+					Value(m.launchModel),
 				huh.NewMultiSelect[string]().
 					Title("Options").
 					Options(buildFlagOptions(DefaultFlags())...).
-					Value(&m.launchFlags),
+					Value(m.launchFlags),
 			),
 		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height)
 
@@ -269,6 +313,13 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.updateViewportContent()
 		return m, nil
 
+	case RunEventsMsg:
+		if msg.Err == nil {
+			m.persistedEvents = msg.Events
+			m.updateViewportContent()
+		}
+		return m, nil
+
 	case DiffViewEndedMsg:
 		return m, nil
 
@@ -300,6 +351,18 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			var cmd tea.Cmd
 			*m.liveOutput, cmd = m.liveOutput.Update(msg)
 			return m, cmd
+		}
+
+		// Handle 'l' key for event logs in stateRunningInfo
+		if m.paneState == stateRunningInfo && m.focused {
+			if msg.String() == "l" && m.provider != nil && m.selectedRunID != "" {
+				runID := m.selectedRunID
+				provider := m.provider
+				return m, func() tea.Msg {
+					events, err := provider.FetchRunEvents(runID)
+					return RunEventsMsg{RunID: runID, Events: events, Err: err}
+				}
+			}
 		}
 
 		// Handle action keys in stateFinishedDetail
@@ -335,6 +398,16 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 						}
 						return BranchCheckoutMsg{BranchName: branch, Success: true}
 					}
+				case "l":
+					// Fetch event logs
+					if m.provider != nil && m.selectedRunID != "" {
+						runID := m.selectedRunID
+						provider := m.provider
+						return m, func() tea.Msg {
+							events, err := provider.FetchRunEvents(runID)
+							return RunEventsMsg{RunID: runID, Events: events, Err: err}
+						}
+					}
 				case "d":
 					// Diff view (T018)
 					if m.branchDeleted || m.finishedDetail == nil || m.finishedDetail.BranchName == "" {
@@ -368,11 +441,11 @@ func (m *PipelineDetailModel) updateViewportContent() {
 		}
 	case stateFinishedDetail:
 		if m.finishedDetail != nil {
-			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted, m.actionError))
+			m.viewport.SetContent(renderFinishedDetail(m.finishedDetail, m.width, m.branchDeleted, m.actionError, m.persistedEvents))
 		}
 	case stateRunningInfo:
 		if m.selectedName != "" {
-			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.width))
+			m.viewport.SetContent(renderRunningInfo(m.selectedName, m.selectedInput, m.selectedStartedAt, m.width, m.persistedEvents))
 		}
 	}
 }
@@ -398,7 +471,13 @@ func (m PipelineDetailModel) View() string {
 
 	case stateConfiguring:
 		if m.launchForm != nil {
-			return m.launchForm.View()
+			formView := m.launchForm.View()
+			// Clamp form output to allocated height to prevent overflow
+			lines := strings.Split(formView, "\n")
+			if len(lines) > m.height {
+				lines = lines[:m.height]
+			}
+			return strings.Join(lines, "\n")
 		}
 
 	case stateLaunching:
@@ -502,7 +581,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 }
 
 // renderFinishedDetail renders the detail view for a finished pipeline run.
-func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string) string {
+func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string, events []state.LogRecord) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
@@ -513,6 +592,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 
 	var sb strings.Builder
 
+	sb.WriteString(labelStyle.Render("Pipeline: "))
 	sb.WriteString(titleStyle.Render(detail.Name))
 	sb.WriteString("\n\n")
 
@@ -529,6 +609,11 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		statusStr = detail.Status
 	}
 	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Status:"), statusStr))
+
+	// Input
+	if detail.Input != "" {
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Input:"), detail.Input))
+	}
 
 	// Duration
 	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Duration:"), formatDuration(detail.Duration)))
@@ -547,7 +632,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Started:"), detail.StartedAt.Format("2006-01-02 15:04:05")))
 	}
 	if !detail.CompletedAt.IsZero() {
-		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Completed:"), detail.CompletedAt.Format("2006-01-02 15:04:05")))
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Finished:"), detail.CompletedAt.Format("2006-01-02 15:04:05")))
 	}
 
 	// Error info
@@ -597,7 +682,22 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("  %s\n", mutedStyle.Render("No artifacts produced")))
 	} else {
 		for _, a := range detail.Artifacts {
-			sb.WriteString(fmt.Sprintf("  * %s  %s  (%s)\n", a.Name, a.Path, a.Type))
+			display := a.Path
+			if display == "" {
+				display = a.Name
+			}
+			sb.WriteString(fmt.Sprintf("  %s\n", display))
+		}
+	}
+
+	// Event log (if loaded)
+	if len(events) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Event Log:"))
+		sb.WriteString("\n")
+		for _, ev := range events {
+			sb.WriteString(formatLogRecord(ev))
+			sb.WriteString("\n")
 		}
 	}
 
@@ -620,27 +720,66 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		if branchDisabled {
 			diffHint = mutedStyle.Faint(true).Render("[d] View diff")
 		}
+		logsHint := mutedStyle.Render("[l] Logs")
 		escHint := mutedStyle.Render("[Esc] Back")
-		sb.WriteString(fmt.Sprintf("%s  %s  %s  %s\n", enterHint, branchHint, diffHint, escHint))
+		sb.WriteString(fmt.Sprintf("%s  %s  %s  %s  %s\n", enterHint, branchHint, diffHint, logsHint, escHint))
 	}
 
 	return sb.String()
 }
 
 // renderRunningInfo renders a brief info view for a running pipeline.
-func renderRunningInfo(name string, width int) string {
+func renderRunningInfo(name string, input string, startedAt time.Time, width int, events []state.LogRecord) string {
 	_ = width
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 
 	var sb strings.Builder
 
 	sb.WriteString(titleStyle.Render(name))
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Status:"), greenStyle.Render("\u25b6 Running")))
+	if input != "" {
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Input:"), input))
+	}
+	if !startedAt.IsZero() {
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Started:"), startedAt.Format("2006-01-02 15:04:05")))
+	}
 	sb.WriteString("\n")
-	sb.WriteString("Started externally — live output not available.\n")
+	sb.WriteString(labelStyle.Render("Live output is only available for pipelines"))
+	sb.WriteString("\n")
+	sb.WriteString(labelStyle.Render("launched in the current TUI session."))
+	sb.WriteString("\n\n")
+	sb.WriteString(warnStyle.Render("This run appears stale — it may have been started in a"))
+	sb.WriteString("\n")
+	sb.WriteString(warnStyle.Render("previous session. Use [c] to dismiss it."))
+
+	if len(events) > 0 {
+		sb.WriteString("\n\n")
+		sb.WriteString(sectionStyle.Render("Event Log:"))
+		sb.WriteString("\n")
+		for _, ev := range events {
+			sb.WriteString(formatLogRecord(ev))
+			sb.WriteString("\n")
+		}
+	}
 
 	return sb.String()
+}
+
+
+// formatLogRecord formats a single persisted log record for display.
+func formatLogRecord(rec state.LogRecord) string {
+	ts := rec.Timestamp.Format("15:04:05")
+	stepID := rec.StepID
+	if stepID == "" {
+		stepID = "pipeline"
+	}
+	if rec.Message != "" {
+		return fmt.Sprintf("  %s [%s] %s: %s", ts, rec.State, stepID, rec.Message)
+	}
+	return fmt.Sprintf("  %s [%s] %s", ts, rec.State, stepID)
 }

@@ -55,7 +55,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-plan.schema.json
+        schema_path: .wave/contracts/enhancement-plan.schema.json
         validate: true
         must_pass: true
         allow_recovery: true
@@ -100,7 +100,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-results.schema.json
+        schema_path: .wave/contracts/enhancement-results.schema.json
         validate: true
         must_pass: true
         allow_recovery: true

@@ -40,7 +40,7 @@ personas:
       deny: ["Write(*)"]
 
 runtime:
-  workspace_root: /tmp/wave
+  workspace_root: .wave/workspaces
   max_concurrent_workers: 3
 ```
 
@@ -79,7 +79,7 @@ wave run hello-world "testing Wave" -o text
 
 ## 5. Check Results
 
-Artifacts are saved in `/tmp/wave/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
+Artifacts are saved in `.wave/workspaces/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
 
 ## Quick Commands
 

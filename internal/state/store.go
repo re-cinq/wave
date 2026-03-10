@@ -26,6 +26,7 @@ const (
 	StateCompleted StepState = "completed"
 	StateFailed    StepState = "failed"
 	StateRetrying  StepState = "retrying"
+	StateSkipped   StepState = "skipped"
 )
 
 // PipelineStateRecord holds persisted pipeline state.
@@ -104,6 +105,13 @@ type StateStore interface {
 	GetRunTags(runID string) ([]string, error)
 	AddRunTag(runID string, tag string) error
 	RemoveRunTag(runID string, tag string) error
+
+	// Process tracking (detached subprocess execution)
+	UpdateRunPID(runID string, pid int) error
+
+	// Step attempt tracking (retry/recovery)
+	RecordStepAttempt(record *StepAttemptRecord) error
+	GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error)
 }
 
 type stateStore struct {
@@ -496,10 +504,20 @@ func (s *stateStore) UpdateRunBranch(runID string, branch string) error {
 	return nil
 }
 
+// UpdateRunPID sets the OS process ID for a detached pipeline run.
+func (s *stateStore) UpdateRunPID(runID string, pid int) error {
+	query := `UPDATE pipeline_run SET pid = ? WHERE run_id = ?`
+	_, err := s.db.Exec(query, pid, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update run PID: %w", err)
+	}
+	return nil
+}
+
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
@@ -507,6 +525,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	var startedAt int64
 	var completedAt, cancelledAt sql.NullInt64
 	var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
+	var pid sql.NullInt64
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -521,6 +540,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&errorMessage,
 		&tagsJSON,
 		&branchName,
+		&pid,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -556,6 +576,9 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if branchName.Valid {
 		record.BranchName = branchName.String
 	}
+	if pid.Valid {
+		record.PID = int(pid.Int64)
+	}
 
 	return &record, nil
 }
@@ -564,9 +587,9 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
-	          WHERE status = 'running'
+	          WHERE (status = 'running' OR (status = 'pending' AND started_at > unixepoch() - 300))
 	          ORDER BY started_at DESC`
 
 	return s.queryRuns(query)
@@ -575,7 +598,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 // ListRuns returns runs matching the specified options.
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -885,6 +908,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var startedAt int64
 		var completedAt, cancelledAt sql.NullInt64
 		var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
+		var pid sql.NullInt64
 
 		err := rows.Scan(
 			&record.RunID,
@@ -899,6 +923,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&errorMessage,
 			&tagsJSON,
 			&branchName,
+			&pid,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -930,6 +955,9 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if branchName.Valid {
 			record.BranchName = branchName.String
+		}
+		if pid.Valid {
+			record.PID = int(pid.Int64)
 		}
 
 		records = append(records, record)
@@ -1744,4 +1772,48 @@ func (s *stateStore) RemoveRunTag(runID string, tag string) error {
 	}
 
 	return s.SetRunTags(runID, newTags)
+}
+
+// RecordStepAttempt inserts a step attempt record into the step_attempt table.
+func (s *stateStore) RecordStepAttempt(record *StepAttemptRecord) error {
+	var completedAt *int64
+	if record.CompletedAt != nil {
+		t := record.CompletedAt.Unix()
+		completedAt = &t
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO step_attempt (run_id, step_id, attempt, state, error_message, failure_class, stdout_tail, tokens_used, duration_ms, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		record.RunID, record.StepID, record.Attempt, record.State, record.ErrorMessage, record.FailureClass, record.StdoutTail, record.TokensUsed, record.DurationMs, record.StartedAt.Unix(), completedAt,
+	)
+	return err
+}
+
+// GetStepAttempts retrieves all attempt records for a step, ordered by attempt number.
+func (s *stateStore) GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT id, run_id, step_id, attempt, state, error_message, failure_class, stdout_tail, tokens_used, duration_ms, started_at, completed_at FROM step_attempt WHERE run_id = ? AND step_id = ? ORDER BY attempt ASC`,
+		runID, stepID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []StepAttemptRecord
+	for rows.Next() {
+		var r StepAttemptRecord
+		var startedAt int64
+		var completedAtNull *int64
+		err := rows.Scan(&r.ID, &r.RunID, &r.StepID, &r.Attempt, &r.State, &r.ErrorMessage, &r.FailureClass, &r.StdoutTail, &r.TokensUsed, &r.DurationMs, &startedAt, &completedAtNull)
+		if err != nil {
+			return nil, err
+		}
+		r.StartedAt = time.Unix(startedAt, 0)
+		if completedAtNull != nil {
+			t := time.Unix(*completedAtNull, 0)
+			r.CompletedAt = &t
+		}
+		records = append(records, r)
+	}
+	return records, nil
 }

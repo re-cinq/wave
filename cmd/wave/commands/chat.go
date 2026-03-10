@@ -167,7 +167,7 @@ func runChat(opts ChatOptions) error {
 	if run.CompletedAt != nil {
 		elapsed = formatElapsed(run.CompletedAt.Sub(run.StartedAt))
 	}
-	fmt.Fprintf(os.Stderr, "\n  Wave Chat — %s%s%s\n", statusColor(run.Status), run.Status, colorReset)
+	fmt.Fprintf(os.Stderr, "\n  Wave Chat — %s%s%s\n", statusColor(run.Status), run.Status, conditionalColor("\033[0m"))
 	fmt.Fprintf(os.Stderr, "  Run:      %s\n", run.RunID)
 	fmt.Fprintf(os.Stderr, "  Pipeline: %s\n", run.PipelineName)
 	if elapsed != "" {

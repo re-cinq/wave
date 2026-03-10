@@ -12,6 +12,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave status` | Check pipeline status |
 | `wave logs` | View execution logs |
 | `wave cancel` | Cancel running pipeline |
+| `wave chat` | Interactive analysis of pipeline runs |
 | `wave artifacts` | List and export artifacts |
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
@@ -542,6 +543,45 @@ wave serve --db .wave/state.db
 
 ---
 
+
+## wave chat
+
+Interactive analysis and exploration of pipeline runs. Opens a conversational session where you can investigate step outputs, artifacts, and execution details.
+
+```bash
+wave chat run-abc123
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--step` | `""` | Focus context on a specific step |
+| `--model` | `sonnet` | Model to use for the chat session |
+| `--list` | `false` | List recent runs |
+| `--continue` | `""` | Continue work in a step's workspace (read-write) |
+| `--rewrite` | `""` | Re-execute a step with modified prompt |
+| `--extend` | `""` | Add supplementary instructions to a step |
+
+```bash
+# List recent runs
+wave chat --list
+
+# Chat about a specific step
+wave chat run-abc123 --step implement
+
+# Continue working in a step's workspace
+wave chat run-abc123 --continue implement
+
+# Re-execute a step with a new prompt
+wave chat run-abc123 --rewrite implement
+
+# Add supplementary instructions to a step
+wave chat run-abc123 --extend implement
+```
+
+---
+
 ## wave migrate
 
 Database migration commands.
@@ -622,6 +662,6 @@ All commands support:
 
 ## Next Steps
 
-- [Quickstart](/quickstart) - Run your first pipeline
+- [Quick Start](/guide/quick-start) - Run your first pipeline
 - [Pipelines](/concepts/pipelines) - Define multi-step workflows
 - [Manifest Reference](/reference/manifest) - Configuration options

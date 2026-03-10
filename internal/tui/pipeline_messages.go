@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"context"
-
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -32,14 +30,16 @@ const (
 	stateConfiguring                           // Argument form active
 	stateLaunching                             // Brief "Starting..." indicator
 	stateError                                 // Launch error display
+	stateComposing                             // Compose mode artifact flow
 )
 
 // LaunchDependencies holds the dependencies needed to launch pipelines from the TUI.
 // Passed at TUI construction time; executor infrastructure is created on demand.
 type LaunchDependencies struct {
-	Manifest     *manifest.Manifest
-	Store        state.StateStore
-	PipelinesDir string
+	Manifest        *manifest.Manifest
+	Store           state.StateStore
+	PipelinesDir    string
+	SuggestProvider SuggestDataProvider
 }
 
 // LaunchConfig holds the user's pipeline launch configuration from the argument form.
@@ -49,6 +49,8 @@ type LaunchConfig struct {
 	ModelOverride string
 	Flags         []string // e.g., "--verbose", "--debug", "--dry-run"
 	DryRun        bool     // Extracted from Flags for convenience
+	Verbose       bool     // Extracted from Flags for convenience
+	Debug         bool     // Extracted from Flags for convenience
 }
 
 // LaunchRequestMsg is emitted when the argument form is submitted.
@@ -60,7 +62,6 @@ type LaunchRequestMsg struct {
 type PipelineLaunchedMsg struct {
 	RunID        string
 	PipelineName string
-	CancelFunc   context.CancelFunc
 }
 
 // PipelineLaunchResultMsg signals that a launched pipeline has finished execution.
@@ -128,4 +129,21 @@ type DiffViewEndedMsg struct {
 // FinishedDetailActiveMsg signals the status bar to switch to finished detail hints.
 type FinishedDetailActiveMsg struct {
 	Active bool
+}
+
+// RunEventsMsg carries persisted event log records fetched from the state store.
+type RunEventsMsg struct {
+	RunID  string
+	Events []state.LogRecord
+	Err    error
+}
+
+// RunningInfoActiveMsg signals the status bar when stateRunningInfo pane is active.
+type RunningInfoActiveMsg struct {
+	Active bool
+}
+
+// DetachedEventPollTickMsg triggers periodic event polling for detached pipeline live output.
+type DetachedEventPollTickMsg struct {
+	RunID string
 }
