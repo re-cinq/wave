@@ -10,7 +10,6 @@ Contracts validate step output before dependent steps begin. This page documents
 | `json_schema` | JSON structure | Ensuring data format and required fields |
 | `typescript_interface` | TypeScript compiles | Validating generated type definitions |
 | `markdown_spec` | Markdown structure | Checking documentation format |
-| `template` | Structured templates | Validating JSON/Markdown/YAML templates (experimental) |
 | `format` | Domain-specific formats | Validating GitHub issues, PRs, analysis outputs (experimental) |
 
 ---
@@ -328,23 +327,6 @@ steps:
 
 ---
 
-## template
-
-Validate structured templates with required fields and constraints. Supports JSON, Markdown, and YAML formats.
-
-```yaml
-handover:
-  contract:
-    type: template
-    source: .wave/output/template.json
-```
-
-**Use when:** Ensuring generated templates contain required fields and meet format constraints.
-
-**Status:** Experimental. Supports required field checking, min/max length constraints, pattern matching, and enum validation.
-
----
-
 ## format
 
 Production-ready format validation for domain-specific outputs like GitHub issues, pull requests, and code analysis.
@@ -353,12 +335,35 @@ Production-ready format validation for domain-specific outputs like GitHub issue
 handover:
   contract:
     type: format
-    source: .wave/output/issue.md
+    source: .wave/output/issue.json
+    schema_path: .wave/contracts/github-issue-analysis.schema.json
 ```
 
-**Use when:** Validating that generated content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
+**Use when:** Validating that generated JSON content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
 
-**Status:** Experimental. Infers format type from content and applies domain-specific validation rules including placeholder detection.
+**Status:** Experimental. Infers format type from `schema_path` filename and applies domain-specific validation rules including placeholder detection. Source file must be valid JSON.
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `source` | **yes** | - | Path to JSON file to validate |
+| `schema_path` | no | - | Schema path used to infer format type (e.g., `github-issue-analysis.schema.json` → `github_issue`) |
+| `must_pass` | no | `true` | Whether failure blocks progression |
+| `on_failure` | no | `retry` | `retry` or `halt` |
+| `max_retries` | no | `2` | Maximum retry attempts |
+
+### Supported Formats
+
+The format validator infers the format type from the `schema_path` filename and applies domain-specific rules. Without a `schema_path`, it falls back to generic validation.
+
+| Schema name pattern | Format type | Validation |
+|---------------------|-------------|------------|
+| `github-issue-*` | `github_issue` | Title length/quality, body structure, labels, placeholder detection |
+| `github-pr-*` | `github_pr` | Description quality, linked issues, placeholder detection |
+| `implementation-results` | `implementation_results` | Structured result sections |
+| `analysis`, `findings` | `analysis` | Structured analysis sections |
+| _(other)_ | `generic` | Basic structure and placeholder detection |
 
 ---
 

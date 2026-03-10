@@ -8,20 +8,36 @@ Wave ships with 30 built-in personas:
 
 | Persona | Purpose | Permissions |
 |---------|---------|-------------|
-| `navigator` | Codebase exploration | Read, Glob, Grep, git log/status |
-| `philosopher` | Architecture & specs | Read, Write(.wave/specs/*) |
-| `planner` | Task breakdown | Read, Glob, Grep |
+| `navigator` | Codebase exploration | Read, Glob, Grep, Bash(git log\*), Bash(git status\*) |
+| `philosopher` | Architecture & specs | Read, Write, Edit, Bash, Glob, Grep (full access) |
+| `planner` | Task breakdown | Read, Write, Edit, Bash, Glob, Grep (full access) |
 | `craftsman` | Implementation | Read, Write, Edit, Bash |
-| `implementer` | Code implementation | Read, Write, Edit, Bash |
-| `debugger` | Issue diagnosis | Read, Grep, git bisect, go test |
-| `auditor` | Security review | Read, Grep, go vet, npm audit |
-| `reviewer` | Code review | Read, Grep, Glob |
-| `researcher` | Research & analysis | Read, Grep, Glob, WebSearch |
-| `summarizer` | Context compaction | Read only |
-| `github-analyst` | GitHub issue analysis | Read, Grep, Bash(gh *) |
-| `github-enhancer` | GitHub issue enhancement | Read, Bash(gh *) |
-| `github-commenter` | GitHub issue commenting | Read, Bash(gh *) |
-| `github-scoper` | Epic decomposition and issue scoping | Read, Bash(gh *), Bash(git *) |
+| `implementer` | Code implementation | Read, Write, Edit, Bash, Glob, Grep |
+| `debugger` | Issue diagnosis | Read, Grep, Glob, Bash(go test\*), Bash(git log\*), Bash(git diff\*), Bash(git bisect\*) |
+| `auditor` | Security review | Read, Grep, Bash(go vet\*), Bash(npm audit\*) |
+| `reviewer` | Code review | Read, Glob, Grep, Bash(go test\*), Bash(npm test\*) |
+| `researcher` | Research & analysis | Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch |
+| `summarizer` | Context compaction | Read, Write, Edit, Bash, Glob, Grep (full access) |
+| `supervisor` | Work quality review | Read, Glob, Grep, Bash(git \*), Bash(go test\*) |
+| `validator` | Skeptical verification against source | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
+| `synthesizer` | Structured synthesis into JSON proposals | Read, Write, Edit, Bash, Glob, Grep (full access) |
+| `provocateur` | Divergent thinking & complexity hunting | Read, Glob, Grep, Bash(wc \*), Bash(git log\*) |
+| `github-analyst` | GitHub issue analysis | Read, Bash(gh issue\*), Bash(gh pr\*), Bash(git log\*) |
+| `github-enhancer` | GitHub issue enhancement | Read, Bash(gh issue edit\*) |
+| `github-commenter` | GitHub commenting | Read, Bash(gh issue comment\*), Bash(gh pr\*), Bash(git push\*) |
+| `github-scoper` | GitHub epic scoping | Read, Bash(gh issue create\*), Bash(gh issue view\*) |
+| `gitlab-analyst` | GitLab issue analysis | Read, Bash(glab issue\*), Bash(glab mr\*) |
+| `gitlab-enhancer` | GitLab issue enhancement | Read, Bash(glab issue edit\*) |
+| `gitlab-commenter` | GitLab commenting | Read, Bash(glab issue note\*), Bash(glab mr\*) |
+| `gitlab-scoper` | GitLab epic scoping | Read, Bash(glab issue create\*) |
+| `gitea-analyst` | Gitea issue analysis | Read, Bash(tea issues\*), Bash(tea pulls\*) |
+| `gitea-enhancer` | Gitea issue enhancement | Read, Bash(tea issues edit\*) |
+| `gitea-commenter` | Gitea commenting | Read, Bash(tea issues comment\*), Bash(tea pulls\*) |
+| `gitea-scoper` | Gitea epic scoping | Read, Bash(tea issues create\*) |
+| `bitbucket-analyst` | Bitbucket issue analysis | Read, Bash(curl -s\*), Bash(jq \*), Bash(git log\*) |
+| `bitbucket-enhancer` | Bitbucket issue enhancement | Read, Bash(curl \*), Bash(jq \*) |
+| `bitbucket-commenter` | Bitbucket commenting | Read, Bash(curl \*), Bash(git push\*) |
+| `bitbucket-scoper` | Bitbucket epic scoping | Read, Bash(curl \*), Bash(jq \*) |
 
 ## Persona Definitions
 
@@ -32,9 +48,9 @@ Read-only codebase exploration. Finds files, analyzes patterns, maps architectur
 ```yaml
 navigator:
   adapter: claude
-  description: "Read-only codebase exploration"
+  description: "Read-only codebase exploration and analysis"
   system_prompt_file: .wave/personas/navigator.md
-  temperature: 0.1
+  #temperature: 0.3
   permissions:
     allowed_tools:
       - Read
@@ -58,13 +74,16 @@ philosopher:
   adapter: claude
   description: "Architecture design and specification"
   system_prompt_file: .wave/personas/philosopher.md
-  temperature: 0.3
+  #temperature: 0.7
   permissions:
     allowed_tools:
       - Read
-      - "Write(.wave/specs/*)"
-    deny:
-      - "Bash(*)"
+      - Write
+      - Edit
+      - Bash
+      - Glob
+      - Grep
+    deny: []
 ```
 
 ### Planner
@@ -76,15 +95,16 @@ planner:
   adapter: claude
   description: "Task breakdown and project planning"
   system_prompt_file: .wave/personas/planner.md
+  #temperature: 0.3
   permissions:
     allowed_tools:
       - Read
+      - Write
+      - Edit
+      - Bash
       - Glob
       - Grep
-    deny:
-      - "Write(*)"
-      - "Edit(*)"
-      - "Bash(*)"
+    deny: []
 ```
 
 ### Craftsman
@@ -96,7 +116,7 @@ craftsman:
   adapter: claude
   description: "Code implementation and testing"
   system_prompt_file: .wave/personas/craftsman.md
-  temperature: 0.7
+  #temperature: 0.3
   permissions:
     allowed_tools:
       - Read
@@ -116,7 +136,7 @@ debugger:
   adapter: claude
   description: "Systematic issue diagnosis and root cause analysis"
   system_prompt_file: .wave/personas/debugger.md
-  temperature: 0.2
+  #temperature: 0.2
   permissions:
     allowed_tools:
       - Read
@@ -140,7 +160,7 @@ auditor:
   adapter: claude
   description: "Security review and quality assurance"
   system_prompt_file: .wave/personas/auditor.md
-  temperature: 0.1
+  #temperature: 0.1
   permissions:
     allowed_tools:
       - Read
@@ -161,13 +181,16 @@ summarizer:
   adapter: claude
   description: "Context compaction for relay handoffs"
   system_prompt_file: .wave/personas/summarizer.md
-  temperature: 0.0
+  #temperature: 0.2
   permissions:
     allowed_tools:
       - Read
-    deny:
-      - "Write(*)"
-      - "Bash(*)"
+      - Write
+      - Edit
+      - Bash
+      - Glob
+      - Grep
+    deny: []
 ```
 
 ### Implementer
@@ -208,7 +231,7 @@ personas:
     adapter: claude
     description: "What this persona does"
     system_prompt_file: .wave/personas/my-persona.md
-    temperature: 0.5
+    #temperature: 0.5  # Optional — uncomment and adjust if needed
     permissions:
       allowed_tools: [...]
       deny: [...]
@@ -219,7 +242,7 @@ personas:
 | `adapter` | yes | References a key in `adapters` |
 | `system_prompt_file` | yes | Path to system prompt markdown |
 | `description` | no | Human-readable purpose |
-| `temperature` | no | LLM temperature (0.0-1.0) |
+| `temperature` | no | LLM temperature (0.0-1.0). Optional — commented out by default in wave.yaml |
 | `permissions` | no | Tool access control |
 | `hooks` | no | Pre/post tool hooks |
 
