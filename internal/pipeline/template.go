@@ -1,0 +1,139 @@
+package pipeline
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+// TemplateContext holds resolved values for template interpolation in composition steps.
+type TemplateContext struct {
+	StepOutputs   map[string][]byte // stepID → raw artifact content (JSON)
+	Input         string            // Pipeline input string
+	Item          json.RawMessage   // Current iteration item (for iterate steps)
+	Iteration     int               // Current loop iteration (0-based)
+	WorkspaceRoot string            // Base workspace path for artifact resolution
+}
+
+// NewTemplateContext creates an empty template context.
+func NewTemplateContext(input string, workspaceRoot string) *TemplateContext {
+	return &TemplateContext{
+		StepOutputs:   make(map[string][]byte),
+		Input:         input,
+		WorkspaceRoot: workspaceRoot,
+	}
+}
+
+// SetStepOutput records the output artifact content for a completed step.
+func (tc *TemplateContext) SetStepOutput(stepID string, data []byte) {
+	tc.StepOutputs[stepID] = data
+}
+
+// templatePattern matches {{expressions}} in template strings.
+var templatePattern = regexp.MustCompile(`\{\{([^}]+)\}\}`)
+
+// ResolveTemplate resolves template expressions in a string.
+//
+// Supported patterns:
+//   - {{input}}                → pipeline input string
+//   - {{step_id.output}}      → full artifact content from step
+//   - {{step_id.output.field}} → extracted field from step artifact (via dot-path)
+//   - {{item}}                → current iteration item (JSON)
+//   - {{item.field}}          → field from current iteration item
+//   - {{iteration}}           → current loop iteration number
+func ResolveTemplate(tmpl string, ctx *TemplateContext) (string, error) {
+	var resolveErr error
+	result := templatePattern.ReplaceAllStringFunc(tmpl, func(match string) string {
+		if resolveErr != nil {
+			return match
+		}
+		// Strip {{ and }}
+		expr := strings.TrimSpace(match[2 : len(match)-2])
+		val, err := resolveExpression(expr, ctx)
+		if err != nil {
+			resolveErr = fmt.Errorf("failed to resolve {{%s}}: %w", expr, err)
+			return match
+		}
+		return val
+	})
+	if resolveErr != nil {
+		return "", resolveErr
+	}
+	return result, nil
+}
+
+// resolveExpression resolves a single template expression.
+func resolveExpression(expr string, ctx *TemplateContext) (string, error) {
+	switch {
+	case expr == "input":
+		return ctx.Input, nil
+
+	case expr == "iteration":
+		return fmt.Sprintf("%d", ctx.Iteration), nil
+
+	case expr == "item":
+		if ctx.Item == nil {
+			return "", fmt.Errorf("no iteration item in context")
+		}
+		return string(ctx.Item), nil
+
+	case strings.HasPrefix(expr, "item."):
+		if ctx.Item == nil {
+			return "", fmt.Errorf("no iteration item in context")
+		}
+		field := expr[5:] // strip "item."
+		return ExtractJSONPath(ctx.Item, "."+field)
+
+	default:
+		// Must be step_id.output or step_id.output.field
+		return resolveStepOutput(expr, ctx)
+	}
+}
+
+// resolveStepOutput resolves a step output reference like "step_id.output" or "step_id.output.field.nested".
+func resolveStepOutput(expr string, ctx *TemplateContext) (string, error) {
+	parts := strings.SplitN(expr, ".", 3)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid expression %q: expected step_id.output or step_id.output.field", expr)
+	}
+
+	stepID := parts[0]
+	if parts[1] != "output" {
+		return "", fmt.Errorf("invalid expression %q: second segment must be 'output'", expr)
+	}
+
+	data, ok := ctx.StepOutputs[stepID]
+	if !ok {
+		return "", fmt.Errorf("no output found for step %q", stepID)
+	}
+
+	if len(parts) == 2 {
+		// {{step_id.output}} → return full content
+		return string(data), nil
+	}
+
+	// {{step_id.output.field.nested}} → extract via JSON path
+	field := parts[2]
+	return ExtractJSONPath(data, "."+field)
+}
+
+// LoadStepArtifact reads a step's output artifact from the workspace filesystem.
+// It looks for the artifact in the step's workspace output directory.
+func LoadStepArtifact(workspaceRoot, pipelineID, stepID, artifactName string) ([]byte, error) {
+	// Try common artifact locations
+	candidates := []string{
+		filepath.Join(workspaceRoot, pipelineID, stepID, ".wave", "output", artifactName),
+		filepath.Join(workspaceRoot, pipelineID, stepID, ".wave", "artifacts", artifactName),
+		filepath.Join(workspaceRoot, pipelineID, stepID, artifactName),
+	}
+	for _, path := range candidates {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return data, nil
+		}
+	}
+	return nil, fmt.Errorf("artifact %q not found for step %q (checked %d locations)", artifactName, stepID, len(candidates))
+}

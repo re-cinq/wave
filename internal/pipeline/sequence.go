@@ -30,10 +30,11 @@ type PipelineResult struct {
 
 // SequenceExecutor runs a list of pipelines in order.
 type SequenceExecutor struct {
-	newExecutor func(opts ...ExecutorOption) *DefaultPipelineExecutor
-	baseOpts    []ExecutorOption
-	emitter     event.EventEmitter
-	store       state.StateStore
+	newExecutor     func(opts ...ExecutorOption) *DefaultPipelineExecutor
+	baseOpts        []ExecutorOption
+	emitter         event.EventEmitter
+	store           state.StateStore
+	pipelineOutputs map[string]map[string][]byte // pipelineName -> artifactName -> data
 }
 
 // NewSequenceExecutor creates a new sequence executor.
@@ -48,10 +49,11 @@ func NewSequenceExecutor(
 	store state.StateStore,
 ) *SequenceExecutor {
 	return &SequenceExecutor{
-		newExecutor: newExecutor,
-		baseOpts:    baseOpts,
-		emitter:     emitter,
-		store:       store,
+		newExecutor:     newExecutor,
+		baseOpts:        baseOpts,
+		emitter:         emitter,
+		store:           store,
+		pipelineOutputs: make(map[string]map[string][]byte),
 	}
 }
 
@@ -139,6 +141,8 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 		pr.Status = "completed"
 		result.PipelineResults = append(result.PipelineResults, pr)
 		result.TotalTokens += pr.TokensUsed
+
+		s.recordPipelineOutputs(p, runID, ".wave/workspaces")
 	}
 
 	s.emit(event.Event{
@@ -315,7 +319,57 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	}
 
 	pr.Status = "completed"
+	s.recordPipelineOutputs(p, runID, ".wave/workspaces")
 	return pr, nil
+}
+
+// recordPipelineOutputs captures output artifacts from a completed pipeline
+// for use by subsequent pipelines in the sequence.
+func (s *SequenceExecutor) recordPipelineOutputs(p *Pipeline, runID string, wsRoot string) {
+	if len(p.Steps) == 0 {
+		return
+	}
+
+	outputs := make(map[string][]byte)
+	terminalStep := p.Steps[len(p.Steps)-1]
+	for _, art := range terminalStep.OutputArtifacts {
+		data, err := LoadStepArtifact(wsRoot, runID, terminalStep.ID, art.Name)
+		if err == nil {
+			outputs[art.Name] = data
+		}
+	}
+
+	// Also check pipeline_outputs aliases
+	for name, po := range p.PipelineOutputs {
+		for _, step := range p.Steps {
+			if step.ID == po.Step {
+				for _, art := range step.OutputArtifacts {
+					if art.Name == po.Artifact {
+						data, err := LoadStepArtifact(wsRoot, runID, step.ID, art.Name)
+						if err == nil {
+							if po.Field != "" {
+								val, extractErr := ExtractJSONPath(data, "."+po.Field)
+								if extractErr == nil {
+									outputs[name] = []byte(val)
+								}
+							} else {
+								outputs[name] = data
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(outputs) > 0 {
+		s.pipelineOutputs[p.Metadata.Name] = outputs
+	}
+}
+
+// GetPipelineOutputs returns the captured outputs for cross-pipeline handoff.
+func (s *SequenceExecutor) GetPipelineOutputs() map[string]map[string][]byte {
+	return s.pipelineOutputs
 }
 
 func (s *SequenceExecutor) emit(ev event.Event) {
