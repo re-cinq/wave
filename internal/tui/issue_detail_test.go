@@ -268,6 +268,59 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 	assert.Contains(t, view, "wave-bugfix")
 }
 
+func TestPipelineRelevanceScore_NameMatchesTitle(t *testing.T) {
+	p := PipelineInfo{Name: "gh-pr-review", Description: "Automated code review workflow"}
+	issue := &IssueData{Title: "Review the PR for auth module", Labels: nil}
+
+	score := pipelineRelevanceScore(p, issue)
+	assert.Greater(t, score, 0, "pipeline name token 'review' should match title")
+}
+
+func TestPipelineRelevanceScore_LabelMatchesName(t *testing.T) {
+	p := PipelineInfo{Name: "wave-bugfix", Description: "Fix bugs", Category: "maintenance"}
+	issue := &IssueData{Title: "Something unrelated", Labels: []string{"bugfix"}}
+
+	score := pipelineRelevanceScore(p, issue)
+	assert.Greater(t, score, 0, "label 'bugfix' should match pipeline name")
+}
+
+func TestPipelineRelevanceScore_NoMatch(t *testing.T) {
+	p := PipelineInfo{Name: "deploy-prod", Description: "Deploy to production"}
+	issue := &IssueData{Title: "Fix authentication bug", Labels: []string{"bug"}}
+
+	score := pipelineRelevanceScore(p, issue)
+	assert.Equal(t, 0, score, "no overlap should yield zero score")
+}
+
+func TestPipelineRelevanceScore_CategoryMatchesLabel(t *testing.T) {
+	p := PipelineInfo{Name: "some-pipeline", Description: "A pipeline", Category: "security"}
+	issue := &IssueData{Title: "Unrelated title", Labels: []string{"security"}}
+
+	score := pipelineRelevanceScore(p, issue)
+	assert.Greater(t, score, 0, "category 'security' should match label")
+}
+
+func TestIssueDetailModel_RelevanceSorting(t *testing.T) {
+	m := NewIssueDetailModel()
+	m.SetSize(80, 40)
+
+	m.SetPipelines([]PipelineInfo{
+		{Name: "deploy-prod", Description: "Deploy to production"},
+		{Name: "wave-bugfix", Description: "Fix bugs quickly"},
+		{Name: "speckit-flow", Description: "Feature development"},
+	})
+
+	issue := &IssueData{
+		Number: 1,
+		Title:  "Fix a critical bug in auth",
+		Labels: []string{"bugfix"},
+	}
+	m.SetIssue(issue)
+
+	// wave-bugfix should be first because "bugfix" label matches its name
+	assert.Equal(t, "wave-bugfix", m.pipelines[0].Name)
+}
+
 // ===========================================================================
 // Mock provider for tests
 // ===========================================================================

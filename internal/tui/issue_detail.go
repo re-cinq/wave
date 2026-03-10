@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -50,11 +51,12 @@ func (m *IssueDetailModel) SetFocused(focused bool) {
 	m.focused = focused
 }
 
-// SetIssue sets the selected issue and updates the viewport.
+// SetIssue sets the selected issue, ranks pipelines by relevance, and updates the viewport.
 func (m *IssueDetailModel) SetIssue(issue *IssueData) {
 	m.selected = issue
 	m.chooserActive = false
 	m.chooserCursor = 0
+	m.sortPipelinesByRelevance()
 	m.updateContent()
 	m.viewport.GotoTop()
 }
@@ -233,4 +235,58 @@ func (m IssueDetailModel) renderIssueDetail() string {
 	}
 
 	return sb.String()
+}
+
+// sortPipelinesByRelevance reorders pipelines by keyword relevance to the selected issue.
+// Pipelines whose name, description, or category match issue title/labels score higher.
+func (m *IssueDetailModel) sortPipelinesByRelevance() {
+	if m.selected == nil || len(m.pipelines) == 0 {
+		return
+	}
+	scores := make(map[int]int, len(m.pipelines))
+	for i, p := range m.pipelines {
+		scores[i] = pipelineRelevanceScore(p, m.selected)
+	}
+	sort.SliceStable(m.pipelines, func(i, j int) bool {
+		return scores[i] > scores[j]
+	})
+}
+
+// pipelineRelevanceScore computes a simple keyword-overlap score between a pipeline and an issue.
+func pipelineRelevanceScore(p PipelineInfo, issue *IssueData) int {
+	score := 0
+	titleLower := strings.ToLower(issue.Title)
+	nameLower := strings.ToLower(p.Name)
+	descLower := strings.ToLower(p.Description)
+	catLower := strings.ToLower(p.Category)
+
+	// Pipeline name tokens match issue title
+	for _, tok := range strings.FieldsFunc(nameLower, func(r rune) bool { return r == '-' || r == '_' || r == ' ' }) {
+		if len(tok) >= 3 && strings.Contains(titleLower, tok) {
+			score += 3
+		}
+	}
+
+	// Pipeline description words match issue title
+	for _, tok := range strings.Fields(descLower) {
+		if len(tok) >= 4 && strings.Contains(titleLower, tok) {
+			score += 1
+		}
+	}
+
+	// Label matches against pipeline name, description, or category
+	for _, label := range issue.Labels {
+		labelLower := strings.ToLower(label)
+		if strings.Contains(nameLower, labelLower) {
+			score += 5
+		}
+		if strings.Contains(descLower, labelLower) {
+			score += 2
+		}
+		if catLower != "" && strings.Contains(catLower, labelLower) {
+			score += 4
+		}
+	}
+
+	return score
 }
