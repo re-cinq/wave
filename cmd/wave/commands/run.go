@@ -313,8 +313,14 @@ func runRun(opts RunOptions, debug bool) error {
 
 	var execErr error
 	if opts.FromStep != "" {
-		// Resume from specific step - uses ResumeWithValidation which handles artifacts
-		execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force)
+		// Resume from specific step - uses ResumeWithValidation which handles artifacts.
+		// When --run is specified, pass the run ID so artifact paths resolve from
+		// that specific run's workspace instead of scanning for the most recent match.
+		if opts.RunID != "" {
+			execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force, opts.RunID)
+		} else {
+			execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force)
+		}
 	} else {
 		execErr = executor.Execute(ctx, p, &m, opts.Input)
 	}

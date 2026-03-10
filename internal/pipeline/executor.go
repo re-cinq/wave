@@ -2397,7 +2397,9 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 
 // ResumeWithValidation resumes a pipeline with full validation and error handling.
 // When force is true, phase validation and stale artifact checks are skipped.
-func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
+// When priorRunID is provided, artifact paths are resolved from that specific run's
+// workspace directory instead of scanning for the most recent match.
+func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool, priorRunID ...string) error {
 	manager := NewResumeManager(e)
-	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force)
+	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force, priorRunID...)
 }
