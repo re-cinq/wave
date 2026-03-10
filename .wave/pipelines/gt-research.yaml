@@ -38,7 +38,7 @@ steps:
         Parse the input to extract the repository and issue number.
         Use the tea CLI to fetch the issue:
 
-        tea issues view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        tea issues view <number> --repo <owner/repo> --output json
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.

@@ -39,7 +39,11 @@ steps:
         2. Get recent commits since the issue was created (cap at 30):
            git log --since="<createdAt>" --oneline -30
 
-        3. Scan the issue body for file path references (backtick-quoted paths, relative paths).
+        3. Get releases since the issue was created:
+           tea releases list --repo REPO
+           Filter to only releases after the issue's createdAt date.
+
+        4. Scan the issue body for file path references (backtick-quoted paths, relative paths).
            For each referenced file, check if it still exists.
 
         Produce a JSON result matching the contract schema.

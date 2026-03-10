@@ -25,14 +25,14 @@ For each subissue in the scope plan, check whether a pull request was created. S
 
 ```bash
 curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/pullrequests?q=title+%7E+%22%23<SUBISSUE_NUMBER>%22+OR+description+%7E+%22closes+%23<SUBISSUE_NUMBER>%22&pagelen=5" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" | jq '.values[] | {id: .id, title: .title, state: .state, links: .links}'
+  -H "Authorization: Bearer $BB_TOKEN" | jq '.values[] | {id: .id, title: .title, state: .state, links: .links}'
 ```
 
 Also check if the subissue itself was resolved:
 
 ```bash
 curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/issues/<SUBISSUE_NUMBER>" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" | jq '{state: .state}'
+  -H "Authorization: Bearer $BB_TOKEN" | jq '{state: .state}'
 ```
 
 Classify each subissue as:
@@ -54,7 +54,7 @@ Post a summary comment on the parent epic issue:
 ```bash
 curl -s -X POST \
   "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/issues/<EPIC_NUMBER>/comments" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" \
+  -H "Authorization: Bearer $BB_TOKEN" \
   -H "Content-Type: application/json" \
   -d "$(cat <<'COMMENT'
 {

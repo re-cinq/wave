@@ -23,6 +23,7 @@ steps:
         Input: {{ input }}
 
         Step 1: Parse input format.
+        - If URL (https://gitlab.com/OWNER/REPO/-/issues/NUM) → extract <REPO> and <NUM>
         - If "owner/repo NUM" → single issue mode
         - If "owner/repo" alone → batch mode
 
@@ -50,7 +51,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-plan.schema.json
+        schema_path: .wave/contracts/enhancement-plan.schema.json
         validate: true
         must_pass: true
         allow_recovery: true
@@ -95,7 +96,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-results.schema.json
+        schema_path: .wave/contracts/enhancement-results.schema.json
         validate: true
         must_pass: true
         allow_recovery: true
