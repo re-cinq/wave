@@ -585,6 +585,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 
 	var sb strings.Builder
 
+	sb.WriteString(labelStyle.Render("Pipeline: "))
 	sb.WriteString(titleStyle.Render(detail.Name))
 	sb.WriteString("\n\n")
 
@@ -624,7 +625,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Started:"), detail.StartedAt.Format("2006-01-02 15:04:05")))
 	}
 	if !detail.CompletedAt.IsZero() {
-		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Completed:"), detail.CompletedAt.Format("2006-01-02 15:04:05")))
+		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Finished:"), detail.CompletedAt.Format("2006-01-02 15:04:05")))
 	}
 
 	// Error info
@@ -674,7 +675,11 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("  %s\n", mutedStyle.Render("No artifacts produced")))
 	} else {
 		for _, a := range detail.Artifacts {
-			sb.WriteString(fmt.Sprintf("  * %s  (%s)\n", a.Name, a.Type))
+			display := a.Path
+			if display == "" {
+				display = a.Name
+			}
+			sb.WriteString(fmt.Sprintf("  %s\n", display))
 		}
 	}
 
@@ -708,8 +713,9 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		if branchDisabled {
 			diffHint = mutedStyle.Faint(true).Render("[d] View diff")
 		}
+		logsHint := mutedStyle.Render("[l] Logs")
 		escHint := mutedStyle.Render("[Esc] Back")
-		sb.WriteString(fmt.Sprintf("%s  %s  %s  %s\n", enterHint, branchHint, diffHint, escHint))
+		sb.WriteString(fmt.Sprintf("%s  %s  %s  %s  %s\n", enterHint, branchHint, diffHint, logsHint, escHint))
 	}
 
 	return sb.String()
