@@ -22,7 +22,8 @@ type Pipeline struct {
 	Metadata PipelineMetadata `yaml:"metadata"`
 	Requires *Requires        `yaml:"requires,omitempty"`
 	Input    InputConfig      `yaml:"input"`
-	Steps    []Step           `yaml:"steps"`
+	Steps           []Step                       `yaml:"steps"`
+	PipelineOutputs map[string]PipelineOutput    `yaml:"pipeline_outputs,omitempty"` // Named output aliases
 }
 
 // Requires declares pipeline dependencies that must be satisfied before execution.
@@ -138,6 +139,15 @@ type Step struct {
 	Retry           RetryConfig      `yaml:"retry,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
+
+	// Composition primitives
+	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
+	SubInput    string           `yaml:"input,omitempty"`        // Input template for child pipeline
+	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`      // Iteration over items
+	Branch      *BranchConfig    `yaml:"branch,omitempty"`       // Conditional branching
+	Gate        *GateConfig      `yaml:"gate,omitempty"`         // Approval/timer/merge gates
+	Loop        *LoopConfig      `yaml:"loop,omitempty"`         // Feedback loops
+	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"`    // Output aggregation
 }
 
 // GetTimeout returns the step-level timeout duration.
@@ -283,4 +293,52 @@ func (o OutcomeDef) Validate(stepID string, idx int) error {
 		return fmt.Errorf("step %q outcome[%d]: json_path is required", stepID, idx)
 	}
 	return nil
+}
+
+// IsCompositionStep returns true if the step uses any composition primitive.
+func (s *Step) IsCompositionStep() bool {
+	return s.SubPipeline != "" || s.Iterate != nil || s.Branch != nil || s.Gate != nil || s.Loop != nil || s.Aggregate != nil
+}
+
+// IterateConfig configures iteration over a collection of items.
+type IterateConfig struct {
+	Over          string `yaml:"over"`                      // Template expression resolving to JSON array
+	Mode          string `yaml:"mode"`                      // "sequential" or "parallel"
+	MaxConcurrent int    `yaml:"max_concurrent,omitempty"`  // Max parallel workers (parallel mode)
+}
+
+// BranchConfig configures conditional pipeline selection.
+type BranchConfig struct {
+	On    string            `yaml:"on"`    // Template expression to evaluate
+	Cases map[string]string `yaml:"cases"` // value → pipeline name ("skip" = no-op)
+}
+
+// GateConfig configures a blocking gate step.
+type GateConfig struct {
+	Type      string `yaml:"type"`                  // "approval", "pr_merge", "ci_pass", "timer"
+	Auto      bool   `yaml:"auto,omitempty"`        // Auto-approve (for testing)
+	Timeout   string `yaml:"timeout,omitempty"`     // Duration string (e.g. "30m", "2h")
+	Message   string `yaml:"message,omitempty"`     // Display message while waiting
+	TUIAction string `yaml:"tui_action,omitempty"`  // TUI action identifier
+}
+
+// LoopConfig configures a feedback loop with termination condition.
+type LoopConfig struct {
+	MaxIterations int    `yaml:"max_iterations"`        // Hard limit on iterations
+	Until         string `yaml:"until,omitempty"`       // Template condition for early exit
+	Steps         []Step `yaml:"steps,omitempty"`       // Sub-steps to execute per iteration
+}
+
+// AggregateConfig configures output collection from prior steps.
+type AggregateConfig struct {
+	From     string `yaml:"from"`      // Template expression for source data
+	Into     string `yaml:"into"`      // Output file path
+	Strategy string `yaml:"strategy"`  // "merge_arrays", "concat", "reduce"
+}
+
+// PipelineOutput defines a named output alias for a pipeline.
+type PipelineOutput struct {
+	Step     string `yaml:"step"`               // Source step ID
+	Artifact string `yaml:"artifact"`           // Artifact name
+	Field    string `yaml:"field,omitempty"`    // Optional JSON field extraction
 }
