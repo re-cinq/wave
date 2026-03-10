@@ -747,9 +747,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", step.Persona, len(prompt)))
 	}
 
+	// Resolve timeout with four-tier precedence:
+	// 1. Step-level timeout_minutes (pipeline YAML) — most specific
+	// 2. CLI --timeout flag (stepTimeoutOverride)
+	// 3. runtime.default_timeout_minutes (manifest)
+	// 4. Hardcoded fallback (5 minutes)
 	timeout := execution.Manifest.Runtime.GetDefaultTimeout()
 	if e.stepTimeoutOverride > 0 {
 		timeout = e.stepTimeoutOverride
+	}
+	if stepTimeout := step.GetTimeout(); stepTimeout > 0 {
+		timeout = stepTimeout
 	}
 
 	// Load system prompt from persona file

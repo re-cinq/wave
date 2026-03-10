@@ -162,7 +162,7 @@ func TestStepErrorRemediation(t *testing.T) {
 	}{
 		{
 			reason: FailureReasonTimeout,
-			want:   "Consider increasing the step timeout with --timeout or breaking the task into smaller steps.",
+			want:   "Consider increasing the step timeout with timeout_minutes in the pipeline YAML, --timeout on the CLI, or breaking the task into smaller steps.",
 		},
 		{
 			reason: FailureReasonContextExhaustion,
