@@ -584,20 +584,23 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				},
 			)
 		}
-		// Multi-pipeline sequence — launch the first pipeline to start the
-		// sequence. Full TUI sequence orchestration (chaining subsequent
-		// pipelines on completion) is deferred to a follow-up.
+		// Multi-pipeline sequence — launch all pipelines.
+		// Each pipeline runs as an independent subprocess visible in the pipeline list.
 		if len(msg.Sequence.Entries) > 0 {
 			m.composing = false
 			m.composeList = nil
 			m.composeDetail = nil
-			first := msg.Sequence.Entries[0]
-			return m, tea.Batch(
-				func() tea.Msg { return ComposeActiveMsg{Active: false} },
-				func() tea.Msg {
-					return LaunchRequestMsg{Config: LaunchConfig{PipelineName: first.PipelineName}}
-				},
-			)
+
+			// Build launch commands for all pipelines in sequence
+			var cmds []tea.Cmd
+			cmds = append(cmds, func() tea.Msg { return ComposeActiveMsg{Active: false} })
+			for _, entry := range msg.Sequence.Entries {
+				pName := entry.PipelineName
+				cmds = append(cmds, func() tea.Msg {
+					return LaunchRequestMsg{Config: LaunchConfig{PipelineName: pName}}
+				})
+			}
+			return m, tea.Batch(cmds...)
 		}
 		return m, nil
 
