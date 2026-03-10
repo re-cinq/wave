@@ -27,12 +27,13 @@ steps:
         Input: {{ input }}
 
         Step 1: Parse input format.
+        - If URL (https://gitea.example.com/OWNER/REPO/issues/NUM) → extract <REPO> and <NUM>
         - If "owner/repo NUM" → single issue mode
         - If "owner/repo" alone → batch mode
 
         Step 2: Fetch issues via tea CLI.
-        - Single: tea issues view NUM --repo OWNER/REPO --json number,title,body,labels,url
-        - Batch: tea issues list --repo OWNER/REPO --limit 10 --json number,title,body,labels,url
+        - Single: tea issues view NUM --repo OWNER/REPO --output json
+        - Batch: tea issues list --repo OWNER/REPO --limit 10 --output json
 
         IMPORTANT: If a specific issue number was parsed from the input but the fetch
         fails (not found, permissions error), STOP. Output JSON with repository set
@@ -54,7 +55,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-plan.schema.json
+        schema_path: .wave/contracts/enhancement-plan.schema.json
         validate: true
         must_pass: true
         allow_recovery: true
@@ -81,7 +82,7 @@ steps:
         1. Apply title: tea issues edit NUM --repo REPO --title "suggested_title"
         2. Apply body: tea issues edit NUM --repo REPO --body "body_template"
         3. Add labels: tea issues edit NUM --repo REPO --add-label "label1,label2"
-        4. Capture URL: tea issues view NUM --repo REPO --json url --jq .url
+        4. Capture URL: tea issues view NUM --repo REPO --output json
 
         Output JSON with enhanced_issues (issue_number, success, changes_made, url),
         total_attempted, total_successful.
@@ -99,7 +100,7 @@ steps:
       max_retries: 1
       contract:
         type: json_schema
-        schema_path: .wave/contracts/github-enhancement-results.schema.json
+        schema_path: .wave/contracts/enhancement-results.schema.json
         validate: true
         must_pass: true
         allow_recovery: true

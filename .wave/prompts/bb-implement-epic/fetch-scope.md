@@ -21,14 +21,14 @@ Use `curl` with the Bitbucket REST API v2.0 to fetch the epic issue:
 
 ```bash
 curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/issues/<NUMBER>" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" | jq .
+  -H "Authorization: Bearer $BB_TOKEN" | jq .
 ```
 
 Then fetch its comments:
 
 ```bash
 curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/issues/<NUMBER>/comments?pagelen=100" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" | jq .
+  -H "Authorization: Bearer $BB_TOKEN" | jq .
 ```
 
 ### Step 3: Find Scope Summary Comment
@@ -46,7 +46,7 @@ For each subissue referenced in the scope comment:
 
 ```bash
 curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/issues/<SUBISSUE_NUMBER>" \
-  -H "Authorization: Bearer $BITBUCKET_TOKEN" | jq '{id: .id, title: .title, state: .state, content: .content.raw, links: .links}'
+  -H "Authorization: Bearer $BB_TOKEN" | jq '{id: .id, title: .title, state: .state, content: .content.raw, links: .links}'
 ```
 
 Verify each subissue:
