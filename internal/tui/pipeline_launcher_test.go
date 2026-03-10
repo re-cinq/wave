@@ -2,11 +2,13 @@ package tui
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewPipelineLauncher_InitializesFields(t *testing.T) {
@@ -126,4 +128,50 @@ func TestBuildPassthroughEnv_NilManifest(t *testing.T) {
 	}
 	env := buildPassthroughEnv(deps)
 	assert.Len(t, env, 2, "should only include HOME and PATH")
+}
+
+func TestOpenRunLog_CreatesDirectoryAndFile(t *testing.T) {
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { os.Chdir(origDir) })
+
+	f, err := openRunLog("test-run-123")
+	require.NoError(t, err)
+	defer f.Close()
+
+	// Verify the directory was created
+	_, err = os.Stat(filepath.Join(".wave", "logs"))
+	assert.NoError(t, err)
+
+	// Verify the file was created
+	_, err = os.Stat(filepath.Join(".wave", "logs", "test-run-123.log"))
+	assert.NoError(t, err)
+
+	// Verify it's writable
+	_, err = f.WriteString("test output\n")
+	assert.NoError(t, err)
+}
+
+func TestOpenRunLog_AppendsToExisting(t *testing.T) {
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { os.Chdir(origDir) })
+
+	// First write
+	f1, err := openRunLog("append-run")
+	require.NoError(t, err)
+	f1.WriteString("first\n")
+	f1.Close()
+
+	// Second write (append)
+	f2, err := openRunLog("append-run")
+	require.NoError(t, err)
+	f2.WriteString("second\n")
+	f2.Close()
+
+	content, err := os.ReadFile(filepath.Join(".wave", "logs", "append-run.log"))
+	require.NoError(t, err)
+	assert.Equal(t, "first\nsecond\n", string(content))
 }

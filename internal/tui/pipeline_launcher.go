@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -83,14 +84,30 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Env = buildPassthroughEnv(l.deps)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+
+	// Redirect stdout/stderr to .wave/logs/<runID>.log so detached output is preserved
+	logFile, logErr := openRunLog(runID)
+	if logErr == nil {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	} else {
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+	}
 
 	if startErr := cmd.Start(); startErr != nil {
+		if logFile != nil {
+			logFile.Close()
+		}
 		pipelineName := config.PipelineName
 		return func() tea.Msg {
 			return LaunchErrorMsg{PipelineName: pipelineName, Err: fmt.Errorf("starting subprocess: %w", startErr)}
 		}
+	}
+
+	// Close the log file — the subprocess inherited the fd via fork
+	if logFile != nil {
+		logFile.Close()
 	}
 
 	// Record PID and release the process so it becomes fully detached
@@ -144,6 +161,15 @@ func buildPassthroughEnv(deps LaunchDependencies) []string {
 	}
 
 	return env
+}
+
+// openRunLog creates the .wave/logs/ directory if needed and opens a log file for the run.
+func openRunLog(runID string) (*os.File, error) {
+	logsDir := filepath.Join(".wave", "logs")
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+		return nil, err
+	}
+	return os.OpenFile(filepath.Join(logsDir, runID+".log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 }
 
 // TUIProgressEmitter implements event.ProgressEmitter to bridge executor events
