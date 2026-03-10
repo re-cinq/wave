@@ -630,6 +630,9 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 		case "failed":
 			bpd.stepStates[ev.StepID] = "failed"
 			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
+		case "retrying":
+			bpd.stepStates[ev.StepID] = "running"
+			fmt.Fprintf(bpd.writer, "[%s] ↻ %s retrying: %s\n", timestamp, ev.StepID, ev.Message)
 		case "step_progress":
 			if ev.CurrentAction != "" {
 				fmt.Fprintf(bpd.writer, "[%s]   %s %s\n", timestamp, ev.StepID, ev.CurrentAction)
