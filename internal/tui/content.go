@@ -770,8 +770,17 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
 				liveModel.SetSize(m.detail.width, m.detail.height)
 				m.detail.liveOutput = &liveModel
+				m.detail.paneState = stateRunningLive
 				m.detachedPollRunID = msg.RunID
 				m.detachedPollOffset = eventCount
+				// Start polling for new events
+				capturedRunID := msg.RunID
+				cmds = append(cmds, func() tea.Msg {
+					return LiveOutputActiveMsg{Active: true}
+				})
+				cmds = append(cmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+					return DetachedEventPollTickMsg{RunID: capturedRunID}
+				}))
 			}
 		}
 		m.detail, detailCmd = m.detail.Update(msg)
