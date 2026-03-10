@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/recinq/wave/internal/display"
@@ -23,13 +25,138 @@ const (
 type OutputConfig struct {
 	Format  string
 	Verbose bool
+	NoColor bool
+	Debug   bool
 }
 
-// GetOutputConfig reads the -o/--output and -v/--verbose persistent flags from the command.
+// resolvedFlagsKey is the context key for storing ResolvedFlags.
+type resolvedFlagsKey struct{}
+
+// ResolvedFlags captures the full resolved state from PersistentPreRunE.
+// Stored in cobra.Command context for downstream access.
+type ResolvedFlags struct {
+	Output OutputConfig
+	NoTUI  bool
+}
+
+// ResolveOutputConfig reads all root flag states, detects conflicts, and returns
+// the resolved output configuration. It should be called from PersistentPreRunE.
+func ResolveOutputConfig(cmd *cobra.Command) (*ResolvedFlags, error) {
+	root := cmd.Root()
+	flags := root.PersistentFlags()
+
+	jsonFlag := flags.Changed("json")
+	quietFlag := flags.Changed("quiet")
+	outputFlag := flags.Changed("output")
+	noColorFlag := flags.Changed("no-color")
+	verboseFlag := flags.Changed("verbose")
+	debugFlag, _ := flags.GetBool("debug")
+	noTUIFlag, _ := flags.GetBool("no-tui")
+
+	outputVal, _ := flags.GetString("output")
+	verbose, _ := flags.GetBool("verbose")
+	noColor, _ := flags.GetBool("no-color")
+
+	// Detect conflicts: --json + --output non-json
+	if jsonFlag && outputFlag && outputVal != OutputFormatJSON {
+		return nil, NewCLIError(CodeFlagConflict,
+			fmt.Sprintf("conflicting flags: --json and --output %s", outputVal),
+			"Use either --json or --output, not both")
+	}
+
+	// Detect conflicts: --quiet + --output non-quiet
+	if quietFlag && outputFlag && outputVal != OutputFormatQuiet {
+		return nil, NewCLIError(CodeFlagConflict,
+			fmt.Sprintf("conflicting flags: --quiet and --output %s", outputVal),
+			"Use either --quiet or --output, not both")
+	}
+
+	// --quiet + --verbose: quiet wins, warn
+	if quietFlag && verboseFlag {
+		fmt.Fprintln(os.Stderr, "warning: --quiet and --verbose both set; --quiet takes precedence")
+		verbose = false
+	}
+
+	// Resolve format: --json > --quiet > --output > default
+	format := outputVal
+	if jsonFlag {
+		format = OutputFormatJSON
+	} else if quietFlag {
+		format = OutputFormatQuiet
+	}
+
+	// Resolve NoTUI
+	noTUI := noTUIFlag
+	if jsonFlag || quietFlag {
+		noTUI = true
+	}
+
+	return &ResolvedFlags{
+		Output: OutputConfig{
+			Format:  format,
+			Verbose: verbose,
+			NoColor: noColor || noColorFlag,
+			Debug:   debugFlag,
+		},
+		NoTUI: noTUI,
+	}, nil
+}
+
+// GetOutputConfig reads the resolved output configuration.
+// It first checks the command context for ResolvedFlags (set by PersistentPreRunE),
+// falling back to direct flag reading for backward compatibility.
 func GetOutputConfig(cmd *cobra.Command) OutputConfig {
+	if ctx := cmd.Context(); ctx != nil {
+		if rf, ok := ctx.Value(resolvedFlagsKey{}).(*ResolvedFlags); ok {
+			return rf.Output
+		}
+	}
+	// Fallback: read flags directly
 	format, _ := cmd.Root().PersistentFlags().GetString("output")
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-	return OutputConfig{Format: format, Verbose: verbose}
+	debug, _ := cmd.Root().PersistentFlags().GetBool("debug")
+	return OutputConfig{Format: format, Verbose: verbose, Debug: debug}
+}
+
+// ResolveFormat resolves the effective output format for a subcommand.
+// If a root-level output flag (--json, --quiet, --output) was explicitly set,
+// the root value takes precedence. Otherwise, the local format is preserved.
+func ResolveFormat(cmd *cobra.Command, localFormat string) string {
+	root := cmd.Root()
+	flags := root.PersistentFlags()
+
+	// If --json was explicitly set, override
+	if flags.Changed("json") {
+		return "json"
+	}
+	// If --quiet was explicitly set, override
+	if flags.Changed("quiet") {
+		return "quiet"
+	}
+	// If --output was explicitly set, map to subcommand format
+	if flags.Changed("output") {
+		outputVal, _ := flags.GetString("output")
+		switch outputVal {
+		case OutputFormatJSON:
+			return "json"
+		case OutputFormatQuiet:
+			return "quiet"
+		case OutputFormatText:
+			return "table"
+		default:
+			return localFormat
+		}
+	}
+	return localFormat
+}
+
+// StoreResolvedFlags stores the resolved flags in the command context.
+func StoreResolvedFlags(cmd *cobra.Command, rf *ResolvedFlags) {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd.SetContext(context.WithValue(ctx, resolvedFlagsKey{}, rf))
 }
 
 // EmitterResult holds the emitter, progress display, and cleanup function

@@ -217,6 +217,10 @@ Enhances poorly documented GitHub issues with structured details, reproduction s
 
 Posts analysis results and recommendations as comments on GitHub issues.
 
+### GitHub Scoper
+
+Analyzes epic/umbrella issues and decomposes them into well-scoped child issues for implementation.
+
 ## Defining Custom Personas
 
 Add to the `personas` section of `wave.yaml`:

@@ -2,6 +2,19 @@
 
 **Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and relay/compaction into a continuous development system.
 
+## ACCOUNTABILITY — YOU FOUND IT, YOU FIX IT
+
+> **URGENT — NON-NEGOTIABLE**: This is the single most important rule in this file. It survives context compaction. Re-read it if you are unsure.
+
+If you discover a problem — any problem — you own it. Fix it immediately.
+
+There is NO concept of "pre-existing issue" in this project.
+If you touched it or saw it break — fix it.
+
+If a validation step reveals issues in files you didn't modify — fix those too.
+
+Never argue about whether something is your responsibility.
+
 ## Critical Constraints
 
 1. **Single static binary** — no runtime dependencies except adapter binaries
@@ -24,7 +37,7 @@ Each pipeline is a **topologically-sorted DAG** of steps. For every step:
    - Contract compliance section (auto-generated from step contract schema)
    - Restriction section (denied/allowed tools, network domains from manifest permissions)
 4. **Adapter execution** — the persona runs in isolated context with fresh memory (no chat history inheritance)
-5. **Contract validation** — step output is validated against its contract (json_schema, test_suite, typescript, quality_gate) **before** marking the step successful. Hard failures block; soft failures log warnings
+5. **Contract validation** — step output is validated against its contract (json_schema, typescript_interface, test_suite, markdown_spec, format) **before** marking the step successful. Hard failures block; soft failures log warnings
 
 Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`, `internal/contract/`, `internal/workspace/`
 
@@ -55,17 +68,23 @@ internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
+├── defaults/     # Embedded default personas, pipelines, and contracts
 ├── deliverable/  # Pipeline deliverable tracking and output
 ├── display/      # Terminal progress display and formatting
 ├── event/        # Progress event emission and monitoring
 ├── github/       # GitHub API integration for issue enhancement
 ├── manifest/     # Configuration loading and validation
+├── onboarding/   # Interactive wave init flow
+├── pathfmt/      # Path formatting and normalization utilities
 ├── pipeline/     # Pipeline execution and step management
 ├── preflight/    # Pipeline dependency validation and auto-install
+├── recovery/     # Pipeline recovery hints and error guidance
 ├── relay/        # Context compaction and summarization
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
 ├── state/        # SQLite persistence and state management
+├── tui/          # Bubble Tea terminal UI
+├── webui/        # Web operations dashboard (embedded assets)
 ├── worktree/     # Git worktree lifecycle for isolated workspaces
 └── workspace/    # Ephemeral workspace management
 
@@ -91,7 +110,6 @@ tests/            # Test coverage
 - Use interfaces for testability and dependency injection
 - Comprehensive error types with structured details
 - Table-driven tests with edge case coverage
-- **Find & replace**: prefer `perl -pi -e` over `sed`/`awk` for in-place substitutions — `sed` and `awk` are unreliable with escaping, multiline, and cross-platform differences (macOS vs Linux). **Caution**: `perl -pi -e 'next if /pattern/'` does NOT delete lines — `next` skips to the next line but `-p` still prints it. To delete lines, use `perl -ni -e 'print unless /pattern/'`
 
 ### Testing
 ```bash

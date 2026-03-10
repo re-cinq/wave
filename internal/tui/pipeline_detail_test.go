@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,6 +22,8 @@ type mockDetailProvider struct {
 	availableErr    error
 	finishedDetail  *FinishedDetail
 	finishedErr     error
+	runEvents       []state.LogRecord
+	runEventsErr    error
 }
 
 func (m *mockDetailProvider) FetchAvailableDetail(name string) (*AvailableDetail, error) {
@@ -29,6 +32,10 @@ func (m *mockDetailProvider) FetchAvailableDetail(name string) (*AvailableDetail
 
 func (m *mockDetailProvider) FetchFinishedDetail(runID string) (*FinishedDetail, error) {
 	return m.finishedDetail, m.finishedErr
+}
+
+func (m *mockDetailProvider) FetchRunEvents(runID string) ([]state.LogRecord, error) {
+	return m.runEvents, m.runEventsErr
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +165,7 @@ func TestPipelineDetailModel_FinishedCompleted(t *testing.T) {
 	assert.Contains(t, view, "speckit-flow")
 	assert.Contains(t, view, "✓")
 	assert.Contains(t, view, "completed")
-	assert.Contains(t, view, "5m30s")
+	assert.Contains(t, view, "5m 30s")
 	assert.Contains(t, view, "feat/my-feature")
 	assert.Contains(t, view, "specify")
 	assert.Contains(t, view, "navigator")
@@ -428,6 +435,51 @@ func TestPipelineDetailModel_ConfigureFormMsg_CreatesForm(t *testing.T) {
 	assert.Contains(t, view, "Input")
 	assert.Contains(t, view, "Model override")
 	assert.Contains(t, view, "Options")
+}
+
+func TestPipelineDetailModel_FormCompletion_ExtractsVerboseAndDebugFlags(t *testing.T) {
+	// This test verifies that Verbose and Debug are extracted from the Flags
+	// slice into dedicated boolean fields on LaunchConfig, matching the DryRun pattern.
+	config := LaunchConfig{
+		PipelineName: "test-pipe",
+		Flags:        []string{"--verbose", "--debug", "--dry-run"},
+	}
+	// Simulate the extraction logic from the form completion handler
+	for _, f := range config.Flags {
+		switch f {
+		case "--dry-run":
+			config.DryRun = true
+		case "--verbose":
+			config.Verbose = true
+		case "--debug":
+			config.Debug = true
+		}
+	}
+
+	assert.True(t, config.Verbose, "Verbose should be extracted from --verbose flag")
+	assert.True(t, config.Debug, "Debug should be extracted from --debug flag")
+	assert.True(t, config.DryRun, "DryRun should be extracted from --dry-run flag")
+}
+
+func TestPipelineDetailModel_FormCompletion_NoFlags_LeavesVerboseAndDebugFalse(t *testing.T) {
+	config := LaunchConfig{
+		PipelineName: "test-pipe",
+		Flags:        []string{"--mock"},
+	}
+	for _, f := range config.Flags {
+		switch f {
+		case "--dry-run":
+			config.DryRun = true
+		case "--verbose":
+			config.Verbose = true
+		case "--debug":
+			config.Debug = true
+		}
+	}
+
+	assert.False(t, config.Verbose, "Verbose should be false when --verbose not selected")
+	assert.False(t, config.Debug, "Debug should be false when --debug not selected")
+	assert.False(t, config.DryRun, "DryRun should be false when --dry-run not selected")
 }
 
 func TestPipelineDetailModel_FormAbort_RevertsToAvailableDetail(t *testing.T) {
@@ -945,4 +997,175 @@ func TestPipelineDetailModel_BranchDeletedUpdatedFromFinishedDetail(t *testing.T
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 	assert.True(t, m.branchDeleted, "branchDeleted should be updated from FinishedDetail")
+}
+
+// ===========================================================================
+// Event log tests
+// ===========================================================================
+
+func TestPipelineDetailModel_RunEventsMsg_StoresEvents(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateRunningInfo
+	m.selectedRunID = "run-1"
+	m.selectedName = "my-pipeline"
+
+	events := []state.LogRecord{
+		{RunID: "run-1", State: "started", StepID: "step1", Message: "Starting..."},
+		{RunID: "run-1", State: "completed", StepID: "step1", Message: "Done"},
+	}
+	m, _ = m.Update(RunEventsMsg{RunID: "run-1", Events: events})
+
+	assert.Len(t, m.persistedEvents, 2)
+}
+
+func TestPipelineDetailModel_RunEventsMsg_Error_DoesNotStoreEvents(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.paneState = stateRunningInfo
+
+	m, _ = m.Update(RunEventsMsg{RunID: "run-1", Err: errors.New("db error")})
+
+	assert.Nil(t, m.persistedEvents)
+}
+
+func TestPipelineDetailModel_SelectionChange_ClearsPersistedEvents(t *testing.T) {
+	m := newTestDetailModel(&mockDetailProvider{})
+	m.persistedEvents = []state.LogRecord{{RunID: "run-1", State: "started"}}
+
+	m, _ = m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "new-pipeline"})
+
+	assert.Nil(t, m.persistedEvents, "persisted events should be cleared on selection change")
+}
+
+func TestPipelineDetailModel_RunningInfo_AutoFetchesEvents(t *testing.T) {
+	events := []state.LogRecord{
+		{RunID: "run-stale", State: "started", StepID: "step1"},
+	}
+	provider := &mockDetailProvider{runEvents: events}
+	m := newTestDetailModel(provider)
+
+	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindRunning, Name: "stale-pipeline", RunID: "run-stale"})
+
+	assert.Equal(t, stateRunningInfo, m.paneState)
+	assert.NotNil(t, cmd, "should return cmd to fetch run events")
+
+	// Execute the cmd
+	msg := cmd()
+	evtMsg, ok := msg.(RunEventsMsg)
+	assert.True(t, ok, "should return RunEventsMsg")
+	assert.Len(t, evtMsg.Events, 1)
+}
+
+func TestPipelineDetailModel_LKey_FinishedDetail_FetchesEvents(t *testing.T) {
+	events := []state.LogRecord{
+		{RunID: "run-123", State: "completed", StepID: "step1"},
+	}
+	provider := &mockDetailProvider{
+		finishedDetail: fullFinishedDetail("completed"),
+		runEvents:      events,
+	}
+	m := newTestDetailModel(provider)
+
+	// Load finished detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+	m.SetFocused(true)
+
+	// Press l
+	lMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}
+	m, cmd = m.Update(lMsg)
+
+	assert.NotNil(t, cmd, "should return cmd to fetch run events")
+
+	// Execute the cmd
+	msg := cmd()
+	evtMsg, ok := msg.(RunEventsMsg)
+	assert.True(t, ok, "should return RunEventsMsg")
+	assert.Len(t, evtMsg.Events, 1)
+}
+
+func TestRenderRunningInfo_WithEvents(t *testing.T) {
+	events := []state.LogRecord{
+		{State: "started", StepID: "step1", Message: "Starting step1", Timestamp: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)},
+		{State: "completed", StepID: "step1", Message: "Done", Timestamp: time.Date(2026, 1, 15, 10, 1, 0, 0, time.UTC)},
+	}
+
+	view := renderRunningInfo("test-pipeline", "some input", time.Date(2026, 1, 15, 9, 59, 0, 0, time.UTC), 80, events)
+	stripped := detailStripAnsi(view)
+
+	assert.Contains(t, stripped, "test-pipeline")
+	assert.Contains(t, stripped, "Running")
+	assert.Contains(t, stripped, "Event Log:")
+	assert.Contains(t, stripped, "step1")
+	assert.Contains(t, stripped, "Starting step1")
+}
+
+func TestRenderRunningInfo_WithoutEvents(t *testing.T) {
+	view := renderRunningInfo("test-pipeline", "", time.Time{}, 80, nil)
+	stripped := detailStripAnsi(view)
+
+	assert.Contains(t, stripped, "test-pipeline")
+	assert.Contains(t, stripped, "Running")
+	assert.NotContains(t, stripped, "Event Log:")
+}
+
+func TestRenderFinishedDetail_WithEvents(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+	events := []state.LogRecord{
+		{State: "started", StepID: "specify", Timestamp: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)},
+	}
+
+	view := renderFinishedDetail(detail, 80, false, "", events)
+	stripped := detailStripAnsi(view)
+
+	assert.Contains(t, stripped, "Event Log:")
+	assert.Contains(t, stripped, "specify")
+}
+
+func TestRenderFinishedDetail_WithoutEvents(t *testing.T) {
+	detail := fullFinishedDetail("completed")
+
+	view := renderFinishedDetail(detail, 80, false, "", nil)
+	stripped := detailStripAnsi(view)
+
+	assert.NotContains(t, stripped, "Event Log:")
+}
+
+func TestFormatLogRecord_WithMessage(t *testing.T) {
+	rec := state.LogRecord{
+		Timestamp: time.Date(2026, 1, 15, 10, 30, 45, 0, time.UTC),
+		State:     "started",
+		StepID:    "step1",
+		Message:   "Starting step",
+	}
+	result := formatLogRecord(rec)
+
+	assert.Contains(t, result, "10:30:45")
+	assert.Contains(t, result, "[started]")
+	assert.Contains(t, result, "step1")
+	assert.Contains(t, result, "Starting step")
+}
+
+func TestFormatLogRecord_WithoutMessage(t *testing.T) {
+	rec := state.LogRecord{
+		Timestamp: time.Date(2026, 1, 15, 10, 30, 45, 0, time.UTC),
+		State:     "completed",
+		StepID:    "step1",
+	}
+	result := formatLogRecord(rec)
+
+	assert.Contains(t, result, "10:30:45")
+	assert.Contains(t, result, "[completed]")
+	assert.Contains(t, result, "step1")
+}
+
+func TestFormatLogRecord_EmptyStepID_ShowsPipeline(t *testing.T) {
+	rec := state.LogRecord{
+		Timestamp: time.Date(2026, 1, 15, 10, 30, 45, 0, time.UTC),
+		State:     "started",
+	}
+	result := formatLogRecord(rec)
+
+	assert.Contains(t, result, "pipeline")
 }

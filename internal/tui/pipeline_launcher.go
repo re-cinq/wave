@@ -1,33 +1,30 @@
 package tui
 
 import (
-	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/workspace"
 )
 
 // PipelineLauncher manages pipeline execution from the TUI.
-// It constructs executors on demand and tracks cancel functions for running pipelines.
+// It spawns detached subprocesses via `wave run` so pipelines survive TUI exit.
 type PipelineLauncher struct {
-	deps      LaunchDependencies
-	cancelFns map[string]context.CancelFunc
-	buffers   map[string]*EventBuffer
-	program   *tea.Program
-	mu        sync.Mutex
+	deps    LaunchDependencies
+	program *tea.Program
+	mu      sync.Mutex
 }
 
 // NewPipelineLauncher creates a new launcher with the given dependencies.
 func NewPipelineLauncher(deps LaunchDependencies) *PipelineLauncher {
 	return &PipelineLauncher{
-		deps:      deps,
-		cancelFns: make(map[string]context.CancelFunc),
-		buffers:   make(map[string]*EventBuffer),
+		deps: deps,
 	}
 }
 
@@ -38,25 +35,11 @@ func (l *PipelineLauncher) SetProgram(p *tea.Program) {
 	l.program = p
 }
 
-// GetBuffer returns the event buffer for a pipeline run (nil for external pipelines).
-func (l *PipelineLauncher) GetBuffer(runID string) *EventBuffer {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.buffers[runID]
-}
-
-// HasBuffer returns true if the pipeline was TUI-launched and has an event buffer.
-func (l *PipelineLauncher) HasBuffer(runID string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	_, ok := l.buffers[runID]
-	return ok
-}
-
-// Launch starts a pipeline in a background goroutine and returns tea.Cmds
-// for immediate UI feedback (PipelineLaunchedMsg) and eventual completion (PipelineLaunchResultMsg).
+// Launch starts a pipeline as a detached subprocess and returns a tea.Cmd
+// that immediately sends PipelineLaunchedMsg. Live output comes from polling
+// SQLite events, not in-memory buffers.
 func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
-	// Load the full pipeline definition
+	// Load the full pipeline definition to validate it exists
 	p, err := LoadPipelineByName(l.deps.PipelinesDir, config.PipelineName)
 	if err != nil {
 		pipelineName := config.PipelineName
@@ -65,33 +48,7 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		}
 	}
 
-	// Create cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// Resolve adapter: check for --mock flag, then use manifest adapters map
-	var runner adapter.AdapterRunner
-	isMock := false
-	for _, f := range config.Flags {
-		if f == "--mock" {
-			isMock = true
-			break
-		}
-	}
-	if isMock {
-		runner = adapter.NewMockAdapter()
-	} else if l.deps.Manifest != nil && len(l.deps.Manifest.Adapters) > 0 {
-		// Pick the first adapter name from the manifest map (mirrors CLI behavior)
-		var adapterName string
-		for name := range l.deps.Manifest.Adapters {
-			adapterName = name
-			break
-		}
-		runner = adapter.ResolveAdapter(adapterName)
-	} else {
-		runner = adapter.ResolveAdapter("claude")
-	}
-
-	// Generate run ID -- prefer StateStore.CreateRun so the run appears in the dashboard
+	// Generate run ID via StateStore so the run appears in the dashboard
 	var runID string
 	if l.deps.Store != nil {
 		var storeErr error
@@ -103,127 +60,90 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		runID = pipeline.GenerateRunID(p.Metadata.Name, 8)
 	}
 
-	// Store cancel function for later cancellation
-	l.mu.Lock()
-	l.cancelFns[runID] = cancel
-	l.mu.Unlock()
-
-	// Create event buffer for this pipeline
-	buffer := NewEventBuffer(1000)
-	l.mu.Lock()
-	l.buffers[runID] = buffer
-	prog := l.program
-	l.mu.Unlock()
-
-	// Build emitter — use progress-only emitter for TUI to avoid corrupting stdout
-	var emitter event.EventEmitter
-	if prog != nil {
-		tuiEmitter := &TUIProgressEmitter{program: prog, runID: runID}
-		emitter = event.NewProgressOnlyEmitter(tuiEmitter)
-	} else {
-		emitter = event.NewNDJSONEmitter()
-	}
-
-	var execOpts []pipeline.ExecutorOption
-	execOpts = append(execOpts, pipeline.WithEmitter(emitter))
-	execOpts = append(execOpts, pipeline.WithRunID(runID))
-
+	// Transition run from pending -> running so wave status picks it up
 	if l.deps.Store != nil {
-		execOpts = append(execOpts, pipeline.WithStateStore(l.deps.Store))
+		_ = l.deps.Store.UpdateRunStatus(runID, "running", "", 0)
 	}
 
-	// Create workspace manager
-	wsManager, wsErr := workspace.NewWorkspaceManager(".wave/workspaces")
-	if wsErr == nil {
-		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
+	// Build subprocess command: wave run --pipeline <name> --run <runID> --input <input> [flags...]
+	args := []string{"run", "--pipeline", config.PipelineName, "--run", runID}
+	if config.Input != "" {
+		args = append(args, "--input", config.Input)
 	}
-
-	// Apply flags
-	isDebug := false
+	if config.ModelOverride != "" {
+		args = append(args, "--model", config.ModelOverride)
+	}
+	// Pass through user-selected flags to the subprocess.
+	// Compound flags like "--output text" are split into separate args.
 	for _, f := range config.Flags {
-		if f == "--debug" {
-			isDebug = true
+		parts := strings.SplitN(f, " ", 2)
+		args = append(args, parts...)
+	}
+
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = buildPassthroughEnv(l.deps)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if startErr := cmd.Start(); startErr != nil {
+		pipelineName := config.PipelineName
+		return func() tea.Msg {
+			return LaunchErrorMsg{PipelineName: pipelineName, Err: fmt.Errorf("starting subprocess: %w", startErr)}
 		}
 	}
-	if isDebug {
-		execOpts = append(execOpts, pipeline.WithDebug(true))
+
+	// Record PID and release the process so it becomes fully detached
+	if l.deps.Store != nil {
+		_ = l.deps.Store.UpdateRunPID(runID, cmd.Process.Pid)
 	}
+	_ = cmd.Process.Release()
 
-	if config.ModelOverride != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(config.ModelOverride))
-	}
-
-	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
-
-	// Capture values for closures
+	// Return immediate PipelineLaunchedMsg — no blocking executor cmd
 	pipelineName := config.PipelineName
-	input := config.Input
-	manifest := l.deps.Manifest
-	store := l.deps.Store
-
-	// Return batched commands: immediate launched msg + blocking executor cmd
-	immediateCmd := func() tea.Msg {
+	return func() tea.Msg {
 		return PipelineLaunchedMsg{
 			RunID:        runID,
 			PipelineName: pipelineName,
-			CancelFunc:   cancel,
 		}
 	}
-
-	executorCmd := func() tea.Msg {
-		var execErr error
-		if manifest != nil {
-			execErr = executor.Execute(ctx, p, manifest, input)
-		} else {
-			execErr = fmt.Errorf("manifest not available")
-		}
-
-		// Update run status in store
-		if store != nil {
-			status := "completed"
-			errMsg := ""
-			if execErr != nil {
-				status = "failed"
-				errMsg = execErr.Error()
-			}
-			if ctx.Err() != nil {
-				status = "cancelled"
-				errMsg = ctx.Err().Error()
-			}
-			_ = store.UpdateRunStatus(runID, status, errMsg, executor.GetTotalTokens())
-		}
-
-		return PipelineLaunchResultMsg{RunID: runID, Err: execErr}
-	}
-
-	return tea.Batch(immediateCmd, executorCmd)
 }
 
-// Cancel cancels a specific running pipeline by run ID.
+// Cancel requests cancellation of a pipeline run via the state store.
+// The executor's pollCancellation goroutine will pick this up.
 func (l *PipelineLauncher) Cancel(runID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if cancel, ok := l.cancelFns[runID]; ok {
-		cancel()
+	if l.deps.Store != nil {
+		_ = l.deps.Store.RequestCancellation(runID, false)
 	}
 }
 
-// CancelAll cancels all running pipelines (called on TUI exit).
+// CancelAll is a no-op for detached pipelines — they survive TUI exit.
 func (l *PipelineLauncher) CancelAll() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	for _, cancel := range l.cancelFns {
-		cancel()
-	}
-	l.cancelFns = make(map[string]context.CancelFunc)
+	// Detached subprocesses manage their own lifecycle.
 }
 
-// Cleanup removes a cancel function entry and buffer after a pipeline finishes.
-func (l *PipelineLauncher) Cleanup(runID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.cancelFns, runID)
-	delete(l.buffers, runID)
+// Cleanup is a no-op for detached pipelines — subprocesses manage their own lifecycle.
+func (l *PipelineLauncher) Cleanup(_ string) {
+	// No in-process state to clean up.
+}
+
+// buildPassthroughEnv constructs a minimal environment for the subprocess.
+// It includes HOME, PATH, and any vars specified in manifest runtime.sandbox.env_passthrough.
+func buildPassthroughEnv(deps LaunchDependencies) []string {
+	env := []string{
+		"HOME=" + os.Getenv("HOME"),
+		"PATH=" + os.Getenv("PATH"),
+	}
+
+	if deps.Manifest != nil && len(deps.Manifest.Runtime.Sandbox.EnvPassthrough) > 0 {
+		for _, key := range deps.Manifest.Runtime.Sandbox.EnvPassthrough {
+			if val, ok := os.LookupEnv(key); ok {
+				env = append(env, key+"="+val)
+			}
+		}
+	}
+
+	return env
 }
 
 // TUIProgressEmitter implements event.ProgressEmitter to bridge executor events

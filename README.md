@@ -103,6 +103,7 @@ Usage:
 Available Commands:
   artifacts   List and export pipeline artifacts
   cancel      Cancel a running pipeline
+  chat        Interactive analysis of pipeline runs
   clean       Clean up project artifacts
   completion  Generate the autocompletion script for the specified shell
   do          Execute an ad-hoc task
@@ -112,8 +113,8 @@ Available Commands:
   logs        Show pipeline logs
   meta        Generate a custom pipeline
   migrate     Database migration commands
-  resume      Resume a paused pipeline
-  run         Run a pipeline
+  run         Run a pipeline (use --from-step to resume)
+  serve       Start the web operations dashboard
   status      Show pipeline status
   validate    Validate Wave configuration
 
@@ -123,6 +124,7 @@ Flags:
   -m, --manifest string   Path to manifest file (default "wave.yaml")
   -o, --output string     Output format: auto, json, text, quiet (default "auto")
   -v, --verbose           Include real-time tool activity
+      --no-tui            Disable TUI and print help text
       --version           version for wave
 
 Use "wave [command] --help" for more information about a command.

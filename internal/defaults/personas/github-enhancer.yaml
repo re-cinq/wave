@@ -6,6 +6,7 @@ permissions:
     - Write
     - "Bash(gh issue edit*)"
     - "Bash(gh issue view*)"
+    - "Bash(gh label create*)"
     - "Bash(gh --version)"
   deny:
     - "Bash(gh issue create*)"

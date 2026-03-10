@@ -99,6 +99,17 @@ const (
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
+	StateSkipped            = "skipped"             // Step was skipped (on_failure: "skip")
+
+	// Sequence lifecycle states (pipeline composition)
+	StateSequenceStarted   = "sequence_started"   // Sequence execution begun
+	StateSequenceProgress  = "sequence_progress"  // Individual pipeline within sequence starting
+	StateSequenceCompleted = "sequence_completed" // All pipelines in sequence completed
+	StateSequenceFailed    = "sequence_failed"    // Sequence stopped due to pipeline failure
+
+	// Parallel execution states
+	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
+	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
 )
 
 type EventEmitter interface {

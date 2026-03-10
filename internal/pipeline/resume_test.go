@@ -829,6 +829,203 @@ func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 	}
 }
 
+func TestLoadResumeState_WithPriorRunID(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "speckit-flow"},
+		Steps: []Step{
+			{
+				ID:        "specify",
+				Workspace: WorkspaceConfig{Type: "worktree"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "spec-status", Path: ".wave/output/specify-status.json"},
+				},
+			},
+			{
+				ID:           "clarify",
+				Dependencies: []string{"specify"},
+				Workspace:    WorkspaceConfig{Type: "worktree"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "clarify-status", Path: ".wave/output/clarify-status.json"},
+				},
+			},
+			{
+				ID:           "checklist",
+				Dependencies: []string{"clarify"},
+				Workspace:    WorkspaceConfig{Type: "worktree"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		priorRunID        string
+		fromStep          string
+		setupWorkspace    func(t *testing.T, tmpDir string)
+		expectedCompleted []string
+		expectedArtifacts int
+		checkArtifactPath string // verify a specific artifact path contains the run ID
+	}{
+		{
+			name:       "resolves artifacts from specified run ID",
+			priorRunID: "speckit-flow-20260306-084028-bd46",
+			fromStep:   "checklist",
+			setupWorkspace: func(t *testing.T, tmpDir string) {
+				// Create the specific run's worktree workspace with artifacts
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/__wt_speckit-flow-20260306-084028-bd46")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/clarify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"specify", "clarify"},
+			expectedArtifacts: 2,
+			checkArtifactPath: "speckit-flow-20260306-084028-bd46",
+		},
+		{
+			name:       "prefers specified run over newer run",
+			priorRunID: "speckit-flow-20260306-084028-old1",
+			fromStep:   "clarify",
+			setupWorkspace: func(t *testing.T, tmpDir string) {
+				// Create the specified (older) run's workspace
+				oldDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-old1/__wt_branch-old")
+				if err := os.MkdirAll(filepath.Join(oldDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(oldDir, ".wave/output/specify-status.json"), []byte(`{"status":"old"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+
+				// Create a newer run's workspace that should NOT be used
+				newDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-200000-new2/__wt_branch-new")
+				if err := os.MkdirAll(filepath.Join(newDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(newDir, ".wave/output/specify-status.json"), []byte(`{"status":"new"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"specify"},
+			expectedArtifacts: 1,
+			checkArtifactPath: "speckit-flow-20260306-084028-old1",
+		},
+		{
+			name:       "falls back to glob scan when run ID dir does not exist",
+			priorRunID: "speckit-flow-nonexistent",
+			fromStep:   "clarify",
+			setupWorkspace: func(t *testing.T, tmpDir string) {
+				// Only the glob-matched run exists
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"fallback"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"specify"},
+			expectedArtifacts: 1,
+			checkArtifactPath: "speckit-flow-20260306-100000-abcd",
+		},
+		{
+			name:       "no run ID uses default glob behavior",
+			priorRunID: "",
+			fromStep:   "clarify",
+			setupWorkspace: func(t *testing.T, tmpDir string) {
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"glob"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"specify"},
+			expectedArtifacts: 1,
+			checkArtifactPath: "speckit-flow-20260306-100000-abcd",
+		},
+		{
+			name:       "resolves non-worktree step artifacts from specified run",
+			priorRunID: "speckit-flow-20260306-084028-bd46",
+			fromStep:   "clarify",
+			setupWorkspace: func(t *testing.T, tmpDir string) {
+				// Create a basic (non-worktree) step workspace under the specified run
+				stepDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/specify")
+				if err := os.MkdirAll(filepath.Join(stepDir, ".wave/output"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(stepDir, ".wave/output/specify-status.json"), []byte(`{"status":"basic"}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectedCompleted: []string{"specify"},
+			expectedArtifacts: 1,
+			checkArtifactPath: "speckit-flow-20260306-084028-bd46",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chdir(origDir)
+
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatal(err)
+			}
+
+			tt.setupWorkspace(t, tmpDir)
+
+			var state *ResumeState
+			if tt.priorRunID != "" {
+				state, err = manager.loadResumeState(p, tt.fromStep, tt.priorRunID)
+			} else {
+				state, err = manager.loadResumeState(p, tt.fromStep)
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(state.CompletedSteps) != len(tt.expectedCompleted) {
+				t.Errorf("Expected %d completed steps, got %d: %v",
+					len(tt.expectedCompleted), len(state.CompletedSteps), state.CompletedSteps)
+			}
+
+			for i, expected := range tt.expectedCompleted {
+				if i < len(state.CompletedSteps) && state.CompletedSteps[i] != expected {
+					t.Errorf("Expected completed step %d to be %s, got %s",
+						i, expected, state.CompletedSteps[i])
+				}
+			}
+
+			if len(state.ArtifactPaths) != tt.expectedArtifacts {
+				t.Errorf("Expected %d artifact paths, got %d: %v",
+					tt.expectedArtifacts, len(state.ArtifactPaths), state.ArtifactPaths)
+			}
+
+			// Verify artifact paths contain the expected run ID
+			if tt.checkArtifactPath != "" {
+				for key, path := range state.ArtifactPaths {
+					if !strings.Contains(path, tt.checkArtifactPath) {
+						t.Errorf("Artifact path for %q should contain %q, got %q",
+							key, tt.checkArtifactPath, path)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()

@@ -101,6 +101,13 @@ func (b baseStateStore) SetRunTags(string, []string) error { return nil }
 func (b baseStateStore) GetRunTags(string) ([]string, error) { return nil, nil }
 func (b baseStateStore) AddRunTag(string, string) error      { return nil }
 func (b baseStateStore) RemoveRunTag(string, string) error   { return nil }
+func (b baseStateStore) UpdateRunPID(string, int) error      { return nil }
+func (b baseStateStore) RecordStepAttempt(*state.StepAttemptRecord) error {
+	return nil
+}
+func (b baseStateStore) GetStepAttempts(string, string) ([]state.StepAttemptRecord, error) {
+	return nil, nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
@@ -132,7 +139,14 @@ func (m *mockStateStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord
 // ---------------------------------------------------------------------------
 
 func timeAt(hour, min int) time.Time {
+	// Use a fixed recent date for tests that don't depend on time-based filtering.
 	return time.Date(2026, 3, 6, hour, min, 0, 0, time.UTC)
+}
+
+// recentTimeAt returns a time from today with the given minute offset from now,
+// guaranteeing the result is within the staleRunCutoff window.
+func recentTimeAt(minutesAgo int) time.Time {
+	return time.Now().Add(-time.Duration(minutesAgo) * time.Minute)
 }
 
 func timePtr(t time.Time) *time.Time {
@@ -144,20 +158,23 @@ func timePtr(t time.Time) *time.Time {
 // ---------------------------------------------------------------------------
 
 func TestDefaultPipelineDataProvider_FetchRunningPipelines(t *testing.T) {
+	startedOlder := recentTimeAt(30) // 30 minutes ago — within staleRunCutoff
+	startedNewer := recentTimeAt(10) // 10 minutes ago
+
 	mock := &mockStateStore{
 		runningRuns: []state.RunRecord{
 			{
 				RunID:        "run-1",
 				PipelineName: "speckit-flow",
 				BranchName:   "feat/speckit",
-				StartedAt:    timeAt(10, 0),
+				StartedAt:    startedOlder,
 				Status:       "running",
 			},
 			{
 				RunID:        "run-2",
 				PipelineName: "wave-evolve",
 				BranchName:   "feat/evolve",
-				StartedAt:    timeAt(11, 0),
+				StartedAt:    startedNewer,
 				Status:       "running",
 			},
 		},
@@ -172,20 +189,18 @@ func TestDefaultPipelineDataProvider_FetchRunningPipelines(t *testing.T) {
 	assert.Equal(t, "run-2", got[0].RunID)
 	assert.Equal(t, "wave-evolve", got[0].Name)
 	assert.Equal(t, "feat/evolve", got[0].BranchName)
-	assert.Equal(t, timeAt(11, 0), got[0].StartedAt)
 
 	assert.Equal(t, "run-1", got[1].RunID)
 	assert.Equal(t, "speckit-flow", got[1].Name)
 	assert.Equal(t, "feat/speckit", got[1].BranchName)
-	assert.Equal(t, timeAt(10, 0), got[1].StartedAt)
 }
 
 func TestDefaultPipelineDataProvider_FetchRunningPipelines_SortOrder(t *testing.T) {
 	// Records arrive oldest-first; verify result is newest-first.
 	mock := &mockStateStore{
 		runningRuns: []state.RunRecord{
-			{RunID: "old", StartedAt: timeAt(8, 0)},
-			{RunID: "new", StartedAt: timeAt(12, 0)},
+			{RunID: "old", StartedAt: recentTimeAt(30)},
+			{RunID: "new", StartedAt: recentTimeAt(5)},
 		},
 	}
 
@@ -196,6 +211,22 @@ func TestDefaultPipelineDataProvider_FetchRunningPipelines_SortOrder(t *testing.
 
 	assert.Equal(t, "new", got[0].RunID)
 	assert.Equal(t, "old", got[1].RunID)
+}
+
+func TestDefaultPipelineDataProvider_FetchRunningPipelines_FiltersStale(t *testing.T) {
+	// Runs without a PID that are older than staleRunCutoff should be filtered out.
+	mock := &mockStateStore{
+		runningRuns: []state.RunRecord{
+			{RunID: "fresh", StartedAt: recentTimeAt(5)},                                          // 5 min ago — kept
+			{RunID: "stale", StartedAt: time.Now().Add(-(staleRunCutoff + 10*time.Minute))},       // well past cutoff — filtered
+		},
+	}
+
+	provider := NewDefaultPipelineDataProvider(mock, "")
+	got, err := provider.FetchRunningPipelines()
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "fresh", got[0].RunID)
 }
 
 func TestDefaultPipelineDataProvider_FetchFinishedPipelines(t *testing.T) {

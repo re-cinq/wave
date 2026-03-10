@@ -15,7 +15,8 @@ type RunRecord struct {
 	CancelledAt  *time.Time
 	ErrorMessage string
 	Tags         []string // Tags for categorization and filtering
-	BranchName   string    // Worktree branch for this run
+	BranchName   string   // Worktree branch for this run
+	PID          int      // OS process ID of the detached executor (0 = unknown/in-process)
 }
 
 // ListRunsOptions specifies filters for listing runs.
@@ -149,6 +150,22 @@ type PipelineProgressRecord struct {
 	OverallProgress       int
 	EstimatedCompletionMs int64
 	UpdatedAt             time.Time
+}
+
+// StepAttemptRecord holds an individual retry attempt for a pipeline step.
+type StepAttemptRecord struct {
+	ID           int64
+	RunID        string
+	StepID       string
+	Attempt      int
+	State        string // "failed", "succeeded"
+	ErrorMessage string
+	FailureClass string
+	StdoutTail   string
+	TokensUsed   int
+	DurationMs   int64
+	StartedAt    time.Time
+	CompletedAt  *time.Time
 }
 
 // ArtifactMetadataRecord holds extended artifact metadata for visualization.

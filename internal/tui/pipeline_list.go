@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/display"
 )
 
 const (
@@ -28,9 +29,17 @@ const (
 // navigableItem is a single entry in the flat navigation list.
 type navigableItem struct {
 	kind         itemKind
-	sectionIndex int    // 0=Running, 1=Finished, 2=Available
+	sectionIndex int    // 0=Running, 1=Available, 2=Finished
 	dataIndex    int    // index into section's data slice (-1 for headers)
 	label        string // display text
+}
+
+// RunningSequence represents a group of pipelines executing as a composed sequence.
+// TODO(#249): Render grouped sequence items in Running section.
+type RunningSequence struct {
+	Label       string            // e.g. "speckit-flow → wave-evolve"
+	Entries     []RunningPipeline
+	ActiveIndex int
 }
 
 // PipelineListModel is the Bubble Tea model for the pipeline list left pane.
@@ -54,7 +63,7 @@ type PipelineListModel struct {
 	filterQuery string
 
 	// Section collapse state
-	collapsed [3]bool // [Running, Finished, Available]
+	collapsed [3]bool // [Running, Available, Finished]
 
 	// Focus state
 	focused bool
@@ -76,6 +85,7 @@ func NewPipelineListModel(provider PipelineDataProvider) PipelineListModel {
 		provider:    provider,
 		filterInput: ti,
 		focused:     true,
+		collapsed:   [3]bool{false, false, true}, // Finished collapsed by default
 	}
 }
 
@@ -112,6 +122,7 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 			StartedAt: time.Now(),
 		}
 		m.running = append([]RunningPipeline{newRunning}, m.running...)
+		m.collapsed[0] = false // Ensure Running section is expanded
 		m.buildNavigableItems()
 
 		// Move cursor to the new running entry
@@ -123,8 +134,9 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 		}
 
 		// Emit running count and selection messages
+		totalPipes := len(m.running) + len(m.available) + len(m.finished)
 		cmds := []tea.Cmd{
-			func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
+			func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
 		}
 		if cmd := m.emitSelectionMsg(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -233,8 +245,9 @@ func (m PipelineListModel) handleDataMsg(msg PipelineDataMsg) (PipelineListModel
 		m.cursor = len(m.navigable) - 1
 	}
 
+	totalPipes := len(m.running) + len(m.available) + len(m.finished)
 	cmds := []tea.Cmd{
-		func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
+		func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
 	}
 
 	// Re-emit PipelineSelectedMsg if cursor is on a pipeline item
@@ -273,7 +286,12 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			return m.handleNavigation(msg)
 
 		case tea.KeyEnter:
-			// Enter while filtering: deactivate filter but keep results
+			// Enter while filtering: deactivate filter but keep results.
+			// If the filter matches nothing, stay in filter mode so the
+			// user can edit or Escape instead of getting stuck.
+			if len(m.navigable) == 0 {
+				return m, nil
+			}
 			m.filtering = false
 			return m, nil
 
@@ -283,10 +301,15 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			newQuery := m.filterInput.Value()
 			if newQuery != m.filterQuery {
 				m.filterQuery = newQuery
-				oldCursor := m.cursor
 				m.buildNavigableItems()
-				if oldCursor >= len(m.navigable) {
+				// Clamp cursor to valid range after filter narrows results
+				if len(m.navigable) == 0 {
 					m.cursor = 0
+				} else if m.cursor >= len(m.navigable) {
+					m.cursor = len(m.navigable) - 1
+				}
+				if selCmd := m.emitSelectionMsg(); selCmd != nil {
+					cmd = tea.Batch(cmd, selCmd)
 				}
 			}
 			return m, cmd
@@ -319,6 +342,8 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 			m.filterInput.SetValue("")
 			m.filterQuery = ""
 			m.filterInput.Focus()
+			m.buildNavigableItems()
+			m.cursor = 0
 			return m, m.filterInput.Cursor.BlinkCmd()
 		}
 	}
@@ -361,8 +386,10 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 				return PipelineSelectedMsg{
 					RunID:      r.RunID,
 					Name:       r.Name,
+					Input:      r.Input,
 					BranchName: r.BranchName,
 					Kind:       itemKindRunning,
+					StartedAt:  r.StartedAt,
 				}
 			}
 		}
@@ -373,8 +400,10 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 				return PipelineSelectedMsg{
 					RunID:      f.RunID,
 					Name:       f.Name,
+					Input:      f.Input,
 					BranchName: f.BranchName,
 					Kind:       itemKindFinished,
+					StartedAt:  f.StartedAt,
 				}
 			}
 		}
@@ -413,39 +442,13 @@ func (m *PipelineListModel) buildNavigableItems() {
 			dataIndex:    -1,
 			label:        fmt.Sprintf("Running (%d)", len(filteredRunning)),
 		})
-		if !m.collapsed[0] {
+		if !m.collapsed[0] || query != "" {
 			for _, idx := range filteredRunning {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindRunning,
 					sectionIndex: 0,
 					dataIndex:    idx,
 					label:        m.running[idx].Name,
-				})
-			}
-		}
-	}
-
-	// Finished section
-	var filteredFinished []int
-	for i, f := range m.finished {
-		if query == "" || strings.Contains(strings.ToLower(f.Name), query) {
-			filteredFinished = append(filteredFinished, i)
-		}
-	}
-	if len(filteredFinished) > 0 || query == "" {
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindSectionHeader,
-			sectionIndex: 1,
-			dataIndex:    -1,
-			label:        fmt.Sprintf("Finished (%d)", len(filteredFinished)),
-		})
-		if !m.collapsed[1] {
-			for _, idx := range filteredFinished {
-				m.navigable = append(m.navigable, navigableItem{
-					kind:         itemKindFinished,
-					sectionIndex: 1,
-					dataIndex:    idx,
-					label:        m.finished[idx].Name,
 				})
 			}
 		}
@@ -461,17 +464,43 @@ func (m *PipelineListModel) buildNavigableItems() {
 	if len(filteredAvailable) > 0 || query == "" {
 		m.navigable = append(m.navigable, navigableItem{
 			kind:         itemKindSectionHeader,
-			sectionIndex: 2,
+			sectionIndex: 1,
 			dataIndex:    -1,
 			label:        fmt.Sprintf("Available (%d)", len(filteredAvailable)),
 		})
-		if !m.collapsed[2] {
+		if !m.collapsed[1] || query != "" {
 			for _, idx := range filteredAvailable {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindAvailable,
-					sectionIndex: 2,
+					sectionIndex: 1,
 					dataIndex:    idx,
 					label:        m.available[idx].Name,
+				})
+			}
+		}
+	}
+
+	// Finished section
+	var filteredFinished []int
+	for i, f := range m.finished {
+		if query == "" || strings.Contains(strings.ToLower(f.Name), query) {
+			filteredFinished = append(filteredFinished, i)
+		}
+	}
+	if len(filteredFinished) > 0 || query == "" {
+		m.navigable = append(m.navigable, navigableItem{
+			kind:         itemKindSectionHeader,
+			sectionIndex: 2,
+			dataIndex:    -1,
+			label:        fmt.Sprintf("Finished (%d)", len(filteredFinished)),
+		})
+		if !m.collapsed[2] || query != "" {
+			for _, idx := range filteredFinished {
+				m.navigable = append(m.navigable, navigableItem{
+					kind:         itemKindFinished,
+					sectionIndex: 2,
+					dataIndex:    idx,
+					label:        m.finished[idx].Name,
 				})
 			}
 		}
@@ -522,16 +551,17 @@ func (m PipelineListModel) renderItem(item navigableItem, isSelected bool) strin
 	return ""
 }
 
-// renderSectionHeader renders a section header line.
+// renderSectionHeader renders a section header line with a separator bar.
 func (m PipelineListModel) renderSectionHeader(item navigableItem, isSelected bool, maxWidth int) string {
 	// Collapse indicator
-	indicator := "▾"
+	indicator := "▼"
 	if m.collapsed[item.sectionIndex] {
-		indicator = "▸"
+		indicator = "▶"
 	}
 
 	text := fmt.Sprintf("%s %s", indicator, item.label)
 
+	// Section header styling
 	if isSelected {
 		style := lipgloss.NewStyle().
 			Bold(true).
@@ -540,9 +570,16 @@ func (m PipelineListModel) renderSectionHeader(item navigableItem, isSelected bo
 		return style.Render(text)
 	}
 
+	// Fill remaining width with ─ for visual separation (single line, no border)
+	textWidth := lipgloss.Width(text)
+	padWidth := maxWidth - textWidth - 1
+	if padWidth > 0 {
+		text = text + " " + strings.Repeat("─", padWidth)
+	}
+
 	style := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("7")).
+		Foreground(lipgloss.Color("6")).
 		Width(maxWidth)
 	return style.Render(text)
 }
@@ -588,6 +625,10 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	}
 	f := m.finished[item.dataIndex]
 
+	// L3: Add date to distinguish multiple runs of the same pipeline
+	dateSuffix := f.StartedAt.Format("Jan 02 15:04")
+	displayName := fmt.Sprintf("%s (%s)", f.Name, dateSuffix)
+
 	statusIcon := "✓"
 	if f.Status == "failed" || f.Status == "cancelled" {
 		statusIcon = "✗"
@@ -597,14 +638,14 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	suffix := fmt.Sprintf("%s %s  %s", statusIcon, f.Status, duration)
 
 	nameMaxWidth := maxWidth - 3 - len(suffix) - 1
-	name := truncateName(f.Name, nameMaxWidth)
+	name := truncateName(displayName, nameMaxWidth)
 
 	if isSelected {
-		spacer := maxWidth - lipgloss.Width("▶ "+name) - lipgloss.Width(suffix) - 1
+		spacer := maxWidth - lipgloss.Width("› "+name) - lipgloss.Width(suffix) - 1
 		if spacer < 1 {
 			spacer = 1
 		}
-		text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), suffix)
+		text := fmt.Sprintf("› %s%s%s", name, strings.Repeat(" ", spacer), suffix)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
@@ -632,7 +673,7 @@ func (m PipelineListModel) renderAvailableItem(item navigableItem, isSelected bo
 	name := truncateName(a.Name, nameMaxWidth)
 
 	if isSelected {
-		text := fmt.Sprintf("▶ %s", name)
+		text := fmt.Sprintf("› %s", name)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
@@ -659,22 +700,12 @@ func truncateName(name string, maxWidth int) string {
 	return name[:maxWidth-1] + "…"
 }
 
-// formatDuration formats a duration in a compact human-readable form.
+// formatDuration wraps display.FormatDuration converting time.Duration to milliseconds.
 func formatDuration(d time.Duration) string {
 	if d < 0 {
 		d = 0
 	}
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%02ds", m, s)
-	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%02dm", h, m)
+	return display.FormatDuration(d.Milliseconds())
 }
 
 // Async command factories

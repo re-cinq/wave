@@ -8,7 +8,7 @@ You are running in an **isolated git worktree** checked out at `main` (detached 
 Your working directory IS the project root. All git operations here are isolated
 from the main working tree and will not affect it.
 
-Use `create-new-feature.sh` to create the feature branch from this clean starting point.
+Create a feature branch from this clean starting point.
 
 ## Instructions
 
@@ -22,10 +22,10 @@ From the issue assessment artifact, extract:
 
 ### Step 2: Create Feature Branch
 
-Use the `create-new-feature.sh` script to create a properly numbered branch:
+Create a feature branch using the branch name from the assessment:
 
 ```bash
-.specify/scripts/bash/create-new-feature.sh --json --number <ISSUE_NUMBER> --short-name "<SHORT_NAME>" "<ISSUE_TITLE>"
+git checkout -b <BRANCH_NAME>
 ```
 
 If the branch already exists (e.g. from a resume), check it out instead:

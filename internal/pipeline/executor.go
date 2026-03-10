@@ -131,17 +131,18 @@ type WorktreeInfo struct {
 }
 
 type PipelineExecution struct {
-	mu             sync.Mutex                 // protects map writes during concurrent steps
-	Pipeline       *Pipeline
-	Manifest       *manifest.Manifest
-	States         map[string]string
-	Results        map[string]map[string]interface{}
-	ArtifactPaths  map[string]string          // "stepID:artifactName" -> filesystem path
-	WorkspacePaths map[string]string          // stepID -> workspace path
-	WorktreePaths  map[string]*WorktreeInfo   // resolved branch -> worktree info
-	Input          string
-	Status         *PipelineStatus
-	Context        *PipelineContext  // Dynamic template variables
+	mu              sync.Mutex                 // protects map writes during concurrent steps
+	Pipeline        *Pipeline
+	Manifest        *manifest.Manifest
+	States          map[string]string
+	Results         map[string]map[string]interface{}
+	ArtifactPaths   map[string]string          // "stepID:artifactName" -> filesystem path
+	WorkspacePaths  map[string]string          // stepID -> workspace path
+	WorktreePaths   map[string]*WorktreeInfo   // resolved branch -> worktree info
+	Input           string
+	Status          *PipelineStatus
+	Context         *PipelineContext  // Dynamic template variables
+	AttemptContexts map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -228,6 +229,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
+	// Start cancellation poller for cross-process cancel support.
+	// When another process (TUI, webui) writes a cancellation record to the DB,
+	// this goroutine detects it and cancels the executor's context.
+	if e.store != nil && pipelineID != "" {
+		var pollCancel context.CancelFunc
+		ctx, pollCancel = context.WithCancel(ctx)
+		defer pollCancel()
+		go e.pollCancellation(ctx, pipelineID, pollCancel)
+	}
+
 	// Initialize deliverable tracker for this pipeline (only if not already set)
 	if e.deliverableTracker == nil {
 		e.deliverableTracker = deliverable.NewTracker(pipelineID)
@@ -236,15 +247,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
 	execution := &PipelineExecution{
-		Pipeline:       p,
-		Manifest:       m,
-		States:         make(map[string]string),
-		Results:        make(map[string]map[string]interface{}),
-		ArtifactPaths:  make(map[string]string),
-		WorkspacePaths: make(map[string]string),
-		WorktreePaths:  make(map[string]*WorktreeInfo),
-		Input:          input,
-		Context:        pipelineContext,
+		Pipeline:        p,
+		Manifest:        m,
+		States:          make(map[string]string),
+		Results:         make(map[string]map[string]interface{}),
+		ArtifactPaths:   make(map[string]string),
+		WorkspacePaths:  make(map[string]string),
+		WorktreePaths:   make(map[string]*WorktreeInfo),
+		AttemptContexts: make(map[string]*AttemptContext),
+		Input:           input,
+		Context:         pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -444,17 +456,18 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeMatrixStep(ctx, execution, step)
 	}
 
-	maxRetries := step.Handover.MaxRetries
-	if maxRetries == 0 {
-		if step.Handover.Contract.MaxRetries > 0 {
-			maxRetries = step.Handover.Contract.MaxRetries
-		} else {
-			maxRetries = 1
+	// Determine max attempts: prefer step.Retry config, fall back to legacy handover fields
+	maxAttempts := step.Retry.EffectiveMaxAttempts()
+	if maxAttempts <= 1 {
+		if step.Handover.MaxRetries > 0 {
+			maxAttempts = step.Handover.MaxRetries
+		} else if step.Handover.Contract.MaxRetries > 0 {
+			maxAttempts = step.Handover.Contract.MaxRetries
 		}
 	}
 
 	var lastErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if attempt > 1 {
 			// Don't retry if the parent context is already cancelled
 			if ctx.Err() != nil {
@@ -471,9 +484,21 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "retrying",
-				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxRetries),
+				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
-			time.Sleep(time.Second * time.Duration(attempt))
+			time.Sleep(step.Retry.ComputeDelay(attempt))
+		}
+
+		// Record attempt start
+		attemptStart := time.Now()
+		if e.store != nil {
+			e.store.RecordStepAttempt(&state.StepAttemptRecord{
+				RunID:     pipelineID,
+				StepID:    step.ID,
+				Attempt:   attempt,
+				State:     "running",
+				StartedAt: attemptStart,
+			})
 		}
 
 		// Start progress ticker for smooth animation updates during step execution
@@ -484,19 +509,124 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Stop progress ticker when step completes
 		cancelTicker()
 
+		attemptDuration := time.Since(attemptStart)
+
 		if err != nil {
 			lastErr = err
-			if attempt < maxRetries {
+
+			// Record failed attempt
+			if e.store != nil {
+				completedAt := time.Now()
+				e.store.RecordStepAttempt(&state.StepAttemptRecord{
+					RunID:        pipelineID,
+					StepID:       step.ID,
+					Attempt:      attempt,
+					State:        "failed",
+					ErrorMessage: err.Error(),
+					DurationMs:   attemptDuration.Milliseconds(),
+					StartedAt:    attemptStart,
+					CompletedAt:  &completedAt,
+				})
+			}
+
+			if attempt < maxAttempts {
+				// Set up attempt context for prompt adaptation on next retry
+				if step.Retry.AdaptPrompt {
+					errMsg := err.Error()
+					// Capture stdout tail from results if available
+					stdoutTail := ""
+					execution.mu.Lock()
+					if result, ok := execution.Results[step.ID]; ok {
+						if stdout, ok := result["stdout"].(string); ok {
+							if len(stdout) > 2000 {
+								stdoutTail = stdout[len(stdout)-2000:]
+							} else {
+								stdoutTail = stdout
+							}
+						}
+					}
+					execution.mu.Unlock()
+
+					execution.mu.Lock()
+					execution.AttemptContexts[step.ID] = &AttemptContext{
+						Attempt:     attempt + 1,
+						MaxAttempts: maxAttempts,
+						PriorError:  errMsg,
+						PriorStdout: stdoutTail,
+					}
+					execution.mu.Unlock()
+				}
 				continue
 			}
-			execution.mu.Lock()
-			execution.States[step.ID] = StateFailed
-			execution.mu.Unlock()
-			if e.store != nil {
-				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+
+			// All attempts exhausted — apply on_failure policy
+			onFailure := step.Retry.OnFailure
+			if onFailure == "" {
+				onFailure = "fail"
 			}
-			return lastErr
+
+			switch onFailure {
+			case "skip":
+				execution.mu.Lock()
+				execution.States[step.ID] = StateSkipped
+				execution.mu.Unlock()
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, err.Error())
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateSkipped,
+					Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
+				})
+				return nil
+
+			case "continue":
+				execution.mu.Lock()
+				execution.States[step.ID] = StateFailed
+				execution.mu.Unlock()
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateFailed,
+					Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
+				})
+				return nil
+
+			default: // "fail"
+				execution.mu.Lock()
+				execution.States[step.ID] = StateFailed
+				execution.mu.Unlock()
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+				}
+				return lastErr
+			}
 		}
+
+		// Record successful attempt
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordStepAttempt(&state.StepAttemptRecord{
+				RunID:       pipelineID,
+				StepID:      step.ID,
+				Attempt:     attempt,
+				State:       "succeeded",
+				DurationMs:  attemptDuration.Milliseconds(),
+				StartedAt:   attemptStart,
+				CompletedAt: &completedAt,
+			})
+		}
+
+		// Clear attempt context on success
+		execution.mu.Lock()
+		delete(execution.AttemptContexts, step.ID)
+		execution.mu.Unlock()
 
 		execution.mu.Lock()
 		execution.States[step.ID] = StateCompleted
@@ -617,9 +747,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", step.Persona, len(prompt)))
 	}
 
+	// Resolve timeout with four-tier precedence:
+	// 1. Step-level timeout_minutes (pipeline YAML) — most specific
+	// 2. CLI --timeout flag (stepTimeoutOverride)
+	// 3. runtime.default_timeout_minutes (manifest)
+	// 4. Hardcoded fallback (5 minutes)
 	timeout := execution.Manifest.Runtime.GetDefaultTimeout()
 	if e.stepTimeoutOverride > 0 {
 		timeout = e.stepTimeoutOverride
+	}
+	if stepTimeout := step.GetTimeout(); stepTimeout > 0 {
+		timeout = stepTimeout
 	}
 
 	// Load system prompt from persona file
@@ -723,6 +861,20 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), 0, 0, 0, err.Error())
 		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				Success:      false,
+				ErrorMessage: err.Error(),
+			})
+		}
 		return fmt.Errorf("adapter execution failed: %w", err)
 	}
 
@@ -744,6 +896,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if result.FailureReason == adapter.FailureReasonRateLimit {
 		if e.logger != nil {
 			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      step.Persona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      false,
+				ErrorMessage: "rate limited: " + result.ResultContent,
+			})
 		}
 		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
 	}
@@ -881,6 +1048,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
 					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
 				}
+				if e.store != nil {
+					completedAt := time.Now()
+					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+						RunID:        pipelineID,
+						StepID:       step.ID,
+						PipelineName: execution.Status.PipelineName,
+						Persona:      step.Persona,
+						StartedAt:    stepStart,
+						CompletedAt:  &completedAt,
+						DurationMs:   time.Since(stepStart).Milliseconds(),
+						TokensUsed:   result.TokensUsed,
+						Success:      false,
+						ErrorMessage: "contract validation failed: " + err.Error(),
+					})
+				}
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
 			// Soft failure: log the validation error but continue execution
@@ -935,6 +1117,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	if e.logger != nil {
 		e.logger.LogStepEnd(pipelineID, step.ID, "success", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
+	}
+
+	// Record performance metric for TUI step breakdown
+	if e.store != nil {
+		completedAt := time.Now()
+		e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			RunID:              pipelineID,
+			StepID:             step.ID,
+			PipelineName:       execution.Status.PipelineName,
+			Persona:            step.Persona,
+			StartedAt:          stepStart,
+			CompletedAt:        &completedAt,
+			DurationMs:         stepDuration,
+			TokensUsed:         result.TokensUsed,
+			ArtifactsGenerated: len(stepArtifacts),
+			Success:            true,
+		})
 	}
 
 	return nil
@@ -1209,6 +1408,30 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		prompt = execution.Context.ResolvePlaceholders(prompt)
 	}
 
+	// Inject retry failure context when adapt_prompt is enabled
+	execution.mu.Lock()
+	attemptCtx := execution.AttemptContexts[step.ID]
+	execution.mu.Unlock()
+
+	if attemptCtx != nil {
+		var sb strings.Builder
+		sb.WriteString("## RETRY CONTEXT\n\n")
+		sb.WriteString(fmt.Sprintf("This is attempt %d of %d. The previous attempt failed.\n\n", attemptCtx.Attempt, attemptCtx.MaxAttempts))
+		if attemptCtx.PriorError != "" {
+			sb.WriteString("### Previous Error\n```\n")
+			sb.WriteString(attemptCtx.PriorError)
+			sb.WriteString("\n```\n\n")
+		}
+		if attemptCtx.PriorStdout != "" {
+			sb.WriteString("### Previous Output (last 2000 chars)\n```\n")
+			sb.WriteString(attemptCtx.PriorStdout)
+			sb.WriteString("\n```\n\n")
+		}
+		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
+		sb.WriteString(prompt)
+		prompt = sb.String()
+	}
+
 	return prompt
 }
 
@@ -1474,6 +1697,26 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipel
 	}
 
 	return cancel
+}
+
+// pollCancellation checks the database for cross-process cancellation requests.
+// When another process (TUI, webui, CLI) writes a cancellation record, this
+// goroutine detects it and cancels the executor's context to stop execution.
+func (e *DefaultPipelineExecutor) pollCancellation(ctx context.Context, runID string, cancel context.CancelFunc) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if rec, err := e.store.CheckCancellation(runID); err == nil && rec != nil {
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 // checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.
@@ -2162,7 +2405,9 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 
 // ResumeWithValidation resumes a pipeline with full validation and error handling.
 // When force is true, phase validation and stale artifact checks are skipped.
-func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool) error {
+// When priorRunID is provided, artifact paths are resolved from that specific run's
+// workspace directory instead of scanning for the most recent match.
+func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool, priorRunID ...string) error {
 	manager := NewResumeManager(e)
-	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force)
+	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force, priorRunID...)
 }
