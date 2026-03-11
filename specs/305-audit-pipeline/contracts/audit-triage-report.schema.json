@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Audit Triage Report",
+  "description": "Output from the compose-triage step: aggregated findings with prioritized action list",
+  "type": "object",
+  "required": ["metadata", "summary", "findings", "prioritized_actions"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["scope", "timestamp", "repository", "total_items_audited"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "description": "Audit scope description (e.g., 'full', 'last 30 days', 'label:enhancement')"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the triage report was composed"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "Repository full name (owner/repo)"
+        },
+        "total_items_audited": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of items that were audited"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["verified", "partial", "regressed", "obsolete", "unverifiable"],
+      "properties": {
+        "verified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items fully implemented and intact"
+        },
+        "partial": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items with some acceptance criteria unmet"
+        },
+        "regressed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items that were implemented but later broken"
+        },
+        "obsolete": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items no longer applicable to current codebase"
+        },
+        "unverifiable": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items with no traceable implementation artifacts"
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_number", "item_type", "item_url", "title", "category", "evidence"],
+        "properties": {
+          "item_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Source issue or PR number"
+          },
+          "item_type": {
+            "type": "string",
+            "enum": ["issue", "pr"],
+            "description": "Whether the source item is an issue or PR"
+          },
+          "item_url": {
+            "type": "string",
+            "description": "Full GitHub URL"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Item title"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["verified", "partial", "regressed", "obsolete", "unverifiable"],
+            "description": "Fidelity classification"
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Supporting evidence (file paths, code refs, commit SHAs)"
+          },
+          "remediation": {
+            "type": "string",
+            "description": "Actionable fix description"
+          }
+        }
+      },
+      "description": "All findings grouped by category (regressed first, then partial, then unverifiable, then obsolete, then verified)"
+    },
+    "prioritized_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["priority", "item_number", "action_description"],
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Priority rank (1 = highest)"
+          },
+          "item_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Source issue or PR number"
+          },
+          "action_description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What needs to be done to resolve this finding"
+          }
+        }
+      },
+      "description": "Prioritized list of remediation actions (regressed first, then partial)"
+    }
+  }
+}
