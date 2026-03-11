@@ -11,6 +11,7 @@ Contracts validate step output before dependent steps begin. This page documents
 | `typescript_interface` | TypeScript compiles | Validating generated type definitions |
 | `markdown_spec` | Markdown structure | Checking documentation format |
 | `format` | Domain-specific formats | Validating GitHub issues, PRs, analysis outputs (experimental) |
+| `non_empty_file` | File existence and non-emptiness | Ensuring a persona wrote output to the expected path |
 
 ---
 
@@ -364,6 +365,67 @@ The format validator infers the format type from the `schema_path` filename and 
 | `implementation-results` | `implementation_results` | Structured result sections |
 | `analysis`, `findings` | `analysis` | Structured analysis sections |
 | _(other)_ | `generic` | Basic structure and placeholder detection |
+
+---
+
+## non_empty_file
+
+Validate that a file exists and is non-empty.
+
+```yaml
+handover:
+  contract:
+    type: non_empty_file
+    source: .wave/output/report.md
+```
+
+**Use when:** Ensuring a persona wrote output to the expected artifact path.
+
+### Full Configuration
+
+```yaml
+handover:
+  contract:
+    type: non_empty_file
+    source: .wave/output/report.md
+    must_pass: true
+    on_failure: retry
+    max_retries: 2
+```
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `source` | **yes** | - | Path to file to validate |
+| `must_pass` | no | `true` | Whether failure blocks progression |
+| `on_failure` | no | `retry` | `retry` or `halt` |
+| `max_retries` | no | `2` | Maximum retry attempts |
+
+### Behavior
+
+1. Resolves `source` path relative to workspace (absolute paths used as-is)
+2. Checks that the file exists (retryable error if not)
+3. Checks that the file has non-zero size (retryable error if empty)
+
+### Examples
+
+**Validate persona output:**
+```yaml
+steps:
+  - id: analyze
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Analyze the codebase and write findings"
+    output_artifacts:
+      - name: findings
+        path: .wave/output/findings.md
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/findings.md
+```
 
 ---
 
