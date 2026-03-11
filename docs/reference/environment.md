@@ -157,7 +157,7 @@ Adapters may use additional environment variables for configuration:
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | API key for Claude. |
 | `CLAUDE_CODE_MAX_TURNS` | Maximum agentic turns per invocation. |
-| `CLAUDE_CODE_MODEL` | Model override (e.g., `claude-sonnet-4-20250514`). |
+| `CLAUDE_CODE_MODEL` | Model override (e.g., `claude-sonnet-4-20250514`). Must be listed in `runtime.sandbox.env_passthrough` to reach adapter subprocesses. Wave's `--model` flag is the preferred mechanism for model selection. |
 
 ### Custom Adapters
 

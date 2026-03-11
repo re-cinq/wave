@@ -80,6 +80,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &markdownSpecValidator{}
 	case "format":
 		return &FormatValidator{}
+	case "non_empty_file":
+		return &nonEmptyFileValidator{}
 	default:
 		return nil
 	}
