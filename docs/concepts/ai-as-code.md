@@ -123,20 +123,20 @@ Wave's approach differs from other multi-agent tools:
 
 | | Wave | Gastown | Claude Flow | Raw Claude Code |
 |--|:----:|:-------:|:-----------:|:---------------:|
-| **Guardrail model** | Per-persona scoping | None | None | Project-level only |
-| **Declarative pipelines** | YAML | JSON/TOML | Programmatic | ❌ |
-| **Version controlled** | ✅ | ✅ (git worktree) | ❌ | ❌ |
-| **Contract validation** | ✅ | ❌ | ❌ | ❌ |
-| **Step isolation** | Fresh memory | Shared context | Shared memory | Single session |
-| **Permission scoping** | Per-persona | ❌ | ❌ | Project-level |
+| **Guardrail model** | Per-persona scoping | Prompt-based only | Constitution + enforcement gates | Project-level only |
+| **Declarative pipelines** | YAML | TOML | Hybrid (code + YAML) | ❌ |
+| **Version controlled** | ✅ | ✅ (git worktree) | ✅ (agent configs) | ❌ |
+| **Contract validation** | Schema-based | ❌ | Behavioral (hooks, trust scoring) | ❌ |
+| **Step isolation** | Fresh memory | Fresh sessions, git-persisted | Shared memory | Single session |
+| **Permission scoping** | Per-persona deny/allow | ❌ | Claims + trust throttling | Project-level |
 
 ### Gastown
 
-Multi-agent workspace manager with Mayor/Polecat architecture. Strong git integration with worktree-based persistence. Different philosophy: persistent shared state vs Wave's fresh-memory isolation.
+Multi-agent workspace manager with Mayor/Polecat architecture. Strong git integration with worktree-based persistence. Fresh ephemeral sessions with git-persisted state. Different philosophy: prompt-based role enforcement vs Wave's declarative permission scoping.
 
 ### Claude Flow
 
-Agent swarm orchestration with 60+ agents and MCP tools. Optimized for parallel execution and collective learning. Different philosophy: shared knowledge base vs Wave's contract-validated handoffs.
+Agent swarm orchestration with 60+ agents and MCP tools. V3 adds a Constitution/Shards guidance system, enforcement gates, and trust-based throttling. Different philosophy: shared memory with behavioral validation vs Wave's fresh-memory isolation with schema-based contracts.
 
 ### Raw Claude Code
 
