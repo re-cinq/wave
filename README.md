@@ -1,8 +1,8 @@
 # Wave — AI-as-Code
 
-**Just the right amount of guardrails for agentic coding.**
+**Infrastructure thinking for AI-native workflows.**
 
-Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipelines in YAML, version them in git, and run them with scoped permissions, contracts, and audit trails — giving each agent exactly the access it needs.
+Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipelines in YAML, version them in git, and run them with contracts, isolation, and audit trails.
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,17 +11,15 @@ Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipeline
 
 ## Why Wave?
 
-AI agents sit on a spectrum. At one end, they're fully leashed — endless permission dialogs, no filesystem access, no real autonomy. They're safe, but useless. At the other end, they run completely free — and a single misread prompt can leak secrets, delete files, or push broken code.
+Running AI agents without guardrails is risky. A single prompt can read secrets, delete files, or push broken code.
 
-Wave finds the sweet spot: **just the right amount of guardrails**.
+Wave solves this with **persona-scoped safety**:
 
-Each persona is explicitly scoped — fully empowered within its role, constrained outside it:
+- **Navigator** can explore but never modify
+- **Craftsman** can implement but not push to remote
+- **Auditor** can review but not fix
 
-- **Navigator** explores freely but never modifies
-- **Craftsman** implements fully but never pushes to remote
-- **Auditor** has deep read access but never changes anything
-
-Scoping is declarative, versioned in git, and enforced at runtime. Agents do more. Accidents don't happen.
+Each persona runs in isolation with explicit permissions. Deny patterns always win.
 
 ---
 
