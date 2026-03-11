@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 const heroProps = computed(() => ({
   title: 'Wave · AI-as-Code for multi-agent pipelines',
-  tagline: 'Define, version, and run AI workflows like you manage infrastructure.',
+  tagline: 'Just the right amount of guardrails for agentic coding.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -150,7 +150,7 @@ const heroProps = computed(() => ({
     ...terminals[pipelineIndex.value]
   },
   valuePills: [
-    { label: 'Declarative', link: '/concepts/pipelines', tooltip: 'YAML-based configuration' },
+    { label: 'Scoped Autonomy', link: '/concepts/personas', tooltip: 'Per-persona permission boundaries' },
     { label: 'Contracts', link: '/concepts/contracts', tooltip: 'Output validation' },
     { label: 'Git Worktrees', link: '/concepts/workspaces', tooltip: 'Native git worktree isolation' },
     { label: 'Auditable', link: '/trust-center/', tooltip: 'Full execution traces' }
@@ -161,8 +161,8 @@ const heroProps = computed(() => ({
 const features = [
   {
     icon: 'evolution',
-    title: 'The Next X-as-Code',
-    description: 'Infrastructure → Policy → Security → AI. Bring the same rigor to AI that transformed how you manage infrastructure.',
+    title: 'Guardrails, Not Handcuffs',
+    description: 'Too loose and agents go rogue. Too tight and they accomplish nothing. Per-persona scoping gives each agent exactly the access it needs — no more, no less.',
     link: '/concepts/ai-as-code'
   },
   {
