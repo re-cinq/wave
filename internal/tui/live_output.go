@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/state"
 )
 
 // EventBuffer is a bounded ring buffer of formatted display lines.
@@ -95,6 +96,34 @@ func shouldFormat(evt event.Event, flags DisplayFlags) bool {
 		}
 		// Skip empty heartbeats — only show progress with actual data (matches CLI behavior)
 		return evt.TokensIn > 0 || evt.TokensOut > 0 || evt.CurrentAction != "" || evt.Progress > 0
+	case event.StateETAUpdated, event.StateCompactionProgress:
+		return flags.Debug
+	default:
+		return false
+	}
+}
+
+// shouldFormatRecord determines whether a stored LogRecord should be displayed
+// based on the current display flags. Used for detached pipeline runs where
+// events come from SQLite rather than in-memory event.Event objects.
+func shouldFormatRecord(rec state.LogRecord, flags DisplayFlags) bool {
+	if flags.OutputOnly {
+		return rec.State == event.StateCompleted || rec.State == event.StateFailed
+	}
+	switch rec.State {
+	case event.StateStarted:
+		return rec.StepID != "" // Filter pipeline-level info-only events
+	case event.StateRunning, event.StateCompleted,
+		event.StateFailed, event.StateRetrying, event.StateContractValidating:
+		return true
+	case "warning", "preflight",
+		"contract_passed", "contract_failed",
+		"contract_soft_failure":
+		return true
+	case event.StateStreamActivity:
+		return flags.Verbose
+	case event.StateStepProgress:
+		return flags.Debug
 	case event.StateETAUpdated, event.StateCompactionProgress:
 		return flags.Debug
 	default:
@@ -304,9 +333,10 @@ type LiveOutputModel struct {
 	width        int
 	height       int
 
-	buffer    *EventBuffer
-	rawEvents []event.Event
-	viewport  viewport.Model
+	buffer        *EventBuffer
+	rawEvents     []event.Event
+	storedRecords []state.LogRecord // For detached run rebuilds (SQLite-polled events)
+	viewport      viewport.Model
 
 	autoScroll bool
 
@@ -373,28 +403,40 @@ func (m *LiveOutputModel) updateViewportContent() {
 func (m *LiveOutputModel) rebuildBuffer() {
 	m.buffer.head = 0
 	m.buffer.count = 0
-	for _, evt := range m.rawEvents {
-		if shouldFormat(evt, m.flags) {
-			if evt.State == event.StateFailed {
-				errorBlock := formatErrorBlock(evt)
-				for _, line := range strings.Split(errorBlock, "\n") {
-					if line != "" {
-						m.buffer.Append(line)
+
+	if len(m.rawEvents) > 0 {
+		// In-process run: rebuild from raw events
+		for _, evt := range m.rawEvents {
+			if shouldFormat(evt, m.flags) {
+				if evt.State == event.StateFailed {
+					errorBlock := formatErrorBlock(evt)
+					for _, line := range strings.Split(errorBlock, "\n") {
+						if line != "" {
+							m.buffer.Append(line)
+						}
 					}
+				} else {
+					m.buffer.Append(formatEventLine(evt))
 				}
-			} else {
-				m.buffer.Append(formatEventLine(evt))
-			}
-			// Re-inject handover tree lines after step completion
-			if evt.State == event.StateCompleted && evt.StepID != "" {
-				if info, exists := m.handoverInfo[evt.StepID]; exists {
-					for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
-						m.buffer.Append("  " + hl)
+				// Re-inject handover tree lines after step completion
+				if evt.State == event.StateCompleted && evt.StepID != "" {
+					if info, exists := m.handoverInfo[evt.StepID]; exists {
+						for _, hl := range display.BuildHandoverLines(evt.StepID, info, m.stepOrder) {
+							m.buffer.Append("  " + hl)
+						}
 					}
 				}
 			}
 		}
+	} else if len(m.storedRecords) > 0 {
+		// Detached run: rebuild from stored SQLite records
+		for _, rec := range m.storedRecords {
+			if shouldFormatRecord(rec, m.flags) {
+				m.buffer.Append(formatStoredEvent(rec))
+			}
+		}
 	}
+
 	m.updateViewportContent()
 }
 // Update handles messages for the live output model.

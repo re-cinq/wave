@@ -62,6 +62,8 @@ type LaunchRequestMsg struct {
 type PipelineLaunchedMsg struct {
 	RunID        string
 	PipelineName string
+	Verbose      bool // Propagate launch flags to live output display
+	Debug        bool
 }
 
 // PipelineLaunchResultMsg signals that a launched pipeline has finished execution.
