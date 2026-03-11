@@ -20,7 +20,7 @@ func TestStatusBarModel_View_ContainsContextLabel(t *testing.T) {
 	sb.SetWidth(120)
 	view := sb.View()
 
-	assert.Contains(t, view, "Dashboard")
+	assert.Contains(t, view, "Pipelines")
 }
 
 func TestStatusBarModel_SetWidth(t *testing.T) {
@@ -33,7 +33,7 @@ func TestStatusBarModel_SetWidth(t *testing.T) {
 
 func TestStatusBarModel_DefaultContextLabel(t *testing.T) {
 	sb := NewStatusBarModel()
-	assert.Equal(t, "Dashboard", sb.contextLabel)
+	assert.Equal(t, "Pipelines", sb.contextLabel)
 }
 
 func TestStatusBarModel_View_DefaultLeftPaneHints(t *testing.T) {

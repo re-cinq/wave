@@ -23,7 +23,7 @@ type StatusBarModel struct {
 // NewStatusBarModel creates a new status bar model with default context.
 func NewStatusBarModel() StatusBarModel {
 	return StatusBarModel{
-		contextLabel: "Dashboard",
+		contextLabel: "Pipelines",
 	}
 }
 
