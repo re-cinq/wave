@@ -19,6 +19,8 @@ type ComposeDetailModel struct {
 	viewport   viewport.Model
 	validation CompatibilityResult
 	focusedIdx int // Which boundary is focused (-1 for overview)
+	parallel   bool
+	stages     [][]int // Stage groupings for parallel rendering
 }
 
 // NewComposeDetailModel creates a new compose detail model.
@@ -39,7 +41,13 @@ func (m ComposeDetailModel) Update(msg tea.Msg) (ComposeDetailModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ComposeSequenceChangedMsg:
 		m.validation = msg.Validation
-		m.viewport.SetContent(renderArtifactFlow(m.validation, m.width))
+		m.parallel = msg.Parallel
+		m.stages = msg.Stages
+		content := renderArtifactFlow(m.validation, m.width)
+		if m.parallel && len(m.stages) > 0 {
+			content += "\n" + renderExecutionPlan(msg.Sequence, m.stages, m.width)
+		}
+		m.viewport.SetContent(content)
 		m.viewport.GotoTop()
 		return m, nil
 
@@ -86,7 +94,12 @@ func (m *ComposeDetailModel) SetSize(w, h int) {
 	m.viewport.Width = w
 	m.viewport.Height = h
 	// Re-render content at new width
-	m.viewport.SetContent(renderArtifactFlow(m.validation, w))
+	content := renderArtifactFlow(m.validation, w)
+	if m.parallel && len(m.stages) > 0 {
+		// We don't have the sequence here, so just re-render artifact flow.
+		// Full plan rendering happens on ComposeSequenceChangedMsg.
+	}
+	m.viewport.SetContent(content)
 }
 
 // SetFocused updates the focused state.
@@ -317,6 +330,55 @@ func countDiagnosticsByType(result CompatibilityResult, keyword string) int {
 		}
 	}
 	return count
+}
+
+// renderExecutionPlan renders a DAG visualization showing parallel stage groups.
+func renderExecutionPlan(seq Sequence, stages [][]int, width int) string {
+	if len(stages) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	var sb strings.Builder
+	sb.WriteString(titleStyle.Render("Execution Plan"))
+	sb.WriteString("\n\n")
+
+	for i, stage := range stages {
+		isParallel := len(stage) > 1
+		mode := "sequential"
+		if isParallel {
+			mode = "parallel"
+		}
+		sb.WriteString(mutedStyle.Render(fmt.Sprintf("Stage %d (%s):", i+1, mode)))
+		sb.WriteString("\n")
+
+		for j, idx := range stage {
+			name := ""
+			if idx < seq.Len() {
+				name = seq.Entries[idx].PipelineName
+			}
+			if isParallel {
+				if j == 0 {
+					sb.WriteString(fmt.Sprintf("┌─ %s\n", name))
+				} else if j == len(stage)-1 {
+					sb.WriteString(fmt.Sprintf("└─ %s\n", name))
+				} else {
+					sb.WriteString(fmt.Sprintf("├─ %s\n", name))
+				}
+			} else {
+				sb.WriteString(fmt.Sprintf("   %s\n", name))
+			}
+		}
+
+		// Connector between stages
+		if i < len(stages)-1 {
+			sb.WriteString("       │\n")
+		}
+	}
+
+	return sb.String()
 }
 
 // padRight pads a string with spaces to the given width, truncating if necessary.

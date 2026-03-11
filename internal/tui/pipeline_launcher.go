@@ -132,6 +132,92 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	}
 }
 
+// LaunchSequence starts an orchestrated pipeline sequence as a detached
+// `wave compose` subprocess. When parallel is true the --parallel flag is
+// passed and stages are separated by "--". Returns a single PipelineLaunchedMsg
+// whose RunID is the compose group ID.
+func (l *PipelineLauncher) LaunchSequence(names []string, input string, parallel bool, stages [][]int) tea.Cmd {
+	if len(names) == 0 {
+		return func() tea.Msg {
+			return LaunchErrorMsg{PipelineName: "compose", Err: fmt.Errorf("no pipelines in sequence")}
+		}
+	}
+
+	// Generate a run ID for the compose group
+	groupRunID := pipeline.GenerateRunID("compose", 8)
+	if l.deps.Store != nil {
+		if rid, err := l.deps.Store.CreateRun("compose:"+strings.Join(names, "+"), input); err == nil {
+			groupRunID = rid
+		}
+	}
+	if l.deps.Store != nil {
+		_ = l.deps.Store.UpdateRunStatus(groupRunID, "running", "", 0)
+	}
+
+	// Build args: wave compose [--parallel] [--input <input>] <names...>
+	// With stages: wave compose --parallel A B -- C D
+	args := []string{"compose"}
+	if parallel {
+		args = append(args, "--parallel")
+	}
+	if input != "" {
+		args = append(args, "--input", input)
+	}
+
+	if parallel && len(stages) > 0 {
+		// Insert stage groups separated by "--"
+		for i, group := range stages {
+			if i > 0 {
+				args = append(args, "--")
+			}
+			for _, idx := range group {
+				if idx < len(names) {
+					args = append(args, names[idx])
+				}
+			}
+		}
+	} else {
+		args = append(args, names...)
+	}
+
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = buildPassthroughEnv(l.deps)
+
+	logFile, logErr := openRunLog(groupRunID)
+	if logErr == nil {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
+	if startErr := cmd.Start(); startErr != nil {
+		if logFile != nil {
+			logFile.Close()
+		}
+		return func() tea.Msg {
+			return LaunchErrorMsg{PipelineName: "compose", Err: fmt.Errorf("starting compose subprocess: %w", startErr)}
+		}
+	}
+
+	if logFile != nil {
+		logFile.Close()
+	}
+
+	if l.deps.Store != nil {
+		_ = l.deps.Store.UpdateRunPID(groupRunID, cmd.Process.Pid)
+	}
+	_ = cmd.Process.Release()
+
+	runID := groupRunID
+	return func() tea.Msg {
+		return PipelineLaunchedMsg{
+			RunID:        runID,
+			PipelineName: "compose:" + strings.Join(names, "+"),
+			Input:        input,
+		}
+	}
+}
+
 // Cancel requests cancellation of a pipeline run via the state store.
 // The executor's pollCancellation goroutine will pick this up.
 func (l *PipelineLauncher) Cancel(runID string) {
