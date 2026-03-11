@@ -54,6 +54,13 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return fmt.Errorf("step %q depends on non-existent step %q", step.ID, depID)
 			}
 		}
+
+		// Validate artifact refs for mutual exclusivity of Step and Pipeline
+		for i, ref := range step.Memory.InjectArtifacts {
+			if err := ref.Validate(step.ID, i); err != nil {
+				return err
+			}
+		}
 	}
 
 	visited := make(map[string]bool)

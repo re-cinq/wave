@@ -242,4 +242,63 @@ func TestComposeListModel(t *testing.T) {
 		assert.Equal(t, "pipeline-1", m.sequence.Entries[0].PipelineName)
 		assert.Equal(t, "pipeline-1", m.sequence.Entries[1].PipelineName)
 	})
+
+	t.Run("p toggles parallel mode", func(t *testing.T) {
+		m := newTestComposeList(2)
+		assert.False(t, m.parallel)
+
+		m, _ = composeListSendRune(m, 'p')
+		assert.True(t, m.parallel, "p should toggle parallel on")
+
+		m, _ = composeListSendRune(m, 'p')
+		assert.False(t, m.parallel, "p should toggle parallel off")
+	})
+
+	t.Run("d toggles stage break", func(t *testing.T) {
+		m := newTestComposeList(3)
+		m.cursor = 0
+		assert.Empty(t, m.breaks)
+
+		m, _ = composeListSendRune(m, 'd')
+		assert.True(t, m.breaks[0], "d should add break after cursor 0")
+
+		m, _ = composeListSendRune(m, 'd')
+		assert.False(t, m.breaks[0], "d again should remove break")
+	})
+
+	t.Run("d on last entry is no-op", func(t *testing.T) {
+		m := newTestComposeList(3)
+		m.cursor = 2 // last entry
+
+		m, _ = composeListSendRune(m, 'd')
+		assert.Empty(t, m.breaks, "d on last entry should not add break")
+	})
+
+	t.Run("buildStages with no breaks returns single stage", func(t *testing.T) {
+		m := newTestComposeList(3)
+		stages := m.buildStages()
+		assert.Equal(t, 1, len(stages))
+		assert.Equal(t, []int{0, 1, 2}, stages[0])
+	})
+
+	t.Run("buildStages with break splits into two stages", func(t *testing.T) {
+		m := newTestComposeList(3)
+		m.breaks = map[int]bool{0: true}
+		stages := m.buildStages()
+		assert.Equal(t, 2, len(stages))
+		assert.Equal(t, []int{0}, stages[0])
+		assert.Equal(t, []int{1, 2}, stages[1])
+	})
+
+	t.Run("Enter emits ComposeStartMsg with parallel flag", func(t *testing.T) {
+		m := newTestComposeList(2)
+		m.parallel = true
+		m.breaks = map[int]bool{0: true}
+
+		_, cmd := composeListSendKey(m, tea.KeyEnter)
+		start := extractMsg[ComposeStartMsg](cmd)
+		require.NotNil(t, start)
+		assert.True(t, start.Parallel, "ComposeStartMsg should have Parallel=true")
+		assert.Equal(t, 2, len(start.Stages), "should have 2 stages")
+	})
 }

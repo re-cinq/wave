@@ -180,7 +180,7 @@
                 echo "              ~/.local/notesium, ~/.local/claudit"
                 echo ""
                 exec wave-sandbox ${pkgs.bash}/bin/bash --rcfile <(cat << 'WAVE_BASHRC'
-                  PS1="[wave] \w \$ "
+                  PS1="[sandbox] \w \$ "
 WAVE_BASHRC
                 )
               fi

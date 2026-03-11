@@ -64,6 +64,75 @@ func TestValidateDAG_SelfReference(t *testing.T) {
 	}
 }
 
+func TestValidateDAG_ArtifactRefStepAndPipelineMutuallyExclusive(t *testing.T) {
+	tests := []struct {
+		name    string
+		refs    []ArtifactRef
+		wantErr bool
+	}{
+		{
+			name: "step only is valid",
+			refs: []ArtifactRef{
+				{Step: "analyze", Artifact: "report", As: "input"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "pipeline only is valid",
+			refs: []ArtifactRef{
+				{Pipeline: "other-pipeline", Artifact: "report", As: "input"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "neither step nor pipeline is valid",
+			refs:    []ArtifactRef{{Artifact: "report", As: "input"}},
+			wantErr: false,
+		},
+		{
+			name: "both step and pipeline is invalid",
+			refs: []ArtifactRef{
+				{Step: "analyze", Pipeline: "other-pipeline", Artifact: "report", As: "input"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "second ref has both step and pipeline",
+			refs: []ArtifactRef{
+				{Step: "analyze", Artifact: "report", As: "input"},
+				{Step: "build", Pipeline: "other", Artifact: "output", As: "build-output"},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeline := &Pipeline{
+				Steps: []Step{
+					{
+						ID:      "step1",
+						Persona: "agent1",
+						Memory: MemoryConfig{
+							Strategy:        "fresh",
+							InjectArtifacts: tt.refs,
+						},
+					},
+				},
+			}
+
+			validator := &DAGValidator{}
+			err := validator.ValidateDAG(pipeline)
+			if tt.wantErr && err == nil {
+				t.Error("expected error for mutually exclusive step and pipeline, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestTopologicalSort_SimplePipeline(t *testing.T) {
 	pipeline := &Pipeline{
 		Steps: []Step{
