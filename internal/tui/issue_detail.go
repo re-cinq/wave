@@ -152,7 +152,13 @@ func (m IssueDetailModel) View() string {
 }
 
 func (m *IssueDetailModel) updateContent() {
-	m.viewport.SetContent(m.renderIssueDetail())
+	content := m.renderIssueDetail()
+	// Wrap content to viewport width to prevent horizontal overflow
+	// that corrupts the split-pane layout when joined horizontally.
+	if m.width > 0 {
+		content = lipgloss.NewStyle().Width(m.width).Render(content)
+	}
+	m.viewport.SetContent(content)
 }
 
 func (m IssueDetailModel) renderIssueDetail() string {

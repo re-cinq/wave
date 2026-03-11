@@ -161,8 +161,8 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 		commentStr = fmt.Sprintf(" %d", issue.Comments)
 	}
 
-	// Fixed portions: prefix + number + space + commentStr
-	fixedWidth := len(prefix) + len(number) + 1 + len(commentStr)
+	// Fixed portions: prefix + number + space + commentStr (visual widths)
+	fixedWidth := lipgloss.Width(prefix) + lipgloss.Width(number) + 1 + lipgloss.Width(commentStr)
 	availableWidth := m.width - fixedWidth
 	if availableWidth < 0 {
 		availableWidth = 0
@@ -182,7 +182,7 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 		used := 0
 		for _, l := range issue.Labels {
 			badge := "[" + l + "]"
-			need := len(badge)
+			need := lipgloss.Width(badge)
 			if used > 0 {
 				need++ // space between badges
 			}
@@ -198,7 +198,7 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 	}
 
 	// Calculate actual title width now that we know label width
-	labelWidth := len(labelBadges)
+	labelWidth := lipgloss.Width(labelBadges)
 	if labelWidth > 0 {
 		labelWidth++ // leading space
 	}
@@ -223,13 +223,14 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 
 	text := leftPart + strings.Repeat(" ", spacerWidth) + rightPart
 
-	// Enforce single-line by truncating if still too wide
-	if lipgloss.Width(text) > m.width && m.width > 0 {
-		text = text[:m.width]
+	// Pad to full width if needed (for consistent highlight background)
+	if pad := m.width - lipgloss.Width(text); pad > 0 {
+		text += strings.Repeat(" ", pad)
 	}
 
+	// Use only MaxWidth (truncates without wrapping) to prevent multi-line output.
+	// Width() wraps text and can produce 2+ lines that corrupt the split-pane layout.
 	style := lipgloss.NewStyle().
-		Width(m.width).
 		MaxWidth(m.width)
 	if isSelected {
 		style = style.Foreground(lipgloss.Color("6"))
