@@ -713,9 +713,8 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 		statusIcon = "✗"
 	}
 
-	dateSuffix := "[" + f.StartedAt.Format("Jan 02 15:04") + "]"
 	duration := formatDuration(f.Duration)
-	displayName := fmt.Sprintf("%s %s", statusIcon, dateSuffix)
+	displayName := fmt.Sprintf("%s %s", statusIcon, f.RunID)
 	suffix := duration
 
 	nameMaxWidth := maxWidth - 2 - len(suffix) - 3
