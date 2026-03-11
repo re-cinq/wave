@@ -134,13 +134,19 @@ Wave's approach differs from other multi-agent tools:
 
 Multi-agent workspace manager with Mayor/Polecat architecture. Strong git integration with worktree-based persistence. Fresh ephemeral sessions with git-persisted state. Different philosophy: prompt-based role enforcement vs Wave's declarative permission scoping.
 
+<small>Sources: <a href="https://github.com/steveyegge/gastown" target="_blank">GitHub</a> · <a href="https://maggieappleton.com/gastown" target="_blank">Appleton analysis</a> · <a href="https://paddo.dev/blog/gastown-two-kinds-of-multi-agent/" target="_blank">paddo.dev review</a></small>
+
 ### Claude Flow
 
 Agent swarm orchestration with 60+ agents and MCP tools. V3 adds a Constitution/Shards guidance system, enforcement gates, and trust-based throttling. Different philosophy: shared memory with behavioral validation vs Wave's fresh-memory isolation with schema-based contracts.
 
+<small>Sources: <a href="https://github.com/ruvnet/ruflo" target="_blank">GitHub</a> · <a href="https://deepwiki.com/ruvnet/ruflo" target="_blank">DeepWiki analysis</a> · <a href="https://github.com/ruvnet/ruflo/wiki/Memory-System" target="_blank">Memory System</a></small>
+
 ### Raw Claude Code
 
 Direct LLM interaction. Great for ad-hoc tasks. Wave adds structure for repeatable, team-scalable workflows.
+
+<small>Source: <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">Claude Code docs</a></small>
 
 ## Getting Started
 
