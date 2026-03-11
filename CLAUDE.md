@@ -82,6 +82,9 @@ internal/
 ├── relay/        # Context compaction and summarization
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
+├── doctor/       # Project health checking and optimization
+├── forge/        # Git forge/hosting platform detection
+├── suggest/      # Pipeline suggestion engine
 ├── state/        # SQLite persistence and state management
 ├── tui/          # Bubble Tea terminal UI
 ├── webui/        # Web operations dashboard (embedded assets)
