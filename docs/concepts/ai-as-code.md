@@ -1,6 +1,6 @@
 # AI-as-Code
 
-Wave brings Infrastructure-as-Code principles to AI workflows — but it starts with a harder problem: keeping agents useful without letting them run wild.
+Wave brings Infrastructure-as-Code principles to AI workflows. Define your AI pipelines declaratively, version them in git, and run them with the same rigor you apply to infrastructure.
 
 ## The Evolution of X-as-Code
 
@@ -16,28 +16,15 @@ The industry has progressively codified operational concerns:
 
 Each evolution brought the same benefits: version control, reproducibility, collaboration, and audit trails. AI workflows deserve the same treatment.
 
-## The Guardrail Spectrum
+## Why AI Needs the Same Treatment
 
-Agentic coding tools sit on a spectrum. Most end up at one of the extremes:
+AI outputs are non-deterministic by nature. Without guardrails:
 
-| | Too Tight | Too Loose |
-|-|-----------|-----------|
-| **What they do** | Wrap agents in approval loops, restrict every tool call, require human sign-off at every step | Give agents full access — read, write, push, deploy — and hope for the best |
-| **What you get** | Safe but slow. Agents that ask before breathing. | Fast but fragile. One bad prompt from a bad day. |
-| **The failure mode** | No real leverage — you're still doing the work | Secrets leaked, files deleted, broken code pushed |
-
-Wave finds the middle path: **just the right amount of guardrails**.
-
-Each agent (persona) gets a precisely scoped permission set — fully empowered inside its role, hard-constrained outside it. You don't disable agents. You shape them.
-
-## Why Pipelines Also Need Structure
-
-Beyond permissions, AI workflows have broader failure modes:
-
-- **Chat history is not version control** — Prompts drift, context gets lost, successful patterns disappear
+- **Chat history is not version control** — Prompts drift, context gets lost, and successful patterns disappear
 - **Copy-paste prompts don't scale** — Teams can't share, review, or iterate on workflows
 - **No reproducibility** — The same task produces different results each time
 - **No audit trail** — When something goes wrong, there's no trace to investigate
+- **No permission boundaries** — AI agents have unbounded access to your codebase
 
 Enterprise adoption requires the same predictability we expect from infrastructure.
 
@@ -119,14 +106,13 @@ Complete audit trails with credential scrubbing:
 
 Wave's approach differs from other multi-agent tools:
 
-| | Wave | Gastown | Claude Flow | Raw Claude Code |
-|--|:----:|:-------:|:-----------:|:---------------:|
-| **Guardrail level** | Just right | Minimal | Minimal | None |
-| **Declarative pipelines** | YAML | JSON/TOML | Programmatic | ❌ |
-| **Version controlled** | ✅ | ✅ (git worktree) | ❌ | ❌ |
-| **Contract validation** | ✅ | ❌ | ❌ | ❌ |
-| **Step isolation** | Fresh memory | Shared context | Shared memory | Single session |
-| **Permission scoping** | Per-persona | ❌ | ❌ | Project-level |
+| | Wave | Gastown | Claude Flow |
+|--|:----:|:-------:|:-----------:|
+| **Declarative pipelines** | YAML | JSON/TOML | Programmatic |
+| **Version controlled** | ✅ | ✅ (git worktree) | ❌ |
+| **Contract validation** | ✅ | ❌ | ❌ |
+| **Step isolation** | Fresh memory | Shared context | Shared memory |
+| **Permission scoping** | Per-persona | ❌ | ❌ |
 
 ### Gastown
 
@@ -142,7 +128,7 @@ Direct LLM interaction. Great for ad-hoc tasks. Wave adds structure for repeatab
 
 ## Getting Started
 
-Ready to find the sweet spot between agent autonomy and structured control?
+Ready to bring Infrastructure-as-Code rigor to your AI workflows?
 
 1. [Quickstart Guide](/quickstart) — Get Wave running in 5 minutes
 2. [Pipelines Concept](/concepts/pipelines) — Deep dive into pipeline structure
