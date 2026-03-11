@@ -29,6 +29,7 @@ func NewComposeCmd() *cobra.Command {
 	var manifestFlag string
 	var parallelFlag bool
 	var failFastFlag bool
+	var maxConcurrentFlag int
 
 	cmd := &cobra.Command{
 		Use:   "compose [pipelines...]",
@@ -125,6 +126,7 @@ Use --validate-only to check compatibility without executing.`,
 			if parallelFlag {
 				plan := buildExecutionPlan(seq, args)
 				plan.FailFast = failFastFlag
+				plan.MaxConcurrent = maxConcurrentFlag
 				return runComposePlan(seq, plan, inputFlag, manifestFlag, mockFlag, outputCfg, debug)
 			}
 
@@ -138,6 +140,7 @@ Use --validate-only to check compatibility without executing.`,
 	cmd.Flags().StringVar(&manifestFlag, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&parallelFlag, "parallel", false, "Enable parallel execution (use -- to separate stages)")
 	cmd.Flags().BoolVar(&failFastFlag, "fail-fast", true, "Stop on first failure (default true)")
+	cmd.Flags().IntVar(&maxConcurrentFlag, "max-concurrent", 0, "Max concurrent pipelines per parallel stage (0 = unlimited)")
 
 	return cmd
 }
@@ -234,8 +237,9 @@ func buildExecutionPlan(seq tui.Sequence, args []string) pipeline.ExecutionPlan 
 		pipelineMap[entry.PipelineName] = entry.Pipeline
 	}
 
-	// First group is parallel, subsequent groups are sequential
-	for i, group := range stages {
+	// All multi-pipeline groups are parallel (--parallel flag is always set
+	// when buildExecutionPlan is called); single-pipeline groups are sequential
+	for _, group := range stages {
 		var pipelines []*pipeline.Pipeline
 		for _, name := range group {
 			if p, ok := pipelineMap[name]; ok {
@@ -245,7 +249,7 @@ func buildExecutionPlan(seq tui.Sequence, args []string) pipeline.ExecutionPlan 
 		if len(pipelines) > 0 {
 			plan.Stages = append(plan.Stages, pipeline.Stage{
 				Pipelines: pipelines,
-				Parallel:  i == 0 && len(pipelines) > 1,
+				Parallel:  len(pipelines) > 1,
 			})
 		}
 	}

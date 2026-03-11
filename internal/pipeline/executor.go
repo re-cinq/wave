@@ -70,6 +70,8 @@ type DefaultPipelineExecutor struct {
 	stepTimeoutOverride time.Duration
 	// Model override (from CLI --model flag)
 	modelOverride string
+	// Cross-pipeline artifacts from prior stages in a sequence
+	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -109,6 +111,12 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
+}
+
+// WithCrossPipelineArtifacts injects artifacts from prior pipeline stages
+// for cross-pipeline artifact references.
+func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.crossPipelineArtifacts = artifacts }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -171,20 +179,21 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 // execution state. Used for child pipeline invocation within matrix strategies.
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
-		runner:             e.runner,
-		emitter:            e.emitter,
-		store:              e.store,
-		logger:             e.logger,
-		wsManager:          e.wsManager,
-		relayMonitor:       e.relayMonitor,
-		pipelines:          make(map[string]*PipelineExecution),
-		debug:              e.debug,
-		modelOverride:      e.modelOverride,
-		securityConfig:     e.securityConfig,
-		pathValidator:      e.pathValidator,
-		inputSanitizer:     e.inputSanitizer,
-		securityLogger:     e.securityLogger,
-		deliverableTracker: deliverable.NewTracker(""),
+		runner:                 e.runner,
+		emitter:                e.emitter,
+		store:                  e.store,
+		logger:                 e.logger,
+		wsManager:              e.wsManager,
+		relayMonitor:           e.relayMonitor,
+		pipelines:              make(map[string]*PipelineExecution),
+		debug:                  e.debug,
+		modelOverride:          e.modelOverride,
+		securityConfig:         e.securityConfig,
+		pathValidator:          e.pathValidator,
+		inputSanitizer:         e.inputSanitizer,
+		securityLogger:         e.securityLogger,
+		deliverableTracker:     deliverable.NewTracker(""),
+		crossPipelineArtifacts: e.crossPipelineArtifacts,
 	}
 }
 
@@ -1469,6 +1478,73 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 		}
 		destPath := filepath.Join(artifactsDir, artName)
 
+		// Cross-pipeline artifact reference: look up from prior pipeline outputs
+		if ref.Pipeline != "" && e.crossPipelineArtifacts != nil {
+			pipelineArtifacts, hasPipeline := e.crossPipelineArtifacts[ref.Pipeline]
+			if !hasPipeline || pipelineArtifacts == nil {
+				if ref.Optional {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "step_progress",
+						Message:    fmt.Sprintf("optional cross-pipeline artifact '%s' from pipeline '%s' not found, skipping", ref.Artifact, ref.Pipeline),
+					})
+					continue
+				}
+				return fmt.Errorf("cross-pipeline artifact '%s' from pipeline '%s' not found", ref.Artifact, ref.Pipeline)
+			}
+			data, hasArtifact := pipelineArtifacts[ref.Artifact]
+			if !hasArtifact {
+				if ref.Optional {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "step_progress",
+						Message:    fmt.Sprintf("optional cross-pipeline artifact '%s' from pipeline '%s' not found, skipping", ref.Artifact, ref.Pipeline),
+					})
+					continue
+				}
+				return fmt.Errorf("cross-pipeline artifact '%s' not found in pipeline '%s' outputs", ref.Artifact, ref.Pipeline)
+			}
+			if err := os.WriteFile(destPath, data, 0644); err != nil {
+				return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+			}
+			execution.Context.SetArtifactPath(artName, destPath)
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "step_progress",
+				Message:    fmt.Sprintf("injected cross-pipeline artifact %s from pipeline %s", artName, ref.Pipeline),
+			})
+
+			// Type validation (if specified)
+			if ref.Type != "" {
+				key := ref.Pipeline + ":" + ref.Artifact
+				declaredType := artifactTypes[key]
+				if declaredType != "" && declaredType != ref.Type {
+					return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
+				}
+			}
+
+			// Schema validation for input artifacts (if schema_path is specified)
+			if ref.SchemaPath != "" {
+				if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+					return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "step_progress",
+					Message:    fmt.Sprintf("validated artifact %s against schema %s", artName, ref.SchemaPath),
+				})
+			}
+			continue
+		}
+
 		// Try registered artifact path first
 		key := ref.Step + ":" + ref.Artifact
 		execution.mu.Lock()
@@ -1490,7 +1566,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 							return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
 						}
 					}
-					os.WriteFile(destPath, []byte(stdout), 0644)
+					if err := os.WriteFile(destPath, []byte(stdout), 0644); err != nil {
+						return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+					}
 					// Register artifact path in context for template resolution
 					execution.Context.SetArtifactPath(artName, destPath)
 					e.emit(event.Event{
@@ -1541,7 +1619,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 			return fmt.Errorf("failed to read required artifact '%s': %w", ref.Artifact, err)
 		}
 
-		os.WriteFile(destPath, srcData, 0644)
+		if err := os.WriteFile(destPath, srcData, 0644); err != nil {
+			return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+		}
 		// Register artifact path in context for template resolution
 		execution.Context.SetArtifactPath(artName, destPath)
 		e.emit(event.Event{

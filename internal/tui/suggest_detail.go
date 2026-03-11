@@ -10,10 +10,11 @@ import (
 
 // SuggestDetailModel is the right pane for the Suggest view.
 type SuggestDetailModel struct {
-	width    int
-	height   int
-	focused  bool
-	selected *SuggestProposedPipeline
+	width         int
+	height        int
+	focused       bool
+	selected      *SuggestProposedPipeline
+	multiSelected []SuggestProposedPipeline // Set when multi-select is active
 }
 
 // NewSuggestDetailModel creates a new suggest detail model.
@@ -38,6 +39,7 @@ func (m SuggestDetailModel) Update(msg tea.Msg) (SuggestDetailModel, tea.Cmd) {
 	case SuggestSelectedMsg:
 		p := msg.Pipeline
 		m.selected = &p
+		m.multiSelected = msg.MultiSelected
 	}
 	return m, nil
 }
@@ -52,17 +54,52 @@ func (m SuggestDetailModel) View() string {
 			Render("Select a suggestion to view details")
 	}
 
-	p := m.selected
 	var sb strings.Builder
-
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	labelStyle := lipgloss.NewStyle().Bold(true)
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
+	// Multi-select execution plan
+	if len(m.multiSelected) > 1 {
+		sb.WriteString(titleStyle.Render("Execution Plan"))
+		sb.WriteString("\n\n")
+		sb.WriteString(labelStyle.Render(fmt.Sprintf("Selected: %d pipelines", len(m.multiSelected))))
+		sb.WriteString("\n\n")
+		for i, p := range m.multiSelected {
+			sb.WriteString(fmt.Sprintf("  %d. %s\n", i+1, p.Name))
+			if p.Reason != "" {
+				sb.WriteString(fmt.Sprintf("     %s\n", mutedStyle.Render(p.Reason)))
+			}
+		}
+		sb.WriteString("\n")
+		sb.WriteString(mutedStyle.Render("Press Enter to compose sequence"))
+
+		return lipgloss.NewStyle().
+			Width(m.width).
+			Height(m.height).
+			Padding(0, 1).
+			Render(sb.String())
+	}
+
+	// Single proposal detail
+	p := m.selected
 	sb.WriteString(titleStyle.Render(p.Name))
 	sb.WriteString("\n\n")
 
 	sb.WriteString(labelStyle.Render("Priority: "))
 	sb.WriteString(fmt.Sprintf("%d\n", p.Priority))
+
+	if p.Type != "" && p.Type != "single" {
+		sb.WriteString(labelStyle.Render("Type: "))
+		sb.WriteString(p.Type)
+		sb.WriteString("\n")
+	}
+
+	if len(p.Sequence) > 0 {
+		sb.WriteString(labelStyle.Render("Sequence: "))
+		sb.WriteString(strings.Join(p.Sequence, " → "))
+		sb.WriteString("\n")
+	}
 
 	sb.WriteString(labelStyle.Render("Reason: "))
 	sb.WriteString(p.Reason)
@@ -75,7 +112,7 @@ func (m SuggestDetailModel) View() string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Press Enter to launch"))
+	sb.WriteString(mutedStyle.Render("Press Enter to launch  Space to select"))
 
 	return lipgloss.NewStyle().
 		Width(m.width).

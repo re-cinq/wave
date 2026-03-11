@@ -219,6 +219,95 @@ func TestSuggest_NoPipelinesAvailable(t *testing.T) {
 	}
 }
 
+func TestSuggest_SequenceChain(t *testing.T) {
+	dir := setupPipelineDir(t, []string{"research", "implement"})
+
+	proposal, err := Suggest(EngineOptions{
+		PipelinesDir: dir,
+		Limit:        10,
+		Report: &doctor.Report{
+			Codebase: &doctor.CodebaseHealth{
+				Issues: doctor.IssueSummary{Open: 5},
+				CI:     doctor.CIStatus{Status: "passing"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have at least the sequence proposal
+	var seqProposal *ProposedPipeline
+	for i, p := range proposal.Pipelines {
+		if p.Type == "sequence" {
+			seqProposal = &proposal.Pipelines[i]
+			break
+		}
+	}
+
+	if seqProposal == nil {
+		t.Fatal("expected a sequence proposal")
+	}
+	if len(seqProposal.Sequence) != 2 {
+		t.Errorf("expected sequence of 2, got %d", len(seqProposal.Sequence))
+	}
+	if seqProposal.Sequence[0] != "research" || seqProposal.Sequence[1] != "implement" {
+		t.Errorf("expected [research, implement], got %v", seqProposal.Sequence)
+	}
+}
+
+func TestSuggest_ParallelGroup(t *testing.T) {
+	dir := setupPipelineDir(t, []string{"implement", "pr-review"})
+
+	proposal, err := Suggest(EngineOptions{
+		PipelinesDir: dir,
+		Limit:        10,
+		Report: &doctor.Report{
+			Codebase: &doctor.CodebaseHealth{
+				Issues: doctor.IssueSummary{Open: 5},
+				PRs:    doctor.PRSummary{NeedsReview: 3},
+				CI:     doctor.CIStatus{Status: "passing"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var parProposal *ProposedPipeline
+	for i, p := range proposal.Pipelines {
+		if p.Type == "parallel" {
+			parProposal = &proposal.Pipelines[i]
+			break
+		}
+	}
+
+	if parProposal == nil {
+		t.Fatal("expected a parallel proposal")
+	}
+	if len(parProposal.Sequence) != 2 {
+		t.Errorf("expected parallel group of 2, got %d", len(parProposal.Sequence))
+	}
+}
+
+func TestStripForgePrefix(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"gh-implement", "implement"},
+		{"gl-debug", "debug"},
+		{"implement", "implement"},
+		{"bb-review", "review"},
+	}
+	for _, tt := range tests {
+		got := stripForgePrefix(tt.input)
+		if got != tt.want {
+			t.Errorf("stripForgePrefix(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestResolvePipeline(t *testing.T) {
 	catalog := []string{"gh-debug", "debug", "improve"}
 

@@ -24,6 +24,8 @@ type ComposeListModel struct {
 	available   []PipelineInfo
 	validation  CompatibilityResult
 	confirming  bool // T026: inline confirmation for incompatible sequences
+	parallel    bool // When true, launch with --parallel flag
+	breaks      map[int]bool // Stage break after index i (entries above/below form separate stages)
 }
 
 // NewComposeListModel creates a new compose list model. The initial pipeline
@@ -92,9 +94,7 @@ func (m ComposeListModel) handleKeyMsg(msg tea.KeyMsg) (ComposeListModel, tea.Cm
 		switch msg.Type {
 		case tea.KeyEnter:
 			m.confirming = false
-			return m, func() tea.Msg {
-				return ComposeStartMsg{Sequence: m.sequence}
-			}
+			return m, m.emitComposeStart()
 		case tea.KeyEscape:
 			m.confirming = false
 			return m, nil
@@ -144,9 +144,7 @@ func (m ComposeListModel) handleKeyMsg(msg tea.KeyMsg) (ComposeListModel, tea.Cm
 			m.confirming = true
 			return m, nil
 		}
-		return m, func() tea.Msg {
-			return ComposeStartMsg{Sequence: m.sequence}
-		}
+		return m, m.emitComposeStart()
 
 	case tea.KeyEscape:
 		return m, func() tea.Msg {
@@ -165,12 +163,39 @@ func (m ComposeListModel) handleKeyMsg(msg tea.KeyMsg) (ComposeListModel, tea.Cm
 			if m.sequence.IsEmpty() {
 				return m, nil
 			}
+			// Remove any stage break at or after removed index
+			if m.breaks != nil {
+				delete(m.breaks, m.cursor)
+			}
 			m.sequence.Remove(m.cursor)
 			// Adjust cursor if it now exceeds bounds.
 			if m.cursor >= m.sequence.Len() && m.cursor > 0 {
 				m.cursor = m.sequence.Len() - 1
 			}
 			m.validation = ValidateSequence(m.sequence)
+			return m, m.emitSequenceChanged()
+
+		case "p":
+			// Toggle parallel mode
+			m.parallel = !m.parallel
+			return m, m.emitSequenceChanged()
+
+		case "d":
+			// Toggle stage break after current cursor position
+			if m.sequence.Len() < 2 {
+				return m, nil
+			}
+			if m.cursor >= m.sequence.Len()-1 {
+				return m, nil // Can't put break after last entry
+			}
+			if m.breaks == nil {
+				m.breaks = make(map[int]bool)
+			}
+			if m.breaks[m.cursor] {
+				delete(m.breaks, m.cursor)
+			} else {
+				m.breaks[m.cursor] = true
+			}
 			return m, m.emitSequenceChanged()
 		}
 	}
@@ -205,12 +230,57 @@ func (m ComposeListModel) enterPickingMode() (ComposeListModel, tea.Cmd) {
 func (m ComposeListModel) emitSequenceChanged() tea.Cmd {
 	seq := m.sequence
 	val := m.validation
+	par := m.parallel
+	stages := m.buildStages()
 	return func() tea.Msg {
 		return ComposeSequenceChangedMsg{
 			Sequence:   seq,
 			Validation: val,
+			Parallel:   par,
+			Stages:     stages,
 		}
 	}
+}
+
+// emitComposeStart returns a command that emits ComposeStartMsg with parallel/stage info.
+func (m ComposeListModel) emitComposeStart() tea.Cmd {
+	seq := m.sequence
+	par := m.parallel
+	stages := m.buildStages()
+	return func() tea.Msg {
+		return ComposeStartMsg{
+			Sequence: seq,
+			Parallel: par,
+			Stages:   stages,
+		}
+	}
+}
+
+// buildStages computes stage groups from the breaks map.
+// Each group is a slice of entry indices. Entries between breaks form one stage.
+func (m ComposeListModel) buildStages() [][]int {
+	if len(m.breaks) == 0 || m.sequence.Len() == 0 {
+		// Single stage with all entries
+		all := make([]int, m.sequence.Len())
+		for i := range all {
+			all[i] = i
+		}
+		return [][]int{all}
+	}
+
+	var stages [][]int
+	var current []int
+	for i := 0; i < m.sequence.Len(); i++ {
+		current = append(current, i)
+		if m.breaks[i] {
+			stages = append(stages, current)
+			current = nil
+		}
+	}
+	if len(current) > 0 {
+		stages = append(stages, current)
+	}
+	return stages
 }
 
 // View renders the compose list pane.
@@ -229,8 +299,12 @@ func (m ComposeListModel) View() string {
 
 	var lines []string
 
-	// Title line.
-	lines = append(lines, titleStyle.Render("Compose Sequence"))
+	// Title line with parallel indicator.
+	title := "Compose Sequence"
+	if m.parallel {
+		title += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("[parallel]")
+	}
+	lines = append(lines, titleStyle.Render(title))
 
 	if m.sequence.IsEmpty() {
 		lines = append(lines, "")
@@ -300,6 +374,11 @@ func (m ComposeListModel) View() string {
 				line = prefix + normalStyle.Render(indexStr+entry.PipelineName) + dupIndicator + statusIcon
 			}
 			lines = append(lines, line)
+
+			// Stage break indicator after this entry
+			if m.parallel && m.breaks[i] && i < m.sequence.Len()-1 {
+				lines = append(lines, mutedStyle.Render("  ── stage break ──"))
+			}
 		}
 	}
 
