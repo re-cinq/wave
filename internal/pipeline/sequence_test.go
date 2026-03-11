@@ -3,6 +3,8 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -375,3 +377,273 @@ func TestSequenceExecutor_ExecutePlan_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, result.PipelineResults)
 }
+
+func TestSequenceExecutor_ExecutePlan_ParallelFailFastFalse(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Use a call-counter adapter that fails on the 2nd call.
+	// In parallel mode, the order is non-deterministic but exactly one will fail.
+	var callCount int32
+	counterAdapter := &callCounterFailAdapter{
+		callCount:  &callCount,
+		failOnCall: 2,
+		failErr:    errors.New("pipeline exploded"),
+		successAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithSimulatedDelay(10*time.Millisecond),
+		),
+	}
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
+			return NewDefaultPipelineExecutor(counterAdapter, opts...)
+		},
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{
+		Stages: []Stage{
+			{
+				Pipelines: []*Pipeline{
+					newMinimalPipeline("p1"),
+					newMinimalPipeline("p2"),
+					newMinimalPipeline("p3"),
+				},
+				Parallel: true,
+			},
+		},
+		FailFast: false,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "fail-fast-false test")
+
+	// Should return an error (partial failure)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrParallelStagePartialFailure)
+
+	// All 3 pipelines should have results
+	require.Len(t, result.PipelineResults, 3)
+
+	// Count completed and failed
+	var completed, failed int
+	for _, pr := range result.PipelineResults {
+		switch pr.Status {
+		case "completed":
+			completed++
+		case "failed":
+			failed++
+		}
+	}
+	assert.Equal(t, 2, completed, "two pipelines should complete")
+	assert.Equal(t, 1, failed, "one pipeline should fail")
+
+	// Verify sequence_failed event was emitted (not sequence_completed)
+	assert.True(t, collector.HasEventWithState(event.StateSequenceFailed))
+	assert.False(t, collector.HasEventWithState(event.StateSequenceCompleted))
+}
+
+func TestSequenceExecutor_ExecutePlan_MaxConcurrent(t *testing.T) {
+	collector := newTestEventCollector()
+
+	var currentConcurrent int32
+	var maxConcurrent int32
+
+	trackingAdapter := &concurrencyTrackingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithSimulatedDelay(50*time.Millisecond),
+		),
+		onStart: func() {
+			current := atomic.AddInt32(&currentConcurrent, 1)
+			for {
+				old := atomic.LoadInt32(&maxConcurrent)
+				if current <= old || atomic.CompareAndSwapInt32(&maxConcurrent, old, current) {
+					break
+				}
+			}
+		},
+		onEnd: func() {
+			atomic.AddInt32(&currentConcurrent, -1)
+		},
+	}
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
+			return NewDefaultPipelineExecutor(trackingAdapter, opts...)
+		},
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{
+		Stages: []Stage{
+			{
+				Pipelines: []*Pipeline{
+					newMinimalPipeline("p1"),
+					newMinimalPipeline("p2"),
+					newMinimalPipeline("p3"),
+					newMinimalPipeline("p4"),
+				},
+				Parallel: true,
+			},
+		},
+		FailFast:      true,
+		MaxConcurrent: 2,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "max-concurrent test")
+	require.NoError(t, err)
+	require.Len(t, result.PipelineResults, 4)
+
+	for _, pr := range result.PipelineResults {
+		assert.Equal(t, "completed", pr.Status)
+	}
+
+	// Max concurrent should not exceed the limit of 2
+	assert.LessOrEqual(t, atomic.LoadInt32(&maxConcurrent), int32(2),
+		"max concurrent should not exceed the limit of 2")
+	// But should actually have some concurrency (at least 2 running at once with 50ms delay)
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&maxConcurrent), int32(2),
+		"should have at least 2 running concurrently")
+}
+
+func TestSequenceExecutor_CrossPipelineArtifacts(t *testing.T) {
+	// Verify that pipelineOutputs are passed to downstream executors via
+	// WithCrossPipelineArtifacts option.
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Track which options are passed to the executor factory
+	var capturedArtifacts []map[string]map[string][]byte
+	var mu sync.Mutex
+
+	seq := NewSequenceExecutor(
+		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
+			ex := NewDefaultPipelineExecutor(mockAdapter, opts...)
+			mu.Lock()
+			if ex.crossPipelineArtifacts != nil {
+				capturedArtifacts = append(capturedArtifacts, ex.crossPipelineArtifacts)
+			}
+			mu.Unlock()
+			return ex
+		},
+		nil,
+		collector,
+		nil,
+	)
+
+	// Simulate that a prior pipeline recorded outputs by pre-populating
+	seq.pipelineOutputs["upstream"] = map[string][]byte{
+		"report.json": []byte(`{"result": "ok"}`),
+	}
+
+	// Execute a single pipeline — it should receive the cross-pipeline artifacts
+	pipelines := []*Pipeline{newMinimalPipeline("downstream")}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := seq.Execute(ctx, pipelines, m, "cross-pipeline test")
+	require.NoError(t, err)
+
+	// The downstream executor should have received the cross-pipeline artifacts
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, capturedArtifacts, 1, "downstream executor should receive cross-pipeline artifacts")
+	assert.Contains(t, capturedArtifacts[0], "upstream")
+	assert.Equal(t, []byte(`{"result": "ok"}`), capturedArtifacts[0]["upstream"]["report.json"])
+}
+
+func TestSequenceExecutor_ExecutePlan_SequentialFailFastFalse(t *testing.T) {
+	collector := newTestEventCollector()
+
+	// Fail on the 2nd call (sequential, so deterministic: good1=1, bad=2, good2=3)
+	var callCount int32
+	counterAdapter := &callCounterFailAdapter{
+		callCount:  &callCount,
+		failOnCall: 2,
+		failErr:    errors.New("sequential bad pipeline failed"),
+		successAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+		),
+	}
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	seq := NewSequenceExecutor(
+		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
+			return NewDefaultPipelineExecutor(counterAdapter, opts...)
+		},
+		nil,
+		collector,
+		nil,
+	)
+
+	plan := ExecutionPlan{
+		Stages: []Stage{
+			{
+				Pipelines: []*Pipeline{
+					newMinimalPipeline("good1"),
+					newMinimalPipeline("bad"),
+					newMinimalPipeline("good2"),
+				},
+				Parallel: false,
+			},
+		},
+		FailFast: false,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := seq.ExecutePlan(ctx, plan, m, "sequential-fail-fast-false test")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrParallelStagePartialFailure)
+
+	// All 3 pipelines should have been attempted since fail-fast is false
+	require.Len(t, result.PipelineResults, 3)
+
+	assert.Equal(t, "completed", result.PipelineResults[0].Status)
+	assert.Equal(t, "failed", result.PipelineResults[1].Status)
+	assert.Equal(t, "completed", result.PipelineResults[2].Status)
+
+	assert.True(t, collector.HasEventWithState(event.StateSequenceFailed))
+}
+
+// callCounterFailAdapter fails on the Nth call and succeeds on all others.
+type callCounterFailAdapter struct {
+	callCount      *int32
+	failOnCall     int32
+	failErr        error
+	successAdapter adapter.AdapterRunner
+}
+
+func (a *callCounterFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	n := atomic.AddInt32(a.callCount, 1)
+	if n == a.failOnCall {
+		return nil, a.failErr
+	}
+	return a.successAdapter.Run(ctx, cfg)
+}
+

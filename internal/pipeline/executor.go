@@ -70,6 +70,8 @@ type DefaultPipelineExecutor struct {
 	stepTimeoutOverride time.Duration
 	// Model override (from CLI --model flag)
 	modelOverride string
+	// Cross-pipeline artifacts from prior stages in a sequence
+	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -109,6 +111,12 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
+}
+
+// WithCrossPipelineArtifacts injects artifacts from prior pipeline stages
+// for cross-pipeline artifact references.
+func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.crossPipelineArtifacts = artifacts }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -1468,6 +1476,48 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 			artName = ref.Artifact
 		}
 		destPath := filepath.Join(artifactsDir, artName)
+
+		// Cross-pipeline artifact reference: look up from prior pipeline outputs
+		if ref.Pipeline != "" && e.crossPipelineArtifacts != nil {
+			pipelineArtifacts, hasPipeline := e.crossPipelineArtifacts[ref.Pipeline]
+			if !hasPipeline || pipelineArtifacts == nil {
+				if ref.Optional {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "step_progress",
+						Message:    fmt.Sprintf("optional cross-pipeline artifact '%s' from pipeline '%s' not found, skipping", ref.Artifact, ref.Pipeline),
+					})
+					continue
+				}
+				return fmt.Errorf("cross-pipeline artifact '%s' from pipeline '%s' not found", ref.Artifact, ref.Pipeline)
+			}
+			data, hasArtifact := pipelineArtifacts[ref.Artifact]
+			if !hasArtifact {
+				if ref.Optional {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "step_progress",
+						Message:    fmt.Sprintf("optional cross-pipeline artifact '%s' from pipeline '%s' not found, skipping", ref.Artifact, ref.Pipeline),
+					})
+					continue
+				}
+				return fmt.Errorf("cross-pipeline artifact '%s' not found in pipeline '%s' outputs", ref.Artifact, ref.Pipeline)
+			}
+			os.WriteFile(destPath, data, 0644)
+			execution.Context.SetArtifactPath(artName, destPath)
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "step_progress",
+				Message:    fmt.Sprintf("injected cross-pipeline artifact %s from pipeline %s", artName, ref.Pipeline),
+			})
+			continue
+		}
 
 		// Try registered artifact path first
 		key := ref.Step + ":" + ref.Artifact
