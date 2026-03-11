@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -637,6 +638,60 @@ func TestLiveOutputModel_OutputOnly_RebuildFilters(t *testing.T) {
 	// Toggle output-only OFF
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	assert.Equal(t, 1, buf.Len(), "started should reappear after output-only toggle off")
+}
+
+func TestLiveOutputModel_StoredRecords_RebuildOnFlagToggle(t *testing.T) {
+	// Simulates detached pipeline runs where events come from SQLite polling
+	// rather than in-memory PipelineEventMsg. The storedRecords field must
+	// be used by rebuildBuffer() when rawEvents is empty.
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Simulate SQLite-polled events (as done by DetachedEventPollTickMsg handler)
+	records := []state.LogRecord{
+		{StepID: "step1", State: event.StateStarted, Message: "Starting... (navigator)"},
+		{StepID: "step1", State: event.StateRunning, Message: "Running..."},
+		{StepID: "step1", State: event.StateStreamActivity, Message: "Read file.go"},
+		{StepID: "step1", State: event.StateStepProgress, Message: "tokens: 1k in / 500 out"},
+		{StepID: "step1", State: event.StateCompleted, Message: "Completed (5s)"},
+	}
+	for _, rec := range records {
+		m.storedRecords = append(m.storedRecords, rec)
+		if shouldFormatRecord(rec, m.flags) {
+			buf.Append(formatStoredEvent(rec))
+		}
+	}
+	m.updateViewportContent()
+
+	// Default flags: verbose=false, debug=false
+	// Should show started, running, completed (3 events) but NOT stream_activity or step_progress
+	assert.Equal(t, 3, buf.Len(), "default flags should show 3 core events")
+
+	// Toggle verbose ON — stream_activity should appear
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.True(t, m.flags.Verbose)
+	assert.Equal(t, 4, buf.Len(), "verbose ON should add stream_activity event")
+
+	// Toggle verbose OFF — back to 3
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	assert.False(t, m.flags.Verbose)
+	assert.Equal(t, 3, buf.Len(), "verbose OFF should remove stream_activity event")
+
+	// Toggle debug ON — step_progress should appear
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	assert.True(t, m.flags.Debug)
+	assert.Equal(t, 4, buf.Len(), "debug ON should add step_progress event")
+
+	// Toggle output-only ON — only completed should remain
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.True(t, m.flags.OutputOnly)
+	assert.Equal(t, 1, buf.Len(), "output-only should show only completed event")
+
+	// Toggle output-only OFF — back to debug (4 events)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	assert.False(t, m.flags.OutputOnly)
+	assert.Equal(t, 4, buf.Len(), "output-only OFF should restore debug view")
 }
 
 func TestLiveOutputModel_RawEvents_StoredForAllEvents(t *testing.T) {
