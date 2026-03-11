@@ -15,13 +15,7 @@ Agent factories need boundaries — not to hobble agents, but to make them trust
 
 Most teams end up at one of two extremes: agents wrapped in approval loops that accomplish nothing, or unconstrained agents one misread prompt away from a production incident. Wave finds the middle path — **just the right amount of guardrails**.
 
-Each persona is scoped precisely to its role:
-
-- **Navigator** explores freely but never modifies
-- **Craftsman** implements fully but never pushes to remote
-- **Auditor** has deep read access but never changes anything
-
-Scoping is declarative, enforced at runtime, and versioned in git. Agents do more. Accidents don't happen.
+Scoping is declarative, per-persona, enforced at runtime, and versioned in git. Agents do more. Accidents don't happen.
 
 > Wave is the orchestration layer described in [Building Agent Factories](https://re-cinq.com/blog/building-agent-factories) — the open-source runtime for specification-driven AI workflows at scale.
 

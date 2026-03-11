@@ -135,7 +135,7 @@ onUnmounted(() => {
 })
 
 const heroProps = computed(() => ({
-  title: 'Wave — Orchestration for Agent Factories',
+  title: 'Wave · AI-as-Code for Agent Factories',
   tagline: 'Define your agent factory in code. Scope every persona\'s permissions. Run repeatable AI workflows with just the right amount of guardrails.',
   primaryAction: {
     text: 'Get Started',
