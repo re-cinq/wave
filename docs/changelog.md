@@ -8,18 +8,408 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Mobile responsiveness improvements for documentation landing page terminal
+- TUI live output dashboard view with structured per-step progress display
+- Dashboard shows completed/running/failed steps with spinners, durations, and token counts
+- `l` key toggle between dashboard and event log in live output
+- Header completion counts (e.g. "1 ok, 1 fail") in live output
+- Handover metadata (artifacts, contracts, targets) in verbose dashboard mode
 
-### Changed
-- Renamed `code-review` pipeline to `gh-pr-review` for clarity and consistency
-- Generalized `github-commenter` persona to support multiple GitHub operations
-- Updated all documentation references from `code-review` to `gh-pr-review`
+### Removed
+- Stale multiplatform pipeline tests referencing non-existent gl-*/gt-* YAML files
+
+## [0.69.0] - 2026-03-10
+
+### Added
+- Pipeline failure context loading on resume from prior run
+- Pipeline relevance scoring and assignee filter in TUI
+- Detached pipeline output redirect to `.wave/logs/`
+
+## [0.68.1] - 2026-03-10
 
 ### Fixed
-- Terminal text alignment on mobile devices in documentation
-- Base URL configuration for GitHub Pages subpath hosting
-- Premature StateRunning status during artifact injection in pipeline execution
-- Resume display showing prior steps as completed when using `--from-step` flag (#151)
+- Documentation inaccuracies found in review of #273
+- 17 documentation inconsistencies from #264
+- Pipeline status/event-logging gaps and craftsman commit block
+
+## [0.68.0] - 2026-03-10
+
+### Added
+- Pre-merge change summary and upgrade workflow to `wave init`
+
+## [0.67.1] - 2026-03-10
+
+### Added
+- ADR (Architectural Decision Record) template and README
+
+## [0.67.0] - 2026-03-10
+
+### Added
+- Per-step `timeout_minutes` support (#247)
+
+### Fixed
+- Hardcoded test command and stale schemas in pipelines (#241)
+- 10 bugs from #241 audit
+- Artifact path resolution from prior run when using `--run` flag
+
+## [0.66.1] - 2026-03-10
+
+### Fixed
+- TUI filter, stale run, and UX quality issues (#295, #250)
+
+## [0.66.0] - 2026-03-10
+
+### Added
+- AI-steered project optimization with `wave doctor --optimize` flag (#296)
+- Interactive pipeline orchestration (epic #184)
+
+## [0.65.5] - 2026-03-10
+
+### Fixed
+- TUI repo detection from git remote for issue provider
+
+## [0.65.4] - 2026-03-10
+
+### Fixed
+- TUI GitHub token resolution via `gh auth` and live output on hover
+
+## [0.65.3] - 2026-03-10
+
+### Fixed
+- TUI live output state and polling on pipeline hover
+
+## [0.65.2] - 2026-03-10
+
+### Fixed
+- TUI launch flags restoration and subprocess passthrough
+- TUI finished detail alignment with spec labels and artifact paths
+- TUI header metadata grid layout
+
+### Changed
+- Delegated token and duration formatting to display package
+- Unified duration display and item indicators in TUI
+
+## [0.65.1] - 2026-03-10
+
+### Changed
+- Added `tea` and `glab` to Nix devShell packages
+
+## [0.65.0] - 2026-03-10
+
+### Added
+- Sequential pipeline composition via `SequenceExecutor`
+
+## [0.64.0] - 2026-03-10
+
+### Added
+- Retry with prompt adaptation and step attempt tracking
+
+## [0.63.0] - 2026-03-09
+
+### Added
+- TUI issue browser and pipeline chooser dialog
+
+## [0.62.0] - 2026-03-09
+
+### Added
+- Detached pipeline execution from TUI process lifecycle
+
+## [0.61.0] - 2026-03-09
+
+### Added
+- Rich handover metadata in TUI live output (parity with CLI)
+
+## [0.60.0] - 2026-03-09
+
+### Fixed
+- Huh form input lost across Bubble Tea value-copy cycles
+- Event logs preserved across refresh ticks; skip duplicate started line
+- Empty input rejection in research pipelines instead of using examples
+- Live output alignment with CLI, zombie run cleanup, dead flag removal
+- Cross-process cancellation via DB polling
+- Live output buffer rebuild when toggling v/d/o display flags
+- Pipeline events persisted to SQLite; stale run dismiss enabled
+- Stale pending runs cleaned on startup with improved messaging
+- Cancel with `c` key from both left and right pane
+- Top padding calculation in child model height
+- Pending runs limit in `GetRunningRuns` to last 5 minutes
+- Live output buffer wired on pipeline hover
+- Header reorder, status divider, collapse defaults, launch focus, repo detection
+- Performance metrics recorded on step completion
+- Status bar hints for compose, cancel, and Tab/Shift+Tab
+- Provider wiring, pane layout, section reorder, and launch fixes
+
+### Added
+- Walking glow logo animation and 3-row header metadata grid
+
+## [0.59.0] - 2026-03-07
+
+### Added
+- Pipeline composition UI with sequence builder and artifact flow visualization
+
+## [0.58.0] - 2026-03-07
+
+### Added
+- CLI compliance polish per clig.dev guidelines
+
+## [0.57.2] - 2026-03-06
+
+### Fixed
+- Commit-constraint fix applied to implementer persona
+- Pipeline status/event-logging gaps and craftsman commit block
+
+## [0.57.1] - 2026-03-06
+
+### Fixed
+- Label create permissions and `glab issue update` command in personas
+
+## [0.57.0] - 2026-03-06
+
+### Added
+- Alternative master-detail views for personas, contracts, skills, and health in TUI
+
+## [0.56.1] - 2026-03-06
+
+### Changed
+- Documentation synced with implementation
+
+## [0.56.0] - 2026-03-06
+
+### Added
+- Finished pipeline actions in TUI — chat, branch checkout, diff view
+
+## [0.55.0] - 2026-03-06
+
+### Added
+- Live output streaming for running pipelines in TUI
+
+## [0.54.0] - 2026-03-06
+
+### Added
+- Pipeline launch flow with argument form, executor integration, and cancellation
+
+## [0.53.0] - 2026-03-06
+
+### Added
+- Pipeline detail right pane with navigation, data providers, and focus management
+
+## [0.52.0] - 2026-03-06
+
+### Added
+- Pipeline list left pane with navigation, filtering, and sections
+- Header bar with animated logo and project metadata
+
+## [0.51.0] - 2026-03-05
+
+### Added
+- Bubble Tea TUI scaffold with 3-row layout
+
+## [0.50.0] - 2026-03-05
+
+### Added
+- Skill definitions moved from manifest to pipeline YAML
+
+### Fixed
+- Bare template variables in worktree branch names
+- Default step timeout increased to 90 minutes
+
+## [0.49.2] - 2026-03-04
+
+### Fixed
+- Added `uv` to Nix flake and fixed speckit skill commands
+
+## [0.49.1] - 2026-03-04
+
+### Fixed
+- Missing matrix strategy and workspace properties in pipeline JSON schema
+
+## [0.49.0] - 2026-03-04
+
+### Added
+- Bitbucket (`bb-implement-epic`), GitLab (`gl-implement-epic`), and Gitea (`gt-implement-epic`) epic pipelines
+
+## [0.48.0] - 2026-03-04
+
+### Added
+- `--model` flag to override adapter model per run
+
+## [0.46.0] - 2026-03-03
+
+### Added
+- Progress summary on third header line beside logo
+- Unified TUI color palette and logo shimmer animation
+
+### Fixed
+- Display formatting: colons after step IDs, blank lines, top margin, shimmer rune indexing
+
+## [0.45.0] - 2026-03-03
+
+### Changed
+- Redesigned pipeline TUI — deduplicated logo, model visibility, token split, collapsible tools
+
+## [0.44.5] - 2026-03-03
+
+### Changed
+- Removed Write auto-grant workaround, superseded cascade/executor_enhanced code, speculative validators
+
+## [0.44.4] - 2026-03-03
+
+### Fixed
+- Blanket deny rules blocking tool availability in personas
+- Workspace path resolution anchored with `git init`
+- Bare Write/Edit subsumption of scoped permissions in adapter
+- Distill step rewritten to make JSON output primary task
+
+## [0.44.3] - 2026-03-03
+
+### Fixed
+- gh-implement pipeline flaws from parallel run audit
+
+## [0.44.2] - 2026-03-03
+
+### Fixed
+- Bare Write permission in personas instead of scoped paths
+- Synthesizer JSON-only output constraints
+- Write/Edit preservation in `normalizeAllowedTools`
+
+## [0.44.1] - 2026-03-03
+
+### Fixed
+- Batch fallback prevention when specific issue not found
+
+## [0.44.0] - 2026-03-02
+
+### Added
+- Array extraction in outcome `json_path` for multi-link results (#191)
+- `[*]` wildcard support in scope/rewrite outcome `json_path`
+
+## [0.43.2] - 2026-03-02
+
+### Fixed
+- Noisy outcome warnings replaced with friendly messages for empty arrays (#204)
+
+## [0.43.1] - 2026-03-02
+
+### Fixed
+- Suppressed usage text on pipeline execution errors (#205)
+- Silenced cobra error printing to prevent triple output
+
+## [0.43.0] - 2026-03-02
+
+### Added
+- Enriched trace entries with step lifecycle context (#189)
+
+## [0.42.0] - 2026-03-02
+
+### Added
+- `gh-implement-epic` pipeline and artifacts
+- Child pipeline invocation in matrix executor
+- Dependency tiers in matrix executor
+
+## [0.41.4] - 2026-03-02
+
+### Fixed
+- Stripped Write/Edit tools, disallowed TodoWrite, removed false JSON validation
+
+## [0.41.3] - 2026-03-01
+
+### Fixed
+- Embedded persona configs synced (dev, commenter, enhancer, analyst)
+- Scope verify-report steps made read-only
+- Persona tool requirements expanded across gl-/gt-/gh-/bb-* pipelines
+
+## [0.41.2] - 2026-03-01
+
+### Fixed
+- Bitbucket pipeline prompts rewritten for REST API
+- Bitbucket persona permissions rewritten for curl+jq
+- TodoWrite avoidance instruction added to base protocol
+
+## [0.41.1] - 2026-03-01
+
+### Fixed
+- `wave-land` pipeline creates feature branch before committing
+
+## [0.41.0] - 2026-03-01
+
+### Added
+- `wave-land` pipeline for commit-and-ship workflow
+
+### Fixed
+- Templatized test command; removed stale script reference in gh-implement
+- Tightened persona permissions with granular tool controls
+- Real-execution-only constraint added to base protocol
+
+### Changed
+- Streamlined refresh and scope pipeline prompts
+- Removed redundant version checks from persona prompts
+
+## [0.40.0] - 2026-03-01
+
+### Added
+- Ollama adapter and free-text input for adapter/model in onboarding
+- Interactive onboarding wizard for first-time setup (#163)
+- Token display in web UI dashboard (#98)
+
+### Fixed
+- PersonaConfigs threaded through CLI and onboarding manifest emission
+
+## [0.39.0] - 2026-02-28
+
+### Added
+- Token counting fix and token display in TUI (#98)
+
+## [0.38.1] - 2026-02-28
+
+### Fixed
+- All pipeline configs audited and optimized
+
+## [0.38.0] - 2026-02-28
+
+### Added
+- `gh-scope` pipeline for epic decomposition across all 4 forges
+- Scope contracts and pipelines added to `.wave/` runtime directory
+
+## [0.37.0] - 2026-02-28
+
+### Added
+- `file://` URI scheme prefix for absolute file paths in display (#186)
+
+## [0.36.0] - 2026-02-28
+
+### Changed
+- Replaced hardcoded persona map with embedded YAML configs in `wave init`
+
+## [0.35.1] - 2026-02-27
+
+### Changed
+- README install/quickstart and contributor guidance updated for public repo (#174)
+
+## [0.35.0] - 2026-02-27
+
+### Fixed
+- Table width truncation adapted to terminal width (#167)
+
+## [0.34.0] - 2026-02-27
+
+### Added
+- Bitbucket platform support with `bb-*` pipelines
+- GitLab and Gitea platform support pipelines (#168)
+
+## [0.33.2] - 2026-02-27
+
+### Changed
+- Default model for wave changed to opus
+
+## [0.33.1] - 2026-02-26
+
+### Fixed
+- Responsive terminal header with logo/meta variant switching
+- Side-by-side logo+metadata for desktop terminal
+
+## [0.33.0] - 2026-02-27
+
+### Added
+- Bitbucket platform support with `bb-*` pipelines
 
 ## [0.32.0] - 2026-02-24
 
@@ -296,7 +686,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Sync documentation with implementation
 
-[Unreleased]: https://github.com/re-cinq/wave/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/re-cinq/wave/compare/v0.69.0...HEAD
+[0.69.0]: https://github.com/re-cinq/wave/compare/v0.68.1...v0.69.0
+[0.68.1]: https://github.com/re-cinq/wave/compare/v0.68.0...v0.68.1
+[0.68.0]: https://github.com/re-cinq/wave/compare/v0.67.1...v0.68.0
+[0.67.1]: https://github.com/re-cinq/wave/compare/v0.67.0...v0.67.1
+[0.67.0]: https://github.com/re-cinq/wave/compare/v0.66.1...v0.67.0
+[0.66.1]: https://github.com/re-cinq/wave/compare/v0.66.0...v0.66.1
+[0.66.0]: https://github.com/re-cinq/wave/compare/v0.65.5...v0.66.0
+[0.65.5]: https://github.com/re-cinq/wave/compare/v0.65.4...v0.65.5
+[0.65.4]: https://github.com/re-cinq/wave/compare/v0.65.3...v0.65.4
+[0.65.3]: https://github.com/re-cinq/wave/compare/v0.65.2...v0.65.3
+[0.65.2]: https://github.com/re-cinq/wave/compare/v0.65.1...v0.65.2
+[0.65.1]: https://github.com/re-cinq/wave/compare/v0.65.0...v0.65.1
+[0.65.0]: https://github.com/re-cinq/wave/compare/v0.64.0...v0.65.0
+[0.64.0]: https://github.com/re-cinq/wave/compare/v0.63.0...v0.64.0
+[0.63.0]: https://github.com/re-cinq/wave/compare/v0.62.0...v0.63.0
+[0.62.0]: https://github.com/re-cinq/wave/compare/v0.61.0...v0.62.0
+[0.61.0]: https://github.com/re-cinq/wave/compare/v0.60.0...v0.61.0
+[0.60.0]: https://github.com/re-cinq/wave/compare/v0.59.0...v0.60.0
+[0.59.0]: https://github.com/re-cinq/wave/compare/v0.58.0...v0.59.0
+[0.58.0]: https://github.com/re-cinq/wave/compare/v0.57.2...v0.58.0
+[0.57.2]: https://github.com/re-cinq/wave/compare/v0.57.1...v0.57.2
+[0.57.1]: https://github.com/re-cinq/wave/compare/v0.57.0...v0.57.1
+[0.57.0]: https://github.com/re-cinq/wave/compare/v0.56.1...v0.57.0
+[0.56.1]: https://github.com/re-cinq/wave/compare/v0.56.0...v0.56.1
+[0.56.0]: https://github.com/re-cinq/wave/compare/v0.55.0...v0.56.0
+[0.55.0]: https://github.com/re-cinq/wave/compare/v0.54.0...v0.55.0
+[0.54.0]: https://github.com/re-cinq/wave/compare/v0.53.0...v0.54.0
+[0.53.0]: https://github.com/re-cinq/wave/compare/v0.52.0...v0.53.0
+[0.52.0]: https://github.com/re-cinq/wave/compare/v0.51.0...v0.52.0
+[0.51.0]: https://github.com/re-cinq/wave/compare/v0.50.0...v0.51.0
+[0.50.0]: https://github.com/re-cinq/wave/compare/v0.49.2...v0.50.0
+[0.49.2]: https://github.com/re-cinq/wave/compare/v0.49.1...v0.49.2
+[0.49.1]: https://github.com/re-cinq/wave/compare/v0.49.0...v0.49.1
+[0.49.0]: https://github.com/re-cinq/wave/compare/v0.48.0...v0.49.0
+[0.48.0]: https://github.com/re-cinq/wave/compare/v0.46.0...v0.48.0
+[0.46.0]: https://github.com/re-cinq/wave/compare/v0.45.0...v0.46.0
+[0.45.0]: https://github.com/re-cinq/wave/compare/v0.44.5...v0.45.0
+[0.44.5]: https://github.com/re-cinq/wave/compare/v0.44.4...v0.44.5
+[0.44.4]: https://github.com/re-cinq/wave/compare/v0.44.3...v0.44.4
+[0.44.3]: https://github.com/re-cinq/wave/compare/v0.44.2...v0.44.3
+[0.44.2]: https://github.com/re-cinq/wave/compare/v0.44.1...v0.44.2
+[0.44.1]: https://github.com/re-cinq/wave/compare/v0.44.0...v0.44.1
+[0.44.0]: https://github.com/re-cinq/wave/compare/v0.43.2...v0.44.0
+[0.43.2]: https://github.com/re-cinq/wave/compare/v0.43.1...v0.43.2
+[0.43.1]: https://github.com/re-cinq/wave/compare/v0.43.0...v0.43.1
+[0.43.0]: https://github.com/re-cinq/wave/compare/v0.42.0...v0.43.0
+[0.42.0]: https://github.com/re-cinq/wave/compare/v0.41.4...v0.42.0
+[0.41.4]: https://github.com/re-cinq/wave/compare/v0.41.3...v0.41.4
+[0.41.3]: https://github.com/re-cinq/wave/compare/v0.41.2...v0.41.3
+[0.41.2]: https://github.com/re-cinq/wave/compare/v0.41.1...v0.41.2
+[0.41.1]: https://github.com/re-cinq/wave/compare/v0.41.0...v0.41.1
+[0.41.0]: https://github.com/re-cinq/wave/compare/v0.40.0...v0.41.0
+[0.40.0]: https://github.com/re-cinq/wave/compare/v0.39.0...v0.40.0
+[0.39.0]: https://github.com/re-cinq/wave/compare/v0.38.1...v0.39.0
+[0.38.1]: https://github.com/re-cinq/wave/compare/v0.38.0...v0.38.1
+[0.38.0]: https://github.com/re-cinq/wave/compare/v0.37.0...v0.38.0
+[0.37.0]: https://github.com/re-cinq/wave/compare/v0.36.0...v0.37.0
+[0.36.0]: https://github.com/re-cinq/wave/compare/v0.35.1...v0.36.0
+[0.35.1]: https://github.com/re-cinq/wave/compare/v0.35.0...v0.35.1
+[0.35.0]: https://github.com/re-cinq/wave/compare/v0.34.0...v0.35.0
+[0.34.0]: https://github.com/re-cinq/wave/compare/v0.33.2...v0.34.0
+[0.33.2]: https://github.com/re-cinq/wave/compare/v0.33.1...v0.33.2
+[0.33.1]: https://github.com/re-cinq/wave/compare/v0.33.0...v0.33.1
+[0.33.0]: https://github.com/re-cinq/wave/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/re-cinq/wave/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/re-cinq/wave/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/re-cinq/wave/compare/v0.29.0...v0.30.0
