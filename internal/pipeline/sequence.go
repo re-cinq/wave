@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,6 +12,10 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"golang.org/x/sync/errgroup"
 )
+
+// ErrParallelStagePartialFailure indicates that one or more pipelines in a
+// parallel stage failed while other pipelines completed successfully.
+var ErrParallelStagePartialFailure = errors.New("parallel stage partial failure")
 
 // SequenceResult holds the outcome of a sequence execution.
 type SequenceResult struct {
@@ -107,6 +112,9 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 		if s.store != nil {
 			opts = append(opts, WithStateStore(s.store))
 		}
+		if len(s.pipelineOutputs) > 0 {
+			opts = append(opts, WithCrossPipelineArtifacts(s.pipelineOutputs))
+		}
 
 		executor := s.newExecutor(opts...)
 
@@ -162,8 +170,9 @@ type Stage struct {
 
 // ExecutionPlan is an ordered list of stages.
 type ExecutionPlan struct {
-	Stages   []Stage
-	FailFast bool // stop on first failure (default true)
+	Stages        []Stage
+	FailFast      bool // stop on first failure (default true)
+	MaxConcurrent int  // max concurrent pipelines per parallel stage (0 = unlimited)
 }
 
 // ExecutePlan runs an execution plan with support for parallel stages.
@@ -186,6 +195,8 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 		Message:   fmt.Sprintf("Starting execution plan: %d stages, %d pipelines", len(plan.Stages), totalPipelines),
 	})
 
+	var hadFailures bool
+
 	for stageIdx, stage := range plan.Stages {
 		select {
 		case <-ctx.Done():
@@ -194,31 +205,55 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 		}
 
 		if stage.Parallel && len(stage.Pipelines) > 1 {
-			stageResults, err := s.executeParallelStage(ctx, stage, stageIdx, m, input, plan.FailFast)
+			stageResults, err := s.executeParallelStage(ctx, stage, stageIdx, m, input, plan.FailFast, plan.MaxConcurrent)
 			result.PipelineResults = append(result.PipelineResults, stageResults...)
 			for _, pr := range stageResults {
 				result.TotalTokens += pr.TokensUsed
 			}
 			if err != nil {
-				return result, err
+				if !plan.FailFast && errors.Is(err, ErrParallelStagePartialFailure) {
+					hadFailures = true
+				} else {
+					return result, err
+				}
 			}
 		} else {
 			for _, p := range stage.Pipelines {
 				pr, err := s.executeSinglePipeline(ctx, p, m, input)
 				result.PipelineResults = append(result.PipelineResults, pr)
 				result.TotalTokens += pr.TokensUsed
-				if err != nil && plan.FailFast {
-					s.emit(event.Event{
-						Timestamp:     time.Now(),
-						State:         event.StateSequenceFailed,
-						PipelineID:    p.Metadata.Name,
-						Message:       fmt.Sprintf("Plan stopped: %s failed", p.Metadata.Name),
-						FailureReason: "pipeline_failed",
-					})
-					return result, err
+				if err != nil {
+					if plan.FailFast {
+						s.emit(event.Event{
+							Timestamp:     time.Now(),
+							State:         event.StateSequenceFailed,
+							PipelineID:    p.Metadata.Name,
+							Message:       fmt.Sprintf("Plan stopped: %s failed", p.Metadata.Name),
+							FailureReason: "pipeline_failed",
+						})
+						return result, err
+					}
+					hadFailures = true
 				}
 			}
 		}
+	}
+
+	if hadFailures {
+		s.emit(event.Event{
+			Timestamp:     time.Now(),
+			State:         event.StateSequenceFailed,
+			Message:       fmt.Sprintf("Plan completed with failures: %d pipelines, %d total tokens", len(result.PipelineResults), result.TotalTokens),
+			FailureReason: "partial_failure",
+		})
+		// Collect all failed pipeline names for the aggregate error
+		var failedNames []string
+		for _, pr := range result.PipelineResults {
+			if pr.Status == "failed" {
+				failedNames = append(failedNames, pr.PipelineName)
+			}
+		}
+		return result, fmt.Errorf("%w: %v", ErrParallelStagePartialFailure, failedNames)
 	}
 
 	s.emit(event.Event{
@@ -231,7 +266,7 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 }
 
 // executeParallelStage runs all pipelines in a stage concurrently.
-func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage, stageIdx int, m *manifest.Manifest, input string, failFast bool) ([]PipelineResult, error) {
+func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage, stageIdx int, m *manifest.Manifest, input string, failFast bool, maxConcurrent int) ([]PipelineResult, error) {
 	names := make([]string, len(stage.Pipelines))
 	for i, p := range stage.Pipelines {
 		names[i] = p.Metadata.Name
@@ -247,6 +282,9 @@ func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage
 	results := make([]PipelineResult, len(stage.Pipelines))
 
 	g, gctx := errgroup.WithContext(ctx)
+	if maxConcurrent > 0 {
+		g.SetLimit(maxConcurrent)
+	}
 	for i, p := range stage.Pipelines {
 		g.Go(func() error {
 			pr, err := s.executeSinglePipeline(gctx, p, m, input)
@@ -262,9 +300,27 @@ func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage
 
 	err := g.Wait()
 
+	// In non-fail-fast mode, errgroup returns nil (goroutines return nil),
+	// but individual pipelines may have failed. Scan results for failures.
+	if err == nil && !failFast {
+		var failedNames []string
+		for _, pr := range results {
+			if pr.Status == "failed" {
+				failedNames = append(failedNames, pr.PipelineName)
+			}
+		}
+		if len(failedNames) > 0 {
+			err = fmt.Errorf("%w: %s", ErrParallelStagePartialFailure, fmt.Sprintf("pipelines failed: %v", failedNames))
+		}
+	}
+
+	state := event.StateParallelStageCompleted
+	if err != nil {
+		state = event.StateParallelStageFailed
+	}
 	s.emit(event.Event{
 		Timestamp: time.Now(),
-		State:     event.StateParallelStageCompleted,
+		State:     state,
 		Message:   fmt.Sprintf("Parallel stage %d completed", stageIdx+1),
 	})
 
@@ -297,6 +353,9 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	}
 	if s.store != nil {
 		opts = append(opts, WithStateStore(s.store))
+	}
+	if len(s.pipelineOutputs) > 0 {
+		opts = append(opts, WithCrossPipelineArtifacts(s.pipelineOutputs))
 	}
 
 	executor := s.newExecutor(opts...)
