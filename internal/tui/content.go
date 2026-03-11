@@ -369,8 +369,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, cmd
 		}
 
-		// Handle Enter for alternative views — focus right pane
-		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && m.currentView != ViewPipelines {
+		// Handle Enter for alternative views — focus right pane.
+		// Suggest view is excluded: Enter launches the selected pipeline there.
+		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && m.currentView != ViewPipelines && m.currentView != ViewSuggest {
 			return m.handleAlternativeViewEnter()
 		}
 
