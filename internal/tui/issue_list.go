@@ -153,61 +153,87 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 		prefix = "▶ "
 	}
 
-	// Build the number prefix
 	number := fmt.Sprintf("#%d", issue.Number)
-
-	// Build label badges
-	var labelBadges string
-	if len(issue.Labels) > 0 {
-		badges := make([]string, 0, len(issue.Labels))
-		for _, l := range issue.Labels {
-			badges = append(badges, "["+l+"]")
-		}
-		labelBadges = strings.Join(badges, " ")
-	}
 
 	// Build comment indicator
 	var commentStr string
 	if issue.Comments > 0 {
-		commentStr = fmt.Sprintf("  %d", issue.Comments)
+		commentStr = fmt.Sprintf(" %d", issue.Comments)
 	}
 
-	// Calculate space for the title
-	rightSide := ""
-	if labelBadges != "" {
-		rightSide += " " + labelBadges
-	}
-	if commentStr != "" {
-		rightSide += commentStr
+	// Fixed portions: prefix + number + space + commentStr
+	fixedWidth := len(prefix) + len(number) + 1 + len(commentStr)
+	availableWidth := m.width - fixedWidth
+	if availableWidth < 0 {
+		availableWidth = 0
 	}
 
-	usedWidth := len(prefix) + len(number) + 1 + len(rightSide) // +1 for space after number
-	titleMaxWidth := m.width - usedWidth
-	if titleMaxWidth < 0 {
-		titleMaxWidth = 0
+	// Give title at least 60% of available space, labels get the rest
+	minTitleWidth := availableWidth * 60 / 100
+	if minTitleWidth < 10 {
+		minTitleWidth = availableWidth // tiny pane: give all to title
 	}
-	title := truncateName(issue.Title, titleMaxWidth)
 
-	// Assemble the line parts
+	// Build truncated labels that fit in remaining space
+	labelBudget := availableWidth - minTitleWidth - 1 // -1 for separator space
+	var labelBadges string
+	if labelBudget > 4 && len(issue.Labels) > 0 {
+		var parts []string
+		used := 0
+		for _, l := range issue.Labels {
+			badge := "[" + l + "]"
+			need := len(badge)
+			if used > 0 {
+				need++ // space between badges
+			}
+			if used+need > labelBudget {
+				break
+			}
+			parts = append(parts, badge)
+			used += need
+		}
+		if len(parts) > 0 {
+			labelBadges = strings.Join(parts, " ")
+		}
+	}
+
+	// Calculate actual title width now that we know label width
+	labelWidth := len(labelBadges)
+	if labelWidth > 0 {
+		labelWidth++ // leading space
+	}
+	titleWidth := availableWidth - labelWidth
+	if titleWidth < 0 {
+		titleWidth = 0
+	}
+	title := truncateName(issue.Title, titleWidth)
+
+	// Assemble: prefix + number + " " + title + spacer + labels + comments
 	leftPart := prefix + number + " " + title
+	rightPart := ""
+	if labelBadges != "" {
+		rightPart += " " + labelBadges
+	}
+	rightPart += commentStr
 
-	// Calculate spacer
-	spacerWidth := m.width - lipgloss.Width(leftPart) - lipgloss.Width(rightSide)
+	spacerWidth := m.width - lipgloss.Width(leftPart) - lipgloss.Width(rightPart)
 	if spacerWidth < 1 {
 		spacerWidth = 1
 	}
 
-	text := leftPart + strings.Repeat(" ", spacerWidth) + rightSide
+	text := leftPart + strings.Repeat(" ", spacerWidth) + rightPart
 
-	if isSelected {
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			Width(m.width)
-		return style.Render(text)
+	// Enforce single-line by truncating if still too wide
+	if lipgloss.Width(text) > m.width && m.width > 0 {
+		text = text[:m.width]
 	}
 
 	style := lipgloss.NewStyle().
-		Width(m.width)
+		Width(m.width).
+		MaxWidth(m.width)
+	if isSelected {
+		style = style.Foreground(lipgloss.Color("6"))
+	}
 	return style.Render(text)
 }
 
