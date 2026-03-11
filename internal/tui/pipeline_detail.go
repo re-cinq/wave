@@ -477,8 +477,24 @@ func (m PipelineDetailModel) View() string {
 
 	case stateConfiguring:
 		if m.launchForm != nil {
+			var header string
+			if m.availableDetail != nil {
+				header = renderAvailableDetail(m.availableDetail, m.width)
+			}
+
 			formView := m.launchForm.View()
-			// Clamp form output to allocated height to prevent overflow
+
+			if header != "" {
+				headerLines := strings.Split(header, "\n")
+				formLines := strings.Split(formView, "\n")
+				all := append(headerLines, formLines...)
+				if len(all) > m.height {
+					all = all[:m.height]
+				}
+				return strings.Join(all, "\n")
+			}
+
+			// Fallback: no available detail, just show form
 			lines := strings.Split(formView, "\n")
 			if len(lines) > m.height {
 				lines = lines[:m.height]
