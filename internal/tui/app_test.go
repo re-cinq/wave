@@ -45,7 +45,7 @@ func TestNewAppModel_InitialState(t *testing.T) {
 	assert.False(t, m.shuttingDown)
 	assert.Equal(t, 0, m.width)
 	assert.Equal(t, 0, m.height)
-	assert.Equal(t, "Dashboard", m.statusBar.contextLabel)
+	assert.Equal(t, "Pipelines", m.statusBar.contextLabel)
 }
 
 func TestAppModel_Init_ReturnsCmds(t *testing.T) {

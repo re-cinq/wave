@@ -321,7 +321,7 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 	case tea.KeyUp, tea.KeyDown:
 		return m.handleNavigation(msg)
 
-	case tea.KeyEnter:
+	case tea.KeyEnter, tea.KeySpace:
 		// Toggle collapse on pipeline name nodes
 		if len(m.navigable) > 0 && m.cursor < len(m.navigable) {
 			item := m.navigable[m.cursor]
@@ -474,6 +474,11 @@ func (m *PipelineListModel) buildNavigableItems() {
 
 		running := runningByName[name]
 		finished := finishedByName[name]
+
+		// Default to collapsed for pipelines not yet toggled.
+		if _, seen := m.collapsed[name]; !seen {
+			m.collapsed[name] = true
+		}
 
 		// Pipeline name entry (tree root).
 		m.navigable = append(m.navigable, navigableItem{
@@ -708,7 +713,7 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 		statusIcon = "✗"
 	}
 
-	dateSuffix := f.StartedAt.Format("Jan 02 15:04")
+	dateSuffix := "[" + f.StartedAt.Format("Jan 02 15:04") + "]"
 	duration := formatDuration(f.Duration)
 	displayName := fmt.Sprintf("%s %s", statusIcon, dateSuffix)
 	suffix := duration

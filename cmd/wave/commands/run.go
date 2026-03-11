@@ -623,8 +623,14 @@ type dbLoggingEmitter struct {
 func (d *dbLoggingEmitter) Emit(ev event.Event) {
 	d.inner.Emit(ev)
 	// Skip empty heartbeat ticks — they carry no useful information.
-	if ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0 {
+	// Keep stream_activity events that carry ToolName (Claude Code tool calls).
+	if ev.Message == "" && ev.ToolName == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0 {
 		return
 	}
-	d.store.LogEvent(d.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs)
+	// Compose message from ToolName+ToolTarget for stream_activity persistence.
+	msg := ev.Message
+	if msg == "" && ev.ToolName != "" {
+		msg = ev.ToolName + " " + ev.ToolTarget
+	}
+	d.store.LogEvent(d.runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs)
 }

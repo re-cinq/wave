@@ -201,6 +201,11 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 		{RunID: "f3", Name: "cancel-pipe", Status: "cancelled", Duration: 1 * time.Minute},
 	}
 	m := newTestListModel(nil, finished, nil)
+	// Expand all pipelines (default is collapsed)
+	for name := range m.collapsed {
+		m.collapsed[name] = false
+	}
+	m.buildNavigableItems()
 	view := listStripAnsi(m.View())
 
 	// Completed shows checkmark
@@ -325,6 +330,9 @@ func TestPipelineListModel_View_FinishedLimitedToMax(t *testing.T) {
 		}
 	}
 	m := newTestListModel(nil, finished, nil)
+	// Expand pipeline (default is collapsed)
+	m.collapsed["my-pipe"] = false
+	m.buildNavigableItems()
 
 	// Count finished items in navigable
 	finishedCount := 0
@@ -382,6 +390,9 @@ func TestPipelineListModel_Navigation_CrossPipelineTraversal(t *testing.T) {
 		{RunID: "f1", Name: "beta-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
 	}
 	m := newTestListModel(running, finished, nil)
+	// Expand beta-pipe to see finished items (default is collapsed)
+	m.collapsed["beta-pipe"] = false
+	m.buildNavigableItems()
 
 	// Navigable order (alphabetical):
 	// 0: alpha-pipe (pipeline name)
@@ -743,8 +754,8 @@ func TestPipelineListModel_Scroll_CursorAtTopNoScroll(t *testing.T) {
 // T022: Collapse/Expand Tests
 // ===========================================================================
 
-func TestPipelineListModel_Collapse_EnterOnPipelineNameCollapses(t *testing.T) {
-	// A pipeline with finished runs — collapsing should hide them
+func TestPipelineListModel_Collapse_EnterOnPipelineNameExpands(t *testing.T) {
+	// A pipeline with finished runs — starts collapsed, Enter expands
 	finished := []FinishedPipeline{
 		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
 		{RunID: "f2", Name: "my-pipe", Status: "failed", Duration: time.Minute, StartedAt: time.Now()},
@@ -754,36 +765,39 @@ func TestPipelineListModel_Collapse_EnterOnPipelineNameCollapses(t *testing.T) {
 	// Cursor starts on pipeline name
 	require.Equal(t, 0, m.cursor)
 	require.Equal(t, itemKindPipelineName, m.navigable[0].kind)
+	require.True(t, m.collapsed["my-pipe"], "pipeline should start collapsed")
 
 	countBefore := len(m.navigable)
 
-	// Press Enter to collapse
+	// Press Enter to expand
 	m, _ = sendKey(m, tea.KeyEnter)
 
-	// Items should be hidden — fewer navigable items
-	assert.Less(t, len(m.navigable), countBefore, "collapsing should reduce navigable items")
-	assert.True(t, m.collapsed["my-pipe"], "pipeline should be collapsed")
+	// Items should be visible — more navigable items
+	assert.Greater(t, len(m.navigable), countBefore, "expanding should add navigable items")
+	assert.False(t, m.collapsed["my-pipe"], "pipeline should be expanded")
 }
 
-func TestPipelineListModel_Collapse_EnterAgainExpands(t *testing.T) {
+func TestPipelineListModel_Collapse_EnterAgainCollapses(t *testing.T) {
 	finished := []FinishedPipeline{
 		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
 	}
 	m := newTestListModel(nil, finished, nil)
 
-	// Collapse
-	m, _ = sendKey(m, tea.KeyEnter)
+	// Starts collapsed — expand first
 	require.True(t, m.collapsed["my-pipe"])
-	collapsedCount := len(m.navigable)
-
-	// Expand
 	m, _ = sendKey(m, tea.KeyEnter)
-	assert.False(t, m.collapsed["my-pipe"])
-	assert.Greater(t, len(m.navigable), collapsedCount, "expanding should restore items")
+	require.False(t, m.collapsed["my-pipe"])
+	expandedCount := len(m.navigable)
+
+	// Collapse again
+	m, _ = sendKey(m, tea.KeyEnter)
+	assert.True(t, m.collapsed["my-pipe"])
+	assert.Less(t, len(m.navigable), expandedCount, "collapsing should hide items")
 }
 
 func TestPipelineListModel_Collapse_CursorSkipsHiddenItems(t *testing.T) {
 	// Two pipelines: alpha with finished runs, beta as available
+	// Both start collapsed by default — finished items already hidden
 	finished := []FinishedPipeline{
 		{RunID: "f1", Name: "alpha-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
 		{RunID: "f2", Name: "alpha-pipe", Status: "failed", Duration: time.Minute, StartedAt: time.Now()},
@@ -791,9 +805,7 @@ func TestPipelineListModel_Collapse_CursorSkipsHiddenItems(t *testing.T) {
 	avail := []PipelineInfo{{Name: "beta-pipe"}}
 	m := newTestListModel(nil, finished, avail)
 
-	// Collapse alpha-pipe (cursor is on it at index 0)
-	m, _ = sendKey(m, tea.KeyEnter)
-	require.True(t, m.collapsed["alpha-pipe"])
+	require.True(t, m.collapsed["alpha-pipe"], "alpha-pipe should start collapsed")
 
 	// Navigate down — should skip hidden finished items and land on beta-pipe
 	m, _ = sendKey(m, tea.KeyDown)
@@ -808,14 +820,14 @@ func TestPipelineListModel_Collapse_IndicatorRendering(t *testing.T) {
 	}
 	m := newTestListModel(nil, finished, nil)
 
-	// Expanded (default): should show ▼
+	// Collapsed (default): should show ▶
 	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "▼")
+	assert.Contains(t, view, "▶")
 
-	// Collapse
+	// Expand
 	m, _ = sendKey(m, tea.KeyEnter)
 	view = listStripAnsi(m.View())
-	assert.Contains(t, view, "▶")
+	assert.Contains(t, view, "▼")
 }
 
 func TestPipelineListModel_Collapse_NoIndicatorForLeafNodes(t *testing.T) {
