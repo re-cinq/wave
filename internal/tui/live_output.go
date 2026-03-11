@@ -62,6 +62,26 @@ func (b *EventBuffer) Len() int {
 	return b.count
 }
 
+// stepDashState tracks per-step dashboard state for the structured progress view.
+type stepDashState struct {
+	stepID         string
+	persona        string
+	model          string
+	adapter        string
+	status         string // "not_started", "running", "completed", "failed", "retrying"
+	startedAt      time.Time
+	durationMs     int64
+	tokensIn       int
+	tokensOut      int
+	tokensUsed     int
+	lastToolName   string
+	lastToolTarget string
+	contractStatus string // "", "passed", "failed", "soft_failure"
+	contractSchema string
+	artifacts      []string
+	message        string
+}
+
 // DisplayFlags tracks which event categories are visible in the live output.
 type DisplayFlags struct {
 	Verbose    bool
@@ -354,6 +374,11 @@ type LiveOutputModel struct {
 	// Handover tracking for rich output (tree-formatted metadata on step completion)
 	handoverInfo map[string]*display.HandoverInfo
 	stepOrder    []string
+
+	// Dashboard state
+	dashSteps   []*stepDashState
+	dashStepMap map[string]*stepDashState
+	showLog     bool // true = event log, false = dashboard (default)
 }
 
 const (
@@ -372,6 +397,7 @@ func NewLiveOutputModel(runID, pipelineName string, buffer *EventBuffer, started
 		startedAt:    startedAt,
 		totalSteps:   totalSteps,
 		handoverInfo: make(map[string]*display.HandoverInfo),
+		dashStepMap:  make(map[string]*stepDashState),
 	}
 }
 
@@ -388,14 +414,18 @@ func (m *LiveOutputModel) SetSize(w, h int) {
 	m.updateViewportContent()
 }
 
-// updateViewportContent refreshes the viewport content from the buffer.
+// updateViewportContent refreshes the viewport content from the buffer or dashboard.
 func (m *LiveOutputModel) updateViewportContent() {
-	lines := m.buffer.Lines()
-	if len(lines) == 0 {
-		m.viewport.SetContent("Waiting for events...")
-		return
+	if m.showLog {
+		lines := m.buffer.Lines()
+		if len(lines) == 0 {
+			m.viewport.SetContent("Waiting for events...")
+			return
+		}
+		m.viewport.SetContent(strings.Join(lines, "\n"))
+	} else {
+		m.viewport.SetContent(m.renderDashboard())
 	}
-	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
 
@@ -439,6 +469,225 @@ func (m *LiveOutputModel) rebuildBuffer() {
 
 	m.updateViewportContent()
 }
+
+// getOrCreateDashStep returns the dashboard state for a step, creating it if needed.
+func (m *LiveOutputModel) getOrCreateDashStep(stepID string) *stepDashState {
+	if s, ok := m.dashStepMap[stepID]; ok {
+		return s
+	}
+	s := &stepDashState{stepID: stepID, status: "not_started"}
+	m.dashStepMap[stepID] = s
+	m.dashSteps = append(m.dashSteps, s)
+	return s
+}
+
+// updateDashStepFromEvent updates dashboard state from a live event.Event.
+func (m *LiveOutputModel) updateDashStepFromEvent(evt event.Event) {
+	if evt.StepID == "" {
+		return
+	}
+	s := m.getOrCreateDashStep(evt.StepID)
+	switch evt.State {
+	case event.StateStarted:
+		s.status = "running"
+		s.startedAt = time.Now()
+		if evt.Persona != "" {
+			s.persona = evt.Persona
+		}
+		if evt.Model != "" {
+			s.model = evt.Model
+		}
+		if evt.Adapter != "" {
+			s.adapter = evt.Adapter
+		}
+	case event.StateRunning:
+		s.status = "running"
+		if evt.Message != "" {
+			s.message = evt.Message
+		}
+	case event.StateCompleted:
+		s.status = "completed"
+		s.durationMs = evt.DurationMs
+		s.tokensIn = evt.TokensIn
+		s.tokensOut = evt.TokensOut
+		s.tokensUsed = evt.TokensUsed
+		if len(evt.Artifacts) > 0 {
+			s.artifacts = evt.Artifacts
+		}
+	case event.StateFailed:
+		s.status = "failed"
+		s.message = evt.Message
+		s.durationMs = evt.DurationMs
+	case event.StateRetrying:
+		s.status = "retrying"
+		s.message = evt.Message
+	case event.StateStreamActivity:
+		s.lastToolName = evt.ToolName
+		s.lastToolTarget = evt.ToolTarget
+	case event.StateContractValidating:
+		s.contractSchema = evt.ValidationPhase
+	case "contract_passed":
+		s.contractStatus = "passed"
+	case "contract_failed":
+		s.contractStatus = "failed"
+	case "contract_soft_failure":
+		s.contractStatus = "soft_failure"
+	}
+}
+
+// updateDashStepFromRecord updates dashboard state from a stored LogRecord.
+func (m *LiveOutputModel) updateDashStepFromRecord(rec state.LogRecord) {
+	if rec.StepID == "" {
+		return
+	}
+	s := m.getOrCreateDashStep(rec.StepID)
+	switch rec.State {
+	case event.StateStarted:
+		s.status = "running"
+		s.startedAt = rec.Timestamp
+		if rec.Persona != "" {
+			s.persona = rec.Persona
+		}
+	case event.StateRunning:
+		s.status = "running"
+		if rec.Message != "" {
+			s.message = rec.Message
+		}
+	case event.StateCompleted:
+		s.status = "completed"
+		s.durationMs = rec.DurationMs
+		s.tokensUsed = rec.TokensUsed
+	case event.StateFailed:
+		s.status = "failed"
+		s.message = rec.Message
+	case event.StateRetrying:
+		s.status = "retrying"
+	case event.StateContractValidating:
+		s.contractSchema = rec.Message
+	case "contract_passed":
+		s.contractStatus = "passed"
+	case "contract_failed":
+		s.contractStatus = "failed"
+	case "contract_soft_failure":
+		s.contractStatus = "soft_failure"
+	case event.StateStreamActivity:
+		if rec.Message != "" {
+			parts := strings.SplitN(rec.Message, " ", 2)
+			s.lastToolName = parts[0]
+			if len(parts) > 1 {
+				s.lastToolTarget = parts[1]
+			}
+		}
+	}
+}
+
+// renderDashboard renders the structured per-step dashboard view.
+func (m *LiveOutputModel) renderDashboard() string {
+	nc := noColor()
+
+	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	activeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	failedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	if nc {
+		successStyle = lipgloss.NewStyle()
+		activeStyle = lipgloss.NewStyle()
+		failedStyle = lipgloss.NewStyle()
+		mutedStyle = lipgloss.NewStyle()
+	}
+
+	var lines []string
+
+	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+	for _, s := range m.dashSteps {
+		switch s.status {
+		case "completed":
+			line := fmt.Sprintf("✓ %s", s.stepID)
+			if s.persona != "" {
+				line += fmt.Sprintf(" (%s)", s.persona)
+			}
+			if s.model != "" {
+				line += fmt.Sprintf(" [%s]", s.model)
+			}
+			durationText := formatCompactDuration(time.Duration(s.durationMs) * time.Millisecond)
+			tokenInfo := ""
+			if s.tokensIn > 0 || s.tokensOut > 0 {
+				tokenInfo = fmt.Sprintf(", %s in / %s out", formatTokenCount(s.tokensIn), formatTokenCount(s.tokensOut))
+			} else if s.tokensUsed > 0 {
+				tokenInfo = fmt.Sprintf(", %s tokens", formatTokenCount(s.tokensUsed))
+			}
+			line += fmt.Sprintf(" (%s%s)", durationText, tokenInfo)
+			if nc {
+				line = strings.Replace(line, "✓", "*", 1)
+			}
+			lines = append(lines, successStyle.Render(line))
+
+			// Verbose: show handover metadata
+			if m.flags.Verbose {
+				if info, exists := m.handoverInfo[s.stepID]; exists {
+					for _, hl := range display.BuildHandoverLines(s.stepID, info, m.stepOrder) {
+						lines = append(lines, mutedStyle.Render("   "+hl))
+					}
+				}
+			}
+
+		case "running", "retrying":
+			frame := (time.Now().UnixMilli() / 80) % int64(len(spinners))
+			icon := spinners[frame]
+			if nc {
+				icon = ">"
+			}
+
+			line := fmt.Sprintf("%s %s", icon, s.stepID)
+			if s.persona != "" {
+				line += fmt.Sprintf(" (%s)", s.persona)
+			}
+			if !s.startedAt.IsZero() {
+				line += fmt.Sprintf(" (%s)", formatElapsed(time.Since(s.startedAt)))
+			}
+			lines = append(lines, activeStyle.Render(line))
+
+			// Tool activity line
+			if s.lastToolName != "" {
+				target := s.lastToolTarget
+				if len(target) > 60 {
+					target = target[:57] + "..."
+				}
+				toolLine := fmt.Sprintf("   %s %s", s.lastToolName, target)
+				lines = append(lines, mutedStyle.Render(toolLine))
+			}
+
+		case "failed":
+			line := fmt.Sprintf("✗ %s", s.stepID)
+			if s.persona != "" {
+				line += fmt.Sprintf(" (%s)", s.persona)
+			}
+			if s.durationMs > 0 {
+				line += fmt.Sprintf(" (%s)", formatCompactDuration(time.Duration(s.durationMs)*time.Millisecond))
+			}
+			if nc {
+				line = strings.Replace(line, "✗", "x", 1)
+			}
+			lines = append(lines, failedStyle.Render(line))
+
+		default: // not_started
+			line := fmt.Sprintf("○ %s", s.stepID)
+			if s.persona != "" {
+				line += fmt.Sprintf(" (%s)", s.persona)
+			}
+			lines = append(lines, mutedStyle.Render(line))
+		}
+	}
+
+	if len(lines) == 0 {
+		return "Waiting for pipeline to start..."
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // Update handles messages for the live output model.
 func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -547,6 +796,9 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 		// Store raw event for flag-toggle rebuilds
 		m.rawEvents = append(m.rawEvents, evt)
 
+		// Update dashboard state
+		m.updateDashStepFromEvent(evt)
+
 		// Format and append event line
 		if shouldFormat(evt, m.flags) {
 			if evt.State == event.StateFailed {
@@ -582,10 +834,35 @@ func (m LiveOutputModel) Update(msg tea.Msg) (LiveOutputModel, tea.Cmd) {
 			}
 		}
 
+		// In dashboard mode, start tick for live elapsed time
+		if !m.showLog && !m.completed {
+			return m, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+				return DashboardTickMsg{}
+			})
+		}
+		return m, nil
+
+	case DashboardTickMsg:
+		if !m.showLog && !m.completed {
+			m.updateViewportContent()
+			return m, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+				return DashboardTickMsg{}
+			})
+		}
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "l":
+			m.showLog = !m.showLog
+			if m.showLog {
+				m.rebuildBuffer()
+			}
+			m.updateViewportContent()
+			if m.autoScroll {
+				m.viewport.GotoBottom()
+			}
+			return m, nil
 		case "v":
 			m.flags.Verbose = !m.flags.Verbose
 			m.rebuildBuffer()
@@ -660,12 +937,30 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 	// Line 1: Pipeline name
 	line1 := titleStyle.Render(m.pipelineName)
 
-	// Line 2: Status with step progress
+	// Line 2: Status with step progress and completion counts
 	var statusParts []string
 	if m.completed {
 		statusParts = append(statusParts, "Finished")
 	} else if m.stepNumber > 0 {
-		statusParts = append(statusParts, fmt.Sprintf("Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep))
+		status := fmt.Sprintf("Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
+		// Add completion counts from dashboard state
+		var okCount, failCount int
+		for _, s := range m.dashSteps {
+			switch s.status {
+			case "completed":
+				okCount++
+			case "failed":
+				failCount++
+			}
+		}
+		if okCount > 0 || failCount > 0 {
+			counts := fmt.Sprintf("%d ok", okCount)
+			if failCount > 0 {
+				counts += fmt.Sprintf(", %d fail", failCount)
+			}
+			status += fmt.Sprintf(" (%s)", counts)
+		}
+		statusParts = append(statusParts, status)
 	} else {
 		statusParts = append(statusParts, "Running")
 	}
@@ -707,7 +1002,11 @@ func (m LiveOutputModel) renderFooter(nc bool) string {
 	if m.flags.OutputOnly {
 		outputFlag = "[o] output-only"
 	}
-	parts = append(parts, verboseFlag, debugFlag, outputFlag)
+	logFlag := "[ ] log"
+	if m.showLog {
+		logFlag = "[l] log"
+	}
+	parts = append(parts, verboseFlag, debugFlag, outputFlag, logFlag)
 
 	flagsStr := strings.Join(parts, "  ")
 

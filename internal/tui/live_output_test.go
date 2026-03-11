@@ -531,6 +531,7 @@ func TestLiveOutputModel_View_RendersThreeParts(t *testing.T) {
 	buf := NewEventBuffer(100)
 	buf.Append("[specify] Starting...")
 	m := NewLiveOutputModel("run-1", "test-pipeline", buf, time.Now(), 6)
+	m.showLog = true // Switch to log view to test buffer rendering
 	m.SetSize(120, 30)
 
 	view := m.View()
@@ -545,7 +546,14 @@ func TestLiveOutputModel_View_EmptyBuffer_ShowsWaiting(t *testing.T) {
 	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
 	m.SetSize(120, 30)
 
+	// Dashboard mode (default): shows "Waiting for pipeline to start..."
 	view := m.View()
+	assert.Contains(t, view, "Waiting for pipeline to start...")
+
+	// Log mode: shows "Waiting for events..."
+	m.showLog = true
+	m.updateViewportContent()
+	view = m.View()
 	assert.Contains(t, view, "Waiting for events...")
 }
 
@@ -850,4 +858,303 @@ func TestLiveOutputModel_StepOrder_TracksCorrectly(t *testing.T) {
 		Event: event.Event{StepID: "specify", State: event.StateStarted},
 	})
 	assert.Equal(t, []string{"specify", "plan", "implement"}, m.stepOrder)
+}
+
+// ===========================================================================
+// Dashboard view tests
+// ===========================================================================
+
+func TestLiveOutputModel_DashboardIsDefault(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	assert.False(t, m.showLog, "dashboard should be the default view (showLog=false)")
+	assert.NotNil(t, m.dashStepMap, "dashStepMap should be initialized")
+}
+
+func TestLiveOutputModel_DashboardState_UpdatesFromEvents(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.SetSize(120, 40)
+
+	// Step 1 starts
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator", Model: "opus", Adapter: "claude"},
+	})
+
+	assert.Len(t, m.dashSteps, 1)
+	s := m.dashStepMap["specify"]
+	assert.Equal(t, "running", s.status)
+	assert.Equal(t, "navigator", s.persona)
+	assert.Equal(t, "opus", s.model)
+	assert.Equal(t, "claude", s.adapter)
+
+	// Tool activity
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStreamActivity, ToolName: "Read", ToolTarget: "main.go"},
+	})
+	assert.Equal(t, "Read", m.dashStepMap["specify"].lastToolName)
+	assert.Equal(t, "main.go", m.dashStepMap["specify"].lastToolTarget)
+
+	// Step completes
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{
+			StepID: "specify", State: event.StateCompleted,
+			DurationMs: 30000, TokensIn: 50000, TokensOut: 3000,
+			Artifacts: []string{".wave/artifacts/spec.md"},
+		},
+	})
+	s = m.dashStepMap["specify"]
+	assert.Equal(t, "completed", s.status)
+	assert.Equal(t, int64(30000), s.durationMs)
+	assert.Equal(t, 50000, s.tokensIn)
+	assert.Equal(t, 3000, s.tokensOut)
+	assert.Equal(t, []string{".wave/artifacts/spec.md"}, s.artifacts)
+
+	// Step 2 starts and fails
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateStarted, Persona: "navigator"},
+	})
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateFailed, Message: "context exhaustion", DurationMs: 10000},
+	})
+	assert.Len(t, m.dashSteps, 2)
+	assert.Equal(t, "failed", m.dashStepMap["plan"].status)
+	assert.Equal(t, "context exhaustion", m.dashStepMap["plan"].message)
+}
+
+func TestLiveOutputModel_DashboardState_UpdatesFromStoredRecords(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+
+	now := time.Now()
+	records := []state.LogRecord{
+		{StepID: "specify", State: event.StateStarted, Persona: "navigator", Timestamp: now},
+		{StepID: "specify", State: event.StateCompleted, DurationMs: 20000, TokensUsed: 5000},
+		{StepID: "plan", State: event.StateStarted, Persona: "craftsman", Timestamp: now},
+	}
+	for _, rec := range records {
+		m.updateDashStepFromRecord(rec)
+	}
+
+	assert.Len(t, m.dashSteps, 2)
+	assert.Equal(t, "completed", m.dashStepMap["specify"].status)
+	assert.Equal(t, "navigator", m.dashStepMap["specify"].persona)
+	assert.Equal(t, int64(20000), m.dashStepMap["specify"].durationMs)
+	assert.Equal(t, 5000, m.dashStepMap["specify"].tokensUsed)
+	assert.Equal(t, "running", m.dashStepMap["plan"].status)
+	assert.Equal(t, "craftsman", m.dashStepMap["plan"].persona)
+}
+
+func TestLiveOutputModel_RenderDashboard_CompletedStep(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	// Add a completed step
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator", Model: "opus"},
+	})
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateCompleted, DurationMs: 42000, TokensIn: 50000, TokensOut: 3200},
+	})
+
+	dashboard := m.renderDashboard()
+	assert.Contains(t, dashboard, "specify")
+	assert.Contains(t, dashboard, "navigator")
+	assert.Contains(t, dashboard, "opus")
+	assert.Contains(t, dashboard, "42s")
+	assert.Contains(t, dashboard, "50.0k in")
+	assert.Contains(t, dashboard, "3.2k out")
+}
+
+func TestLiveOutputModel_RenderDashboard_RunningStep(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	dashboard := m.renderDashboard()
+	assert.Contains(t, dashboard, "specify")
+	assert.Contains(t, dashboard, "navigator")
+	// Running step should show elapsed time format (MM:SS)
+	assert.Contains(t, dashboard, "00:0")
+}
+
+func TestLiveOutputModel_RenderDashboard_FailedStep(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateStarted, Persona: "craftsman"},
+	})
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateFailed, DurationMs: 5000},
+	})
+
+	dashboard := m.renderDashboard()
+	assert.Contains(t, dashboard, "plan")
+	assert.Contains(t, dashboard, "craftsman")
+	assert.Contains(t, dashboard, "5s")
+}
+
+func TestLiveOutputModel_RenderDashboard_VerboseHandover(t *testing.T) {
+	os.Setenv("NO_COLOR", "1")
+	defer os.Unsetenv("NO_COLOR")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	// Start both steps so handover target can be resolved
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator"},
+	})
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	// Contract validation
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: "contract_passed"},
+	})
+
+	// Complete with artifacts
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateCompleted, DurationMs: 5000, Artifacts: []string{".wave/artifacts/spec.md"}},
+	})
+
+	// Without verbose: no handover metadata
+	dashboard := m.renderDashboard()
+	assert.NotContains(t, dashboard, "artifact:")
+	assert.NotContains(t, dashboard, "handover")
+
+	// With verbose: handover metadata appears
+	m.flags.Verbose = true
+	dashboard = m.renderDashboard()
+	assert.Contains(t, dashboard, "artifact:")
+	assert.Contains(t, dashboard, "spec.md")
+	assert.Contains(t, dashboard, "handover")
+}
+
+func TestLiveOutputModel_ShowLog_Toggle(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	// Default is dashboard mode
+	assert.False(t, m.showLog)
+
+	// Send an event
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	// Toggle to log view
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	assert.True(t, m.showLog)
+
+	// Viewport should contain event log content
+	view := m.View()
+	assert.Contains(t, view, "[specify]")
+	assert.Contains(t, view, "Starting...")
+
+	// Toggle back to dashboard
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	assert.False(t, m.showLog)
+
+	// Viewport should contain dashboard content
+	view = m.View()
+	assert.Contains(t, view, "specify")
+	assert.Contains(t, view, "navigator")
+}
+
+func TestLiveOutputModel_Footer_ShowsLogToggle(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 6)
+	m.SetSize(120, 40)
+
+	view := m.View()
+	assert.Contains(t, view, "[ ] log")
+
+	// Toggle log on
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	view = m.View()
+	assert.Contains(t, view, "[l] log")
+}
+
+func TestLiveOutputModel_Header_ShowsCompletionCounts(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.SetSize(120, 40)
+
+	// Start step 1
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, TotalSteps: 3},
+	})
+
+	// Complete step 1
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateCompleted, DurationMs: 5000},
+	})
+
+	// Start step 2
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "plan", State: event.StateStarted},
+	})
+
+	nc := noColor()
+	header := m.renderHeader(nc)
+	assert.Contains(t, header, "1 ok")
+}
+
+func TestLiveOutputModel_DashboardTickMsg_UpdatesViewport(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.SetSize(120, 40)
+
+	// Start a running step
+	m, _ = m.Update(PipelineEventMsg{
+		RunID: "run-1",
+		Event: event.Event{StepID: "specify", State: event.StateStarted, Persona: "navigator"},
+	})
+
+	// Dashboard tick should update and return a new tick command
+	m, cmd := m.Update(DashboardTickMsg{})
+	assert.NotNil(t, cmd, "dashboard tick should return a new tick command while running")
+
+	// Complete the pipeline — tick should stop
+	m.completed = true
+	m, cmd = m.Update(DashboardTickMsg{})
+	assert.Nil(t, cmd, "dashboard tick should return nil when pipeline is completed")
 }

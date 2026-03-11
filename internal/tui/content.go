@@ -426,6 +426,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 							eventCount = len(events)
 							for _, ev := range events {
 								liveModel.storedRecords = append(liveModel.storedRecords, ev)
+								liveModel.updateDashStepFromRecord(ev)
 								if shouldFormatRecord(ev, liveModel.flags) {
 									buf.Append(formatStoredEvent(ev))
 								}
@@ -443,6 +444,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					})
 					enterCmds = append(enterCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
 						return DetachedEventPollTickMsg{RunID: capturedRunID}
+					}))
+					enterCmds = append(enterCmds, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+						return DashboardTickMsg{}
 					}))
 				}
 
@@ -914,6 +918,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.detail, cmd = m.detail.Update(msg)
 		return m, cmd
 
+	case DashboardTickMsg:
+		var cmd tea.Cmd
+		m.detail, cmd = m.detail.Update(msg)
+		return m, cmd
+
 	case TransitionTimerMsg:
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
@@ -974,6 +983,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				eventCount = len(events)
 				for _, ev := range events {
 					live.storedRecords = append(live.storedRecords, ev)
+					live.updateDashStepFromRecord(ev)
 					if shouldFormatRecord(ev, live.flags) {
 						buf.Append(formatStoredEvent(ev))
 					}
@@ -1000,7 +1010,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		pollCmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg {
 			return DetachedEventPollTickMsg{RunID: capturedRunID}
 		})
-		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd, pollCmd}
+		dashTickCmd := tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+			return DashboardTickMsg{}
+		})
+		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd, pollCmd, dashTickCmd}
 		if listCmd != nil {
 			batchCmds = append(batchCmds, listCmd)
 		}
@@ -1076,6 +1089,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				if m.detail.liveOutput != nil {
 					for _, ev := range events {
 						m.detail.liveOutput.storedRecords = append(m.detail.liveOutput.storedRecords, ev)
+						m.detail.liveOutput.updateDashStepFromRecord(ev)
 						if shouldFormatRecord(ev, m.detail.liveOutput.flags) {
 							m.detail.liveOutput.buffer.Append(formatStoredEvent(ev))
 						}

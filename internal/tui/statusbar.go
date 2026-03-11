@@ -79,7 +79,7 @@ func (m StatusBarModel) View() string {
 	} else if m.composeActive {
 		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
-		hintsText = "v: verbose  d: debug  o: output-only  c: cancel  ↑↓: scroll  Esc: back"
+		hintsText = "v: verbose  d: debug  o: output-only  l: log  c: cancel  ↑↓: scroll  Esc: back"
 	} else if m.runningInfoActive && m.focusPane == FocusPaneRight {
 		hintsText = "c: dismiss  l: logs  ↑↓: scroll  Esc: back"
 	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
