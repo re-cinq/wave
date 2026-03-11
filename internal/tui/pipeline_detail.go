@@ -525,6 +525,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 
 	var sb strings.Builder
 
+	sb.WriteString(labelStyle.Render("Pipeline: "))
 	sb.WriteString(titleStyle.Render(detail.Name))
 	sb.WriteString("\n")
 
@@ -535,10 +536,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 	}
 
 	if detail.Category != "" {
-		sb.WriteString("\n")
-		sb.WriteString(labelStyle.Render("Category: "))
-		sb.WriteString(detail.Category)
-		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("\n%s %s\n", labelStyle.Render("Category:"), detail.Category))
 	}
 
 	if detail.StepCount > 0 || len(detail.Steps) > 0 {

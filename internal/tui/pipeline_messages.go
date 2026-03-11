@@ -62,6 +62,7 @@ type LaunchRequestMsg struct {
 type PipelineLaunchedMsg struct {
 	RunID        string
 	PipelineName string
+	Input        string
 	Verbose      bool // Propagate launch flags to live output display
 	Debug        bool
 }

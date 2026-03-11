@@ -118,12 +118,14 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 
 	// Return immediate PipelineLaunchedMsg — no blocking executor cmd
 	pipelineName := config.PipelineName
+	input := config.Input
 	verbose := config.Verbose
 	debug := config.Debug
 	return func() tea.Msg {
 		return PipelineLaunchedMsg{
 			RunID:        runID,
 			PipelineName: pipelineName,
+			Input:        input,
 			Verbose:      verbose,
 			Debug:        debug,
 		}
