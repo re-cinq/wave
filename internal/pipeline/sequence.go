@@ -39,6 +39,7 @@ type SequenceExecutor struct {
 	baseOpts        []ExecutorOption
 	emitter         event.EventEmitter
 	store           state.StateStore
+	mu              sync.Mutex                   // protects pipelineOutputs
 	pipelineOutputs map[string]map[string][]byte // pipelineName -> artifactName -> data
 }
 
@@ -310,7 +311,7 @@ func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage
 			}
 		}
 		if len(failedNames) > 0 {
-			err = fmt.Errorf("%w: %s", ErrParallelStagePartialFailure, fmt.Sprintf("pipelines failed: %v", failedNames))
+			err = fmt.Errorf("%w: %v", ErrParallelStagePartialFailure, failedNames)
 		}
 	}
 
@@ -354,9 +355,11 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	if s.store != nil {
 		opts = append(opts, WithStateStore(s.store))
 	}
+	s.mu.Lock()
 	if len(s.pipelineOutputs) > 0 {
 		opts = append(opts, WithCrossPipelineArtifacts(s.pipelineOutputs))
 	}
+	s.mu.Unlock()
 
 	executor := s.newExecutor(opts...)
 
@@ -389,12 +392,21 @@ func (s *SequenceExecutor) recordPipelineOutputs(p *Pipeline, runID string, wsRo
 		return
 	}
 
+	pipelineName := p.Metadata.Name
 	outputs := make(map[string][]byte)
 	terminalStep := p.Steps[len(p.Steps)-1]
 	for _, art := range terminalStep.OutputArtifacts {
 		data, err := LoadStepArtifact(wsRoot, runID, terminalStep.ID, art.Name)
 		if err == nil {
 			outputs[art.Name] = data
+		} else {
+			s.emit(event.Event{
+				Timestamp:  time.Now(),
+				State:      "warning",
+				PipelineID: pipelineName,
+				StepID:     terminalStep.ID,
+				Message:    fmt.Sprintf("Failed to load output artifact %q from step %q: %v", art.Name, terminalStep.ID, err),
+			})
 		}
 	}
 
@@ -410,10 +422,26 @@ func (s *SequenceExecutor) recordPipelineOutputs(p *Pipeline, runID string, wsRo
 								val, extractErr := ExtractJSONPath(data, "."+po.Field)
 								if extractErr == nil {
 									outputs[name] = []byte(val)
+								} else {
+									s.emit(event.Event{
+										Timestamp:  time.Now(),
+										State:      "warning",
+										PipelineID: pipelineName,
+										StepID:     step.ID,
+										Message:    fmt.Sprintf("Failed to extract field %q from artifact %q in step %q: %v", po.Field, art.Name, step.ID, extractErr),
+									})
 								}
 							} else {
 								outputs[name] = data
 							}
+						} else {
+							s.emit(event.Event{
+								Timestamp:  time.Now(),
+								State:      "warning",
+								PipelineID: pipelineName,
+								StepID:     step.ID,
+								Message:    fmt.Sprintf("Failed to load pipeline output artifact %q from step %q: %v", art.Name, step.ID, err),
+							})
 						}
 					}
 				}
@@ -422,12 +450,16 @@ func (s *SequenceExecutor) recordPipelineOutputs(p *Pipeline, runID string, wsRo
 	}
 
 	if len(outputs) > 0 {
-		s.pipelineOutputs[p.Metadata.Name] = outputs
+		s.mu.Lock()
+		s.pipelineOutputs[pipelineName] = outputs
+		s.mu.Unlock()
 	}
 }
 
 // GetPipelineOutputs returns the captured outputs for cross-pipeline handoff.
 func (s *SequenceExecutor) GetPipelineOutputs() map[string]map[string][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.pipelineOutputs
 }
 

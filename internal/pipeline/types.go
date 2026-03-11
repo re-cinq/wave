@@ -174,6 +174,18 @@ type ArtifactRef struct {
 	Pipeline   string `yaml:"pipeline,omitempty"`    // Cross-pipeline artifact source (pipeline name)
 }
 
+// Validate checks that the ArtifactRef is well-formed.
+// Step and Pipeline are mutually exclusive: Step references an artifact from
+// another step in the same pipeline, while Pipeline references an artifact
+// from a different pipeline's outputs.
+func (r ArtifactRef) Validate(stepID string, idx int) error {
+	if r.Step != "" && r.Pipeline != "" {
+		return fmt.Errorf("step %q inject_artifacts[%d]: step and pipeline are mutually exclusive (got step=%q, pipeline=%q)",
+			stepID, idx, r.Step, r.Pipeline)
+	}
+	return nil
+}
+
 type WorkspaceConfig struct {
 	Root   string  `yaml:"root,omitempty"`
 	Mount  []Mount `yaml:"mount,omitempty"`

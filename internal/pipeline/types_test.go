@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -477,6 +478,52 @@ func TestStep_GetTimeout(t *testing.T) {
 			got := step.GetTimeout()
 			if got != tt.wantDuration {
 				t.Errorf("GetTimeout() = %v, want %v", got, tt.wantDuration)
+			}
+		})
+	}
+}
+
+func TestArtifactRef_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		ref     ArtifactRef
+		wantErr bool
+	}{
+		{
+			name:    "step only is valid",
+			ref:     ArtifactRef{Step: "analyze", Artifact: "report", As: "input"},
+			wantErr: false,
+		},
+		{
+			name:    "pipeline only is valid",
+			ref:     ArtifactRef{Pipeline: "other", Artifact: "report", As: "input"},
+			wantErr: false,
+		},
+		{
+			name:    "neither step nor pipeline is valid",
+			ref:     ArtifactRef{Artifact: "report", As: "input"},
+			wantErr: false,
+		},
+		{
+			name:    "both step and pipeline is invalid",
+			ref:     ArtifactRef{Step: "analyze", Pipeline: "other", Artifact: "report", As: "input"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.ref.Validate("test-step", 0)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+			if tt.wantErr && err != nil {
+				if !strings.Contains(err.Error(), "mutually exclusive") {
+					t.Errorf("error should mention mutual exclusivity, got: %v", err)
+				}
 			}
 		})
 	}

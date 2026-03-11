@@ -3,6 +3,9 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -645,5 +648,261 @@ func (a *callCounterFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRun
 		return nil, a.failErr
 	}
 	return a.successAdapter.Run(ctx, cfg)
+}
+
+// TestSequenceExecutor_RecordPipelineOutputs_ConcurrentRace verifies that
+// concurrent calls to recordPipelineOutputs do not cause a data race.
+// This test is meaningful only when run with -race.
+func TestSequenceExecutor_RecordPipelineOutputs_ConcurrentRace(t *testing.T) {
+	const numGoroutines = 10
+
+	wsRoot := t.TempDir()
+
+	// Build N pipelines, each with a terminal step that has an output artifact.
+	// Pre-create the artifact files on disk so LoadStepArtifact succeeds.
+	type pipelineSetup struct {
+		pipeline *Pipeline
+		runID    string
+	}
+	setups := make([]pipelineSetup, numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		name := fmt.Sprintf("pipeline-%d", i)
+		stepID := "final-step"
+		runID := fmt.Sprintf("run-%d", i)
+		artifactName := "result.json"
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: name},
+			Steps: []Step{
+				{
+					ID:      stepID,
+					Persona: "navigator",
+					OutputArtifacts: []ArtifactDef{
+						{Name: artifactName},
+					},
+				},
+			},
+		}
+
+		// Create the artifact file at the location LoadStepArtifact checks:
+		// wsRoot/<runID>/<stepID>/.wave/output/<artifactName>
+		artifactDir := filepath.Join(wsRoot, runID, stepID, ".wave", "output")
+		require.NoError(t, os.MkdirAll(artifactDir, 0755))
+		content := fmt.Sprintf(`{"pipeline": "%s", "index": %d}`, name, i)
+		require.NoError(t, os.WriteFile(filepath.Join(artifactDir, artifactName), []byte(content), 0644))
+
+		setups[i] = pipelineSetup{pipeline: p, runID: runID}
+	}
+
+	seq := NewSequenceExecutor(
+		newSequenceTestExecutorFactory(adapter.NewMockAdapter()),
+		nil,
+		nil, // no emitter needed
+		nil,
+	)
+
+	// Call recordPipelineOutputs concurrently from multiple goroutines.
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			seq.recordPipelineOutputs(setups[i].pipeline, setups[i].runID, wsRoot)
+		}()
+	}
+	wg.Wait()
+
+	// Verify all pipeline outputs were recorded correctly.
+	outputs := seq.GetPipelineOutputs()
+	require.Len(t, outputs, numGoroutines, "all pipelines should have recorded outputs")
+
+	for i := 0; i < numGoroutines; i++ {
+		name := fmt.Sprintf("pipeline-%d", i)
+		pipeOut, ok := outputs[name]
+		require.True(t, ok, "outputs should contain pipeline %s", name)
+		data, ok := pipeOut["result.json"]
+		require.True(t, ok, "pipeline %s should have result.json artifact", name)
+		expected := fmt.Sprintf(`{"pipeline": "%s", "index": %d}`, name, i)
+		assert.Equal(t, expected, string(data), "artifact content mismatch for pipeline %s", name)
+	}
+}
+
+// TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk verifies that
+// cross-pipeline artifacts are actually written to the workspace filesystem
+// when injectArtifacts processes a step with a cross-pipeline artifact ref.
+func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
+	workspacePath := t.TempDir()
+
+	// Set up a DefaultPipelineExecutor with cross-pipeline artifacts.
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+	executor := NewDefaultPipelineExecutor(
+		mockAdapter,
+		WithCrossPipelineArtifacts(map[string]map[string][]byte{
+			"upstream-pipeline": {
+				"analysis.json": []byte(`{"score": 95, "passed": true}`),
+				"summary.md":    []byte("# Summary\n\nAll checks passed."),
+			},
+		}),
+	)
+
+	// Create a pipeline execution context (required by injectArtifacts).
+	execution := &PipelineExecution{
+		Pipeline: &Pipeline{
+			Metadata: PipelineMetadata{Name: "downstream-pipeline"},
+		},
+		States:        make(map[string]string),
+		Results:       make(map[string]map[string]interface{}),
+		ArtifactPaths: make(map[string]string),
+		Context:       NewPipelineContext("downstream-run-abc123", "downstream-pipeline", "consume-step"),
+		Status:        &PipelineStatus{ID: "downstream-run-abc123"},
+	}
+
+	tests := []struct {
+		name         string
+		step         Step
+		wantFiles    map[string]string // filename -> expected content
+		wantErr      bool
+		errContains  string
+	}{
+		{
+			name: "required cross-pipeline artifact is written to disk",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "upstream-pipeline",
+							Artifact: "analysis.json",
+						},
+					},
+				},
+			},
+			wantFiles: map[string]string{
+				"analysis.json": `{"score": 95, "passed": true}`,
+			},
+		},
+		{
+			name: "cross-pipeline artifact with alias writes under alias name",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "upstream-pipeline",
+							Artifact: "summary.md",
+							As:       "upstream-summary.md",
+						},
+					},
+				},
+			},
+			wantFiles: map[string]string{
+				"upstream-summary.md": "# Summary\n\nAll checks passed.",
+			},
+		},
+		{
+			name: "multiple cross-pipeline artifacts written in one step",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "upstream-pipeline",
+							Artifact: "analysis.json",
+						},
+						{
+							Pipeline: "upstream-pipeline",
+							Artifact: "summary.md",
+							As:       "report.md",
+						},
+					},
+				},
+			},
+			wantFiles: map[string]string{
+				"analysis.json": `{"score": 95, "passed": true}`,
+				"report.md":     "# Summary\n\nAll checks passed.",
+			},
+		},
+		{
+			name: "missing required cross-pipeline artifact errors",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "nonexistent-pipeline",
+							Artifact: "data.json",
+						},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "cross-pipeline artifact 'data.json' from pipeline 'nonexistent-pipeline' not found",
+		},
+		{
+			name: "missing optional cross-pipeline artifact is skipped",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "nonexistent-pipeline",
+							Artifact: "data.json",
+							Optional: true,
+						},
+					},
+				},
+			},
+			wantFiles: map[string]string{}, // no files written
+		},
+		{
+			name: "missing artifact name from existing pipeline errors",
+			step: Step{
+				ID:      "consume-step",
+				Persona: "navigator",
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{
+							Pipeline: "upstream-pipeline",
+							Artifact: "nonexistent.json",
+						},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "cross-pipeline artifact 'nonexistent.json' not found in pipeline 'upstream-pipeline' outputs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use a fresh workspace subdirectory for each subtest.
+			wsPath := filepath.Join(workspacePath, tt.name)
+			require.NoError(t, os.MkdirAll(wsPath, 0755))
+
+			err := executor.injectArtifacts(execution, &tt.step, wsPath)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+				return
+			}
+			require.NoError(t, err)
+
+			artifactsDir := filepath.Join(wsPath, ".wave", "artifacts")
+			for filename, expectedContent := range tt.wantFiles {
+				filePath := filepath.Join(artifactsDir, filename)
+				data, readErr := os.ReadFile(filePath)
+				require.NoError(t, readErr, "artifact file %s should exist on disk", filename)
+				assert.Equal(t, expectedContent, string(data), "content mismatch for %s", filename)
+			}
+		})
+	}
 }
 
