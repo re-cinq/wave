@@ -601,21 +601,22 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				},
 			)
 		}
-		// Multi-pipeline sequence — launch all pipelines.
-		// Each pipeline runs as an independent subprocess visible in the pipeline list.
+		// Multi-pipeline sequence — launch via orchestrated `wave compose` subprocess.
 		if len(msg.Sequence.Entries) > 0 {
 			m.composing = false
 			m.composeList = nil
 			m.composeDetail = nil
 
-			// Build launch commands for all pipelines in sequence
+			names := make([]string, len(msg.Sequence.Entries))
+			for i, e := range msg.Sequence.Entries {
+				names[i] = e.PipelineName
+			}
+
 			var cmds []tea.Cmd
 			cmds = append(cmds, func() tea.Msg { return ComposeActiveMsg{Active: false} })
-			for _, entry := range msg.Sequence.Entries {
-				pName := entry.PipelineName
-				cmds = append(cmds, func() tea.Msg {
-					return LaunchRequestMsg{Config: LaunchConfig{PipelineName: pName}}
-				})
+
+			if m.launcher != nil {
+				cmds = append(cmds, m.launcher.LaunchSequence(names, "", msg.Parallel, msg.Stages))
 			}
 			return m, tea.Batch(cmds...)
 		}
@@ -829,6 +830,58 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return FocusChangedMsg{Pane: FocusPaneLeft}
 		}
 		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
+
+	case SuggestComposeMsg:
+		// Bridge suggest multi-select to compose mode: switch to Pipelines view,
+		// enter compose mode with the selected proposals pre-populated.
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+
+		if len(msg.Pipelines) > 0 && m.launcher != nil {
+			// Build compose sequence from selected proposals
+			var seq Sequence
+			for _, p := range msg.Pipelines {
+				loaded, err := LoadPipelineByName(m.launcher.deps.PipelinesDir, p.Name)
+				if err == nil {
+					seq.Add(p.Name, loaded)
+				} else {
+					seq.Add(p.Name, nil)
+				}
+			}
+
+			cl := ComposeListModel{
+				available:  m.list.available,
+				sequence:   seq,
+				validation: ValidateSequence(seq),
+				focused:    true,
+			}
+			cd := NewComposeDetailModel()
+
+			m.composing = true
+			m.composeList = &cl
+			m.composeDetail = &cd
+
+			leftWidth := m.leftPaneWidth()
+			rightWidth := m.width - leftWidth - 3
+			m.composeList.SetSize(leftWidth, m.childHeight())
+			m.composeDetail.SetSize(rightWidth, m.childHeight())
+
+			seqCopy := cl.sequence
+			val := cl.validation
+			return m, tea.Batch(
+				func() tea.Msg { return ViewChangedMsg{View: ViewPipelines} },
+				func() tea.Msg { return ComposeActiveMsg{Active: true} },
+				func() tea.Msg {
+					return ComposeSequenceChangedMsg{
+						Sequence:   seqCopy,
+						Validation: val,
+					}
+				},
+			)
+		}
+		return m, func() tea.Msg { return ViewChangedMsg{View: ViewPipelines} }
 
 	case HealthCheckResultMsg:
 		if m.healthList != nil {

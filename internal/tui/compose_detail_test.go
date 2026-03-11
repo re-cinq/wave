@@ -115,4 +115,52 @@ func TestComposeDetailModel(t *testing.T) {
 		assert.Equal(t, 100, m.viewport.Width)
 		assert.Equal(t, 50, m.viewport.Height)
 	})
+
+	t.Run("renderExecutionPlan single stage", func(t *testing.T) {
+		var seq Sequence
+		seq.Add("pipeline-a", nil)
+		seq.Add("pipeline-b", nil)
+		stages := [][]int{{0, 1}}
+
+		output := renderExecutionPlan(seq, stages, 80)
+		assert.Contains(t, output, "Stage 1 (parallel)")
+		assert.Contains(t, output, "pipeline-a")
+		assert.Contains(t, output, "pipeline-b")
+		assert.Contains(t, output, "┌─")
+		assert.Contains(t, output, "└─")
+	})
+
+	t.Run("renderExecutionPlan multi-stage", func(t *testing.T) {
+		var seq Sequence
+		seq.Add("pipeline-a", nil)
+		seq.Add("pipeline-b", nil)
+		seq.Add("pipeline-c", nil)
+		stages := [][]int{{0, 1}, {2}}
+
+		output := renderExecutionPlan(seq, stages, 80)
+		assert.Contains(t, output, "Stage 1 (parallel)")
+		assert.Contains(t, output, "Stage 2 (sequential)")
+		assert.Contains(t, output, "pipeline-c")
+		assert.Contains(t, output, "│", "should have connector between stages")
+	})
+
+	t.Run("ComposeSequenceChangedMsg with parallel updates detail", func(t *testing.T) {
+		m := NewComposeDetailModel()
+		m.SetSize(80, 20)
+
+		var seq Sequence
+		seq.Add("a", nil)
+		seq.Add("b", nil)
+
+		msg := ComposeSequenceChangedMsg{
+			Sequence:   seq,
+			Validation: ValidateSequence(seq),
+			Parallel:   true,
+			Stages:     [][]int{{0, 1}},
+		}
+
+		m, _ = m.Update(msg)
+		assert.True(t, m.parallel)
+		assert.Equal(t, 1, len(m.stages))
+	})
 }

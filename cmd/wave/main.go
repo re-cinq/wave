@@ -109,6 +109,8 @@ var rootCmd = &cobra.Command{
 							Reason:   p.Reason,
 							Input:    p.Input,
 							Priority: p.Priority,
+							Type:     p.Type,
+							Sequence: p.Sequence,
 						})
 					}
 					return result, nil

@@ -18,10 +18,12 @@ type Proposal struct {
 
 // ProposedPipeline is a single pipeline recommendation.
 type ProposedPipeline struct {
-	Name     string `json:"name"`
-	Reason   string `json:"reason"`
-	Input    string `json:"input,omitempty"`
-	Priority int    `json:"priority"`
+	Name     string   `json:"name"`
+	Reason   string   `json:"reason"`
+	Input    string   `json:"input,omitempty"`
+	Priority int      `json:"priority"`
+	Type     string   `json:"type,omitempty"`     // "single", "sequence", or "parallel"
+	Sequence []string `json:"sequence,omitempty"` // Pipeline names for multi-pipeline proposals
 }
 
 // EngineOptions configures the suggestion engine.
@@ -81,19 +83,27 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 3: Open issues without linked PRs
 		if cb.Issues.Open > 0 {
-			if name := resolvePipeline(catalog, prefix, "implement"); name != "" {
+			implName := resolvePipeline(catalog, prefix, "implement")
+			researchName := resolvePipeline(catalog, prefix, "research")
+			if implName != "" {
 				proposals = append(proposals, ProposedPipeline{
-					Name:     name,
+					Name:     implName,
 					Reason:   fmt.Sprintf("%d open issues to work on", cb.Issues.Open),
 					Input:    "Implement open issues",
 					Priority: 3,
 				})
-			} else if name := resolvePipeline(catalog, prefix, "research"); name != "" {
+			}
+			// Also propose research if available (enables sequence chaining)
+			if researchName != "" {
+				prio := 3
+				if implName != "" {
+					prio = 4 // Lower priority when implement is also available
+				}
 				proposals = append(proposals, ProposedPipeline{
-					Name:     name,
+					Name:     researchName,
 					Reason:   fmt.Sprintf("%d open issues to research", cb.Issues.Open),
 					Input:    "Research open issues",
-					Priority: 3,
+					Priority: prio,
 				})
 			}
 		}
@@ -143,10 +153,30 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 		}
 	}
 
+	// Detect sequence chains: if both research and implement are proposed, create
+	// a sequence proposal (research → implement).
+	proposals = detectSequences(proposals, catalog, prefix)
+
+	// Detect parallel-eligible groups: if implement and pr-review are both
+	// proposed, mark them as parallel-eligible.
+	proposals = detectParallelGroups(proposals)
+
 	// Filter to available pipelines and apply limit
 	var available []ProposedPipeline
 	for _, p := range proposals {
-		if inCatalog(catalog, p.Name) {
+		if p.Type == "sequence" || p.Type == "parallel" {
+			// Multi-pipeline proposals: check all members exist
+			allExist := true
+			for _, name := range p.Sequence {
+				if !inCatalog(catalog, name) {
+					allExist = false
+					break
+				}
+			}
+			if allExist {
+				available = append(available, p)
+			}
+		} else if inCatalog(catalog, p.Name) {
 			available = append(available, p)
 		}
 	}
@@ -223,6 +253,86 @@ func FilterByForge(proposals []ProposedPipeline, fi *forge.ForgeInfo) []Proposed
 		}
 	}
 	return filtered
+}
+
+// detectSequences checks if complementary pipelines are both proposed (e.g.
+// research + implement) and adds a sequence proposal that chains them.
+func detectSequences(proposals []ProposedPipeline, catalog []string, prefix string) []ProposedPipeline {
+	byBase := make(map[string]int) // base name → index in proposals
+	for i, p := range proposals {
+		base := stripForgePrefix(p.Name)
+		byBase[base] = i
+	}
+
+	// Known chains: research → implement
+	chains := [][2]string{{"research", "implement"}}
+
+	for _, chain := range chains {
+		firstIdx, hasFirst := byBase[chain[0]]
+		secondIdx, hasSecond := byBase[chain[1]]
+		if !hasFirst || !hasSecond {
+			continue
+		}
+		first := proposals[firstIdx]
+		second := proposals[secondIdx]
+		proposals = append(proposals, ProposedPipeline{
+			Name:     first.Name + " → " + second.Name,
+			Reason:   fmt.Sprintf("Chain: %s then %s", first.Name, second.Name),
+			Input:    first.Input,
+			Priority: first.Priority, // Use higher priority of the pair
+			Type:     "sequence",
+			Sequence: []string{first.Name, second.Name},
+		})
+	}
+
+	return proposals
+}
+
+// detectParallelGroups marks proposals that can run concurrently. Currently
+// detects implement + pr-review as parallel-eligible.
+func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
+	byBase := make(map[string]int)
+	for i, p := range proposals {
+		if p.Type != "" {
+			continue // Skip existing sequence proposals
+		}
+		base := stripForgePrefix(p.Name)
+		byBase[base] = i
+	}
+
+	// Known parallel groups
+	groups := [][2]string{{"implement", "pr-review"}}
+
+	for _, group := range groups {
+		firstIdx, hasFirst := byBase[group[0]]
+		secondIdx, hasSecond := byBase[group[1]]
+		if !hasFirst || !hasSecond {
+			continue
+		}
+		first := proposals[firstIdx]
+		second := proposals[secondIdx]
+		proposals = append(proposals, ProposedPipeline{
+			Name:     first.Name + " ∥ " + second.Name,
+			Reason:   fmt.Sprintf("Parallel: %s and %s can run concurrently", first.Name, second.Name),
+			Input:    first.Input,
+			Priority: first.Priority,
+			Type:     "parallel",
+			Sequence: []string{first.Name, second.Name},
+		})
+	}
+
+	return proposals
+}
+
+// stripForgePrefix removes forge prefixes (gh-, gl-, bb-, gt-) from a pipeline name.
+func stripForgePrefix(name string) string {
+	prefixes := []string{"gh-", "gl-", "bb-", "gt-"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(name, p) {
+			return name[len(p):]
+		}
+	}
+	return name
 }
 
 func hasAnyForgePrefix(name string) bool {

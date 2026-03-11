@@ -19,6 +19,7 @@ type SuggestListModel struct {
 	loaded     bool
 	provider   SuggestDataProvider
 	errMsg     string
+	selected   map[int]bool // Multi-select state: index -> selected
 }
 
 // NewSuggestListModel creates a new suggest list model.
@@ -76,7 +77,32 @@ func (m SuggestListModel) Update(msg tea.Msg) (SuggestListModel, tea.Cmd) {
 				m.cursor++
 				return m, m.emitSelection()
 			}
+		case " ":
+			// Toggle multi-select on current item
+			if m.cursor < len(m.proposals) {
+				if m.selected == nil {
+					m.selected = make(map[int]bool)
+				}
+				if m.selected[m.cursor] {
+					delete(m.selected, m.cursor)
+				} else {
+					m.selected[m.cursor] = true
+				}
+				return m, m.emitSelection()
+			}
 		case "enter":
+			if len(m.selected) > 1 {
+				// Multi-select: emit SuggestComposeMsg
+				var pipelines []SuggestProposedPipeline
+				for i, p := range m.proposals {
+					if m.selected[i] {
+						pipelines = append(pipelines, p)
+					}
+				}
+				return m, func() tea.Msg {
+					return SuggestComposeMsg{Pipelines: pipelines}
+				}
+			}
 			if m.cursor < len(m.proposals) {
 				return m, func() tea.Msg {
 					return SuggestLaunchMsg{Pipeline: m.proposals[m.cursor]}
@@ -113,10 +139,25 @@ func (m SuggestListModel) View() string {
 	}
 
 	var sb strings.Builder
+
+	// Selection count header
+	selCount := len(m.selected)
+	if selCount > 0 {
+		sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render(
+			fmt.Sprintf("  %d selected", selCount)))
+		sb.WriteString("\n")
+	}
+
 	for i, p := range m.proposals {
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "
+		}
+
+		// Selection marker
+		selMarker := " "
+		if m.selected[i] {
+			selMarker = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("●")
 		}
 
 		style := lipgloss.NewStyle()
@@ -124,7 +165,15 @@ func (m SuggestListModel) View() string {
 			style = style.Bold(true).Foreground(lipgloss.Color("12"))
 		}
 
-		line := fmt.Sprintf("%s[P%d] %s", cursor, p.Priority, p.Name)
+		// Type badge for sequence/parallel proposals
+		typeBadge := ""
+		if p.Type == "sequence" {
+			typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("[seq]") + " "
+		} else if p.Type == "parallel" {
+			typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("[par]") + " "
+		}
+
+		line := fmt.Sprintf("%s%s %s[P%d] %s", cursor, selMarker, typeBadge, p.Priority, p.Name)
 		sb.WriteString(style.Render(line))
 		sb.WriteString("\n")
 	}
@@ -148,7 +197,15 @@ func (m SuggestListModel) emitSelection() tea.Cmd {
 		return nil
 	}
 	p := m.proposals[m.cursor]
+	var multi []SuggestProposedPipeline
+	if len(m.selected) > 0 {
+		for i, prop := range m.proposals {
+			if m.selected[i] {
+				multi = append(multi, prop)
+			}
+		}
+	}
 	return func() tea.Msg {
-		return SuggestSelectedMsg{Pipeline: p}
+		return SuggestSelectedMsg{Pipeline: p, MultiSelected: multi}
 	}
 }
