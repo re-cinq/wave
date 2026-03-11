@@ -160,12 +160,8 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.launchErrorTitle = ""
 		m.launchForm = nil
 
-		if msg.Kind == itemKindSectionHeader {
-			m.selectedName = ""
-			m.paneState = stateEmpty
-			m.viewport.SetContent("")
-			return m, nil
-		}
+		// Pipeline name nodes emit Kind=itemKindAvailable, so no special
+		// empty-state handling is needed here (old section headers are gone).
 
 		if msg.Kind == itemKindRunning {
 			// Preserve live output if it matches this run (set by PipelineLaunchedMsg)

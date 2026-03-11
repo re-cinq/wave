@@ -167,16 +167,18 @@ func sampleAvailable(n int) []PipelineInfo {
 }
 
 // ===========================================================================
-// T012: Section Rendering Tests
+// T012: Tree Rendering Tests
 // ===========================================================================
 
-func TestPipelineListModel_View_AllSectionsRender(t *testing.T) {
-	m := newTestListModel(sampleRunning(2), sampleFinished(3), sampleAvailable(2))
+func TestPipelineListModel_View_PipelineNamesSorted(t *testing.T) {
+	m := newTestListModel(sampleRunning(2), sampleFinished(1), sampleAvailable(1))
 	view := listStripAnsi(m.View())
 
-	assert.Contains(t, view, "Running (2)")
-	assert.Contains(t, view, "Finished (3)")
-	assert.Contains(t, view, "Available (2)")
+	// All unique pipeline names should appear
+	assert.Contains(t, view, "running-a")
+	assert.Contains(t, view, "running-b")
+	assert.Contains(t, view, "finished-a")
+	assert.Contains(t, view, "avail-a")
 }
 
 func TestPipelineListModel_View_RunningItemsShowElapsedTime(t *testing.T) {
@@ -199,22 +201,17 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 		{RunID: "f3", Name: "cancel-pipe", Status: "cancelled", Duration: 1 * time.Minute},
 	}
 	m := newTestListModel(nil, finished, nil)
-	m.collapsed[2] = false // Expand Finished (collapsed by default)
-	m.buildNavigableItems()
 	view := listStripAnsi(m.View())
 
 	// Completed shows checkmark
 	assert.Contains(t, view, "✓")
-	assert.Contains(t, view, "completed")
 	assert.Contains(t, view, "5m 0s")
 
 	// Failed shows cross
 	assert.Contains(t, view, "✗")
-	assert.Contains(t, view, "failed")
 	assert.Contains(t, view, "3m 0s")
 
-	// Cancelled shows cross
-	assert.Contains(t, view, "cancelled")
+	// Cancelled shows cross and duration
 	assert.Contains(t, view, "1m 0s")
 }
 
@@ -224,37 +221,19 @@ func TestPipelineListModel_View_AvailableItemsShowNameOnly(t *testing.T) {
 	view := listStripAnsi(m.View())
 
 	assert.Contains(t, view, "speckit-flow")
-	// Should not contain status markers or durations
+	// Should not contain status markers or durations (no runs)
 	assert.NotContains(t, view, "✓")
 	assert.NotContains(t, view, "✗")
 }
 
-func TestPipelineListModel_View_EmptySectionsShowZeroCount(t *testing.T) {
-	m := newTestListModel(nil, nil, sampleAvailable(1))
-	view := listStripAnsi(m.View())
-
-	assert.Contains(t, view, "Running (0)")
-	assert.Contains(t, view, "Finished (0)")
-	assert.Contains(t, view, "Available (1)")
-}
-
-func TestPipelineListModel_View_AllSectionsEmpty(t *testing.T) {
-	// When all sections have zero items, headers with "(0)" are still shown
-	// because the empty-state message ("No pipelines found") only appears
-	// when there are zero navigable items (i.e., no headers either).
-	// With no filter active and empty data, section headers are still built.
-	// Verify that the headers render correctly with zero counts.
+func TestPipelineListModel_View_EmptyList_ShowsEmptyMessage(t *testing.T) {
+	// With no data at all, "No pipelines found" should appear
 	m := newTestListModel(nil, nil, nil)
 	view := listStripAnsi(m.View())
-
-	assert.Contains(t, view, "Running (0)")
-	assert.Contains(t, view, "Finished (0)")
-	assert.Contains(t, view, "Available (0)")
+	assert.Contains(t, view, "No pipelines found")
 }
 
 func TestPipelineListModel_View_NoMatchingPipelines_ShowsEmptyMessage(t *testing.T) {
-	// The "No pipelines found" / "No matching pipelines" message appears
-	// when a filter removes ALL items (including headers).
 	avail := []PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
@@ -281,6 +260,81 @@ func TestPipelineListModel_View_LongNamesTruncated(t *testing.T) {
 	assert.Contains(t, view, "…")
 	// Should NOT contain the full name
 	assert.NotContains(t, view, longName)
+}
+
+func TestPipelineListModel_View_TreeConnectors(t *testing.T) {
+	// A pipeline with both running and finished entries should show tree connectors
+	running := []RunningPipeline{
+		{RunID: "r1", Name: "my-pipe", StartedAt: time.Now()},
+	}
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(running, finished, nil)
+	view := listStripAnsi(m.View())
+
+	// Tree connectors should be present
+	assert.True(t, strings.Contains(view, "├") || strings.Contains(view, "└"),
+		"tree connectors should be rendered for child items")
+}
+
+func TestPipelineListModel_View_RunningAlwaysVisible(t *testing.T) {
+	// Even when collapsed, running items should be visible
+	running := []RunningPipeline{
+		{RunID: "r1", Name: "my-pipe", StartedAt: time.Now()},
+	}
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(running, finished, nil)
+
+	// Collapse the pipeline
+	m.collapsed["my-pipe"] = true
+	m.buildNavigableItems()
+
+	// Running item should still be visible
+	foundRunning := false
+	for _, item := range m.navigable {
+		if item.kind == itemKindRunning {
+			foundRunning = true
+			break
+		}
+	}
+	assert.True(t, foundRunning, "running items should be visible even when collapsed")
+
+	// Finished item should be hidden
+	foundFinished := false
+	for _, item := range m.navigable {
+		if item.kind == itemKindFinished {
+			foundFinished = true
+			break
+		}
+	}
+	assert.False(t, foundFinished, "finished items should be hidden when collapsed")
+}
+
+func TestPipelineListModel_View_FinishedLimitedToMax(t *testing.T) {
+	// Create 5 finished runs for the same pipeline
+	finished := make([]FinishedPipeline, 5)
+	for i := range 5 {
+		finished[i] = FinishedPipeline{
+			RunID:    "f" + string(rune('A'+i)),
+			Name:     "my-pipe",
+			Status:   "completed",
+			Duration: time.Minute,
+		}
+	}
+	m := newTestListModel(nil, finished, nil)
+
+	// Count finished items in navigable
+	finishedCount := 0
+	for _, item := range m.navigable {
+		if item.kind == itemKindFinished {
+			finishedCount++
+		}
+	}
+	assert.Equal(t, finishedPerPipelineMax, finishedCount,
+		"finished runs should be limited to finishedPerPipelineMax")
 }
 
 // ===========================================================================
@@ -318,32 +372,36 @@ func TestPipelineListModel_Navigation_DownAtBottomStays(t *testing.T) {
 	assert.Equal(t, lastIdx, m.cursor)
 }
 
-func TestPipelineListModel_Navigation_CrossSectionTraversal(t *testing.T) {
-	m := newTestListModel(sampleRunning(1), sampleFinished(1), nil)
-	m.collapsed[2] = false // Expand Finished (collapsed by default)
-	m.buildNavigableItems()
+func TestPipelineListModel_Navigation_CrossPipelineTraversal(t *testing.T) {
+	// With tree layout, navigable items are grouped by pipeline name.
+	// running-a and finished-a have different names so they're separate tree roots.
+	running := []RunningPipeline{
+		{RunID: "r1", Name: "alpha-pipe", StartedAt: time.Now()},
+	}
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "beta-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(running, finished, nil)
 
-	// navigable should include (order: Running, Available, Finished):
-	// 0: Running (1) header
-	// 1: running-a
-	// 2: Available (0) header  (empty sections still get headers)
-	// 3: Finished (1) header
-	// 4: finished-a
-	require.GreaterOrEqual(t, len(m.navigable), 5)
+	// Navigable order (alphabetical):
+	// 0: alpha-pipe (pipeline name)
+	// 1: alpha-pipe running entry
+	// 2: beta-pipe (pipeline name)
+	// 3: beta-pipe finished entry
+	require.Equal(t, 4, len(m.navigable))
 
-	// Navigate from top to finished item
+	// Navigate to finished item
 	m, _ = sendKey(m, tea.KeyDown) // cursor=1 running item
-	m, _ = sendKey(m, tea.KeyDown) // cursor=2 available header (empty)
-	m, _ = sendKey(m, tea.KeyDown) // cursor=3 finished header
-	m, _ = sendKey(m, tea.KeyDown) // cursor=4 finished item
-	assert.Equal(t, 4, m.cursor)
+	m, _ = sendKey(m, tea.KeyDown) // cursor=2 beta-pipe name
+	m, _ = sendKey(m, tea.KeyDown) // cursor=3 finished item
+	assert.Equal(t, 3, m.cursor)
 	assert.Equal(t, itemKindFinished, m.navigable[m.cursor].kind)
 }
 
 func TestPipelineListModel_Navigation_SelectionMsgOnPipelineItem(t *testing.T) {
 	m := newTestListModel(sampleRunning(1), nil, nil)
 
-	// Move to the running item (index 1)
+	// Move to the running item (index 1, after the pipeline name)
 	m, cmd := sendKey(m, tea.KeyDown)
 	assert.Equal(t, 1, m.cursor)
 	assert.Equal(t, itemKindRunning, m.navigable[m.cursor].kind)
@@ -352,17 +410,18 @@ func TestPipelineListModel_Navigation_SelectionMsgOnPipelineItem(t *testing.T) {
 	require.NotNil(t, sel, "should emit PipelineSelectedMsg on pipeline item")
 }
 
-func TestPipelineListModel_Navigation_NoSelectionMsgOnHeader(t *testing.T) {
+func TestPipelineListModel_Navigation_SelectionMsgOnPipelineName(t *testing.T) {
 	m := newTestListModel(sampleRunning(1), nil, nil)
 
-	// Cursor starts at 0, which is the section header
+	// Cursor starts at 0, which is the pipeline name
 	assert.Equal(t, 0, m.cursor)
-	assert.Equal(t, itemKindSectionHeader, m.navigable[m.cursor].kind)
+	assert.Equal(t, itemKindPipelineName, m.navigable[0].kind)
 
-	// Move up (stays at 0, header)
-	_, cmd := sendKey(m, tea.KeyUp)
+	// Pipeline name nodes emit PipelineSelectedMsg with Kind=itemKindAvailable
+	cmd := m.emitSelectionMsg()
 	sel := extractSelectionMsg(cmd)
-	assert.Nil(t, sel, "should NOT emit PipelineSelectedMsg on section header")
+	require.NotNil(t, sel, "pipeline name should emit PipelineSelectedMsg")
+	assert.Equal(t, itemKindAvailable, sel.Kind)
 }
 
 func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
@@ -374,7 +433,7 @@ func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
 	}}
 	m := newTestListModel(running, nil, nil)
 
-	// Move to running item
+	// Move to running item (after pipeline name)
 	m, cmd := sendKey(m, tea.KeyDown)
 	sel := extractSelectionMsg(cmd)
 	require.NotNil(t, sel)
@@ -383,25 +442,20 @@ func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
 	assert.Equal(t, "feat/branch", sel.BranchName)
 }
 
-func TestPipelineListModel_Navigation_AvailableItemHasEmptyRunID(t *testing.T) {
+func TestPipelineListModel_Navigation_PipelineNameHasEmptyRunID(t *testing.T) {
 	avail := []PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
-	// Move cursor to the available item
-	for i := range m.navigable {
-		if m.navigable[i].kind == itemKindAvailable {
-			m.cursor = i
-			break
-		}
-	}
+	// Cursor starts on the pipeline name node
+	require.Equal(t, itemKindPipelineName, m.navigable[0].kind)
 
-	// Emit selection for current cursor position
 	cmd := m.emitSelectionMsg()
 	sel := extractSelectionMsg(cmd)
 	require.NotNil(t, sel)
 
 	assert.Equal(t, "", sel.RunID)
-	assert.Equal(t, "", sel.BranchName)
+	assert.Equal(t, "speckit-flow", sel.Name)
+	assert.Equal(t, itemKindAvailable, sel.Kind)
 }
 
 // ===========================================================================
@@ -438,7 +492,7 @@ func TestPipelineListModel_Filter_MatchesSubstring(t *testing.T) {
 	assert.NotContains(t, view, "wave-evolve")
 }
 
-func TestPipelineListModel_Filter_AcrossAllSections(t *testing.T) {
+func TestPipelineListModel_Filter_AcrossPipelines(t *testing.T) {
 	running := []RunningPipeline{
 		{RunID: "r1", Name: "speckit-run", StartedAt: time.Now()},
 		{RunID: "r2", Name: "wave-run", StartedAt: time.Now()},
@@ -530,8 +584,6 @@ func TestPipelineListModel_Filter_NavigationInFilteredResults(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
-	// Start with many available pipelines, navigate cursor to a high index,
-	// then filter so that fewer items remain — cursor must be clamped.
 	avail := []PipelineInfo{
 		{Name: "alpha-pipeline"},
 		{Name: "beta-pipeline"},
@@ -541,8 +593,8 @@ func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
 	}
 	m := newTestListModel(nil, nil, avail)
 
-	// Navigate cursor deep into the list (past all available items)
-	for range 6 {
+	// Navigate cursor deep into the list
+	for range 4 {
 		m, _ = sendKey(m, tea.KeyDown)
 	}
 	require.GreaterOrEqual(t, m.cursor, 4, "cursor should be deep in the list")
@@ -633,14 +685,14 @@ func TestPipelineListModel_Scroll_CursorBelowViewportScrollsDown(t *testing.T) {
 	assert.Greater(t, m.cursor, 4)
 
 	// The View method adjusts scroll internally. Verify that the first
-	// navigable item (Running header at index 0) is NOT in the rendered
-	// output because the viewport has scrolled past it.
+	// navigable item is NOT in the rendered output because the viewport has scrolled past it.
 	view := listStripAnsi(m.View())
 	lines := strings.Split(view, "\n")
-	// The first visible line should NOT be the Running header
 	require.GreaterOrEqual(t, len(lines), 1)
-	assert.NotContains(t, lines[0], "Running (3)",
-		"viewport should have scrolled past the Running header")
+	// First pipeline name (alphabetically) should have scrolled out
+	firstPipeline := m.navigable[0].label
+	assert.NotContains(t, lines[0], firstPipeline,
+		"viewport should have scrolled past the first pipeline name")
 }
 
 func TestPipelineListModel_Scroll_ScrollBackUp(t *testing.T) {
@@ -651,26 +703,28 @@ func TestPipelineListModel_Scroll_ScrollBackUp(t *testing.T) {
 	m.SetSize(40, 5)
 	m, _ = m.Update(PipelineDataMsg{Running: running, Finished: finished, Available: avail})
 
+	firstPipeline := m.navigable[0].label
+
 	// Navigate down past the viewport
 	for range 8 {
 		m, _ = sendKey(m, tea.KeyDown)
 	}
 
-	// Verify we scrolled down by checking the view content
+	// Verify we scrolled down
 	viewDown := listStripAnsi(m.View())
-	assert.NotContains(t, strings.Split(viewDown, "\n")[0], "Running (3)")
+	assert.NotContains(t, strings.Split(viewDown, "\n")[0], firstPipeline)
 
 	// Navigate back up to the top
 	for range 8 {
 		m, _ = sendKey(m, tea.KeyUp)
 	}
 
-	// The first line should again be the Running header
+	// The first line should again be the first pipeline
 	viewUp := listStripAnsi(m.View())
 	lines := strings.Split(viewUp, "\n")
 	require.GreaterOrEqual(t, len(lines), 1)
-	assert.Contains(t, lines[0], "Running (3)",
-		"scrolling back up should show the Running header again")
+	assert.Contains(t, lines[0], firstPipeline,
+		"scrolling back up should show the first pipeline name again")
 }
 
 func TestPipelineListModel_Scroll_CursorAtTopNoScroll(t *testing.T) {
@@ -681,7 +735,7 @@ func TestPipelineListModel_Scroll_CursorAtTopNoScroll(t *testing.T) {
 	view := listStripAnsi(m.View())
 	lines := strings.Split(view, "\n")
 	require.GreaterOrEqual(t, len(lines), 1)
-	assert.Contains(t, lines[0], "Running",
+	assert.Contains(t, lines[0], "running",
 		"no scroll needed when cursor at top and viewport fits all items")
 }
 
@@ -689,14 +743,18 @@ func TestPipelineListModel_Scroll_CursorAtTopNoScroll(t *testing.T) {
 // T022: Collapse/Expand Tests
 // ===========================================================================
 
-func TestPipelineListModel_Collapse_EnterOnHeaderCollapses(t *testing.T) {
-	m := newTestListModel(sampleRunning(2), nil, nil)
+func TestPipelineListModel_Collapse_EnterOnPipelineNameCollapses(t *testing.T) {
+	// A pipeline with finished runs — collapsing should hide them
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+		{RunID: "f2", Name: "my-pipe", Status: "failed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(nil, finished, nil)
 
-	// Cursor starts on Running header
+	// Cursor starts on pipeline name
 	require.Equal(t, 0, m.cursor)
-	require.Equal(t, itemKindSectionHeader, m.navigable[0].kind)
+	require.Equal(t, itemKindPipelineName, m.navigable[0].kind)
 
-	// Count items before collapse
 	countBefore := len(m.navigable)
 
 	// Press Enter to collapse
@@ -704,62 +762,53 @@ func TestPipelineListModel_Collapse_EnterOnHeaderCollapses(t *testing.T) {
 
 	// Items should be hidden — fewer navigable items
 	assert.Less(t, len(m.navigable), countBefore, "collapsing should reduce navigable items")
-	assert.True(t, m.collapsed[0], "Running section should be collapsed")
-
-	// Verify the running items are gone from the view
-	view := listStripAnsi(m.View())
-	assert.NotContains(t, view, "running-a")
-	assert.NotContains(t, view, "running-b")
+	assert.True(t, m.collapsed["my-pipe"], "pipeline should be collapsed")
 }
 
 func TestPipelineListModel_Collapse_EnterAgainExpands(t *testing.T) {
-	m := newTestListModel(sampleRunning(2), nil, nil)
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(nil, finished, nil)
 
 	// Collapse
 	m, _ = sendKey(m, tea.KeyEnter)
-	require.True(t, m.collapsed[0])
+	require.True(t, m.collapsed["my-pipe"])
 	collapsedCount := len(m.navigable)
 
 	// Expand
 	m, _ = sendKey(m, tea.KeyEnter)
-	assert.False(t, m.collapsed[0])
+	assert.False(t, m.collapsed["my-pipe"])
 	assert.Greater(t, len(m.navigable), collapsedCount, "expanding should restore items")
-
-	// Items should reappear
-	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "running-a")
 }
 
 func TestPipelineListModel_Collapse_CursorSkipsHiddenItems(t *testing.T) {
-	m := newTestListModel(sampleRunning(2), sampleFinished(1), nil)
-
-	// Navigable before collapse includes headers for empty Available section too.
-	// Find the index of the Finished header for reference.
-	var finishedHeaderIdx int
-	for i, item := range m.navigable {
-		if item.kind == itemKindSectionHeader && item.sectionIndex == 1 {
-			finishedHeaderIdx = i
-			break
-		}
+	// Two pipelines: alpha with finished runs, beta as available
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "alpha-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+		{RunID: "f2", Name: "alpha-pipe", Status: "failed", Duration: time.Minute, StartedAt: time.Now()},
 	}
-	require.Equal(t, 3, finishedHeaderIdx, "Finished header should be at index 3 before collapse")
+	avail := []PipelineInfo{{Name: "beta-pipe"}}
+	m := newTestListModel(nil, finished, avail)
 
-	// Collapse Running section (cursor is on header at 0)
+	// Collapse alpha-pipe (cursor is on it at index 0)
 	m, _ = sendKey(m, tea.KeyEnter)
+	require.True(t, m.collapsed["alpha-pipe"])
 
-	// After collapse, running items are hidden but all headers remain.
-	// Navigate down from collapsed Running header
+	// Navigate down — should skip hidden finished items and land on beta-pipe
 	m, _ = sendKey(m, tea.KeyDown)
 	assert.Equal(t, 1, m.cursor)
-	// The item at cursor 1 should be the Finished section header
-	assert.Equal(t, itemKindSectionHeader, m.navigable[m.cursor].kind)
-	assert.Equal(t, 1, m.navigable[m.cursor].sectionIndex, "should jump to Finished section header")
+	assert.Equal(t, itemKindPipelineName, m.navigable[m.cursor].kind)
+	assert.Equal(t, "beta-pipe", m.navigable[m.cursor].pipelineName)
 }
 
 func TestPipelineListModel_Collapse_IndicatorRendering(t *testing.T) {
-	m := newTestListModel(sampleRunning(1), nil, nil)
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(nil, finished, nil)
 
-	// Expanded: should show ▾
+	// Expanded (default): should show ▼
 	view := listStripAnsi(m.View())
 	assert.Contains(t, view, "▼")
 
@@ -767,6 +816,17 @@ func TestPipelineListModel_Collapse_IndicatorRendering(t *testing.T) {
 	m, _ = sendKey(m, tea.KeyEnter)
 	view = listStripAnsi(m.View())
 	assert.Contains(t, view, "▶")
+}
+
+func TestPipelineListModel_Collapse_NoIndicatorForLeafNodes(t *testing.T) {
+	// A pipeline with no runs should not show collapse indicators
+	avail := []PipelineInfo{{Name: "leaf-pipe"}}
+	m := newTestListModel(nil, nil, avail)
+
+	view := listStripAnsi(m.View())
+	assert.NotContains(t, view, "▼")
+	assert.NotContains(t, view, "▶")
+	assert.Contains(t, view, "leaf-pipe")
 }
 
 // ===========================================================================
@@ -908,4 +968,85 @@ func TestPipelineListModel_PipelineLaunchedMsg_PreservesExistingRunning(t *testi
 	rcm := extractRunningCountMsg(cmd)
 	require.NotNil(t, rcm)
 	assert.Equal(t, 3, rcm.Count)
+}
+
+// ===========================================================================
+// Tree-specific tests
+// ===========================================================================
+
+func TestPipelineListModel_TreeLayout_AlphabeticalOrder(t *testing.T) {
+	avail := []PipelineInfo{
+		{Name: "zebra"},
+		{Name: "alpha"},
+		{Name: "middle"},
+	}
+	m := newTestListModel(nil, nil, avail)
+
+	// Pipeline names should be in alphabetical order
+	require.GreaterOrEqual(t, len(m.navigable), 3)
+	assert.Equal(t, "alpha", m.navigable[0].label)
+	assert.Equal(t, "middle", m.navigable[1].label)
+	assert.Equal(t, "zebra", m.navigable[2].label)
+}
+
+func TestPipelineListModel_TreeLayout_MergesAcrossDataSources(t *testing.T) {
+	// Same pipeline name appears in both available and running
+	running := []RunningPipeline{
+		{RunID: "r1", Name: "shared-pipe", StartedAt: time.Now()},
+	}
+	avail := []PipelineInfo{
+		{Name: "shared-pipe"},
+	}
+	m := newTestListModel(running, nil, avail)
+
+	// Should only have ONE pipeline name entry, not two
+	nameCount := 0
+	for _, item := range m.navigable {
+		if item.kind == itemKindPipelineName && item.pipelineName == "shared-pipe" {
+			nameCount++
+		}
+	}
+	assert.Equal(t, 1, nameCount, "same pipeline name should appear only once in the tree")
+
+	// But the running child should also be there
+	runCount := 0
+	for _, item := range m.navigable {
+		if item.kind == itemKindRunning {
+			runCount++
+		}
+	}
+	assert.Equal(t, 1, runCount)
+}
+
+func TestPipelineListModel_TreeLayout_FilterExpandsCollapsed(t *testing.T) {
+	// Collapsed pipeline with finished runs should show them when filter matches
+	finished := []FinishedPipeline{
+		{RunID: "f1", Name: "my-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
+	}
+	m := newTestListModel(nil, finished, nil)
+	m.collapsed["my-pipe"] = true
+	m.buildNavigableItems()
+
+	// Verify finished items are hidden when collapsed
+	finishedCount := 0
+	for _, item := range m.navigable {
+		if item.kind == itemKindFinished {
+			finishedCount++
+		}
+	}
+	assert.Equal(t, 0, finishedCount, "finished items should be hidden when collapsed")
+
+	// Now filter — should show all matching entries
+	m, _ = sendRune(m, '/')
+	for _, ch := range "my-pipe" {
+		m, _ = sendRune(m, ch)
+	}
+
+	finishedCount = 0
+	for _, item := range m.navigable {
+		if item.kind == itemKindFinished {
+			finishedCount++
+		}
+	}
+	assert.Equal(t, 1, finishedCount, "filter should override collapse and show finished items")
 }

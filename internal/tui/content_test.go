@@ -116,9 +116,9 @@ func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {
 		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1}},
 	})
 
-	// Move cursor to the available item (past Running(0), Finished(0), Available(1) headers)
+	// Move cursor to the pipeline name node
 	for i := 0; i < len(c.list.navigable); i++ {
-		if c.list.navigable[i].kind == itemKindAvailable {
+		if c.list.navigable[i].kind == itemKindPipelineName {
 			c.list.cursor = i
 			break
 		}
@@ -142,10 +142,6 @@ func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed"}},
 	})
 
-	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
-
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
 			c.list.cursor = i
@@ -160,7 +156,7 @@ func TestContentModel_EnterOnFinishedItemTransitionsFocusRight(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-func TestContentModel_EnterOnSectionHeaderDoesNotTransition(t *testing.T) {
+func TestContentModel_EnterOnPipelineName_TransitionsRight(t *testing.T) {
 	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	c.SetSize(120, 40)
 
@@ -168,13 +164,14 @@ func TestContentModel_EnterOnSectionHeaderDoesNotTransition(t *testing.T) {
 		Available: []PipelineInfo{{Name: "test"}},
 	})
 
-	// Cursor starts on a section header
-	assert.Equal(t, itemKindSectionHeader, c.list.navigable[c.list.cursor].kind)
+	// Cursor starts on a pipeline name node
+	assert.Equal(t, itemKindPipelineName, c.list.navigable[c.list.cursor].kind)
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
 	c, _ = c.Update(msg)
 
-	assert.Equal(t, FocusPaneLeft, c.focus)
+	// Pipeline names are focusable — Enter transitions to right pane
+	assert.Equal(t, FocusPaneRight, c.focus)
 }
 
 func TestContentModel_EnterOnRunningItemTransitionsFocusRight(t *testing.T) {
@@ -186,10 +183,6 @@ func TestContentModel_EnterOnRunningItemTransitionsFocusRight(t *testing.T) {
 	})
 
 	// Move to the running item
-	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
-
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindRunning {
 			c.list.cursor = i
@@ -234,11 +227,8 @@ func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
 
 	// Move cursor to first available item
 	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
-
 	for i := 0; i < len(c.list.navigable); i++ {
-		if c.list.navigable[i].kind == itemKindAvailable {
+		if c.list.navigable[i].kind == itemKindPipelineName {
 			c.list.cursor = i
 			break
 		}
@@ -273,11 +263,8 @@ func TestContentModel_EnterOnAvailable_EmitsConfigureFormMsg(t *testing.T) {
 
 	// Move cursor to the available item
 	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
-
 	for i := 0; i < len(c.list.navigable); i++ {
-		if c.list.navigable[i].kind == itemKindAvailable {
+		if c.list.navigable[i].kind == itemKindPipelineName {
 			c.list.cursor = i
 			break
 		}
@@ -367,11 +354,8 @@ func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
 
 	// Move cursor to the available item
 	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
-
 	for i := 0; i < len(c.list.navigable); i++ {
-		if c.list.navigable[i].kind == itemKindAvailable {
+		if c.list.navigable[i].kind == itemKindPipelineName {
 			c.list.cursor = i
 			break
 		}
@@ -413,10 +397,6 @@ func TestContentModel_EnterOnFinishedItem_EmitsFinishedDetailActiveMsg(t *testin
 	c.list, _ = c.list.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{{RunID: "r1", Name: "done", Status: "completed", BranchName: "feat/test"}},
 	})
-
-	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
 
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindFinished {
@@ -558,7 +538,7 @@ steps:
 
 	// Move cursor to the available item
 	for i, item := range m.list.navigable {
-		if item.kind == itemKindAvailable {
+		if item.kind == itemKindPipelineName {
 			m.list.cursor = i
 			break
 		}
@@ -596,7 +576,7 @@ func TestContentModel_SKey_OnAvailablePipeline_EntersComposeMode(t *testing.T) {
 	require.Nil(t, m.composeDetail)
 	require.Equal(t, ViewPipelines, m.currentView)
 	require.Equal(t, FocusPaneLeft, m.focus)
-	require.Equal(t, itemKindAvailable, m.list.navigable[m.list.cursor].kind)
+	require.Equal(t, itemKindPipelineName, m.list.navigable[m.list.cursor].kind)
 
 	// Press 's'
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
@@ -619,20 +599,30 @@ func TestContentModel_SKey_OnAvailablePipeline_EntersComposeMode(t *testing.T) {
 	assert.True(t, foundComposeActive, "should emit ComposeActiveMsg{Active: true}")
 }
 
-func TestContentModel_SKey_OnNonAvailableItem_DoesNothing(t *testing.T) {
-	m := newTestContentModel(t)
+func TestContentModel_SKey_OnRunningItem_DoesNothing(t *testing.T) {
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	c.SetSize(160, 40)
 
-	// Move cursor to a section header (index 0 is always a section header)
-	m.list.cursor = 0
-	require.Equal(t, itemKindSectionHeader, m.list.navigable[m.list.cursor].kind)
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "running-pipe"}},
+	})
+
+	// Move cursor to the running item
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+	require.Equal(t, itemKindRunning, c.list.navigable[c.list.cursor].kind)
 
 	// Press 's'
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
-	m, _ = m.Update(msg)
+	c, _ = c.Update(msg)
 
-	assert.False(t, m.composing, "composing should remain false on section header")
-	assert.Nil(t, m.composeList)
-	assert.Nil(t, m.composeDetail)
+	assert.False(t, c.composing, "composing should remain false on running item")
+	assert.Nil(t, c.composeList)
+	assert.Nil(t, c.composeDetail)
 }
 
 func TestContentModel_SKey_WhenNotInViewPipelines_DoesNothing(t *testing.T) {
@@ -796,10 +786,6 @@ func TestContentModel_EnterOnRunningItem_EmitsLiveOutputActive(t *testing.T) {
 	c.list, _ = c.list.Update(PipelineDataMsg{
 		Running: []RunningPipeline{{RunID: "r1", Name: "running-pipe"}},
 	})
-
-	// Expand the Finished section (collapsed by default)
-	c.list.collapsed[2] = false
-	c.list.buildNavigableItems()
 
 	for i := 0; i < len(c.list.navigable); i++ {
 		if c.list.navigable[i].kind == itemKindRunning {
