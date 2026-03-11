@@ -178,7 +178,7 @@ func (m ComposeListModel) handleKeyMsg(msg tea.KeyMsg) (ComposeListModel, tea.Cm
 		case "p":
 			// Toggle parallel mode
 			m.parallel = !m.parallel
-			return m, nil
+			return m, m.emitSequenceChanged()
 
 		case "d":
 			// Toggle stage break after current cursor position
@@ -196,7 +196,7 @@ func (m ComposeListModel) handleKeyMsg(msg tea.KeyMsg) (ComposeListModel, tea.Cm
 			} else {
 				m.breaks[m.cursor] = true
 			}
-			return m, nil
+			return m, m.emitSequenceChanged()
 		}
 	}
 

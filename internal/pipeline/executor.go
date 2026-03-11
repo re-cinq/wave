@@ -179,20 +179,21 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 // execution state. Used for child pipeline invocation within matrix strategies.
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
-		runner:             e.runner,
-		emitter:            e.emitter,
-		store:              e.store,
-		logger:             e.logger,
-		wsManager:          e.wsManager,
-		relayMonitor:       e.relayMonitor,
-		pipelines:          make(map[string]*PipelineExecution),
-		debug:              e.debug,
-		modelOverride:      e.modelOverride,
-		securityConfig:     e.securityConfig,
-		pathValidator:      e.pathValidator,
-		inputSanitizer:     e.inputSanitizer,
-		securityLogger:     e.securityLogger,
-		deliverableTracker: deliverable.NewTracker(""),
+		runner:                 e.runner,
+		emitter:                e.emitter,
+		store:                  e.store,
+		logger:                 e.logger,
+		wsManager:              e.wsManager,
+		relayMonitor:           e.relayMonitor,
+		pipelines:              make(map[string]*PipelineExecution),
+		debug:                  e.debug,
+		modelOverride:          e.modelOverride,
+		securityConfig:         e.securityConfig,
+		pathValidator:          e.pathValidator,
+		inputSanitizer:         e.inputSanitizer,
+		securityLogger:         e.securityLogger,
+		deliverableTracker:     deliverable.NewTracker(""),
+		crossPipelineArtifacts: e.crossPipelineArtifacts,
 	}
 }
 
@@ -1507,7 +1508,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 				}
 				return fmt.Errorf("cross-pipeline artifact '%s' not found in pipeline '%s' outputs", ref.Artifact, ref.Pipeline)
 			}
-			os.WriteFile(destPath, data, 0644)
+			if err := os.WriteFile(destPath, data, 0644); err != nil {
+				return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+			}
 			execution.Context.SetArtifactPath(artName, destPath)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -1516,6 +1519,29 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 				State:      "step_progress",
 				Message:    fmt.Sprintf("injected cross-pipeline artifact %s from pipeline %s", artName, ref.Pipeline),
 			})
+
+			// Type validation (if specified)
+			if ref.Type != "" {
+				key := ref.Pipeline + ":" + ref.Artifact
+				declaredType := artifactTypes[key]
+				if declaredType != "" && declaredType != ref.Type {
+					return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
+				}
+			}
+
+			// Schema validation for input artifacts (if schema_path is specified)
+			if ref.SchemaPath != "" {
+				if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+					return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "step_progress",
+					Message:    fmt.Sprintf("validated artifact %s against schema %s", artName, ref.SchemaPath),
+				})
+			}
 			continue
 		}
 
@@ -1540,7 +1566,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 							return fmt.Errorf("artifact '%s' type mismatch: expected %s, got %s", ref.Artifact, ref.Type, declaredType)
 						}
 					}
-					os.WriteFile(destPath, []byte(stdout), 0644)
+					if err := os.WriteFile(destPath, []byte(stdout), 0644); err != nil {
+						return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+					}
 					// Register artifact path in context for template resolution
 					execution.Context.SetArtifactPath(artName, destPath)
 					e.emit(event.Event{
@@ -1591,7 +1619,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 			return fmt.Errorf("failed to read required artifact '%s': %w", ref.Artifact, err)
 		}
 
-		os.WriteFile(destPath, srcData, 0644)
+		if err := os.WriteFile(destPath, srcData, 0644); err != nil {
+			return fmt.Errorf("failed to write artifact '%s': %w", artName, err)
+		}
 		// Register artifact path in context for template resolution
 		execution.Context.SetArtifactPath(artName, destPath)
 		e.emit(event.Event{
