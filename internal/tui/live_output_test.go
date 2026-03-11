@@ -444,8 +444,8 @@ func TestLiveOutputModel_SetSize(t *testing.T) {
 
 	assert.Equal(t, 120, m.width)
 	assert.Equal(t, 40, m.height)
-	// Viewport height = 40 - 3 (header) - 2 (footer) = 35
-	assert.Equal(t, 35, m.viewport.Height)
+	// Viewport height = 40 - 7 (header) - 2 (footer) = 31
+	assert.Equal(t, 31, m.viewport.Height)
 	assert.Equal(t, 120, m.viewport.Width)
 }
 

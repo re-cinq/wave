@@ -1,10 +1,13 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ===========================================================================
@@ -135,7 +138,8 @@ func TestIssueListModel_FilterByTitle(t *testing.T) {
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 	assert.Equal(t, 1, len(m.navigable))
-	assert.Equal(t, "Add dark mode support", m.navigable[0].Title)
+	require.NotNil(t, m.navigable[0].issue)
+	assert.Equal(t, "Add dark mode support", m.navigable[0].issue.Title)
 }
 
 func TestIssueListModel_EmptyList(t *testing.T) {
@@ -252,7 +256,8 @@ func TestIssueListModel_FilterByAssignee(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, len(m.navigable))
-	assert.Equal(t, "Add feature", m.navigable[0].Title)
+	require.NotNil(t, m.navigable[0].issue)
+	assert.Equal(t, "Add feature", m.navigable[0].issue.Title)
 }
 
 func TestIssueListModel_FilterByAssignee_Partial(t *testing.T) {
@@ -274,6 +279,266 @@ func TestIssueListModel_FilterByAssignee_Partial(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, len(m.navigable))
-	assert.Equal(t, "Fix bug", m.navigable[0].Title)
-	assert.Equal(t, "Refactor code", m.navigable[1].Title)
+	require.NotNil(t, m.navigable[0].issue)
+	assert.Equal(t, "Fix bug", m.navigable[0].issue.Title)
+	require.NotNil(t, m.navigable[1].issue)
+	assert.Equal(t, "Refactor code", m.navigable[1].issue.Title)
+}
+
+// ===========================================================================
+// Pipeline children tests
+// ===========================================================================
+
+func TestIssueListModel_PipelineDataMsg_AddsChildren(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	// Load issues first
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+			{Number: 2, Title: "Add dark mode", HTMLURL: "https://github.com/org/repo/issues/2"},
+		},
+	})
+	assert.Equal(t, 2, len(m.navigable)) // 2 issues, no children
+
+	// Send pipeline data with a running pipeline linked to issue #1
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1 fix the auth bug", StartedAt: time.Now()},
+		},
+	})
+
+	// Issue #1 should now have a running child (always visible even when collapsed)
+	assert.Equal(t, 3, len(m.navigable)) // issue1 + running child + issue2
+	assert.Equal(t, issueNavKindIssue, m.navigable[0].kind)
+	assert.Equal(t, issueNavKindRunning, m.navigable[1].kind)
+	assert.Equal(t, issueNavKindIssue, m.navigable[2].kind)
+}
+
+func TestIssueListModel_FinishedChildren_HiddenWhenCollapsed(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	// Send finished pipeline data
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now(), Duration: 30 * time.Second},
+		},
+	})
+
+	// Issue is collapsed by default — finished children should be hidden
+	assert.Equal(t, 1, len(m.navigable)) // just the issue
+	assert.True(t, m.collapsed["https://github.com/org/repo/issues/1"])
+
+	// Expand by pressing space
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	// Now finished child should appear
+	assert.Equal(t, 2, len(m.navigable))
+	assert.Equal(t, issueNavKindIssue, m.navigable[0].kind)
+	assert.Equal(t, issueNavKindFinished, m.navigable[1].kind)
+}
+
+func TestIssueListModel_RunningChildren_AlwaysVisible(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+		},
+	})
+
+	// Collapsed by default — running children should still be visible
+	assert.True(t, m.collapsed["https://github.com/org/repo/issues/1"])
+	assert.Equal(t, 2, len(m.navigable))
+	assert.Equal(t, issueNavKindRunning, m.navigable[1].kind)
+}
+
+func TestIssueListModel_SelectingRunningChild_EmitsPipelineSelectedMsg(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+		},
+	})
+
+	// Navigate to running child
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	require.NotNil(t, cmd)
+
+	msg := cmd()
+	selMsg, ok := msg.(PipelineSelectedMsg)
+	assert.True(t, ok)
+	assert.Equal(t, "run-001", selMsg.RunID)
+	assert.Equal(t, "speckit-flow", selMsg.Name)
+	assert.Equal(t, itemKindRunning, selMsg.Kind)
+}
+
+func TestIssueListModel_FinishedChildrenLimitedToMax(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	finished := make([]FinishedPipeline, 5)
+	for i := range finished {
+		finished[i] = FinishedPipeline{
+			RunID:    fmt.Sprintf("run-%03d", i),
+			Name:     "speckit-flow",
+			Input:    "https://github.com/org/repo/issues/1",
+			Duration: time.Duration(i+1) * time.Minute,
+		}
+	}
+	m, _ = m.Update(PipelineDataMsg{Finished: finished})
+
+	// Expand the issue
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	// Should show issue + max 3 finished children
+	assert.Equal(t, 1+issueFinishedPerMax, len(m.navigable))
+}
+
+func TestIssueListModel_UnlinkedPipelines_NotShown(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	// Pipeline with input that doesn't reference any issue
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "some unrelated input", StartedAt: time.Now()},
+		},
+	})
+
+	// No children should appear
+	assert.Equal(t, 1, len(m.navigable))
+}
+
+func TestIssueListModel_CollapseToggle(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Duration: 30 * time.Second},
+		},
+	})
+
+	// Collapsed: only issue visible
+	assert.Equal(t, 1, len(m.navigable))
+
+	// Expand
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	assert.Equal(t, 2, len(m.navigable))
+
+	// Collapse again
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	assert.Equal(t, 1, len(m.navigable))
+}
+
+func TestIssueListModel_RenderRunningChild(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+		},
+	})
+
+	view := m.View()
+	assert.Contains(t, view, "●")
+	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "run-001")
+}
+
+func TestIssueListModel_RenderFinishedChild(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Status: "completed", Duration: 30 * time.Second},
+		},
+	})
+
+	// Expand to see finished children
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	view := m.View()
+	assert.Contains(t, view, "✓")
+	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "run-001")
+}
+
+func TestIssueListModel_FailedPipelineShowsCross(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Status: "failed", Duration: 10 * time.Second},
+		},
+	})
+
+	// Expand
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+
+	view := m.View()
+	assert.Contains(t, view, "✗")
 }

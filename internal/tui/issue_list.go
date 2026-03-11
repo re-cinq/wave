@@ -3,19 +3,43 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	issueFinishedPerMax = 3 // max finished pipeline runs shown per issue when expanded
+)
+
+// issueNavKind identifies the type of navigable item in the issue list.
+type issueNavKind int
+
+const (
+	issueNavKindIssue    issueNavKind = iota // issue row (parent node)
+	issueNavKindRunning                      // running pipeline child
+	issueNavKindFinished                     // finished pipeline child
+)
+
+// issueNavItem is a single entry in the flat navigation list.
+type issueNavItem struct {
+	kind      issueNavKind
+	issue     *IssueData // non-nil for issue rows
+	dataIndex int        // index into running/finished slices for pipeline children
+}
+
 // IssueListModel is the left pane model for the Issues view.
 type IssueListModel struct {
 	width        int
 	height       int
 	issues       []IssueData
+	running      []RunningPipeline
+	finished     []FinishedPipeline
 	cursor       int
-	navigable    []IssueData
+	navigable    []issueNavItem
+	collapsed    map[string]bool // keyed by issue HTMLURL
 	filtering    bool
 	filterInput  textinput.Model
 	filterQuery  string
@@ -23,6 +47,7 @@ type IssueListModel struct {
 	scrollOffset int
 	provider     IssueDataProvider
 	loaded       bool
+	tickerActive bool
 }
 
 // NewIssueListModel creates a new issue list model.
@@ -35,6 +60,7 @@ func NewIssueListModel(provider IssueDataProvider) IssueListModel {
 		provider:    provider,
 		filterInput: ti,
 		focused:     true,
+		collapsed:   make(map[string]bool),
 	}
 }
 
@@ -80,6 +106,45 @@ func (m IssueListModel) Update(msg tea.Msg) (IssueListModel, tea.Cmd) {
 		if cmd := m.emitSelectionMsg(); cmd != nil {
 			return m, cmd
 		}
+		return m, nil
+
+	case PipelineDataMsg:
+		if msg.Err != nil {
+			return m, nil
+		}
+		m.running = msg.Running
+		m.finished = msg.Finished
+		m.buildNavigableItems()
+
+		if len(m.navigable) == 0 {
+			m.cursor = 0
+		} else if m.cursor >= len(m.navigable) {
+			m.cursor = len(m.navigable) - 1
+		}
+
+		var cmds []tea.Cmd
+		if cmd := m.emitSelectionMsg(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		// Start elapsed ticker if we have running pipelines linked to issues
+		if !m.tickerActive && m.hasRunningChildren() {
+			m.tickerActive = true
+			cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg {
+				return ElapsedTickMsg{}
+			}))
+		}
+		if len(cmds) > 0 {
+			return m, tea.Batch(cmds...)
+		}
+		return m, nil
+
+	case ElapsedTickMsg:
+		if m.hasRunningChildren() {
+			return m, tea.Tick(time.Second, func(time.Time) tea.Msg {
+				return ElapsedTickMsg{}
+			})
+		}
+		m.tickerActive = false
 		return m, nil
 
 	case tea.KeyMsg:
@@ -133,11 +198,10 @@ func (m IssueListModel) View() string {
 	}
 
 	for i := m.scrollOffset; i < endOffset; i++ {
-		issue := m.navigable[i]
+		item := m.navigable[i]
 		isSelected := i == m.cursor
 
-		line := m.renderIssueLine(issue, isSelected)
-		lines = append(lines, line)
+		lines = append(lines, m.renderNavItem(item, i, isSelected))
 	}
 
 	for len(lines) < m.height {
@@ -147,10 +211,42 @@ func (m IssueListModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
-func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string {
+// renderNavItem dispatches rendering based on item kind.
+func (m IssueListModel) renderNavItem(item issueNavItem, idx int, isSelected bool) string {
+	switch item.kind {
+	case issueNavKindIssue:
+		return m.renderIssueLine(item, isSelected)
+	case issueNavKindRunning:
+		return m.renderRunningChild(item, idx, isSelected)
+	case issueNavKindFinished:
+		return m.renderFinishedChild(item, idx, isSelected)
+	}
+	return ""
+}
+
+func (m IssueListModel) renderIssueLine(item issueNavItem, isSelected bool) string {
+	issue := item.issue
+	if issue == nil {
+		return ""
+	}
+
+	hasChildren := m.issueHasChildren(issue.HTMLURL)
 	prefix := "  "
 	if isSelected {
-		prefix = "▶ "
+		prefix = "› "
+		if hasChildren {
+			if m.collapsed[issue.HTMLURL] {
+				prefix = "▶ "
+			} else {
+				prefix = "▼ "
+			}
+		}
+	} else if hasChildren {
+		if m.collapsed[issue.HTMLURL] {
+			prefix = "▶ "
+		} else {
+			prefix = "▼ "
+		}
 	}
 
 	number := fmt.Sprintf("#%d", issue.Number)
@@ -229,13 +325,97 @@ func (m IssueListModel) renderIssueLine(issue IssueData, isSelected bool) string
 	}
 
 	// Use only MaxWidth (truncates without wrapping) to prevent multi-line output.
-	// Width() wraps text and can produce 2+ lines that corrupt the split-pane layout.
 	style := lipgloss.NewStyle().
 		MaxWidth(m.width)
 	if isSelected {
 		style = style.Foreground(lipgloss.Color("6"))
 	}
 	return style.Render(text)
+}
+
+// renderRunningChild renders a running pipeline child with tree connector.
+func (m IssueListModel) renderRunningChild(item issueNavItem, navIdx int, isSelected bool) string {
+	if item.dataIndex < 0 || item.dataIndex >= len(m.running) {
+		return ""
+	}
+	r := m.running[item.dataIndex]
+	maxWidth := m.width
+	if maxWidth <= 0 {
+		maxWidth = 40
+	}
+
+	connector := "├ "
+	if m.isLastChildOf(navIdx) {
+		connector = "└ "
+	}
+
+	elapsed := formatElapsed(time.Since(r.StartedAt))
+	displayName := fmt.Sprintf("● %s %s", r.Name, r.RunID)
+
+	// Reserve space for connector + displayName + elapsed + padding
+	nameMaxWidth := maxWidth - 2 - len(elapsed) - 3
+	displayName = truncateName(displayName, nameMaxWidth)
+
+	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(elapsed) - 1
+	if spacer < 1 {
+		spacer = 1
+	}
+	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
+
+	style := lipgloss.NewStyle().Width(maxWidth)
+	if isSelected {
+		style = style.Foreground(lipgloss.Color("6"))
+	}
+	return style.Render(text)
+}
+
+// renderFinishedChild renders a finished pipeline child with tree connector.
+func (m IssueListModel) renderFinishedChild(item issueNavItem, navIdx int, isSelected bool) string {
+	if item.dataIndex < 0 || item.dataIndex >= len(m.finished) {
+		return ""
+	}
+	f := m.finished[item.dataIndex]
+	maxWidth := m.width
+	if maxWidth <= 0 {
+		maxWidth = 40
+	}
+
+	connector := "├ "
+	if m.isLastChildOf(navIdx) {
+		connector = "└ "
+	}
+
+	statusIcon := "✓"
+	if f.Status == "failed" || f.Status == "cancelled" {
+		statusIcon = "✗"
+	}
+
+	duration := formatDuration(f.Duration)
+	displayName := fmt.Sprintf("%s %s %s", statusIcon, f.Name, f.RunID)
+
+	nameMaxWidth := maxWidth - 2 - len(duration) - 3
+	displayName = truncateName(displayName, nameMaxWidth)
+
+	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(duration) - 1
+	if spacer < 1 {
+		spacer = 1
+	}
+	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), duration)
+
+	style := lipgloss.NewStyle().Width(maxWidth)
+	if isSelected {
+		style = style.Foreground(lipgloss.Color("6"))
+	}
+	return style.Render(text)
+}
+
+// isLastChildOf returns true if the navigable item at index i is the last
+// child entry under its parent issue.
+func (m IssueListModel) isLastChildOf(i int) bool {
+	if i+1 >= len(m.navigable) {
+		return true
+	}
+	return m.navigable[i+1].kind == issueNavKindIssue
 }
 
 func (m IssueListModel) handleKeyMsg(msg tea.KeyMsg) (IssueListModel, tea.Cmd) {
@@ -275,6 +455,22 @@ func (m IssueListModel) handleKeyMsg(msg tea.KeyMsg) (IssueListModel, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyUp, tea.KeyDown:
 		return m.handleNavigation(msg)
+
+	case tea.KeyEnter, tea.KeySpace:
+		// Toggle collapse on issue nodes that have children
+		if len(m.navigable) > 0 && m.cursor < len(m.navigable) {
+			item := m.navigable[m.cursor]
+			if item.kind == issueNavKindIssue && item.issue != nil && m.issueHasChildren(item.issue.HTMLURL) {
+				m.collapsed[item.issue.HTMLURL] = !m.collapsed[item.issue.HTMLURL]
+				m.buildNavigableItems()
+				if m.cursor >= len(m.navigable) {
+					m.cursor = len(m.navigable) - 1
+				}
+				return m, nil
+			}
+		}
+		return m, nil
+
 	default:
 		if msg.String() == "/" {
 			m.filtering = true
@@ -312,51 +508,159 @@ func (m IssueListModel) emitSelectionMsg() tea.Cmd {
 		return nil
 	}
 
-	issue := m.navigable[m.cursor]
-	return func() tea.Msg {
-		return IssueSelectedMsg{Number: issue.Number, Title: issue.Title, Index: m.cursor}
+	item := m.navigable[m.cursor]
+	switch item.kind {
+	case issueNavKindIssue:
+		if item.issue == nil {
+			return nil
+		}
+		issue := *item.issue
+		return func() tea.Msg {
+			return IssueSelectedMsg{Number: issue.Number, Title: issue.Title, Index: m.cursor}
+		}
+	case issueNavKindRunning:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
+			r := m.running[item.dataIndex]
+			return func() tea.Msg {
+				return PipelineSelectedMsg{
+					RunID:      r.RunID,
+					Name:       r.Name,
+					Input:      r.Input,
+					BranchName: r.BranchName,
+					Kind:       itemKindRunning,
+					StartedAt:  r.StartedAt,
+				}
+			}
+		}
+	case issueNavKindFinished:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
+			f := m.finished[item.dataIndex]
+			return func() tea.Msg {
+				return PipelineSelectedMsg{
+					RunID:      f.RunID,
+					Name:       f.Name,
+					Input:      f.Input,
+					BranchName: f.BranchName,
+					Kind:       itemKindFinished,
+					StartedAt:  f.StartedAt,
+				}
+			}
+		}
 	}
+
+	return nil
 }
 
 func (m *IssueListModel) buildNavigableItems() {
 	query := strings.ToLower(m.filterQuery)
 	m.navigable = nil
 
-	for _, issue := range m.issues {
-		if query == "" {
-			m.navigable = append(m.navigable, issue)
+	for i := range m.issues {
+		issue := &m.issues[i]
+
+		if query != "" && !m.issueMatchesFilter(issue, query) {
 			continue
 		}
-		// Match against title, number, labels, and assignees
-		if strings.Contains(strings.ToLower(issue.Title), query) {
-			m.navigable = append(m.navigable, issue)
-			continue
+
+		// Default to collapsed for issues not yet toggled.
+		if _, seen := m.collapsed[issue.HTMLURL]; !seen {
+			m.collapsed[issue.HTMLURL] = true
 		}
-		if strings.Contains(fmt.Sprintf("#%d", issue.Number), query) {
-			m.navigable = append(m.navigable, issue)
-			continue
-		}
-		matched := false
-		for _, l := range issue.Labels {
-			if strings.Contains(strings.ToLower(l), query) {
-				matched = true
-				break
+
+		// Add issue as parent node.
+		m.navigable = append(m.navigable, issueNavItem{
+			kind:  issueNavKindIssue,
+			issue: issue,
+		})
+
+		// Running pipelines linked to this issue — always visible.
+		for idx, r := range m.running {
+			if m.pipelineLinkedToIssue(r.Input, issue.HTMLURL) {
+				m.navigable = append(m.navigable, issueNavItem{
+					kind:      issueNavKindRunning,
+					issue:     issue,
+					dataIndex: idx,
+				})
 			}
 		}
-		if matched {
-			m.navigable = append(m.navigable, issue)
-			continue
-		}
-		for _, a := range issue.Assignees {
-			if strings.Contains(strings.ToLower(a), query) {
-				matched = true
-				break
+
+		// Finished pipelines linked to this issue — only when expanded.
+		if !m.collapsed[issue.HTMLURL] || query != "" {
+			count := 0
+			for idx, f := range m.finished {
+				if count >= issueFinishedPerMax {
+					break
+				}
+				if m.pipelineLinkedToIssue(f.Input, issue.HTMLURL) {
+					m.navigable = append(m.navigable, issueNavItem{
+						kind:      issueNavKindFinished,
+						issue:     issue,
+						dataIndex: idx,
+					})
+					count++
+				}
 			}
-		}
-		if matched {
-			m.navigable = append(m.navigable, issue)
 		}
 	}
+}
+
+// issueMatchesFilter checks if an issue matches the filter query.
+func (m *IssueListModel) issueMatchesFilter(issue *IssueData, query string) bool {
+	if strings.Contains(strings.ToLower(issue.Title), query) {
+		return true
+	}
+	if strings.Contains(fmt.Sprintf("#%d", issue.Number), query) {
+		return true
+	}
+	for _, l := range issue.Labels {
+		if strings.Contains(strings.ToLower(l), query) {
+			return true
+		}
+	}
+	for _, a := range issue.Assignees {
+		if strings.Contains(strings.ToLower(a), query) {
+			return true
+		}
+	}
+	return false
+}
+
+// pipelineLinkedToIssue returns true if the pipeline's input references the issue URL.
+func (m *IssueListModel) pipelineLinkedToIssue(input, issueURL string) bool {
+	if issueURL == "" {
+		return false
+	}
+	return strings.Contains(input, issueURL)
+}
+
+// issueHasChildren returns true if any running or finished pipeline is linked to this issue.
+func (m *IssueListModel) issueHasChildren(issueURL string) bool {
+	if issueURL == "" {
+		return false
+	}
+	for _, r := range m.running {
+		if strings.Contains(r.Input, issueURL) {
+			return true
+		}
+	}
+	for _, f := range m.finished {
+		if strings.Contains(f.Input, issueURL) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasRunningChildren returns true if any running pipeline is linked to any issue.
+func (m *IssueListModel) hasRunningChildren() bool {
+	for _, r := range m.running {
+		for _, issue := range m.issues {
+			if m.pipelineLinkedToIssue(r.Input, issue.HTMLURL) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (m *IssueListModel) adjustScrollOffset(visibleHeight int) {

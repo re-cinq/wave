@@ -60,6 +60,9 @@ type ContentModel struct {
 	composeList   *ComposeListModel
 	composeDetail *ComposeDetailModel
 
+	// When true, the Issues view right pane shows pipeline detail instead of issue detail.
+	issueShowPipeline bool
+
 	// Detached pipeline event polling
 	detachedPollRunID  string
 	detachedPollOffset int
@@ -422,6 +425,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					r := m.list.running[item.dataIndex]
 					buf := NewEventBuffer(1000)
 					liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
+					liveModel.input = r.Input
 					var eventCount int
 					if m.launcher != nil && m.launcher.deps.Store != nil {
 						events, err := m.launcher.deps.Store.GetEvents(r.RunID, state.EventQueryOptions{})
@@ -742,6 +746,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case IssueSelectedMsg:
+		// Switch back to issue detail when an issue row is selected.
+		m.issueShowPipeline = false
 		if m.issueList != nil {
 			var listCmd tea.Cmd
 			*m.issueList, listCmd = m.issueList.Update(msg)
@@ -751,8 +757,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		if m.issueDetail != nil && m.issueList != nil {
 			if msg.Index >= 0 && msg.Index < len(m.issueList.navigable) {
-				issue := m.issueList.navigable[msg.Index]
-				m.issueDetail.SetIssue(&issue)
+				item := m.issueList.navigable[msg.Index]
+				if item.issue != nil {
+					m.issueDetail.SetIssue(item.issue)
+				}
 			}
 		}
 		return m, tea.Batch(cmds...)
@@ -852,18 +860,32 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
+		// When in Issues view, show pipeline detail in right pane.
+		if m.currentView == ViewIssues {
+			m.issueShowPipeline = true
+		}
 		// Wire live output from SQLite events for running pipelines on hover
 		if msg.Kind == itemKindRunning && msg.RunID != "" && m.launcher != nil {
 			if m.detail.liveOutput == nil || m.detail.liveOutput.runID != msg.RunID {
 				var startedAt time.Time
+				// Check both pipeline list and issue list for the running entry.
 				for _, r := range m.list.running {
 					if r.RunID == msg.RunID {
 						startedAt = r.StartedAt
 						break
 					}
 				}
+				if startedAt.IsZero() && m.issueList != nil {
+					for _, r := range m.issueList.running {
+						if r.RunID == msg.RunID {
+							startedAt = r.StartedAt
+							break
+						}
+					}
+				}
 				buf := NewEventBuffer(1000)
 				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
+				liveModel.input = msg.Input
 				var eventCount int
 				if m.launcher.deps.Store != nil {
 					events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{})
@@ -915,6 +937,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Detached pipelines are tracked via SQLite — no in-memory merge needed.
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
+		// Also update issue list with pipeline data so it can show children.
+		if m.issueList != nil {
+			var issueCmd tea.Cmd
+			*m.issueList, issueCmd = m.issueList.Update(msg)
+			return m, tea.Batch(cmd, issueCmd)
+		}
 		return m, cmd
 
 	case PipelineEventMsg:
@@ -950,6 +978,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case ElapsedTickMsg:
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
+		// Also forward to issue list for running pipeline elapsed time updates.
+		if m.issueList != nil {
+			var issueCmd tea.Cmd
+			*m.issueList, issueCmd = m.issueList.Update(msg)
+			return m, tea.Batch(cmd, issueCmd)
+		}
 		return m, cmd
 
 	case ConfigureFormMsg:
@@ -972,6 +1006,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Create live output model with display flags from launch config
 		buf := NewEventBuffer(1000)
 		live := NewLiveOutputModel(msg.RunID, msg.PipelineName, buf, time.Now(), 0)
+		live.input = msg.Input
 		if msg.Verbose {
 			live.flags.Verbose = true
 		}
@@ -1161,7 +1196,9 @@ func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
 		if m.issueList != nil {
 			m.issueList.SetFocused(false)
 		}
-		if m.issueDetail != nil {
+		if m.issueShowPipeline {
+			m.detail.SetFocused(true)
+		} else if m.issueDetail != nil {
 			m.issueDetail.SetFocused(true)
 		}
 	case ViewSuggest:
@@ -1213,7 +1250,9 @@ func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
 		if m.issueList != nil {
 			m.issueList.SetFocused(true)
 		}
-		if m.issueDetail != nil {
+		if m.issueShowPipeline {
+			m.detail.SetFocused(false)
+		} else if m.issueDetail != nil {
 			m.issueDetail.SetFocused(false)
 		}
 	case ViewSuggest:
@@ -1307,6 +1346,11 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, cmd
 		}
 	case ViewIssues:
+		if m.issueShowPipeline {
+			var cmd tea.Cmd
+			m.detail, cmd = m.detail.Update(msg)
+			return m, cmd
+		}
 		if m.issueDetail != nil {
 			var cmd tea.Cmd
 			*m.issueDetail, cmd = m.issueDetail.Update(msg)
@@ -1403,7 +1447,10 @@ func (m ContentModel) View() string {
 		} else {
 			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "No repository configured")
 		}
-		if m.issueDetail != nil {
+		if m.issueShowPipeline {
+			// Show pipeline detail when a pipeline child is selected.
+			rightView = m.detail.View()
+		} else if m.issueDetail != nil {
 			rightView = m.issueDetail.View()
 		} else {
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select an issue to view details")
