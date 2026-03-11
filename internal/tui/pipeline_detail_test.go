@@ -288,11 +288,11 @@ func TestPipelineDetailModel_RunningInfo(t *testing.T) {
 	assert.Contains(t, view, "my-pipeline")
 }
 
-func TestPipelineDetailModel_SectionHeaderShowsPlaceholder(t *testing.T) {
+func TestPipelineDetailModel_InitialStateShowsPlaceholder(t *testing.T) {
 	m := newTestDetailModel(&mockDetailProvider{})
 
-	view := detailStripAnsi(updateAndView(m, PipelineSelectedMsg{Kind: itemKindSectionHeader, Name: "Running"}))
-
+	// Initial state (no selection) should show placeholder
+	view := detailStripAnsi(m.View())
 	assert.Contains(t, view, "Select a pipeline to view details")
 }
 

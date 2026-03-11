@@ -402,15 +402,18 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} },
 				}
 
-				// For available items, also send ConfigureFormMsg to show the launch form
-				if item.kind == itemKindAvailable && item.dataIndex >= 0 && item.dataIndex < len(m.list.available) {
-					a := m.list.available[item.dataIndex]
-					enterCmds = append(enterCmds, func() tea.Msg {
-						return ConfigureFormMsg{PipelineName: a.Name, InputExample: a.InputExample}
-					})
-					enterCmds = append(enterCmds, func() tea.Msg {
-						return FormActiveMsg{Active: true}
-					})
+				// For pipeline name nodes, send ConfigureFormMsg to show the launch form
+				if item.kind == itemKindPipelineName {
+					idx := m.list.availableIndexForName(item.pipelineName)
+					if idx >= 0 {
+						a := m.list.available[idx]
+						enterCmds = append(enterCmds, func() tea.Msg {
+							return ConfigureFormMsg{PipelineName: a.Name, InputExample: a.InputExample}
+						})
+						enterCmds = append(enterCmds, func() tea.Msg {
+							return FormActiveMsg{Active: true}
+						})
+					}
 				}
 
 				// For running items, load historical events from SQLite and start polling
@@ -499,12 +502,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, nil
 		}
 
-		// Enter compose mode with 's' key — only for available pipelines
+		// Enter compose mode with 's' key — only for pipeline name nodes (available pipelines)
 		if msg.String() == "s" && m.currentView == ViewPipelines && m.focus == FocusPaneLeft && !m.list.filtering && !m.composing {
 			if len(m.list.navigable) > 0 && m.list.cursor < len(m.list.navigable) {
 				item := m.list.navigable[m.list.cursor]
-				if item.kind == itemKindAvailable && item.dataIndex >= 0 && item.dataIndex < len(m.list.available) {
-					selectedPipeline := m.list.available[item.dataIndex]
+				idx := m.list.availableIndexForName(item.pipelineName)
+				if item.kind == itemKindPipelineName && idx >= 0 {
+					selectedPipeline := m.list.available[idx]
 					loadedPipeline, err := LoadPipelineByName(m.launcher.deps.PipelinesDir, selectedPipeline.Name)
 					if err == nil {
 						cl := NewComposeListModel(selectedPipeline, loadedPipeline, m.list.available)
@@ -1283,13 +1287,13 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 	return m, nil
 }
 
-// cursorOnFocusableItem returns true if the cursor is on an available, finished, or running item.
+// cursorOnFocusableItem returns true if the cursor is on a pipeline name, finished, or running item.
 func (m ContentModel) cursorOnFocusableItem() bool {
 	if len(m.list.navigable) == 0 || m.list.cursor >= len(m.list.navigable) {
 		return false
 	}
 	kind := m.list.navigable[m.list.cursor].kind
-	return kind == itemKindAvailable || kind == itemKindFinished || kind == itemKindRunning
+	return kind == itemKindPipelineName || kind == itemKindFinished || kind == itemKindRunning
 }
 
 // View renders the content area with left list and right detail pane.
