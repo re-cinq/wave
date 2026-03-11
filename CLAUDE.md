@@ -140,13 +140,6 @@ Automated semantic versioning from conventional commits. Every merge to `main` p
 - Check `.wave/traces/` for audit logs
 - Workspace contents preserved for post-mortem analysis
 
-## Recent Changes
-- 086-pipeline-recovery-hints: Added Go 1.25+ + `github.com/spf13/cobra` (CLI), `gopkg.in/yaml.v3` (config) — no new dependencies
-- 085-web-operations-dashboard: Added Go 1.25+ (existing project) + `net/http` stdlib (Go 1.22+ enhanced `ServeMux`), `html/template`, `go:embed`, `modernc.org/sqlite` (existing)
-- 029-release-gated-embedding: Added Go 1.25+ + `gopkg.in/yaml.v3`, `github.com/spf13/cobra`
-- 021-add-missing-personas: Added implementer and reviewer personas, updated persona prompts to decouple schema details per issue #24
-
-<!-- MANUAL ADDITIONS START -->
 
 1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
 2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
