@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,23 +15,24 @@ import (
 const (
 	pipelineRefreshInterval = 5 * time.Second
 	finishedPipelineLimit   = 20
+	finishedPerPipelineMax  = 3 // max finished runs shown per pipeline when expanded
 )
 
 // itemKind identifies the type of navigable item in the flat list.
 type itemKind int
 
 const (
-	itemKindSectionHeader itemKind = iota
+	itemKindPipelineName itemKind = iota // tree root: pipeline name
 	itemKindRunning
 	itemKindFinished
-	itemKindAvailable
+	itemKindAvailable // kept for PipelineSelectedMsg.Kind compatibility
 )
 
 // navigableItem is a single entry in the flat navigation list.
 type navigableItem struct {
 	kind         itemKind
-	sectionIndex int    // 0=Running, 1=Available, 2=Finished
-	dataIndex    int    // index into section's data slice (-1 for headers)
+	pipelineName string // parent pipeline name for tree grouping
+	dataIndex    int    // index into section's data slice (-1 for pipeline names)
 	label        string // display text
 }
 
@@ -62,8 +64,8 @@ type PipelineListModel struct {
 	filterInput textinput.Model
 	filterQuery string
 
-	// Section collapse state
-	collapsed [3]bool // [Running, Available, Finished]
+	// Per-pipeline collapse state (collapsed by default)
+	collapsed map[string]bool
 
 	// Focus state
 	focused bool
@@ -85,7 +87,7 @@ func NewPipelineListModel(provider PipelineDataProvider) PipelineListModel {
 		provider:    provider,
 		filterInput: ti,
 		focused:     true,
-		collapsed:   [3]bool{false, false, true}, // Finished collapsed by default
+		collapsed:   make(map[string]bool),
 	}
 }
 
@@ -122,7 +124,6 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 			StartedAt: time.Now(),
 		}
 		m.running = append([]RunningPipeline{newRunning}, m.running...)
-		m.collapsed[0] = false // Ensure Running section is expanded
 		m.buildNavigableItems()
 
 		// Move cursor to the new running entry
@@ -321,11 +322,11 @@ func (m PipelineListModel) handleKeyMsg(msg tea.KeyMsg) (PipelineListModel, tea.
 		return m.handleNavigation(msg)
 
 	case tea.KeyEnter:
-		// Toggle collapse on section headers
+		// Toggle collapse on pipeline name nodes
 		if len(m.navigable) > 0 && m.cursor < len(m.navigable) {
 			item := m.navigable[m.cursor]
-			if item.kind == itemKindSectionHeader {
-				m.collapsed[item.sectionIndex] = !m.collapsed[item.sectionIndex]
+			if item.kind == itemKindPipelineName {
+				m.collapsed[item.pipelineName] = !m.collapsed[item.pipelineName]
 				m.buildNavigableItems()
 				// Clamp cursor after rebuild
 				if m.cursor >= len(m.navigable) {
@@ -379,6 +380,16 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 
 	item := m.navigable[m.cursor]
 	switch item.kind {
+	case itemKindPipelineName:
+		// Pipeline name node emits as itemKindAvailable to preserve detail pane behavior.
+		name := item.pipelineName
+		return func() tea.Msg {
+			return PipelineSelectedMsg{
+				RunID: "",
+				Name:  name,
+				Kind:  itemKindAvailable,
+			}
+		}
 	case itemKindRunning:
 		if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
 			r := m.running[item.dataIndex]
@@ -407,104 +418,128 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 				}
 			}
 		}
-	case itemKindAvailable:
-		if item.dataIndex >= 0 && item.dataIndex < len(m.available) {
-			a := m.available[item.dataIndex]
-			return func() tea.Msg {
-				return PipelineSelectedMsg{
-					RunID: "",
-					Name:  a.Name,
-					Kind:  itemKindAvailable,
-				}
-			}
-		}
 	}
 
 	return nil
 }
 
-// buildNavigableItems rebuilds the flat navigable item list from section data.
+// buildNavigableItems rebuilds the flat navigable item list as a pipeline tree.
+// Each unique pipeline name becomes a collapsible tree root. Running instances
+// are always visible; finished runs only appear when the node is expanded
+// (limited to finishedPerPipelineMax most recent).
 func (m *PipelineListModel) buildNavigableItems() {
 	m.navigable = nil
 	query := strings.ToLower(m.filterQuery)
 
-	// Running section
-	var filteredRunning []int
+	// Index running and finished entries by pipeline name.
+	runningByName := make(map[string][]int)
 	for i, r := range m.running {
-		if query == "" || strings.Contains(strings.ToLower(r.Name), query) {
-			filteredRunning = append(filteredRunning, i)
-		}
+		runningByName[r.Name] = append(runningByName[r.Name], i)
 	}
-	if len(filteredRunning) > 0 || query == "" {
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindSectionHeader,
-			sectionIndex: 0,
-			dataIndex:    -1,
-			label:        fmt.Sprintf("Running (%d)", len(filteredRunning)),
-		})
-		if !m.collapsed[0] || query != "" {
-			for _, idx := range filteredRunning {
-				m.navigable = append(m.navigable, navigableItem{
-					kind:         itemKindRunning,
-					sectionIndex: 0,
-					dataIndex:    idx,
-					label:        m.running[idx].Name,
-				})
-			}
-		}
-	}
-
-	// Available section
-	var filteredAvailable []int
-	for i, a := range m.available {
-		if query == "" || strings.Contains(strings.ToLower(a.Name), query) {
-			filteredAvailable = append(filteredAvailable, i)
-		}
-	}
-	if len(filteredAvailable) > 0 || query == "" {
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindSectionHeader,
-			sectionIndex: 1,
-			dataIndex:    -1,
-			label:        fmt.Sprintf("Available (%d)", len(filteredAvailable)),
-		})
-		if !m.collapsed[1] || query != "" {
-			for _, idx := range filteredAvailable {
-				m.navigable = append(m.navigable, navigableItem{
-					kind:         itemKindAvailable,
-					sectionIndex: 1,
-					dataIndex:    idx,
-					label:        m.available[idx].Name,
-				})
-			}
-		}
-	}
-
-	// Finished section
-	var filteredFinished []int
+	finishedByName := make(map[string][]int)
 	for i, f := range m.finished {
-		if query == "" || strings.Contains(strings.ToLower(f.Name), query) {
-			filteredFinished = append(filteredFinished, i)
-		}
+		finishedByName[f.Name] = append(finishedByName[f.Name], i)
 	}
-	if len(filteredFinished) > 0 || query == "" {
+
+	// Collect all unique pipeline names.
+	nameSet := make(map[string]bool)
+	for _, r := range m.running {
+		nameSet[r.Name] = true
+	}
+	for _, f := range m.finished {
+		nameSet[f.Name] = true
+	}
+	for _, a := range m.available {
+		nameSet[a.Name] = true
+	}
+
+	// Sort alphabetically.
+	names := make([]string, 0, len(nameSet))
+	for n := range nameSet {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	// Build available index for fast lookup.
+	availableIdx := make(map[string]int)
+	for i, a := range m.available {
+		availableIdx[a.Name] = i
+	}
+
+	for _, name := range names {
+		// Apply filter at the pipeline-name level.
+		if query != "" && !strings.Contains(strings.ToLower(name), query) {
+			continue
+		}
+
+		running := runningByName[name]
+		finished := finishedByName[name]
+
+		// Pipeline name entry (tree root).
 		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindSectionHeader,
-			sectionIndex: 2,
+			kind:         itemKindPipelineName,
+			pipelineName: name,
 			dataIndex:    -1,
-			label:        fmt.Sprintf("Finished (%d)", len(filteredFinished)),
+			label:        name,
 		})
-		if !m.collapsed[2] || query != "" {
-			for _, idx := range filteredFinished {
+
+		// Running entries — always visible regardless of collapse state.
+		for _, idx := range running {
+			m.navigable = append(m.navigable, navigableItem{
+				kind:         itemKindRunning,
+				pipelineName: name,
+				dataIndex:    idx,
+				label:        m.running[idx].Name,
+			})
+		}
+
+		// Finished entries — only when expanded.
+		if !m.collapsed[name] || query != "" {
+			limit := finishedPerPipelineMax
+			if limit > len(finished) {
+				limit = len(finished)
+			}
+			for _, idx := range finished[:limit] {
 				m.navigable = append(m.navigable, navigableItem{
 					kind:         itemKindFinished,
-					sectionIndex: 2,
+					pipelineName: name,
 					dataIndex:    idx,
 					label:        m.finished[idx].Name,
 				})
 			}
 		}
+
+		// No special entry for available — the pipeline name node itself
+		// serves that role. The availableIdx map is used by emitSelectionMsg.
+		_ = availableIdx
 	}
+}
+
+// availableIndexForName returns the index into m.available for the given
+// pipeline name, or -1 if not found.
+func (m *PipelineListModel) availableIndexForName(name string) int {
+	for i, a := range m.available {
+		if a.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// pipelineHasChildren returns true if a pipeline name has any running or
+// finished entries.
+func (m *PipelineListModel) pipelineHasChildren(name string) bool {
+	for _, r := range m.running {
+		if r.Name == name {
+			return true
+		}
+	}
+	for _, f := range m.finished {
+		if f.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // adjustScrollOffset ensures the cursor is within the visible window.
@@ -539,52 +574,65 @@ func (m PipelineListModel) renderItem(item navigableItem, isSelected bool) strin
 	}
 
 	switch item.kind {
-	case itemKindSectionHeader:
-		return m.renderSectionHeader(item, isSelected, maxWidth)
+	case itemKindPipelineName:
+		return m.renderPipelineName(item, isSelected, maxWidth)
 	case itemKindRunning:
 		return m.renderRunningItem(item, isSelected, maxWidth)
 	case itemKindFinished:
 		return m.renderFinishedItem(item, isSelected, maxWidth)
-	case itemKindAvailable:
-		return m.renderAvailableItem(item, isSelected, maxWidth)
 	}
 	return ""
 }
 
-// renderSectionHeader renders a section header line with a separator bar.
-func (m PipelineListModel) renderSectionHeader(item navigableItem, isSelected bool, maxWidth int) string {
-	// Collapse indicator
-	indicator := "▼"
-	if m.collapsed[item.sectionIndex] {
-		indicator = "▶"
+// isLastChildOf returns true if the given navigable item at index i is the last
+// child entry under its parent pipeline name.
+func (m PipelineListModel) isLastChildOf(i int) bool {
+	if i+1 >= len(m.navigable) {
+		return true
 	}
+	return m.navigable[i+1].kind == itemKindPipelineName
+}
 
-	text := fmt.Sprintf("%s %s", indicator, item.label)
+// renderPipelineName renders a pipeline tree root node.
+func (m PipelineListModel) renderPipelineName(item navigableItem, isSelected bool, maxWidth int) string {
+	hasChildren := m.pipelineHasChildren(item.pipelineName)
 
-	// Section header styling
+	nameMaxWidth := maxWidth - 3
+	name := truncateName(item.label, nameMaxWidth)
+
 	if isSelected {
+		prefix := "› "
+		if hasChildren {
+			if m.collapsed[item.pipelineName] {
+				prefix = "▶ "
+			} else {
+				prefix = "▼ "
+			}
+		}
+		text := fmt.Sprintf("%s%s", prefix, name)
 		style := lipgloss.NewStyle().
 			Bold(true).
-			Reverse(true).
+			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
 
-	// Fill remaining width with ─ for visual separation (single line, no border)
-	textWidth := lipgloss.Width(text)
-	padWidth := maxWidth - textWidth - 1
-	if padWidth > 0 {
-		text = text + " " + strings.Repeat("─", padWidth)
+	prefix := "  "
+	if hasChildren {
+		if m.collapsed[item.pipelineName] {
+			prefix = "▶ "
+		} else {
+			prefix = "▼ "
+		}
 	}
-
+	text := fmt.Sprintf("%s%s", prefix, name)
 	style := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("6")).
 		Width(maxWidth)
 	return style.Render(text)
 }
 
-// renderRunningItem renders a running pipeline item line.
+// renderRunningItem renders a running pipeline item line with tree connector.
 func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool, maxWidth int) string {
 	if item.dataIndex < 0 || item.dataIndex >= len(m.running) {
 		return ""
@@ -592,95 +640,99 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 	r := m.running[item.dataIndex]
 
 	elapsed := formatElapsed(time.Since(r.StartedAt))
-	// Reserve space: prefix (3) + elapsed + padding
-	nameMaxWidth := maxWidth - 3 - len(elapsed) - 3
-	name := truncateName(r.Name, nameMaxWidth)
+
+	// Find this item's index in navigable to determine tree connector
+	itemIdx := -1
+	for i, n := range m.navigable {
+		if n.kind == item.kind && n.dataIndex == item.dataIndex {
+			itemIdx = i
+			break
+		}
+	}
+	connector := "├ "
+	if itemIdx >= 0 && m.isLastChildOf(itemIdx) {
+		connector = "└ "
+	}
+
+	statusIcon := "●"
+	displayName := fmt.Sprintf("%s %s", statusIcon, r.Name)
+
+	// Reserve space: connector (2) + displayName + elapsed + padding
+	nameMaxWidth := maxWidth - 2 - len(elapsed) - 3
+	displayName = truncateName(displayName, nameMaxWidth)
 
 	if isSelected {
-		spacer := maxWidth - lipgloss.Width("▶ "+name) - lipgloss.Width(elapsed) - 1
+		spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(elapsed) - 1
 		if spacer < 1 {
 			spacer = 1
 		}
-		text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), elapsed)
+		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
 
-	spacer := maxWidth - lipgloss.Width("  "+name) - lipgloss.Width(elapsed) - 1
+	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(elapsed) - 1
 	if spacer < 1 {
 		spacer = 1
 	}
-	text := fmt.Sprintf("  %s%s%s", name, strings.Repeat(" ", spacer), elapsed)
+	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)
 }
 
-// renderFinishedItem renders a finished pipeline item line.
+// renderFinishedItem renders a finished pipeline item line with tree connector.
 func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected bool, maxWidth int) string {
 	if item.dataIndex < 0 || item.dataIndex >= len(m.finished) {
 		return ""
 	}
 	f := m.finished[item.dataIndex]
 
-	// L3: Add date to distinguish multiple runs of the same pipeline
-	dateSuffix := f.StartedAt.Format("Jan 02 15:04")
-	displayName := fmt.Sprintf("%s (%s)", f.Name, dateSuffix)
+	// Find this item's index in navigable to determine tree connector
+	itemIdx := -1
+	for i, n := range m.navigable {
+		if n.kind == item.kind && n.dataIndex == item.dataIndex {
+			itemIdx = i
+			break
+		}
+	}
+	connector := "├ "
+	if itemIdx >= 0 && m.isLastChildOf(itemIdx) {
+		connector = "└ "
+	}
 
 	statusIcon := "✓"
 	if f.Status == "failed" || f.Status == "cancelled" {
 		statusIcon = "✗"
 	}
 
+	dateSuffix := f.StartedAt.Format("Jan 02 15:04")
 	duration := formatDuration(f.Duration)
-	suffix := fmt.Sprintf("%s %s  %s", statusIcon, f.Status, duration)
+	displayName := fmt.Sprintf("%s %s", statusIcon, dateSuffix)
+	suffix := duration
 
-	nameMaxWidth := maxWidth - 3 - len(suffix) - 1
-	name := truncateName(displayName, nameMaxWidth)
+	nameMaxWidth := maxWidth - 2 - len(suffix) - 3
+	displayName = truncateName(displayName, nameMaxWidth)
 
 	if isSelected {
-		spacer := maxWidth - lipgloss.Width("› "+name) - lipgloss.Width(suffix) - 1
+		spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(suffix) - 1
 		if spacer < 1 {
 			spacer = 1
 		}
-		text := fmt.Sprintf("› %s%s%s", name, strings.Repeat(" ", spacer), suffix)
+		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), suffix)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
 
-	spacer := maxWidth - lipgloss.Width("  "+name) - lipgloss.Width(suffix) - 1
+	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(suffix) - 1
 	if spacer < 1 {
 		spacer = 1
 	}
-	text := fmt.Sprintf("  %s%s%s", name, strings.Repeat(" ", spacer), suffix)
-	style := lipgloss.NewStyle().
-		Width(maxWidth)
-	return style.Render(text)
-}
-
-// renderAvailableItem renders an available pipeline item line.
-func (m PipelineListModel) renderAvailableItem(item navigableItem, isSelected bool, maxWidth int) string {
-	if item.dataIndex < 0 || item.dataIndex >= len(m.available) {
-		return ""
-	}
-	a := m.available[item.dataIndex]
-
-	nameMaxWidth := maxWidth - 3
-	name := truncateName(a.Name, nameMaxWidth)
-
-	if isSelected {
-		text := fmt.Sprintf("› %s", name)
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			Width(maxWidth)
-		return style.Render(text)
-	}
-
-	text := fmt.Sprintf("  %s", name)
+	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), suffix)
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)
