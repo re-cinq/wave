@@ -350,6 +350,7 @@ func formatElapsed(d time.Duration) string {
 type LiveOutputModel struct {
 	runID        string
 	pipelineName string
+	input        string
 	width        int
 	height       int
 
@@ -382,7 +383,7 @@ type LiveOutputModel struct {
 }
 
 const (
-	liveOutputHeaderLines = 3
+	liveOutputHeaderLines = 7
 	liveOutputFooterLines = 2
 )
 
@@ -934,16 +935,15 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 		labelStyle = lipgloss.NewStyle()
 	}
 
-	// Line 1: Pipeline name
-	line1 := titleStyle.Render(m.pipelineName)
+	// Line 1: Pipeline label
+	line1 := fmt.Sprintf("%s %s", labelStyle.Render("Pipeline:"), titleStyle.Render(m.pipelineName))
 
 	// Line 2: Status with step progress and completion counts
-	var statusParts []string
+	var statusStr string
 	if m.completed {
-		statusParts = append(statusParts, "Finished")
+		statusStr = "Finished"
 	} else if m.stepNumber > 0 {
-		status := fmt.Sprintf("Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
-		// Add completion counts from dashboard state
+		statusStr = fmt.Sprintf("▶ Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
 		var okCount, failCount int
 		for _, s := range m.dashSteps {
 			switch s.status {
@@ -958,24 +958,33 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 			if failCount > 0 {
 				counts += fmt.Sprintf(", %d fail", failCount)
 			}
-			status += fmt.Sprintf(" (%s)", counts)
+			statusStr += fmt.Sprintf(" (%s)", counts)
 		}
-		statusParts = append(statusParts, status)
 	} else {
-		statusParts = append(statusParts, "Running")
+		statusStr = "▶ Running"
 	}
 	elapsed := formatElapsed(time.Since(m.startedAt))
-	statusParts = append(statusParts, elapsed)
 	if m.model != "" {
-		statusParts = append(statusParts, m.model)
+		statusStr += "  " + m.model
 	}
+	line2 := fmt.Sprintf("%s %s", labelStyle.Render("Status:"), statusStr)
 
-	line2 := labelStyle.Render(strings.Join(statusParts, "  "))
+	// Build metadata lines (blank line after pipeline name, matching finished detail)
+	var lines []string
+	lines = append(lines, line1, "", line2)
+	if m.input != "" {
+		lines = append(lines, fmt.Sprintf("%s %s", labelStyle.Render("Input:"), m.input))
+	}
+	lines = append(lines, fmt.Sprintf("%s %s", labelStyle.Render("RunID:"), m.runID))
+	if !m.startedAt.IsZero() {
+		lines = append(lines, fmt.Sprintf("%s %s  %s %s",
+			labelStyle.Render("Started:"), m.startedAt.Format("2006-01-02 15:04:05"),
+			labelStyle.Render("Elapsed:"), elapsed))
+	}
+	// Separator
+	lines = append(lines, labelStyle.Render(strings.Repeat("─", m.width)))
 
-	// Line 3: separator
-	line3 := labelStyle.Render(strings.Repeat("─", m.width))
-
-	return lipgloss.JoinVertical(lipgloss.Left, line1, line2, line3)
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m LiveOutputModel) renderFooter(nc bool) string {
