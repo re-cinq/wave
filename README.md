@@ -1,8 +1,8 @@
 # Wave — AI-as-Code
 
-**Infrastructure thinking for AI-native workflows.**
+**Orchestration for agent factories. Just the right amount of guardrails.**
 
-Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipelines in YAML, version them in git, and run them with contracts, isolation, and audit trails.
+Wave is the open-source orchestration layer for AI agent factories — define multi-agent pipelines in YAML, scope each persona's permissions precisely, and run repeatable workflows with contract-validated handoffs and full audit trails.
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,15 +11,13 @@ Wave brings Infrastructure-as-Code principles to AI. Define multi-agent pipeline
 
 ## Why Wave?
 
-Running AI agents without guardrails is risky. A single prompt can read secrets, delete files, or push broken code.
+Agent factories need boundaries — not to hobble agents, but to make them trustworthy enough to run unsupervised.
 
-Wave solves this with **persona-scoped safety**:
+Most teams end up at one of two extremes: agents wrapped in approval loops that accomplish nothing, or unconstrained agents one misread prompt away from a production incident. Wave finds the middle path — **just the right amount of guardrails**.
 
-- **Navigator** can explore but never modify
-- **Craftsman** can implement but not push to remote
-- **Auditor** can review but not fix
+Scoping is declarative, per-persona, enforced at runtime, and versioned in git. Agents do more. Accidents don't happen.
 
-Each persona runs in isolation with explicit permissions. Deny patterns always win.
+> Wave is the orchestration layer described in [Building Agent Factories](https://re-cinq.com/blog/building-agent-factories) — the open-source runtime for specification-driven AI workflows at scale.
 
 ---
 
