@@ -17,8 +17,10 @@ Wave CLI commands for pipeline orchestration.
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
+| `wave compose` | Validate and execute pipeline sequences |
+| `wave doctor` | Diagnose project configuration and health |
+| `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
-| `wave chat` | Interactive chat session with a persona |
 | `wave migrate` | Database migrations |
 
 ---
@@ -95,6 +97,7 @@ wave run build -o json                         # NDJSON output to stdout (pipe-f
 wave run deploy -o text                        # Plain text progress to stderr
 wave run review -o text -v                     # Plain text with real-time tool activity
 wave run check -o quiet                        # Only final result to stderr
+wave run build --model haiku                   # Override adapter model for this run
 ```
 
 ---
@@ -123,6 +126,7 @@ wave do "fix the typo in README.md"
 wave do "audit auth" --persona auditor         # Use specific persona
 wave do "test" --dry-run                       # Preview only
 wave do "deploy" --mock                        # Use mock adapter for testing
+wave do "audit" --model opus                   # Override adapter model for this run
 ```
 
 ---
@@ -157,6 +161,7 @@ Meta pipeline completed (3m28s)
 wave meta "build API" --save api-pipeline.yaml  # Save generated pipeline
 wave meta "refactor code" --dry-run             # Preview without executing
 wave meta "add tests" --mock                    # Use mock adapter for testing
+wave meta "refactor" --model opus               # Override adapter model for this run
 ```
 
 ---
@@ -544,6 +549,158 @@ wave serve --db .wave/state.db
 ---
 
 
+## wave compose
+
+Validate artifact compatibility between adjacent pipelines in a sequence and optionally execute them in order.
+
+```bash
+wave compose speckit-flow wave-evolve wave-review
+```
+
+**Output:**
+```
+Validating pipeline sequence: speckit-flow → wave-evolve → wave-review
+  speckit-flow → wave-evolve: compatible (3 artifacts)
+  wave-evolve → wave-review: compatible (2 artifacts)
+
+Executing pipeline sequence...
+[run-abc123] speckit-flow completed (2m15s)
+[run-def456] wave-evolve completed (3m42s)
+[run-ghi789] wave-review completed (1m08s)
+
+Sequence completed in 7m05s
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--validate-only` | `false` | Check compatibility without executing |
+| `--input` | `""` | Input data passed to every pipeline in the sequence |
+| `--mock` | `false` | Use mock adapter (for testing) |
+| `--parallel` | `false` | Enable parallel execution (use `--` to separate stages) |
+| `--fail-fast` | `true` | Stop on first failure |
+
+```bash
+# Validate without executing
+wave compose speckit-flow wave-evolve --validate-only
+
+# Pass input to all pipelines
+wave compose pipeline-a pipeline-b --input "build feature X"
+
+# Parallel execution with stage separator
+wave compose --parallel A B -- C
+
+# Use mock adapter for testing
+wave compose speckit-flow wave-evolve --mock
+```
+
+---
+
+## wave doctor
+
+Run diagnostic checks on Wave project configuration, tools, and environment.
+
+```bash
+wave doctor
+```
+
+**Output:**
+```
+Wave Doctor
+────────────────────────────────────────
+  ✓ Manifest valid
+  ✓ Adapters configured
+  ✓ Personas resolved
+  ⚠ 2 pipelines reference missing contracts
+
+Checks: 12 passed, 1 warning, 0 errors
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fix` | `false` | Auto-install missing dependencies where possible |
+| `--optimize` | `false` | Scan project and propose `wave.yaml` improvements |
+| `--dry-run` | `false` | Show proposed changes without writing (requires `--optimize`) |
+| `--skip-ai` | `false` | Skip AI-powered analysis, deterministic scan only (requires `--optimize`) |
+| `--skip-codebase` | `false` | Skip forge API codebase analysis |
+| `--yes`, `-y` | `false` | Accept all proposed changes without confirmation (requires `--optimize`) |
+| `--json` | `false` | Output in JSON format |
+
+```bash
+# Auto-fix issues
+wave doctor --fix
+
+# Propose manifest optimizations
+wave doctor --optimize
+
+# Preview optimizations without applying
+wave doctor --optimize --dry-run
+
+# Non-interactive optimization
+wave doctor --optimize --yes
+
+# JSON output for scripting
+wave doctor --json
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All checks passed |
+| 1 | Warnings detected (non-blocking) |
+| 2 | Errors detected (action required) |
+
+---
+
+## wave suggest
+
+Analyze codebase health and suggest pipeline runs that would be most impactful.
+
+```bash
+wave suggest
+```
+
+**Output:**
+```
+Suggested pipelines:
+
+  1. [P1] wave-test-hardening
+     Reason: Test coverage below threshold in internal/pipeline/
+     Input:  internal/pipeline/
+
+  2. [P2] wave-security-audit
+     Reason: 3 packages have no input validation
+     Input:  internal/adapter/ internal/workspace/
+
+  3. [P3] wave-evolve
+     Reason: 5 TODOs found in production code
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `5` | Maximum number of suggestions |
+| `--dry-run` | `false` | Show what would be suggested without executing |
+| `--json` | `false` | Output in JSON format |
+
+```bash
+# Limit suggestions
+wave suggest --limit 3
+
+# JSON output
+wave suggest --json
+
+# Preview mode
+wave suggest --dry-run
+```
+
+---
+
 ## wave chat
 
 Interactive analysis and exploration of pipeline runs. Opens a conversational session where you can investigate step outputs, artifacts, and execution details.
@@ -646,6 +803,9 @@ All commands support:
 | `--debug` | `-d` | Enable debug mode |
 | `--output` | `-o` | Output format: auto, json, text, quiet (default: auto) |
 | `--verbose` | `-v` | Include real-time tool activity |
+| `--json` | | Output in JSON format (equivalent to `--output json`) |
+| `--quiet` | `-q` | Suppress non-essential output (equivalent to `--output quiet`) |
+| `--no-color` | | Disable colored output |
 | `--no-tui` | | Disable TUI and use text output |
 
 ---

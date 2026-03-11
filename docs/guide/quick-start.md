@@ -9,10 +9,30 @@ cd your-project
 wave init
 ```
 
-This creates:
-- `wave.yaml` - Manifest with default adapter and personas
-- `.wave/personas/` - System prompt files
-- `.wave/pipelines/` - Example pipeline definitions
+The interactive wizard guides you through adapter selection and pipeline configuration. On success, you'll see:
+
+```
+  ╦ ╦╔═╗╦  ╦╔═╗
+  ║║║╠═╣╚╗╔╝║╣
+  ╚╩╝╩ ╩ ╚╝ ╚═╝
+  Multi-Agent Pipeline Orchestrator
+
+  Project initialized successfully!
+
+  Created:
+    wave.yaml                Main manifest
+    .wave/personas/          5 persona archetypes
+    .wave/pipelines/         12 pipelines
+    .wave/contracts/         4 JSON schema validators
+    .wave/prompts/           8 prompt templates
+    .wave/workspaces/        Ephemeral workspace root
+    .wave/traces/            Audit log directory
+
+  Next steps:
+    1. Run 'wave validate' to check configuration
+    2. Run 'wave run hello-world "test"' to verify setup
+    3. Run 'wave run plan "your feature"' to plan a task
+```
 
 ## 2. Review Configuration
 

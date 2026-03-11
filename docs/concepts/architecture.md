@@ -56,11 +56,11 @@ For each step:
 Each step runs in isolation:
 
 ```
-/tmp/wave/<pipeline-id>/<step-id>/
-├── src/              # Mounted readonly from repo
-├── artifacts/         # Step outputs
+.wave/workspaces/<pipeline>/<step>/
+├── .wave/artifacts/   # Injected artifacts from dependencies
+├── .wave/output/      # Step output artifacts
 ├── .claude/           # Claude Code settings
-└── CLAUDE.md         # Persona system prompt
+└── CLAUDE.md          # Persona system prompt
 ```
 
 ## Persona System
@@ -94,6 +94,8 @@ Contracts validate between steps:
 - **JSON Schema**: Structure validation
 - **TypeScript Interface**: Compile checking
 - **Test Suite**: Behavioral validation
+- **Markdown Spec**: Documentation structure validation
+- **Format**: Domain-specific format validation (experimental)
 
 Failed contracts trigger retries or pipeline halt.
 
@@ -164,7 +166,7 @@ Failed contracts trigger retries or pipeline halt.
 
 Pluggable adapter system:
 - Claude Code (implemented)
-- OpenCode (future)
+- OpenCode
 - Custom adapters via configuration
 
 ### Hooks System
