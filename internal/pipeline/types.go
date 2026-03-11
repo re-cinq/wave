@@ -171,6 +171,7 @@ type ArtifactRef struct {
 	Type       string `yaml:"type,omitempty"`        // Expected artifact type for validation
 	SchemaPath string `yaml:"schema_path,omitempty"` // JSON schema path for input validation
 	Optional   bool   `yaml:"optional,omitempty"`    // If true, missing artifact doesn't fail
+	Pipeline   string `yaml:"pipeline,omitempty"`    // Cross-pipeline artifact source (pipeline name)
 }
 
 type WorkspaceConfig struct {

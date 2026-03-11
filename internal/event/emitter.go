@@ -110,6 +110,7 @@ const (
 	// Parallel execution states
 	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
 	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
+	StateParallelStageFailed    = "parallel_stage_failed"    // Parallel stage had failures
 
 	// Composition primitive states
 	StateIterationStarted   = "iteration_started"   // Iterate step begun
