@@ -738,18 +738,29 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	return style.Render(text)
 }
 
-// truncateName truncates a name with ellipsis if it exceeds maxWidth.
+// truncateName truncates a name with ellipsis if it exceeds maxWidth visual columns.
 func truncateName(name string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
 	}
-	if len(name) <= maxWidth {
+	if lipgloss.Width(name) <= maxWidth {
 		return name
 	}
 	if maxWidth <= 1 {
 		return "…"
 	}
-	return name[:maxWidth-1] + "…"
+	// Walk rune by rune, tracking visual width, to find the longest
+	// prefix that fits within (maxWidth - 1) columns (reserving 1 for …).
+	target := maxWidth - 1
+	w := 0
+	for i, r := range name {
+		rw := lipgloss.Width(string(r))
+		if w+rw > target {
+			return name[:i] + "…"
+		}
+		w += rw
+	}
+	return name + "…"
 }
 
 // formatDuration wraps display.FormatDuration converting time.Duration to milliseconds.
