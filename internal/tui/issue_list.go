@@ -350,7 +350,11 @@ func (m IssueListModel) renderRunningChild(item issueNavItem, navIdx int, isSele
 	}
 
 	elapsed := formatElapsed(time.Since(r.StartedAt))
-	displayName := fmt.Sprintf("● %s %s", r.Name, r.RunID)
+	runLabel := r.RunID
+	if strings.HasPrefix(runLabel, r.Name+"-") {
+		runLabel = runLabel[len(r.Name)+1:]
+	}
+	displayName := fmt.Sprintf("● %s %s", r.Name, runLabel)
 
 	// Reserve space for connector + displayName + elapsed + padding
 	nameMaxWidth := maxWidth - 2 - len(elapsed) - 3
@@ -391,7 +395,11 @@ func (m IssueListModel) renderFinishedChild(item issueNavItem, navIdx int, isSel
 	}
 
 	duration := formatDuration(f.Duration)
-	displayName := fmt.Sprintf("%s %s %s", statusIcon, f.Name, f.RunID)
+	runLabel := f.RunID
+	if strings.HasPrefix(runLabel, f.Name+"-") {
+		runLabel = runLabel[len(f.Name)+1:]
+	}
+	displayName := fmt.Sprintf("%s %s %s", statusIcon, f.Name, runLabel)
 
 	nameMaxWidth := maxWidth - 2 - len(duration) - 3
 	displayName = truncateName(displayName, nameMaxWidth)
