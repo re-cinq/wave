@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/pathfmt"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -682,11 +684,12 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 		sb.WriteString(fmt.Sprintf("  %s\n", mutedStyle.Render("No artifacts produced")))
 	} else {
 		for _, a := range detail.Artifacts {
-			display := a.Path
-			if display == "" {
-				display = a.Name
+			displayPath := a.Path
+			if displayPath == "" {
+				displayPath = a.Name
 			}
-			sb.WriteString(fmt.Sprintf("  %s\n", display))
+			displayPath = pathfmt.FileURI(toAbsPath(displayPath))
+			sb.WriteString(fmt.Sprintf("  %s\n", displayPath))
 		}
 	}
 
@@ -770,6 +773,16 @@ func renderRunningInfo(name string, input string, startedAt time.Time, width int
 	return sb.String()
 }
 
+
+// toAbsPath converts a relative path to an absolute path.
+// Already-absolute paths are returned unchanged.
+func toAbsPath(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return p
+	}
+	return abs
+}
 
 // formatLogRecord formats a single persisted log record for display.
 func formatLogRecord(rec state.LogRecord) string {
