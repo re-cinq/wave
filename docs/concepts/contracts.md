@@ -86,6 +86,7 @@ handover:
 | `typescript_interface` | TypeScript compiles | Validating generated types |
 | `markdown_spec` | Markdown structure | Checking documentation |
 | `format` | Output format rules (e.g., GitHub issue, PR, code) | Ensuring production-ready formatting |
+| `non_empty_file` | File existence and non-emptiness | Verifying persona wrote output |
 
 ## Contract Fields
 
@@ -95,7 +96,7 @@ handover:
 ### Optional Fields
 - `must_pass: true/false` - Whether validation must pass for step to succeed (default: true)
 - `on_failure: retry|halt` - Behavior when validation fails
-- `max_retries: N` - Maximum retry attempts (default: 0)
+- `max_retries: N` - Maximum retry attempts (default: 2)
 - `source` - Path to artifact being validated (for schema contracts)
 - `schema_path` - Path to schema file (for `json_schema` type)
 - `command` - Test command to run (for `test_suite` type)

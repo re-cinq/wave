@@ -1,6 +1,6 @@
 # AI-as-Code
 
-Wave brings Infrastructure-as-Code principles to AI workflows. Define your AI pipelines declaratively, version them in git, and run them with the same rigor you apply to infrastructure.
+Wave is the open-source orchestration layer for AI agent factories. It brings Infrastructure-as-Code discipline to a harder problem: keeping agents useful without letting them run wild.
 
 ## The Evolution of X-as-Code
 
@@ -16,15 +16,30 @@ The industry has progressively codified operational concerns:
 
 Each evolution brought the same benefits: version control, reproducibility, collaboration, and audit trails. AI workflows deserve the same treatment.
 
-## Why AI Needs the Same Treatment
+## The Guardrail Spectrum
 
-AI outputs are non-deterministic by nature. Without guardrails:
+Agentic coding tools sit on a spectrum. Most end up at one of two extremes:
 
-- **Chat history is not version control** — Prompts drift, context gets lost, and successful patterns disappear
+| | Too tight | Too loose |
+|-|-----------|-----------|
+| **Approach** | Approval loops, permission dialogs, human sign-off at every step | Full codebase access — read, write, push, deploy |
+| **Result** | Safe on paper, useless in practice | Fast until the first bad prompt |
+| **Failure mode** | No real leverage — you're still doing the work | Secrets leaked, files deleted, broken code in production |
+
+Wave finds the middle path: **just the right amount of guardrails**.
+
+Each agent (persona) gets a precisely scoped permission set — fully empowered inside its role, hard-constrained outside it. You don't disable agents. You shape them.
+
+This is the model described in [Building Agent Factories](https://re-cinq.com/blog/building-agent-factories): *"The factory sets boundaries on what's safe to do, not what's allowed."* Wave is the runtime that enforces those boundaries.
+
+## Why AI Workflows Also Need Structure
+
+Beyond permissions, agent workflows have broader failure modes without structure:
+
+- **Chat history is not version control** — Prompts drift, context gets lost, successful patterns disappear
 - **Copy-paste prompts don't scale** — Teams can't share, review, or iterate on workflows
 - **No reproducibility** — The same task produces different results each time
 - **No audit trail** — When something goes wrong, there's no trace to investigate
-- **No permission boundaries** — AI agents have unbounded access to your codebase
 
 Enterprise adoption requires the same predictability we expect from infrastructure.
 
@@ -106,29 +121,36 @@ Complete audit trails with credential scrubbing:
 
 Wave's approach differs from other multi-agent tools:
 
-| | Wave | Gastown | Claude Flow |
-|--|:----:|:-------:|:-----------:|
-| **Declarative pipelines** | YAML | JSON/TOML | Programmatic |
-| **Version controlled** | ✅ | ✅ (git worktree) | ❌ |
-| **Contract validation** | ✅ | ❌ | ❌ |
-| **Step isolation** | Fresh memory | Shared context | Shared memory |
-| **Permission scoping** | Per-persona | ❌ | ❌ |
+| | Wave | Gastown | Claude Flow | Raw Claude Code |
+|--|:----:|:-------:|:-----------:|:---------------:|
+| **Guardrail model** | Per-persona scoping | Prompt-based only | Constitution + enforcement gates | Project-level only |
+| **Declarative pipelines** | YAML | TOML | Hybrid (code + YAML) | ❌ |
+| **Version controlled** | ✅ | ✅ (git worktree) | ✅ (agent configs) | ❌ |
+| **Contract validation** | Schema-based | ❌ | Behavioral (hooks, trust scoring) | ❌ |
+| **Step isolation** | Fresh memory | Fresh sessions, git-persisted | Shared memory | Single session |
+| **Permission scoping** | Per-persona deny/allow | ❌ | Claims + trust throttling | Project-level |
 
 ### Gastown
 
-Multi-agent workspace manager with Mayor/Polecat architecture. Strong git integration with worktree-based persistence. Different philosophy: persistent shared state vs Wave's fresh-memory isolation.
+Multi-agent workspace manager with Mayor/Polecat architecture. Strong git integration with worktree-based persistence. Fresh ephemeral sessions with git-persisted state. Different philosophy: prompt-based role enforcement vs Wave's declarative permission scoping.
+
+<small>Sources: <a href="https://github.com/steveyegge/gastown" target="_blank">GitHub</a> · <a href="https://maggieappleton.com/gastown" target="_blank">Appleton analysis</a> · <a href="https://paddo.dev/blog/gastown-two-kinds-of-multi-agent/" target="_blank">paddo.dev review</a></small>
 
 ### Claude Flow
 
-Agent swarm orchestration with 60+ agents and MCP tools. Optimized for parallel execution and collective learning. Different philosophy: shared knowledge base vs Wave's contract-validated handoffs.
+Agent swarm orchestration with 60+ agents and MCP tools. V3 adds a Constitution/Shards guidance system, enforcement gates, and trust-based throttling. Different philosophy: shared memory with behavioral validation vs Wave's fresh-memory isolation with schema-based contracts.
+
+<small>Sources: <a href="https://github.com/ruvnet/ruflo" target="_blank">GitHub</a> · <a href="https://deepwiki.com/ruvnet/ruflo" target="_blank">DeepWiki analysis</a> · <a href="https://github.com/ruvnet/ruflo/wiki/Memory-System" target="_blank">Memory System</a></small>
 
 ### Raw Claude Code
 
 Direct LLM interaction. Great for ad-hoc tasks. Wave adds structure for repeatable, team-scalable workflows.
 
+<small>Source: <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">Claude Code docs</a></small>
+
 ## Getting Started
 
-Ready to bring Infrastructure-as-Code rigor to your AI workflows?
+Ready to find the sweet spot between agent autonomy and structured control?
 
 1. [Quickstart Guide](/quickstart) — Get Wave running in 5 minutes
 2. [Pipelines Concept](/concepts/pipelines) — Deep dive into pipeline structure
