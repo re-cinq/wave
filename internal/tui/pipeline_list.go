@@ -660,7 +660,12 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 	}
 
 	statusIcon := "●"
-	displayName := fmt.Sprintf("%s %s", statusIcon, r.Name)
+	// Strip pipeline name prefix from run ID since the parent node already shows it.
+	runLabel := r.RunID
+	if strings.HasPrefix(runLabel, r.Name+"-") {
+		runLabel = runLabel[len(r.Name)+1:]
+	}
+	displayName := fmt.Sprintf("%s %s", statusIcon, runLabel)
 
 	// Reserve space: connector (2) + displayName + elapsed + padding
 	nameMaxWidth := maxWidth - 2 - len(elapsed) - 3
@@ -714,7 +719,12 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	}
 
 	duration := formatDuration(f.Duration)
-	displayName := fmt.Sprintf("%s %s", statusIcon, f.RunID)
+	// Strip pipeline name prefix from run ID since the parent node already shows it.
+	runLabel := f.RunID
+	if strings.HasPrefix(runLabel, f.Name+"-") {
+		runLabel = runLabel[len(f.Name)+1:]
+	}
+	displayName := fmt.Sprintf("%s %s", statusIcon, runLabel)
 	suffix := duration
 
 	nameMaxWidth := maxWidth - 2 - len(suffix) - 3
