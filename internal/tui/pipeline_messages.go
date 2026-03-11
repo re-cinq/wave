@@ -149,3 +149,6 @@ type RunningInfoActiveMsg struct {
 type DetachedEventPollTickMsg struct {
 	RunID string
 }
+
+// DashboardTickMsg drives elapsed time updates in the live output dashboard view.
+type DashboardTickMsg struct{}

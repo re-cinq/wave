@@ -272,6 +272,14 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 		return m, nil
 
+	case DashboardTickMsg:
+		if m.paneState == stateRunningLive && m.liveOutput != nil {
+			var cmd tea.Cmd
+			*m.liveOutput, cmd = m.liveOutput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
 	case TransitionTimerMsg:
 		if m.paneState == stateRunningLive && m.liveOutput != nil && msg.RunID == m.liveOutput.runID {
 			// Transition to loading state to fetch finished detail
