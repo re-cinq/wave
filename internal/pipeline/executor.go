@@ -370,11 +370,24 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			return &StepError{StepID: failedStepID, Err: err}
 		}
 
+		// Process batch results: steps may have completed, failed (optional), or been skipped
 		for _, step := range ready {
 			completed[step.ID] = true
 			completedCount++
-			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+
+			execution.mu.Lock()
+			stepState := execution.States[step.ID]
+			execution.mu.Unlock()
+
+			if stepState == StateFailed || stepState == StateSkipped {
+				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
+			} else {
+				execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+			}
 		}
+
+		// Skip steps whose dependencies include failed/skipped steps (transitive propagation)
+		e.skipDependentSteps(execution, sortedSteps, completed, &completedCount)
 
 		e.emit(event.Event{
 			Timestamp:      time.Now(),
@@ -389,10 +402,18 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	now := time.Now()
 	execution.Status.CompletedAt = &now
-	execution.Status.State = StateCompleted
 
-	if e.store != nil {
-		e.store.SavePipelineState(pipelineID, StateCompleted, input)
+	// Pipeline succeeds if no required steps failed
+	if e.hasRequiredFailures(execution) {
+		execution.Status.State = StateFailed
+		if e.store != nil {
+			e.store.SavePipelineState(pipelineID, StateFailed, input)
+		}
+	} else {
+		execution.Status.State = StateCompleted
+		if e.store != nil {
+			e.store.SavePipelineState(pipelineID, StateCompleted, input)
+		}
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
@@ -429,6 +450,77 @@ func (e *DefaultPipelineExecutor) findReadySteps(steps []*Step, completed map[st
 		}
 	}
 	return ready
+}
+
+// skipDependentSteps finds steps whose dependencies include a failed or skipped step
+// and marks them as skipped. Propagates transitively until no more steps are affected.
+func (e *DefaultPipelineExecutor) skipDependentSteps(execution *PipelineExecution, allSteps []*Step, completed map[string]bool, completedCount *int) {
+	pipelineID := execution.Status.ID
+	changed := true
+	for changed {
+		changed = false
+		for _, step := range allSteps {
+			if completed[step.ID] {
+				continue
+			}
+			// Check if all dependencies are in the completed set
+			allDepsComplete := true
+			hasFailedDep := false
+			for _, dep := range step.Dependencies {
+				if !completed[dep] {
+					allDepsComplete = false
+					break
+				}
+				execution.mu.Lock()
+				depState := execution.States[dep]
+				execution.mu.Unlock()
+				if depState == StateFailed || depState == StateSkipped {
+					hasFailedDep = true
+				}
+			}
+			if allDepsComplete && hasFailedDep {
+				execution.mu.Lock()
+				execution.States[step.ID] = StateSkipped
+				execution.mu.Unlock()
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, "dependency failed")
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateSkipped,
+					Message:    "skipped: dependency failed",
+				})
+				completed[step.ID] = true
+				*completedCount++
+				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
+				changed = true
+			}
+		}
+	}
+}
+
+// hasRequiredFailures returns true if any non-optional step has failed.
+func (e *DefaultPipelineExecutor) hasRequiredFailures(execution *PipelineExecution) bool {
+	// Build a lookup of step optional status
+	stepOptional := make(map[string]bool, len(execution.Pipeline.Steps))
+	for i := range execution.Pipeline.Steps {
+		stepOptional[execution.Pipeline.Steps[i].ID] = execution.Pipeline.Steps[i].IsOptional()
+	}
+
+	execution.mu.Lock()
+	defer execution.mu.Unlock()
+	for stepID, stepState := range execution.States {
+		if stepState == StateFailed {
+			// A failed step is a required failure if the step itself is not optional
+			// AND it was not skipped due to dependency propagation
+			if !stepOptional[stepID] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // executeStepBatch runs a batch of ready steps. If the batch has a single step,
@@ -571,7 +663,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			// All attempts exhausted — apply on_failure policy
 			onFailure := step.Retry.OnFailure
 			if onFailure == "" {
-				onFailure = "fail"
+				if step.IsOptional() {
+					onFailure = "continue"
+				} else {
+					onFailure = "fail"
+				}
 			}
 
 			switch onFailure {

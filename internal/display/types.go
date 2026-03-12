@@ -207,11 +207,12 @@ type PipelineContext struct {
 	WorkspacePath string
 
 	// Step tracking
-	TotalSteps     int
-	CurrentStepNum int // 1-based index of currently executing step
-	CompletedSteps int
-	FailedSteps    int
-	SkippedSteps   int
+	TotalSteps          int
+	CurrentStepNum      int // 1-based index of currently executing step
+	CompletedSteps      int
+	FailedSteps         int
+	SkippedSteps        int
+	OptionalFailedSteps int // Number of failed steps that were optional
 
 	// Progress calculation
 	OverallProgress int   // 0-100 percentage of overall pipeline completion
