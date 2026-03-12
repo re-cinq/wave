@@ -18,16 +18,15 @@
 - [X] Task 3.3: Remove `EstimatedTimeMs: 0` from context creation in `progress.go` [P]
 
 ## Phase 4: Internal Test Updates
-- [X] Task 4.1: Update `types_test.go` - remove assertions on deleted fields from `TestDefaultDisplayConfig`, `TestDisplayConfig_Validate_MaxHistoryLines`, `TestDisplayConfig_Validate_AnimationType`, `TestDisplayConfig_Validate_AnimationDisabled`, `TestPipelineContext_Structure`
-- [X] Task 4.2: Update `dashboard_test.go` - remove `TestDashboard_ShouldUseCompactMode`, remove `EstimatedTimeMs`/`AverageStepTimeMs` from test contexts [P]
-- [X] Task 4.3: Update `capability_test.go` - remove `MaxHistoryLines` assertion [P]
-- [X] Task 4.4: Update `helpers_test.go` - remove `MaxHistoryLines`/`AnimationType` from validate benchmark [P]
-- [X] Task 4.5: Update `progress_test.go` (internal) - no changes needed (no direct field references)
+- [X] Task 4.1: Update `types_test.go` - remove assertions on deleted fields from TestDefaultDisplayConfig, TestDisplayConfig_Validate_MaxHistoryLines, TestDisplayConfig_Validate_AnimationType, TestDisplayConfig_Validate_AnimationDisabled, TestPipelineContext_Structure [P]
+- [X] Task 4.2: Update `dashboard_test.go` - remove TestDashboard_ShouldUseCompactMode, remove EstimatedTimeMs/AverageStepTimeMs from test contexts [P]
+- [X] Task 4.3: Update `capability_test.go` - remove MaxHistoryLines assertion [P]
+- [X] Task 4.4: Update `helpers_test.go` - remove MaxHistoryLines/AnimationType from validate benchmark [P]
 
 ## Phase 5: External Test Updates
-- [X] Task 5.1: Update `tests/unit/display/progress_test.go` - remove assertions on deleted DisplayConfig fields and PipelineContext fields
-- [X] Task 5.2: Update `tests/unit/display/dashboard_test.go` - remove `CompactMode` reference, adjust `AnimationType` config field usage
-- [X] Task 5.3: Update `tests/integration/progress_test.go` - remove `AverageStepTimeMs`/`EstimatedTimeMs` usage
+- [X] Task 5.1: Update `tests/unit/display/progress_test.go` - remove assertions on deleted DisplayConfig and PipelineContext fields [P]
+- [X] Task 5.2: Update `tests/unit/display/dashboard_test.go` - remove CompactMode reference, adjust AnimationType config field usage [P]
+- [X] Task 5.3: Update `tests/integration/progress_test.go` - remove AverageStepTimeMs/EstimatedTimeMs usage [P]
 
 ## Phase 6: Validation
 - [X] Task 6.1: Run `go build ./...` to verify compilation

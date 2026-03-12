@@ -37,39 +37,35 @@ Multiple fields in `DisplayConfig` (`internal/display/types.go`) are defined and
 
 ### 4. Related Dead Code
 - `ShouldUseCompactMode()` in `dashboard.go` - exists but never called from production code
-- `AnimationType` type and constants - used internally by `Spinner`/`getAnimationFrames` but the `DisplayConfig.AnimationType` field is validated without effect since `bubbletea_model.go` hardcodes its own spinner frames
-- `getAnimationFrames()` in `animation.go` - still used by `NewSpinner()`, so must NOT be removed
-- `metrics.go` - `PerformanceMetrics` struct - appears to be standalone performance tracking, not called from dashboard rendering; needs further investigation on whether it's used elsewhere
-
-## Recommendation: Remove
-
-Given that these fields have never been wired in since their introduction, and no downstream consumers depend on them, the cleanest path is removal. If any features are needed later, they can be re-added with proper rendering integration from the start.
-
-## Acceptance Criteria
-
-- [ ] Remove unused `DisplayConfig` fields listed above from `internal/display/types.go`
-- [ ] Remove associated helper methods (`ShouldUseCompactMode()`)
-- [ ] Remove dead dashboard functions: `RenderPerformanceMetricsPanel()`, `RenderPerformanceComparison()`
-- [ ] Remove `EstimatedTimeMs` and `AverageStepTimeMs` from `PipelineContext` (always zero)
-- [ ] Update `DefaultDisplayConfig()` and `GetOptimalDisplayConfig()` to remove references to deleted fields
-- [ ] Update `Validate()` method to remove validation for deleted fields
-- [ ] Update all test files to remove assertions on deleted fields
-- [ ] Ensure all display tests pass after removal
-- [ ] Verify dashboard rendering is unaffected (these fields were never consulted)
 
 ## Scope Boundaries
 
 ### In Scope
-- `internal/display/types.go` - field removal + default/validate cleanup
+- `internal/display/types.go` - field removal from `DisplayConfig` and `PipelineContext`, plus default/validate cleanup
 - `internal/display/dashboard.go` - dead function removal (`RenderPerformanceMetricsPanel`, `RenderPerformanceComparison`, `ShouldUseCompactMode`, dead ETA conditional in `RenderCompact`)
 - `internal/display/capability.go` - `GetOptimalDisplayConfig()` cleanup
-- `internal/display/*_test.go` - test updates
+- `internal/display/bubbletea_progress.go` - remove dead field assignments
+- `internal/display/progress.go` - remove dead field assignments
+- `internal/display/*_test.go` - internal test updates
 - `tests/unit/display/*_test.go` - external test updates
-- `tests/integration/progress_test.go` - remove `AverageStepTimeMs`/`EstimatedTimeMs` usage
+- `tests/integration/progress_test.go` - remove dead field references
 
 ### Out of Scope
 - `AnimationType` type and constants - KEEP because `Spinner`, `NewSpinner()`, `getAnimationFrames()`, `SelectAnimationType()`, and `MultiSpinner.Add()` all use them actively
 - `getAnimationFrames()` function - KEEP because `NewSpinner()` calls it
-- `internal/event/emitter.go` `EstimatedTimeMs` field - OUT OF SCOPE (separate event serialization concern)
-- `internal/state/types.go` `EstimatedTimeMs` - OUT OF SCOPE (state persistence concern)
-- `metrics.go` / `PerformanceMetrics` - KEEP for now pending separate investigation
+- `internal/event/emitter.go` `EstimatedTimeMs` field - separate event serialization concern
+- `internal/state/types.go` `EstimatedTimeMs` - state persistence concern
+- `metrics.go` / `PerformanceMetrics` - standalone performance tracking utility, not part of dead rendering code
+
+## Acceptance Criteria
+
+- [ ] Remove unused `DisplayConfig` fields listed above from `internal/display/types.go`
+- [ ] Remove `EstimatedTimeMs` and `AverageStepTimeMs` from `PipelineContext`
+- [ ] Remove associated helper methods (`ShouldUseCompactMode()`)
+- [ ] Remove dead dashboard functions: `RenderPerformanceMetricsPanel()`, `RenderPerformanceComparison()`
+- [ ] Remove dead ETA conditional from `RenderCompact()`
+- [ ] Update `DefaultDisplayConfig()` and `GetOptimalDisplayConfig()` to remove references to deleted fields
+- [ ] Update `Validate()` method to remove validation for deleted fields
+- [ ] Update all test files to remove assertions on deleted fields
+- [ ] Ensure all display tests pass after removal
+- [ ] Verify dashboard rendering is unaffected
