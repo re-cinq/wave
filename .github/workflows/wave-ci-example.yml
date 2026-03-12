@@ -1,0 +1,83 @@
+# Example: Run Wave pipelines in GitHub Actions
+#
+# This workflow demonstrates how to use Wave for automated code review
+# on pull requests. Copy and adapt it for your own repository.
+#
+# Prerequisites:
+#   1. Add ANTHROPIC_API_KEY as a repository secret
+#   2. Commit wave.yaml and .wave/ directory to your repository
+#   3. Ensure wave.yaml has runtime.sandbox.env_passthrough configured
+#
+# See docs/guides/ci-cd.md for full documentation.
+
+name: Wave CI Example
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  health-check:
+    name: Environment Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Wave
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Health Check
+        run: |
+          wave doctor --json
+          exit_code=$?
+          if [ $exit_code -eq 2 ]; then
+            echo "::error::Wave environment has critical issues — check wave doctor output above"
+            exit 1
+          fi
+
+  review:
+    name: Code Review
+    needs: health-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff analysis
+
+      - name: Install Wave
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Code Review
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}" -o json
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wave-review-${{ github.run_id }}
+          path: |
+            .wave/workspaces/*/output/
+            .wave/traces/
+          retention-days: 14
+
+      - name: Upload Audit Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wave-audit-${{ github.run_id }}
+          path: .wave/traces/
+          retention-days: 30
