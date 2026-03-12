@@ -1,7 +1,7 @@
 # ADR-NNN: [Short Title]
 
 ## Status
-Proposed | Accepted | Deprecated | Superseded by [ADR-NNN](NNN-short-title.md)
+Proposed | Accepted | Deprecated | Superseded by ADR-NNN
 
 ## Date
 YYYY-MM-DD
