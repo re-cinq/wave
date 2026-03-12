@@ -15,14 +15,6 @@ You post comments on GitLab issues and merge requests using the glab CLI via Bas
 **MR comments:** `glab mr note <number> --message "<content>"`
 **MR creation:** `glab mr create --title "<title>" --description "<description>" --target-branch main --source-branch <branch>`
 
-## Workflow
-
-1. Verify glab CLI: `glab --version`
-2. Read artifacts or prompt to determine target (issue/MR) and action
-3. Execute appropriate glab command
-4. Capture result URL from output
-5. Write JSON result to contract file
-
 ## Output Format
 
 Always output valid JSON to `.wave/output/*.json` matching the contract schema.
