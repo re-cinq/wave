@@ -219,11 +219,28 @@ func (l *PipelineLauncher) LaunchSequence(names []string, input string, parallel
 }
 
 // Cancel requests cancellation of a pipeline run via the state store.
-// The executor's pollCancellation goroutine will pick this up.
+// For live runs, the executor's pollCancellation goroutine picks this up.
+// For stale runs (dead process), we directly mark them as cancelled since
+// no executor is alive to act on the cancellation request.
 func (l *PipelineLauncher) Cancel(runID string) {
-	if l.deps.Store != nil {
-		_ = l.deps.Store.RequestCancellation(runID, false)
+	if l.deps.Store == nil {
+		return
 	}
+
+	// Check if this run has a PID and whether the process is still alive.
+	// If the process is dead, skip the cancellation request and directly
+	// mark the run as cancelled — no executor will ever pick it up.
+	runs, err := l.deps.Store.GetRunningRuns()
+	if err == nil {
+		for _, r := range runs {
+			if r.RunID == runID && r.PID > 0 && !IsProcessAlive(r.PID) {
+				_ = l.deps.Store.UpdateRunStatus(runID, "cancelled", "dismissed — process no longer running", 0)
+				return
+			}
+		}
+	}
+
+	_ = l.deps.Store.RequestCancellation(runID, false)
 }
 
 // CancelAll is a no-op for detached pipelines — they survive TUI exit.
