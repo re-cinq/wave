@@ -54,6 +54,26 @@ func composeListSendRune(m ComposeListModel, r rune) (ComposeListModel, tea.Cmd)
 	return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 }
 
+// drainCmds simulates Bubble Tea's event loop by executing commands and feeding
+// resulting messages back through the model's Update, up to 20 iterations.
+func drainCmds(m *ComposeListModel, cmd tea.Cmd) {
+	for i := 0; i < 20 && cmd != nil; i++ {
+		msg := cmd()
+		if msg == nil {
+			return
+		}
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batch {
+				if c != nil {
+					drainCmds(m, c)
+				}
+			}
+			return
+		}
+		*m, cmd = m.Update(msg)
+	}
+}
+
 // extractMsg executes a tea.Cmd and returns a pointer to the message of type T
 // if found, checking both direct and batched forms. Returns nil otherwise.
 func extractMsg[T any](cmd tea.Cmd) *T {
@@ -300,5 +320,53 @@ func TestComposeListModel(t *testing.T) {
 		require.NotNil(t, start)
 		assert.True(t, start.Parallel, "ComposeStartMsg should have Parallel=true")
 		assert.Equal(t, 2, len(start.Stages), "should have 2 stages")
+	})
+
+	t.Run("a enters picking mode", func(t *testing.T) {
+		m := newTestComposeList(1)
+		require.False(t, m.picking)
+
+		m, cmd := composeListSendRune(m, 'a')
+		assert.True(t, m.picking, "should enter picking mode")
+		assert.NotNil(t, m.picker, "picker form should exist")
+		assert.NotNil(t, m.pickerTarget, "picker target should be allocated")
+		assert.NotNil(t, cmd, "should return init command")
+	})
+
+	t.Run("picker processes init then Enter completes selection", func(t *testing.T) {
+		m := newTestComposeList(1)
+		require.Equal(t, 1, m.sequence.Len())
+
+		// Enter picking mode
+		m, _ = composeListSendRune(m, 'a')
+		require.True(t, m.picking)
+		require.NotNil(t, m.picker)
+
+		// Send Enter — first round: Select returns NextField cmd
+		m, cmd := composeListSendKey(m, tea.KeyEnter)
+
+		// The form isn't complete yet — it needs the NextField message
+		// to be fed back (Bubble Tea does this in its event loop).
+		// Drain all returned commands back through the model.
+		drainCmds(&m, cmd)
+
+		assert.False(t, m.picking, "picking should be done after Enter")
+		assert.Nil(t, m.picker, "picker should be cleared")
+		assert.Equal(t, 2, m.sequence.Len(), "selected pipeline should be added")
+	})
+
+	t.Run("picker Escape aborts without adding", func(t *testing.T) {
+		m := newTestComposeList(1)
+		require.Equal(t, 1, m.sequence.Len())
+
+		m, _ = composeListSendRune(m, 'a')
+		require.True(t, m.picking)
+
+		m, cmd := composeListSendKey(m, tea.KeyEscape)
+		drainCmds(&m, cmd)
+
+		assert.False(t, m.picking, "picking should end on Escape")
+		assert.Nil(t, m.picker, "picker should be cleared")
+		assert.Equal(t, 1, m.sequence.Len(), "sequence should be unchanged")
 	})
 }

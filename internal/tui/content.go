@@ -394,8 +394,8 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m.routeToActiveList(msg)
 		}
 
-		// Pipeline view Enter handling
-		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering && m.currentView == ViewPipelines {
+		// Pipeline view Enter handling (skip when composing — compose list handles its own Enter)
+		if msg.Type == tea.KeyEnter && m.focus == FocusPaneLeft && !m.list.filtering && m.currentView == ViewPipelines && !m.composing {
 			if m.cursorOnFocusableItem() {
 				item := m.list.navigable[m.list.cursor]
 				m.focus = FocusPaneRight
@@ -1198,6 +1198,26 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
 			return DetachedEventPollTickMsg{RunID: capturedRunID}
 		})
+	}
+
+	// When composing, forward non-key messages (huh internal ticks, updateFieldMsg,
+	// WindowSize responses, etc.) to compose models so the picker form works.
+	if m.composing {
+		if m.composeList != nil {
+			var cmd tea.Cmd
+			*m.composeList, cmd = m.composeList.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+		if m.composeDetail != nil {
+			var cmd tea.Cmd
+			*m.composeDetail, cmd = m.composeDetail.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
 	}
 
 	// Default: forward to both pipeline children
