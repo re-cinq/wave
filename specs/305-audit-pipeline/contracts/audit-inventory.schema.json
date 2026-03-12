@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Audit Inventory",
+  "description": "Output from the collect-inventory step: all closed issues and merged PRs with extracted metadata",
+  "type": "object",
+  "required": ["scope", "items", "timestamp"],
+  "properties": {
+    "scope": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["full", "time_range", "label"],
+          "description": "How the inventory was scoped"
+        },
+        "filter": {
+          "type": "string",
+          "description": "The filter expression applied (e.g., 'last 30 days', 'label:enhancement')"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "Repository full name (owner/repo)"
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["number", "type", "title", "url", "close_reason", "closed_at"],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "GitHub issue or PR number"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["issue", "pr"],
+            "description": "Whether this is an issue or pull request"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Issue or PR title"
+          },
+          "url": {
+            "type": "string",
+            "description": "Full GitHub URL"
+          },
+          "body": {
+            "type": "string",
+            "description": "Full issue/PR body text"
+          },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Associated labels"
+          },
+          "close_reason": {
+            "type": "string",
+            "description": "Why the item was closed (completed, merged, not_planned)"
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the item was closed"
+          },
+          "linked_prs": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "PR numbers linked to this issue"
+          },
+          "linked_commits": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Commit SHAs associated with this item"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Extracted acceptance criteria from the body"
+          }
+        }
+      },
+      "description": "All inventory items to audit"
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_issues": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of closed issues in inventory"
+        },
+        "total_prs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of merged PRs in inventory"
+        },
+        "excluded_not_planned": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of issues excluded due to not_planned close reason"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the inventory was collected"
+    }
+  }
+}
