@@ -34,13 +34,13 @@ func (l LogoAnimator) View() string {
 	if !l.active {
 		return lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("6")).
+			Foreground(lipgloss.Color("2")).
 			Render(logoText)
 	}
 
 	// Walking glow: a bright spot moves across the logo characters
 	glowColors := []lipgloss.Color{"240", "244", "250", "15", "250", "244", "240"}
-	baseColor := lipgloss.Color("6")
+	baseColor := lipgloss.Color("2")
 	glowCenter := l.frame % 18 // logo is ~14 chars wide, sweep across with padding
 
 	var result strings.Builder

@@ -524,7 +524,7 @@ func (m PipelineDetailModel) View() string {
 // renderAvailableDetail renders the detail view for an available pipeline.
 func renderAvailableDetail(detail *AvailableDetail, width int) string {
 	_ = width
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
@@ -591,7 +591,7 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 
 // renderFinishedDetail renders the detail view for a finished pipeline run.
 func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool, actionError string, events []state.LogRecord) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
@@ -741,7 +741,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 // renderRunningInfo renders a brief info view for a running pipeline.
 func renderRunningInfo(name string, input string, startedAt time.Time, width int, events []state.LogRecord) string {
 	_ = width
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))

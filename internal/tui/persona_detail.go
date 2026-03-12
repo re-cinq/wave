@@ -124,7 +124,7 @@ func renderPersonaDetail(info *PersonaInfo, stats *PersonaStats, width int) stri
 		return ""
 	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 

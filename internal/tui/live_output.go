@@ -587,7 +587,7 @@ func (m *LiveOutputModel) renderDashboard() string {
 	nc := noColor()
 
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	activeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	activeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	failedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
@@ -927,7 +927,7 @@ func (m LiveOutputModel) View() string {
 }
 
 func (m LiveOutputModel) renderHeader(nc bool) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
 	if nc {

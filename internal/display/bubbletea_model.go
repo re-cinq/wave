@@ -14,15 +14,15 @@ import (
 
 // Unified color palette — semantic names for consistent theming
 var (
-	colorPrimary     = lipgloss.Color("14")  // Bright cyan — active/accent
+	colorPrimary     = lipgloss.Color("10")  // Bright green — active/accent
 	colorSuccess     = lipgloss.Color("10")  // Bright green — completed
 	colorError       = lipgloss.Color("9")   // Bright red — failed
 	colorMuted       = lipgloss.Color("244") // Medium gray — metadata/inactive
 	colorDim         = lipgloss.Color("240") // Dark gray — empty/not-started
 	colorInfo        = lipgloss.Color("7")   // Light gray — project info
 	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
-	colorShimmerMid  = lipgloss.Color("14")  // Bright cyan — shimmer fringe
-	colorShimmerBase = lipgloss.Color("14")  // Bright cyan — shimmer ambient
+	colorShimmerMid  = lipgloss.Color("10")  // Bright green — shimmer fringe
+	colorShimmerBase = lipgloss.Color("10")  // Bright green — shimmer ambient
 )
 
 // ProgressModel implements the bubbletea model for Wave progress display

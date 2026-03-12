@@ -7,7 +7,7 @@
   /* Brand Colors */
   --wave-primary: #4f46e5;
   --wave-primary-dark: #4338ca;
-  --wave-secondary: #06b6d4;
+  --wave-secondary: #10b981;
   --wave-accent: #8b5cf6;
 
   /* Trust & Security Colors */
@@ -34,7 +34,7 @@
 .dark {
   --wave-primary: #818cf8;
   --wave-primary-dark: #6366f1;
-  --wave-secondary: #22d3ee;
+  --wave-secondary: #34d399;
 }
 
 /* Hero Section Enhancements */

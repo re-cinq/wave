@@ -111,7 +111,7 @@ func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
 
 	// Show selected pipeline as a blurred-style static line.
 	pipelineLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("Pipeline:")
-	pipelineName := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true).Render(selected.Name)
+	pipelineName := lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Bold(true).Render(selected.Name)
 	fmt.Printf("  %s %s\n\n", pipelineLabel, pipelineName)
 
 	inputField := huh.NewInput().

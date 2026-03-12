@@ -153,7 +153,7 @@ func (m ContractListModel) View() string {
 			}
 			text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), badge)
 			style := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")).
+				Foreground(lipgloss.Color("2")).
 				Width(m.width)
 			lines = append(lines, style.Render(text))
 		} else {

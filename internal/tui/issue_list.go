@@ -328,7 +328,7 @@ func (m IssueListModel) renderIssueLine(item issueNavItem, isSelected bool) stri
 	style := lipgloss.NewStyle().
 		MaxWidth(m.width)
 	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
+		style = style.Foreground(lipgloss.Color("2"))
 	}
 	return style.Render(text)
 }
@@ -368,7 +368,7 @@ func (m IssueListModel) renderRunningChild(item issueNavItem, navIdx int, isSele
 
 	style := lipgloss.NewStyle().Width(maxWidth)
 	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
+		style = style.Foreground(lipgloss.Color("2"))
 	}
 	return style.Render(text)
 }
@@ -412,7 +412,7 @@ func (m IssueListModel) renderFinishedChild(item issueNavItem, navIdx int, isSel
 
 	style := lipgloss.NewStyle().Width(maxWidth)
 	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
+		style = style.Foreground(lipgloss.Color("2"))
 	}
 	return style.Render(text)
 }

@@ -310,7 +310,7 @@ func (m ComposeListModel) View() string {
 	}
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	normalStyle := lipgloss.NewStyle()
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))

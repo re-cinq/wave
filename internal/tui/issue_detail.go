@@ -167,7 +167,7 @@ func (m IssueDetailModel) renderIssueDetail() string {
 	}
 
 	issue := m.selected
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 
@@ -221,7 +221,7 @@ func (m IssueDetailModel) renderIssueDetail() string {
 		for i, p := range m.pipelines {
 			if m.chooserActive && i == m.chooserCursor {
 				line := lipgloss.NewStyle().
-					Foreground(lipgloss.Color("6")).
+					Foreground(lipgloss.Color("2")).
 					Bold(true).
 					Render(fmt.Sprintf("  > %s", p.Name))
 				sb.WriteString(line)

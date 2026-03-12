@@ -78,7 +78,7 @@ func (m ComposeDetailModel) View() string {
 	if m.focused {
 		borderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("6")).
+			BorderForeground(lipgloss.Color("2")).
 			Width(m.width - 2).
 			Height(m.height - 2)
 		return borderStyle.Render(m.viewport.View())
@@ -191,7 +191,7 @@ func renderArtifactFlowFull(sb *strings.Builder, result CompatibilityResult) {
 	yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 	redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
 	// Collect all unique pipeline names in order for rendering boxes
@@ -338,7 +338,7 @@ func renderExecutionPlan(seq Sequence, stages [][]int, width int) string {
 		return ""
 	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
 	var sb strings.Builder

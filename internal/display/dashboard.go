@@ -311,9 +311,9 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 		pulsePos = int((pulseCycle * int64(emptyWidth)) / pulseInterval)
 	}
 
-	// Render filled portion - Wave cyan color (matches logo)
+	// Render filled portion - Wave green color (matches logo)
 	for i := 0; i < filledWidth; i++ {
-		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(d.charSet.Block)
+		filledChar := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(d.charSet.Block)
 		bar.WriteString(filledChar)
 	}
 
@@ -325,7 +325,7 @@ func (d *Dashboard) renderProgressBar(progress int, width int) string {
 		if i == pulsePos {
 			// Pulse character - medium shade, brighter color
 			char = "▓"
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Wave cyan for pulse
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Wave green for pulse
 		} else {
 			// Normal empty character - light shade, muted color
 			char = d.charSet.LightBlock

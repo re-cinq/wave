@@ -211,7 +211,7 @@ func (m HeaderModel) displayBranch() string {
 }
 
 func (m HeaderModel) renderBranch(branch string) string {
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	return style.Render(branch)
 }
 

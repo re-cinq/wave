@@ -249,7 +249,7 @@ func TestDisplayConfig_Validate_AnimationDisabled(t *testing.T) {
 
 func TestColorPalette_Structure(t *testing.T) {
 	palette := ColorPalette{
-		Primary:    "\033[36m",
+		Primary:    "\033[32m",
 		Success:    "\033[32m",
 		Warning:    "\033[33m",
 		Error:      "\033[31m",

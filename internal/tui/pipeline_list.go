@@ -617,7 +617,7 @@ func (m PipelineListModel) renderPipelineName(item navigableItem, isSelected boo
 		text := fmt.Sprintf("%s%s", prefix, name)
 		style := lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("6")).
+			Foreground(lipgloss.Color("2")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
@@ -678,7 +678,7 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 		}
 		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
 		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
+			Foreground(lipgloss.Color("2")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
@@ -737,7 +737,7 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 		}
 		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), suffix)
 		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
+			Foreground(lipgloss.Color("2")).
 			Width(maxWidth)
 		return style.Render(text)
 	}
