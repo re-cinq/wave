@@ -29,13 +29,14 @@ steps:
       - name: reproduction
         path: .wave/output/reproduction.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/reproduction.json
         schema_path: .wave/contracts/debug-reproduction.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: hypothesize
     persona: debugger
@@ -60,13 +61,14 @@ steps:
       - name: hypotheses
         path: .wave/output/hypotheses.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/hypotheses.json
         schema_path: .wave/contracts/debug-hypotheses.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: investigate
     persona: debugger
@@ -128,6 +130,8 @@ steps:
         3. Remove any diagnostic code added during debugging
         4. Verify the original reproduction no longer fails
         5. Check for similar issues elsewhere
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
@@ -135,7 +139,6 @@ steps:
 
         must_pass: false
         on_failure: retry
-        max_retries: 3
     output_artifacts:
       - name: fix
         path: .wave/output/fix-summary.md

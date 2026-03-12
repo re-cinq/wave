@@ -46,13 +46,14 @@ steps:
       - name: issue-content
         path: .wave/output/issue-content.json
         type: json
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: json_schema
         source: .wave/output/issue-content.json
         schema_path: .wave/contracts/issue-content.schema.json
         on_failure: retry
-        max_retries: 3
 
   - id: analyze-topics
     persona: researcher
@@ -90,13 +91,14 @@ steps:
       - name: topics
         path: .wave/output/research-topics.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/research-topics.json
         schema_path: .wave/contracts/research-topics.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: research-topics
     persona: researcher
@@ -138,13 +140,14 @@ steps:
       - name: findings
         path: .wave/output/research-findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/research-findings.json
         schema_path: .wave/contracts/research-findings.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: synthesize-report
     persona: summarizer
@@ -196,13 +199,14 @@ steps:
       - name: report
         path: .wave/output/research-report.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/research-report.json
         schema_path: .wave/contracts/research-report.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: post-comment
     persona: github-commenter
@@ -257,10 +261,11 @@ steps:
         extract_from: .wave/output/comment-result.json
         json_path: .comment.url
         label: "Research Comment"
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: json_schema
         source: .wave/output/comment-result.json
         schema_path: .wave/contracts/comment-result.schema.json
         on_failure: retry
-        max_retries: 3

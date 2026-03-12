@@ -181,7 +181,7 @@ func TestContractPrompt_PromptInjectionInSchema(t *testing.T) {
 	securityConfig := security.DefaultSecurityConfig()
 	securityConfig.PathValidation.ApprovedDirectories = []string{tmpDir}
 	securityConfig.Sanitization.EnablePromptInjectionDetection = true
-	securityConfig.Sanitization.StrictMode = false
+	securityConfig.Sanitization.MustPass = false
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{
@@ -371,8 +371,8 @@ func TestContractPrompt_SpecialCharactersInSchema(t *testing.T) {
 	assert.Contains(t, prompt, "email", "Schema content should be present")
 }
 
-// TestContractPrompt_StrictModePromptInjection tests strict mode rejection.
-func TestContractPrompt_StrictModePromptInjection(t *testing.T) {
+// TestContractPrompt_MustPassPromptInjection tests must_pass mode rejection.
+func TestContractPrompt_MustPassPromptInjection(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	maliciousSchema := `{
@@ -385,7 +385,7 @@ func TestContractPrompt_StrictModePromptInjection(t *testing.T) {
 	securityConfig := security.DefaultSecurityConfig()
 	securityConfig.PathValidation.ApprovedDirectories = []string{tmpDir}
 	securityConfig.Sanitization.EnablePromptInjectionDetection = true
-	securityConfig.Sanitization.StrictMode = true
+	securityConfig.Sanitization.MustPass = true
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{

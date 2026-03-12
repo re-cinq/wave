@@ -57,6 +57,8 @@ steps:
       - name: context
         path: .wave/output/context.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -64,7 +66,6 @@ steps:
         schema_path: .wave/contracts/recinq-context.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
   - id: diverge
@@ -154,6 +155,8 @@ steps:
       - name: findings
         path: .wave/output/divergent-findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -161,7 +164,6 @@ steps:
         schema_path: .wave/contracts/divergent-findings.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
@@ -208,6 +210,8 @@ steps:
       - name: validated_findings
         path: .wave/output/validated-findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -215,7 +219,6 @@ steps:
         schema_path: .wave/contracts/validated-findings.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
   - id: probe
@@ -282,6 +285,8 @@ steps:
       - name: probed_findings
         path: .wave/output/probed-findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -289,7 +294,6 @@ steps:
         schema_path: .wave/contracts/probed-findings.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
@@ -355,6 +359,8 @@ steps:
       - name: proposals
         path: .wave/output/convergent-proposals.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -362,7 +368,6 @@ steps:
         schema_path: .wave/contracts/convergent-proposals.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
@@ -421,13 +426,14 @@ steps:
         - Never combine proposals in a single commit
         - If a proposal depends on a failed proposal, skip it too
         - Commit each proposal as a separate atomic commit
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
-        max_retries: 3
     output_artifacts:
       - name: result
         path: .wave/output/result.md
@@ -520,6 +526,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -527,7 +535,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

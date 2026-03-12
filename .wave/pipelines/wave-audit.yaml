@@ -95,13 +95,14 @@ steps:
       - name: inventory
         path: .wave/output/inventory.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/inventory.json
         schema_path: .wave/contracts/audit-inventory.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: audit-items
     persona: navigator
@@ -179,13 +180,14 @@ steps:
       - name: findings
         path: .wave/output/audit-findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/audit-findings.json
         schema_path: .wave/contracts/audit-findings.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: compose-triage
     persona: navigator
@@ -257,13 +259,14 @@ steps:
       - name: triage-report
         path: .wave/output/triage-report.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/triage-report.json
         schema_path: .wave/contracts/audit-triage-report.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: publish
     persona: craftsman
@@ -339,13 +342,14 @@ steps:
       - name: publish-result
         path: .wave/output/publish-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/publish-result.json
         schema_path: .wave/contracts/audit-publish-result.schema.json
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: issue
         extract_from: .wave/output/publish-result.json

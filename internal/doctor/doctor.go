@@ -187,7 +187,7 @@ func checkOnboarding(opts *Options) CheckResult {
 			Name:     "Wave Initialized",
 			Category: "system",
 			Status:   StatusOK,
-			Message:  "Wave project detected (legacy)",
+			Message:  "Wave project detected",
 		}
 	}
 

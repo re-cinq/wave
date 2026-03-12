@@ -55,12 +55,13 @@ steps:
         path: .wave/artifact.json
         type: json
 
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/spec-phase.schema.json
         must_pass: true
-        max_retries: 2
 
   # Phase 2: Docs - Generate runnable documentation from specification
   - id: docs
@@ -109,12 +110,13 @@ steps:
         path: .wave/artifact.json
         type: json
 
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/docs-phase.schema.json
         must_pass: true
-        max_retries: 2
 
   # Phase 3: Dummy - Build authentic functional prototype
   - id: dummy
@@ -167,12 +169,13 @@ steps:
         path: .wave/artifact.json
         type: json
 
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/dummy-phase.schema.json
         must_pass: true
-        max_retries: 2
 
   # Phase 4: Implement - Transition to full implementation
   - id: implement
@@ -226,12 +229,13 @@ steps:
         path: .wave/artifact.json
         type: json
 
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/implement-phase.schema.json
         must_pass: true
-        max_retries: 2
 
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create
@@ -268,6 +272,8 @@ steps:
       - name: pr-info
         path: pr-info.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -275,7 +281,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   - id: pr-review
     persona: auditor

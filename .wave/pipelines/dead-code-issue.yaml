@@ -64,13 +64,14 @@ steps:
       - name: scan_results
         path: .wave/output/dead-code-scan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/dead-code-scan.json
         schema_path: .wave/contracts/dead-code-scan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: compose-report
     persona: navigator
@@ -176,6 +177,8 @@ steps:
       - name: issue-result
         path: .wave/output/issue-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -183,7 +186,6 @@ steps:
         schema_path: .wave/contracts/dead-code-issue-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: issue
         extract_from: .wave/output/issue-result.json

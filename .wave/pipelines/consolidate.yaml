@@ -59,10 +59,11 @@ steps:
       - name: assessment
         path: .wave/output/assessment.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/assessment.json
         schema_path: .wave/contracts/improvement-assessment.schema.json
         on_failure: retry
-        max_retries: 2

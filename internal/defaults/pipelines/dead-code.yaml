@@ -56,13 +56,14 @@ steps:
       - name: scan_results
         path: .wave/output/dead-code-scan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/dead-code-scan.json
         schema_path: .wave/contracts/dead-code-scan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: clean
     persona: craftsman
@@ -115,13 +116,14 @@ steps:
 
         If ANY test fails after a removal, revert that specific removal
         and continue with the next item.
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
-        max_retries: 3
 
   - id: verify
     persona: reviewer
@@ -246,6 +248,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -253,7 +257,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

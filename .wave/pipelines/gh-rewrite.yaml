@@ -51,8 +51,9 @@ steps:
         path: .wave/artifact.json
         type: json
         required: true
+    retry:
+      max_attempts: 1
     handover:
-      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/enhancement-plan.schema.json
@@ -96,8 +97,9 @@ steps:
         extract_from: .wave/artifact.json
         json_path: .enhanced_issues[*].url
         label: "Enhanced Issue"
+    retry:
+      max_attempts: 1
     handover:
-      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/enhancement-results.schema.json
