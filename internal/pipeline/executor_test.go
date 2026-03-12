@@ -3663,6 +3663,81 @@ func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
 		"when no step-level or CLI timeout, manifest default should be used")
 }
 
+// TestMaxConcurrentAgents_FlowsToAdapterConfig verifies that MaxConcurrentAgents
+// set on a pipeline step is correctly passed through to the AdapterRunConfig.
+func TestMaxConcurrentAgents_FlowsToAdapterConfig(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "concurrency-test"},
+		Steps: []Step{
+			{
+				ID:                  "parallel-step",
+				Persona:             "navigator",
+				MaxConcurrentAgents: 5,
+				Exec:                ExecConfig{Source: "do parallel work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 5, cfg.MaxConcurrentAgents,
+		"MaxConcurrentAgents should flow from step to adapter config")
+}
+
+// TestMaxConcurrentAgents_ZeroWhenUnset verifies that MaxConcurrentAgents defaults
+// to 0 in AdapterRunConfig when not set on the step.
+func TestMaxConcurrentAgents_ZeroWhenUnset(t *testing.T) {
+	capturingAdapter := &configCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "concurrency-default-test"},
+		Steps: []Step{
+			{
+				ID:      "single-step",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	cfg := capturingAdapter.getLastConfig()
+	assert.Equal(t, 0, cfg.MaxConcurrentAgents,
+		"MaxConcurrentAgents should default to 0 when unset")
+}
+
 // TestStepTimeoutMinutes_PerStepDifferentTimeouts verifies that different steps
 // in the same pipeline can have different timeouts.
 func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
