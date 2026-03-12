@@ -69,7 +69,7 @@ steps:
       inject_artifacts:
         - step: scan-and-score
           artifact: enhancement_plan
-          as: plan
+          as: impl_plan
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
