@@ -50,13 +50,14 @@ steps:
       - name: survey
         path: .wave/output/project-survey.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/project-survey.json
         schema_path: .wave/contracts/project-survey.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: guide
     persona: philosopher

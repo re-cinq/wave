@@ -24,8 +24,8 @@ type SanitizationConfig struct {
 	PromptInjectionPatterns []string `yaml:"prompt_injection_patterns"`
 	// ContentSizeLimit sets maximum content size for processing
 	ContentSizeLimit int `yaml:"content_size_limit"`
-	// StrictMode determines whether to use strict validation
-	StrictMode bool `yaml:"strict_mode"`
+	// MustPass determines whether to use strict validation
+	MustPass bool `yaml:"must_pass"`
 }
 
 // PersonaValidationConfig configures persona validation for meta-pipelines
@@ -83,7 +83,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 				`(?i)override.*system`,
 			},
 			ContentSizeLimit: 1048576, // 1MB
-			StrictMode:       true,
+			MustPass:       true,
 		},
 		PersonaValidation: PersonaValidationConfig{
 			ValidatePersonaReferences:  true,

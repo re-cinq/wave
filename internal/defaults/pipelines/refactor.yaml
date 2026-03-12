@@ -29,13 +29,14 @@ steps:
       - name: analysis
         path: .wave/output/refactor-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/refactor-analysis.json
         schema_path: .wave/contracts/refactor-analysis.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: test-baseline
     persona: craftsman
@@ -61,6 +62,8 @@ steps:
         4. Document current behavior for comparison
 
         All tests must pass before proceeding.
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: test_suite
@@ -68,7 +71,6 @@ steps:
 
         must_pass: true
         on_failure: retry
-        max_retries: 2
     output_artifacts:
       - name: baseline
         path: .wave/output/test-baseline.md
@@ -102,6 +104,8 @@ steps:
         5. Keep commits small and focused
 
         Do NOT change behavior — this is refactoring only.
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
@@ -109,7 +113,6 @@ steps:
 
         must_pass: false
         on_failure: retry
-        max_retries: 3
 
   - id: verify
     persona: reviewer

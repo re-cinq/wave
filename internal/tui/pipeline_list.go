@@ -25,7 +25,7 @@ const (
 	itemKindPipelineName itemKind = iota // tree root: pipeline name
 	itemKindRunning
 	itemKindFinished
-	itemKindAvailable // kept for PipelineSelectedMsg.Kind compatibility
+	itemKindAvailable
 )
 
 // navigableItem is a single entry in the flat navigation list.
