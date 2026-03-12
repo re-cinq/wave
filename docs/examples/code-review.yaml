@@ -53,13 +53,14 @@ steps:
       - name: diff
         path: .wave/output/diff-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         schema_path: .wave/contracts/diff-analysis.schema.json
         source: .wave/output/diff-analysis.json
         on_failure: retry
-        max_retries: 2
 
   # Step 2a: Security review (runs in parallel with quality review)
   - id: security-review

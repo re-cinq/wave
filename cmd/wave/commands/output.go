@@ -102,20 +102,15 @@ func ResolveOutputConfig(cmd *cobra.Command) (*ResolvedFlags, error) {
 	}, nil
 }
 
-// GetOutputConfig reads the resolved output configuration.
-// It first checks the command context for ResolvedFlags (set by PersistentPreRunE),
-// falling back to direct flag reading for backward compatibility.
+// GetOutputConfig reads the resolved output configuration from the command context.
+// It checks for ResolvedFlags set by PersistentPreRunE and returns defaults if not found.
 func GetOutputConfig(cmd *cobra.Command) OutputConfig {
 	if ctx := cmd.Context(); ctx != nil {
 		if rf, ok := ctx.Value(resolvedFlagsKey{}).(*ResolvedFlags); ok {
 			return rf.Output
 		}
 	}
-	// Fallback: read flags directly
-	format, _ := cmd.Root().PersistentFlags().GetString("output")
-	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-	debug, _ := cmd.Root().PersistentFlags().GetBool("debug")
-	return OutputConfig{Format: format, Verbose: verbose, Debug: debug}
+	return OutputConfig{Format: OutputFormatAuto}
 }
 
 // ResolveFormat resolves the effective output format for a subcommand.

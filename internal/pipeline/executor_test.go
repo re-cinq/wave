@@ -675,8 +675,8 @@ func TestContractFailureRetry(t *testing.T) {
 				ID:      "step-with-retry",
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "test"},
-				Handover: HandoverConfig{
-					MaxRetries: 3,
+				Retry: RetryConfig{
+					MaxAttempts: 3,
 				},
 			},
 		},
@@ -719,8 +719,8 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 				ID:      "failing-step",
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "test"},
-				Handover: HandoverConfig{
-					MaxRetries: 2,
+				Retry: RetryConfig{
+					MaxAttempts: 2,
 				},
 			},
 		},
@@ -3418,41 +3418,6 @@ func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
 		}
 	}
 	assert.True(t, foundContinue, "should have emitted a failed-but-continues event")
-}
-
-// TestExecuteStep_RetryConfig_BackwardCompat verifies that handover.max_retries still works.
-func TestExecuteStep_RetryConfig_BackwardCompat(t *testing.T) {
-	failAdapter := newCountingFailAdapter(1, errors.New("transient failure"))
-	collector := newTestEventCollector()
-
-	executor := NewDefaultPipelineExecutor(failAdapter,
-		WithEmitter(collector),
-	)
-
-	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
-
-	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "compat-test"},
-		Steps: []Step{
-			{
-				ID:      "step-1",
-				Persona: "navigator",
-				Exec:    ExecConfig{Source: "do something"},
-				// No Retry config — use legacy handover.max_retries
-				Handover: HandoverConfig{
-					MaxRetries: 2,
-				},
-			},
-		},
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	err := executor.Execute(ctx, p, m, "test input")
-	assert.NoError(t, err, "should succeed on second attempt via backward compat")
-	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should have been called 2 times")
 }
 
 // TestExecuteStep_AdaptPrompt_InjectsFailureContext verifies prompt adaptation on retry.

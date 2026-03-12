@@ -127,6 +127,10 @@ func (m *MigrationManager) ApplyMigration(migration Migration) error {
 
 // RollbackMigration rolls back a single migration
 func (m *MigrationManager) RollbackMigration(migration Migration) error {
+	if migration.Down == "" {
+		return fmt.Errorf("migration %d has no rollback script", migration.Version)
+	}
+
 	// Start transaction for atomic rollback
 	tx, err := m.db.Begin()
 	if err != nil {

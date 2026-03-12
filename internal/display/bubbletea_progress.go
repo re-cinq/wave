@@ -380,7 +380,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 			case StateRunning:
 				running++
 				if currentStepID == "" {
-					// First running step is the "primary" for backward compat
+					// First running step is the "primary"
 					currentStepID = stepID
 					currentPersona = step.Persona
 					currentStepIdx = i

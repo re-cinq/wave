@@ -55,7 +55,7 @@ func (is *InputSanitizer) SanitizeInput(input, inputType string) (*InputSanitiza
 		}
 
 		if len(detectedPatterns) > 0 {
-			if is.config.Sanitization.StrictMode {
+			if is.config.Sanitization.MustPass {
 				// In strict mode, reject the input
 				is.logger.LogViolation(
 					string(ViolationPromptInjection),

@@ -28,6 +28,8 @@ steps:
       - name: assessment
         path: .wave/output/issue-assessment.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -35,7 +37,6 @@ steps:
         schema_path: .wave/contracts/issue-assessment.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   - id: plan
     persona: implementer
@@ -56,6 +57,8 @@ steps:
       - name: impl-plan
         path: .wave/output/impl-plan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -63,7 +66,6 @@ steps:
         schema_path: .wave/contracts/issue-impl-plan.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
 
   - id: implement
     persona: craftsman
@@ -82,13 +84,14 @@ steps:
     exec:
       type: prompt
       source_path: .wave/prompts/bb-implement/implement.md
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
-        max_retries: 3
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer
@@ -111,6 +114,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -118,7 +123,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

@@ -43,13 +43,14 @@ steps:
       - name: exploration
         path: .wave/output/exploration.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/exploration.json
         schema_path: .wave/contracts/feature-exploration.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: plan
     persona: planner
@@ -85,13 +86,14 @@ steps:
       - name: plan
         path: .wave/output/plan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/plan.json
         schema_path: .wave/contracts/feature-plan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: implement
     persona: craftsman
@@ -142,13 +144,14 @@ steps:
            ```
 
         Commit changes to the worktree branch.
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
-        max_retries: 3
     output_artifacts:
       - name: result
         path: .wave/output/result.md
@@ -186,6 +189,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -193,7 +198,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

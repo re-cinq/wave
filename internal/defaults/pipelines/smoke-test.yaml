@@ -26,13 +26,14 @@ steps:
       - name: analysis
         path: .wave/output/analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/analysis.json
         schema_path: .wave/contracts/smoke-test.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: summarize
     persona: summarizer
