@@ -87,21 +87,12 @@ type PipelineProgress struct {
 
 // DisplayConfig holds configuration for progress display.
 type DisplayConfig struct {
-	Enabled          bool
-	AnimationType    AnimationType
-	RefreshRate      int    // Updates per second (default: 10, range: 1-60)
-	ShowDetails      bool   // Show detailed step information
-	ShowArtifacts    bool   // Display artifact information
-	CompactMode      bool   // Use compact display mode
-	ColorMode        string // "auto", "on", "off" - control color usage
-	ColorTheme       string // "default", "dark", "light", "high_contrast"
-	AsciiOnly        bool   // Use ASCII-only characters (no Unicode)
-	MaxHistoryLines  int    // Maximum lines of history to keep (default: 100)
-	EnableTimestamps bool   // Show timestamps in output
-	VerboseOutput    bool   // Enable verbose output
-	AnimationEnabled bool   // Enable/disable animations
-	ShowLogo         bool   // Display Wave logo in dashboard
-	ShowMetrics      bool   // Display token/file counts and metrics
+	Enabled       bool
+	RefreshRate   int    // Updates per second (default: 10, range: 1-60)
+	ColorMode     string // "auto", "on", "off" - control color usage
+	ColorTheme    string // "default", "dark", "light", "high_contrast"
+	AsciiOnly     bool   // Use ASCII-only characters (no Unicode)
+	VerboseOutput bool   // Enable verbose output
 }
 
 // ProgressRenderer defines the interface for rendering progress information.
@@ -284,21 +275,12 @@ type PipelineContext struct {
 // DefaultDisplayConfig returns a display configuration with sensible defaults.
 func DefaultDisplayConfig() DisplayConfig {
 	return DisplayConfig{
-		Enabled:          true,
-		AnimationType:    AnimationSpinner,
-		RefreshRate:      10, // 10 updates per second
-		ShowDetails:      true,
-		ShowArtifacts:    true,
-		CompactMode:      false,
-		ColorMode:        "auto",
-		ColorTheme:       "default",
-		AsciiOnly:        false,
-		MaxHistoryLines:  100,
-		EnableTimestamps: true,
-		VerboseOutput:    false,
-		AnimationEnabled: true,
-		ShowLogo:         true,
-		ShowMetrics:      true,
+		Enabled:       true,
+		RefreshRate:   10, // 10 updates per second
+		ColorMode:     "auto",
+		ColorTheme:    "default",
+		AsciiOnly:     false,
+		VerboseOutput: false,
 	}
 }
 
@@ -309,11 +291,6 @@ func (dc *DisplayConfig) Validate() {
 		dc.RefreshRate = 1
 	} else if dc.RefreshRate > 60 {
 		dc.RefreshRate = 60
-	}
-
-	// Max history lines must be positive
-	if dc.MaxHistoryLines < 1 {
-		dc.MaxHistoryLines = 100
 	}
 
 	// Validate color mode
@@ -330,23 +307,5 @@ func (dc *DisplayConfig) Validate() {
 	}
 	if !validThemes[dc.ColorTheme] {
 		dc.ColorTheme = "default"
-	}
-
-	// Validate animation type
-	validAnimations := map[AnimationType]bool{
-		AnimationDots:        true,
-		AnimationLine:        true,
-		AnimationBars:        true,
-		AnimationSpinner:     true,
-		AnimationClock:       true,
-		AnimationBouncingBar: true,
-	}
-	if !validAnimations[dc.AnimationType] {
-		dc.AnimationType = AnimationSpinner
-	}
-
-	// If animations are disabled, use dots (simplest)
-	if !dc.AnimationEnabled {
-		dc.AnimationType = AnimationDots
 	}
 }

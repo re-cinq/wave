@@ -62,24 +62,8 @@ func TestDefaultDisplayConfig(t *testing.T) {
 		t.Error("expected Enabled to be true by default")
 	}
 
-	if config.AnimationType != display.AnimationSpinner {
-		t.Errorf("expected AnimationSpinner, got %v", config.AnimationType)
-	}
-
 	if config.RefreshRate != 10 {
 		t.Errorf("expected RefreshRate 10, got %d", config.RefreshRate)
-	}
-
-	if !config.ShowDetails {
-		t.Error("expected ShowDetails to be true by default")
-	}
-
-	if !config.ShowArtifacts {
-		t.Error("expected ShowArtifacts to be true by default")
-	}
-
-	if config.CompactMode {
-		t.Error("expected CompactMode to be false by default")
 	}
 
 	if config.ColorMode != "auto" {
@@ -94,28 +78,8 @@ func TestDefaultDisplayConfig(t *testing.T) {
 		t.Error("expected AsciiOnly to be false by default")
 	}
 
-	if config.MaxHistoryLines != 100 {
-		t.Errorf("expected MaxHistoryLines 100, got %d", config.MaxHistoryLines)
-	}
-
-	if !config.EnableTimestamps {
-		t.Error("expected EnableTimestamps to be true by default")
-	}
-
 	if config.VerboseOutput {
 		t.Error("expected VerboseOutput to be false by default")
-	}
-
-	if !config.AnimationEnabled {
-		t.Error("expected AnimationEnabled to be true by default")
-	}
-
-	if !config.ShowLogo {
-		t.Error("expected ShowLogo to be true by default")
-	}
-
-	if !config.ShowMetrics {
-		t.Error("expected ShowMetrics to be true by default")
 	}
 }
 
@@ -149,17 +113,6 @@ func TestDisplayConfigValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "fix negative max history lines",
-			config: display.DisplayConfig{
-				MaxHistoryLines: -10,
-			},
-			validate: func(t *testing.T, cfg *display.DisplayConfig) {
-				if cfg.MaxHistoryLines != 100 {
-					t.Errorf("expected MaxHistoryLines to be set to 100, got %d", cfg.MaxHistoryLines)
-				}
-			},
-		},
-		{
 			name: "fix invalid color mode",
 			config: display.DisplayConfig{
 				ColorMode: "invalid",
@@ -178,30 +131,6 @@ func TestDisplayConfigValidation(t *testing.T) {
 			validate: func(t *testing.T, cfg *display.DisplayConfig) {
 				if cfg.ColorTheme != "default" {
 					t.Errorf("expected ColorTheme to be 'default', got %q", cfg.ColorTheme)
-				}
-			},
-		},
-		{
-			name: "fix invalid animation type",
-			config: display.DisplayConfig{
-				AnimationType:    display.AnimationType("invalid"),
-				AnimationEnabled: true, // Enable animations to avoid dots fallback
-			},
-			validate: func(t *testing.T, cfg *display.DisplayConfig) {
-				if cfg.AnimationType != display.AnimationSpinner {
-					t.Errorf("expected AnimationType to be AnimationSpinner, got %v", cfg.AnimationType)
-				}
-			},
-		},
-		{
-			name: "disable animation overrides type",
-			config: display.DisplayConfig{
-				AnimationType:    display.AnimationSpinner,
-				AnimationEnabled: false,
-			},
-			validate: func(t *testing.T, cfg *display.DisplayConfig) {
-				if cfg.AnimationType != display.AnimationDots {
-					t.Errorf("expected AnimationType to be AnimationDots when disabled, got %v", cfg.AnimationType)
 				}
 			},
 		},

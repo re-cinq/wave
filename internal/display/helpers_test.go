@@ -271,12 +271,9 @@ func BenchmarkGetColorSchemeByName(b *testing.B) {
 func BenchmarkDisplayConfig_Validate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		config := DisplayConfig{
-			RefreshRate:      0,
-			MaxHistoryLines:  -1,
-			ColorMode:        "invalid",
-			ColorTheme:       "unknown",
-			AnimationType:    "bad",
-			AnimationEnabled: true,
+			RefreshRate: 0,
+			ColorMode:  "invalid",
+			ColorTheme: "unknown",
 		}
 		config.Validate()
 	}
