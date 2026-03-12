@@ -74,6 +74,8 @@ type DefaultPipelineExecutor struct {
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
 	// ETA calculator for remaining pipeline time estimates
 	etaCalculator *ETACalculator
+	// Step filter for selective step execution (--steps / --exclude)
+	stepFilter StepFilter
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -119,6 +121,11 @@ func WithModelOverride(model string) ExecutorOption {
 // for cross-pipeline artifact references.
 func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.crossPipelineArtifacts = artifacts }
+}
+
+// WithStepFilter sets the step filter for selective step execution.
+func WithStepFilter(f StepFilter) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -196,6 +203,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		securityLogger:         e.securityLogger,
 		deliverableTracker:     deliverable.NewTracker(""),
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
+		stepFilter:             e.stepFilter,
 	}
 }
 
@@ -209,6 +217,19 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
+
+	// Apply step filter (--steps / --exclude) if active
+	allSortedSteps := sortedSteps // preserve full list for dependency validation
+	if e.stepFilter.IsActive() {
+		if err := e.stepFilter.Validate(sortedSteps); err != nil {
+			return err
+		}
+		sortedSteps, err = e.stepFilter.Apply(sortedSteps)
+		if err != nil {
+			return err
+		}
+	}
+	_ = allSortedSteps // used below for dependency validation
 
 	// Initialize ETA calculator from historical step performance data
 	stepIDs := make([]string, len(sortedSteps))
@@ -299,12 +320,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	execution.Status.State = StateRunning
 
+	totalSteps := len(sortedSteps)
 	e.emit(event.Event{
 		Timestamp:      time.Now(),
 		PipelineID:     pipelineID,
 		State:          "started",
-		Message:        fmt.Sprintf("input=%q steps=%d", input, len(p.Steps)),
-		TotalSteps:     len(p.Steps),
+		Message:        fmt.Sprintf("input=%q steps=%d", input, totalSteps),
+		TotalSteps:     totalSteps,
 		CompletedSteps: 0,
 	})
 
@@ -402,10 +424,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
 			State:          "running",
-			TotalSteps:     len(p.Steps),
+			TotalSteps:     totalSteps,
 			CompletedSteps: completedCount,
-			Progress:       (completedCount * 100) / len(p.Steps),
-			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, len(p.Steps)),
+			Progress:       (completedCount * 100) / totalSteps,
+			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, totalSteps),
 		})
 	}
 
@@ -431,7 +453,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		PipelineID: pipelineID,
 		State:      "completed",
 		DurationMs: elapsed,
-		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
+		Message:    fmt.Sprintf("%d steps completed", totalSteps),
 	})
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak

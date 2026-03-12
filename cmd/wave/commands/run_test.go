@@ -208,7 +208,7 @@ func TestRunDryRunOutput(t *testing.T) {
 	}
 
 	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+		return performDryRun(p, m, pipeline.StepFilter{})
 	})
 
 	assert.NoError(t, err)
@@ -432,7 +432,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 	}
 
 	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+		return performDryRun(p, m, pipeline.StepFilter{})
 	})
 
 	assert.NoError(t, err)

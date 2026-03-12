@@ -190,8 +190,8 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	r.executor.pipelines[pipelineID] = execution
 	r.executor.mu.Unlock()
 
-	// Execute starting from the target step
-	return r.executeResumedPipeline(ctx, execution, fromStep)
+	// Execute starting from the target step, passing exclusion filter
+	return r.executeResumedPipeline(ctx, execution, fromStep, r.executor.stepFilter)
 }
 
 // ResumeState holds state information needed for resumption
@@ -403,8 +403,10 @@ func (r *ResumeManager) createResumeSubpipeline(p *Pipeline, fromStep string) *P
 	return resumePipeline
 }
 
-// executeResumedPipeline executes the resumed pipeline starting from the target step
-func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *PipelineExecution, fromStep string) error {
+// executeResumedPipeline executes the resumed pipeline starting from the target step.
+// When a step filter is active (exclude mode), it is applied to the sorted steps
+// after subpipeline creation.
+func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *PipelineExecution, fromStep string, filter StepFilter) error {
 	validator := &DAGValidator{}
 	pipelineID := execution.Status.ID
 	pipelineName := execution.Pipeline.Metadata.Name
@@ -418,6 +420,17 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 	sortedSteps, err := validator.TopologicalSort(execution.Pipeline)
 	if err != nil {
 		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), pipelineName)
+	}
+
+	// Apply exclusion filter if active (only exclude mode is valid with --from-step)
+	if filter.IsActive() {
+		if err := filter.Validate(sortedSteps); err != nil {
+			return err
+		}
+		sortedSteps, err = filter.Apply(sortedSteps)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Execute each step in order
