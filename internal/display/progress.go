@@ -247,8 +247,9 @@ type ProgressDisplay struct {
 	startTime      time.Time
 	lastRender     time.Time
 	refreshRate    time.Duration
-	enabled        bool
-	linesRendered  int
+	enabled         bool
+	linesRendered   int
+	estimatedTimeMs int64 // Latest ETA from pipeline events
 }
 
 // NewProgressDisplay creates a new progress display manager.
@@ -351,6 +352,11 @@ func (pd *ProgressDisplay) UpdateStepTokens(stepID string, tokens int) {
 func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 	pd.mu.Lock()
 	defer pd.mu.Unlock()
+
+	// Capture ETA from events
+	if ev.EstimatedTimeMs > 0 {
+		pd.estimatedTimeMs = ev.EstimatedTimeMs
+	}
 
 	// Handle step-level events
 	if ev.StepID != "" {
@@ -508,7 +514,8 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		StepOrder:         pd.stepOrder,
 		StepPersonas:      stepPersonas,
 		ElapsedTimeMs:     elapsedMs,
-		EstimatedTimeMs:   0, // Not calculated in ProgressDisplay
+		EstimatedTimeMs:   pd.estimatedTimeMs,
+		AverageStepTimeMs: pd.averageStepTimeMs(),
 		ManifestPath:      "wave.yaml",
 		WorkspacePath:     ".wave/workspaces",
 		CurrentAction:     "", // Not tracked in ProgressDisplay
@@ -518,6 +525,23 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		StepTokens:        stepTokens,
 		TotalTokens:       totalTokens,
 	}
+}
+
+// averageStepTimeMs computes the average duration of completed steps.
+// Caller must hold pd.mu.
+func (pd *ProgressDisplay) averageStepTimeMs() int64 {
+	var total int64
+	var count int64
+	for _, step := range pd.steps {
+		if step.State == StateCompleted && step.ElapsedMs > 0 {
+			total += step.ElapsedMs
+			count++
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return total / count
 }
 
 // Finish completes the progress display and shows a summary.
