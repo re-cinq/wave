@@ -134,15 +134,33 @@ func TestPersonaPermission_ReviewerCannotWriteSourceFiles(t *testing.T) {
 		t.Error("reviewer should NOT be able to write .ts files")
 	}
 
-	// Test 3: Verify deny patterns include source file restrictions
+	// Test 3: Reviewer should NOT be able to write .py files
+	err = checker.CheckPermission("Write", "scripts/tool.py")
+	if err == nil {
+		t.Error("reviewer should NOT be able to write .py files")
+	}
+
+	// Test 4: Reviewer should NOT be able to write .rs files
+	err = checker.CheckPermission("Write", "src/lib.rs")
+	if err == nil {
+		t.Error("reviewer should NOT be able to write .rs files")
+	}
+
+	// Test 5: Verify deny patterns include source file restrictions
 	hasDenyGo := false
 	hasDenyTs := false
+	hasDenyPy := false
+	hasDenyRs := false
 	for _, deny := range reviewer.Permissions.Deny {
-		if deny == "Write(*.go)" {
+		switch deny {
+		case "Write(*.go)":
 			hasDenyGo = true
-		}
-		if deny == "Write(*.ts)" {
+		case "Write(*.ts)":
 			hasDenyTs = true
+		case "Write(*.py)":
+			hasDenyPy = true
+		case "Write(*.rs)":
+			hasDenyRs = true
 		}
 	}
 	if !hasDenyGo {
@@ -150,6 +168,70 @@ func TestPersonaPermission_ReviewerCannotWriteSourceFiles(t *testing.T) {
 	}
 	if !hasDenyTs {
 		t.Errorf("reviewer should have Write(*.ts) in deny patterns, got: %v", reviewer.Permissions.Deny)
+	}
+	if !hasDenyPy {
+		t.Errorf("reviewer should have Write(*.py) in deny patterns, got: %v", reviewer.Permissions.Deny)
+	}
+	if !hasDenyRs {
+		t.Errorf("reviewer should have Write(*.rs) in deny patterns, got: %v", reviewer.Permissions.Deny)
+	}
+}
+
+// TestPersonaPermission_ReviewerCannotRunDestructiveCommands verifies that the
+// reviewer persona cannot run destructive bash commands (rm, git push, git commit).
+func TestPersonaPermission_ReviewerCannotRunDestructiveCommands(t *testing.T) {
+	m := createTestManifestWithPersonas(t)
+
+	reviewer := m.GetPersona("reviewer")
+	if reviewer == nil {
+		t.Fatal("reviewer persona not found in manifest")
+	}
+
+	checker := adapter.NewPermissionChecker(
+		"reviewer",
+		reviewer.Permissions.AllowedTools,
+		reviewer.Permissions.Deny,
+	)
+
+	// Destructive commands that should be denied
+	deniedCommands := []struct {
+		command string
+		reason  string
+	}{
+		{"rm foo.txt", "reviewer should not be able to delete files"},
+		{"rm -rf /tmp", "reviewer should not be able to recursively delete"},
+		{"rm -f important.go", "reviewer should not be able to force-delete files"},
+		{"git push origin main", "reviewer should not be able to push to remote"},
+		{"git push --force", "reviewer should not be able to force push"},
+		{"git commit -m \"msg\"", "reviewer should not be able to commit"},
+		{"git commit --amend", "reviewer should not be able to amend commits"},
+	}
+
+	for _, dc := range deniedCommands {
+		t.Run(dc.command, func(t *testing.T) {
+			err := checker.CheckPermission("Bash", dc.command)
+			if err == nil {
+				t.Errorf("%s, but command was allowed: %s", dc.reason, dc.command)
+			}
+		})
+	}
+
+	// Safe commands that should still be allowed
+	allowedCommands := []struct {
+		command string
+		reason  string
+	}{
+		{"go test ./...", "reviewer should be able to run tests"},
+		{"npm test", "reviewer should be able to run npm tests"},
+	}
+
+	for _, ac := range allowedCommands {
+		t.Run(ac.command, func(t *testing.T) {
+			err := checker.CheckPermission("Bash", ac.command)
+			if err != nil {
+				t.Errorf("%s, got error: %v", ac.reason, err)
+			}
+		})
 	}
 }
 
@@ -319,6 +401,42 @@ func TestPersonaPermission_DenyPatternTakesPrecedence(t *testing.T) {
 			expectDeny:   true,
 			reason:       "deny(sudo *) should block sudo commands",
 		},
+		{
+			name:         "deny rm commands",
+			allowedTools: []string{"Bash"},
+			denyTools:    []string{"Bash(rm *)"},
+			tool:         "Bash",
+			argument:     "rm important-file.txt",
+			expectDeny:   true,
+			reason:       "deny(rm *) should block rm commands",
+		},
+		{
+			name:         "deny git push commands",
+			allowedTools: []string{"Bash"},
+			denyTools:    []string{"Bash(git push*)"},
+			tool:         "Bash",
+			argument:     "git push origin main",
+			expectDeny:   true,
+			reason:       "deny(git push*) should block git push commands",
+		},
+		{
+			name:         "deny git commit commands",
+			allowedTools: []string{"Bash"},
+			denyTools:    []string{"Bash(git commit*)"},
+			tool:         "Bash",
+			argument:     "git commit -m \"test\"",
+			expectDeny:   true,
+			reason:       "deny(git commit*) should block git commit commands",
+		},
+		{
+			name:         "deny rm does not block other commands",
+			allowedTools: []string{"Bash"},
+			denyTools:    []string{"Bash(rm *)"},
+			tool:         "Bash",
+			argument:     "ls -la",
+			expectDeny:   false,
+			reason:       "deny(rm *) should not block ls command",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -362,6 +480,8 @@ func TestPersonaPermission_ArtifactCreationScenarios(t *testing.T) {
 		{"reviewer", ".wave/artifacts/review.json", true, "reviewer can create files in .wave/artifacts/"},
 		{"reviewer", "src/main.go", false, "reviewer cannot create .go source files"},
 		{"reviewer", "src/app.ts", false, "reviewer cannot create .ts source files"},
+		{"reviewer", "scripts/tool.py", false, "reviewer cannot create .py source files"},
+		{"reviewer", "src/lib.rs", false, "reviewer cannot create .rs source files"},
 
 		// Navigator scenarios (read-only)
 		{"navigator", ".wave/artifact.json", false, "navigator cannot create artifact.json"},
@@ -599,16 +719,25 @@ func TestLoadWaveYAML_PersonaPermissions(t *testing.T) {
 			t.Error("reviewer in wave.yaml should have Write(.wave/artifact.json) or Write(.wave/artifacts/*) permission")
 		}
 
-		// Verify reviewer denies source file writes
-		hasDenyGo := false
-		for _, deny := range reviewer.Permissions.Deny {
-			if deny == "Write(*.go)" {
-				hasDenyGo = true
-				break
-			}
+		// Verify reviewer denies source file writes and destructive commands
+		expectedDenyPatterns := []string{
+			"Write(*.go)",
+			"Write(*.ts)",
+			"Write(*.py)",
+			"Write(*.rs)",
+			"Edit(*)",
+			"Bash(rm *)",
+			"Bash(git push*)",
+			"Bash(git commit*)",
 		}
-		if !hasDenyGo {
-			t.Error("reviewer in wave.yaml should deny Write(*.go)")
+		denySet := make(map[string]bool)
+		for _, deny := range reviewer.Permissions.Deny {
+			denySet[deny] = true
+		}
+		for _, expected := range expectedDenyPatterns {
+			if !denySet[expected] {
+				t.Errorf("reviewer in wave.yaml should deny %s, got deny list: %v", expected, reviewer.Permissions.Deny)
+			}
 		}
 	}
 
@@ -672,7 +801,7 @@ func createTestManifestWithPersonas(t *testing.T) *Manifest {
 						"Bash(go test*)",
 						"Bash(npm test*)",
 					},
-					Deny: []string{"Write(*.go)", "Write(*.ts)", "Edit(*)"},
+					Deny: []string{"Write(*.go)", "Write(*.ts)", "Write(*.py)", "Write(*.rs)", "Edit(*)", "Bash(rm *)", "Bash(git push*)", "Bash(git commit*)"},
 				},
 			},
 			"navigator": {
