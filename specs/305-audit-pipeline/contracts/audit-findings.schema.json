@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Audit Findings",
+  "description": "Output from the audit-items step: per-item fidelity classification with evidence",
+  "type": "object",
+  "required": ["findings", "summary", "timestamp"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_number", "item_type", "item_url", "title", "category", "evidence"],
+        "properties": {
+          "item_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Source issue or PR number"
+          },
+          "item_type": {
+            "type": "string",
+            "enum": ["issue", "pr"],
+            "description": "Whether the source item is an issue or PR"
+          },
+          "item_url": {
+            "type": "string",
+            "description": "Full GitHub URL for reference"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Item title for readability"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["verified", "partial", "regressed", "obsolete", "unverifiable"],
+            "description": "Fidelity classification"
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "File paths, code references, and commit SHAs supporting the classification"
+          },
+          "unmet_criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Specific acceptance criteria not satisfied (for partial/regressed)"
+          },
+          "remediation": {
+            "type": "string",
+            "description": "Actionable description of what needs to change (empty for verified/obsolete)"
+          }
+        }
+      },
+      "description": "Per-item audit findings"
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_audited"],
+      "properties": {
+        "total_audited": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of items audited"
+        },
+        "by_category": {
+          "type": "object",
+          "properties": {
+            "verified": { "type": "integer", "minimum": 0 },
+            "partial": { "type": "integer", "minimum": 0 },
+            "regressed": { "type": "integer", "minimum": 0 },
+            "obsolete": { "type": "integer", "minimum": 0 },
+            "unverifiable": { "type": "integer", "minimum": 0 }
+          },
+          "description": "Count of findings per fidelity category"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the audit was performed"
+    }
+  }
+}
