@@ -118,6 +118,7 @@ tests/            # Test coverage
 ```bash
 go test ./...            # Run all tests
 go test -race ./...      # Run with race detector (required for PR)
+golangci-lint run ./...  # Run static analysis linters
 ```
 
 See `docs/migrations.md` for database migration documentation.
