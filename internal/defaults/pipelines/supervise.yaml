@@ -47,13 +47,14 @@ steps:
       - name: evidence
         path: .wave/output/supervision-evidence.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/supervision-evidence.json
         schema_path: .wave/contracts/supervision-evidence.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: evaluate
     persona: supervisor
@@ -104,13 +105,14 @@ steps:
       - name: evaluation
         path: .wave/output/supervision-evaluation.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/supervision-evaluation.json
         schema_path: .wave/contracts/supervision-evaluation.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: verdict
     persona: reviewer

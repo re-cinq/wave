@@ -3,7 +3,6 @@ package state
 import (
 	"crypto/rand"
 	"database/sql"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -12,10 +11,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var (
-	//go:embed schema.sql
-	schemaFS embed.FS
-)
 
 // StepState represents the state of a pipeline step.
 type StepState string
@@ -156,21 +151,8 @@ func NewStateStore(dbPath string) (StateStore, error) {
 		return nil, fmt.Errorf("invalid migration configuration: %w", err)
 	}
 
-	if migrationConfig.ShouldUseMigrations() {
-		// Use new migration system
-		if err := initializeWithMigrations(db, migrationConfig); err != nil {
-			return nil, fmt.Errorf("failed to initialize with migrations: %w", err)
-		}
-	} else {
-		// Fall back to old schema system for compatibility
-		schema, err := schemaFS.ReadFile("schema.sql")
-		if err != nil {
-			return nil, fmt.Errorf("failed to read schema: %w", err)
-		}
-
-		if _, err := db.Exec(string(schema)); err != nil {
-			return nil, fmt.Errorf("failed to initialize schema: %w", err)
-		}
+	if err := initializeWithMigrations(db, migrationConfig); err != nil {
+		return nil, fmt.Errorf("failed to initialize with migrations: %w", err)
 	}
 
 	return &stateStore{db: db}, nil

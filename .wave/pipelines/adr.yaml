@@ -44,13 +44,14 @@ steps:
       - name: context
         path: .wave/output/adr-context.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/adr-context.json
         schema_path: .wave/contracts/adr-context.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: analyze-options
     persona: planner
@@ -91,13 +92,14 @@ steps:
       - name: options
         path: .wave/output/adr-options.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/adr-options.json
         schema_path: .wave/contracts/adr-options.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: draft-record
     persona: philosopher
@@ -211,6 +213,8 @@ steps:
       - name: pr-result
         path: .wave/output/pr-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -218,7 +222,6 @@ steps:
         schema_path: .wave/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: pr
         extract_from: .wave/output/pr-result.json

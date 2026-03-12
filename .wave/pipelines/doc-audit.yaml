@@ -65,13 +65,14 @@ steps:
       - name: scan-results
         path: .wave/output/scan-results.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/scan-results.json
         schema_path: .wave/contracts/doc-scan-results.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: analyze-consistency
     persona: reviewer
@@ -133,13 +134,14 @@ steps:
       - name: consistency-report
         path: .wave/output/consistency-report.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/consistency-report.json
         schema_path: .wave/contracts/doc-consistency-report.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: compose-report
     persona: navigator
@@ -240,6 +242,8 @@ steps:
       - name: issue-result
         path: .wave/output/issue-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -247,7 +251,6 @@ steps:
         schema_path: .wave/contracts/doc-issue-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: issue
         extract_from: .wave/output/issue-result.json

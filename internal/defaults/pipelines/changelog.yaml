@@ -41,13 +41,14 @@ steps:
       - name: commits
         path: .wave/output/commit-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/commit-analysis.json
         schema_path: .wave/contracts/commit-analysis.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: categorize
     persona: planner
@@ -77,13 +78,14 @@ steps:
       - name: categorized
         path: .wave/output/categorized-changes.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/categorized-changes.json
         schema_path: .wave/contracts/categorized-changes.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: format
     persona: philosopher

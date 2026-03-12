@@ -46,13 +46,14 @@ steps:
       - name: exploration
         path: .wave/output/exploration.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/exploration.json
         schema_path: .wave/contracts/explain-exploration.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: analyze
     persona: planner
@@ -84,13 +85,14 @@ steps:
       - name: analysis
         path: .wave/output/analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/analysis.json
         schema_path: .wave/contracts/explain-analysis.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: document
     persona: philosopher

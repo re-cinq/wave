@@ -268,7 +268,7 @@ type PipelineContext struct {
 	// Per-step tool activity (verbose mode, for concurrent step display)
 	StepToolActivity map[string][2]string // stepID -> [toolName, toolTarget]
 
-	// Tool activity (verbose mode) — global fallback for backward compat
+	// Tool activity (verbose mode) — global fallback
 	LastToolName   string // Most recent tool being used (Read, Write, Bash, etc.)
 	LastToolTarget string // Most recent tool target (file path, command, pattern)
 
