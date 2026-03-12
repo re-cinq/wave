@@ -532,6 +532,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						leftWidth := m.leftPaneWidth()
 						rightWidth := m.width - leftWidth - 3
 						m.composeList.SetSize(leftWidth, m.childHeight())
+						m.composeList.SetFocused(true)
 						m.composeDetail.SetSize(rightWidth, m.childHeight())
 
 						seq := cl.sequence
