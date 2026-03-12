@@ -420,6 +420,27 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), pipelineName)
 	}
 
+	// Apply exclude filter if configured (--from-step + -x combination)
+	excludeFilter := r.executor.stepFilter
+	if len(excludeFilter.Exclude) > 0 {
+		filtered, skippedIDs, filterErr := ApplyStepFilter(sortedSteps, StepFilterConfig{Exclude: excludeFilter.Exclude})
+		if filterErr != nil {
+			return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("step filter error: %w", filterErr), pipelineName)
+		}
+		for _, id := range skippedIDs {
+			if r.executor.emitter != nil {
+				r.executor.emitter.Emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     id,
+					State:      event.StateSkipped,
+					Message:    "excluded by step filter",
+				})
+			}
+		}
+		sortedSteps = filtered
+	}
+
 	// Execute each step in order
 	for _, step := range sortedSteps {
 		select {

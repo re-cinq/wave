@@ -208,7 +208,7 @@ func TestRunDryRunOutput(t *testing.T) {
 	}
 
 	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+		return performDryRun(p, m, pipeline.StepFilterConfig{})
 	})
 
 	assert.NoError(t, err)
@@ -432,7 +432,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 	}
 
 	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+		return performDryRun(p, m, pipeline.StepFilterConfig{})
 	})
 
 	assert.NoError(t, err)
@@ -578,4 +578,215 @@ func TestNewRunCmdFlags(t *testing.T) {
 	modelFlag := flags.Lookup("model")
 	assert.NotNil(t, modelFlag, "model flag should exist")
 	assert.Equal(t, "", modelFlag.DefValue, "model flag default should be empty")
+
+	stepsFlag := flags.Lookup("steps")
+	assert.NotNil(t, stepsFlag, "steps flag should exist")
+	assert.Equal(t, "", stepsFlag.DefValue, "steps flag default should be empty")
+
+	excludeFlag := flags.Lookup("exclude")
+	assert.NotNil(t, excludeFlag, "exclude flag should exist")
+	assert.Equal(t, "", excludeFlag.DefValue, "exclude flag default should be empty")
+	assert.Equal(t, "x", excludeFlag.Shorthand, "exclude flag should have -x shorthand")
+}
+
+// TestNewRunCmdStepFilterValidation tests flag combination validation at CLI level
+func TestNewRunCmdStepFilterValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		opts      RunOptions
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name: "steps only is valid",
+			opts: RunOptions{
+				Steps: "plan,implement",
+			},
+		},
+		{
+			name: "exclude only is valid",
+			opts: RunOptions{
+				Exclude: "create-pr",
+			},
+		},
+		{
+			name: "steps and exclude is invalid",
+			opts: RunOptions{
+				Steps:   "plan",
+				Exclude: "create-pr",
+			},
+			wantErr:   true,
+			errSubstr: "mutually exclusive",
+		},
+		{
+			name: "from-step and exclude is valid",
+			opts: RunOptions{
+				FromStep: "plan",
+				Exclude:  "create-pr",
+			},
+		},
+		{
+			name: "from-step and steps is invalid",
+			opts: RunOptions{
+				FromStep: "plan",
+				Steps:    "implement",
+			},
+			wantErr:   true,
+			errSubstr: "--from-step and --steps cannot be combined",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filterConfig := pipeline.StepFilterConfig{
+				Include: pipeline.ParseStepList(tt.opts.Steps),
+				Exclude: pipeline.ParseStepList(tt.opts.Exclude),
+			}
+			err := pipeline.ValidateFilterCombination(filterConfig, tt.opts.FromStep)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errSubstr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestDryRunWithStepFilter tests that dry-run shows filter status
+func TestDryRunWithStepFilter(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Kind: "WavePipeline",
+		Metadata: pipeline.PipelineMetadata{
+			Name:        "filter-dryrun-test",
+			Description: "Test dry-run with step filter",
+		},
+		Steps: []pipeline.Step{
+			{
+				ID:      "fetch",
+				Persona: "navigator",
+				Exec:    pipeline.ExecConfig{Type: "prompt", Source: "Fetch"},
+			},
+			{
+				ID:           "plan",
+				Persona:      "navigator",
+				Dependencies: []string{"fetch"},
+				Exec:         pipeline.ExecConfig{Type: "prompt", Source: "Plan"},
+			},
+			{
+				ID:           "implement",
+				Persona:      "craftsman",
+				Dependencies: []string{"plan"},
+				Memory: pipeline.MemoryConfig{
+					InjectArtifacts: []pipeline.ArtifactRef{
+						{Step: "plan", Artifact: "spec", As: "spec.md"},
+					},
+				},
+				Exec: pipeline.ExecConfig{Type: "prompt", Source: "Implement"},
+			},
+		},
+	}
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test"},
+		Personas: map[string]manifest.Persona{
+			"navigator": {Adapter: "claude"},
+			"craftsman": {Adapter: "claude"},
+		},
+	}
+
+	// Test exclude filter in dry-run
+	output, err := captureStdout(func() error {
+		return performDryRun(p, m, pipeline.StepFilterConfig{Exclude: []string{"implement"}})
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "[RUN]")
+	assert.Contains(t, output, "[EXCLUDE]")
+	assert.Contains(t, output, "fetch")
+	assert.Contains(t, output, "plan")
+	assert.Contains(t, output, "implement")
+}
+
+// TestDryRunWithIncludeFilter tests that dry-run shows SKIP for non-included steps
+func TestDryRunWithIncludeFilter(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Kind: "WavePipeline",
+		Metadata: pipeline.PipelineMetadata{
+			Name:        "include-dryrun-test",
+			Description: "Test dry-run with include filter",
+		},
+		Steps: []pipeline.Step{
+			{
+				ID:      "fetch",
+				Persona: "navigator",
+				Exec:    pipeline.ExecConfig{Type: "prompt", Source: "Fetch"},
+			},
+			{
+				ID:           "plan",
+				Persona:      "navigator",
+				Dependencies: []string{"fetch"},
+				Exec:         pipeline.ExecConfig{Type: "prompt", Source: "Plan"},
+			},
+		},
+	}
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test"},
+		Personas: map[string]manifest.Persona{
+			"navigator": {Adapter: "claude"},
+		},
+	}
+
+	output, err := captureStdout(func() error {
+		return performDryRun(p, m, pipeline.StepFilterConfig{Include: []string{"plan"}})
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "[SKIP]")
+	assert.Contains(t, output, "[RUN]")
+}
+
+// TestDryRunWithArtifactWarning tests artifact availability warning in dry-run
+func TestDryRunWithArtifactWarning(t *testing.T) {
+	p := &pipeline.Pipeline{
+		Kind: "WavePipeline",
+		Metadata: pipeline.PipelineMetadata{
+			Name:        "artifact-warning-test",
+			Description: "Test artifact availability warning",
+		},
+		Steps: []pipeline.Step{
+			{
+				ID:      "plan",
+				Persona: "navigator",
+				Exec:    pipeline.ExecConfig{Type: "prompt", Source: "Plan"},
+			},
+			{
+				ID:           "implement",
+				Persona:      "craftsman",
+				Dependencies: []string{"plan"},
+				Memory: pipeline.MemoryConfig{
+					InjectArtifacts: []pipeline.ArtifactRef{
+						{Step: "plan", Artifact: "spec", As: "spec.md"},
+					},
+				},
+				Exec: pipeline.ExecConfig{Type: "prompt", Source: "Implement"},
+			},
+		},
+	}
+
+	m := &manifest.Manifest{
+		Metadata: manifest.Metadata{Name: "test"},
+		Personas: map[string]manifest.Persona{
+			"navigator": {Adapter: "claude"},
+			"craftsman": {Adapter: "claude"},
+		},
+	}
+
+	output, err := captureStdout(func() error {
+		return performDryRun(p, m, pipeline.StepFilterConfig{Exclude: []string{"plan"}})
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, output, "may not be available")
 }

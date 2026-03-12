@@ -72,6 +72,8 @@ type DefaultPipelineExecutor struct {
 	modelOverride string
 	// Cross-pipeline artifacts from prior stages in a sequence
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
+	// Step filter for selective execution (--steps / --exclude flags)
+	stepFilter StepFilterConfig
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -117,6 +119,11 @@ func WithModelOverride(model string) ExecutorOption {
 // for cross-pipeline artifact references.
 func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.crossPipelineArtifacts = artifacts }
+}
+
+// WithStepFilter configures selective step execution via --steps or --exclude.
+func WithStepFilter(config StepFilterConfig) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = config }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -208,6 +215,24 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
 
+	// Apply step filter if configured (--steps or --exclude flags)
+	var skippedByFilter map[string]bool
+	if !e.stepFilter.IsEmpty() {
+		filtered, skippedIDs, filterErr := ApplyStepFilter(sortedSteps, e.stepFilter)
+		if filterErr != nil {
+			return fmt.Errorf("step filter error: %w", filterErr)
+		}
+		// Validate artifact dependencies for filtered steps
+		if artErr := ValidateFilteredArtifacts(filtered, skippedIDs, p, ""); artErr != nil {
+			return fmt.Errorf("step filter error: %w", artErr)
+		}
+		skippedByFilter = make(map[string]bool, len(skippedIDs))
+		for _, id := range skippedIDs {
+			skippedByFilter[id] = true
+		}
+		sortedSteps = filtered
+	}
+
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
 		checker := preflight.NewChecker(p.Requires.Skills)
@@ -280,6 +305,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		execution.States[step.ID] = StatePending
 	}
 
+	// Mark steps excluded by filter as skipped before execution begins
+	if len(skippedByFilter) > 0 {
+		for id := range skippedByFilter {
+			execution.States[id] = StateSkipped
+		}
+	}
+
 	e.mu.Lock()
 	e.pipelines[pipelineID] = execution
 	e.mu.Unlock()
@@ -298,6 +330,17 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		TotalSteps:     len(p.Steps),
 		CompletedSteps: 0,
 	})
+
+	// Emit skip events for steps excluded by filter
+	for id := range skippedByFilter {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     id,
+			State:      event.StateSkipped,
+			Message:    "excluded by step filter",
+		})
+	}
 
 	// Ensure workspace root exists and is clean for this pipeline run
 	wsRoot := m.Runtime.WorkspaceRoot

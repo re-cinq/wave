@@ -3751,3 +3751,141 @@ func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRu
 	a.mu.Unlock()
 	return a.MockAdapter.Run(ctx, cfg)
 }
+
+// TestExecuteWithStepFilterInclude verifies --steps include filter runs only named steps
+func TestExecuteWithStepFilterInclude(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(StepFilterConfig{Include: []string{"step-a"}}),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "filter-include-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-b"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a"}, order, "only step-a should have executed")
+
+	// Verify skip events were emitted for filtered steps
+	assert.True(t, collector.HasEventWithState("skipped"), "should have skip events for filtered steps")
+}
+
+// TestExecuteWithStepFilterExclude verifies --exclude filter skips named steps
+func TestExecuteWithStepFilterExclude(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(StepFilterConfig{Exclude: []string{"step-c"}}),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "filter-exclude-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-b"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-b"}, order, "step-c should have been excluded")
+}
+
+// TestExecuteWithEmptyFilter verifies empty filter runs all steps
+func TestExecuteWithEmptyFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(StepFilterConfig{}),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "filter-empty-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-b"}, order, "all steps should execute with empty filter")
+}
+
+// TestExecuteWithAllExcluded verifies error when filter excludes all steps
+func TestExecuteWithAllExcluded(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(StepFilterConfig{Exclude: []string{"step-a", "step-b"}}),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "filter-all-excluded"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exclude all steps")
+}

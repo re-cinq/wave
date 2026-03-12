@@ -38,6 +38,8 @@ type RunOptions struct {
 	RunID    string
 	Output   OutputConfig
 	Model    string
+	Steps    string
+	Exclude  string
 }
 
 func NewRunCmd() *cobra.Command {
@@ -47,7 +49,12 @@ func NewRunCmd() *cobra.Command {
 		Use:   "run [pipeline] [input]",
 		Short: "Run a pipeline",
 		Long: `Execute a pipeline from the wave manifest.
-Supports dry-run mode, step resumption, custom timeouts, and model override.
+Supports dry-run mode, step resumption, selective step execution, custom
+timeouts, and model override.
+
+The --steps flag runs only the named steps. The -x/--exclude flag skips
+the named steps. These are mutually exclusive. Both accept comma-separated
+step names.
 
 The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
@@ -60,7 +67,10 @@ Arguments can be provided as positional args or flags:
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate
-  wave run my-pipeline --model haiku`,
+  wave run my-pipeline --model haiku
+  wave run speckit-flow --steps clarify,plan
+  wave run speckit-flow -x implement,create-pr
+  wave run speckit-flow --from-step clarify -x create-pr`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -94,6 +104,15 @@ Arguments can be provided as positional args or flags:
 				return err
 			}
 
+			// Validate step filter flag combinations before execution
+			filterConfig := pipeline.StepFilterConfig{
+				Include: pipeline.ParseStepList(opts.Steps),
+				Exclude: pipeline.ParseStepList(opts.Exclude),
+			}
+			if err := pipeline.ValidateFilterCombination(filterConfig, opts.FromStep); err != nil {
+				return err
+			}
+
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
 			return runRun(opts, debug)
@@ -110,6 +129,8 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
+	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
 
 	return cmd
 }
@@ -173,8 +194,25 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 
+	// Build step filter from parsed flags
+	stepFilter := pipeline.StepFilterConfig{
+		Include: pipeline.ParseStepList(opts.Steps),
+		Exclude: pipeline.ParseStepList(opts.Exclude),
+	}
+
+	// Validate step names if filter is set
+	if !stepFilter.IsEmpty() {
+		names := stepFilter.Include
+		if len(names) == 0 {
+			names = stepFilter.Exclude
+		}
+		if err := pipeline.ValidateStepNames(names, p); err != nil {
+			return err
+		}
+	}
+
 	if opts.DryRun {
-		return performDryRun(p, &m)
+		return performDryRun(p, &m, stepFilter)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -295,6 +333,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
+	}
+	if !stepFilter.IsEmpty() {
+		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -521,14 +562,42 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter pipeline.StepFilterConfig) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
+
+	// Build skip set from filter config for display purposes
+	skipSet := make(map[string]bool)
+	if !filter.IsEmpty() {
+		stepPtrs := make([]*pipeline.Step, len(p.Steps))
+		for i := range p.Steps {
+			stepPtrs[i] = &p.Steps[i]
+		}
+		_, skipped, _ := pipeline.ApplyStepFilter(stepPtrs, filter)
+		for _, id := range skipped {
+			skipSet[id] = true
+		}
+	}
+
 	fmt.Fprintf(os.Stderr, "Execution plan:\n")
 
 	for i, step := range p.Steps {
-		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
+		// Show filter status tag
+		tag := "[RUN]"
+		if skipSet[step.ID] {
+			if len(filter.Exclude) > 0 {
+				tag = "[EXCLUDE]"
+			} else {
+				tag = "[SKIP]"
+			}
+		}
+
+		if !filter.IsEmpty() {
+			fmt.Fprintf(os.Stderr, "  %d. %s %s (persona: %s)\n", i+1, tag, step.ID, step.Persona)
+		} else {
+			fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
+		}
 
 		if len(step.Dependencies) > 0 {
 			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
@@ -576,6 +645,15 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
 				fmt.Fprintf(os.Stderr, " (on_failure: %s, max_retries: %d)", step.Handover.Contract.OnFailure, step.Handover.Contract.MaxRetries)
 			}
 			fmt.Fprintln(os.Stderr)
+		}
+
+		// Show artifact availability warnings for steps that depend on skipped steps
+		if !skipSet[step.ID] && len(skipSet) > 0 {
+			for _, art := range step.Memory.InjectArtifacts {
+				if art.Step != "" && skipSet[art.Step] {
+					fmt.Fprintf(os.Stderr, "     ⚠ artifact %q from skipped step %q may not be available\n", art.Artifact, art.Step)
+				}
+			}
 		}
 
 		fmt.Fprintln(os.Stderr)
