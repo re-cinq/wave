@@ -143,6 +143,82 @@ Automated semantic versioning from conventional commits. Every merge to `main` p
 - Check `.wave/traces/` for audit logs
 - Workspace contents preserved for post-mortem analysis
 
+## Wave Swarm Orchestration
+
+When acting as the **core orchestrator** (the Claude instance steering Wave pipelines), follow these patterns:
+
+### Pipeline Selection
+
+| Issue complexity | Pipeline | When to use |
+|-----------------|----------|-------------|
+| Bug fix, small tweak | `gh-implement` | Single-file or few-file changes, clear scope |
+| Medium feature | `gh-implement` | Well-scoped feature with clear acceptance criteria |
+| Complex feature | `speckit-flow` | Multi-component changes, needs spec → plan → tasks → impl |
+| Architecture change | `speckit-flow` | Touches 5+ files, needs design discussion |
+| Code quality | `junk-code`, `dx-audit`, `wave-test-hardening` | Analysis and improvement |
+| Security | `wave-security-audit` | Threat modeling and hardening |
+| PR review | `gh-pr-review` | **Always** run before merging any PR |
+
+### PR Review-Then-Merge Protocol
+
+**MANDATORY**: Never merge a PR without running the `gh-pr-review` pipeline first.
+
+1. Launch review: `wave run -v gh-pr-review -- "<PR-URL>" &`
+2. Wait for review completion and check results
+3. Only merge after review pipeline passes
+4. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+
+### Concurrency Rules
+
+- **Maximum 6 concurrent pipelines** — beyond this, API rate limits and CPU contention degrade quality
+- **Optimal: 3-5 concurrent pipelines** — best throughput-to-quality ratio
+- Launch pipelines via `wave run -v <pipeline> -- "<input>" &` in background shell
+- Monitor with `wave list runs --limit N` and `wave logs <run-id>`
+
+### Issue Triage
+
+Before launching a pipeline for an issue:
+1. **Check if already implemented** — search codebase for the feature
+2. **Check for duplicates/superseded** — compare with other open issues
+3. **Assess implementability** — `implementable: false` is correct behavior, not a failure
+4. **Close non-actionable issues** with a comment explaining why
+
+| Category | Action | Pipeline |
+|----------|--------|----------|
+| **close** | Already implemented, superseded, or duplicate | Close with comment |
+| **gh-implement** | Well-scoped, single-PR implementation | `gh-implement` |
+| **speckit-flow** | Complex, needs spec → plan → tasks → implement | `speckit-flow` |
+| **defer** | Needs design discussion, experiment, or blocked | Leave open |
+
+### Monitoring
+
+```bash
+wave list runs --limit N                                          # Status overview
+wave logs <run-id> | grep -E "completed|running|validating"       # Step transitions
+wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activity
+```
+
+### Post-Pipeline PR Validation
+
+1. Run `gh-pr-review`: `wave run -v gh-pr-review -- "<PR-URL>" &`
+2. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+3. After review passes: `gh pr merge <N> --merge`
+
+### Failure Recovery
+
+- **Merge conflicts**: Close old PR, `git pull origin main`, re-run pipeline
+- **No-op PRs**: Close PR, re-run — review pipeline catches these
+- **Contract failures**: Pipeline retries automatically
+- **Rate limits**: Reduce concurrency, wait, re-run
+
+### Batch PR Merge Protocol
+
+1. Merge oldest/smallest PRs first to minimize cascading conflicts
+2. Check remaining PRs for conflicts after each merge
+3. Close CONFLICTING PRs and re-run from updated main
+4. Pull main after batch: `git pull origin main`
+
+## Constraints
 
 1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
 2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
