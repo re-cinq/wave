@@ -27,17 +27,18 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline string
-	Input    string
-	DryRun   bool
-	FromStep string
-	Force    bool
-	Timeout  int
-	Manifest string
-	Mock     bool
-	RunID    string
-	Output   OutputConfig
-	Model    string
+	Pipeline          string
+	Input             string
+	DryRun            bool
+	FromStep          string
+	Force             bool
+	Timeout           int
+	Manifest          string
+	Mock              bool
+	RunID             string
+	Output            OutputConfig
+	Model             string
+	PreserveWorkspace bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -60,7 +61,8 @@ Arguments can be provided as positional args or flags:
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate
-  wave run my-pipeline --model haiku`,
+  wave run my-pipeline --model haiku
+  wave run my-pipeline --preserve-workspace`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -110,6 +112,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 
 	return cmd
 }
@@ -295,6 +298,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
+	}
+	if opts.PreserveWorkspace {
+		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
