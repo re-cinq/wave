@@ -18,9 +18,9 @@ type ComposeListModel struct {
 	focused     bool
 	sequence    Sequence
 	cursor      int
-	picking     bool
-	picker      *huh.Form
-	pickerValue string
+	picking      bool
+	picker       *huh.Form
+	pickerTarget *string // heap-allocated target for huh form value binding
 	available   []PipelineInfo
 	validation  CompatibilityResult
 	confirming  bool // T026: inline confirmation for incompatible sequences
@@ -55,13 +55,15 @@ func (m ComposeListModel) Update(msg tea.Msg) (ComposeListModel, tea.Cmd) {
 		m.picker = model.(*huh.Form)
 
 		if m.picker.State == huh.StateCompleted {
-			// Find selected pipeline from available list.
-			// We only have PipelineInfo metadata; store nil Pipeline.
-			// The full Pipeline struct can be loaded externally if needed.
-			m.sequence.Add(m.pickerValue, nil)
+			// Read value from heap-allocated target (survives value-receiver copies).
+			selected := ""
+			if m.pickerTarget != nil {
+				selected = *m.pickerTarget
+			}
+			m.sequence.Add(selected, nil)
 			m.picking = false
 			m.picker = nil
-			m.pickerValue = ""
+			m.pickerTarget = nil
 			m.validation = ValidateSequence(m.sequence)
 			return m, tea.Batch(cmd, m.emitSequenceChanged())
 		}
@@ -69,7 +71,7 @@ func (m ComposeListModel) Update(msg tea.Msg) (ComposeListModel, tea.Cmd) {
 		if m.picker.State == huh.StateAborted {
 			m.picking = false
 			m.picker = nil
-			m.pickerValue = ""
+			m.pickerTarget = nil
 			return m, cmd
 		}
 
@@ -210,15 +212,24 @@ func (m ComposeListModel) enterPickingMode() (ComposeListModel, tea.Cmd) {
 		options[i] = huh.NewOption(p.Name, p.Name)
 	}
 
-	m.pickerValue = ""
+	// Heap-allocate the target so the pointer survives value-receiver copies.
+	target := ""
+	m.pickerTarget = &target
+
+	pickerHeight := m.height - 6 // leave room for title + status
+	if pickerHeight < 5 {
+		pickerHeight = 5
+	}
+
 	m.picker = huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Add pipeline").
 				Options(options...).
-				Value(&m.pickerValue),
+				Height(pickerHeight).
+				Value(m.pickerTarget),
 		),
-	).WithTheme(WaveTheme())
+	).WithTheme(WaveTheme()).WithHeight(pickerHeight)
 
 	initCmd := m.picker.Init()
 	m.picking = true
