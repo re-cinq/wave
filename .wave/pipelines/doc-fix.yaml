@@ -104,7 +104,7 @@ steps:
           as: scan
         - step: analyze
           artifact: fix_plan
-          as: plan
+          as: impl_plan
     workspace:
       type: worktree
       branch: "fix/{{ pipeline_id }}"

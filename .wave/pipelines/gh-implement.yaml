@@ -74,7 +74,7 @@ steps:
           as: issue_assessment
         - step: plan
           artifact: impl-plan
-          as: plan
+          as: impl_plan
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
