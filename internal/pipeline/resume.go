@@ -164,6 +164,11 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		attemptContexts[k] = v
 	}
 
+	reworkDepths := make(map[string]int)
+	if resumeState.ReworkDepth > 0 {
+		reworkDepths[fromStep] = resumeState.ReworkDepth
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:        resumePipeline,
 		Manifest:        m,
@@ -173,6 +178,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		WorkspacePaths:  resumeState.WorkspacePaths,
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts: attemptContexts,
+		ReworkDepths:    reworkDepths,
 		Input:           input,
 		Context:         newContextWithProject(pipelineID, pipelineName, fromStep, m),
 		Status: &PipelineStatus{
@@ -202,6 +208,7 @@ type ResumeState struct {
 	WorkspacePaths  map[string]string
 	CompletedSteps  []string
 	FailureContexts map[string]*AttemptContext // stepID -> failure context from prior run
+	ReworkDepth     int                        // Rework depth from prior run (for rework chain tracking)
 }
 
 // lookupStepPersona finds the persona for a step by ID in the full pipeline.
@@ -338,6 +345,12 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 					PriorStdout:  last.StdoutTail,
 				}
 			}
+		}
+
+		// Load rework history to reconstruct rework depth on resume
+		reworkHistory, err := r.executor.store.GetReworkHistory(resolvedRunID, fromStep)
+		if err == nil && len(reworkHistory) > 0 {
+			state.ReworkDepth = reworkHistory[len(reworkHistory)-1].ReworkDepth
 		}
 	}
 

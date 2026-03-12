@@ -465,7 +465,7 @@ func TestInitializeWithMigrations_ExistingDatabase(t *testing.T) {
 	manager := NewMigrationManager(db)
 	applied, err := manager.GetAppliedMigrations()
 	assert.NoError(t, err)
-	assert.Len(t, applied, 9) // All 9 defined migrations
+	assert.Len(t, applied, 10) // All 10 defined migrations
 }
 
 func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
@@ -496,11 +496,11 @@ func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
 func TestMigrationDefinitions(t *testing.T) {
 	migrations := GetAllMigrations()
 
-	// Should have 9 migrations based on our definition
-	assert.Len(t, migrations, 9)
+	// Should have 10 migrations based on our definition
+	assert.Len(t, migrations, 10)
 
 	// Check version sequence
-	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	for i, migration := range migrations {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)

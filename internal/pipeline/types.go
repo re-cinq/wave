@@ -9,12 +9,13 @@ import (
 )
 
 const (
-	StatePending   = "pending"
-	StateRunning   = "running"
-	StateCompleted = "completed"
-	StateFailed    = "failed"
-	StateRetrying  = "retrying"
-	StateSkipped   = "skipped"
+	StatePending    = "pending"
+	StateRunning    = "running"
+	StateCompleted  = "completed"
+	StateFailed     = "failed"
+	StateRetrying   = "retrying"
+	StateSkipped    = "skipped"
+	StateReworking  = "reworking"
 )
 
 type Pipeline struct {
@@ -77,7 +78,8 @@ type RetryConfig struct {
 	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
 	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
 	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
-	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue". Default: "fail"
+	OnFailure   string        `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
+	Rework      *ReworkConfig `yaml:"rework,omitempty"`      // Rework config when on_failure: rework
 }
 
 // EffectiveMaxAttempts returns the number of retry attempts, falling back to 1.
@@ -123,6 +125,70 @@ type AttemptContext struct {
 	PriorError   string
 	FailureClass string
 	PriorStdout  string // last 2000 chars
+}
+
+// ReworkConfig configures rework branching when all retry attempts are exhausted.
+// Only applies when RetryConfig.OnFailure is "rework".
+type ReworkConfig struct {
+	TargetStep           string `yaml:"target_step,omitempty"`            // Alternative step in same pipeline
+	TargetPipeline       string `yaml:"target_pipeline,omitempty"`       // Alternative sub-pipeline
+	MaxReworkDepth       int    `yaml:"max_rework_depth,omitempty"`      // Max rework chain depth (default: 1)
+	InjectFailureContext *bool  `yaml:"inject_failure_context,omitempty"` // Inject failure context (default: true)
+}
+
+// Validate checks that the ReworkConfig is well-formed.
+func (r *ReworkConfig) Validate() error {
+	if r == nil {
+		return nil
+	}
+	if r.TargetStep != "" && r.TargetPipeline != "" {
+		return fmt.Errorf("rework: target_step and target_pipeline are mutually exclusive")
+	}
+	if r.TargetStep == "" && r.TargetPipeline == "" {
+		return fmt.Errorf("rework: one of target_step or target_pipeline is required")
+	}
+	if r.MaxReworkDepth < 0 {
+		return fmt.Errorf("rework: max_rework_depth must be non-negative, got %d", r.MaxReworkDepth)
+	}
+	return nil
+}
+
+// EffectiveMaxReworkDepth returns the max rework depth, defaulting to 1.
+func (r *ReworkConfig) EffectiveMaxReworkDepth() int {
+	if r == nil {
+		return 0
+	}
+	if r.MaxReworkDepth > 0 {
+		return r.MaxReworkDepth
+	}
+	return 1
+}
+
+// EffectiveInjectFailureContext returns whether to inject failure context, defaulting to true.
+func (r *ReworkConfig) EffectiveInjectFailureContext() bool {
+	if r == nil || r.InjectFailureContext == nil {
+		return true
+	}
+	return *r.InjectFailureContext
+}
+
+// ReworkContext carries rich failure context from the original step to the rework target.
+type ReworkContext struct {
+	OriginalStepID   string           `json:"original_step_id"`
+	Attempts         []AttemptSummary `json:"attempts"`
+	PartialArtifacts []string         `json:"partial_artifacts,omitempty"`
+	OriginalPrompt   string           `json:"original_prompt,omitempty"`
+	ReworkDepth      int              `json:"rework_depth"`
+	FailureClass     string           `json:"failure_class,omitempty"`
+	LastError        string           `json:"last_error"`
+}
+
+// AttemptSummary records a single retry attempt's outcome.
+type AttemptSummary struct {
+	Attempt      int    `json:"attempt"`
+	ErrorMessage string `json:"error_message"`
+	StdoutTail   string `json:"stdout_tail,omitempty"`
+	DurationMs   int64  `json:"duration_ms"`
 }
 
 type Step struct {

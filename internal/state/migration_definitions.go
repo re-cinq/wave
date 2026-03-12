@@ -399,5 +399,29 @@ DROP INDEX IF EXISTS idx_attempt_run;
 DROP TABLE IF EXISTS step_attempt;
 `,
 		},
+		{
+			Version:     10,
+			Description: "Add step_rework_history table for rework branching",
+			Up: `
+CREATE TABLE IF NOT EXISTS step_rework_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    target_step TEXT DEFAULT '',
+    target_pipeline TEXT DEFAULT '',
+    rework_depth INTEGER NOT NULL DEFAULT 0,
+    failure_context TEXT DEFAULT '',
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_rework_run ON step_rework_history(run_id);
+CREATE INDEX IF NOT EXISTS idx_rework_step ON step_rework_history(step_id);
+`,
+			Down: `
+DROP INDEX IF EXISTS idx_rework_step;
+DROP INDEX IF EXISTS idx_rework_run;
+DROP TABLE IF EXISTS step_rework_history;
+`,
+		},
 	}
 }

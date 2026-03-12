@@ -112,6 +112,11 @@ const (
 	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
 	StateParallelStageFailed    = "parallel_stage_failed"    // Parallel stage had failures
 
+	// Rework branching states
+	StateReworkStarted   = "rework_started"
+	StateReworkCompleted = "rework_completed"
+	StateReworkFailed    = "rework_failed"
+
 	// Composition primitive states
 	StateIterationStarted   = "iteration_started"   // Iterate step begun
 	StateIterationProgress  = "iteration_progress"  // Individual item processing

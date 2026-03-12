@@ -231,6 +231,11 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 		guidance.WriteString("  • Check pipeline configuration and dependencies\n")
 		guidance.WriteString("  • Verify workspace permissions and file access\n")
 		guidance.WriteString("  • Review contract validation requirements\n")
+		if strings.Contains(originalError.Error(), "rework") {
+			guidance.WriteString("  • Check rework target step exists and is correctly configured\n")
+			guidance.WriteString("  • Verify max_rework_depth is not exceeded\n")
+			guidance.WriteString("  • Review .wave/artifacts/rework_context for failure details\n")
+		}
 	}
 
 	guidance.WriteString("\n🔄 Retry Options:\n")

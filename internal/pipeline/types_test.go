@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -526,5 +527,164 @@ func TestArtifactRef_Validate(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReworkConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *ReworkConfig
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "nil config is valid",
+			config:  nil,
+			wantErr: false,
+		},
+		{
+			name:    "target_step only is valid",
+			config:  &ReworkConfig{TargetStep: "diagnose"},
+			wantErr: false,
+		},
+		{
+			name:    "target_pipeline only is valid",
+			config:  &ReworkConfig{TargetPipeline: "fix-pipeline"},
+			wantErr: false,
+		},
+		{
+			name:    "both target_step and target_pipeline is invalid",
+			config:  &ReworkConfig{TargetStep: "diagnose", TargetPipeline: "fix-pipeline"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		{
+			name:    "neither target is invalid",
+			config:  &ReworkConfig{},
+			wantErr: true,
+			errMsg:  "one of target_step or target_pipeline is required",
+		},
+		{
+			name:    "negative max_rework_depth is invalid",
+			config:  &ReworkConfig{TargetStep: "diagnose", MaxReworkDepth: -1},
+			wantErr: true,
+			errMsg:  "non-negative",
+		},
+		{
+			name:    "zero max_rework_depth is valid",
+			config:  &ReworkConfig{TargetStep: "diagnose", MaxReworkDepth: 0},
+			wantErr: false,
+		},
+		{
+			name:    "positive max_rework_depth is valid",
+			config:  &ReworkConfig{TargetStep: "diagnose", MaxReworkDepth: 3},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error should contain %q, got: %v", tt.errMsg, err)
+				}
+			} else if err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestReworkConfig_EffectiveMaxReworkDepth(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *ReworkConfig
+		want   int
+	}{
+		{name: "nil config returns 0", config: nil, want: 0},
+		{name: "zero depth defaults to 1", config: &ReworkConfig{TargetStep: "x"}, want: 1},
+		{name: "explicit depth 3", config: &ReworkConfig{TargetStep: "x", MaxReworkDepth: 3}, want: 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.EffectiveMaxReworkDepth()
+			if got != tt.want {
+				t.Errorf("EffectiveMaxReworkDepth() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReworkConfig_EffectiveInjectFailureContext(t *testing.T) {
+	boolPtr := func(b bool) *bool { return &b }
+
+	tests := []struct {
+		name   string
+		config *ReworkConfig
+		want   bool
+	}{
+		{name: "nil config defaults to true", config: nil, want: true},
+		{name: "unset field defaults to true", config: &ReworkConfig{TargetStep: "x"}, want: true},
+		{name: "explicitly true", config: &ReworkConfig{TargetStep: "x", InjectFailureContext: boolPtr(true)}, want: true},
+		{name: "explicitly false", config: &ReworkConfig{TargetStep: "x", InjectFailureContext: boolPtr(false)}, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.EffectiveInjectFailureContext()
+			if got != tt.want {
+				t.Errorf("EffectiveInjectFailureContext() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReworkContext_JSONRoundtrip(t *testing.T) {
+	original := &ReworkContext{
+		OriginalStepID: "implement",
+		Attempts: []AttemptSummary{
+			{Attempt: 1, ErrorMessage: "test failed", StdoutTail: "FAIL main_test.go", DurationMs: 5000},
+			{Attempt: 2, ErrorMessage: "compile error", DurationMs: 3000},
+		},
+		PartialArtifacts: []string{".wave/output/partial.json"},
+		ReworkDepth:      1,
+		FailureClass:     "test_failure",
+		LastError:        "compile error",
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var restored ReworkContext
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if restored.OriginalStepID != original.OriginalStepID {
+		t.Errorf("OriginalStepID = %q, want %q", restored.OriginalStepID, original.OriginalStepID)
+	}
+	if len(restored.Attempts) != len(original.Attempts) {
+		t.Fatalf("Attempts length = %d, want %d", len(restored.Attempts), len(original.Attempts))
+	}
+	if restored.Attempts[0].ErrorMessage != "test failed" {
+		t.Errorf("Attempts[0].ErrorMessage = %q, want %q", restored.Attempts[0].ErrorMessage, "test failed")
+	}
+	if restored.Attempts[1].DurationMs != 3000 {
+		t.Errorf("Attempts[1].DurationMs = %d, want %d", restored.Attempts[1].DurationMs, 3000)
+	}
+	if len(restored.PartialArtifacts) != 1 {
+		t.Errorf("PartialArtifacts length = %d, want 1", len(restored.PartialArtifacts))
+	}
+	if restored.ReworkDepth != 1 {
+		t.Errorf("ReworkDepth = %d, want 1", restored.ReworkDepth)
+	}
+	if restored.FailureClass != "test_failure" {
+		t.Errorf("FailureClass = %q, want %q", restored.FailureClass, "test_failure")
 	}
 }

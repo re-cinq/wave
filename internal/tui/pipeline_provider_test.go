@@ -108,6 +108,12 @@ func (b baseStateStore) RecordStepAttempt(*state.StepAttemptRecord) error {
 func (b baseStateStore) GetStepAttempts(string, string) ([]state.StepAttemptRecord, error) {
 	return nil, nil
 }
+func (b baseStateStore) RecordReworkTransition(*state.ReworkRecord) error {
+	return nil
+}
+func (b baseStateStore) GetReworkHistory(string, string) ([]state.ReworkRecord, error) {
+	return nil, nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

@@ -17,3 +17,26 @@ func (e *StepError) Error() string {
 func (e *StepError) Unwrap() error {
 	return e.Err
 }
+
+// ReworkError wraps a step failure with rework branching context.
+// It indicates that a step failed and rework was attempted (or could not be attempted).
+type ReworkError struct {
+	OriginalStepID string
+	TargetStep     string
+	TargetPipeline string
+	ReworkDepth    int
+	Err            error
+}
+
+func (e *ReworkError) Error() string {
+	target := e.TargetStep
+	if target == "" {
+		target = "pipeline:" + e.TargetPipeline
+	}
+	return fmt.Sprintf("rework from step %q to %q failed (depth %d): %v",
+		e.OriginalStepID, target, e.ReworkDepth, e.Err)
+}
+
+func (e *ReworkError) Unwrap() error {
+	return e.Err
+}

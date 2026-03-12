@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -277,5 +278,117 @@ invalid: yaml: content:
 	_, err := loader.Unmarshal(yamlContent)
 	if err == nil {
 		t.Error("Expected error for invalid YAML, got nil")
+	}
+}
+
+func TestValidateDAG_ReworkTargetExists(t *testing.T) {
+	tests := []struct {
+		name    string
+		steps   []Step
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid rework target step",
+			steps: []Step{
+				{ID: "implement", Persona: "craftsman", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "diagnose"}}},
+				{ID: "diagnose", Persona: "navigator"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing rework target step",
+			steps: []Step{
+				{ID: "implement", Persona: "craftsman", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "nonexistent"}}},
+			},
+			wantErr: true,
+			errMsg:  "does not exist",
+		},
+		{
+			name: "rework with target_pipeline does not check step existence",
+			steps: []Step{
+				{ID: "implement", Persona: "craftsman", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetPipeline: "fix-pipeline"}}},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pipeline{Steps: tt.steps}
+			validator := &DAGValidator{}
+			err := validator.ValidateDAG(p)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error should contain %q, got: %v", tt.errMsg, err)
+				}
+			} else if err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateDAG_ReworkCycleDetection(t *testing.T) {
+	tests := []struct {
+		name    string
+		steps   []Step
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "no rework cycle",
+			steps: []Step{
+				{ID: "a", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "b"}}},
+				{ID: "b", Persona: "p"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "direct rework cycle A->B->A",
+			steps: []Step{
+				{ID: "a", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "b"}}},
+				{ID: "b", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "a"}}},
+			},
+			wantErr: true,
+			errMsg:  "rework cycle",
+		},
+		{
+			name: "chain rework cycle A->B->C->A",
+			steps: []Step{
+				{ID: "a", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "b"}}},
+				{ID: "b", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "c"}}},
+				{ID: "c", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "a"}}},
+			},
+			wantErr: true,
+			errMsg:  "rework cycle",
+		},
+		{
+			name: "self-referencing rework is a cycle",
+			steps: []Step{
+				{ID: "a", Persona: "p", Retry: RetryConfig{OnFailure: "rework", Rework: &ReworkConfig{TargetStep: "a"}}},
+			},
+			wantErr: true,
+			errMsg:  "rework cycle",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pipeline{Steps: tt.steps}
+			validator := &DAGValidator{}
+			err := validator.ValidateDAG(p)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error should contain %q, got: %v", tt.errMsg, err)
+				}
+			} else if err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
 	}
 }

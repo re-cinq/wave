@@ -179,3 +179,15 @@ type ArtifactMetadataRecord struct {
 	MetadataJSON string
 	IndexedAt    time.Time
 }
+
+// ReworkRecord holds a rework transition record for state persistence.
+type ReworkRecord struct {
+	ID             int64
+	RunID          string
+	StepID         string
+	TargetStep     string
+	TargetPipeline string
+	ReworkDepth    int
+	FailureContext string // JSON-serialized ReworkContext
+	CreatedAt      time.Time
+}

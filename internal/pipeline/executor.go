@@ -151,6 +151,7 @@ type PipelineExecution struct {
 	Status          *PipelineStatus
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
+	ReworkDepths    map[string]int             // stepID -> current rework depth for chain tracking
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -264,6 +265,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorkspacePaths:  make(map[string]string),
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts: make(map[string]*AttemptContext),
+		ReworkDepths:    make(map[string]int),
 		Input:           input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
@@ -607,6 +609,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				})
 				return nil
 
+			case "rework":
+				return e.executeRework(ctx, execution, step, lastErr)
+
 			default: // "fail"
 				execution.mu.Lock()
 				execution.States[step.ID] = StateFailed
@@ -654,6 +659,284 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	}
 
 	return lastErr
+}
+
+// executeRework handles the "rework" on_failure policy by executing an alternative
+// step or sub-pipeline with rich failure context from the original failed step.
+func (e *DefaultPipelineExecutor) executeRework(ctx context.Context, execution *PipelineExecution, step *Step, lastErr error) error {
+	pipelineID := execution.Status.ID
+	reworkCfg := step.Retry.Rework
+
+	// If no rework config, fall through to fail
+	if reworkCfg == nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, lastErr.Error())
+		}
+		return lastErr
+	}
+
+	// Check rework depth limit
+	if execution.ReworkDepths == nil {
+		execution.ReworkDepths = make(map[string]int)
+	}
+	currentDepth := execution.ReworkDepths[step.ID]
+	maxDepth := reworkCfg.EffectiveMaxReworkDepth()
+
+	if maxDepth == 0 || currentDepth >= maxDepth {
+		// Depth exhausted — treat as fail
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, lastErr.Error())
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateReworkFailed,
+			Message:    fmt.Sprintf("rework depth limit reached (%d/%d): %s", currentDepth, maxDepth, lastErr.Error()),
+		})
+		return &ReworkError{
+			OriginalStepID: step.ID,
+			TargetStep:     reworkCfg.TargetStep,
+			TargetPipeline: reworkCfg.TargetPipeline,
+			ReworkDepth:    currentDepth,
+			Err:            lastErr,
+		}
+	}
+
+	// Mark original step as reworking
+	execution.mu.Lock()
+	execution.States[step.ID] = StateReworking
+	execution.ReworkDepths[step.ID] = currentDepth + 1
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateReworking, "")
+	}
+
+	// Build rework context
+	reworkCtx := &ReworkContext{
+		OriginalStepID: step.ID,
+		ReworkDepth:    currentDepth + 1,
+		LastError:      lastErr.Error(),
+	}
+
+	// Collect attempt history from state store
+	if e.store != nil {
+		attempts, err := e.store.GetStepAttempts(pipelineID, step.ID)
+		if err == nil {
+			for _, a := range attempts {
+				reworkCtx.Attempts = append(reworkCtx.Attempts, AttemptSummary{
+					Attempt:      a.Attempt,
+					ErrorMessage: a.ErrorMessage,
+					StdoutTail:   a.StdoutTail,
+					DurationMs:   a.DurationMs,
+				})
+			}
+		}
+	}
+
+	// Collect partial artifact paths
+	execution.mu.Lock()
+	for _, art := range step.OutputArtifacts {
+		key := fmt.Sprintf("%s:%s", step.ID, art.Name)
+		if path, ok := execution.ArtifactPaths[key]; ok {
+			reworkCtx.PartialArtifacts = append(reworkCtx.PartialArtifacts, path)
+		}
+	}
+	execution.mu.Unlock()
+
+	// Emit rework started event
+	targetDesc := reworkCfg.TargetStep
+	if targetDesc == "" {
+		targetDesc = "pipeline:" + reworkCfg.TargetPipeline
+	}
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateReworkStarted,
+		Message:    fmt.Sprintf("rework branching to %s (depth %d/%d)", targetDesc, currentDepth+1, maxDepth),
+	})
+
+	// Record rework transition in state DB
+	if e.store != nil {
+		reworkJSON, _ := json.Marshal(reworkCtx)
+		e.store.RecordReworkTransition(&state.ReworkRecord{
+			RunID:          pipelineID,
+			StepID:         step.ID,
+			TargetStep:     reworkCfg.TargetStep,
+			TargetPipeline: reworkCfg.TargetPipeline,
+			ReworkDepth:    currentDepth + 1,
+			FailureContext: string(reworkJSON),
+		})
+	}
+
+	// Execute rework target
+	var reworkErr error
+	if reworkCfg.TargetStep != "" {
+		reworkErr = e.executeReworkStep(ctx, execution, step, reworkCfg.TargetStep, reworkCtx)
+	} else if reworkCfg.TargetPipeline != "" {
+		reworkErr = e.executeReworkPipeline(ctx, execution, step, reworkCfg.TargetPipeline, reworkCtx)
+	}
+
+	if reworkErr != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, reworkErr.Error())
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateReworkFailed,
+			Message:    fmt.Sprintf("rework target %s failed: %s", targetDesc, reworkErr.Error()),
+		})
+		return &ReworkError{
+			OriginalStepID: step.ID,
+			TargetStep:     reworkCfg.TargetStep,
+			TargetPipeline: reworkCfg.TargetPipeline,
+			ReworkDepth:    currentDepth + 1,
+			Err:            reworkErr,
+		}
+	}
+
+	// Rework succeeded — mark original step as completed
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateReworkCompleted,
+		Message:    fmt.Sprintf("rework target %s succeeded", targetDesc),
+	})
+	return nil
+}
+
+// executeReworkStep executes a specific step as a rework target within the same pipeline.
+func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, execution *PipelineExecution, originalStep *Step, targetStepID string, reworkCtx *ReworkContext) error {
+	// Find the target step in the pipeline
+	var targetStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == targetStepID {
+			targetStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if targetStep == nil {
+		return fmt.Errorf("rework target step %q not found in pipeline", targetStepID)
+	}
+
+	// Inject rework context as artifact
+	if err := e.injectReworkContext(execution, targetStep, reworkCtx); err != nil {
+		return fmt.Errorf("failed to inject rework context: %w", err)
+	}
+
+	// Execute the target step
+	return e.executeStep(ctx, execution, targetStep)
+}
+
+// executeReworkPipeline executes a sub-pipeline as a rework target.
+func (e *DefaultPipelineExecutor) executeReworkPipeline(ctx context.Context, execution *PipelineExecution, originalStep *Step, targetPipelineName string, reworkCtx *ReworkContext) error {
+	// Load the target pipeline
+	loader := &YAMLPipelineLoader{}
+	pipelinePath := fmt.Sprintf(".wave/pipelines/%s.yaml", targetPipelineName)
+	targetPipeline, err := loader.Load(pipelinePath)
+	if err != nil {
+		return fmt.Errorf("failed to load rework pipeline %q: %w", targetPipelineName, err)
+	}
+
+	// Create a sub-executor to run the rework pipeline
+	subExecution := &PipelineExecution{
+		Pipeline:        targetPipeline,
+		Manifest:        execution.Manifest,
+		States:          make(map[string]string),
+		Results:         make(map[string]map[string]interface{}),
+		ArtifactPaths:   make(map[string]string),
+		WorkspacePaths:  make(map[string]string),
+		WorktreePaths:   make(map[string]*WorktreeInfo),
+		Input:           execution.Input,
+		AttemptContexts: make(map[string]*AttemptContext),
+		ReworkDepths:    make(map[string]int),
+		Status: &PipelineStatus{
+			ID:           execution.Status.ID,
+			PipelineName: targetPipelineName,
+			State:        StateRunning,
+			StartedAt:    time.Now(),
+		},
+		Context: execution.Context,
+	}
+
+	// Inject rework context as artifact for all steps in the sub-pipeline
+	if len(targetPipeline.Steps) > 0 {
+		if err := e.injectReworkContext(subExecution, &targetPipeline.Steps[0], reworkCtx); err != nil {
+			return fmt.Errorf("failed to inject rework context into sub-pipeline: %w", err)
+		}
+	}
+
+	// Execute sub-pipeline steps
+	validator := &DAGValidator{}
+	sortedSteps, err := validator.TopologicalSort(targetPipeline)
+	if err != nil {
+		return fmt.Errorf("failed to sort rework pipeline: %w", err)
+	}
+
+	for _, s := range sortedSteps {
+		if err := e.executeStep(ctx, subExecution, s); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// injectReworkContext writes the ReworkContext as a JSON artifact into the target step's workspace.
+func (e *DefaultPipelineExecutor) injectReworkContext(execution *PipelineExecution, targetStep *Step, reworkCtx *ReworkContext) error {
+	execution.mu.Lock()
+	wsPath := execution.WorkspacePaths[targetStep.ID]
+	execution.mu.Unlock()
+
+	if wsPath == "" {
+		// Workspace may not exist yet; store in artifact paths for later injection
+		reworkJSON, err := json.Marshal(reworkCtx)
+		if err != nil {
+			return fmt.Errorf("failed to marshal rework context: %w", err)
+		}
+
+		// Store as a virtual artifact that the step can access
+		execution.mu.Lock()
+		execution.ArtifactPaths["__rework_context"] = string(reworkJSON)
+		execution.mu.Unlock()
+		return nil
+	}
+
+	artifactDir := filepath.Join(wsPath, ".wave", "artifacts")
+	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create artifact directory: %w", err)
+	}
+
+	reworkJSON, err := json.Marshal(reworkCtx)
+	if err != nil {
+		return fmt.Errorf("failed to marshal rework context: %w", err)
+	}
+
+	artifactPath := filepath.Join(artifactDir, "rework_context")
+	if err := os.WriteFile(artifactPath, reworkJSON, 0o644); err != nil {
+		return fmt.Errorf("failed to write rework context artifact: %w", err)
+	}
+
+	return nil
 }
 
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.

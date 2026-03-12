@@ -37,6 +37,15 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		}
 	}
 
+	// Validate rework configurations early
+	for i := range pipeline.Steps {
+		if pipeline.Steps[i].Retry.Rework != nil {
+			if err := pipeline.Steps[i].Retry.Rework.Validate(); err != nil {
+				return nil, fmt.Errorf("step %q: %w", pipeline.Steps[i].ID, err)
+			}
+		}
+	}
+
 	return &pipeline, nil
 }
 
@@ -61,6 +70,26 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+	}
+
+	// Validate rework targets
+	for _, step := range p.Steps {
+		if step.Retry.OnFailure == "rework" && step.Retry.Rework != nil {
+			if err := step.Retry.Rework.Validate(); err != nil {
+				return fmt.Errorf("step %q: %w", step.ID, err)
+			}
+			if step.Retry.Rework.TargetStep != "" {
+				if _, exists := stepMap[step.Retry.Rework.TargetStep]; !exists {
+					return fmt.Errorf("step %q rework target_step %q does not exist in pipeline",
+						step.ID, step.Retry.Rework.TargetStep)
+				}
+			}
+		}
+	}
+
+	// Detect rework cycles
+	if err := v.detectReworkCycles(p.Steps, stepMap); err != nil {
+		return err
 	}
 
 	visited := make(map[string]bool)
@@ -97,6 +126,32 @@ func (v *DAGValidator) detectCycle(stepID string, stepMap map[string]*Step, visi
 	}
 
 	recStack[stepID] = false
+	return nil
+}
+
+// detectReworkCycles checks for cycles in rework target references.
+// e.g., step A reworks to B, step B reworks to A.
+func (v *DAGValidator) detectReworkCycles(steps []Step, stepMap map[string]*Step) error {
+	// Build rework adjacency: stepID -> rework target step ID
+	reworkTargets := make(map[string]string)
+	for _, step := range steps {
+		if step.Retry.OnFailure == "rework" && step.Retry.Rework != nil && step.Retry.Rework.TargetStep != "" {
+			reworkTargets[step.ID] = step.Retry.Rework.TargetStep
+		}
+	}
+
+	// Walk each chain checking for cycles
+	for startID := range reworkTargets {
+		visited := map[string]bool{startID: true}
+		current := reworkTargets[startID]
+		for current != "" {
+			if visited[current] {
+				return fmt.Errorf("rework cycle detected: step %q rework chain leads back to %q", startID, current)
+			}
+			visited[current] = true
+			current = reworkTargets[current]
+		}
+	}
 	return nil
 }
 

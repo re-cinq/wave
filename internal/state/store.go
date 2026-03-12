@@ -21,12 +21,13 @@ var (
 type StepState string
 
 const (
-	StatePending   StepState = "pending"
-	StateRunning   StepState = "running"
-	StateCompleted StepState = "completed"
-	StateFailed    StepState = "failed"
-	StateRetrying  StepState = "retrying"
-	StateSkipped   StepState = "skipped"
+	StatePending    StepState = "pending"
+	StateRunning    StepState = "running"
+	StateCompleted  StepState = "completed"
+	StateFailed     StepState = "failed"
+	StateRetrying   StepState = "retrying"
+	StateSkipped    StepState = "skipped"
+	StateReworking  StepState = "reworking"
 )
 
 // PipelineStateRecord holds persisted pipeline state.
@@ -112,6 +113,10 @@ type StateStore interface {
 	// Step attempt tracking (retry/recovery)
 	RecordStepAttempt(record *StepAttemptRecord) error
 	GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error)
+
+	// Rework branching
+	RecordReworkTransition(record *ReworkRecord) error
+	GetReworkHistory(runID string, stepID string) ([]ReworkRecord, error)
 }
 
 type stateStore struct {
@@ -1813,6 +1818,44 @@ func (s *stateStore) GetStepAttempts(runID string, stepID string) ([]StepAttempt
 			t := time.Unix(*completedAtNull, 0)
 			r.CompletedAt = &t
 		}
+		records = append(records, r)
+	}
+	return records, nil
+}
+
+// RecordReworkTransition persists a rework transition to the step_rework_history table.
+func (s *stateStore) RecordReworkTransition(record *ReworkRecord) error {
+	_, err := s.db.Exec(
+		`INSERT INTO step_rework_history (run_id, step_id, target_step, target_pipeline, rework_depth, failure_context, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		record.RunID, record.StepID, record.TargetStep, record.TargetPipeline,
+		record.ReworkDepth, record.FailureContext, time.Now().Unix(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record rework transition: %w", err)
+	}
+	return nil
+}
+
+// GetReworkHistory retrieves rework transition records for a step, ordered by creation time.
+func (s *stateStore) GetReworkHistory(runID string, stepID string) ([]ReworkRecord, error) {
+	query := `SELECT id, run_id, step_id, target_step, target_pipeline, rework_depth, failure_context, created_at
+		FROM step_rework_history WHERE run_id = ? AND step_id = ? ORDER BY created_at`
+	rows, err := s.db.Query(query, runID, stepID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query rework history: %w", err)
+	}
+	defer rows.Close()
+
+	var records []ReworkRecord
+	for rows.Next() {
+		var r ReworkRecord
+		var createdAt int64
+		err := rows.Scan(&r.ID, &r.RunID, &r.StepID, &r.TargetStep, &r.TargetPipeline, &r.ReworkDepth, &r.FailureContext, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan rework record: %w", err)
+		}
+		r.CreatedAt = time.Unix(createdAt, 0)
 		records = append(records, r)
 	}
 	return records, nil
