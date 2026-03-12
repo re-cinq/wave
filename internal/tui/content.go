@@ -1047,6 +1047,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case LaunchRequestMsg:
 		if m.launcher != nil {
+			// Show "Starting pipeline..." while the async launch runs.
+			// Without this, compose-launched pipelines briefly flash stale
+			// detail content before PipelineLaunchedMsg arrives.
+			m.detail.paneState = stateLaunching
+			m.detail.selectedName = msg.Config.PipelineName
 			cmd := m.launcher.Launch(msg.Config)
 			return m, cmd
 		}
