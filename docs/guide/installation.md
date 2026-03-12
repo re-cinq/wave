@@ -2,8 +2,49 @@
 
 ## Prerequisites
 
-- Claude Code CLI (`claude`) on PATH
-- Go 1.25+ (optional, for building from source)
+Wave requires a few tools to be available on your system:
+
+| Tool | Purpose | Required | Min Version |
+|------|---------|----------|-------------|
+| `git` | Version control, worktree isolation | Yes | 2.x |
+| `claude` | LLM adapter (Claude Code) | Yes* | Latest stable |
+| `gh` | GitHub CLI for `gh-*` pipelines | Optional | 2.x |
+| Go | Building from source | Optional | 1.25+ |
+| Nix | Sandboxed development shell | Optional | 2.x |
+
+\* At least one LLM CLI adapter is required. `claude` is the default; other adapters can be configured in `wave.yaml`.
+
+### Installing Prerequisites
+
+**Git** — usually pre-installed on macOS and Linux:
+```bash
+# macOS
+xcode-select --install
+# Linux (Debian/Ubuntu)
+sudo apt install git
+# Linux (Fedora)
+sudo dnf install git
+```
+
+**Claude Code** (default LLM adapter):
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+**GitHub CLI** (optional — needed for `gh-implement`, `gh-pr-review`, etc.):
+```bash
+# macOS
+brew install gh
+# Linux (Debian/Ubuntu)
+sudo apt install gh
+# Nix
+nix-env -iA nixpkgs.gh
+```
+
+**Nix** (optional — for sandboxed development):
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
 
 ## Install Wave
 
@@ -85,6 +126,14 @@ wave --version
 wave --help
 claude --version
 ```
+
+Run `wave doctor` to check your entire environment — it verifies Wave initialization, adapter health, forge CLI availability, and required tools:
+
+```bash
+wave doctor
+```
+
+`wave doctor` exit codes: `0` = all checks pass, `1` = warnings, `2` = errors found. Use `wave doctor --fix` to auto-resolve common issues.
 
 ## Uninstall
 
