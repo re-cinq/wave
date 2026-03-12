@@ -474,6 +474,36 @@ steps:
 
 ---
 
+## Agent Concurrency
+
+Steps can configure the maximum number of concurrent sub-agents the persona may spawn via `max_concurrent_agents`.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `max_concurrent_agents` | `int` | no | `0` | Maximum concurrent sub-agents for this step. Values > 1 inject a concurrency hint into the persona's system prompt. Capped at 10. |
+
+When `max_concurrent_agents` is set to a value greater than 1, the generated CLAUDE.md includes:
+
+```
+You may spawn up to N concurrent sub-agents or workers for this step.
+```
+
+Values of 0 or 1 produce no hint (default single-agent behavior).
+
+### Agent Concurrency Example
+
+```yaml
+steps:
+  - id: implement
+    persona: craftsman
+    max_concurrent_agents: 6
+    exec:
+      type: prompt
+      source: "Implement the feature using parallel sub-agents."
+```
+
+---
+
 ## Slash Command Exec Type
 
 Steps can invoke skill slash commands instead of inline prompts via `exec.type: slash_command`.
