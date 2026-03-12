@@ -321,6 +321,23 @@ steps:
     dependencies: [implement]
 ```
 
+Steps without mutual dependencies run concurrently. Fan-out from a shared step, or start independent parallel tracks:
+
+```yaml
+steps:
+  - id: analyze
+    persona: navigator
+  - id: security
+    persona: auditor
+    dependencies: [analyze]
+  - id: quality
+    persona: auditor
+    dependencies: [analyze]
+  - id: summary
+    persona: summarizer
+    dependencies: [security, quality]  # runs after both complete
+```
+
 **47 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
