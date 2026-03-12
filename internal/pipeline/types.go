@@ -139,6 +139,7 @@ type Step struct {
 	Retry           RetryConfig      `yaml:"retry,omitempty"`
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
+	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
 
 	// Composition primitives
 	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute

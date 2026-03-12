@@ -572,6 +572,198 @@ func TestBuildRestrictionSection(t *testing.T) {
 	}
 }
 
+func TestBuildConcurrencyHint(t *testing.T) {
+	tests := []struct {
+		name string
+		n    int
+		want string
+	}{
+		{
+			name: "zero produces no hint",
+			n:    0,
+			want: "",
+		},
+		{
+			name: "one produces no hint",
+			n:    1,
+			want: "",
+		},
+		{
+			name: "three produces hint with 3",
+			n:    3,
+			want: "\n\n## Agent Concurrency\n\nYou may spawn up to 3 concurrent sub-agents or workers for this step.\n",
+		},
+		{
+			name: "ten produces hint with 10",
+			n:    10,
+			want: "\n\n## Agent Concurrency\n\nYou may spawn up to 10 concurrent sub-agents or workers for this step.\n",
+		},
+		{
+			name: "fifteen capped at 10",
+			n:    15,
+			want: "\n\n## Agent Concurrency\n\nYou may spawn up to 10 concurrent sub-agents or workers for this step.\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildConcurrencyHint(tt.n)
+			if got != tt.want {
+				t.Errorf("buildConcurrencyHint(%d) = %q, want %q", tt.n, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConcurrencyHintInClaudeMD(t *testing.T) {
+	setupBaseProtocol(t)
+	tests := []struct {
+		name         string
+		cfg          AdapterRunConfig
+		wantContains []string
+		wantAbsent   []string
+	}{
+		{
+			name: "no hint when MaxConcurrentAgents is 0",
+			cfg: AdapterRunConfig{
+				Persona:      "test",
+				Model:        "sonnet",
+				SystemPrompt: "# Test",
+			},
+			wantAbsent: []string{"Agent Concurrency", "concurrent sub-agents"},
+		},
+		{
+			name: "no hint when MaxConcurrentAgents is 1",
+			cfg: AdapterRunConfig{
+				Persona:             "test",
+				Model:               "sonnet",
+				SystemPrompt:        "# Test",
+				MaxConcurrentAgents: 1,
+			},
+			wantAbsent: []string{"Agent Concurrency", "concurrent sub-agents"},
+		},
+		{
+			name: "hint present when MaxConcurrentAgents is 3",
+			cfg: AdapterRunConfig{
+				Persona:             "test",
+				Model:               "sonnet",
+				SystemPrompt:        "# Test",
+				MaxConcurrentAgents: 3,
+			},
+			wantContains: []string{
+				"## Agent Concurrency",
+				"You may spawn up to 3 concurrent sub-agents or workers for this step.",
+			},
+		},
+		{
+			name: "hint capped at 10 when MaxConcurrentAgents is 15",
+			cfg: AdapterRunConfig{
+				Persona:             "test",
+				Model:               "sonnet",
+				SystemPrompt:        "# Test",
+				MaxConcurrentAgents: 15,
+			},
+			wantContains: []string{
+				"You may spawn up to 10 concurrent sub-agents or workers for this step.",
+			},
+			wantAbsent: []string{
+				"up to 15",
+			},
+		},
+		{
+			name: "hint appears between contract and restrictions",
+			cfg: AdapterRunConfig{
+				Persona:             "test",
+				Model:               "sonnet",
+				SystemPrompt:        "# Test",
+				MaxConcurrentAgents: 4,
+				ContractPrompt:      "## Contract Compliance\n\nOutput JSON.",
+				AllowedTools:        []string{"Read", "Bash"},
+			},
+			wantContains: []string{
+				"Contract Compliance",
+				"Agent Concurrency",
+				"## Restrictions",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := NewClaudeAdapter()
+			tmpDir := t.TempDir()
+
+			if err := a.prepareWorkspace(tmpDir, tt.cfg); err != nil {
+				t.Fatalf("prepareWorkspace failed: %v", err)
+			}
+
+			data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+			if err != nil {
+				t.Fatalf("failed to read CLAUDE.md: %v", err)
+			}
+			content := string(data)
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(content, want) {
+					t.Errorf("CLAUDE.md missing %q\nGot:\n%s", want, content)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				if strings.Contains(content, absent) {
+					t.Errorf("CLAUDE.md should not contain %q\nGot:\n%s", absent, content)
+				}
+			}
+		})
+	}
+}
+
+func TestConcurrencyHintOrdering(t *testing.T) {
+	setupBaseProtocol(t)
+	a := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:             "test",
+		Model:               "sonnet",
+		SystemPrompt:        "# Test Persona",
+		ContractPrompt:      "## Contract\n\nProduce JSON output.",
+		MaxConcurrentAgents: 6,
+		AllowedTools:        []string{"Read", "Write"},
+		DenyTools:           []string{"Bash(rm *)"},
+	}
+
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	content := string(data)
+
+	contractIdx := strings.Index(content, "## Contract")
+	concurrencyIdx := strings.Index(content, "## Agent Concurrency")
+	restrictionIdx := strings.Index(content, "## Restrictions")
+
+	if contractIdx == -1 {
+		t.Fatal("missing Contract section")
+	}
+	if concurrencyIdx == -1 {
+		t.Fatal("missing Agent Concurrency section")
+	}
+	if restrictionIdx == -1 {
+		t.Fatal("missing Restrictions section")
+	}
+
+	if concurrencyIdx < contractIdx {
+		t.Errorf("Agent Concurrency (pos %d) should appear after Contract (pos %d)", concurrencyIdx, contractIdx)
+	}
+	if concurrencyIdx > restrictionIdx {
+		t.Errorf("Agent Concurrency (pos %d) should appear before Restrictions (pos %d)", concurrencyIdx, restrictionIdx)
+	}
+}
+
 func TestBuildEnvironmentCurated(t *testing.T) {
 	a := NewClaudeAdapter()
 
