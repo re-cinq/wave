@@ -1,0 +1,67 @@
+kind: WavePipeline
+metadata:
+  name: junk-code
+  description: "Identify accidental complexity, conceptual misalignment, and technical debt"
+  release: true
+
+input:
+  source: cli
+  example: "internal/ — find accidental complexity and dead weight"
+  schema:
+    type: string
+    description: "Package or directory scope to analyze, or empty for full codebase"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Identify accidental complexity and technical debt.
+
+        Scope: {{ input }}
+
+        ## What to Look For
+
+        1. **Over-engineering**: Abstractions with one consumer, generics where
+           concrete types suffice, configuration for hypothetical use cases.
+
+        2. **Copy-paste drift**: Nearly-identical code blocks that diverged
+           slightly over time instead of being extracted.
+
+        3. **Stale code**: TODO/FIXME comments older than 3 months, commented-out
+           code blocks, unused imports or variables.
+
+        4. **Conceptual misalignment**: Types or functions in wrong packages,
+           misleading names, abstraction boundaries that don't match domain.
+
+        5. **Complexity hotspots**: Functions over 50 lines, deeply nested
+           control flow (3+ levels), cyclomatic complexity > 10.
+
+        6. **Test debt**: Tests that don't test anything meaningful, tests
+           with `t.Skip()` without linked issues, flaky test patterns.
+
+        ## Output
+
+        For each finding, provide:
+        - Location (file:line)
+        - Category (over-engineering, copy-paste, stale, misaligned, complex, test-debt)
+        - Description of the issue
+        - Suggested remediation
+        - Effort estimate (trivial/small/medium/large)
+    output_artifacts:
+      - name: assessment
+        path: .wave/output/assessment.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/assessment.json
+        schema_path: .wave/contracts/improvement-assessment.schema.json
+        on_failure: retry
+        max_retries: 2
