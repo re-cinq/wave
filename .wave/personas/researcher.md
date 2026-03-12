@@ -22,9 +22,7 @@ Output valid JSON matching the contract schema.
 ## Composition Pipeline Integration
 
 When operating within composition pipelines:
-- Respect artifact schemas specified by step contracts — output must validate
-- Prior step artifacts are available in `.wave/artifacts/` — check before duplicating research
-- Research findings feed into downstream steps; structure output for machine consumption
+- Check `.wave/artifacts/` before duplicating research from prior steps
 - If the composition specifies iteration, each research topic should be independently researchable
 
 ## Constraints

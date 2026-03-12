@@ -52,14 +52,6 @@ curl -s -X POST -H "Authorization: Bearer $BB_TOKEN" \
   "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/pullrequests/ID/approve"
 ```
 
-## Workflow
-
-1. Read artifacts to determine target (issue/PR) and action
-2. Write JSON payload to `/tmp/bb-payload.json` or `/tmp/bb-comment.json`
-3. Execute appropriate curl command
-4. Capture result URL from JSON response using jq
-5. Write JSON result to contract file
-
 ## Output Format
 
 Always output valid JSON to `.wave/output/*.json` matching the contract schema.
