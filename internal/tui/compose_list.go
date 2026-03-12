@@ -13,11 +13,12 @@ import (
 // ComposeListModel is the Bubble Tea model for the sequence builder list
 // (left pane in compose mode).
 type ComposeListModel struct {
-	width       int
-	height      int
-	focused     bool
-	sequence    Sequence
-	cursor      int
+	width        int
+	height       int
+	focused      bool
+	sequence     Sequence
+	cursor       int
+	scrollOffset int
 	picking      bool
 	picker       *huh.Form
 	pickerTarget *string // heap-allocated target for huh form value binding
@@ -360,7 +361,31 @@ func (m ComposeListModel) View() string {
 			nameCounts[entry.PipelineName]++
 		}
 
-		for i, entry := range m.sequence.Entries {
+		// Calculate visible height for entry scroll window.
+		// Overhead: title (1, already in lines) + blank + status (2 at bottom) = 3.
+		overhead := 3
+		if m.confirming {
+			overhead += 2 // blank + confirmation prompt
+		}
+		visibleHeight := m.height - overhead
+		if visibleHeight < 1 {
+			visibleHeight = 1
+		}
+
+		// Apply scroll window (skip when picker is active — picker has its own scroll).
+		startIdx := 0
+		endIdx := m.sequence.Len()
+		if !m.picking {
+			m.adjustScrollOffset(visibleHeight)
+			startIdx = m.scrollOffset
+			endIdx = m.scrollOffset + visibleHeight
+			if endIdx > m.sequence.Len() {
+				endIdx = m.sequence.Len()
+			}
+		}
+
+		for i := startIdx; i < endIdx; i++ {
+			entry := m.sequence.Entries[i]
 			isSelected := i == m.cursor
 			prefix := "  "
 			if isSelected {
@@ -457,6 +482,30 @@ func (m ComposeListModel) renderStatusLine(
 	}
 
 	return ""
+}
+
+// adjustScrollOffset ensures the cursor is within the visible window.
+func (m *ComposeListModel) adjustScrollOffset(visibleHeight int) {
+	if visibleHeight <= 0 {
+		return
+	}
+	totalItems := m.sequence.Len()
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+	if m.cursor >= m.scrollOffset+visibleHeight {
+		m.scrollOffset = m.cursor - visibleHeight + 1
+	}
+	maxOffset := totalItems - visibleHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
 }
 
 // SetSize updates the model dimensions.
