@@ -18,7 +18,8 @@ type ComposeDetailModel struct {
 	focused    bool
 	viewport   viewport.Model
 	validation CompatibilityResult
-	focusedIdx int // Which boundary is focused (-1 for overview)
+	sequence   Sequence // Stored for re-rendering on resize
+	focusedIdx int      // Which boundary is focused (-1 for overview)
 	parallel   bool
 	stages     [][]int // Stage groupings for parallel rendering
 }
@@ -40,13 +41,15 @@ func (m ComposeDetailModel) Init() tea.Cmd {
 func (m ComposeDetailModel) Update(msg tea.Msg) (ComposeDetailModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ComposeSequenceChangedMsg:
-		m.validation = msg.Validation
+		m.sequence = msg.Sequence
 		m.parallel = msg.Parallel
 		m.stages = msg.Stages
-		content := renderArtifactFlow(m.validation, m.width)
 		if m.parallel && len(m.stages) > 0 {
-			content += "\n" + renderExecutionPlan(msg.Sequence, m.stages, m.width)
+			m.validation = ValidateSequenceWithStages(msg.Sequence, msg.Stages)
+		} else {
+			m.validation = msg.Validation
 		}
+		content := renderArtifactFlow(m.validation, m.width, m.parallel, m.sequence, m.stages)
 		m.viewport.SetContent(content)
 		m.viewport.GotoTop()
 		return m, nil
@@ -68,7 +71,8 @@ func (m ComposeDetailModel) View() string {
 		return ""
 	}
 
-	if len(m.validation.Flows) == 0 {
+	hasContent := len(m.validation.Flows) > 0 || (m.parallel && len(m.stages) > 0)
+	if !hasContent {
 		content := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244")).
 			Render("Add pipelines to see artifact flow")
@@ -93,12 +97,7 @@ func (m *ComposeDetailModel) SetSize(w, h int) {
 	m.height = h
 	m.viewport.Width = w
 	m.viewport.Height = h
-	// Re-render content at new width
-	content := renderArtifactFlow(m.validation, w)
-	if m.parallel && len(m.stages) > 0 {
-		// We don't have the sequence here, so just re-render artifact flow.
-		// Full plan rendering happens on ComposeSequenceChangedMsg.
-	}
+	content := renderArtifactFlow(m.validation, w, m.parallel, m.sequence, m.stages)
 	m.viewport.SetContent(content)
 }
 
@@ -109,8 +108,14 @@ func (m *ComposeDetailModel) SetFocused(focused bool) {
 
 // renderArtifactFlow renders the artifact flow visualization for the given
 // compatibility result. It uses compact mode (text-only) for narrow terminals
-// and full mode (box-drawing) for wider terminals.
-func renderArtifactFlow(result CompatibilityResult, width int) string {
+// and full mode (box-drawing) for wider terminals. When parallel mode is active
+// with stages, it dispatches to stage-aware rendering that integrates the
+// execution plan structure into the artifact flow view.
+func renderArtifactFlow(result CompatibilityResult, width int, parallel bool, seq Sequence, stages [][]int) string {
+	if parallel && len(stages) > 0 {
+		return renderArtifactFlowStageAware(result, width, seq, stages)
+	}
+
 	if len(result.Flows) == 0 {
 		return "Add pipelines to see artifact flow"
 	}
@@ -128,6 +133,203 @@ func renderArtifactFlow(result CompatibilityResult, width int) string {
 	renderStatusSummary(&sb, result)
 
 	return sb.String()
+}
+
+// renderArtifactFlowStageAware renders the integrated stage-aware artifact flow
+// visualization for parallel mode. It combines stage groupings with cross-stage
+// artifact flows into a single unified view.
+func renderArtifactFlowStageAware(result CompatibilityResult, width int, seq Sequence, stages [][]int) string {
+	var sb strings.Builder
+
+	if width < 120 {
+		renderStageFlowCompact(&sb, result, seq, stages)
+	} else {
+		renderStageFlowFull(&sb, result, seq, stages)
+	}
+
+	if len(result.Flows) > 0 {
+		sb.WriteString("\n")
+		renderStatusSummary(&sb, result)
+	}
+
+	return sb.String()
+}
+
+// renderStageFlowCompact renders a compact text-only stage-aware artifact flow.
+// Each stage is shown as a group with its pipelines listed, and cross-stage
+// flows are shown between stage blocks.
+func renderStageFlowCompact(sb *strings.Builder, result CompatibilityResult, seq Sequence, stages [][]int) {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	// Build map from flow source label to flow
+	flowBySource := make(map[string]*ArtifactFlow)
+	for i := range result.Flows {
+		flowBySource[result.Flows[i].SourcePipeline] = &result.Flows[i]
+	}
+
+	for i, stage := range stages {
+		isParallel := len(stage) > 1
+		mode := "sequential"
+		if isParallel {
+			mode = "parallel"
+		}
+		sb.WriteString(titleStyle.Render(fmt.Sprintf("Stage %d", i+1)))
+		sb.WriteString(mutedStyle.Render(fmt.Sprintf(" (%s)", mode)))
+		sb.WriteString("\n")
+
+		for j, idx := range stage {
+			name := ""
+			if idx < seq.Len() {
+				name = seq.Entries[idx].PipelineName
+			}
+			if isParallel {
+				if j == 0 {
+					sb.WriteString(fmt.Sprintf("  ┌─ %s\n", name))
+				} else if j == len(stage)-1 {
+					sb.WriteString(fmt.Sprintf("  └─ %s\n", name))
+				} else {
+					sb.WriteString(fmt.Sprintf("  ├─ %s\n", name))
+				}
+			} else {
+				sb.WriteString(fmt.Sprintf("  %s\n", name))
+			}
+		}
+
+		// Show cross-stage flows between this stage and next
+		stageLabel := fmt.Sprintf("Stage %d", i+1)
+		if flow, ok := flowBySource[stageLabel]; ok {
+			sb.WriteString("\n")
+			renderFlowMatches(sb, flow.Matches, greenStyle, yellowStyle, redStyle, dimStyle)
+			sb.WriteString("\n")
+		} else if i < len(stages)-1 {
+			sb.WriteString("\n")
+		}
+	}
+}
+
+// renderStageFlowFull renders a box-drawing stage-aware artifact flow for wider
+// terminals. Stage blocks are rendered as grouped boxes with cross-stage flows
+// between them.
+func renderStageFlowFull(sb *strings.Builder, result CompatibilityResult, seq Sequence, stages [][]int) {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	// Build map from flow source label to flow
+	flowBySource := make(map[string]*ArtifactFlow)
+	for i := range result.Flows {
+		flowBySource[result.Flows[i].SourcePipeline] = &result.Flows[i]
+	}
+
+	boxWidth := 40
+
+	for i, stage := range stages {
+		isParallel := len(stage) > 1
+		mode := "sequential"
+		if isParallel {
+			mode = "parallel"
+		}
+
+		stageLabel := fmt.Sprintf("Stage %d (%s)", i+1, mode)
+		sb.WriteString("┌" + strings.Repeat("─", boxWidth) + "┐\n")
+		sb.WriteString("│ " + titleStyle.Render(padRight(stageLabel, boxWidth-2)) + " │\n")
+
+		// List pipelines in this stage
+		for _, idx := range stage {
+			name := ""
+			if idx < seq.Len() {
+				name = seq.Entries[idx].PipelineName
+			}
+			if isParallel {
+				sb.WriteString("│ " + mutedStyle.Render(padRight("  ║ "+name, boxWidth-2)) + " │\n")
+			} else {
+				sb.WriteString("│ " + mutedStyle.Render(padRight("  "+name, boxWidth-2)) + " │\n")
+			}
+		}
+
+		// Show outputs if this stage is a source for a cross-stage flow
+		stageLabelKey := fmt.Sprintf("Stage %d", i+1)
+		if flow, ok := flowBySource[stageLabelKey]; ok && len(flow.Outputs) > 0 {
+			outNames := make([]string, len(flow.Outputs))
+			for j, out := range flow.Outputs {
+				outNames[j] = out.Name
+			}
+			sb.WriteString("│ " + labelStyle.Render(padRight("outputs: "+strings.Join(outNames, ", "), boxWidth-2)) + " │\n")
+		}
+
+		// Show inputs if this stage is a target for a cross-stage flow
+		for _, flow := range result.Flows {
+			if flow.TargetPipeline == stageLabelKey && len(flow.Inputs) > 0 {
+				inNames := make([]string, len(flow.Inputs))
+				for j, inp := range flow.Inputs {
+					if inp.As != "" {
+						inNames[j] = inp.As
+					} else {
+						inNames[j] = inp.Artifact
+					}
+				}
+				sb.WriteString("│ " + labelStyle.Render(padRight("inputs: "+strings.Join(inNames, ", "), boxWidth-2)) + " │\n")
+				break
+			}
+		}
+
+		sb.WriteString("└" + strings.Repeat("─", boxWidth) + "┘\n")
+
+		// Render cross-stage flow matches
+		if flow, ok := flowBySource[stageLabelKey]; ok {
+			sb.WriteString("           │\n")
+			renderFlowMatches(sb, flow.Matches, greenStyle, yellowStyle, redStyle, dimStyle)
+			sb.WriteString("           │\n")
+		}
+	}
+}
+
+// renderFlowMatches renders individual flow match entries with appropriate styling.
+func renderFlowMatches(sb *strings.Builder, matches []FlowMatch, greenStyle, yellowStyle, redStyle, dimStyle lipgloss.Style) {
+	for _, match := range matches {
+		switch match.Status {
+		case MatchCompatible:
+			inputName := match.InputName
+			if match.InputAs != "" {
+				inputName = match.InputAs
+			}
+			sb.WriteString(fmt.Sprintf("  %s %s → %s (compatible)\n",
+				greenStyle.Render("✓"),
+				match.OutputName,
+				inputName,
+			))
+		case MatchMissing:
+			inputName := match.InputName
+			if match.InputAs != "" {
+				inputName = match.InputAs
+			}
+			if match.Optional {
+				sb.WriteString(fmt.Sprintf("  %s %s (optional — no matching output)\n",
+					yellowStyle.Render("⚠"),
+					inputName,
+				))
+			} else {
+				sb.WriteString(fmt.Sprintf("  %s %s (missing — no matching output)\n",
+					redStyle.Render("✗"),
+					inputName,
+				))
+			}
+		case MatchUnmatched:
+			sb.WriteString(fmt.Sprintf("  %s %s (not consumed)\n",
+				dimStyle.Render("·"),
+				match.OutputName,
+			))
+		}
+	}
 }
 
 // renderArtifactFlowCompact renders a text-only summary of artifact flows.
