@@ -453,6 +453,48 @@ steps:
           as: accessibility
 ```
 
+### Independent Parallel Tracks
+
+Two or more step sequences with no shared upstream step run as fully independent tracks, converging at a final merge step. Unlike fan-out, no common ancestor feeds both tracks:
+
+```yaml
+steps:
+  # Track A — starts immediately
+  - id: quality-scan
+    persona: navigator
+  - id: quality-detail
+    persona: navigator
+    dependencies: [quality-scan]
+
+  # Track B — starts immediately (independent of Track A)
+  - id: security-scan
+    persona: navigator
+  - id: security-detail
+    persona: navigator
+    dependencies: [security-scan]
+
+  # Merge — waits for both tracks
+  - id: merge
+    persona: summarizer
+    dependencies: [quality-detail, security-detail]
+```
+
+```mermaid
+flowchart TD
+  qs[quality-scan] --> qd[quality-detail]
+  ss[security-scan] --> sd[security-detail]
+  qd --> merge
+  sd --> merge
+
+  style qs fill:#4a90d9,color:#fff
+  style qd fill:#4a90d9,color:#fff
+  style ss fill:#d94a4a,color:#fff
+  style sd fill:#d94a4a,color:#fff
+  style merge fill:#9a4ad9,color:#fff
+```
+
+> See `.wave/pipelines/dual-analysis.yaml` for a complete working example.
+
 ### Pipeline-of-Pipelines
 
 Reference other pipelines as steps:
