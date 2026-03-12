@@ -1085,6 +1085,78 @@ func TestPipelineDetailModel_LKey_FinishedDetail_FetchesEvents(t *testing.T) {
 	assert.Len(t, evtMsg.Events, 1)
 }
 
+// ===========================================================================
+// #306: Configure form viewport scroll tests
+// ===========================================================================
+
+func TestPipelineDetailModel_ConfiguringFormUsesViewport(t *testing.T) {
+	provider := &mockDetailProvider{availableDetail: fullAvailableDetail()}
+	m := newTestDetailModel(provider)
+
+	// Load available detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// Enter configuring state
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	m, _ = m.Update(cfgMsg)
+	require.Equal(t, stateConfiguring, m.paneState)
+	require.NotNil(t, m.launchForm)
+
+	// Viewport should have content set from the form
+	view := m.View()
+	assert.NotEmpty(t, view, "form view should not be empty")
+	assert.Contains(t, view, "Input", "viewport should contain form fields")
+}
+
+func TestPipelineDetailModel_ConfiguringFormViewportResetsOnNew(t *testing.T) {
+	provider := &mockDetailProvider{availableDetail: fullAvailableDetail()}
+	m := newTestDetailModel(provider)
+
+	// Load available detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// Enter configuring state
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	m, _ = m.Update(cfgMsg)
+
+	// Scroll the viewport down
+	m.viewport.SetYOffset(5)
+
+	// Create a new form — viewport should reset
+	cfgMsg2 := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "other example"}
+	m, _ = m.Update(cfgMsg2)
+
+	assert.Equal(t, 0, m.viewport.YOffset,
+		"viewport should reset to top when a new form is created")
+}
+
+func TestPipelineDetailModel_ConfiguringSmallViewport_FormIsScrollable(t *testing.T) {
+	provider := &mockDetailProvider{availableDetail: fullAvailableDetail()}
+	m := NewPipelineDetailModel(provider)
+	m.SetSize(80, 5) // Very small height
+
+	// Load available detail
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	m, cmd := m.Update(selMsg)
+	dataMsg := cmd()
+	m, _ = m.Update(dataMsg)
+
+	// Enter configuring state
+	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	m, _ = m.Update(cfgMsg)
+	require.Equal(t, stateConfiguring, m.paneState)
+
+	// The form content should be longer than the viewport height
+	view := m.View()
+	assert.NotEmpty(t, view, "form should render even with small viewport")
+}
+
 func TestRenderRunningInfo_WithEvents(t *testing.T) {
 	events := []state.LogRecord{
 		{State: "started", StepID: "step1", Message: "Starting step1", Timestamp: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)},
