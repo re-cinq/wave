@@ -200,3 +200,109 @@ func ValidateSequence(seq Sequence) CompatibilityResult {
 
 	return result
 }
+
+// ValidateSequenceWithStages validates artifact compatibility across stage
+// boundaries in a parallel sequence. Unlike ValidateSequence which checks every
+// adjacent pair, this only produces flows at stage boundaries: aggregating all
+// outputs from all pipelines in stage N and matching against all inputs from all
+// pipelines in stage N+1. Pipelines within the same stage are independent and
+// produce no inter-flow artifacts.
+func ValidateSequenceWithStages(seq Sequence, stages [][]int) CompatibilityResult {
+	result := CompatibilityResult{Status: CompatibilityValid}
+
+	for i := 0; i < len(stages)-1; i++ {
+		sourceStage := stages[i]
+		targetStage := stages[i+1]
+
+		sourceName := fmt.Sprintf("Stage %d", i+1)
+		targetName := fmt.Sprintf("Stage %d", i+2)
+
+		flow := ArtifactFlow{
+			SourcePipeline: sourceName,
+			TargetPipeline: targetName,
+		}
+
+		// Aggregate outputs from all pipelines in source stage
+		var outputs []pipeline.ArtifactDef
+		for _, idx := range sourceStage {
+			if idx < len(seq.Entries) {
+				entry := seq.Entries[idx]
+				if entry.Pipeline != nil && len(entry.Pipeline.Steps) > 0 {
+					lastStep := entry.Pipeline.Steps[len(entry.Pipeline.Steps)-1]
+					outputs = append(outputs, lastStep.OutputArtifacts...)
+				}
+			}
+		}
+		flow.Outputs = outputs
+
+		// Aggregate inputs from all pipelines in target stage
+		var inputs []pipeline.ArtifactRef
+		for _, idx := range targetStage {
+			if idx < len(seq.Entries) {
+				entry := seq.Entries[idx]
+				if entry.Pipeline != nil && len(entry.Pipeline.Steps) > 0 {
+					firstStep := entry.Pipeline.Steps[0]
+					inputs = append(inputs, firstStep.Memory.InjectArtifacts...)
+				}
+			}
+		}
+		flow.Inputs = inputs
+
+		// Track which outputs are consumed
+		outputConsumed := make(map[string]bool)
+
+		// Match each input to an output
+		for _, input := range inputs {
+			found := false
+			for _, output := range outputs {
+				if output.Name == input.Artifact {
+					flow.Matches = append(flow.Matches, FlowMatch{
+						OutputName: output.Name,
+						InputName:  input.Artifact,
+						InputAs:    input.As,
+						Status:     MatchCompatible,
+						Optional:   input.Optional,
+					})
+					outputConsumed[output.Name] = true
+					found = true
+					break
+				}
+			}
+			if !found {
+				flow.Matches = append(flow.Matches, FlowMatch{
+					InputName: input.Artifact,
+					InputAs:   input.As,
+					Status:    MatchMissing,
+					Optional:  input.Optional,
+				})
+				if input.Optional {
+					if result.Status < CompatibilityWarning {
+						result.Status = CompatibilityWarning
+					}
+					result.Diagnostics = append(result.Diagnostics,
+						fmt.Sprintf("%s → %s: optional input '%s' has no matching output",
+							sourceName, targetName, input.Artifact))
+				} else {
+					result.Status = CompatibilityError
+					result.Diagnostics = append(result.Diagnostics,
+						fmt.Sprintf("%s → %s: missing required input '%s'",
+							sourceName, targetName, input.Artifact))
+				}
+			}
+		}
+
+		// Mark unmatched outputs
+		for _, output := range outputs {
+			if !outputConsumed[output.Name] {
+				flow.Matches = append(flow.Matches, FlowMatch{
+					OutputName: output.Name,
+					Status:     MatchUnmatched,
+				})
+			}
+		}
+
+		result.Flows = append(result.Flows, flow)
+	}
+
+	return result
+}
