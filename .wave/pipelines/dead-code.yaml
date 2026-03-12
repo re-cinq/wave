@@ -4,6 +4,10 @@ metadata:
   description: "Find dead or redundant code, remove it, and commit to a feature branch"
   release: true
 
+requires:
+  tools:
+    - go
+
 input:
   source: cli
   example: "find and remove dead code in internal/pipeline"
