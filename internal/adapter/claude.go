@@ -282,6 +282,11 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		claudeMd.WriteString(cfg.ContractPrompt)
 	}
 
+	// 2.5. Concurrency hint (when MaxConcurrentAgents > 1)
+	if hint := buildConcurrencyHint(cfg.MaxConcurrentAgents); hint != "" {
+		claudeMd.WriteString(hint)
+	}
+
 	// 3. Restriction section from manifest
 	restrictions := buildRestrictionSection(cfg)
 	if restrictions != "" {
@@ -753,6 +758,22 @@ func shelljoinArgs(args []string) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// maxConcurrentAgentsCap is the hard upper limit for concurrent sub-agents.
+// Claude Code has a practical limit of ~10 subagents.
+const maxConcurrentAgentsCap = 10
+
+// buildConcurrencyHint returns a CLAUDE.md section telling the persona how many
+// concurrent sub-agents it may spawn. Returns "" when n <= 1 (default behavior).
+func buildConcurrencyHint(n int) string {
+	if n <= 1 {
+		return ""
+	}
+	if n > maxConcurrentAgentsCap {
+		n = maxConcurrentAgentsCap
+	}
+	return fmt.Sprintf("\n\n## Agent Concurrency\n\nYou may spawn up to %d concurrent sub-agents or workers for this step.\n", n)
 }
 
 // buildRestrictionSection generates the restriction directives for CLAUDE.md
