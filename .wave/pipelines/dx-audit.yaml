@@ -1,0 +1,62 @@
+kind: WavePipeline
+metadata:
+  name: dx-audit
+  description: "Evaluate developer experience for contributors and integrators"
+  release: true
+
+input:
+  source: cli
+  example: "audit the contributor onboarding experience"
+  schema:
+    type: string
+    description: "DX area to audit: onboarding, testing, ci, api, or empty for full audit"
+
+steps:
+  - id: audit
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a developer experience audit of: {{ input }}
+
+        ## Evaluation Areas
+
+        1. **Setup experience**: Can a new contributor get running quickly?
+           Check README, Makefile/scripts, dependency installation, IDE setup.
+
+        2. **Code navigation**: Is the codebase easy to navigate?
+           Check package organization, naming, documentation, godoc comments.
+
+        3. **Testing**: Is it easy to write and run tests?
+           Check test helpers, mocks, fixtures, CI integration.
+
+        4. **Debugging**: Can developers debug issues efficiently?
+           Check logging, debug flags, error messages, stack traces.
+
+        5. **API surface**: Is the internal API surface clean?
+           Check exported vs unexported, interface boundaries, type safety.
+
+        6. **Extensibility**: Can developers add new pipelines, personas,
+           contracts without modifying core code?
+           Check plugin points, configuration, documentation.
+
+        7. **CI/CD**: Is the CI pipeline fast and reliable?
+           Check test times, flaky tests, build reproducibility.
+
+        ## Output
+
+        Produce a markdown report with findings grouped by area,
+        severity ratings, and specific improvement recommendations.
+    output_artifacts:
+      - name: dx-report
+        path: .wave/output/dx-audit-report.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/dx-audit-report.md
