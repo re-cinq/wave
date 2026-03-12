@@ -478,9 +478,18 @@ See [Sandbox Setup Guide](docs/guides/sandbox-setup.md) for details.
 
 ## Requirements
 
-- Go 1.25+
-- An LLM CLI adapter (`claude`, `opencode`, or custom)
-- [Nix](https://nixos.org/download.html) (optional, for sandboxed development)
+| Tool | Purpose | Required | Install |
+|------|---------|----------|---------|
+| `wave` | Pipeline orchestrator | Yes | [Installation Guide](docs/guide/installation.md) |
+| `claude` | LLM adapter (Claude Code) | Yes* | `npm install -g @anthropic-ai/claude-code` |
+| `gh` | GitHub CLI for issue/PR pipelines | Optional | [cli.github.com](https://cli.github.com) |
+| `git` | Version control, worktree isolation | Yes | [git-scm.com](https://git-scm.com) |
+| Go 1.25+ | Building from source | Optional | [go.dev](https://go.dev/dl/) |
+| [Nix](https://nixos.org/download.html) | Sandboxed development shell | Optional | [nixos.org](https://nixos.org/download.html) |
+
+\* At least one LLM CLI adapter is required. `claude` (Claude Code) is the default. Other adapters (`opencode`, custom) can be configured in `wave.yaml`.
+
+Run `wave doctor` after installation to verify your environment is correctly configured. See the [Installation Guide](docs/guide/installation.md) for detailed setup instructions.
 
 ---
 
