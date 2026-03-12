@@ -163,6 +163,12 @@
           "minimum": 1,
           "description": "Per-step timeout in minutes. Overrides CLI --timeout and runtime.default_timeout_minutes."
         },
+        "max_concurrent_agents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximum concurrent sub-agents the persona may spawn. Values > 1 inject a concurrency hint into the system prompt. Capped at 10."
+        },
         "memory": {
           "$ref": "#/definitions/MemoryConfig"
         },
