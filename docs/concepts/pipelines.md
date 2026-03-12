@@ -147,6 +147,94 @@ steps:
       source: "Synthesize all findings into a final report"
 ```
 
+### Independent Parallel Tracks
+
+When two or more step sequences have no shared upstream dependency, they run as fully independent parallel tracks from the start. This is distinct from fan-out, where parallel steps share a common ancestor. Independent tracks converge only at a final merge step:
+
+<div v-pre>
+
+```yaml
+steps:
+  # Track A — starts immediately
+  - id: quality-scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Scan for code quality issues: {{ input }}"
+    output_artifacts:
+      - name: quality_scan
+        path: .wave/output/quality-scan.json
+        type: json
+
+  - id: quality-detail
+    persona: navigator
+    dependencies: [quality-scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: quality-scan
+          artifact: quality_scan
+          as: scan_results
+    exec:
+      type: prompt
+      source: "Deepen the quality analysis"
+    output_artifacts:
+      - name: quality_report
+        path: .wave/output/quality-detail.md
+        type: markdown
+
+  # Track B — starts immediately (no dependency on Track A)
+  - id: security-scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "Scan for security vulnerabilities: {{ input }}"
+    output_artifacts:
+      - name: security_scan
+        path: .wave/output/security-scan.json
+        type: json
+
+  - id: security-detail
+    persona: navigator
+    dependencies: [security-scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: security-scan
+          artifact: security_scan
+          as: scan_results
+    exec:
+      type: prompt
+      source: "Deepen the security analysis"
+    output_artifacts:
+      - name: security_report
+        path: .wave/output/security-detail.md
+        type: markdown
+
+  # Merge — converges both tracks
+  - id: merge
+    persona: summarizer
+    dependencies: [quality-detail, security-detail]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: quality-detail
+          artifact: quality_report
+          as: quality_findings
+        - step: security-detail
+          artifact: security_report
+          as: security_findings
+    exec:
+      type: prompt
+      source: "Synthesize quality and security findings"
+```
+
+</div>
+
+In this example, Track A (`quality-scan` → `quality-detail`) and Track B (`security-scan` → `security-detail`) run simultaneously from the start. The `merge` step waits for both tracks to complete before synthesizing results.
+
+> See `.wave/pipelines/dual-analysis.yaml` for a complete working example of this pattern.
+
 ### Dependency Visualization
 
 The following diagram shows how dependencies create the execution flow:
@@ -173,6 +261,69 @@ flowchart TD
   style quality fill:#d94a4a,color:#fff
   style summary fill:#9a4ad9,color:#fff
 ```
+
+The independent parallel tracks pattern creates a different topology — two tracks with no shared ancestor:
+
+```mermaid
+flowchart TD
+  qs[quality-scan<br/><small>navigator</small>]
+  qd[quality-detail<br/><small>navigator</small>]
+  ss[security-scan<br/><small>navigator</small>]
+  sd[security-detail<br/><small>navigator</small>]
+  merge[merge<br/><small>summarizer</small>]
+
+  qs --> qd
+  ss --> sd
+  qd --> merge
+  sd --> merge
+
+  qs -.->|"quality_scan"| qd
+  ss -.->|"security_scan"| sd
+  qd -.->|"quality_report"| merge
+  sd -.->|"security_report"| merge
+
+  style qs fill:#4a90d9,color:#fff
+  style qd fill:#4a90d9,color:#fff
+  style ss fill:#d94a4a,color:#fff
+  style sd fill:#d94a4a,color:#fff
+  style merge fill:#9a4ad9,color:#fff
+```
+
+## Verifying Parallel Execution
+
+Wave provides several ways to confirm that steps executed concurrently rather than sequentially.
+
+### Audit Logs
+
+Each pipeline run produces timestamped events in `.wave/traces/`. Look for `STEP_START` and `STEP_END` entries with RFC 3339 timestamps:
+
+```
+2026-01-15T10:00:01.123Z  STEP_START  quality-scan
+2026-01-15T10:00:01.456Z  STEP_START  security-scan    ← started ~300ms later
+2026-01-15T10:00:15.789Z  STEP_END    quality-scan
+2026-01-15T10:00:18.234Z  STEP_END    security-scan
+2026-01-15T10:00:18.567Z  STEP_START  merge             ← started after both ended
+```
+
+Overlapping `STEP_START`/`STEP_END` intervals prove the steps ran concurrently. If `security-scan` started before `quality-scan` ended, they were running in parallel.
+
+### Status Display
+
+The `wave status` command shows per-step elapsed timers. When steps run concurrently, you will see multiple steps in `running` state simultaneously:
+
+```bash
+wave status <run-id>
+```
+
+### JSON Logs
+
+For machine-parseable verification, use JSON-formatted logs:
+
+```bash
+wave logs --format json <run-id>
+```
+
+Each event includes a nanosecond-precision timestamp. Compare `step_start` times across independent steps — timestamps within the same second confirm concurrent scheduling by the DAG executor.
 
 ## Artifact Patterns
 
