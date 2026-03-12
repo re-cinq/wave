@@ -133,7 +133,10 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 			})
 		}
 
-		return m, cmd
+		// Forward to viewport for scroll support
+		var vpCmd tea.Cmd
+		m.viewport, vpCmd = m.viewport.Update(msg)
+		return m, tea.Batch(cmd, vpCmd)
 	}
 
 	switch msg := msg.(type) {
@@ -251,6 +254,8 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height - 3)
 
 		m.paneState = stateConfiguring
+		m.viewport.SetContent(m.launchForm.View())
+		m.viewport.GotoTop()
 		return m, m.launchForm.Init()
 
 	case LaunchErrorMsg:
@@ -484,11 +489,15 @@ func (m PipelineDetailModel) View() string {
 
 			formView := m.launchForm.View()
 
+			var content string
 			if header != "" {
-				return header + "\n\n" + formView
+				content = header + "\n\n" + formView
+			} else {
+				content = formView
 			}
 
-			return formView
+			m.viewport.SetContent(content)
+			return m.viewport.View()
 		}
 
 	case stateLaunching:
