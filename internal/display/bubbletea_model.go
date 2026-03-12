@@ -179,7 +179,13 @@ func (m *ProgressModel) renderHeader() string {
 			counts = append(counts, fmt.Sprintf("%d ok", m.ctx.CompletedSteps))
 		}
 		if m.ctx.FailedSteps > 0 {
-			counts = append(counts, fmt.Sprintf("%d fail", m.ctx.FailedSteps))
+			requiredFails := m.ctx.FailedSteps - m.ctx.OptionalFailedSteps
+			if requiredFails > 0 {
+				counts = append(counts, fmt.Sprintf("%d fail", requiredFails))
+			}
+			if m.ctx.OptionalFailedSteps > 0 {
+				counts = append(counts, fmt.Sprintf("%d optional-fail", m.ctx.OptionalFailedSteps))
+			}
 		}
 		if len(counts) > 0 {
 			progressLine += " (" + strings.Join(counts, ", ") + ")"
