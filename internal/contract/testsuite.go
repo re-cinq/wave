@@ -98,7 +98,7 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 }
 
 // resolveContractDir resolves the working directory for contract command execution.
-//   - Empty: use workspacePath (backward compatible)
+//   - Empty: use workspacePath (default)
 //   - "project_root": resolve via git rev-parse --show-toplevel
 //   - Absolute path: use as-is
 //   - Relative path: resolve relative to workspacePath

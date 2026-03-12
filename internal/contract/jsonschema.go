@@ -167,7 +167,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 		wrapperResult, wrapperErr := DetectErrorWrapper(data)
 		if wrapperErr != nil {
 			// Wrapper detection failed, but continue with original data
-			// This ensures backward compatibility
+			// Continue with original data to avoid blocking on wrapper issues
 			if cfg.DebugMode {
 				fmt.Printf("[DEBUG] Wrapper detection failed: %v\n", wrapperErr)
 			}
@@ -264,9 +264,6 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 
 		// Apply progressive validation logic
 		mustPass := cfg.MustPass
-		if !cfg.MustPass && cfg.StrictMode {
-			mustPass = cfg.StrictMode
-		}
 
 		// Check if progressive validation is enabled
 		if cfg.ProgressiveValidation && !mustPass {
@@ -328,26 +325,14 @@ func determineRecoveryLevel(cfg ContractConfig) RecoveryLevel {
 		return AggressiveRecovery
 	}
 
-	// Progressive validation logic:
-	// - If MustPass is true, use conservative recovery (maintain strict validation)
-	// - If progressive validation is enabled, use progressive recovery
-	// - If StrictMode is false, use progressive recovery
-	// - Default to conservative recovery for safety
-
 	if cfg.MustPass {
 		return ConservativeRecovery
 	}
 
-	// If progressive validation is enabled, use progressive recovery
 	if cfg.ProgressiveValidation {
 		return ProgressiveRecovery
 	}
 
-	// If not in strict mode, allow more progressive recovery
-	if !cfg.StrictMode {
-		return ProgressiveRecovery
-	}
-
-	// Default to conservative recovery for safety
-	return ConservativeRecovery
+	// Default: allow progressive recovery when must_pass is false
+	return ProgressiveRecovery
 }

@@ -1027,8 +1027,10 @@ func TestContractIntegration_RetryOnContractFailure(t *testing.T) {
 				OutputArtifacts: []ArtifactDef{
 					{Name: "output", Path: ".wave/artifact.json"},
 				},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+				},
 				Handover: HandoverConfig{
-					MaxRetries: 3,
 					Contract: ContractConfig{
 						Type:       "json_schema",
 						SchemaPath: schemaPath,

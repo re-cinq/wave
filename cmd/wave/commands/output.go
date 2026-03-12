@@ -104,7 +104,7 @@ func ResolveOutputConfig(cmd *cobra.Command) (*ResolvedFlags, error) {
 
 // GetOutputConfig reads the resolved output configuration.
 // It first checks the command context for ResolvedFlags (set by PersistentPreRunE),
-// falling back to direct flag reading for backward compatibility.
+// falling back to direct flag reading when called outside the normal command lifecycle.
 func GetOutputConfig(cmd *cobra.Command) OutputConfig {
 	if ctx := cmd.Context(); ctx != nil {
 		if rf, ok := ctx.Value(resolvedFlagsKey{}).(*ResolvedFlags); ok {

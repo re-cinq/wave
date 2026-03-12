@@ -251,10 +251,6 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		// Run dirs are named <pipelineName>-<timestamp>-<hash> and sorted
 		// lexicographically so the last match is the most recent.
 		runDirs, _ = filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
-		// Also check for an exact-name dir (no hash suffix, legacy)
-		if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
-			runDirs = append([]string{filepath.Join(wsRoot, p.Metadata.Name)}, runDirs...)
-		}
 	}
 
 	// Load completed steps state from workspace

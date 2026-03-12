@@ -779,8 +779,7 @@ func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		// Fallback to pipeline_state table (old schema)
-		return collectRunsFromPipelineState(db, opts)
+		return nil, fmt.Errorf("failed to query pipeline_run table: %w", err)
 	}
 	defer rows.Close()
 
@@ -811,68 +810,6 @@ func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
 
 		runs = append(runs, RunInfo{
 			RunID:      runID,
-			Pipeline:   pipelineName,
-			Status:     status,
-			StartedAt:  startTime.Format("2006-01-02 15:04:05"),
-			Duration:   duration,
-			DurationMs: durationMs,
-		})
-	}
-
-	return runs, nil
-}
-
-// collectRunsFromPipelineState reads from the legacy pipeline_state table
-func collectRunsFromPipelineState(db *sql.DB, opts ListRunsOptions) ([]RunInfo, error) {
-	query := `
-		SELECT pipeline_id, pipeline_name, status, created_at, updated_at
-		FROM pipeline_state
-		WHERE 1=1
-	`
-	args := []interface{}{}
-
-	if opts.Pipeline != "" {
-		query += " AND pipeline_name = ?"
-		args = append(args, opts.Pipeline)
-	}
-
-	if opts.Status != "" {
-		query += " AND LOWER(status) = LOWER(?)"
-		args = append(args, opts.Status)
-	}
-
-	query += " ORDER BY updated_at DESC LIMIT ?"
-	args = append(args, opts.Limit)
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var runs []RunInfo
-	for rows.Next() {
-		var pipelineID, pipelineName, status string
-		var createdAt, updatedAt int64
-
-		if err := rows.Scan(&pipelineID, &pipelineName, &status, &createdAt, &updatedAt); err != nil {
-			continue
-		}
-
-		startTime := time.Unix(createdAt, 0)
-		endTime := time.Unix(updatedAt, 0)
-
-		var duration string
-		var durationMs int64
-		if createdAt != updatedAt {
-			durationMs = endTime.Sub(startTime).Milliseconds()
-			duration = formatDuration(endTime.Sub(startTime))
-		} else {
-			duration = "-"
-		}
-
-		runs = append(runs, RunInfo{
-			RunID:      pipelineID,
 			Pipeline:   pipelineName,
 			Status:     status,
 			StartedAt:  startTime.Format("2006-01-02 15:04:05"),
@@ -988,7 +925,7 @@ func extractPipelineName(wsName string) string {
 			return candidate
 		}
 	}
-	// No match found — return as-is (legacy workspace without run ID suffix).
+	// No match found — return as-is (workspace name may not have a run ID suffix).
 	return wsName
 }
 
