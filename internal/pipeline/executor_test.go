@@ -3751,3 +3751,126 @@ func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRu
 	a.mu.Unlock()
 	return a.MockAdapter.Run(ctx, cfg)
 }
+
+// TestExecute_PreserveWorkspace verifies that workspace directory contents survive
+// when WithPreserveWorkspace(true) is set.
+func TestExecute_PreserveWorkspace(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "preserve-ws-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	// Pre-create a workspace directory with a marker file to verify it survives
+	pipelineWsDir := filepath.Join(tmpDir, "preserve-ws-test")
+	require.NoError(t, os.MkdirAll(pipelineWsDir, 0755))
+	markerPath := filepath.Join(pipelineWsDir, "marker.txt")
+	require.NoError(t, os.WriteFile(markerPath, []byte("preserved"), 0644))
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithPreserveWorkspace(true),
+		WithRunID("preserve-ws-test"), // fixed ID so the workspace path matches
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Marker file should still exist because workspace was preserved
+	content, err := os.ReadFile(markerPath)
+	require.NoError(t, err, "marker file should still exist when --preserve-workspace is set")
+	assert.Equal(t, "preserved", string(content))
+}
+
+// TestExecute_CleanWorkspaceDefault verifies that workspace is cleaned when
+// WithPreserveWorkspace is not set (default behavior).
+func TestExecute_CleanWorkspaceDefault(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "clean-ws-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	// Pre-create a workspace directory with a marker file
+	pipelineWsDir := filepath.Join(tmpDir, "clean-ws-test")
+	require.NoError(t, os.MkdirAll(pipelineWsDir, 0755))
+	markerPath := filepath.Join(pipelineWsDir, "marker.txt")
+	require.NoError(t, os.WriteFile(markerPath, []byte("should-be-removed"), 0644))
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithRunID("clean-ws-test"), // fixed ID so the workspace path matches
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Marker file should NOT exist because workspace was cleaned
+	_, err = os.Stat(markerPath)
+	assert.True(t, os.IsNotExist(err), "marker file should be removed when workspace is cleaned")
+}
+
+// TestExecute_PreserveWorkspaceWarning verifies that a warning event is emitted
+// when WithPreserveWorkspace(true) is set.
+func TestExecute_PreserveWorkspaceWarning(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "warn-ws-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithPreserveWorkspace(true),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Check that a warning event about preserve-workspace was emitted
+	events := collector.GetEvents()
+	var foundWarning bool
+	for _, ev := range events {
+		if ev.State == "warning" && strings.Contains(ev.Message, "preserve-workspace") {
+			foundWarning = true
+			break
+		}
+	}
+	assert.True(t, foundWarning, "should emit a warning event about --preserve-workspace")
+}

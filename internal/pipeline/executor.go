@@ -72,6 +72,8 @@ type DefaultPipelineExecutor struct {
 	modelOverride string
 	// Cross-pipeline artifacts from prior stages in a sequence
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
+	// Skip workspace cleanup for debugging (--preserve-workspace flag)
+	preserveWorkspace bool
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -117,6 +119,12 @@ func WithModelOverride(model string) ExecutorOption {
 // for cross-pipeline artifact references.
 func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.crossPipelineArtifacts = artifacts }
+}
+
+// WithPreserveWorkspace skips workspace cleanup at pipeline start,
+// allowing inspection of intermediate artifacts from prior runs.
+func WithPreserveWorkspace(preserve bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.preserveWorkspace = preserve }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -305,14 +313,23 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		wsRoot = ".wave/workspaces"
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
-	// Clean previous run artifacts to ensure fresh state
-	if err := os.RemoveAll(pipelineWsPath); err != nil {
+	// Clean previous run artifacts to ensure fresh state (unless --preserve-workspace)
+	if e.preserveWorkspace {
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			State:      "warning",
-			Message:    fmt.Sprintf("failed to clean workspace: %v", err),
+			Message:    "--preserve-workspace is set; stale workspace state may cause non-reproducible results",
 		})
+	} else {
+		if err := os.RemoveAll(pipelineWsPath); err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				State:      "warning",
+				Message:    fmt.Sprintf("failed to clean workspace: %v", err),
+			})
+		}
 	}
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)

@@ -27,17 +27,18 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline string
-	Input    string
-	DryRun   bool
-	FromStep string
-	Force    bool
-	Timeout  int
-	Manifest string
-	Mock     bool
-	RunID    string
-	Output   OutputConfig
-	Model    string
+	Pipeline          string
+	Input             string
+	DryRun            bool
+	FromStep          string
+	Force             bool
+	Timeout           int
+	Manifest          string
+	Mock              bool
+	RunID             string
+	Output            OutputConfig
+	Model             string
+	PreserveWorkspace bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -110,6 +111,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Skip workspace cleanup to preserve files from previous runs (for debugging)")
 
 	return cmd
 }
@@ -295,6 +297,10 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
+	}
+	if opts.PreserveWorkspace {
+		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
+		fmt.Fprintf(os.Stderr, "  Warning: --preserve-workspace is set; stale workspace state may cause non-reproducible results\n")
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
