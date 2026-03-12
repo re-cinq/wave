@@ -70,7 +70,7 @@ func (m *PipelineDetailModel) SetSize(w, h int) {
 	m.viewport.Width = w
 	m.viewport.Height = h
 	if m.launchForm != nil {
-		m.launchForm.WithWidth(w).WithHeight(h)
+		m.launchForm.WithWidth(w).WithHeight(h - 3)
 	}
 	if m.liveOutput != nil {
 		m.liveOutput.SetSize(w, h)
@@ -248,7 +248,7 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 					Options(buildFlagOptions(DefaultFlags())...).
 					Value(m.launchFlags),
 			),
-		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height)
+		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height - 3)
 
 		m.paneState = stateConfiguring
 		return m, m.launchForm.Init()
@@ -479,27 +479,16 @@ func (m PipelineDetailModel) View() string {
 		if m.launchForm != nil {
 			var header string
 			if m.availableDetail != nil {
-				header = renderAvailableDetail(m.availableDetail, m.width)
+				header = lipgloss.NewStyle().Bold(true).Render("Pipeline: " + m.availableDetail.Name)
 			}
 
 			formView := m.launchForm.View()
 
 			if header != "" {
-				headerLines := strings.Split(header, "\n")
-				formLines := strings.Split(formView, "\n")
-				all := append(headerLines, formLines...)
-				if len(all) > m.height {
-					all = all[:m.height]
-				}
-				return strings.Join(all, "\n")
+				return header + "\n\n" + formView
 			}
 
-			// Fallback: no available detail, just show form
-			lines := strings.Split(formView, "\n")
-			if len(lines) > m.height {
-				lines = lines[:m.height]
-			}
-			return strings.Join(lines, "\n")
+			return formView
 		}
 
 	case stateLaunching:
