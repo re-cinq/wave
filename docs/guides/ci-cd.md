@@ -256,6 +256,178 @@ Speed up CI runs by caching the Wave installation:
     key: wave-${{ runner.os }}
 ```
 
+## Workflow Permissions
+
+Configure GitHub Actions permissions based on what your pipeline needs:
+
+```yaml
+permissions:
+  contents: read        # Read repository files
+  pull-requests: write  # Comment on PRs (gh-pr-review)
+  issues: write         # Create/update issues (gh-implement, gh-scope)
+  actions: read         # Read workflow status
+```
+
+For pipelines that commit changes (e.g., `doc-fix`, `speckit-flow`), you also need `contents: write`.
+
+## Headless / No-TTY Mode
+
+CI runners typically have no TTY. Wave handles this automatically, but you can also configure it explicitly:
+
+| Mechanism | Effect |
+|-----------|--------|
+| CI auto-detection | Wave checks for `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, etc. and disables interactive TUI |
+| `--no-tui` flag | Explicitly disable the Bubble Tea TUI |
+| `WAVE_FORCE_TTY=0` | Force non-interactive output mode |
+| `TERM=dumb` | Implies `--no-color` and `--no-tui` |
+| `-o json` | Machine-parseable JSON output (ideal for CI log processing) |
+
+### Recommended CI Configuration
+
+```yaml
+- name: Run Pipeline
+  run: wave run gh-pr-review "${{ github.event.pull_request.title }}" -o json
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    WAVE_FORCE_TTY: "0"
+```
+
+The `-o json` flag produces structured output that can be parsed by downstream CI steps. Wave automatically detects GitHub Actions via the `GITHUB_ACTIONS` environment variable, so `WAVE_FORCE_TTY=0` is usually not necessary but makes the intent explicit.
+
+## Health Checks in CI
+
+Use `wave doctor --json` as a gate step to verify the CI environment before running pipelines:
+
+```yaml
+- name: Health Check
+  run: |
+    wave doctor --json
+    if [ $? -eq 2 ]; then
+      echo "::error::Wave environment has critical issues"
+      exit 1
+    fi
+```
+
+Exit codes:
+- `0` — all checks pass
+- `1` — warnings (non-blocking, pipeline may still succeed)
+- `2` — errors (critical issues, pipeline will likely fail)
+
+In a multi-step workflow, run `wave doctor` in a dedicated job so downstream jobs can depend on it:
+
+```yaml
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Wave
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+      - name: Verify Environment
+        run: wave doctor --json
+
+  pipeline:
+    needs: health
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Wave
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+      - name: Run Pipeline
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+## Secret Injection
+
+Wave uses `runtime.sandbox.env_passthrough` in `wave.yaml` to control which environment variables reach adapter subprocesses. Only variables explicitly listed are passed through — everything else is blocked.
+
+### Configuration
+
+```yaml
+# wave.yaml
+runtime:
+  sandbox:
+    env_passthrough:
+      - ANTHROPIC_API_KEY    # Required for Claude adapter
+      - GH_TOKEN             # Required for GitHub pipelines
+      - GITHUB_TOKEN         # Alternative GitHub token
+```
+
+### Required Variables by Adapter
+
+| Adapter | Variable | Description |
+|---------|----------|-------------|
+| Claude Code | `ANTHROPIC_API_KEY` | Anthropic API key |
+| GitHub pipelines | `GH_TOKEN` or `GITHUB_TOKEN` | GitHub personal access token |
+| OpenCode | _(varies)_ | Depends on configured LLM provider |
+| Custom | _(varies)_ | Document in adapter description field |
+
+### GitHub Actions Example
+
+```yaml
+jobs:
+  wave:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Wave
+        run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+      - name: Run Pipeline
+        run: wave run gh-pr-review "${{ github.event.pull_request.title }}"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### GitLab CI Example
+
+```yaml
+wave-review:
+  stage: review
+  variables:
+    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+    GH_TOKEN: $GH_TOKEN
+  script:
+    - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+    - wave run gh-pr-review "$CI_MERGE_REQUEST_TITLE"
+```
+
+> **Security note:** Never commit API keys or tokens. Use your CI platform's secret management (GitHub Secrets, GitLab CI Variables with masking, etc.). Wave's credential scrubbing ensures secrets are redacted from audit logs even if accidentally logged. See [Environment Variables & Credentials](/reference/environment) for the full credential model.
+
+## Adapter Caching
+
+Speed up CI runs by caching Wave and adapter installations:
+
+### Cache Wave Binary
+
+```yaml
+- name: Cache Wave
+  id: cache-wave
+  uses: actions/cache@v4
+  with:
+    path: ~/.local/bin/wave
+    key: wave-${{ runner.os }}-${{ hashFiles('wave.yaml') }}
+
+- name: Install Wave
+  if: steps.cache-wave.outputs.cache-hit != 'true'
+  run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
+```
+
+### Cache Claude Code
+
+```yaml
+- name: Cache Claude Code
+  uses: actions/cache@v4
+  with:
+    path: ~/.npm
+    key: npm-${{ runner.os }}-claude-code
+
+- name: Install Claude Code
+  run: npm install -g @anthropic-ai/claude-code
+```
+
 ## Troubleshooting
 
 ### API Key Not Found
