@@ -1,5 +1,7 @@
 # GitHub Actions Integration
 
+> **⚠️ This document has been superseded.** The canonical CI/CD documentation is now at [`docs/guides/ci-cd.md`](/guides/ci-cd). This file is kept for reference but may be out of date. Please refer to the main CI/CD guide for current examples, secret injection, headless mode, and health check documentation.
+
 Run Wave pipelines in GitHub Actions for automated code review, security audits, documentation generation, and more.
 
 ## Quick Start
