@@ -4204,3 +4204,96 @@ func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
 	}
 	assert.True(t, foundCompleted, "should have emitted a completed event for the pipeline")
 }
+
+func TestPreserveWorkspaceKeepsExistingContent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Pre-create workspace directory with test content that should survive
+	runID := "preserve-test-run"
+	pipelineWsPath := filepath.Join(tmpDir, runID)
+	require.NoError(t, os.MkdirAll(pipelineWsPath, 0755))
+	markerFile := filepath.Join(pipelineWsPath, "debug-marker.txt")
+	require.NoError(t, os.WriteFile(markerFile, []byte("preserved"), 0644))
+
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithRunID(runID),
+		WithPreserveWorkspace(true),
+	)
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "preserve-ws-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify pre-existing content was preserved
+	content, err := os.ReadFile(markerFile)
+	require.NoError(t, err)
+	assert.Equal(t, "preserved", string(content), "marker file should be preserved")
+
+	// Verify warning event was emitted
+	events := collector.GetEvents()
+	foundWarning := false
+	for _, evt := range events {
+		if evt.State == "warning" && strings.Contains(evt.Message, "--preserve-workspace active") {
+			foundWarning = true
+			break
+		}
+	}
+	assert.True(t, foundWarning, "should have emitted a preserve-workspace warning event")
+}
+
+func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Pre-create workspace directory with test content that should be cleaned
+	runID := "cleanup-test-run"
+	pipelineWsPath := filepath.Join(tmpDir, runID)
+	require.NoError(t, os.MkdirAll(pipelineWsPath, 0755))
+	markerFile := filepath.Join(pipelineWsPath, "stale-marker.txt")
+	require.NoError(t, os.WriteFile(markerFile, []byte("should-be-removed"), 0644))
+
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithRunID(runID),
+	)
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "cleanup-ws-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "test"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify pre-existing content was cleaned
+	_, err = os.Stat(markerFile)
+	assert.True(t, os.IsNotExist(err), "marker file should have been removed by workspace cleanup")
+}
