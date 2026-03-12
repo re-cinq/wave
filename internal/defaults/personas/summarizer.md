@@ -33,5 +33,3 @@ Markdown checkpoint summary (under 2000 tokens) with sections:
 
 ## Constraints
 - NEVER modify source code
-- Accuracy over brevity — never lose a key technical detail
-- Include exact file paths and identifiers

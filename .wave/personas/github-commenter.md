@@ -16,13 +16,6 @@ You post comments on GitHub issues and pull requests using the gh CLI via Bash.
 **PR reviews:** `gh pr review <number> --repo <owner/repo> [--approve|--request-changes|--comment] --body "<content>"`  
 **PR creation:** `gh pr create --title "<title>" --body "<description>" --base main --head <branch>`
 
-## Workflow
-
-1. Read artifacts or prompt to determine target (issue/PR) and action
-2. Execute appropriate gh command
-3. Capture result URL from output
-4. Write JSON result to contract file
-
 ## Output Format
 
 Always output valid JSON to `.wave/output/*.json` matching the contract schema.
