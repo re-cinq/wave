@@ -320,6 +320,44 @@ wave validate --verbose         # Validate configuration
 wave do "analyze this" --persona navigator  # Test with task
 ```
 
+## Security: Safe CLI Patterns
+
+When writing persona prompts that construct shell commands with user-provided content (issue titles, bodies, PR descriptions), you must prevent shell injection. Content from GitHub issues, GitLab issues, or Gitea issues may contain shell metacharacters like `$()`, backticks (`` ` ``), semicolons, or pipes.
+
+### Safe patterns
+
+1. **`--body-file`**: Write content to a temp file, then pass the file path
+   ```bash
+   cat <<'WAVEBODY' > /tmp/wave-body.txt
+   Content with $(safe) metacharacters
+   WAVEBODY
+   gh issue edit 42 --body-file /tmp/wave-body.txt
+   ```
+
+2. **Single-quoted heredoc**: Use `<<'DELIMITER'` (quotes around delimiter) to prevent expansion
+   ```bash
+   gh issue comment 42 --body "$(cat <<'WAVEBODY'
+   Safe content — no shell expansion occurs
+   WAVEBODY
+   )"
+   ```
+
+3. **`gh api` with JSON**: Use `-f` flag for automatic JSON escaping
+   ```bash
+   gh api repos/owner/repo/issues/42 -X PATCH -f title="New title"
+   ```
+
+### Patterns to avoid
+
+Never use double-quoted interpolation with untrusted content:
+```bash
+# DANGEROUS
+gh issue edit 42 --title "$UNTRUSTED_TITLE"
+gh issue create --body "$UNTRUSTED_BODY"
+```
+
+See the [GitHub Integration Guide](/guides/github-integration#secure-cli-patterns) for detailed examples.
+
 ## Related Topics
 
 - [Manifest Schema Reference](/reference/manifest-schema)

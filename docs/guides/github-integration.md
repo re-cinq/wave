@@ -184,7 +184,69 @@ Error: issue not found
 2. Check you have access to the repository
 3. Confirm issue number exists
 
+## Secure CLI Patterns
+
+When persona prompts construct shell commands with user-provided content (issue titles, bodies, comments), shell metacharacters like `$()`, backticks, semicolons, or pipes can cause command injection. Use the following safe patterns.
+
+### Use `--body-file` for body content
+
+Write content to a temp file first, then pass the file path:
+
+```bash
+# Write body to temp file (heredoc with single-quoted delimiter prevents expansion)
+cat <<'WAVEBODY' > /tmp/wave-body.txt
+Issue body content here.
+Shell metacharacters like $(whoami) and `id` are safe in single-quoted heredocs.
+WAVEBODY
+
+# Pass via --body-file
+gh issue edit 42 --repo owner/repo --body-file /tmp/wave-body.txt
+gh issue create --repo owner/repo --title "Safe title" --body-file /tmp/wave-body.txt
+gh pr create --body-file /tmp/wave-body.txt
+```
+
+### Use single-quoted heredocs for inline content
+
+When `--body-file` is not available, use `<<'DELIMITER'` (single-quoted) to prevent all shell expansion:
+
+```bash
+gh issue comment 42 --repo owner/repo --body "$(cat <<'WAVEBODY'
+This content is safe from shell injection.
+Even $(dangerous) and `backticks` are treated as literals.
+WAVEBODY
+)"
+```
+
+### Use `gh api` with JSON payloads
+
+For maximum safety, use the GitHub REST API with JSON payloads:
+
+```bash
+gh api repos/owner/repo/issues/42 \
+  -X PATCH \
+  -f title="New title" \
+  -f body="Body content"
+```
+
+The `-f` flag handles JSON escaping automatically.
+
+### Patterns to avoid
+
+```bash
+# DANGEROUS — shell metacharacters in $TITLE or $BODY will be interpreted
+gh issue edit 42 --title "$TITLE"
+gh issue create --body "$BODY"
+gh pr create --body "$(echo $CONTENT)"
+
+# DANGEROUS — double-quoted heredoc still allows expansion
+gh issue comment 42 --body "$(cat <<EOF
+$UNTRUSTED_CONTENT
+EOF
+)"
+```
+
 ## Additional Resources
 
 - [GitHub REST API Documentation](https://docs.github.com/en/rest)
 - [GitHub CLI Reference](https://cli.github.com/manual/)
+- [OWASP Command Injection](https://owasp.org/www-community/attacks/Command_Injection)

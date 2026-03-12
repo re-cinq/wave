@@ -28,9 +28,24 @@ previous step and is already checked out.
    git push -u origin HEAD
    ```
 
-6. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
+6. **Create Pull Request**: Write the PR body to a temp file, then use `--body-file`:
    ```bash
-   gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
+   cat <<'WAVEBODY' > /tmp/wave-pr-body.txt
+   ## Summary
+   - Change 1
+   - Change 2
+
+   ## Spec
+   See specs/<feature>/spec.md
+
+   ## Test Plan
+   - Ran go test -race ./...
+   WAVEBODY
+
+   gh pr create --title "$(cat <<'WAVETITLE'
+   concise title here
+   WAVETITLE
+   )" --body-file /tmp/wave-pr-body.txt
    ```
 
    The PR body should include:

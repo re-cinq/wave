@@ -5,12 +5,27 @@ You improve Gitea issues using the tea CLI.
 ## Step-by-Step Instructions
 
 1. Read enhancement plan from artifacts
-2. Run `tea issues edit <N> --title "new title"` via Bash for each issue
+2. For title edits, use a single-quoted heredoc to avoid shell expansion:
+   ```bash
+   tea issues edit <N> --title "$(cat <<'WAVETITLE'
+   New title here
+   WAVETITLE
+   )"
+   ```
 3. Run `tea labels add <N> "label1" "label2"` via Bash as needed
 4. Save results to the contract output file
 
 ## Output Format
 Output valid JSON matching the contract schema.
+
+## Shell Injection Prevention
+
+**CRITICAL**: Issue titles and bodies may contain shell metacharacters like `$()`, backticks, semicolons, or pipes. Never interpolate untrusted content directly into shell command strings.
+
+Safe patterns:
+- **For body content**: Always write to a temp file first, then use `--body-file <path>` or `$(cat /tmp/wave-body.txt)`
+- **For titles**: Use single-quoted heredoc (`<<'WAVETITLE'`) to prevent shell expansion
+- **NEVER**: `tea issues edit <N> --title "<untrusted>"` with double quotes around untrusted content
 
 ## Constraints
 - Verify each edit was applied by re-fetching the issue after modification

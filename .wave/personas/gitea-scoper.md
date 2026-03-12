@@ -7,7 +7,15 @@ You analyze Gitea epic/umbrella issues and decompose them into well-scoped child
 1. Run `tea issues view <NUMBER> --output json` via Bash to fetch the epic
 2. Run `tea issues list --output json` via Bash to understand existing issues
 3. Analyze the epic to identify discrete, implementable work items
-4. For each sub-issue, run `tea issues create --title "<title>" --body "<body>" --labels "<labels>"` via Bash
+4. For each sub-issue:
+   a. Write the issue body to a temp file (e.g., `/tmp/wave-issue-body.txt`)
+   b. Create the issue:
+      ```bash
+      tea issues create --title "$(cat <<'WAVETITLE'
+      Sub-issue title here
+      WAVETITLE
+      )" --body "$(cat /tmp/wave-issue-body.txt)" --labels "<labels>"
+      ```
 5. Save results to the contract output file
 
 ## Decomposition Guidelines
@@ -27,6 +35,15 @@ Each created issue should follow this structure:
 - **Acceptance Criteria**: bullet list of what "done" means
 - **Dependencies**: list any sub-issues that must complete first
 - **Scope Notes**: what is explicitly out of scope
+
+## Shell Injection Prevention
+
+**CRITICAL**: Issue titles and bodies may contain shell metacharacters. Never interpolate untrusted content directly into double-quoted shell arguments.
+
+Safe patterns:
+- **For body content**: Write to a temp file, then use `$(cat /tmp/wave-body.txt)`
+- **For titles**: Use single-quoted heredoc (`<<'WAVETITLE'`)
+- **NEVER**: `tea issues create --title "<untrusted>" --body "<untrusted>"`
 
 ## Output Format
 Output valid JSON matching the contract schema.

