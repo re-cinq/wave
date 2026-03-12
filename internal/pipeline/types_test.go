@@ -483,6 +483,49 @@ func TestStep_GetTimeout(t *testing.T) {
 	}
 }
 
+func TestStep_MaxConcurrentAgents_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name                    string
+		yaml                    string
+		wantMaxConcurrentAgents int
+	}{
+		{
+			name:                    "max_concurrent_agents set to 3",
+			yaml:                    "id: implement\npersona: craftsman\nmax_concurrent_agents: 3\nexec:\n  type: prompt\n  source: \"do work\"\n",
+			wantMaxConcurrentAgents: 3,
+		},
+		{
+			name:                    "max_concurrent_agents omitted defaults to zero",
+			yaml:                    "id: specify\npersona: navigator\nexec:\n  type: prompt\n  source: \"analyze\"\n",
+			wantMaxConcurrentAgents: 0,
+		},
+		{
+			name:                    "max_concurrent_agents set to 10",
+			yaml:                    "id: parallel-step\npersona: implementer\nmax_concurrent_agents: 10\nexec:\n  type: prompt\n  source: \"parallel work\"\n",
+			wantMaxConcurrentAgents: 10,
+		},
+		{
+			name:                    "max_concurrent_agents set to 1",
+			yaml:                    "id: single-step\npersona: navigator\nmax_concurrent_agents: 1\nexec:\n  type: prompt\n  source: \"single work\"\n",
+			wantMaxConcurrentAgents: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var step Step
+			err := yaml.Unmarshal([]byte(tt.yaml), &step)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+
+			if step.MaxConcurrentAgents != tt.wantMaxConcurrentAgents {
+				t.Errorf("MaxConcurrentAgents = %d, want %d", step.MaxConcurrentAgents, tt.wantMaxConcurrentAgents)
+			}
+		})
+	}
+}
+
 func TestArtifactRef_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
