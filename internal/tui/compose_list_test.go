@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -9,6 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var composeAnsiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+func composeStripAnsi(s string) string {
+	return composeAnsiRegex.ReplaceAllString(s, "")
+}
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -320,6 +328,93 @@ func TestComposeListModel(t *testing.T) {
 		require.NotNil(t, start)
 		assert.True(t, start.Parallel, "ComposeStartMsg should have Parallel=true")
 		assert.Equal(t, 2, len(start.Stages), "should have 2 stages")
+	})
+
+	t.Run("scroll: first items disappear when cursor moves past viewport", func(t *testing.T) {
+		// Create a list with 10 entries and height=8 (visible=5 entries: height 8 - overhead 3)
+		m := newTestComposeList(10)
+		m.SetSize(40, 8)
+
+		// Move cursor down past the visible window (5 entries)
+		for i := 0; i < 6; i++ {
+			m, _ = composeListSendKey(m, tea.KeyDown)
+		}
+		assert.Equal(t, 6, m.cursor)
+
+		view := composeStripAnsi(m.View())
+		// "pipeline-1" (entry 0) should have scrolled out of view
+		assert.NotContains(t, view, "1. pipeline-1",
+			"first entry should scroll out when cursor is past viewport")
+		// Current entry should be visible
+		assert.Contains(t, view, "7. pipeline-7",
+			"cursor entry should be visible")
+	})
+
+	t.Run("scroll: scrolling back up restores first items", func(t *testing.T) {
+		m := newTestComposeList(10)
+		m.SetSize(40, 8) // visible = 5 entries
+
+		// Scroll down
+		for i := 0; i < 6; i++ {
+			m, _ = composeListSendKey(m, tea.KeyDown)
+		}
+		// Scroll back up
+		for i := 0; i < 6; i++ {
+			m, _ = composeListSendKey(m, tea.KeyUp)
+		}
+		assert.Equal(t, 0, m.cursor)
+
+		view := composeStripAnsi(m.View())
+		assert.Contains(t, view, "1. pipeline-1",
+			"first entry should be visible after scrolling back up")
+	})
+
+	t.Run("scroll: all entries visible when height is sufficient", func(t *testing.T) {
+		m := newTestComposeList(3)
+		m.SetSize(40, 20) // plenty of room
+
+		view := composeStripAnsi(m.View())
+		assert.Contains(t, view, "1. pipeline-1")
+		assert.Contains(t, view, "2. pipeline-2")
+		assert.Contains(t, view, "3. pipeline-3")
+	})
+
+	t.Run("scroll: empty list renders correctly", func(t *testing.T) {
+		m := newTestComposeList(1)
+		m.cursor = 0
+		m, _ = composeListSendRune(m, 'x') // remove only entry
+		require.True(t, m.sequence.IsEmpty())
+
+		view := composeStripAnsi(m.View())
+		assert.Contains(t, view, "No pipelines in sequence")
+	})
+
+	t.Run("scroll: single-item list does not scroll", func(t *testing.T) {
+		m := newTestComposeList(1)
+		m.SetSize(40, 8)
+
+		view := composeStripAnsi(m.View())
+		assert.Contains(t, view, "1. pipeline-1")
+		// Status should indicate single pipeline
+		assert.Contains(t, view, "single pipeline")
+	})
+
+	t.Run("scroll: height=0 returns empty string", func(t *testing.T) {
+		m := newTestComposeList(3)
+		m.SetSize(40, 0)
+		view := m.View()
+		assert.Equal(t, "", view)
+	})
+
+	t.Run("scroll: visible entries count matches available space", func(t *testing.T) {
+		m := newTestComposeList(10)
+		m.SetSize(40, 6) // visible = 6 - 3 overhead = 3 entries
+
+		view := composeStripAnsi(m.View())
+		// Count how many "pipeline-" entries appear
+		count := strings.Count(view, ". pipeline-")
+		assert.Equal(t, 3, count,
+			"should show exactly 3 entries for height=6 (overhead=3)")
 	})
 
 	t.Run("a enters picking mode", func(t *testing.T) {
