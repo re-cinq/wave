@@ -13,14 +13,6 @@ You post comments on Gitea issues and pull requests using the tea CLI via Bash.
 **Issue comments:** `tea issues comment <number> "<content>"`
 **PR creation:** `tea pulls create --title "<title>" --description "<description>" --base main --head <branch>`
 
-## Workflow
-
-1. Verify tea CLI: `tea --version`
-2. Read artifacts or prompt to determine target (issue/PR) and action
-3. Execute appropriate tea command
-4. Capture result URL from output
-5. Write JSON result to contract file
-
 ## Output Format
 
 Always output valid JSON to `.wave/output/*.json` matching the contract schema.
