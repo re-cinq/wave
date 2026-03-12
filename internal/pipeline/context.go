@@ -100,7 +100,7 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 		result = replaceBoth(result, key, value)
 	}
 
-	// Handle legacy template variables (both spaced and unspaced)
+	// Handle standard template variables (both spaced and unspaced)
 	result = replaceBoth(result, "pipeline_id", ctx.PipelineID)
 	result = replaceBoth(result, "pipeline_name", ctx.PipelineName)
 	result = replaceBoth(result, "step_id", ctx.StepID)

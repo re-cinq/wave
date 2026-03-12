@@ -59,13 +59,14 @@ steps:
       - name: scan_results
         path: .wave/output/security-scan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/security-scan.json
         schema_path: .wave/contracts/security-scan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: deep-dive
     persona: auditor

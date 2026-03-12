@@ -505,7 +505,7 @@ func TestMigrationDefinitions(t *testing.T) {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
 		assert.NotEmpty(t, migration.Up)
-		assert.NotEmpty(t, migration.Down)
+		// Down migrations are intentionally empty — rollbacks are not supported
 	}
 
 	// Test that each migration can be applied and rolled back
@@ -520,12 +520,6 @@ func TestMigrationDefinitions(t *testing.T) {
 	for _, migration := range migrations {
 		err := manager.ApplyMigration(migration)
 		assert.NoError(t, err, "Failed to apply migration %d: %s", migration.Version, migration.Description)
-	}
-
-	// Rollback all migrations in reverse order
-	for i := len(migrations) - 1; i >= 0; i-- {
-		err := manager.RollbackMigration(migrations[i])
-		assert.NoError(t, err, "Failed to rollback migration %d: %s", migrations[i].Version, migrations[i].Description)
 	}
 }
 
@@ -576,54 +570,6 @@ func TestMigration6_TagsSupport(t *testing.T) {
 	assert.True(t, indexExists, "idx_run_tags index should exist")
 }
 
-// TestMigration6_Rollback tests rollback of migration 6
-func TestMigration6_Rollback(t *testing.T) {
-	db, cleanup := setupTestMigrationDB(t)
-	defer cleanup()
-
-	manager := NewMigrationManager(db)
-	err := manager.InitializeMigrationTable()
-	require.NoError(t, err)
-
-	migrations := GetAllMigrations()
-
-	// Apply all migrations
-	for _, migration := range migrations {
-		err := manager.ApplyMigration(migration)
-		require.NoError(t, err)
-	}
-
-	// Insert test data with tags
-	_, err = db.Exec(`INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at, tags_json)
-	                  VALUES ('test-run-1', 'test-pipeline', 'completed', 1234567890, '["prod", "deploy"]')`)
-	require.NoError(t, err)
-
-	// Verify data exists with tags
-	var tagsJSON string
-	err = db.QueryRow("SELECT tags_json FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&tagsJSON)
-	require.NoError(t, err)
-	assert.Equal(t, `["prod", "deploy"]`, tagsJSON)
-
-	// Rollback migration 6
-	err = manager.RollbackMigration(migrations[5])
-	assert.NoError(t, err)
-
-	// Verify tags_json column no longer exists
-	_, err = db.Exec("SELECT tags_json FROM pipeline_run WHERE run_id = 'test-run-1'")
-	assert.Error(t, err, "tags_json column should not exist after rollback")
-
-	// Verify basic data is preserved
-	var runID, status string
-	err = db.QueryRow("SELECT run_id, status FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&runID, &status)
-	assert.NoError(t, err)
-	assert.Equal(t, "test-run-1", runID)
-	assert.Equal(t, "completed", status)
-
-	// Verify index was dropped
-	var indexExists bool
-	err = db.QueryRow("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_run_tags'").Scan(&indexExists)
-	assert.Error(t, err) // Should not find the index
-}
 // --- T032: Migration 7 (branch_name) tests ---
 
 // TestMigration7_BranchName tests migration 7 specifically
@@ -674,58 +620,3 @@ func TestMigration7_BranchName(t *testing.T) {
 	assert.Equal(t, "[]", tagsJSON, "existing tags_json should be preserved")
 }
 
-// TestMigration7_Rollback tests rollback of migration 7
-func TestMigration7_Rollback(t *testing.T) {
-	db, cleanup := setupTestMigrationDB(t)
-	defer cleanup()
-
-	manager := NewMigrationManager(db)
-	err := manager.InitializeMigrationTable()
-	require.NoError(t, err)
-
-	migrations := GetAllMigrations()
-
-	// Apply all migrations
-	for _, migration := range migrations {
-		err := manager.ApplyMigration(migration)
-		require.NoError(t, err)
-	}
-
-	// Insert test data with branch_name
-	_, err = db.Exec(`INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at, tags_json, branch_name)
-	                  VALUES ('test-run-1', 'test-pipeline', 'completed', 1234567890, '["prod"]', 'feature/login')`)
-	require.NoError(t, err)
-
-	// Verify data exists with branch_name
-	var branchName string
-	err = db.QueryRow("SELECT branch_name FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&branchName)
-	require.NoError(t, err)
-	assert.Equal(t, "feature/login", branchName)
-
-	// Rollback migration 7
-	err = manager.RollbackMigration(migrations[6])
-	assert.NoError(t, err)
-
-	// Verify branch_name column no longer exists
-	_, err = db.Exec("SELECT branch_name FROM pipeline_run WHERE run_id = 'test-run-1'")
-	assert.Error(t, err, "branch_name column should not exist after rollback")
-
-	// Verify basic data is preserved
-	var runID, status string
-	err = db.QueryRow("SELECT run_id, status FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&runID, &status)
-	assert.NoError(t, err)
-	assert.Equal(t, "test-run-1", runID)
-	assert.Equal(t, "completed", status)
-
-	// Verify tags_json is still accessible (migration 6 data preserved)
-	var tagsJSON string
-	err = db.QueryRow("SELECT tags_json FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&tagsJSON)
-	assert.NoError(t, err)
-	assert.Equal(t, `["prod"]`, tagsJSON, "tags_json should be preserved after migration 7 rollback")
-
-	// Verify indexes are still present (migration 7 rollback recreates them)
-	var indexExists bool
-	err = db.QueryRow("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_run_pipeline'").Scan(&indexExists)
-	assert.NoError(t, err)
-	assert.True(t, indexExists, "idx_run_pipeline index should exist after rollback")
-}

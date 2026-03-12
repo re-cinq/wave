@@ -22,19 +22,19 @@ func (v *typeScriptValidator) Validate(cfg ContractConfig, workspacePath string)
 	// Check if TypeScript compiler is available
 	available, version := CheckTypeScriptAvailability()
 	if !available {
-		if cfg.StrictMode {
+		if cfg.MustPass {
 			return &ValidationError{
 				ContractType: "typescript_interface",
 				Message:      "TypeScript compiler (tsc) not available",
 				Details: []string{
 					"tsc command not found in PATH",
-					"strict mode requires tsc to be installed",
+					"must_pass requires tsc to be installed",
 					"install with: npm install -g typescript",
 				},
 				Retryable: false,
 			}
 		}
-		// Graceful degradation - skip validation if tsc not available and not in strict mode
+		// Graceful degradation - skip validation if tsc not available and must_pass is false
 		return nil
 	}
 
@@ -90,13 +90,6 @@ func (v *typeScriptValidator) Validate(cfg ContractConfig, workspacePath string)
 	}
 
 	return nil
-}
-
-// IsTypeScriptAvailable returns true if tsc is available in PATH.
-// This is kept for backward compatibility.
-func IsTypeScriptAvailable() bool {
-	available, _ := CheckTypeScriptAvailability()
-	return available
 }
 
 // CheckTypeScriptAvailability checks if tsc is available and returns its version.

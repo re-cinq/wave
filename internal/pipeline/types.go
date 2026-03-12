@@ -196,7 +196,7 @@ func (r ArtifactRef) Validate(stepID string, idx int) error {
 type WorkspaceConfig struct {
 	Root   string  `yaml:"root,omitempty"`
 	Mount  []Mount `yaml:"mount,omitempty"`
-	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for legacy directory
+	Type   string  `yaml:"type,omitempty"`   // "worktree" for git worktree, empty for basic directory workspace
 	Branch string  `yaml:"branch,omitempty"` // Branch name for worktree workspaces
 	Base   string  `yaml:"base,omitempty"`   // Start point for worktree (e.g. "main")
 	Ref    string  `yaml:"ref,omitempty"`    // Reference another step's workspace (shared worktree)
@@ -242,7 +242,6 @@ type HandoverConfig struct {
 	Compaction   CompactionConfig `yaml:"compaction,omitempty"`
 	OnReviewFail string           `yaml:"on_review_fail,omitempty"`
 	TargetStep   string           `yaml:"target_step,omitempty"`
-	MaxRetries   int              `yaml:"max_retries,omitempty"`
 }
 
 type ContractConfig struct {

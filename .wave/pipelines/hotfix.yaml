@@ -28,13 +28,14 @@ steps:
       - name: findings
         path: .wave/output/findings.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/findings.json
         schema_path: .wave/contracts/findings.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: fix
     persona: craftsman
@@ -59,6 +60,8 @@ steps:
         2. Add a regression test that would have caught this bug
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
@@ -66,7 +69,6 @@ steps:
 
         must_pass: true
         on_failure: retry
-        max_retries: 3
 
   - id: verify
     persona: reviewer
