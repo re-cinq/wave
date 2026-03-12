@@ -248,6 +248,30 @@ Control how context flows between steps:
 
 Fresh memory is recommended to prevent context pollution and ensure reproducible results.
 
+## Outcomes
+
+Outcomes extract structured results — such as PR URLs, issue links, or deployment URLs — from step artifacts into the pipeline output summary. Declare outcomes on any step that produces a JSON artifact containing values you want to surface.
+
+```yaml
+steps:
+  - id: create-pr
+    persona: craftsman
+    exec:
+      type: prompt
+      source: "Create a pull request"
+    output_artifacts:
+      - name: result
+        path: .wave/output/result.json
+        type: json
+    outcomes:
+      - type: pr
+        extract_from: .wave/output/result.json
+        json_path: ".pr_url"
+        label: "Pull Request"
+```
+
+Supported outcome types: `pr`, `issue`, `url`, `deployment`. See [Outcomes](/concepts/outcomes) for array extraction, field reference, and advanced examples.
+
 ## Running Pipelines
 
 Execute a pipeline with input:
@@ -362,6 +386,7 @@ steps:
 ## Next Steps
 
 - [Personas](/concepts/personas) - Configure the AI agents that run in each step
+- [Outcomes](/concepts/outcomes) - Extract structured results from pipelines
 - [Contracts](/concepts/contracts) - Validate step outputs before handover
 - [Artifacts](/concepts/artifacts) - Deep dive into artifact passing
 - [Pipeline Configuration Guide](/guides/pipeline-configuration) - Step-by-step configuration guide
