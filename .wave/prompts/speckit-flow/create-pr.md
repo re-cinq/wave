@@ -30,7 +30,10 @@ previous step and is already checked out.
 
 6. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
    ```bash
-   gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
+   cat > /tmp/wave-pr-body.md << 'EOF'
+   PR body with summary and test plan
+   EOF
+   gh pr create --title "<concise title>" --body-file /tmp/wave-pr-body.md
    ```
 
    The PR body should include:

@@ -7,7 +7,13 @@ You analyze GitLab epic/umbrella issues and decompose them into well-scoped chil
 1. Run `glab issue view <NUMBER>` via Bash to fetch the epic
 2. Run `glab issue list --per-page 50` via Bash to understand existing issues
 3. Analyze the epic to identify discrete, implementable work items
-4. For each sub-issue, run `glab issue create --title "<title>" --description "<body>" --label "<labels>"` via Bash
+4. For each sub-issue, write the content to temp files and create via safe patterns:
+   ```bash
+   cat > /tmp/wave-issue-body.md << 'EOF'
+   Sub-issue body with acceptance criteria
+   EOF
+   glab issue create --title "$(cat /tmp/wave-issue-title.txt)" --description "$(cat /tmp/wave-issue-body.md)" --label "label1,label2"
+   ```
 5. Save results to the contract output file
 
 ## Decomposition Guidelines
@@ -30,3 +36,8 @@ Each created issue should follow this structure:
 
 ## Output Format
 Output valid JSON matching the contract schema.
+
+## Constraints
+- NEVER pass untrusted content (titles, bodies) as inline shell arguments
+- Always write content to temp files and reference via file flags or command substitution
+- Use single-quoted heredoc delimiters (`<< 'EOF'`) to prevent shell expansion

@@ -446,6 +446,57 @@ If persona execution times out:
 2. Break complex tasks into smaller steps
 3. Consider using a faster model for simple tasks
 
+## Secure CLI Patterns for Persona Authors
+
+When personas construct CLI commands that include untrusted content (issue titles, PR bodies, user-provided text), **never pass that content as inline shell arguments**. Shell metacharacters like `$()`, backticks, `|`, `;`, and `&` can trigger command injection.
+
+### Unsafe Patterns (DO NOT USE)
+
+```bash
+# UNSAFE — title with $(whoami) would execute the command
+gh issue edit 42 --title "$UNTRUSTED_TITLE"
+gh issue comment 42 --body "$UNTRUSTED_BODY"
+glab mr create --title "$TITLE" --description "$DESC"
+```
+
+### Safe Patterns
+
+**1. Write to temp file + `--body-file`** (preferred for gh/glab CLIs):
+
+```bash
+cat > /tmp/wave-comment.md << 'EOF'
+Content goes here — shell metacharacters are inert inside single-quoted heredocs
+EOF
+gh issue comment 42 --body-file /tmp/wave-comment.md
+```
+
+**2. `gh api` with JSON payload file** (strongest — bypasses shell entirely):
+
+```bash
+cat > /tmp/wave-payload.json << 'EOF'
+{"title":"Issue title with $pecial chars","body":"Body content"}
+EOF
+gh api repos/OWNER/REPO/issues --method POST --input /tmp/wave-payload.json
+```
+
+**3. JSON payload + curl** (for APIs without CLI file flags):
+
+```bash
+cat > /tmp/wave-payload.json << 'EOF'
+{"content":{"raw":"Comment body"}}
+EOF
+curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/wave-payload.json \
+  "https://api.example.com/issues/42/comments"
+```
+
+### Key Rules
+
+1. **Single-quoted heredoc delimiters** — always use `<< 'EOF'` (not `<< EOF`) to prevent shell expansion inside the heredoc
+2. **Temp files for all untrusted content** — write to `/tmp/wave-*.md` or `/tmp/wave-*.json`, then reference via `--body-file`, `--input`, or `-d @file`
+3. **Defense in depth** — Wave's `security.ShellEscape()` function provides POSIX shell escaping as a fallback, but avoiding shell interpolation entirely is preferred
+
 ## Next Steps
 
 - [Personas Concept](/concepts/personas) - Understand the permission model in depth

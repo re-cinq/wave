@@ -172,6 +172,16 @@ func (is *InputSanitizer) removeSuspiciousContent(content string) string {
 	return content
 }
 
+// ShellEscape escapes a string for safe use as a POSIX shell argument by
+// wrapping it in single quotes and escaping any internal single quotes using
+// the standard '\'' idiom (end quote, escaped quote, restart quote).
+func ShellEscape(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // shellMetachars are characters that have special meaning in POSIX shells.
 // Their presence in user input is not inherently dangerous when exec.Command
 // is used (bypasses shell), but it signals elevated risk if any code path

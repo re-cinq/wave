@@ -146,6 +146,36 @@ wave run github-issue-enhancer --input '{"repo": "owner/repo", "threshold": 80}'
 3. **Minimal permissions**: Use fine-grained PATs with minimal scope
 4. **Rotate regularly**: Refresh tokens every 90 days
 
+### Shell Injection Prevention
+
+When personas construct `gh` CLI commands, issue titles and bodies from GitHub may contain shell metacharacters (`$()`, backticks, `|`, `;`, etc.) that could trigger command injection if passed as inline arguments.
+
+**Always use safe patterns:**
+
+```bash
+# SAFE: write body to file, reference via --body-file
+cat > /tmp/wave-body.md << 'EOF'
+Issue body content
+EOF
+gh issue edit 42 --body-file /tmp/wave-body.md
+
+# SAFE: use gh api with JSON payload to bypass shell entirely
+cat > /tmp/wave-update.json << 'EOF'
+{"title":"Updated title"}
+EOF
+gh api repos/OWNER/REPO/issues/42 --method PATCH --input /tmp/wave-update.json
+```
+
+**Never do this:**
+
+```bash
+# UNSAFE: inline content is subject to shell expansion
+gh issue edit 42 --title "$UNTRUSTED_TITLE"
+gh issue comment 42 --body "$UNTRUSTED_BODY"
+```
+
+All built-in Wave personas (github-enhancer, github-commenter, github-scoper) use safe patterns. Custom personas should follow the same conventions — see [Secure CLI Patterns](/guides/custom-personas#secure-cli-patterns-for-persona-authors) for detailed guidance.
+
 ## Troubleshooting
 
 ### Rate Limit Exceeded
