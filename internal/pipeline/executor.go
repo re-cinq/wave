@@ -72,6 +72,8 @@ type DefaultPipelineExecutor struct {
 	modelOverride string
 	// Cross-pipeline artifacts from prior stages in a sequence
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
+	// ETA calculator for remaining pipeline time estimates
+	etaCalculator *ETACalculator
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -207,6 +209,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
+
+	// Initialize ETA calculator from historical step performance data
+	stepIDs := make([]string, len(sortedSteps))
+	for i, step := range sortedSteps {
+		stepIDs[i] = step.ID
+	}
+	e.etaCalculator = NewETACalculator(e.store, p.Metadata.Name, stepIDs)
 
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
@@ -642,6 +651,18 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		execution.mu.Unlock()
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+		}
+
+		// Record step completion for ETA calculation
+		if e.etaCalculator != nil {
+			e.etaCalculator.RecordStepCompletion(step.ID, attemptDuration.Milliseconds())
+			e.emit(event.Event{
+				Timestamp:       time.Now(),
+				PipelineID:      pipelineID,
+				StepID:          step.ID,
+				State:           event.StateETAUpdated,
+				EstimatedTimeMs: e.etaCalculator.RemainingMs(),
+			})
 		}
 
 		// Track deliverables from completed step
@@ -1765,11 +1786,16 @@ func (e *DefaultPipelineExecutor) startProgressTicker(ctx context.Context, pipel
 					return
 				case <-ticker.C:
 					// Emit a progress heartbeat to keep the display updating
+					var etaMs int64
+					if e.etaCalculator != nil {
+						etaMs = e.etaCalculator.RemainingMs()
+					}
 					e.emit(event.Event{
-						PipelineID: pipelineID,
-						StepID:     stepID,
-						State:      event.StateStepProgress,
-						Timestamp:  time.Now(),
+						PipelineID:      pipelineID,
+						StepID:          stepID,
+						State:           event.StateStepProgress,
+						Timestamp:       time.Now(),
+						EstimatedTimeMs: etaMs,
 					})
 				}
 			}

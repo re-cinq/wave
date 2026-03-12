@@ -41,6 +41,7 @@ type BubbleTeaProgressDisplay struct {
 	lastToolName       string                   // Most recent tool name (global fallback)
 	lastToolTarget     string                   // Most recent tool target (global fallback)
 	handoverInfo       map[string]*HandoverInfo // Per-step handover metadata
+	estimatedTimeMs    int64                    // Latest ETA from pipeline events
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
@@ -235,6 +236,11 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 	}
 
 	step := btpd.steps[evt.StepID]
+
+	// Capture ETA from events
+	if evt.EstimatedTimeMs > 0 {
+		btpd.estimatedTimeMs = evt.EstimatedTimeMs
+	}
 
 	// Update step state based on event
 	switch evt.State {
@@ -531,7 +537,8 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
-		EstimatedTimeMs:    0, // Not calculated
+		EstimatedTimeMs:    btpd.estimatedTimeMs,
+		AverageStepTimeMs:  btpd.averageStepTimeMs(),
 		ManifestPath:       "wave.yaml",
 		WorkspacePath:      ".wave/workspaces",
 		CurrentAction:      "",
@@ -545,4 +552,17 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		HandoversByStep:   handoversByStep,
 		Verbose:           btpd.verbose,
 	}
+}
+
+// averageStepTimeMs computes the average duration of completed steps.
+// Caller must hold btpd.mu.
+func (btpd *BubbleTeaProgressDisplay) averageStepTimeMs() int64 {
+	if len(btpd.stepDurations) == 0 {
+		return 0
+	}
+	var total int64
+	for _, dur := range btpd.stepDurations {
+		total += dur
+	}
+	return total / int64(len(btpd.stepDurations))
 }
