@@ -138,19 +138,26 @@ func (d *Dashboard) renderProgressPanel(ctx *PipelineContext) string {
 	sb.WriteString(fmt.Sprintf("Step %d/%d", ctx.CurrentStepNum, ctx.TotalSteps))
 
 	// Add completion counts in same line
-	if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 || ctx.SkippedSteps > 0 {
+	if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 || ctx.SkippedSteps > 0 || ctx.OptionalFailedSteps > 0 {
 		sb.WriteString(" (")
 		if ctx.CompletedSteps > 0 {
 			sb.WriteString(fmt.Sprintf("%d ok", ctx.CompletedSteps))
 		}
-		if ctx.FailedSteps > 0 {
+		requiredFails := ctx.FailedSteps - ctx.OptionalFailedSteps
+		if requiredFails > 0 {
 			if ctx.CompletedSteps > 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(fmt.Sprintf("%d fail", ctx.FailedSteps))
+			sb.WriteString(fmt.Sprintf("%d fail", requiredFails))
+		}
+		if ctx.OptionalFailedSteps > 0 {
+			if ctx.CompletedSteps > 0 || requiredFails > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("%d optional-fail", ctx.OptionalFailedSteps))
 		}
 		if ctx.SkippedSteps > 0 {
-			if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 {
+			if ctx.CompletedSteps > 0 || ctx.FailedSteps > 0 || ctx.OptionalFailedSteps > 0 {
 				sb.WriteString(", ")
 			}
 			sb.WriteString(fmt.Sprintf("%d skip", ctx.SkippedSteps))

@@ -528,3 +528,61 @@ func TestArtifactRef_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestStep_Optional_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name         string
+		yaml         string
+		wantOptional bool
+	}{
+		{
+			name:         "optional true",
+			yaml:         "id: notify\npersona: notifier\noptional: true\nexec:\n  type: prompt\n  source: \"send notification\"\n",
+			wantOptional: true,
+		},
+		{
+			name:         "optional false (explicit)",
+			yaml:         "id: build\npersona: builder\noptional: false\nexec:\n  type: prompt\n  source: \"build project\"\n",
+			wantOptional: false,
+		},
+		{
+			name:         "optional omitted defaults to false",
+			yaml:         "id: deploy\npersona: deployer\nexec:\n  type: prompt\n  source: \"deploy\"\n",
+			wantOptional: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var step Step
+			err := yaml.Unmarshal([]byte(tt.yaml), &step)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+
+			if step.Optional != tt.wantOptional {
+				t.Errorf("Optional = %v, want %v", step.Optional, tt.wantOptional)
+			}
+
+			if step.IsOptional() != tt.wantOptional {
+				t.Errorf("IsOptional() = %v, want %v", step.IsOptional(), tt.wantOptional)
+			}
+
+			// Round-trip: marshal and unmarshal
+			out, err := yaml.Marshal(&step)
+			if err != nil {
+				t.Fatalf("unexpected marshal error: %v", err)
+			}
+
+			var roundTrip Step
+			err = yaml.Unmarshal(out, &roundTrip)
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error on round-trip: %v", err)
+			}
+
+			if roundTrip.Optional != tt.wantOptional {
+				t.Errorf("round-trip Optional = %v, want %v", roundTrip.Optional, tt.wantOptional)
+			}
+		})
+	}
+}
