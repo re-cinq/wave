@@ -130,6 +130,7 @@ type Step struct {
 	Persona         string           `yaml:"persona"`
 	Dependencies    []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes  int              `yaml:"timeout_minutes,omitempty"`
+	Optional        bool             `yaml:"optional,omitempty"`
 	Memory          MemoryConfig     `yaml:"memory"`
 	Workspace       WorkspaceConfig  `yaml:"workspace"`
 	Exec            ExecConfig       `yaml:"exec"`
@@ -148,6 +149,11 @@ type Step struct {
 	Gate        *GateConfig      `yaml:"gate,omitempty"`         // Approval/timer/merge gates
 	Loop        *LoopConfig      `yaml:"loop,omitempty"`         // Feedback loops
 	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"`    // Output aggregation
+}
+
+// IsOptional returns whether this step is marked as optional.
+func (s *Step) IsOptional() bool {
+	return s.Optional
 }
 
 // GetTimeout returns the step-level timeout duration.
