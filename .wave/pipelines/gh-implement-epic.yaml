@@ -29,8 +29,9 @@ steps:
         path: .wave/output/epic-scope-plan.json
         type: json
         required: true
+    retry:
+      max_attempts: 2
     handover:
-      max_retries: 2
       contract:
         type: json_schema
         source: .wave/output/epic-scope-plan.json
@@ -87,8 +88,9 @@ steps:
         extract_from: .wave/output/epic-report.json
         json_path: .summary.comment_url
         label: "Epic Summary"
+    retry:
+      max_attempts: 2
     handover:
-      max_retries: 2
       contract:
         type: json_schema
         source: .wave/output/epic-report.json

@@ -51,13 +51,14 @@ steps:
       - name: threat-model
         path: .wave/output/threat-model.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/threat-model.json
         schema_path: .wave/contracts/security-scan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: verify
     persona: auditor

@@ -566,15 +566,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeMatrixStep(ctx, execution, step)
 	}
 
-	// Determine max attempts: prefer step.Retry config, fall back to legacy handover fields
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
-	if maxAttempts <= 1 {
-		if step.Handover.MaxRetries > 0 {
-			maxAttempts = step.Handover.MaxRetries
-		} else if step.Handover.Contract.MaxRetries > 0 {
-			maxAttempts = step.Handover.Contract.MaxRetries
-		}
-	}
 
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -1139,7 +1131,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			SchemaPath: step.Handover.Contract.SchemaPath,
 			Command:    resolvedCommand,
 			Dir:        step.Handover.Contract.Dir,
-			StrictMode: step.Handover.Contract.MustPass,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
 		}
@@ -1170,7 +1161,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			})
 
 			// Check if we should fail the step or allow soft failure
-			if contractCfg.StrictMode {
+			if contractCfg.MustPass {
 				if e.logger != nil {
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
 					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
@@ -2524,7 +2515,7 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 		status := &PipelineStatus{
 			ID:             stateRecord.PipelineID,
 			State:          stateRecord.Status,
-			CurrentStep:    "", // Not tracked in legacy state store
+			CurrentStep:    "", // Not tracked in pipeline_state table
 			CompletedSteps: []string{}, // Would need step states to populate
 			FailedSteps:    []string{}, // Would need step states to populate
 			StartedAt:      stateRecord.CreatedAt,

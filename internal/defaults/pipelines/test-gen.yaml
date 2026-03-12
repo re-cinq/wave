@@ -29,13 +29,14 @@ steps:
       - name: coverage
         path: .wave/output/coverage-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/coverage-analysis.json
         schema_path: .wave/contracts/coverage-analysis.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: generate-tests
     persona: craftsman
@@ -63,6 +64,8 @@ steps:
         5. Include benchmarks for performance-critical code
 
         Follow existing test patterns in the codebase.
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
@@ -70,7 +73,6 @@ steps:
 
         must_pass: false
         on_failure: retry
-        max_retries: 3
     output_artifacts:
       - name: tests
         path: .wave/output/generated-tests.md

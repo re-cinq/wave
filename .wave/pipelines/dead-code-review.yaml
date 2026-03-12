@@ -69,13 +69,14 @@ steps:
       - name: scan_results
         path: .wave/output/dead-code-scan.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/dead-code-scan.json
         schema_path: .wave/contracts/dead-code-scan.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: compose
     persona: summarizer
@@ -159,6 +160,8 @@ steps:
       - name: publish-result
         path: .wave/output/publish-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -166,7 +169,6 @@ steps:
         schema_path: .wave/contracts/gh-pr-comment-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: url
         extract_from: .wave/output/publish-result.json

@@ -41,6 +41,8 @@ steps:
       - name: result
         path: .wave/output/result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -48,4 +50,3 @@ steps:
         schema_path: .wave/contracts/hello-world-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2

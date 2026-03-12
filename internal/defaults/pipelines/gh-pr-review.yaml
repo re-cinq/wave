@@ -31,13 +31,14 @@ steps:
       - name: diff
         path: .wave/output/diff-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/diff-analysis.json
         schema_path: .wave/contracts/diff-analysis.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: security-review
     persona: reviewer
@@ -163,6 +164,8 @@ steps:
       - name: publish-result
         path: .wave/output/publish-result.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -170,7 +173,6 @@ steps:
         schema_path: .wave/contracts/gh-pr-comment-result.schema.json
         must_pass: true
         on_failure: retry
-        max_retries: 2
     outcomes:
       - type: url
         extract_from: .wave/output/publish-result.json

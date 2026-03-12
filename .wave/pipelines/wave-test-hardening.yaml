@@ -57,13 +57,14 @@ steps:
       - name: coverage-analysis
         path: .wave/output/coverage-analysis.json
         type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
         source: .wave/output/coverage-analysis.json
         schema_path: .wave/contracts/improvement-assessment.schema.json
         on_failure: retry
-        max_retries: 2
 
   - id: harden
     persona: craftsman
@@ -98,10 +99,11 @@ steps:
         ```bash
         go test -race -count=1 ./...
         ```
+    retry:
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
         command: "go test -race ./..."
         must_pass: true
         on_failure: retry
-        max_retries: 3

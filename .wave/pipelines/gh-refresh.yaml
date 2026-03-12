@@ -53,8 +53,9 @@ steps:
         path: .wave/artifact.json
         type: json
         required: true
+    retry:
+      max_attempts: 1
     handover:
-      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/issue-update-context.schema.json
@@ -107,8 +108,9 @@ steps:
         path: .wave/artifact.json
         type: json
         required: true
+    retry:
+      max_attempts: 1
     handover:
-      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/issue-update-draft.schema.json
@@ -160,8 +162,9 @@ steps:
         extract_from: .wave/artifact.json
         json_path: .url
         label: "Updated Issue"
+    retry:
+      max_attempts: 1
     handover:
-      max_retries: 1
       contract:
         type: json_schema
         schema_path: .wave/contracts/issue-update-result.schema.json
