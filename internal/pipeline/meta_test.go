@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1608,5 +1609,92 @@ func TestBuildPhilosopherPrompt_ExampleSchemaIsComplete(t *testing.T) {
 	// Should not have incomplete/vague schemas
 	if strings.Contains(schemaSection, `"type": "object"}`) && !strings.Contains(schemaSection, `"properties"`) {
 		t.Error("example schema should not be vague - must define properties")
+	}
+}
+
+// TestExtractPipelineAndSchemas_MockOutput verifies that extractPipelineAndSchemas
+// correctly parses the delimited format produced by the mock adapter's
+// generateMetaPhilosopherOutput function.
+func TestExtractPipelineAndSchemas_MockOutput(t *testing.T) {
+	// Use the mock adapter to generate output in the expected format
+	mockAdapter := adapter.NewMockAdapter()
+	cfg := adapter.AdapterRunConfig{
+		WorkspacePath: ".wave/workspaces/meta-philosopher",
+		Persona:       "philosopher",
+	}
+	result, err := mockAdapter.Run(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("mock adapter run failed: %v", err)
+	}
+
+	outputBytes, err := io.ReadAll(result.Stdout)
+	if err != nil {
+		t.Fatalf("failed to read stdout: %v", err)
+	}
+	output := string(outputBytes)
+
+	// Parse with extractPipelineAndSchemas
+	genResult, err := extractPipelineAndSchemas(output)
+	if err != nil {
+		t.Fatalf("extractPipelineAndSchemas failed: %v", err)
+	}
+
+	// Verify pipeline YAML was extracted
+	if genResult.PipelineYAML == "" {
+		t.Fatal("pipeline YAML should not be empty")
+	}
+
+	// Verify YAML is parseable as a WavePipeline
+	loader := &YAMLPipelineLoader{}
+	pipeline, err := loader.Unmarshal([]byte(genResult.PipelineYAML))
+	if err != nil {
+		t.Fatalf("failed to parse extracted pipeline YAML: %v", err)
+	}
+
+	// Verify pipeline structure
+	if pipeline.Kind != "WavePipeline" {
+		t.Errorf("expected kind WavePipeline, got %q", pipeline.Kind)
+	}
+	if len(pipeline.Steps) != 2 {
+		t.Fatalf("expected 2 steps, got %d", len(pipeline.Steps))
+	}
+	if pipeline.Steps[0].ID != "navigate" {
+		t.Errorf("expected first step ID 'navigate', got %q", pipeline.Steps[0].ID)
+	}
+	if pipeline.Steps[0].Persona != "navigator" {
+		t.Errorf("expected first step persona 'navigator', got %q", pipeline.Steps[0].Persona)
+	}
+	if pipeline.Steps[1].ID != "implement" {
+		t.Errorf("expected second step ID 'implement', got %q", pipeline.Steps[1].ID)
+	}
+
+	// Verify schemas were extracted
+	if len(genResult.Schemas) != 2 {
+		t.Fatalf("expected 2 schemas, got %d", len(genResult.Schemas))
+	}
+
+	navSchema, ok := genResult.Schemas[".wave/contracts/navigation-analysis.schema.json"]
+	if !ok {
+		t.Fatal("missing navigation-analysis schema")
+	}
+	// Verify schema is valid JSON
+	var navJSON map[string]interface{}
+	if err := json.Unmarshal([]byte(navSchema), &navJSON); err != nil {
+		t.Fatalf("navigation schema is not valid JSON: %v", err)
+	}
+	if navJSON["type"] != "object" {
+		t.Errorf("navigation schema should have type 'object', got %v", navJSON["type"])
+	}
+
+	implSchema, ok := genResult.Schemas[".wave/contracts/implementation-result.schema.json"]
+	if !ok {
+		t.Fatal("missing implementation-result schema")
+	}
+	var implJSON map[string]interface{}
+	if err := json.Unmarshal([]byte(implSchema), &implJSON); err != nil {
+		t.Fatalf("implementation schema is not valid JSON: %v", err)
+	}
+	if implJSON["type"] != "object" {
+		t.Errorf("implementation schema should have type 'object', got %v", implJSON["type"])
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,6 +116,9 @@ func TestNewMetaCmd(t *testing.T) {
 func TestMetaCommand_MissingManifestError(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// Satisfy onboarding check without creating wave.yaml
+	require.NoError(t, onboarding.MarkOnboarded(filepath.Join(tmpDir, ".wave")))
+
 	// Change to test directory (no manifest)
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
@@ -207,6 +211,27 @@ func TestMetaCommand_HelpText(t *testing.T) {
 	assert.Contains(t, cmd.Long, "wave meta \"implement user authentication\"")
 	assert.Contains(t, cmd.Long, "--dry-run")
 	assert.Contains(t, cmd.Long, "--save")
+}
+
+// TestMetaCommand_MockDryRun exercises the full meta command flow with Mock + DryRun,
+// verifying that the philosopher output is parsed and the pipeline plan is displayed.
+func TestMetaCommand_MockDryRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifestWithPhilosopher(t, tmpDir)
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(oldWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := MetaOptions{
+		Manifest: "wave.yaml",
+		Mock:     true,
+		DryRun:   true,
+	}
+
+	err = runMeta("implement user authentication", opts)
+	require.NoError(t, err)
 }
 
 // TestSaveMetaPipelinePath verifies save path logic

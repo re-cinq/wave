@@ -138,6 +138,11 @@ func generateRealisticOutput(cfg AdapterRunConfig) string {
 		}
 	}
 
+	// Check for meta-philosopher workspace
+	if strings.Contains(cfg.WorkspacePath, "meta-philosopher") {
+		return generateMetaPhilosopherOutput(cfg)
+	}
+
 	// Extract step name from workspace path (e.g., ".wave/workspaces/prototype/docs" → "docs")
 	phase := filepath.Base(cfg.WorkspacePath)
 	switch phase {
@@ -570,6 +575,132 @@ func generateEpicReportOutput(cfg AdapterRunConfig) string {
 	}
 	out, _ := json.MarshalIndent(data, "", "  ")
 	return string(out)
+}
+
+// generateMetaPhilosopherOutput returns output in the --- PIPELINE --- / --- SCHEMAS ---
+// delimited format expected by extractPipelineAndSchemas in meta.go.
+func generateMetaPhilosopherOutput(cfg AdapterRunConfig) string {
+	return `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: generated-pipeline
+  description: Pipeline generated for the task
+input:
+  source: meta
+steps:
+  - id: navigate
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas relevant to the task."
+    output_artifacts:
+      - name: analysis
+        path: .wave/artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/navigation-analysis.schema.json"
+
+  - id: implement
+    persona: craftsman
+    dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Read .wave/artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
+    output_artifacts:
+      - name: result
+        path: .wave/artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/implementation-result.schema.json"
+
+--- SCHEMAS ---
+SCHEMA: .wave/contracts/navigation-analysis.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Navigation analysis results",
+  "required": ["files", "patterns", "dependencies", "impact_areas"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "description": "List of relevant files",
+      "items": {
+        "type": "object",
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": {"type": "string", "description": "File path"},
+          "purpose": {"type": "string", "description": "Purpose of this file"}
+        }
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "description": "Identified patterns",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string", "description": "Pattern name"},
+          "description": {"type": "string", "description": "Description"}
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Dependency relationships",
+      "properties": {
+        "internal": {"type": "array", "items": {"type": "string"}},
+        "external": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "impact_areas": {
+      "type": "array",
+      "description": "Areas impacted by changes",
+      "items": {"type": "string"}
+    }
+  }
+}
+
+SCHEMA: .wave/contracts/implementation-result.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Implementation result",
+  "required": ["status", "files_modified"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed"],
+      "description": "Implementation status"
+    },
+    "files_modified": {
+      "type": "array",
+      "description": "List of modified files",
+      "items": {"type": "string"}
+    },
+    "summary": {
+      "type": "string",
+      "description": "Summary of changes"
+    }
+  }
+}
+`
 }
 
 func extractArtifactNames(stdout string) []string {

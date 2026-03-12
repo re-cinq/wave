@@ -67,6 +67,11 @@ Examples:
 }
 
 func runMeta(input string, opts MetaOptions) error {
+	// Gate on onboarding completion
+	if err := checkOnboarding(); err != nil {
+		return err
+	}
+
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
 		if os.IsNotExist(err) {
