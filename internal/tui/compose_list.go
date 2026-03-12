@@ -51,6 +51,15 @@ func (m ComposeListModel) Init() tea.Cmd {
 func (m ComposeListModel) Update(msg tea.Msg) (ComposeListModel, tea.Cmd) {
 	// When picking, forward ALL messages to the picker form first.
 	if m.picking && m.picker != nil {
+		// Intercept Escape to cancel the picker — huh uses ctrl+c for abort,
+		// but our UX expects Escape to dismiss.
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.Type == tea.KeyEscape {
+			m.picking = false
+			m.picker = nil
+			m.pickerTarget = nil
+			return m, nil
+		}
+
 		model, cmd := m.picker.Update(msg)
 		m.picker = model.(*huh.Form)
 
@@ -229,7 +238,7 @@ func (m ComposeListModel) enterPickingMode() (ComposeListModel, tea.Cmd) {
 				Height(pickerHeight).
 				Value(m.pickerTarget),
 		),
-	).WithTheme(WaveTheme()).WithHeight(pickerHeight)
+	).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(pickerHeight)
 
 	initCmd := m.picker.Init()
 	m.picking = true
