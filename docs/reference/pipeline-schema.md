@@ -76,7 +76,7 @@ steps:
         type: markdown
     handover:
       contract:
-        type: testsuite
+        type: test_suite
         command: "go vet ./..."
 ```
 
@@ -103,7 +103,7 @@ steps:
 |-------|----------|---------|-------------|
 | `id` | **yes** | - | Unique step identifier |
 | `persona` | **yes** | - | Persona from wave.yaml |
-| `exec.type` | **yes** | - | `prompt` or `command` |
+| `exec.type` | **yes** | - | `prompt`, `command`, or `slash_command` |
 | `exec.source` | **yes** | - | Prompt template or shell command |
 | `dependencies` | no | `[]` | Step IDs that must complete first |
 | `memory.strategy` | no | `fresh` | Memory strategy (always `fresh`) |
@@ -112,6 +112,7 @@ steps:
 | `workspace.branch` | no | auto | Branch name for worktree (supports templates) |
 | `workspace.mount` | no | `[]` | Source mounts (alternative to worktree) |
 | `output_artifacts` | no | `[]` | Files produced by this step |
+| `outcomes` | no | `[]` | Structured results to extract from artifacts |
 | `handover.contract` | no | - | Output validation |
 | `handover.compaction` | no | - | Context relay settings |
 | `strategy` | no | - | Matrix fan-out configuration |
@@ -192,6 +193,22 @@ exec:
   source: "go test -v ./..."
 ```
 
+### Slash Command Execution
+
+```yaml
+exec:
+  type: slash_command
+  command: review-pr
+  args: "123"
+```
+
+Slash command execution invokes a Claude Code slash command (e.g., `/review-pr`) within the adapter session. The `command` field specifies the slash command name (without the leading `/`), and `args` provides the arguments.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `command` | **yes** | Slash command name (without `/` prefix) |
+| `args` | no | Arguments to pass to the slash command |
+
 ### Template Variables
 
 | Variable | Scope | Description |
@@ -220,6 +237,44 @@ output_artifacts:
 | `name` | **yes** | Artifact identifier |
 | `path` | **yes** | File path relative to workspace |
 | `type` | no | `json`, `markdown`, `file`, `directory` |
+
+---
+
+## Outcomes
+
+Outcomes extract structured results from step artifacts into the pipeline output summary. Use outcomes to surface PR URLs, issue links, deployment URLs, or other key results.
+
+```yaml
+outcomes:
+  - type: pr
+    extract_from: output/publish-result.json
+    json_path: ".pr_url"
+    label: "Pull Request"
+  - type: url
+    extract_from: output/publish-result.json
+    json_path: ".deploy_urls[*]"
+    json_path_label: ".label"
+    label: "Deployment"
+```
+
+### Outcome Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | **yes** | Outcome type: `pr`, `issue`, `url`, `deployment` |
+| `extract_from` | **yes** | Artifact path relative to workspace (e.g., `output/publish-result.json`) |
+| `json_path` | **yes** | Dot notation path to extract the value (e.g., `.pr_url`, `.comment_url`) |
+| `json_path_label` | no | Label extraction path for array items (used with `[*]` in `json_path`) |
+| `label` | no | Human-readable label for display in the output summary |
+
+### Supported Outcome Types
+
+| Type | Description |
+|------|-------------|
+| `pr` | Pull request URL |
+| `issue` | Issue URL |
+| `url` | Generic URL |
+| `deployment` | Deployment URL |
 
 ---
 
@@ -300,7 +355,7 @@ Validate step output before proceeding.
 ```yaml
 handover:
   contract:
-    type: testsuite
+    type: test_suite
     command: "npm test"
 ```
 
@@ -321,7 +376,7 @@ handover:
 ```yaml
 handover:
   contract:
-    type: typescript
+    type: typescript_interface
     source: .wave/output/types.ts
     validate: true
 ```
@@ -330,9 +385,9 @@ handover:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `type` | **yes** | - | `testsuite`, `jsonschema`, `typescript`, `markdownspec` |
-| `command` | depends | - | Test command (for `testsuite`) |
-| `schema` | depends | - | Schema path (for `jsonschema`) |
+| `type` | **yes** | - | `test_suite`, `json_schema`, `typescript_interface`, `markdown_spec`, `format`, `non_empty_file` |
+| `command` | depends | - | Test command (for `test_suite`) |
+| `schema` | depends | - | Schema path (for `json_schema`) |
 | `source` | depends | - | File to validate |
 | `must_pass` | no | `true` | Whether failure blocks progression |
 | `on_failure` | no | `retry` | `retry` or `halt` |
@@ -462,6 +517,7 @@ steps:
 ## Next Steps
 
 - [Pipelines](/concepts/pipelines) - Pipeline concepts
+- [Outcomes](/concepts/outcomes) - Extracting structured results from pipelines
 - [Contracts](/concepts/contracts) - Output validation
 - [Contract Types](/reference/contract-types) - All contract options
 - [Manifest Reference](/reference/manifest) - Project configuration
