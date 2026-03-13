@@ -288,3 +288,189 @@ func containsStr(ss []string, target string) bool {
 	}
 	return false
 }
+
+func TestBuildChatClaudeMd_WithArtifactContent(t *testing.T) {
+	now := time.Now()
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "art-test",
+			PipelineName: "gh-implement",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		Steps: []ChatStepContext{
+			{StepID: "implement", Persona: "craftsman", State: "completed"},
+		},
+		Pipeline: &Pipeline{
+			Metadata: PipelineMetadata{Name: "gh-implement"},
+		},
+		Artifacts: []state.ArtifactRecord{
+			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json"},
+		},
+		ArtifactContents: map[string]string{
+			"pr-result.json": `{"pr_url":"https://github.com/test/repo/pull/1"}`,
+		},
+		ChatConfig: &ChatContextConfig{
+			SuggestedQuestions: []string{"Would you like to review the changes?", "Are there failing tests?"},
+			FocusAreas:         []string{"code changes", "test coverage"},
+		},
+		ProjectRoot: "/tmp/test",
+	}
+
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis)
+
+	// Check artifact content section
+	if !strings.Contains(md, "## Key Artifact Content") {
+		t.Error("missing Key Artifact Content section")
+	}
+	if !strings.Contains(md, "pr-result.json") {
+		t.Error("missing artifact name in content section")
+	}
+	if !strings.Contains(md, "pr_url") {
+		t.Error("missing artifact content")
+	}
+
+	// Check suggested questions section
+	if !strings.Contains(md, "## Suggested Questions") {
+		t.Error("missing Suggested Questions section")
+	}
+	if !strings.Contains(md, "Would you like to review the changes?") {
+		t.Error("missing suggested question")
+	}
+
+	// Check focus areas section
+	if !strings.Contains(md, "## Focus Areas") {
+		t.Error("missing Focus Areas section")
+	}
+	if !strings.Contains(md, "code changes") {
+		t.Error("missing focus area")
+	}
+
+	// Check post-mortem questions (should be PR-related since we have pr-result artifact)
+	if !strings.Contains(md, "## Post-Mortem Questions") {
+		t.Error("missing Post-Mortem Questions section")
+	}
+}
+
+func TestBuildChatClaudeMd_NoChatConfig(t *testing.T) {
+	now := time.Now()
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "no-cfg-test",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		ProjectRoot: "/tmp/test",
+		// No ChatConfig, no ArtifactContents
+	}
+
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis)
+
+	// Should NOT have the new sections
+	if strings.Contains(md, "## Key Artifact Content") {
+		t.Error("should not have Key Artifact Content section without ChatConfig")
+	}
+	if strings.Contains(md, "## Suggested Questions") {
+		t.Error("should not have Suggested Questions section without ChatConfig")
+	}
+	if strings.Contains(md, "## Focus Areas") {
+		t.Error("should not have Focus Areas section without ChatConfig")
+	}
+
+	// Should still have standard sections
+	if !strings.Contains(md, "## Run Summary") {
+		t.Error("missing Run Summary section")
+	}
+	if !strings.Contains(md, "## Wave Infrastructure") {
+		t.Error("missing Wave Infrastructure section")
+	}
+}
+
+func TestGeneratePostMortemQuestions_FailedRun(t *testing.T) {
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:  "fail-run",
+			Status: "failed",
+		},
+		Steps: []ChatStepContext{
+			{StepID: "build", State: "failed"},
+		},
+		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
+	}
+
+	questions := generatePostMortemQuestions(ctx)
+	if len(questions) != 3 {
+		t.Fatalf("expected 3 questions, got %d", len(questions))
+	}
+
+	if !strings.Contains(questions[0], "build") {
+		t.Errorf("expected failed step name in first question, got: %s", questions[0])
+	}
+	if !strings.Contains(questions[1], "retry") {
+		t.Errorf("expected retry suggestion, got: %s", questions[1])
+	}
+}
+
+func TestGeneratePostMortemQuestions_PRPipeline(t *testing.T) {
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:  "pr-run",
+			Status: "completed",
+		},
+		Artifacts: []state.ArtifactRecord{
+			{Name: "pr-result.json"},
+		},
+		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "gh-implement"}},
+	}
+
+	questions := generatePostMortemQuestions(ctx)
+	if len(questions) != 3 {
+		t.Fatalf("expected 3 questions, got %d", len(questions))
+	}
+
+	if !strings.Contains(questions[0], "review") {
+		t.Errorf("expected review question for PR pipeline, got: %s", questions[0])
+	}
+}
+
+func TestGeneratePostMortemQuestions_ReviewPipeline(t *testing.T) {
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:  "rev-run",
+			Status: "completed",
+		},
+		Artifacts: []state.ArtifactRecord{
+			{Name: "review-summary.md"},
+		},
+		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "gh-pr-review"}},
+	}
+
+	questions := generatePostMortemQuestions(ctx)
+	if len(questions) != 3 {
+		t.Fatalf("expected 3 questions, got %d", len(questions))
+	}
+
+	if !strings.Contains(questions[0], "critical findings") {
+		t.Errorf("expected findings question for review pipeline, got: %s", questions[0])
+	}
+}
+
+func TestGeneratePostMortemQuestions_GenericPipeline(t *testing.T) {
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:  "gen-run",
+			Status: "completed",
+		},
+		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "custom-pipeline"}},
+	}
+
+	questions := generatePostMortemQuestions(ctx)
+	if len(questions) != 3 {
+		t.Fatalf("expected 3 questions, got %d", len(questions))
+	}
+
+	if !strings.Contains(questions[0], "key outputs") {
+		t.Errorf("expected generic output question, got: %s", questions[0])
+	}
+}

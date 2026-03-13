@@ -24,6 +24,23 @@ type Pipeline struct {
 	Input    InputConfig      `yaml:"input"`
 	Steps           []Step                       `yaml:"steps"`
 	PipelineOutputs map[string]PipelineOutput    `yaml:"pipeline_outputs,omitempty"` // Named output aliases
+	ChatContext     *ChatContextConfig           `yaml:"chat_context,omitempty"`     // Chat session context injection
+}
+
+// ChatContextConfig configures what context to inject into post-pipeline chat sessions.
+type ChatContextConfig struct {
+	ArtifactSummaries  []string `yaml:"artifact_summaries,omitempty"`  // Artifact names to summarize in chat
+	SuggestedQuestions []string `yaml:"suggested_questions,omitempty"` // Pipeline-specific opening questions
+	FocusAreas         []string `yaml:"focus_areas,omitempty"`         // Areas to highlight in chat
+	MaxContextTokens   int      `yaml:"max_context_tokens,omitempty"` // Token budget for injected content (default 8000)
+}
+
+// EffectiveMaxContextTokens returns the token budget, defaulting to 8000.
+func (c *ChatContextConfig) EffectiveMaxContextTokens() int {
+	if c == nil || c.MaxContextTokens <= 0 {
+		return 8000
+	}
+	return c.MaxContextTokens
 }
 
 // Requires declares pipeline dependencies that must be satisfied before execution.
