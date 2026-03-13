@@ -216,13 +216,26 @@ func discoverPipelines(dir string) []string {
 	return names
 }
 
-// resolvePipeline looks for a unified (bare) pipeline first, then falls back to forge-prefixed.
+// taxonomyPrefixes are the category prefixes used in the pipeline naming taxonomy.
+var taxonomyPrefixes = []string{"plan-", "impl-", "audit-", "doc-", "test-", "ops-"}
+
+// resolvePipeline looks for a pipeline by semantic base name, trying:
+// 1. Exact bare name (e.g. "debug")
+// 2. Taxonomy-prefixed variants (e.g. "ops-debug", "impl-debug")
+// 3. Forge-prefixed variants (e.g. "gh-debug") — legacy fallback
 func resolvePipeline(catalog []string, prefix, base string) string {
 	// Try bare name first (unified pipeline)
 	if inCatalog(catalog, base) {
 		return base
 	}
-	// Fall back to forge-prefixed
+	// Try taxonomy-prefixed variants
+	for _, tp := range taxonomyPrefixes {
+		prefixed := tp + base
+		if inCatalog(catalog, prefixed) {
+			return prefixed
+		}
+	}
+	// Fall back to forge-prefixed (legacy)
 	if prefix != "" {
 		prefixed := prefix + "-" + base
 		if inCatalog(catalog, prefixed) {

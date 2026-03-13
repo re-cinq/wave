@@ -1,0 +1,139 @@
+kind: WavePipeline
+metadata:
+  name: impl-refactor
+  description: "Safe refactoring with comprehensive test coverage"
+  release: true
+
+input:
+  source: cli
+  example: "extract workspace manager from executor into its own package"
+
+steps:
+  - id: analyze
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Analyze refactoring scope for: {{ input }}
+
+        1. Identify all code that will be affected
+        2. Map all callers/consumers of the code being refactored
+        3. Find existing test coverage
+        4. Identify integration points
+    output_artifacts:
+      - name: analysis
+        path: .wave/output/refactor-analysis.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/refactor-analysis.json
+        schema_path: .wave/contracts/refactor-analysis.schema.json
+        on_failure: retry
+
+  - id: test-baseline
+    persona: craftsman
+    dependencies: [analyze]
+    memory:
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Before refactoring, ensure test coverage:
+
+        1. Run existing tests and record baseline
+        2. Add characterization tests for uncovered code paths
+        3. Add integration tests for affected callers
+        4. Document current behavior for comparison
+
+        All tests must pass before proceeding.
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+
+        must_pass: true
+        on_failure: retry
+    output_artifacts:
+      - name: baseline
+        path: .wave/output/test-baseline.md
+        type: markdown
+  - id: refactor
+    persona: craftsman
+    dependencies: [test-baseline]
+    memory:
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+        - step: test-baseline
+          artifact: baseline
+          as: tests
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        Perform the refactoring: {{ input }}
+
+        Guidelines:
+        1. Make atomic, reviewable changes
+        2. Preserve all existing behavior
+        3. Run tests after each significant change
+        4. Update affected callers as needed
+        5. Keep commits small and focused
+
+        Do NOT change behavior — this is refactoring only.
+    retry:
+      max_attempts: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+
+        must_pass: false
+        on_failure: retry
+
+  - id: verify
+    persona: reviewer
+    dependencies: [refactor]
+    exec:
+      type: prompt
+      source: |
+        Verify the refactoring:
+
+        1. Compare before/after behavior — any changes?
+        2. Check test coverage didn't decrease
+        3. Verify all callers still work correctly
+        4. Look for missed edge cases
+        5. Assess code quality improvement
+
+        Output: PASS (safe to merge) or FAIL (issues found)
+    output_artifacts:
+      - name: verification
+        path: .wave/output/verification.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/verification.md
