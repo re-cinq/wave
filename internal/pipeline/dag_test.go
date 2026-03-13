@@ -133,6 +133,70 @@ func TestValidateDAG_ArtifactRefStepAndPipelineMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestValidateDAG_ConcurrencyAndMatrixMutuallyExclusive(t *testing.T) {
+	tests := []struct {
+		name        string
+		concurrency int
+		strategy    *MatrixStrategy
+		wantErr     bool
+	}{
+		{
+			name:        "concurrency only is valid",
+			concurrency: 3,
+			strategy:    nil,
+			wantErr:     false,
+		},
+		{
+			name:        "matrix only is valid",
+			concurrency: 0,
+			strategy:    &MatrixStrategy{Type: "matrix", ItemsSource: "items.json", ItemKey: "items"},
+			wantErr:     false,
+		},
+		{
+			name:        "both concurrency and matrix is invalid",
+			concurrency: 3,
+			strategy:    &MatrixStrategy{Type: "matrix", ItemsSource: "items.json", ItemKey: "items"},
+			wantErr:     true,
+		},
+		{
+			name:        "concurrency=1 with matrix is valid (concurrency disabled)",
+			concurrency: 1,
+			strategy:    &MatrixStrategy{Type: "matrix", ItemsSource: "items.json", ItemKey: "items"},
+			wantErr:     false,
+		},
+		{
+			name:        "concurrency=0 with matrix is valid (concurrency disabled)",
+			concurrency: 0,
+			strategy:    &MatrixStrategy{Type: "matrix", ItemsSource: "items.json", ItemKey: "items"},
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeline := &Pipeline{
+				Steps: []Step{
+					{
+						ID:          "step1",
+						Persona:     "agent1",
+						Concurrency: tt.concurrency,
+						Strategy:    tt.strategy,
+					},
+				},
+			}
+
+			validator := &DAGValidator{}
+			err := validator.ValidateDAG(pipeline)
+			if tt.wantErr && err == nil {
+				t.Error("expected error for concurrent + matrix, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestTopologicalSort_SimplePipeline(t *testing.T) {
 	pipeline := &Pipeline{
 		Steps: []Step{
