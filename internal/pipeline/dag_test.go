@@ -266,7 +266,7 @@ func TestValidateDAG_ReworkTargetNotUpstream(t *testing.T) {
 	// step2 cannot rework to step1 because it's upstream.
 	pipeline := &Pipeline{
 		Steps: []Step{
-			{ID: "step1", Persona: "agent1"},
+			{ID: "step1", Persona: "agent1", ReworkOnly: true},
 			{
 				ID:           "step2",
 				Persona:      "agent2",
@@ -304,6 +304,7 @@ func TestValidateDAG_ReworkTargetDependsOnFailingStep(t *testing.T) {
 			{
 				ID:           "step2",
 				Persona:      "agent2",
+				ReworkOnly:   true,
 				Dependencies: []string{"step1"},
 			},
 		},
@@ -344,7 +345,7 @@ func TestValidateDAG_ReworkTargetSelfReference(t *testing.T) {
 }
 
 func TestValidateDAG_ValidReworkTarget(t *testing.T) {
-	// step1 reworks to fallback, which is an independent step — valid.
+	// step1 reworks to fallback, which is an independent rework-only step — valid.
 	pipeline := &Pipeline{
 		Steps: []Step{
 			{
@@ -355,7 +356,7 @@ func TestValidateDAG_ValidReworkTarget(t *testing.T) {
 					ReworkStep: "fallback",
 				},
 			},
-			{ID: "fallback", Persona: "agent2"},
+			{ID: "fallback", Persona: "agent2", ReworkOnly: true},
 		},
 	}
 
@@ -363,6 +364,31 @@ func TestValidateDAG_ValidReworkTarget(t *testing.T) {
 	err := validator.ValidateDAG(pipeline)
 	if err != nil {
 		t.Errorf("Expected valid rework config, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ReworkTargetNotReworkOnly(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "step2",
+				},
+			},
+			{ID: "step2", Persona: "agent2"}, // not rework_only
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target without rework_only, got nil")
+	}
+	if got := err.Error(); !contains(got, "rework_only") {
+		t.Errorf("Expected error about rework_only requirement, got: %s", got)
 	}
 }
 
@@ -456,7 +482,7 @@ func TestValidateDAG_DuplicateReworkTarget(t *testing.T) {
 				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
 			{ID: "step-2", Persona: "nav", Exec: ExecConfig{Source: "b"},
 				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
-			{ID: "rework-step", Persona: "nav", Exec: ExecConfig{Source: "fix"}},
+			{ID: "rework-step", Persona: "nav", ReworkOnly: true, Exec: ExecConfig{Source: "fix"}},
 		},
 	}
 
