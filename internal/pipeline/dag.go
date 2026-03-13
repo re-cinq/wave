@@ -126,6 +126,11 @@ func (v *DAGValidator) validateReworkTarget(stepID, reworkStepID string, stepMap
 		return fmt.Errorf("step %q cannot rework to itself", stepID)
 	}
 
+	// Rework target must be marked as rework_only to prevent double execution
+	if target := stepMap[reworkStepID]; !target.ReworkOnly {
+		return fmt.Errorf("rework target %q must have rework_only: true (referenced by step %q)", reworkStepID, stepID)
+	}
+
 	// Check that rework target is not an upstream dependency of the failing step
 	if v.isTransitiveDep(stepID, reworkStepID, stepMap) {
 		return fmt.Errorf("step %q has rework_step %q which is an upstream dependency (would create cycle)", stepID, reworkStepID)

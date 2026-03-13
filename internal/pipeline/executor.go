@@ -300,8 +300,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		ArtifactPaths:   make(map[string]string),
 		WorkspacePaths:  make(map[string]string),
 		WorktreePaths:   make(map[string]*WorktreeInfo),
-		AttemptContexts: make(map[string]*AttemptContext),
-		Input:           input,
+		AttemptContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
+		Input:             input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
@@ -460,10 +461,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
 			State:          "running",
-			TotalSteps:     len(p.Steps),
+			TotalSteps:     schedulableSteps,
 			CompletedSteps: completedCount,
-			Progress:       (completedCount * 100) / len(p.Steps),
-			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, len(p.Steps)),
+			Progress:       (completedCount * 100) / schedulableSteps,
+			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, schedulableSteps),
 		})
 	}
 
@@ -489,7 +490,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		PipelineID: pipelineID,
 		State:      "completed",
 		DurationMs: elapsed,
-		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
+		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
@@ -951,9 +952,6 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	// Mark the failed step as completed so downstream steps are not skipped
 	execution.States[failedStep.ID] = StateCompleted
 	// Record the rework transition for resume support
-	if execution.ReworkTransitions == nil {
-		execution.ReworkTransitions = make(map[string]string)
-	}
 	execution.ReworkTransitions[failedStep.ID] = reworkStep.ID
 	execution.mu.Unlock()
 
