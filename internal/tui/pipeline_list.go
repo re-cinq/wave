@@ -605,23 +605,6 @@ func (m PipelineListModel) renderPipelineName(item navigableItem, isSelected boo
 	nameMaxWidth := maxWidth - 3
 	name := truncateName(item.label, nameMaxWidth)
 
-	if isSelected {
-		prefix := "› "
-		if hasChildren {
-			if m.collapsed[item.pipelineName] {
-				prefix = "▶ "
-			} else {
-				prefix = "▼ "
-			}
-		}
-		text := fmt.Sprintf("%s%s", prefix, name)
-		style := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("6")).
-			Width(maxWidth)
-		return style.Render(text)
-	}
-
 	prefix := "  "
 	if hasChildren {
 		if m.collapsed[item.pipelineName] {
@@ -631,6 +614,14 @@ func (m PipelineListModel) renderPipelineName(item navigableItem, isSelected boo
 		}
 	}
 	text := fmt.Sprintf("%s%s", prefix, name)
+
+	if isSelected {
+		style := SelectionStyle(m.focused).
+			Bold(true).
+			Width(maxWidth)
+		return style.Render(text)
+	}
+
 	style := lipgloss.NewStyle().
 		Bold(true).
 		Width(maxWidth)
@@ -671,23 +662,18 @@ func (m PipelineListModel) renderRunningItem(item navigableItem, isSelected bool
 	nameMaxWidth := maxWidth - 2 - len(elapsed) - 3
 	displayName = truncateName(displayName, nameMaxWidth)
 
-	if isSelected {
-		spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(elapsed) - 1
-		if spacer < 1 {
-			spacer = 1
-		}
-		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			Width(maxWidth)
-		return style.Render(text)
-	}
-
 	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(elapsed) - 1
 	if spacer < 1 {
 		spacer = 1
 	}
 	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
+
+	if isSelected {
+		style := SelectionStyle(m.focused).
+			Width(maxWidth)
+		return style.Render(text)
+	}
+
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)
@@ -730,23 +716,18 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	nameMaxWidth := maxWidth - 2 - len(suffix) - 3
 	displayName = truncateName(displayName, nameMaxWidth)
 
-	if isSelected {
-		spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(suffix) - 1
-		if spacer < 1 {
-			spacer = 1
-		}
-		text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), suffix)
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			Width(maxWidth)
-		return style.Render(text)
-	}
-
 	spacer := maxWidth - lipgloss.Width(connector+displayName) - lipgloss.Width(suffix) - 1
 	if spacer < 1 {
 		spacer = 1
 	}
 	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), suffix)
+
+	if isSelected {
+		style := SelectionStyle(m.focused).
+			Width(maxWidth)
+		return style.Render(text)
+	}
+
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)

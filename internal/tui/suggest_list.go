@@ -149,20 +149,12 @@ func (m SuggestListModel) View() string {
 	}
 
 	for i, p := range m.proposals {
-		cursor := "  "
-		if i == m.cursor {
-			cursor = "> "
-		}
+		prefix := "  "
 
 		// Selection marker
 		selMarker := " "
 		if m.selected[i] {
 			selMarker = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("●")
-		}
-
-		style := lipgloss.NewStyle()
-		if i == m.cursor && m.focused {
-			style = style.Bold(true).Foreground(lipgloss.Color("12"))
 		}
 
 		// Type badge for sequence/parallel proposals
@@ -173,8 +165,13 @@ func (m SuggestListModel) View() string {
 			typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("[par]") + " "
 		}
 
-		line := fmt.Sprintf("%s%s %s[P%d] %s", cursor, selMarker, typeBadge, p.Priority, p.Name)
-		sb.WriteString(style.Render(line))
+		line := fmt.Sprintf("%s%s %s[P%d] %s", prefix, selMarker, typeBadge, p.Priority, p.Name)
+		if i == m.cursor {
+			style := SelectionStyle(m.focused).Width(m.width)
+			sb.WriteString(style.Render(line))
+		} else {
+			sb.WriteString(line)
+		}
 		sb.WriteString("\n")
 	}
 
