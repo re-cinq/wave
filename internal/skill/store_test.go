@@ -470,10 +470,14 @@ func TestDirectoryStoreRead(t *testing.T) {
 	t.Run("name directory mismatch", func(t *testing.T) {
 		root := t.TempDir()
 		dir := filepath.Join(root, "dir-name")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		// Write a SKILL.md where name doesn't match directory
 		content := "---\nname: different-name\ndescription: Mismatch test\n---\n"
-		os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 
 		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 		_, err := store.Read("dir-name")
@@ -510,8 +514,12 @@ func TestDirectoryStoreList(t *testing.T) {
 
 		// Create invalid skill (malformed YAML)
 		badDir := filepath.Join(root, "bad-skill")
-		os.MkdirAll(badDir, 0755)
-		os.WriteFile(filepath.Join(badDir, "SKILL.md"), []byte("---\n[invalid yaml\n---\n"), 0644)
+		if err := os.MkdirAll(badDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(badDir, "SKILL.md"), []byte("---\n[invalid yaml\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
 
 		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 		skills, err := store.List()
@@ -1006,9 +1014,13 @@ func TestDirectoryStoreReadIOError(t *testing.T) {
 	root := t.TempDir()
 	// Create a skill directory but make the SKILL.md unreadable
 	skillDir := filepath.Join(root, "no-read")
-	os.MkdirAll(skillDir, 0755)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(skillDir, "SKILL.md")
-	os.WriteFile(path, []byte("---\nname: no-read\ndescription: test\n---\n"), 0000)
+	if err := os.WriteFile(path, []byte("---\nname: no-read\ndescription: test\n---\n"), 0000); err != nil {
+		t.Fatal(err)
+	}
 
 	store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 	_, err := store.Read("no-read")
@@ -1050,7 +1062,9 @@ func TestListWithDirReadError(t *testing.T) {
 	createSkillDir(t, root, "valid-skill", "Valid")
 
 	// Create a subdirectory without SKILL.md (should be silently skipped)
-	os.MkdirAll(filepath.Join(root, "no-skillmd"), 0755)
+	if err := os.MkdirAll(filepath.Join(root, "no-skillmd"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 	skills, err := store.List()
