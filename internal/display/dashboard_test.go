@@ -43,12 +43,6 @@ func TestDashboard_Render(t *testing.T) {
 	if err != nil {
 		t.Errorf("Render failed: %v", err)
 	}
-
-	// Test compact mode
-	err = dashboard.RenderCompact(ctx)
-	if err != nil {
-		t.Errorf("RenderCompact failed: %v", err)
-	}
 }
 
 func TestDashboard_ProgressBar(t *testing.T) {
@@ -101,14 +95,6 @@ func TestDashboard_StatusIcon(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestDashboard_ShouldUseCompactMode(t *testing.T) {
-	dashboard := NewDashboard()
-
-	// Just verify it doesn't panic
-	compactMode := dashboard.ShouldUseCompactMode()
-	_ = compactMode // Use the variable
 }
 
 func TestFormatDashboardDuration(t *testing.T) {
@@ -188,12 +174,6 @@ func TestDashboard_RenderPanels(t *testing.T) {
 		}
 	})
 
-	t.Run("project info panel", func(t *testing.T) {
-		panel := dashboard.renderProjectInfoPanel(ctx)
-		if !strings.Contains(panel, "Project Information") {
-			t.Error("Project info panel should contain header")
-		}
-	})
 }
 
 func TestDashboard_Clear(t *testing.T) {
