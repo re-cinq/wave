@@ -1,7 +1,6 @@
 package security_test
 
 import (
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -315,7 +314,7 @@ func TestPersonaAudit_DescriptionPatternsCoveredForForges(t *testing.T) {
 
 	// Verify that --description patterns are covered by the main audit
 	// (this is a meta-test to ensure completeness)
-	testLine := fmt.Sprintf(`glab issue create --description "<body>"`)
+	testLine := `glab issue create --description "<body>"`
 	if !unsafeDescriptionPattern.MatchString(testLine) {
 		t.Error("audit regex should detect --description with unsafe interpolation")
 	}
