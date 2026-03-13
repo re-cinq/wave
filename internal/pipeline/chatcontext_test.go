@@ -293,9 +293,15 @@ func TestBuildChatContext_WithChatContextConfig(t *testing.T) {
 
 	// Create artifact files on disk
 	artDir := filepath.Join(tmpDir, ".wave", "output")
-	os.MkdirAll(artDir, 0755)
-	os.WriteFile(filepath.Join(artDir, "result.json"), []byte(`{"score":95,"verdict":"pass"}`), 0644)
-	os.WriteFile(filepath.Join(artDir, "notes.md"), []byte("# Summary\n\nAll good.\n"), 0644)
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "result.json"), []byte(`{"score":95,"verdict":"pass"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "notes.md"), []byte("# Summary\n\nAll good.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	store := &mockChatStore{
 		run: &state.RunRecord{
@@ -390,13 +396,19 @@ func TestBuildChatContext_TokenBudget(t *testing.T) {
 
 	// Create a large artifact
 	artDir := filepath.Join(tmpDir, ".wave", "output")
-	os.MkdirAll(artDir, 0755)
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
 	largeContent := make([]byte, 10000)
 	for i := range largeContent {
 		largeContent[i] = 'x'
 	}
-	os.WriteFile(filepath.Join(artDir, "large.txt"), largeContent, 0644)
-	os.WriteFile(filepath.Join(artDir, "small.txt"), []byte("small content"), 0644)
+	if err := os.WriteFile(filepath.Join(artDir, "large.txt"), largeContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "small.txt"), []byte("small content"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	store := &mockChatStore{
 		run: &state.RunRecord{
@@ -457,8 +469,12 @@ func TestBuildChatContext_MissingArtifactFile(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	artDir := filepath.Join(tmpDir, ".wave", "output")
-	os.MkdirAll(artDir, 0755)
-	os.WriteFile(filepath.Join(artDir, "exists.txt"), []byte("hello"), 0644)
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "exists.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "test"},

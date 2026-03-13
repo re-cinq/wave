@@ -427,7 +427,8 @@ func generatePostMortemQuestions(ctx *ChatContext) []string {
 		pipelineName = ctx.Pipeline.PipelineName()
 	}
 
-	if ctx.Run.Status == "failed" {
+	switch {
+	case ctx.Run.Status == "failed":
 		// Failed run questions
 		if len(failedSteps) > 0 {
 			questions = append(questions, fmt.Sprintf("What caused the failure in step '%s' and how can it be resolved?", failedSteps[0]))
@@ -436,30 +437,30 @@ func generatePostMortemQuestions(ctx *ChatContext) []string {
 		}
 		questions = append(questions, "Should we retry the pipeline with modified parameters or a different approach?")
 		questions = append(questions, "Are there any pre-conditions or dependencies that were not met?")
-	} else if hasPR {
+	case hasPR:
 		// Implementation/PR pipeline
 		questions = append(questions, "Would you like to review the changes in the pull request?")
 		questions = append(questions, "Are there any edge cases or error scenarios not covered by the implementation?")
 		questions = append(questions, "Should we add additional tests or documentation?")
-	} else if hasReview {
+	case hasReview:
 		// Review pipeline
 		questions = append(questions, "What are the most critical findings from the review?")
 		questions = append(questions, "Are there any blocking concerns that must be addressed before merging?")
 		questions = append(questions, "What improvements should be prioritized?")
-	} else if hasAnalysis {
+	case hasAnalysis:
 		// Analysis pipeline
 		questions = append(questions, "What are the key findings from the analysis?")
 		questions = append(questions, "Which items need immediate attention?")
 		questions = append(questions, "What is the recommended next step based on the analysis?")
-	} else if strings.Contains(pipelineName, "implement") {
+	case strings.Contains(pipelineName, "implement"):
 		questions = append(questions, "Would you like to review the implementation changes?")
 		questions = append(questions, "Are there any areas that need additional testing?")
 		questions = append(questions, "Should we refine any part of the implementation?")
-	} else if strings.Contains(pipelineName, "review") {
+	case strings.Contains(pipelineName, "review"):
 		questions = append(questions, "What are the most important review findings?")
 		questions = append(questions, "Are there any security or quality concerns?")
 		questions = append(questions, "What should be addressed before the next review?")
-	} else {
+	default:
 		// Generic completed pipeline
 		questions = append(questions, "What are the key outputs from this pipeline run?")
 		questions = append(questions, "Are there any issues or areas of concern in the results?")
