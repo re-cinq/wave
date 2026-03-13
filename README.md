@@ -303,7 +303,7 @@ personas:
       deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 ```
 
-**30 built-in personas** including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
+**30 built-in personas** (plus `base-protocol.md` shared preamble) including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
 
 > Explore all personas in [`.wave/personas/`](.wave/personas/)
 
@@ -338,7 +338,7 @@ steps:
     dependencies: [security, quality]  # runs after both complete
 ```
 
-**47 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**46 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -350,7 +350,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 47 built-in pipelines:
+A selection of the 46 built-in pipelines:
 
 ### Development
 
@@ -386,7 +386,7 @@ A selection of the 47 built-in pipelines:
 | `gh-scope` | Decompose epics into child issues |
 | `gh-research` | Research and report on issues |
 
-> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `changelog`, `adr`, `wave-land`, `recinq`, `supervise`, plus platform variants for GitHub (gh-\*), GitLab (gl-\*), Gitea (gt-\*), and Bitbucket (bb-\*)
+> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `changelog`, `adr`, `wave-land`, `recinq`, `supervise`, plus GitHub automation (gh-\*) and Wave self-evolution (wave-\*) pipelines
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
