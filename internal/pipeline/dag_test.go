@@ -233,6 +233,201 @@ func TestTopologicalSort_WithCycle(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Rework DAG Validation Tests
+// ============================================================================
+
+func TestValidateDAG_ReworkTargetExists(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "nonexistent",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target referencing nonexistent step, got nil")
+	}
+	if got := err.Error(); !contains(got, "does not exist") {
+		t.Errorf("Expected error about nonexistent step, got: %s", got)
+	}
+}
+
+func TestValidateDAG_ReworkTargetNotUpstream(t *testing.T) {
+	// step2 depends on step1, so step1 is an upstream dep of step2.
+	// step2 cannot rework to step1 because it's upstream.
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{ID: "step1", Persona: "agent1", ReworkOnly: true},
+			{
+				ID:           "step2",
+				Persona:      "agent2",
+				Dependencies: []string{"step1"},
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "step1",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target being upstream dependency, got nil")
+	}
+	if got := err.Error(); !contains(got, "upstream dependency") {
+		t.Errorf("Expected error about upstream dependency, got: %s", got)
+	}
+}
+
+func TestValidateDAG_ReworkTargetDependsOnFailingStep(t *testing.T) {
+	// step1 has rework_step: step2, but step2 depends on step1 → cycle
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "step2",
+				},
+			},
+			{
+				ID:           "step2",
+				Persona:      "agent2",
+				ReworkOnly:   true,
+				Dependencies: []string{"step1"},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target depending on the failing step, got nil")
+	}
+	if got := err.Error(); !contains(got, "depends on step") {
+		t.Errorf("Expected error about dependency cycle, got: %s", got)
+	}
+}
+
+func TestValidateDAG_ReworkTargetSelfReference(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "step1",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target being self, got nil")
+	}
+	if got := err.Error(); !contains(got, "cannot rework to itself") {
+		t.Errorf("Expected error about self-rework, got: %s", got)
+	}
+}
+
+func TestValidateDAG_ValidReworkTarget(t *testing.T) {
+	// step1 reworks to fallback, which is an independent rework-only step — valid.
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "fallback",
+				},
+			},
+			{ID: "fallback", Persona: "agent2", ReworkOnly: true},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err != nil {
+		t.Errorf("Expected valid rework config, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ReworkTargetNotReworkOnly(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "rework",
+					ReworkStep: "step2",
+				},
+			},
+			{ID: "step2", Persona: "agent2"}, // not rework_only
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework target without rework_only, got nil")
+	}
+	if got := err.Error(); !contains(got, "rework_only") {
+		t.Errorf("Expected error about rework_only requirement, got: %s", got)
+	}
+}
+
+func TestValidateDAG_RetryConfigValidation(t *testing.T) {
+	// rework_step set without on_failure: rework should fail
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "agent1",
+				Retry: RetryConfig{
+					OnFailure:  "fail",
+					ReworkStep: "fallback",
+				},
+			},
+			{ID: "fallback", Persona: "agent2"},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Fatal("Expected error for rework_step set without on_failure: rework, got nil")
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr))
+}
+
+func containsAt(s, substr string) bool {
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestYAMLPipelineLoader_ValidYAML(t *testing.T) {
 	yamlContent := []byte(`
 kind: WavePipeline
@@ -277,5 +472,44 @@ invalid: yaml: content:
 	_, err := loader.Unmarshal(yamlContent)
 	if err == nil {
 		t.Error("Expected error for invalid YAML, got nil")
+	}
+}
+
+func TestValidateDAG_DuplicateReworkTarget(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-1", Persona: "nav", Exec: ExecConfig{Source: "a"},
+				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
+			{ID: "step-2", Persona: "nav", Exec: ExecConfig{Source: "b"},
+				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
+			{ID: "rework-step", Persona: "nav", ReworkOnly: true, Exec: ExecConfig{Source: "fix"}},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for duplicate rework target, got nil")
+	}
+	if err != nil && !contains(err.Error(), "is used by both") {
+		t.Errorf("Expected 'is used by both' error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_InvalidOnFailureValue(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-1", Persona: "nav", Exec: ExecConfig{Source: "a"},
+				Retry: RetryConfig{OnFailure: "invalid_value"}},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for invalid on_failure value, got nil")
+	}
+	if err != nil && !contains(err.Error(), "invalid on_failure") {
+		t.Errorf("Expected 'invalid on_failure' error, got: %v", err)
 	}
 }

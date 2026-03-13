@@ -100,6 +100,7 @@ const (
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
 	StateSkipped            = "skipped"             // Step was skipped (on_failure: "skip")
+	StateReworking          = "reworking"           // Step rework triggered (on_failure: "rework")
 
 	// Sequence lifecycle states (pipeline composition)
 	StateSequenceStarted   = "sequence_started"   // Sequence execution begun
