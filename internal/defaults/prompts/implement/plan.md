@@ -1,4 +1,4 @@
-You are creating an implementation plan for a Bitbucket issue.
+You are creating an implementation plan for an issue.
 
 Input: {{ input }}
 

@@ -1,13 +1,18 @@
 kind: WavePipeline
 metadata:
-  name: gh-implement
-  description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
+  name: implement
+  description: "Implement an issue end-to-end: fetch, assess, plan, implement, create PR/MR"
+
+requires:
+  tools:
+    - "{{ forge.cli_tool }}"
+    - git
 
 input:
   source: cli
   schema:
     type: string
-    description: "GitHub repository and issue number"
+    description: "Repository and issue number"
   example: "re-cinq/wave 42"
 
 steps:
@@ -18,7 +23,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/fetch-assess.md
+      source_path: .wave/prompts/implement/fetch-assess.md
     output_artifacts:
       - name: assessment
         path: .wave/output/issue-assessment.json
@@ -47,7 +52,7 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/plan.md
+      source_path: .wave/prompts/implement/plan.md
     output_artifacts:
       - name: impl-plan
         path: .wave/output/impl-plan.json
@@ -78,7 +83,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/implement.md
+      source_path: .wave/prompts/implement/implement.md
     retry:
       max_attempts: 3
     handover:
@@ -92,7 +97,7 @@ steps:
         persona: summarizer
 
   - id: create-pr
-    persona: github-commenter
+    persona: "{{ forge.prefix }}-commenter"
     dependencies: [implement]
     memory:
       inject_artifacts:
@@ -104,7 +109,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/create-pr.md
+      source_path: .wave/prompts/implement/create-pr.md
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
@@ -122,4 +127,4 @@ steps:
       - type: pr
         extract_from: .wave/output/pr-result.json
         json_path: .pr_url
-        label: "Pull Request"
+        label: "{{ forge.pr_term }}"

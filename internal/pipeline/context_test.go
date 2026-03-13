@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"testing"
+
+	"github.com/recinq/wave/internal/forge"
 )
 
 func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
@@ -500,5 +502,234 @@ func TestPipelineContext_ToTemplateVars_IncludesArtifacts(t *testing.T) {
 	// Verify artifact path is included
 	if vars["artifacts.data"] != "/artifacts/data.json" {
 		t.Errorf("Expected artifact path to be included in template vars, got %q", vars["artifacts.data"])
+	}
+}
+
+func TestInjectForgeVariables_GitHub(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "fetch-assess",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeGitHub,
+		Host:           "github.com",
+		Owner:          "recinq",
+		Repo:           "wave",
+		CLITool:        "gh",
+		PipelinePrefix: "gh",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pr",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	// Verify all 8 forge variables are injected correctly
+	expectedVars := map[string]string{
+		"forge.type":       "github",
+		"forge.host":       "github.com",
+		"forge.owner":      "recinq",
+		"forge.repo":       "wave",
+		"forge.cli_tool":   "gh",
+		"forge.prefix":     "gh",
+		"forge.pr_term":    "Pull Request",
+		"forge.pr_command": "pr",
+	}
+
+	for key, want := range expectedVars {
+		got := ctx.CustomVariables[key]
+		if got != want {
+			t.Errorf("CustomVariables[%q] = %q, want %q", key, got, want)
+		}
+	}
+}
+
+func TestInjectForgeVariables_ResolvePlaceholders_GitHub(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "fetch-assess",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeGitHub,
+		Host:           "github.com",
+		Owner:          "recinq",
+		Repo:           "wave",
+		CLITool:        "gh",
+		PipelinePrefix: "gh",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pr",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	// Verify all forge variables round-trip through ResolvePlaceholders
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "forge.type spaced",
+			template: "{{ forge.type }}",
+			expected: "github",
+		},
+		{
+			name:     "forge.type unspaced",
+			template: "{{forge.type}}",
+			expected: "github",
+		},
+		{
+			name:     "forge.host",
+			template: "{{ forge.host }}",
+			expected: "github.com",
+		},
+		{
+			name:     "forge.owner",
+			template: "{{ forge.owner }}",
+			expected: "recinq",
+		},
+		{
+			name:     "forge.repo",
+			template: "{{ forge.repo }}",
+			expected: "wave",
+		},
+		{
+			name:     "forge.cli_tool",
+			template: "{{ forge.cli_tool }}",
+			expected: "gh",
+		},
+		{
+			name:     "forge.prefix",
+			template: "{{ forge.prefix }}",
+			expected: "gh",
+		},
+		{
+			name:     "forge.pr_term",
+			template: "{{ forge.pr_term }}",
+			expected: "Pull Request",
+		},
+		{
+			name:     "forge.pr_command",
+			template: "{{ forge.pr_command }}",
+			expected: "pr",
+		},
+		{
+			name:     "forge variable in persona resolution",
+			template: "{{ forge.prefix }}-commenter",
+			expected: "gh-commenter",
+		},
+		{
+			name:     "forge variable in prompt text",
+			template: "Use {{ forge.cli_tool }} {{ forge.pr_command }} create to create a {{ forge.pr_term }}",
+			expected: "Use gh pr create to create a Pull Request",
+		},
+		{
+			name:     "forge variable mixed with pipeline vars",
+			template: "{{ pipeline_name }}: {{ forge.type }} @ {{ forge.owner }}/{{ forge.repo }}",
+			expected: "implement: github @ recinq/wave",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestInjectForgeVariables_GitLab(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "create-pr",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeGitLab,
+		Host:           "gitlab.com",
+		Owner:          "myorg",
+		Repo:           "myrepo",
+		CLITool:        "glab",
+		PipelinePrefix: "gl",
+		PRTerm:         "Merge Request",
+		PRCommand:      "mr",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	// Verify GitLab-specific values differ from GitHub
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "forge.type",
+			template: "{{ forge.type }}",
+			expected: "gitlab",
+		},
+		{
+			name:     "forge.host",
+			template: "{{ forge.host }}",
+			expected: "gitlab.com",
+		},
+		{
+			name:     "forge.owner",
+			template: "{{ forge.owner }}",
+			expected: "myorg",
+		},
+		{
+			name:     "forge.repo",
+			template: "{{ forge.repo }}",
+			expected: "myrepo",
+		},
+		{
+			name:     "forge.cli_tool",
+			template: "{{ forge.cli_tool }}",
+			expected: "glab",
+		},
+		{
+			name:     "forge.prefix",
+			template: "{{ forge.prefix }}",
+			expected: "gl",
+		},
+		{
+			name:     "forge.pr_term is Merge Request",
+			template: "{{ forge.pr_term }}",
+			expected: "Merge Request",
+		},
+		{
+			name:     "forge.pr_command is mr",
+			template: "{{ forge.pr_command }}",
+			expected: "mr",
+		},
+		{
+			name:     "GitLab persona resolution",
+			template: "{{ forge.prefix }}-commenter",
+			expected: "gl-commenter",
+		},
+		{
+			name:     "GitLab MR creation command",
+			template: "{{ forge.cli_tool }} {{ forge.pr_command }} create",
+			expected: "glab mr create",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
 	}
 }

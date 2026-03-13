@@ -8,22 +8,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestGhRewritePipeline_NoHardcodedRepo(t *testing.T) {
+func TestRewritePipeline_NoHardcodedRepo(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-rewrite.yaml"]
+	content, ok := pipelines["rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("rewrite.yaml not found in embedded pipelines")
 	}
 
-	// Every gh command should use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo
+	// The unified pipeline uses {{ forge.cli_tool }} instead of hardcoded gh/glab/tea/bb.
+	// Every CLI command should use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo.
 	for i, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
-		// Skip comment-only lines that don't contain gh commands
-		if !strings.Contains(trimmed, "gh ") {
+		// Skip lines that don't contain forge CLI tool references
+		if !strings.Contains(trimmed, "{{ forge.cli_tool }}") {
 			continue
 		}
 		// Lines with --repo must use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo
@@ -35,15 +36,15 @@ func TestGhRewritePipeline_NoHardcodedRepo(t *testing.T) {
 	}
 }
 
-func TestGhRewritePipeline_UsesInputTemplate(t *testing.T) {
+func TestRewritePipeline_UsesInputTemplate(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-rewrite.yaml"]
+	content, ok := pipelines["rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("rewrite.yaml not found in embedded pipelines")
 	}
 
 	// The pipeline must contain {{ input }} template variables for interpolation
@@ -60,15 +61,15 @@ func TestGhRewritePipeline_UsesInputTemplate(t *testing.T) {
 	}
 }
 
-func TestGhRewritePipeline_InputSchemaIsString(t *testing.T) {
+func TestRewritePipeline_InputSchemaIsString(t *testing.T) {
 	pipelines, err := GetPipelines()
 	if err != nil {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["gh-rewrite.yaml"]
+	content, ok := pipelines["rewrite.yaml"]
 	if !ok {
-		t.Fatal("gh-rewrite.yaml not found in embedded pipelines")
+		t.Fatal("rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Input schema should be a simple string type, not a structured object
@@ -177,23 +178,21 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 	expected := []string{
 		"adr.yaml",
 		"changelog.yaml",
-		"gh-pr-review.yaml",
+		"pr-review.yaml",
 		"dead-code.yaml",
 		"debug.yaml",
 		"doc-fix.yaml",
 		"explain.yaml",
-		"gh-research.yaml",
-		"gh-rewrite.yaml",
+		"refresh.yaml",
+		"research.yaml",
+		"rewrite.yaml",
 		"improve.yaml",
 		"onboard.yaml",
 		"plan.yaml",
 		"refactor.yaml",
 		"security-scan.yaml",
 		"test-gen.yaml",
-		"gh-scope.yaml",
-		"gt-scope.yaml",
-		"gl-scope.yaml",
-		"bb-scope.yaml",
+		"scope.yaml",
 	}
 
 	for _, name := range expected {

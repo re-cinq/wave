@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -117,6 +118,18 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 		}
 	}
 	return ctx
+}
+
+// InjectForgeVariables populates forge.* template variables in the context.
+func InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo) {
+	ctx.SetCustomVariable("forge.type", string(info.Type))
+	ctx.SetCustomVariable("forge.host", info.Host)
+	ctx.SetCustomVariable("forge.owner", info.Owner)
+	ctx.SetCustomVariable("forge.repo", info.Repo)
+	ctx.SetCustomVariable("forge.cli_tool", info.CLITool)
+	ctx.SetCustomVariable("forge.prefix", info.PipelinePrefix)
+	ctx.SetCustomVariable("forge.pr_term", info.PRTerm)
+	ctx.SetCustomVariable("forge.pr_command", info.PRCommand)
 }
 
 // SetCustomVariable adds a custom template variable

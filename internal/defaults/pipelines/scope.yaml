@@ -1,26 +1,26 @@
 kind: WavePipeline
 metadata:
-  name: gt-scope
-  description: "Decompose a Gitea epic into well-scoped child issues"
+  name: scope
+  description: "Decompose an epic into well-scoped child issues"
   release: true
 
 input:
   source: cli
-  example: "re-cinq/wave 42"
+  example: "re-cinq/wave 184"
   schema:
     type: string
-    description: "Gitea repository with epic issue number (e.g. 'owner/repo 42')"
+    description: "Repository with epic issue number (e.g. 'owner/repo 42')"
 
 steps:
   - id: fetch-epic
-    persona: gitea-analyst
+    persona: "{{ forge.prefix }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "tea CLI not installed" without trying.
+        MANDATORY: You MUST call the Bash tool. NEVER say "CLI not installed" without trying.
 
         Input: {{ input }}
 
@@ -28,13 +28,13 @@ steps:
 
         Execute these commands using the Bash tool:
 
-        1. tea --version
+        1. {{ forge.cli_tool }} --version
 
         2. Fetch the epic issue with full details:
-           tea issues view <NUMBER> --output json
+           {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments,author,state
 
         3. List existing open issues to check for duplicates:
-           tea issues list --limit 50 --output json
+           {{ forge.cli_tool }} issue list --repo <REPO> --limit 50 --json number,title,labels,url
 
         After getting REAL results from Bash, analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
@@ -60,7 +60,7 @@ steps:
         progressive_validation: false
 
   - id: scope-and-create
-    persona: gitea-scoper
+    persona: "{{ forge.prefix }}-scoper"
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:
@@ -77,14 +77,17 @@ steps:
 
         The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
 
-        Step 1: Verify tea works:
-        tea --version
+        Input: {{ input }}
+        Parse the repo from the input (first token).
+
+        Step 1: Verify CLI works:
+        {{ forge.cli_tool }} --version
 
         Step 2: For each planned sub-issue, write the body to a temp file and create the issue safely:
         cat > /tmp/issue-body.md <<'ISSUE_EOF'
         <body content here>
         ISSUE_EOF
-        tea issues create --title '<title>' --body-file /tmp/issue-body.md --labels "<labels>"
+        {{ forge.cli_tool }} issue create --repo <REPO> --title '<title>' --body-file /tmp/issue-body.md --label "<labels>"
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line
@@ -121,7 +124,7 @@ steps:
         progressive_validation: false
 
   - id: verify-report
-    persona: gitea-analyst
+    persona: "{{ forge.prefix }}-analyst"
     dependencies: [scope-and-create]
     memory:
       inject_artifacts:
@@ -139,15 +142,18 @@ steps:
       source: |
         Verify the created sub-issues and compile a verification report.
 
+        Input: {{ input }}
+        Parse the repo (first token) and epic number (second token).
+
         Step 1: For each created issue in the results, verify it exists:
-        tea issues view <N> --output json
+        {{ forge.cli_tool }} issue view <N> --repo <REPO> --json number,title,body,labels
 
         Check that each issue:
         - Exists and is open
         - Has acceptance criteria in the body
         - References the parent epic
 
-        Step 2: This step is READ-ONLY. Do NOT post comments -- the gitea-analyst
+        Step 2: This step is READ-ONLY. Do NOT post comments -- the {{ forge.prefix }}-analyst
         persona does not have write permissions. Instead, include a pre-rendered markdown
         summary in the output JSON that a commenter persona could post later.
 
