@@ -78,8 +78,11 @@ steps:
         Input: {{ input }}
         Parse the repo from the input (first token).
 
-        For each planned sub-issue, create it using:
-        gh issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"
+        For each planned sub-issue, write the body to a temp file and create the issue safely:
+        cat > /tmp/issue-body.md <<'ISSUE_EOF'
+        <body content here>
+        ISSUE_EOF
+        gh issue create --repo <REPO> --title '<title>' --body-file /tmp/issue-body.md --label "<labels>"
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line

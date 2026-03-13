@@ -152,7 +152,7 @@ steps:
 
         Step 3: Apply the update:
         - If title_changed is true:
-          glab issue update <NUMBER> --repo <REPO> --title "<updated_title>"
+          glab issue update <NUMBER> --repo <REPO> --title '<updated_title>'
         - Write the updated_body to a temp file, then apply it:
           Write updated_body to /tmp/issue-body.md
           glab issue update <NUMBER> --repo <REPO> --description "$(cat /tmp/issue-body.md)"

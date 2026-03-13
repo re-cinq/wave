@@ -80,8 +80,12 @@ steps:
         Step 1: Verify glab works:
         glab --version
 
-        Step 2: For each planned sub-issue, create it using:
-        glab issue create --title "<title>" --description "<body>" --label "<labels>"
+        Step 2: For each planned sub-issue, write the body to a temp file and create the issue safely.
+        IMPORTANT: Use single-quoted heredoc (<<'EOF') to prevent shell expansion of body content.
+        cat > /tmp/issue-body.md <<'ISSUE_EOF'
+        <body content here>
+        ISSUE_EOF
+        glab issue create --title '<title>' --description "$(cat /tmp/issue-body.md)" --label "<labels>"
 
         Each sub-issue description MUST include:
         - A "Parent: #<epic_number>" reference line

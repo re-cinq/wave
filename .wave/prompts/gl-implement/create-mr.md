@@ -40,7 +40,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 Create the merge request using `glab mr create` with `--source-branch` to target the branch. The merge request description MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
 
 ```bash
-glab mr create --repo <OWNER/REPO> --source-branch <BRANCH_NAME> --target-branch main --title "<concise title>" --description "$(cat <<'EOF'
+cat > /tmp/mr-body.md <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
@@ -52,7 +52,7 @@ Closes #<ISSUE_NUMBER>
 ## Test Plan
 <how the changes were validated>
 EOF
-)"
+glab mr create --repo <OWNER/REPO> --source-branch <BRANCH_NAME> --target-branch main --title '<concise title>' --description "$(cat /tmp/mr-body.md)"
 ```
 
 ### Step 4: Request Review (Best-Effort)

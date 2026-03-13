@@ -80,8 +80,12 @@ steps:
         Read the "repository" field from the plan artifact to get <REPO>.
 
         For each issue in issues_to_enhance:
-        1. Apply title: gh issue edit <NUM> --repo <REPO> --title "suggested_title"
-        2. Apply body: gh issue edit <NUM> --repo <REPO> --body "body_template"
+        1. Apply title: gh issue edit <NUM> --repo <REPO> --title 'suggested_title'
+        2. Apply body — write to temp file first, then apply:
+           cat > /tmp/issue-body.md <<'BODY_EOF'
+           <body_template content>
+           BODY_EOF
+           gh issue edit <NUM> --repo <REPO> --body-file /tmp/issue-body.md
         3. Add labels: gh issue edit <NUM> --repo <REPO> --add-label "label1,label2"
         4. Capture URL: gh issue view <NUM> --repo <REPO> --json url --jq .url
 
