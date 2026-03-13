@@ -203,6 +203,57 @@
           "items": {
             "$ref": "#/definitions/ValidationRule"
           }
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, step failure does not fail the pipeline"
+        },
+        "rework_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, step only runs via rework trigger, not normal DAG scheduling"
+        },
+        "retry": {
+          "$ref": "#/definitions/RetryConfig"
+        }
+      }
+    },
+    "RetryConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Total number of attempts. Default 1 = no retry"
+        },
+        "backoff": {
+          "type": "string",
+          "enum": ["fixed", "linear", "exponential"],
+          "default": "linear",
+          "description": "Backoff strategy between retries"
+        },
+        "base_delay": {
+          "type": "string",
+          "default": "1s",
+          "description": "Base delay duration (e.g., '2s', '500ms')"
+        },
+        "adapt_prompt": {
+          "type": "boolean",
+          "default": false,
+          "description": "Inject prior failure context into retry prompt"
+        },
+        "on_failure": {
+          "type": "string",
+          "enum": ["fail", "skip", "continue", "rework"],
+          "default": "fail",
+          "description": "Action when all retry attempts are exhausted"
+        },
+        "rework_step": {
+          "type": "string",
+          "description": "Step ID to execute when on_failure is 'rework'. Required when on_failure is 'rework'."
         }
       }
     },

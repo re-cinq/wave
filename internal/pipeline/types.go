@@ -15,6 +15,7 @@ const (
 	StateFailed    = "failed"
 	StateRetrying  = "retrying"
 	StateSkipped   = "skipped"
+	StateReworking = "reworking"
 )
 
 type Pipeline struct {
@@ -94,7 +95,19 @@ type RetryConfig struct {
 	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
 	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
 	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
-	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue". Default: "fail"
+	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
+	ReworkStep  string `yaml:"rework_step,omitempty"`  // Step ID to execute when on_failure is "rework"
+}
+
+// Validate checks that the RetryConfig is well-formed.
+func (r RetryConfig) Validate() error {
+	if r.OnFailure == "rework" && r.ReworkStep == "" {
+		return fmt.Errorf("rework_step is required when on_failure is \"rework\"")
+	}
+	if r.ReworkStep != "" && r.OnFailure != "rework" {
+		return fmt.Errorf("rework_step is set but on_failure is %q (must be \"rework\")", r.OnFailure)
+	}
+	return nil
 }
 
 // EffectiveMaxAttempts returns the number of retry attempts, falling back to 1.
@@ -135,11 +148,15 @@ func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
 
 // AttemptContext holds failure context from a prior retry attempt for prompt adaptation.
 type AttemptContext struct {
-	Attempt      int
-	MaxAttempts  int
-	PriorError   string
-	FailureClass string
-	PriorStdout  string // last 2000 chars
+	Attempt          int
+	MaxAttempts      int
+	PriorError       string
+	FailureClass     string
+	PriorStdout      string            // last 2000 chars
+	ContractErrors   []string          // Structured contract validation errors
+	StepDuration     time.Duration     // How long the step ran before failing
+	PartialArtifacts map[string]string // Partial artifact paths (name -> path)
+	FailedStepID     string            // ID of the step that triggered rework
 }
 
 type Step struct {
@@ -155,6 +172,7 @@ type Step struct {
 	Outcomes        []OutcomeDef     `yaml:"outcomes,omitempty"`
 	Handover        HandoverConfig   `yaml:"handover,omitempty"`
 	Retry           RetryConfig      `yaml:"retry,omitempty"`
+	ReworkOnly      bool             `yaml:"rework_only,omitempty"` // Only runs via rework trigger, not normal DAG scheduling
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
