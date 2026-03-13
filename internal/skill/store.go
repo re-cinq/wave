@@ -210,11 +210,13 @@ func (ds *DirectoryStore) List() ([]Skill, error) {
 
 		entries, err := os.ReadDir(source.Root)
 		if err != nil {
+			errs = append(errs, SkillError{SkillName: "<root>", Path: source.Root, Err: err})
 			continue
 		}
 
 		for _, entry := range entries {
-			if !entry.IsDir() {
+			// Skip non-directories and symlinks
+			if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}
 
@@ -223,7 +225,17 @@ func (ds *DirectoryStore) List() ([]Skill, error) {
 				continue
 			}
 
-			skillFile := filepath.Join(source.Root, name, "SKILL.md")
+			// Validate path containment (consistent with Read)
+			skillDir, err := containedPath(source.Root, name)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				errs = append(errs, SkillError{SkillName: name, Path: filepath.Join(source.Root, name), Err: err})
+				continue
+			}
+
+			skillFile := filepath.Join(skillDir, "SKILL.md")
 			data, err := os.ReadFile(skillFile)
 			if err != nil {
 				if os.IsNotExist(err) {
@@ -239,7 +251,21 @@ func (ds *DirectoryStore) List() ([]Skill, error) {
 				continue
 			}
 
-			skill.SourcePath = filepath.Join(source.Root, name)
+			// Validate name-directory consistency (consistent with Read)
+			if skill.Name != name {
+				errs = append(errs, SkillError{
+					SkillName: name,
+					Path:      skillFile,
+					Err: &ParseError{
+						Field:      "name",
+						Constraint: "must match directory name",
+						Value:      fmt.Sprintf("frontmatter %q != directory %q", skill.Name, name),
+					},
+				})
+				continue
+			}
+
+			skill.SourcePath = skillDir
 			seen[name] = true
 			skills = append(skills, skill)
 		}
@@ -276,19 +302,27 @@ func (ds *DirectoryStore) Delete(name string) error {
 }
 
 // discoverResources scans for resource files in known subdirectories of a skill directory.
+// Symlinked files and subdirectories are skipped.
 func discoverResources(skillDir string) []string {
 	resourceDirs := []string{"scripts", "references", "assets"}
 	var paths []string
 
 	for _, dir := range resourceDirs {
 		full := filepath.Join(skillDir, dir)
+
+		// Skip symlinked resource directories
+		if info, err := os.Lstat(full); err != nil || info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
 		entries, err := os.ReadDir(full)
 		if err != nil {
 			continue
 		}
 
 		for _, entry := range entries {
-			if entry.IsDir() {
+			// Skip directories and symlinks
+			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}
 			paths = append(paths, filepath.Join(dir, entry.Name()))
