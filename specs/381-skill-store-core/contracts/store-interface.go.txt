@@ -1,0 +1,46 @@
+// Package skill store interface contract.
+// This file defines the Store interface that consumers will program against.
+// It is a contract — the implementation must satisfy all method signatures
+// and behavioral expectations documented here.
+//
+// This is a DESIGN ARTIFACT, not production code. The actual interface
+// will be written in internal/skill/store.go during implementation.
+package skill
+
+// Store defines CRUD operations for skill management.
+//
+// Thread safety: implementations are NOT required to be thread-safe.
+// Callers must synchronize if using from multiple goroutines.
+//
+// Error conventions:
+//   - Read returns *ParseError for invalid SKILL.md, os-level errors for I/O failures
+//   - Read returns *ParseError with Field="name" for not-found (no wrapping of os.ErrNotExist)
+//   - Write returns *ParseError for invalid Skill struct fields
+//   - List returns (valid_skills, *DiscoveryError) when some skills fail to parse
+//   - List returns (nil, error) only for catastrophic failures (e.g., all sources unreadable)
+//   - Delete returns *ParseError with Field="name" for not-found
+//   - All operations return *ParseError with Constraint="invalid characters" for path traversal
+type Store interface {
+	// Read returns a fully-loaded skill by name.
+	// It checks source directories in precedence order and returns the first match.
+	// The returned Skill includes Body and ResourcePaths (full progressive disclosure).
+	Read(name string) (Skill, error)
+
+	// Write persists a skill definition to disk.
+	// It writes to the highest-precedence writable source directory.
+	// If the skill directory doesn't exist, it is created.
+	// If it already exists, SKILL.md is overwritten.
+	// The Skill is validated before writing.
+	Write(skill Skill) error
+
+	// List returns all discoverable skills with metadata-only loading.
+	// Skills from higher-precedence sources shadow same-named skills from lower sources.
+	// If some skills fail to parse, valid skills are returned alongside a *DiscoveryError.
+	// Non-existent source directories are silently skipped.
+	List() ([]Skill, error)
+
+	// Delete removes a skill directory by name.
+	// It deletes from the first source directory that contains the named skill.
+	// Returns a not-found error if no source contains the skill.
+	Delete(name string) error
+}
