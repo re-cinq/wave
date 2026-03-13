@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/state"
@@ -11,12 +12,14 @@ import (
 
 // ChatContext holds assembled context for a wave chat session.
 type ChatContext struct {
-	Run          *state.RunRecord
-	Steps        []ChatStepContext
-	Pipeline     *Pipeline
-	PipelinePath string
-	Artifacts    []state.ArtifactRecord
-	ProjectRoot  string
+	Run              *state.RunRecord
+	Steps            []ChatStepContext
+	Pipeline         *Pipeline
+	PipelinePath     string
+	Artifacts        []state.ArtifactRecord
+	ProjectRoot      string
+	ArtifactContents map[string]string    // Artifact name → content/summary
+	ChatConfig       *ChatContextConfig   // Pipeline-level chat configuration
 }
 
 // ChatStepContext holds context for a single step in the chat session.
@@ -55,13 +58,77 @@ func BuildChatContext(store state.StateStore, runID string, p *Pipeline, project
 	// 4. Build per-step context from pipeline steps + events
 	steps := buildStepContexts(p, events, artifacts, run.PipelineName, projectRoot)
 
-	return &ChatContext{
+	ctx := &ChatContext{
 		Run:         run,
 		Steps:       steps,
 		Pipeline:    p,
 		Artifacts:   artifacts,
 		ProjectRoot: projectRoot,
-	}, nil
+	}
+
+	// 5. Load artifact content if pipeline has chat_context configured
+	if p.ChatContext != nil {
+		ctx.ChatConfig = p.ChatContext
+		ctx.ArtifactContents = loadArtifactContents(p.ChatContext, artifacts, projectRoot)
+	}
+
+	return ctx, nil
+}
+
+// loadArtifactContents reads and summarizes artifacts listed in the chat context config.
+// It respects the token budget and skips missing artifacts (non-fatal).
+func loadArtifactContents(cfg *ChatContextConfig, artifacts []state.ArtifactRecord, projectRoot string) map[string]string {
+	contents := make(map[string]string)
+	if len(cfg.ArtifactSummaries) == 0 {
+		return contents
+	}
+
+	// Build artifact path index
+	artifactPaths := make(map[string]string)
+	for _, art := range artifacts {
+		artifactPaths[art.Name] = art.Path
+	}
+
+	// Token budget: ~4 bytes per token approximation
+	maxBytes := cfg.EffectiveMaxContextTokens() * 4
+	totalBytes := 0
+
+	cleanRoot := filepath.Clean(projectRoot) + string(filepath.Separator)
+
+	for _, name := range cfg.ArtifactSummaries {
+		artPath, ok := artifactPaths[name]
+		if !ok {
+			continue // Skip unknown artifacts
+		}
+
+		// Resolve relative paths against project root
+		fullPath := artPath
+		if !filepath.IsAbs(artPath) {
+			fullPath = filepath.Join(projectRoot, artPath)
+		}
+
+		// Enforce path containment within project root to prevent traversal
+		fullPath = filepath.Clean(fullPath)
+		if !strings.HasPrefix(fullPath, cleanRoot) {
+			continue // Skip paths that escape project root
+		}
+
+		remaining := maxBytes - totalBytes
+		if remaining <= 0 {
+			contents[name] = fmt.Sprintf("[budget exceeded — full content at %s]", artPath)
+			continue
+		}
+
+		summary, err := SummarizeArtifact(fullPath, remaining)
+		if err != nil {
+			continue // Skip unreadable artifacts
+		}
+
+		contents[name] = summary
+		totalBytes += len(summary)
+	}
+
+	return contents
 }
 
 // buildStepContexts assembles per-step context from events and artifacts.
