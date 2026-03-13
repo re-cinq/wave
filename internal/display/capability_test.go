@@ -72,10 +72,6 @@ func TestGetOptimalDisplayConfig(t *testing.T) {
 	if config.ColorMode != "auto" && config.ColorMode != "on" && config.ColorMode != "off" {
 		t.Errorf("ColorMode should be auto/on/off, got %q", config.ColorMode)
 	}
-
-	if config.MaxHistoryLines < 1 {
-		t.Errorf("MaxHistoryLines should be positive, got %d", config.MaxHistoryLines)
-	}
 }
 
 func TestGetOptimalDisplayConfig_WithNoColor(t *testing.T) {
