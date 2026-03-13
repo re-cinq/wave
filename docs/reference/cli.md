@@ -98,6 +98,7 @@ wave run deploy -o text                        # Plain text progress to stderr
 wave run review -o text -v                     # Plain text with real-time tool activity
 wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
+wave run debug --preserve-workspace            # Preserve workspace from previous run (for debugging)
 ```
 
 ---
@@ -772,6 +773,14 @@ Applying migration v4: add_checkpoints... done
 Applying migration v5: add_relay... done
 
 Migrations complete. Current version: 5
+```
+
+### Validate
+
+Verify that applied migrations match their expected checksums and are in a consistent state.
+
+```bash
+wave migrate validate
 ```
 
 ### Rollback
