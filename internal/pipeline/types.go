@@ -176,6 +176,7 @@ type Step struct {
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
+	Concurrency     int              `yaml:"concurrency,omitempty"`
 
 	// Composition primitives
 	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
