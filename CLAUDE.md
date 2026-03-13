@@ -152,19 +152,19 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
-| Bug fix, small tweak | `gh-implement` | Single-file or few-file changes, clear scope |
-| Medium feature | `gh-implement` | Well-scoped feature with clear acceptance criteria |
-| Complex feature | `speckit-flow` | Multi-component changes, needs spec → plan → tasks → impl |
-| Architecture change | `speckit-flow` | Touches 5+ files, needs design discussion |
-| Code quality | `junk-code`, `dx-audit`, `wave-test-hardening` | Analysis and improvement |
+| Bug fix, small tweak | `implement` | Single-file or few-file changes, clear scope |
+| Medium feature | `implement` | Well-scoped feature with clear acceptance criteria |
+| Complex feature | `plan-speckit` | Multi-component changes, needs spec → plan → tasks → impl |
+| Architecture change | `plan-speckit` | Touches 5+ files, needs design discussion |
+| Code quality | `audit-junk-code`, `audit-dx`, `wave-test-hardening` | Analysis and improvement |
 | Security | `wave-security-audit` | Threat modeling and hardening |
-| PR review | `gh-pr-review` | **Always** run before merging any PR |
+| PR review | `pr-review` | **Always** run before merging any PR |
 
 ### PR Review-Then-Merge Protocol
 
-**MANDATORY**: Never merge a PR without running the `gh-pr-review` pipeline first.
+**MANDATORY**: Never merge a PR without running the `pr-review` pipeline first.
 
-1. Launch review: `wave run -v gh-pr-review -- "<PR-URL>" &`
+1. Launch review: `wave run -v pr-review -- "<PR-URL>" &`
 2. Wait for review completion and check results
 3. Only merge after review pipeline passes
 4. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
@@ -187,8 +187,8 @@ Before launching a pipeline for an issue:
 | Category | Action | Pipeline |
 |----------|--------|----------|
 | **close** | Already implemented, superseded, or duplicate | Close with comment |
-| **gh-implement** | Well-scoped, single-PR implementation | `gh-implement` |
-| **speckit-flow** | Complex, needs spec → plan → tasks → implement | `speckit-flow` |
+| **implement** | Well-scoped, single-PR implementation | `implement` |
+| **plan-speckit** | Complex, needs spec → plan → tasks → implement | `plan-speckit` |
 | **defer** | Needs design discussion, experiment, or blocked | Leave open |
 
 ### Monitoring
@@ -201,7 +201,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 ### Post-Pipeline PR Validation
 
-1. Run `gh-pr-review`: `wave run -v gh-pr-review -- "<PR-URL>" &`
+1. Run `pr-review`: `wave run -v pr-review -- "<PR-URL>" &`
 2. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
 3. After review passes: `gh pr merge <N> --merge`
 
