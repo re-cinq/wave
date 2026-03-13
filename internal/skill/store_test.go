@@ -466,6 +466,26 @@ func TestDirectoryStoreRead(t *testing.T) {
 		}
 	})
 
+	t.Run("symlink rejected", func(t *testing.T) {
+		root := t.TempDir()
+		target := t.TempDir()
+		createSkillDir(t, target, "real-skill", "Real skill")
+
+		// Create a symlink: root/symlinked -> target/real-skill
+		if err := os.Symlink(filepath.Join(target, "real-skill"), filepath.Join(root, "symlinked")); err != nil {
+			t.Skip("symlinks not supported")
+		}
+
+		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+		_, err := store.Read("symlinked")
+		if err == nil {
+			t.Fatal("expected error for symlink skill directory")
+		}
+		if !strings.Contains(err.Error(), "symlink rejected") {
+			t.Errorf("expected symlink rejection error, got: %v", err)
+		}
+	})
+
 	t.Run("name directory mismatch", func(t *testing.T) {
 		root := t.TempDir()
 		dir := filepath.Join(root, "dir-name")
