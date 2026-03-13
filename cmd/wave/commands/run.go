@@ -195,7 +195,8 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if opts.DryRun {
-		return performDryRun(p, &m, stepFilter)
+		performDryRun(p, &m, stepFilter)
+		return nil
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -548,7 +549,7 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
@@ -645,7 +646,6 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 		}
 	}
 
-	return nil
 }
 
 // extractPreflightMetadata extracts missing skills and tools from preflight errors.
