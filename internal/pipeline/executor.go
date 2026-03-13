@@ -842,7 +842,7 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	execution.States[failedStep.ID] = StateFailed
 	execution.mu.Unlock()
 	if e.store != nil {
-		e.store.SaveStepState(pipelineID, failedStep.ID, state.StateFailed, failErr.Error())
+		_ = e.store.SaveStepState(pipelineID, failedStep.ID, state.StateFailed, failErr.Error())
 	}
 
 	// Find the rework target step in the pipeline
@@ -910,7 +910,7 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 		Message:    fmt.Sprintf("rework: executing step %q after %q failed", reworkStepID, failedStep.ID),
 	})
 	if e.store != nil {
-		e.store.SaveStepState(pipelineID, reworkStepID, state.StateReworking, "")
+		_ = e.store.SaveStepState(pipelineID, reworkStepID, state.StateReworking, "")
 	}
 
 	// Execute the rework step
@@ -922,7 +922,7 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 		execution.States[reworkStep.ID] = StateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
-			e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateFailed, reworkErr.Error())
+			_ = e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateFailed, reworkErr.Error())
 		}
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -956,14 +956,14 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	execution.mu.Unlock()
 
 	if e.store != nil {
-		e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateCompleted, "")
-		e.store.SaveStepState(pipelineID, failedStep.ID, state.StateCompleted, "reworked by "+reworkStepID)
+		_ = e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateCompleted, "")
+		_ = e.store.SaveStepState(pipelineID, failedStep.ID, state.StateCompleted, "reworked by "+reworkStepID)
 	}
 
 	// Record step attempt for audit trail
 	if e.store != nil {
 		completedAt := time.Now()
-		e.store.RecordStepAttempt(&state.StepAttemptRecord{
+		_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
 			RunID:       pipelineID,
 			StepID:      reworkStep.ID,
 			Attempt:     1,
@@ -1772,11 +1772,11 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		if attemptCtx.FailedStepID != "" {
 			// Rework context — this step is a rework target for a failed step
 			sb.WriteString("## REWORK CONTEXT\n\n")
-			sb.WriteString(fmt.Sprintf("You are executing as a rework step for failed step %q.\n", attemptCtx.FailedStepID))
-			sb.WriteString(fmt.Sprintf("The original step failed after %d attempt(s) (ran for %s).\n\n", attemptCtx.Attempt, attemptCtx.StepDuration.Round(time.Second)))
+			fmt.Fprintf(&sb, "You are executing as a rework step for failed step %q.\n", attemptCtx.FailedStepID)
+			fmt.Fprintf(&sb, "The original step failed after %d attempt(s) (ran for %s).\n\n", attemptCtx.Attempt, attemptCtx.StepDuration.Round(time.Second))
 		} else {
 			sb.WriteString("## RETRY CONTEXT\n\n")
-			sb.WriteString(fmt.Sprintf("This is attempt %d of %d. The previous attempt failed.\n\n", attemptCtx.Attempt, attemptCtx.MaxAttempts))
+			fmt.Fprintf(&sb, "This is attempt %d of %d. The previous attempt failed.\n\n", attemptCtx.Attempt, attemptCtx.MaxAttempts)
 		}
 		if attemptCtx.PriorError != "" {
 			sb.WriteString("### Previous Error\n```\n")
