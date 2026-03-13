@@ -83,6 +83,9 @@ func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 	var missing []string
 
 	for _, tool := range tools {
+		if tool == "" {
+			continue // Skip empty strings from unresolved template variables
+		}
 		_, err := exec.LookPath(tool)
 		if err != nil {
 			results = append(results, Result{

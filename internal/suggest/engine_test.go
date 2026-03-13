@@ -67,9 +67,38 @@ func TestSuggest_PrefixedPipelines(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	// Should prefer gh-debug over debug
+	// Should prefer unified (bare) pipeline over forge-prefixed
+	if proposal.Pipelines[0].Name != "debug" {
+		t.Errorf("expected unified pipeline 'debug', got %q", proposal.Pipelines[0].Name)
+	}
+}
+
+func TestSuggest_PrefixedFallback(t *testing.T) {
+	// When only prefixed pipeline exists, it should be used
+	dir := setupPipelineDir(t, []string{"gh-debug"})
+
+	proposal, err := Suggest(EngineOptions{
+		PipelinesDir: dir,
+		Report: &doctor.Report{
+			ForgeInfo: &forge.ForgeInfo{
+				Type:           forge.ForgeGitHub,
+				PipelinePrefix: "gh",
+			},
+			Codebase: &doctor.CodebaseHealth{
+				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(proposal.Pipelines) == 0 {
+		t.Fatal("expected at least one proposal")
+	}
+	// Should fall back to gh-debug when bare debug doesn't exist
 	if proposal.Pipelines[0].Name != "gh-debug" {
-		t.Errorf("expected prefixed pipeline 'gh-debug', got %q", proposal.Pipelines[0].Name)
+		t.Errorf("expected fallback to 'gh-debug', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
@@ -316,11 +345,11 @@ func TestResolvePipeline(t *testing.T) {
 		base   string
 		want   string
 	}{
-		{"gh", "debug", "gh-debug"},
-		{"gl", "debug", "debug"},
-		{"gh", "improve", "improve"},
-		{"gh", "nonexistent", ""},
-		{"", "debug", "debug"},
+		{"gh", "debug", "debug"},       // bare name preferred over prefixed
+		{"gl", "debug", "debug"},       // bare name found, no gl-debug needed
+		{"gh", "improve", "improve"},   // bare name only
+		{"gh", "nonexistent", ""},      // neither exists
+		{"", "debug", "debug"},         // no prefix, bare name found
 	}
 
 	for _, tt := range tests {
@@ -328,5 +357,15 @@ func TestResolvePipeline(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("resolvePipeline(%q, %q) = %q, want %q", tt.prefix, tt.base, got, tt.want)
 		}
+	}
+}
+
+func TestResolvePipeline_FallbackToPrefixed(t *testing.T) {
+	// When bare name doesn't exist, fall back to forge-prefixed
+	catalog := []string{"gh-debug"}
+
+	got := resolvePipeline(catalog, "gh", "debug")
+	if got != "gh-debug" {
+		t.Errorf("resolvePipeline should fall back to prefixed, got %q", got)
 	}
 }
