@@ -1,0 +1,245 @@
+package skill
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// ParseError represents a SKILL.md parsing or validation failure.
+type ParseError struct {
+	Field      string
+	Constraint string
+	Value      string
+}
+
+func (e *ParseError) Error() string {
+	if e.Value != "" {
+		return fmt.Sprintf("skill %s: %s (got %q)", e.Field, e.Constraint, e.Value)
+	}
+	return fmt.Sprintf("skill %s: %s", e.Field, e.Constraint)
+}
+
+func (e *ParseError) Unwrap() error { return nil }
+
+// SkillError wraps an error with skill name and path context.
+type SkillError struct {
+	SkillName string
+	Path      string
+	Err       error
+}
+
+func (e *SkillError) Error() string {
+	return fmt.Sprintf("skill %q (%s): %v", e.SkillName, e.Path, e.Err)
+}
+
+func (e *SkillError) Unwrap() error { return e.Err }
+
+// DiscoveryError is returned when List encounters per-skill failures.
+type DiscoveryError struct {
+	Errors []SkillError
+}
+
+func (e *DiscoveryError) Error() string {
+	var msgs []string
+	for _, se := range e.Errors {
+		msgs = append(msgs, se.Error())
+	}
+	return fmt.Sprintf("discovery errors: %s", strings.Join(msgs, "; "))
+}
+
+// Store defines CRUD operations for skill management.
+type Store interface {
+	Read(name string) (Skill, error)
+	Write(skill Skill) error
+	List() ([]Skill, error)
+	Delete(name string) error
+}
+
+// SkillSource is a directory that may contain skill subdirectories.
+type SkillSource struct {
+	Root       string
+	Precedence int
+}
+
+// DirectoryStore implements Store backed by filesystem directories.
+type DirectoryStore struct {
+	sources []SkillSource
+}
+
+// NewDirectoryStore creates a DirectoryStore with sources sorted by precedence (highest first).
+func NewDirectoryStore(sources ...SkillSource) *DirectoryStore {
+	sorted := make([]SkillSource, len(sources))
+	copy(sorted, sources)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Precedence > sorted[j].Precedence
+	})
+	return &DirectoryStore{sources: sorted}
+}
+
+// Read returns a fully-loaded skill by name.
+func (ds *DirectoryStore) Read(name string) (Skill, error) {
+	if err := ValidateName(name); err != nil {
+		return Skill{}, err
+	}
+
+	for _, source := range ds.sources {
+		skillDir := filepath.Join(source.Root, name)
+		skillFile := filepath.Join(skillDir, "SKILL.md")
+
+		data, err := os.ReadFile(skillFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Skill{}, &SkillError{SkillName: name, Path: skillFile, Err: err}
+		}
+
+		skill, err := Parse(data)
+		if err != nil {
+			return Skill{}, &SkillError{SkillName: name, Path: skillFile, Err: err}
+		}
+
+		// FR-004: validate name matches directory name
+		if skill.Name != name {
+			return Skill{}, &ParseError{
+				Field:      "name",
+				Constraint: "must match directory name",
+				Value:      fmt.Sprintf("frontmatter %q != directory %q", skill.Name, name),
+			}
+		}
+
+		skill.SourcePath = skillDir
+		skill.ResourcePaths = discoverResources(skillDir)
+		return skill, nil
+	}
+
+	return Skill{}, &ParseError{Field: "name", Constraint: "not found", Value: name}
+}
+
+// Write persists a skill to the highest-precedence source directory.
+func (ds *DirectoryStore) Write(skill Skill) error {
+	if err := ValidateName(skill.Name); err != nil {
+		return err
+	}
+	if skill.Description == "" {
+		return &ParseError{Field: "description", Constraint: "required"}
+	}
+
+	data, err := Serialize(skill)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Join(ds.sources[0].Root, skill.Name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create skill directory: %w", err)
+	}
+
+	path := filepath.Join(dir, "SKILL.md")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write SKILL.md: %w", err)
+	}
+
+	return nil
+}
+
+// List returns all discoverable skills with metadata-only loading.
+func (ds *DirectoryStore) List() ([]Skill, error) {
+	seen := make(map[string]bool)
+	var skills []Skill
+	var errs []SkillError
+
+	for _, source := range ds.sources {
+		if _, err := os.Stat(source.Root); os.IsNotExist(err) {
+			continue
+		}
+
+		entries, err := os.ReadDir(source.Root)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			name := entry.Name()
+			if seen[name] {
+				continue
+			}
+
+			skillFile := filepath.Join(source.Root, name, "SKILL.md")
+			data, err := os.ReadFile(skillFile)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				errs = append(errs, SkillError{SkillName: name, Path: skillFile, Err: err})
+				continue
+			}
+
+			skill, err := ParseMetadata(data)
+			if err != nil {
+				errs = append(errs, SkillError{SkillName: name, Path: skillFile, Err: err})
+				continue
+			}
+
+			skill.SourcePath = filepath.Join(source.Root, name)
+			seen[name] = true
+			skills = append(skills, skill)
+		}
+	}
+
+	if len(errs) > 0 {
+		return skills, &DiscoveryError{Errors: errs}
+	}
+	return skills, nil
+}
+
+// Delete removes a skill directory by name from the first source that contains it.
+func (ds *DirectoryStore) Delete(name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
+
+	for _, source := range ds.sources {
+		dir := filepath.Join(source.Root, name)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			continue
+		}
+
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("failed to delete skill directory: %w", err)
+		}
+		return nil
+	}
+
+	return &ParseError{Field: "name", Constraint: "not found", Value: name}
+}
+
+// discoverResources scans for resource files in known subdirectories of a skill directory.
+func discoverResources(skillDir string) []string {
+	resourceDirs := []string{"scripts", "references", "assets"}
+	var paths []string
+
+	for _, dir := range resourceDirs {
+		full := filepath.Join(skillDir, dir)
+		entries, err := os.ReadDir(full)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			paths = append(paths, filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	return paths
+}

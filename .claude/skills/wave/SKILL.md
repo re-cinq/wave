@@ -1,3 +1,8 @@
+---
+name: wave
+description: Expert Wave multi-agent pipeline orchestrator development including manifest configuration, pipeline authoring, persona management, and CLI operations
+---
+
 # Wave — Multi-Agent Pipeline Orchestrator
 
 Wave is a Go CLI that orchestrates multi-step AI workflows. It wraps LLM CLIs (primarily Claude Code) as subprocesses, executing pipelines where each step is performed by a specialized persona with enforced permissions, workspace isolation, and contract validation.
