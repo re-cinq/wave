@@ -861,6 +861,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
 				WorktreePaths:  make(map[string]*WorktreeInfo),
+				Context:        NewPipelineContext("partial-failure-test", "partial-failure-test", "matrix_step"),
 				Status:         &PipelineStatus{ID: "partial-failure-test", PipelineName: "partial-failure-test"},
 			}
 

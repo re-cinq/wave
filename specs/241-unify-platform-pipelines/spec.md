@@ -129,6 +129,7 @@ As a pipeline executor, I need the `requires.tools` section of unified pipelines
 - What happens when a user has customized a platform-specific pipeline in their local `.wave/` directory? Local customizations MUST continue to take precedence over embedded defaults (existing override behavior).
 - What happens when the `bb-*` pipelines use `$BB_TOKEN` in prompts but the environment variable is not set? The system MUST NOT expose token values in prompt templates. Token handling MUST be delegated to the forge-specific persona's instructions, not embedded as literal values in pipeline-level prompt text.
 - What happens when a new forge platform is added in the future? Adding a new forge MUST only require: (1) adding forge detection logic, (2) creating forge-specific personas, (3) extending the `forgeMetadata` function. No pipeline or prompt duplication should be needed.
+- What step ID should the unified pipeline use for the PR/MR creation step, given that `gl-implement` uses `create-mr` while all others use `create-pr`? The unified pipeline MUST use `create-pr` as the step ID (3-out-of-4 convention wins). The prompt file MUST be named `create-pr.md`. GitLab-specific MR terminology MUST be handled via `{{ forge.pr_term }}` and `{{ forge.pr_command }}` template variables within the prompt content, not via the step ID.
 
 ## Requirements _(mandatory)_
 
@@ -136,12 +137,12 @@ As a pipeline executor, I need the `requires.tools` section of unified pipelines
 
 - **FR-001**: System MUST expose forge metadata as template variables in `PipelineContext`: `forge.type`, `forge.host`, `forge.owner`, `forge.repo`, `forge.cli_tool`, `forge.prefix`, `forge.pr_term` (Pull Request/Merge Request), `forge.pr_command` (pr/mr)
 - **FR-002**: System MUST resolve `{{ forge.* }}` template variables in pipeline YAML fields (persona, prompt path, step configuration) and prompt file content using the existing `ResolvePlaceholders` mechanism
-- **FR-003**: System MUST provide 7 unified pipeline definitions (`implement`, `implement-epic`, `scope`, `research`, `rewrite`, `refresh`, `pr-review`) that replace all 25 platform-specific pipeline files
+- **FR-003**: System MUST provide 6 unified pipeline definitions (`implement`, `scope`, `research`, `rewrite`, `refresh`, `pr-review`) that replace all 25 platform-specific pipeline files. Note: `implement-epic` was removed from this list because no `*-implement-epic` pipeline exists in the current codebase — only 6 forge-prefixed families exist
 - **FR-004**: System MUST resolve forge-specific personas at runtime using template variables in the `persona` field of pipeline step definitions (e.g., `persona: "{{ forge.prefix }}-commenter"`)
 - **FR-005**: System MUST consolidate platform-variant prompt files into single unified prompt files per pipeline family that use `{{ forge.* }}` template variables for platform-specific commands
 - **FR-006**: System MUST extend `pr-review` pipeline to support all four forge platforms (currently GitHub-only)
-- **FR-007**: System MUST resolve `requires.tools` dynamically based on detected forge, or use a mechanism that auto-resolves to the correct CLI tool for the detected platform
-- **FR-008**: System MUST update `FilterPipelinesByForge` to work with unified pipeline names (no forge prefix) while maintaining backward compatibility during transition
+- **FR-007**: System MUST resolve `requires.tools` dynamically by supporting `{{ forge.cli_tool }}` template variable expansion in the YAML `requires.tools` array. The executor MUST call `ResolvePlaceholders` on each tool entry before passing the list to `preflight.Checker.CheckTools()`. For Bitbucket, `forge.cli_tool` resolves to `bb` (unused placeholder) and the pipeline MUST hardcode `curl` and `jq` as additional static entries alongside the template variable. The preflight checker MUST silently skip empty strings resulting from unresolved or empty template variables
+- **FR-008**: System MUST implement backward compatibility via a pipeline name resolver function in `internal/pipeline/` that maps legacy prefixed names (e.g., `gh-implement` → `implement`, `gl-research` → `research`) to unified names. The resolver MUST: (1) strip known forge prefixes (`gh-`, `gl-`, `bb-`, `gt-`) to derive the unified name, (2) log a deprecation warning to stderr with migration instructions, (3) return the unified pipeline for execution. `FilterPipelinesByForge` MUST be updated to return all pipelines (since unified pipelines have no forge prefix) and MUST NOT filter out non-prefixed pipelines when a forge is detected
 - **FR-009**: System MUST fix all 10 known duplication bugs documented in issue #241 comments as part of unification
 - **FR-010**: System MUST update the embedded asset loading (`internal/defaults/embed.go`) to serve unified pipeline files and prompt directories instead of platform-specific variants
 - **FR-011**: System MUST provide a clear error message when forge detection fails and no manual forge configuration exists in `wave.yaml`
@@ -149,8 +150,8 @@ As a pipeline executor, I need the `requires.tools` section of unified pipelines
 
 ### Key Entities
 
-- **ForgeInfo**: Existing entity (`internal/forge/detect.go`) describing the detected forge platform — extended with derived fields (`PRTerm`, `PRCommand`) for template variable support
-- **PipelineContext**: Existing entity (`internal/pipeline/context.go`) holding runtime template variables — extended with `forge.*` namespace variables populated from `ForgeInfo`
+- **ForgeInfo**: Existing entity (`internal/forge/detect.go`) describing the detected forge platform — extended with two new struct fields: `PRTerm string` (e.g., "Pull Request", "Merge Request") and `PRCommand string` (e.g., "pr", "mr"). These fields MUST be populated in the `forgeMetadata` function alongside `CLITool` and `PipelinePrefix`. This keeps forge metadata centralized in one function and follows the existing pattern
+- **PipelineContext**: Existing entity (`internal/pipeline/context.go`) holding runtime template variables — extended with `forge.*` namespace variables. Forge variables MUST be injected via `SetCustomVariable()` calls (e.g., `ctx.SetCustomVariable("forge.type", info.Type)`) during pipeline initialization, using the existing `CustomVariables` map. This avoids adding forge-specific struct fields and keeps `ResolvePlaceholders` working without modification. A new helper function `InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo)` MUST be added to `internal/pipeline/context.go` to centralize this injection
 - **Unified Pipeline**: A single pipeline YAML definition that uses `{{ forge.* }}` template variables to adapt behavior to the detected forge platform at runtime
 - **Forge-Specific Persona**: Existing persona definitions (e.g., `github-commenter`, `bitbucket-analyst`) that remain as separate entities but are resolved dynamically via template variable expansion in the pipeline `persona` field
 
@@ -158,11 +159,45 @@ As a pipeline executor, I need the `requires.tools` section of unified pipelines
 
 ### Measurable Outcomes
 
-- **SC-001**: The number of pipeline YAML files in `internal/defaults/pipelines/` with forge prefixes (`bb-`, `gh-`, `gl-`, `gt-`) is reduced from 25 to 0, replaced by 7 unified files
+- **SC-001**: The number of pipeline YAML files in `internal/defaults/pipelines/` with forge prefixes (`bb-`, `gh-`, `gl-`, `gt-`) is reduced from 25 to 0, replaced by 6 unified files
 - **SC-002**: The number of prompt directories in `internal/defaults/prompts/` with forge prefixes is reduced from 8+ to 0, replaced by unified directories per pipeline family
-- **SC-003**: All 7 unified pipelines produce correct behavior for each of the 4 forge platforms (28 pipeline×platform combinations), validated by tests
+- **SC-003**: All 6 unified pipelines produce correct behavior for each of the 4 forge platforms (24 pipeline×platform combinations), validated by tests
 - **SC-004**: Running `wave run implement` on a GitHub repository produces identical functional behavior to the current `gh-implement` pipeline
 - **SC-005**: Running `wave run pr-review` succeeds on GitLab, Gitea, and Bitbucket repositories (new capability — currently GitHub-only)
 - **SC-006**: All 10 documented duplication bugs from issue #241 are resolved and do not recur
 - **SC-007**: Adding support for a new forge platform requires only forge detection logic and forge-specific personas — no pipeline or prompt file duplication
 - **SC-008**: The total line count of pipeline YAML + prompt markdown files is reduced by at least 60% compared to the current duplicated set
+
+## Clarifications
+
+The following ambiguities were identified and resolved during spec refinement:
+
+### C1: Pipeline Count — 6 Not 7
+
+**Ambiguity**: FR-003 originally listed 7 unified pipelines including `implement-epic`, but no `*-implement-epic` pipeline exists in the codebase. Only 6 forge-prefixed families exist: `implement`, `scope`, `research`, `rewrite`, `refresh`, `pr-review`.
+
+**Resolution**: Corrected to 6 unified pipelines. `implement-epic` was a phantom entry. If epic implementation is needed in the future, it can be added as a separate pipeline without affecting this spec. Updated FR-003, SC-001, and SC-003 accordingly.
+
+### C2: Unified Step ID for create-pr vs create-mr
+
+**Ambiguity**: `gl-implement.yaml` uses step ID `create-mr` and prompt `create-mr.md`, while GitHub, Bitbucket, and Gitea all use `create-pr` and `create-pr.md`. The unified pipeline needs a single step ID.
+
+**Resolution**: Use `create-pr` as the unified step ID (3-out-of-4 convention). GitLab's "Merge Request" terminology is handled via `{{ forge.pr_term }}` and `{{ forge.pr_command }}` template variables within prompt content, not via step naming. Added as an edge case entry.
+
+### C3: Dynamic requires.tools Mechanism
+
+**Ambiguity**: FR-007 said "resolve dynamically or use a mechanism" without specifying the concrete approach. The current `requires.tools` is a static YAML array, and `preflight.Checker.CheckTools()` uses `exec.LookPath()` on each entry.
+
+**Resolution**: Use `{{ forge.cli_tool }}` template variable in the YAML `requires.tools` array. The executor resolves placeholders before passing tools to the preflight checker. Bitbucket's `curl`/`jq` tools are hardcoded as static entries alongside the template variable. The preflight checker skips empty strings from unresolved variables. This is the minimal change — no new YAML schema needed.
+
+### C4: Backward Compatibility Routing Mechanism
+
+**Ambiguity**: US-6 specified that old names "route to the unified pipeline" but no alias or deprecation infrastructure exists in the codebase.
+
+**Resolution**: Implement a pipeline name resolver function in `internal/pipeline/` that strips known forge prefixes (`gh-`, `gl-`, `bb-`, `gt-`) to derive the unified name. The resolver logs a deprecation warning to stderr and returns the unified pipeline. `FilterPipelinesByForge` is updated to return all pipelines since unified names have no prefix. This is a simple string-matching function — no YAML schema changes or alias maps needed.
+
+### C5: Forge Template Variable Population Mechanism
+
+**Ambiguity**: The spec said `PipelineContext` is "extended with forge.* namespace variables" but didn't specify whether to add dedicated struct fields or use the existing `CustomVariables` map.
+
+**Resolution**: Use `SetCustomVariable()` to inject `forge.*` variables (e.g., `ctx.SetCustomVariable("forge.type", string(info.Type))`). This reuses the existing `CustomVariables` map and requires no changes to `ResolvePlaceholders`. A new helper `InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo)` centralizes the injection. The `ForgeInfo` struct gains `PRTerm` and `PRCommand` fields populated in `forgeMetadata()`.

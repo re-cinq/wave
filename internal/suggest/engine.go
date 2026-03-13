@@ -216,16 +216,18 @@ func discoverPipelines(dir string) []string {
 	return names
 }
 
-// resolvePipeline looks for a forge-prefixed pipeline first, then falls back to generic.
+// resolvePipeline looks for a unified (bare) pipeline first, then falls back to forge-prefixed.
 func resolvePipeline(catalog []string, prefix, base string) string {
+	// Try bare name first (unified pipeline)
+	if inCatalog(catalog, base) {
+		return base
+	}
+	// Fall back to forge-prefixed
 	if prefix != "" {
 		prefixed := prefix + "-" + base
 		if inCatalog(catalog, prefixed) {
 			return prefixed
 		}
-	}
-	if inCatalog(catalog, base) {
-		return base
 	}
 	return ""
 }

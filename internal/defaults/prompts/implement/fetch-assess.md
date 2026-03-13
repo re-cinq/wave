@@ -1,4 +1,4 @@
-You are fetching a Gitea issue and assessing whether it has enough detail to implement.
+You are fetching an issue and assessing whether it has enough detail to implement.
 
 Input: {{ input }}
 
@@ -6,7 +6,7 @@ The input format is `owner/repo number` (e.g. `re-cinq/wave 42`).
 
 ## Working Directory
 
-You are running in an isolated Wave workspace. The `tea` CLI works from any
+You are running in an isolated Wave workspace. The `{{ forge.cli_tool }}` CLI works from any
 directory when using the `--repo` flag, so no directory change is needed.
 
 ## Instructions
@@ -17,8 +17,32 @@ Extract the repository (`owner/repo`) and issue number from the input string.
 
 ### Step 2: Fetch Issue
 
-Use the `tea` CLI to fetch the issue with full details:
+Use the appropriate CLI for your platform ({{ forge.type }}) to fetch the issue with full details.
 
+**For GitHub** (`gh`):
+```bash
+gh issue view <NUMBER> --repo <OWNER/REPO> --json number,title,body,url,labels,state,author,comments
+```
+
+**For GitLab** (`glab`):
+```bash
+glab issue view <NUMBER> --repo <OWNER/REPO> --output json
+```
+
+**For Bitbucket** (REST API):
+```bash
+curl -s -H "Authorization: Bearer $BB_TOKEN" \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER" \
+  | jq '{id, title, content: .content.raw, state, kind, reporter: .reporter.display_name, created_on, url: .links.html.href}'
+```
+Also fetch comments:
+```bash
+curl -s -H "Authorization: Bearer $BB_TOKEN" \
+  "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER/comments" \
+  | jq '[.values[] | {id, content: .content.raw, user: .user.display_name, created_on}]'
+```
+
+**For Gitea** (`tea`):
 ```bash
 tea issues view <NUMBER> --repo <OWNER/REPO> --output json
 ```
