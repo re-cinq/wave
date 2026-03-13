@@ -62,12 +62,13 @@ func splitFrontmatter(data []byte) (yamlBlock []byte, body string, err error) {
 	// Find closing ---
 	rest := s[len(delimiter):]
 	// Skip the newline after opening ---
-	if len(rest) > 0 && rest[0] == '\n' {
-		rest = rest[1:]
-	} else if len(rest) > 1 && rest[0] == '\r' && rest[1] == '\n' {
-		rest = rest[2:]
-	} else if len(rest) == 0 {
+	switch {
+	case len(rest) == 0:
 		return nil, "", &ParseError{Field: "frontmatter", Constraint: "unterminated frontmatter"}
+	case rest[0] == '\n':
+		rest = rest[1:]
+	case len(rest) > 1 && rest[0] == '\r' && rest[1] == '\n':
+		rest = rest[2:]
 	}
 
 	idx := strings.Index(rest, "\n"+delimiter)
