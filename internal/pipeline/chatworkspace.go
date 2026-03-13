@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -234,8 +235,18 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 	if len(ctx.ArtifactContents) > 0 {
 		b.WriteString("\n## Key Artifact Content\n\n")
 		b.WriteString("The following artifact content has been pre-loaded for immediate reference:\n\n")
-		for name, content := range ctx.ArtifactContents {
-			fmt.Fprintf(&b, "### %s\n\n```\n%s\n```\n\n", name, content)
+		artifactNames := make([]string, 0, len(ctx.ArtifactContents))
+		for name := range ctx.ArtifactContents {
+			artifactNames = append(artifactNames, name)
+		}
+		sort.Strings(artifactNames)
+		for _, name := range artifactNames {
+			content := ctx.ArtifactContents[name]
+			fence := "```"
+			if strings.Contains(content, "```") {
+				fence = "``````"
+			}
+			fmt.Fprintf(&b, "### %s\n\n%s\n%s\n%s\n\n", name, fence, content, fence)
 		}
 	}
 
@@ -373,9 +384,14 @@ func provisionSlashCommands(wsDir string) error {
 		"wave-diff.md":   waveDiffCommand,
 	}
 
-	for name, content := range commands {
+	cmdNames := make([]string, 0, len(commands))
+	for name := range commands {
+		cmdNames = append(cmdNames, name)
+	}
+	sort.Strings(cmdNames)
+	for _, name := range cmdNames {
 		path := filepath.Join(commandsDir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(commands[name]), 0644); err != nil {
 			return fmt.Errorf("failed to write slash command %s: %w", name, err)
 		}
 	}
