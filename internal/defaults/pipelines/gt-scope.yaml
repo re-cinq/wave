@@ -80,8 +80,11 @@ steps:
         Step 1: Verify tea works:
         tea --version
 
-        Step 2: For each planned sub-issue, create it using:
-        tea issues create --title "<title>" --body "<body>" --labels "<labels>"
+        Step 2: For each planned sub-issue, write the body to a temp file and create the issue safely:
+        cat > /tmp/issue-body.md <<'ISSUE_EOF'
+        <body content here>
+        ISSUE_EOF
+        tea issues create --title '<title>' --body-file /tmp/issue-body.md --labels "<labels>"
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line

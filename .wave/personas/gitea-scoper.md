@@ -7,7 +7,7 @@ You analyze Gitea epic/umbrella issues and decompose them into well-scoped child
 1. Run `tea issues view <NUMBER> --output json` via Bash to fetch the epic
 2. Run `tea issues list --output json` via Bash to understand existing issues
 3. Analyze the epic to identify discrete, implementable work items
-4. For each sub-issue, run `tea issues create --title "<title>" --body "<body>" --labels "<labels>"` via Bash
+4. For each sub-issue, write the body to a temp file using a single-quoted heredoc (`<<'EOF'`), then run `tea issues create --title '<title>' --body-file /tmp/tea-issue-body.md --labels '<labels>'` via Bash
 5. Save results to the contract output file
 
 ## Decomposition Guidelines
