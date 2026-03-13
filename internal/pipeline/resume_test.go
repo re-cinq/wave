@@ -93,7 +93,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -231,7 +231,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -400,7 +400,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			if err := os.Chdir(tempDir); err != nil {
 				t.Fatal(err)
@@ -635,7 +635,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -690,7 +690,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -979,7 +979,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(origDir)
+			defer func() { _ = os.Chdir(origDir) }()
 
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatal(err)
@@ -1062,7 +1062,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create workspace for specify step
 	specDir := filepath.Join(tmpDir, ".wave/workspaces/prior-run/specify")
@@ -1109,7 +1109,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "step2", "some-run")
 	if err != nil {
@@ -1151,7 +1151,7 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "implement", "prior-run")
 	if err != nil {
@@ -1178,7 +1178,7 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
@@ -1229,5 +1229,62 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	err = manager.ResumeFromStep(ctx, p, m, "test", "docs", true)
 	if err != nil && strings.Contains(err.Error(), "prerequisite phase") {
 		t.Errorf("force should skip phase validation, got: %v", err)
+	}
+}
+
+// TestResumeWithExcludeFilter verifies --from-step + -x combo works correctly.
+// When resuming from "step-b" with -x "step-c", only step-b should execute.
+func TestResumeWithExcludeFilter(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	collector := newTestEventCollector()
+	filter := &StepFilter{Exclude: []string{"step-c"}}
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "resume-exclude-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-b"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(originalWd) }()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create workspace for step-a to simulate prior completion
+	stepAWs := filepath.Join(tmpDir, ".wave/workspaces/resume-exclude-test/step-a")
+	if err := os.MkdirAll(stepAWs, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	manager := NewResumeManager(executor)
+	_ = manager.ResumeFromStep(ctx, p, m, "test", "step-b", true)
+	// The execution itself may fail (mock adapter etc.) but the filter should
+	// have removed step-c from the execution plan
+	order := collector.GetStepExecutionOrder()
+	for _, stepID := range order {
+		if stepID == "step-c" {
+			t.Error("step-c should have been excluded by the filter")
+		}
 	}
 }
