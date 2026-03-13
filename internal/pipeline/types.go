@@ -59,11 +59,21 @@ type PipelineMetadata struct {
 }
 
 type InputConfig struct {
-	Source      string       `yaml:"source"`
-	Schema      *InputSchema `yaml:"schema,omitempty"`
-	Example     string       `yaml:"example,omitempty"`
-	LabelFilter string       `yaml:"label_filter,omitempty"`
-	BatchSize   int          `yaml:"batch_size,omitempty"`
+	Source      string            `yaml:"source"`
+	Schema      *InputSchema     `yaml:"schema,omitempty"`
+	Example     string           `yaml:"example,omitempty"`
+	LabelFilter string           `yaml:"label_filter,omitempty"`
+	BatchSize   int              `yaml:"batch_size,omitempty"`
+	Continuous  *ContinuousConfig `yaml:"continuous,omitempty"`
+}
+
+// ContinuousConfig configures continuous/loop execution mode for a pipeline.
+type ContinuousConfig struct {
+	Enabled       bool   `yaml:"enabled,omitempty"`
+	LabelFilter   string `yaml:"label_filter,omitempty"`
+	Delay         string `yaml:"delay,omitempty"`          // Duration string, default "10s"
+	HaltOnError   bool   `yaml:"halt_on_error,omitempty"`
+	MaxIterations int    `yaml:"max_iterations,omitempty"` // 0 = unlimited
 }
 
 type InputSchema struct {

@@ -168,6 +168,16 @@ type StepAttemptRecord struct {
 	CompletedAt  *time.Time
 }
 
+// ProcessedItemRecord holds a record of an item processed in continuous mode.
+type ProcessedItemRecord struct {
+	ID           int64
+	PipelineName string
+	ItemKey      string
+	RunID        string
+	Status       string
+	ProcessedAt  time.Time
+}
+
 // ArtifactMetadataRecord holds extended artifact metadata for visualization.
 type ArtifactMetadataRecord struct {
 	ArtifactID   int64

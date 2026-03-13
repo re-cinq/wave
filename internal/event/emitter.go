@@ -122,6 +122,14 @@ const (
 	StateLoopIteration      = "loop_iteration"       // Loop iteration started
 	StateLoopCompleted      = "loop_completed"       // Loop terminated
 	StateAggregateCompleted = "aggregate_completed"  // Aggregation finished
+
+	// Continuous execution states
+	StateContinuousStarted            = "continuous_started"              // Continuous run begins
+	StateContinuousIterationStarted   = "continuous_iteration_started"   // Single iteration begins
+	StateContinuousIterationCompleted = "continuous_iteration_completed" // Iteration succeeded
+	StateContinuousIterationFailed    = "continuous_iteration_failed"    // Iteration failed
+	StateContinuousExhausted          = "continuous_exhausted"           // No more work items
+	StateContinuousStopped            = "continuous_stopped"             // Graceful shutdown
 )
 
 type EventEmitter interface {

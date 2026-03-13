@@ -259,5 +259,23 @@ CREATE INDEX IF NOT EXISTS idx_attempt_step ON step_attempt(step_id);
 `,
 			Down: "",
 		},
+		{
+			Version:     10,
+			Description: "Add continuous_processed_items table for tracking processed work items",
+			Up: `
+CREATE TABLE IF NOT EXISTS continuous_processed_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pipeline_name TEXT NOT NULL,
+    item_key TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'completed',
+    processed_at INTEGER NOT NULL,
+    UNIQUE(pipeline_name, item_key)
+);
+CREATE INDEX IF NOT EXISTS idx_continuous_pipeline ON continuous_processed_items(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_continuous_key ON continuous_processed_items(pipeline_name, item_key);
+`,
+			Down: "",
+		},
 	}
 }

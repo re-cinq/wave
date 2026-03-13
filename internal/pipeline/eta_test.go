@@ -22,6 +22,15 @@ func (m *mockStoreForETA) GetStepPerformanceStats(_ string, stepID string, _ tim
 	return &state.StepPerformanceStats{StepID: stepID}, nil
 }
 
+func (m *mockStoreForETA) MarkItemProcessed(pipelineName, itemKey, runID string) error { return nil }
+func (m *mockStoreForETA) IsItemProcessed(pipelineName, itemKey string) (bool, error) {
+	return false, nil
+}
+func (m *mockStoreForETA) ListProcessedItems(pipelineName string, limit int) ([]state.ProcessedItemRecord, error) {
+	return nil, nil
+}
+func (m *mockStoreForETA) ClearProcessedItems(pipelineName string) error { return nil }
+
 func TestETACalculator_NoHistory(t *testing.T) {
 	calc := NewETACalculator(nil, "test-pipeline", []string{"step-1", "step-2", "step-3"})
 

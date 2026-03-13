@@ -28,6 +28,15 @@ func (m *mockStepStore) LogEvent(runID string, stepID string, st string, persona
 
 func (m *mockStepStore) Close() error { return nil }
 
+func (m *mockStepStore) MarkItemProcessed(pipelineName, itemKey, runID string) error { return nil }
+func (m *mockStepStore) IsItemProcessed(pipelineName, itemKey string) (bool, error) {
+	return false, nil
+}
+func (m *mockStepStore) ListProcessedItems(pipelineName string, limit int) ([]state.ProcessedItemRecord, error) {
+	return nil, nil
+}
+func (m *mockStepStore) ClearProcessedItems(pipelineName string) error { return nil }
+
 // ---------------------------------------------------------------------------
 // Helper to build a minimal ChatContext for tests.
 // ---------------------------------------------------------------------------

@@ -107,6 +107,12 @@ type StateStore interface {
 	// Step attempt tracking (retry/recovery)
 	RecordStepAttempt(record *StepAttemptRecord) error
 	GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error)
+
+	// Continuous mode processed-item tracking
+	MarkItemProcessed(pipelineName, itemKey, runID string) error
+	IsItemProcessed(pipelineName, itemKey string) (bool, error)
+	ListProcessedItems(pipelineName string, limit int) ([]ProcessedItemRecord, error)
+	ClearProcessedItems(pipelineName string) error
 }
 
 type stateStore struct {
@@ -1798,4 +1804,56 @@ func (s *stateStore) GetStepAttempts(runID string, stepID string) ([]StepAttempt
 		records = append(records, r)
 	}
 	return records, nil
+}
+
+func (s *stateStore) MarkItemProcessed(pipelineName, itemKey, runID string) error {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO continuous_processed_items (pipeline_name, item_key, run_id, status, processed_at) VALUES (?, ?, ?, 'completed', ?)`,
+		pipelineName, itemKey, runID, time.Now().Unix(),
+	)
+	return err
+}
+
+func (s *stateStore) IsItemProcessed(pipelineName, itemKey string) (bool, error) {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM continuous_processed_items WHERE pipeline_name = ? AND item_key = ?`,
+		pipelineName, itemKey,
+	).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (s *stateStore) ListProcessedItems(pipelineName string, limit int) ([]ProcessedItemRecord, error) {
+	rows, err := s.db.Query(
+		`SELECT id, pipeline_name, item_key, run_id, status, processed_at FROM continuous_processed_items WHERE pipeline_name = ? ORDER BY id DESC LIMIT ?`,
+		pipelineName, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []ProcessedItemRecord
+	for rows.Next() {
+		var r ProcessedItemRecord
+		var processedAt int64
+		err := rows.Scan(&r.ID, &r.PipelineName, &r.ItemKey, &r.RunID, &r.Status, &processedAt)
+		if err != nil {
+			return nil, err
+		}
+		r.ProcessedAt = time.Unix(processedAt, 0)
+		records = append(records, r)
+	}
+	return records, nil
+}
+
+func (s *stateStore) ClearProcessedItems(pipelineName string) error {
+	_, err := s.db.Exec(
+		`DELETE FROM continuous_processed_items WHERE pipeline_name = ?`,
+		pipelineName,
+	)
+	return err
 }

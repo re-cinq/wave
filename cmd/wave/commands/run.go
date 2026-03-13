@@ -12,8 +12,10 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
@@ -27,18 +29,21 @@ import (
 )
 
 type RunOptions struct {
-	Pipeline          string
-	Input             string
-	DryRun            bool
-	FromStep          string
-	Force             bool
-	Timeout           int
-	Manifest          string
-	Mock              bool
-	RunID             string
-	Output            OutputConfig
-	Model             string
-	PreserveWorkspace bool
+	Pipeline              string
+	Input                 string
+	DryRun                bool
+	FromStep              string
+	Force                 bool
+	Timeout               int
+	Manifest              string
+	Mock                  bool
+	RunID                 string
+	Output                OutputConfig
+	Model                 string
+	PreserveWorkspace     bool
+	Continuous            bool
+	ContinuousDelay       time.Duration
+	ContinuousHaltOnError bool
 }
 
 func NewRunCmd() *cobra.Command {
@@ -113,6 +118,9 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
+	cmd.Flags().BoolVar(&opts.Continuous, "continuous", false, "Run pipeline continuously, iterating over matching issues")
+	cmd.Flags().DurationVar(&opts.ContinuousDelay, "continuous-delay", 10*time.Second, "Delay between continuous iterations")
+	cmd.Flags().BoolVar(&opts.ContinuousHaltOnError, "continuous-halt-on-error", false, "Stop continuous execution on first failure")
 
 	return cmd
 }
@@ -207,6 +215,11 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if store != nil {
 		defer store.Close()
+	}
+
+	// Continuous mode: delegate to the continuous runner
+	if opts.Continuous {
+		return runContinuous(ctx, opts, p, &m, runner, store, debug)
 	}
 
 	// Auto-recover input when resuming without explicit --input
@@ -527,11 +540,102 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
+// runContinuous handles the --continuous execution path.
+func runContinuous(ctx context.Context, opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest, runner adapter.AdapterRunner, store state.StateStore, debug bool) error {
+	// Detect forge to determine provider
+	forgeInfo, err := forge.DetectFromGitRemotes()
+	if err != nil || forgeInfo.Type != forge.ForgeGitHub {
+		return fmt.Errorf("continuous mode currently requires a GitHub repository (detected: %s)", forgeInfo.Type)
+	}
+
+	repo := forgeInfo.Slug()
+	if repo == "" {
+		return fmt.Errorf("could not determine repository from git remotes")
+	}
+
+	// Determine label filter — CLI flag takes precedence, then pipeline manifest
+	labelFilter := ""
+	if p.Input.LabelFilter != "" {
+		labelFilter = p.Input.LabelFilter
+	}
+	if p.Input.Continuous != nil && p.Input.Continuous.LabelFilter != "" {
+		labelFilter = p.Input.Continuous.LabelFilter
+	}
+
+	// Determine delay — CLI flag is already defaulted to 10s
+	delay := opts.ContinuousDelay
+	if p.Input.Continuous != nil && p.Input.Continuous.Delay != "" {
+		if d, parseErr := time.ParseDuration(p.Input.Continuous.Delay); parseErr == nil {
+			delay = d
+		}
+	}
+
+	// Determine halt-on-error — CLI flag overrides manifest
+	haltOnError := opts.ContinuousHaltOnError
+	if p.Input.Continuous != nil && p.Input.Continuous.HaltOnError {
+		haltOnError = true
+	}
+
+	// Determine max iterations
+	maxIterations := 0
+	if p.Input.Continuous != nil && p.Input.Continuous.MaxIterations > 0 {
+		maxIterations = p.Input.Continuous.MaxIterations
+	}
+
+	// Create provider
+	provider := continuous.NewGitHubProvider(repo, labelFilter, store, p.Metadata.Name)
+
+	// Create event emitter for continuous mode
+	emitter := event.NewNDJSONEmitter()
+
+	// Build pipeline factory — each iteration runs a fresh single-shot execution
+	factory := func(input string) error {
+		iterOpts := opts
+		iterOpts.Input = input
+		iterOpts.Continuous = false // Prevent recursion
+		return runRun(iterOpts, debug)
+	}
+
+	r := continuous.NewRunner(continuous.RunnerConfig{
+		Provider:        provider,
+		PipelineFactory: factory,
+		Emitter:         emitter,
+		Store:           store,
+		PipelineName:    p.Metadata.Name,
+		Delay:           delay,
+		HaltOnError:     haltOnError,
+		MaxIterations:   maxIterations,
+	})
+
+	fmt.Fprintf(os.Stderr, "  Starting continuous mode for pipeline '%s' (repo: %s, delay: %s)\n", p.Metadata.Name, repo, delay)
+	if labelFilter != "" {
+		fmt.Fprintf(os.Stderr, "  Label filter: %s\n", labelFilter)
+	}
+
+	return r.Run(ctx)
+}
+
 func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
-	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
-	fmt.Fprintf(os.Stderr, "Execution plan:\n")
+	fmt.Fprintf(os.Stderr, "Steps: %d\n", len(p.Steps))
+
+	if p.Input.Continuous != nil {
+		fmt.Fprintf(os.Stderr, "\nContinuous mode configuration:\n")
+		fmt.Fprintf(os.Stderr, "  Enabled: %v\n", p.Input.Continuous.Enabled)
+		if p.Input.Continuous.LabelFilter != "" {
+			fmt.Fprintf(os.Stderr, "  Label filter: %s\n", p.Input.Continuous.LabelFilter)
+		}
+		if p.Input.Continuous.Delay != "" {
+			fmt.Fprintf(os.Stderr, "  Delay: %s\n", p.Input.Continuous.Delay)
+		}
+		fmt.Fprintf(os.Stderr, "  Halt on error: %v\n", p.Input.Continuous.HaltOnError)
+		if p.Input.Continuous.MaxIterations > 0 {
+			fmt.Fprintf(os.Stderr, "  Max iterations: %d\n", p.Input.Continuous.MaxIterations)
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "\nExecution plan:\n")
 
 	for i, step := range p.Steps {
 		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)

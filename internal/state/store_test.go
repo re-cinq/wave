@@ -2093,3 +2093,91 @@ func TestRecordStepAttempt_NilCompletedAt(t *testing.T) {
 	require.Len(t, attempts, 1)
 	assert.Nil(t, attempts[0].CompletedAt)
 }
+
+func TestMarkItemProcessedAndIsItemProcessed(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Initially not processed
+	processed, err := store.IsItemProcessed("gh-implement", "owner/repo#42")
+	require.NoError(t, err)
+	assert.False(t, processed)
+
+	// Mark as processed
+	err = store.MarkItemProcessed("gh-implement", "owner/repo#42", "run-123")
+	require.NoError(t, err)
+
+	// Now should be processed
+	processed, err = store.IsItemProcessed("gh-implement", "owner/repo#42")
+	require.NoError(t, err)
+	assert.True(t, processed)
+
+	// Different pipeline should not see it as processed
+	processed, err = store.IsItemProcessed("other-pipeline", "owner/repo#42")
+	require.NoError(t, err)
+	assert.False(t, processed)
+}
+
+func TestMarkItemProcessedIdempotent(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Mark the same item twice — should not error
+	err := store.MarkItemProcessed("gh-implement", "owner/repo#1", "run-1")
+	require.NoError(t, err)
+
+	err = store.MarkItemProcessed("gh-implement", "owner/repo#1", "run-2")
+	require.NoError(t, err)
+
+	// Should still report as processed
+	processed, err := store.IsItemProcessed("gh-implement", "owner/repo#1")
+	require.NoError(t, err)
+	assert.True(t, processed)
+}
+
+func TestListProcessedItems(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Mark several items
+	require.NoError(t, store.MarkItemProcessed("gh-implement", "owner/repo#1", "run-1"))
+	require.NoError(t, store.MarkItemProcessed("gh-implement", "owner/repo#2", "run-2"))
+	require.NoError(t, store.MarkItemProcessed("gh-implement", "owner/repo#3", "run-3"))
+	require.NoError(t, store.MarkItemProcessed("other-pipeline", "owner/repo#4", "run-4"))
+
+	// List items for gh-implement
+	items, err := store.ListProcessedItems("gh-implement", 10)
+	require.NoError(t, err)
+	assert.Len(t, items, 3)
+
+	// Verify ordering (newest first)
+	assert.Equal(t, "owner/repo#3", items[0].ItemKey)
+
+	// List items for other pipeline
+	items, err = store.ListProcessedItems("other-pipeline", 10)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestClearProcessedItems(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	require.NoError(t, store.MarkItemProcessed("gh-implement", "owner/repo#1", "run-1"))
+	require.NoError(t, store.MarkItemProcessed("gh-implement", "owner/repo#2", "run-2"))
+	require.NoError(t, store.MarkItemProcessed("other-pipeline", "owner/repo#3", "run-3"))
+
+	// Clear gh-implement items
+	err := store.ClearProcessedItems("gh-implement")
+	require.NoError(t, err)
+
+	// gh-implement items should be gone
+	processed, err := store.IsItemProcessed("gh-implement", "owner/repo#1")
+	require.NoError(t, err)
+	assert.False(t, processed)
+
+	// other-pipeline items should remain
+	processed, err = store.IsItemProcessed("other-pipeline", "owner/repo#3")
+	require.NoError(t, err)
+	assert.True(t, processed)
+}

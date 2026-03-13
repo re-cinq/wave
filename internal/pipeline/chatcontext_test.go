@@ -62,6 +62,15 @@ func (m *mockChatStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord,
 
 func (m *mockChatStore) Close() error { return nil }
 
+func (m *mockChatStore) MarkItemProcessed(pipelineName, itemKey, runID string) error { return nil }
+func (m *mockChatStore) IsItemProcessed(pipelineName, itemKey string) (bool, error) {
+	return false, nil
+}
+func (m *mockChatStore) ListProcessedItems(pipelineName string, limit int) ([]state.ProcessedItemRecord, error) {
+	return nil, nil
+}
+func (m *mockChatStore) ClearProcessedItems(pipelineName string) error { return nil }
+
 func TestBuildChatContext(t *testing.T) {
 	now := time.Now()
 	completed := now.Add(5 * time.Minute)

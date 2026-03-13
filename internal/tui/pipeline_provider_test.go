@@ -108,6 +108,16 @@ func (b baseStateStore) RecordStepAttempt(*state.StepAttemptRecord) error {
 func (b baseStateStore) GetStepAttempts(string, string) ([]state.StepAttemptRecord, error) {
 	return nil, nil
 }
+func (b baseStateStore) MarkItemProcessed(pipelineName, itemKey, runID string) error {
+	return nil
+}
+func (b baseStateStore) IsItemProcessed(pipelineName, itemKey string) (bool, error) {
+	return false, nil
+}
+func (b baseStateStore) ListProcessedItems(pipelineName string, limit int) ([]state.ProcessedItemRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) ClearProcessedItems(pipelineName string) error { return nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
