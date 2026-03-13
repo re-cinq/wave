@@ -146,22 +146,16 @@ func (m ContractListModel) View() string {
 		nameMaxWidth := m.width - 3 - len(badge) - 1
 		name := truncateName(contract.Label, nameMaxWidth)
 
+		spacer := m.width - lipgloss.Width("  "+name) - lipgloss.Width(badge) - 1
+		if spacer < 1 {
+			spacer = 1
+		}
+		text := fmt.Sprintf("  %s%s%s", name, strings.Repeat(" ", spacer), badge)
 		if isSelected {
-			spacer := m.width - lipgloss.Width("▶ "+name) - lipgloss.Width(badge) - 1
-			if spacer < 1 {
-				spacer = 1
-			}
-			text := fmt.Sprintf("▶ %s%s%s", name, strings.Repeat(" ", spacer), badge)
-			style := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")).
+			style := SelectionStyle(m.focused).
 				Width(m.width)
 			lines = append(lines, style.Render(text))
 		} else {
-			spacer := m.width - lipgloss.Width("  "+name) - lipgloss.Width(badge) - 1
-			if spacer < 1 {
-				spacer = 1
-			}
-			text := fmt.Sprintf("  %s%s%s", name, strings.Repeat(" ", spacer), badge)
 			style := lipgloss.NewStyle().
 				Width(m.width)
 			lines = append(lines, style.Render(text))
