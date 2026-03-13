@@ -97,6 +97,10 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, or rework)", step.ID, step.Retry.OnFailure)
 			}
 		}
+		// Validate concurrency and matrix strategy are mutually exclusive
+		if step.Concurrency > 1 && step.Strategy != nil && step.Strategy.Type == "matrix" {
+			return fmt.Errorf("step %q sets both concurrency (%d) and matrix strategy — they are mutually exclusive", step.ID, step.Concurrency)
+		}
 	}
 
 	visited := make(map[string]bool)
