@@ -506,7 +506,8 @@ steps:
 
         2. Create a pull request using the report as the body:
            ```bash
-           gh pr create --title "refactor: $(git log --format=%s -1)" --body-file .wave/artifacts/report
+           COMMIT_SUBJECT=$(git log --format=%s -1)
+           gh pr create --title "refactor: $COMMIT_SUBJECT" --body-file .wave/artifacts/report
            ```
 
         3. If the context artifact shows `input_type` is `"issue"` or `"pr"`,

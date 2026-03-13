@@ -40,7 +40,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 Create the PR using `tea pulls create` with `--head` to target the branch. The PR description MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
 
 ```bash
-tea pulls create --repo <OWNER/REPO> --head <BRANCH_NAME> --base main --title "<concise title>" --description "$(cat <<'EOF'
+cat > /tmp/pr-body.md <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
@@ -52,7 +52,7 @@ Closes #<ISSUE_NUMBER>
 ## Test Plan
 <how the changes were validated>
 EOF
-)"
+tea pulls create --repo <OWNER/REPO> --head <BRANCH_NAME> --base main --title '<concise title>' --description "$(cat /tmp/pr-body.md)"
 ```
 
 ## CONSTRAINTS

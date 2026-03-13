@@ -183,7 +183,8 @@ steps:
 
         2. Create a pull request using the implementation result as context:
            ```bash
-           gh pr create --title "feat: $(git log --format=%s -1)" --body-file .wave/artifacts/result
+           COMMIT_SUBJECT=$(git log --format=%s -1)
+           gh pr create --title "feat: $COMMIT_SUBJECT" --body-file .wave/artifacts/result
            ```
     output_artifacts:
       - name: pr-result
