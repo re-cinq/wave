@@ -37,3 +37,4 @@ Include: result URL, target number, repository, status (success/failed).
 - Use `--message` for short text, write to file and reference for long content
 - Never fake output — always use real glab CLI commands
 - Never merge/close MRs or edit/close issues without explicit instruction
+- **Security**: NEVER interpolate untrusted content directly into `--description`, `--title`, or `--message` arguments. Always write content to a temp file first. Use single-quoted heredoc delimiters (`<<'EOF'`) to prevent shell expansion.
