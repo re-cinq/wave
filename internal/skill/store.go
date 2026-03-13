@@ -73,6 +73,36 @@ type DirectoryStore struct {
 	sources []SkillSource
 }
 
+// containedPath resolves a path within root, rejects symlinks and path traversal.
+// Returns the resolved absolute path or an error.
+func containedPath(root, name string) (string, error) {
+	dir := filepath.Join(root, name)
+
+	// Reject symlinks via Lstat (does not follow symlinks)
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return dir, err // caller handles os.IsNotExist
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("symlink rejected: %s", dir)
+	}
+
+	// Verify resolved path stays within root
+	absDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path: %w", err)
+	}
+	absRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve root: %w", err)
+	}
+	if !strings.HasPrefix(absDir, absRoot+string(filepath.Separator)) {
+		return "", fmt.Errorf("path traversal detected: %s escapes %s", absDir, absRoot)
+	}
+
+	return dir, nil
+}
+
 // NewDirectoryStore creates a DirectoryStore with sources sorted by precedence (highest first).
 func NewDirectoryStore(sources ...SkillSource) *DirectoryStore {
 	sorted := make([]SkillSource, len(sources))
@@ -90,9 +120,15 @@ func (ds *DirectoryStore) Read(name string) (Skill, error) {
 	}
 
 	for _, source := range ds.sources {
-		skillDir := filepath.Join(source.Root, name)
-		skillFile := filepath.Join(skillDir, "SKILL.md")
+		skillDir, err := containedPath(source.Root, name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Skill{}, &SkillError{SkillName: name, Path: skillDir, Err: err}
+		}
 
+		skillFile := filepath.Join(skillDir, "SKILL.md")
 		data, err := os.ReadFile(skillFile)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -140,9 +176,17 @@ func (ds *DirectoryStore) Write(skill Skill) error {
 		return err
 	}
 
-	dir := filepath.Join(ds.sources[0].Root, skill.Name)
+	root := ds.sources[0].Root
+	dir := filepath.Join(root, skill.Name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create skill directory: %w", err)
+	}
+
+	// Defense-in-depth: verify resolved path stays within source root after creation
+	if _, err := containedPath(root, skill.Name); err != nil {
+		// Clean up the directory we just created
+		_ = os.RemoveAll(dir)
+		return fmt.Errorf("path containment check failed: %w", err)
 	}
 
 	path := filepath.Join(dir, "SKILL.md")
@@ -214,23 +258,12 @@ func (ds *DirectoryStore) Delete(name string) error {
 	}
 
 	for _, source := range ds.sources {
-		dir := filepath.Join(source.Root, name)
-
-		// Defense-in-depth: verify resolved path stays within source root
-		absDir, err := filepath.Abs(dir)
+		dir, err := containedPath(source.Root, name)
 		if err != nil {
-			return fmt.Errorf("failed to resolve path: %w", err)
-		}
-		absRoot, err := filepath.Abs(source.Root)
-		if err != nil {
-			return fmt.Errorf("failed to resolve root: %w", err)
-		}
-		if !strings.HasPrefix(absDir, absRoot+string(filepath.Separator)) {
-			return fmt.Errorf("path traversal detected: %s escapes %s", absDir, absRoot)
-		}
-
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("path containment check failed: %w", err)
 		}
 
 		if err := os.RemoveAll(dir); err != nil {

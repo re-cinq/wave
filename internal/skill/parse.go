@@ -111,23 +111,24 @@ func validateFrontmatter(fm *frontmatter) error {
 	return nil
 }
 
-// parseFrontmatter is the shared logic for Parse and ParseMetadata.
-func parseFrontmatter(data []byte) (frontmatter, error) {
-	yamlBlock, _, err := splitFrontmatter(data)
+// parseFrontmatter splits and validates frontmatter, returning the parsed
+// frontmatter and the markdown body. Splits only once.
+func parseFrontmatter(data []byte) (frontmatter, string, error) {
+	yamlBlock, body, err := splitFrontmatter(data)
 	if err != nil {
-		return frontmatter{}, err
+		return frontmatter{}, "", err
 	}
 
 	var fm frontmatter
 	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
-		return frontmatter{}, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+		return frontmatter{}, "", fmt.Errorf("failed to parse YAML frontmatter: %w", err)
 	}
 
 	if err := validateFrontmatter(&fm); err != nil {
-		return frontmatter{}, err
+		return frontmatter{}, "", err
 	}
 
-	return fm, nil
+	return fm, body, nil
 }
 
 // frontmatterToSkill converts validated frontmatter to a Skill.
@@ -150,12 +151,7 @@ func frontmatterToSkill(fm frontmatter, body string) Skill {
 
 // Parse parses SKILL.md content from raw bytes.
 func Parse(data []byte) (Skill, error) {
-	_, body, err := splitFrontmatter(data)
-	if err != nil {
-		return Skill{}, err
-	}
-
-	fm, err := parseFrontmatter(data)
+	fm, body, err := parseFrontmatter(data)
 	if err != nil {
 		return Skill{}, err
 	}
@@ -166,7 +162,7 @@ func Parse(data []byte) (Skill, error) {
 // ParseMetadata parses only the frontmatter from SKILL.md content.
 // The returned Skill has an empty Body field.
 func ParseMetadata(data []byte) (Skill, error) {
-	fm, err := parseFrontmatter(data)
+	fm, _, err := parseFrontmatter(data)
 	if err != nil {
 		return Skill{}, err
 	}
