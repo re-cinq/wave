@@ -1,0 +1,50 @@
+// Package skill parser contract.
+// This file defines the parser function signatures and behavioral expectations.
+//
+// This is a DESIGN ARTIFACT, not production code. The actual functions
+// will be written in internal/skill/parse.go during implementation.
+package skill
+
+// Parse parses SKILL.md content from raw bytes.
+// It extracts YAML frontmatter and markdown body.
+//
+// The input must begin with "---\n", contain YAML frontmatter, and have a
+// closing "---\n" delimiter. Everything after the closing delimiter is the body.
+//
+// Returns a Skill with all frontmatter fields populated and Body set.
+// SourcePath and ResourcePaths are NOT set (caller's responsibility).
+//
+// Errors:
+//   - *ParseError{Field:"frontmatter"} if delimiters are missing or malformed
+//   - *ParseError{Field:"name"} if name is missing or invalid
+//   - *ParseError{Field:"description"} if description is missing or empty
+//   - *ParseError{Field:"compatibility"} if compatibility exceeds 500 chars
+//   - Standard yaml.TypeError for malformed YAML
+func Parse(data []byte) (Skill, error)
+
+// ParseMetadata parses only the frontmatter from SKILL.md content.
+// It stops after the closing "---" delimiter and does NOT read the body.
+// The returned Skill has an empty Body field.
+//
+// Used for metadata-only loading in List operations (progressive disclosure tier 1).
+//
+// Same error behavior as Parse.
+func ParseMetadata(data []byte) (Skill, error)
+
+// Serialize converts a Skill back to SKILL.md format (YAML frontmatter + markdown body).
+// The output can be written directly to a SKILL.md file.
+//
+// The Skill is validated before serialization. Returns *ParseError if invalid.
+//
+// Round-trip guarantee: Parse(Serialize(skill)) produces a semantically equivalent Skill.
+// Whitespace and field ordering may differ but all values are preserved.
+func Serialize(skill Skill) ([]byte, error)
+
+// ValidateName checks if a skill name conforms to the naming rules.
+// Returns nil if valid, *ParseError if invalid.
+//
+// Rules:
+//   - Matches ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$
+//   - Max 64 characters
+//   - Does not contain /, \, .., or path separator characters
+func ValidateName(name string) error
