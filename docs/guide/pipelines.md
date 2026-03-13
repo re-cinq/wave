@@ -4,7 +4,7 @@ Pipelines are DAGs (Directed Acyclic Graphs) that orchestrate multi-step agent w
 
 ## Built-in Pipelines
 
-Wave ships with 47 pipelines organized by use case:
+Wave ships with 46 pipelines organized by use case:
 
 ### Development
 
@@ -52,44 +52,37 @@ Wave ships with 47 pipelines organized by use case:
 | `gh-refresh` | gather-context → draft-update → apply-update | Refresh stale issues |
 | `gh-scope` | fetch-epic → scope-and-create → verify-report | Decompose epics into child issues |
 
-### GitLab Automation (gl-*)
+### Code Quality & Analysis
 
-GitLab pipeline variants mirror the GitHub automation family using `glab` CLI:
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `consolidate` | scan | Detect redundant implementations and architectural drift |
+| `dead-code-issue` | scan → compose-report → create-issue | Scan for dead code and create a GitHub issue |
+| `dead-code-review` | scan → compose → publish | Scan PR-changed files for dead code and post a review comment |
+| `dual-analysis` | quality-scan + quality-detail, security-scan + security-detail → merge | Parallel code-quality and security analysis |
+| `dx-audit` | audit | Evaluate developer experience for contributors and integrators |
+| `junk-code` | scan | Identify accidental complexity, conceptual misalignment, and technical debt |
+| `quality-loop` | quality-check | Supervise work, loop improvements until quality passes |
+| `ux-audit` | audit | Evaluate user experience across CLI, TUI, docs, or workflows |
 
-| Pipeline | Use Case |
-|----------|----------|
-| `gl-implement` | Implement GitLab issue end-to-end |
-| `gl-implement-epic` | Implement all subissues from an epic |
-| `gl-research` | Research and report on issues |
-| `gl-rewrite` | Rewrite poorly documented issues |
-| `gl-refresh` | Refresh stale issues |
-| `gl-scope` | Decompose epics into child issues |
+### Multi-Pipeline Orchestration
 
-### Gitea Automation (gt-*)
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `epic-runner` | scope → implement-all | Scope an epic, implement each child issue sequentially |
+| `release-harden` | scan → triage → gate | Security scan, branch on severity, apply hotfixes, generate changelog |
+| `research-implement` | research → implement → review | Research a GitHub issue, implement the solution, then review the PR |
 
-Gitea pipeline variants use the `tea` CLI:
+### Wave Self-Evolution (wave-*)
 
-| Pipeline | Use Case |
-|----------|----------|
-| `gt-implement` | Implement Gitea issue end-to-end |
-| `gt-implement-epic` | Implement all subissues from an epic |
-| `gt-research` | Research and report on issues |
-| `gt-rewrite` | Rewrite poorly documented issues |
-| `gt-refresh` | Refresh stale issues |
-| `gt-scope` | Decompose epics into child issues |
-
-### Bitbucket Automation (bb-*)
-
-Bitbucket pipeline variants use the Bitbucket REST API via `curl`:
-
-| Pipeline | Use Case |
-|----------|----------|
-| `bb-implement` | Implement Bitbucket issue end-to-end |
-| `bb-implement-epic` | Implement all subissues from an epic |
-| `bb-research` | Research and report on issues |
-| `bb-rewrite` | Rewrite poorly documented issues |
-| `bb-refresh` | Refresh stale issues |
-| `bb-scope` | Decompose epics into child issues |
+| Pipeline | Steps | Use Case |
+|----------|-------|----------|
+| `wave-audit` | collect-inventory → audit-items → compose-triage → publish | Zero-trust implementation fidelity audit |
+| `wave-bugfix` | investigate → fix | Investigate and fix a bug in Wave |
+| `wave-evolve` | analyze → evolve → verify | Evolve Wave pipelines, personas, and prompts based on execution analysis |
+| `wave-review` | review | Code review of Wave changes |
+| `wave-security-audit` | threat-model → verify | Security audit of Wave's own codebase |
+| `wave-test-hardening` | analyze-coverage → harden | Harden Wave's test suite — find gaps, add edge cases |
 
 ### Utility
 
