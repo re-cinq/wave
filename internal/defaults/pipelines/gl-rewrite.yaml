@@ -76,8 +76,12 @@ steps:
         Read the repository field from the plan artifact for --repo flag.
 
         For each issue in issues_to_enhance:
-        1. Apply title: glab issue update NUM --repo REPO --title "suggested_title"
-        2. Apply body: glab issue update NUM --repo REPO --description "body_template"
+        1. Apply title: glab issue update NUM --repo REPO --title 'suggested_title'
+        2. Apply body — write to temp file first, then apply:
+           cat > /tmp/issue-body.md <<'BODY_EOF'
+           <body_template content>
+           BODY_EOF
+           glab issue update NUM --repo REPO --description "$(cat /tmp/issue-body.md)"
         3. Add labels: glab issue update NUM --repo REPO --label "label1,label2"
         4. Capture URL: glab issue view NUM --repo REPO --output json
 

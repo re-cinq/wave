@@ -152,7 +152,7 @@ steps:
 
         Step 3: Apply the update:
         - If title_changed is true:
-          tea issues edit <NUMBER> --repo <REPO> --title "<updated_title>"
+          tea issues edit <NUMBER> --repo <REPO> --title '<updated_title>'
         - Write the updated_body to a temp file, then apply it:
           Write updated_body to /tmp/issue-body.md
           tea issues edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md

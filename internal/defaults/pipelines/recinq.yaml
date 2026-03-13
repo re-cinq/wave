@@ -512,11 +512,13 @@ steps:
         3. If the context artifact shows `input_type` is `"issue"` or `"pr"`,
            post the PR URL as a comment on the source:
            ```bash
-           gh issue comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
+           echo "Refactoring PR: <pr-url>" > /tmp/recinq-comment.md
+           gh issue comment <number> --repo <repo> --body-file /tmp/recinq-comment.md
            ```
            or for PRs:
            ```bash
-           gh pr comment <number> --repo <repo> --body "Refactoring PR: <pr-url>"
+           echo "Refactoring PR: <pr-url>" > /tmp/recinq-comment.md
+           gh pr comment <number> --repo <repo> --body-file /tmp/recinq-comment.md
            ```
 
         4. Write the JSON status report to the output artifact path.

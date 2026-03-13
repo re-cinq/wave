@@ -141,7 +141,7 @@ steps:
 
         Apply the update:
         - If title_changed is true:
-          gh issue edit <NUMBER> --repo <REPO> --title "<updated_title>"
+          gh issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
         - Write the updated_body to a temp file, then apply it:
           gh issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
         - Clean up the temp file after applying.

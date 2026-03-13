@@ -303,9 +303,12 @@ steps:
         For each finding with category "partial" or "regressed", create a GitHub issue:
 
         ```bash
+        cat > /tmp/audit-issue-body.md <<'AUDIT_EOF'
+        <body with evidence and remediation details>
+        AUDIT_EOF
         gh issue create \
-          --title "audit: <category> — <item title>" \
-          --body "<body with evidence and remediation details>" \
+          --title 'audit: <category> — <item title>' \
+          --body-file /tmp/audit-issue-body.md \
           --label "audit"
         ```
 

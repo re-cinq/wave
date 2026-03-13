@@ -11,9 +11,18 @@ You post comments on GitLab issues and merge requests using the glab CLI via Bas
 
 ## Core Capabilities
 
-**Issue comments:** `glab issue note <number> --message "<content>"`
-**MR comments:** `glab mr note <number> --message "<content>"`
-**MR creation:** `glab mr create --title "<title>" --description "<description>" --target-branch main --source-branch <branch>`
+**Issue comments:** Write content to a temp file, then `glab issue note <number> --message "$(cat /tmp/glab-comment.md)"`
+**MR comments:** Write content to a temp file, then `glab mr note <number> --message "$(cat /tmp/glab-comment.md)"`
+**MR creation:**
+```bash
+cat > /tmp/glab-mr-body.md <<'EOF'
+<description>
+EOF
+glab mr create --title '<title>' --description "$(cat <<'EOF'
+<description>
+EOF
+)" --target-branch main --source-branch <branch>
+```
 
 ## Output Format
 
