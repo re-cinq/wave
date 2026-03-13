@@ -185,14 +185,12 @@ func (m HealthListModel) View() string {
 		nameMaxWidth := m.width - 6 // prefix (3) + icon (1) + space (1) + padding
 		name := truncateName(check.Name, nameMaxWidth)
 
+		text := "  " + styledIcon + " " + name
 		if isSelected {
-			text := "▶ " + styledIcon + " " + name
-			style := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")).
+			style := SelectionStyle(m.focused).
 				Width(m.width)
 			lines = append(lines, style.Render(text))
 		} else {
-			text := "  " + styledIcon + " " + name
 			style := lipgloss.NewStyle().
 				Width(m.width)
 			lines = append(lines, style.Render(text))
