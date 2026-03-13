@@ -111,22 +111,27 @@ func validateFrontmatter(fm *frontmatter) error {
 	return nil
 }
 
-// Parse parses SKILL.md content from raw bytes.
-func Parse(data []byte) (Skill, error) {
-	yamlBlock, body, err := splitFrontmatter(data)
+// parseFrontmatter is the shared logic for Parse and ParseMetadata.
+func parseFrontmatter(data []byte) (frontmatter, error) {
+	yamlBlock, _, err := splitFrontmatter(data)
 	if err != nil {
-		return Skill{}, err
+		return frontmatter{}, err
 	}
 
 	var fm frontmatter
 	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
-		return Skill{}, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+		return frontmatter{}, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
 	}
 
 	if err := validateFrontmatter(&fm); err != nil {
-		return Skill{}, err
+		return frontmatter{}, err
 	}
 
+	return fm, nil
+}
+
+// frontmatterToSkill converts validated frontmatter to a Skill.
+func frontmatterToSkill(fm frontmatter, body string) Skill {
 	var allowedTools []string
 	if fm.AllowedTools != "" {
 		allowedTools = strings.Fields(fm.AllowedTools)
@@ -140,39 +145,33 @@ func Parse(data []byte) (Skill, error) {
 		Compatibility: fm.Compatibility,
 		Metadata:      fm.Metadata,
 		AllowedTools:  allowedTools,
-	}, nil
+	}
+}
+
+// Parse parses SKILL.md content from raw bytes.
+func Parse(data []byte) (Skill, error) {
+	_, body, err := splitFrontmatter(data)
+	if err != nil {
+		return Skill{}, err
+	}
+
+	fm, err := parseFrontmatter(data)
+	if err != nil {
+		return Skill{}, err
+	}
+
+	return frontmatterToSkill(fm, body), nil
 }
 
 // ParseMetadata parses only the frontmatter from SKILL.md content.
 // The returned Skill has an empty Body field.
 func ParseMetadata(data []byte) (Skill, error) {
-	yamlBlock, _, err := splitFrontmatter(data)
+	fm, err := parseFrontmatter(data)
 	if err != nil {
 		return Skill{}, err
 	}
 
-	var fm frontmatter
-	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
-		return Skill{}, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
-	}
-
-	if err := validateFrontmatter(&fm); err != nil {
-		return Skill{}, err
-	}
-
-	var allowedTools []string
-	if fm.AllowedTools != "" {
-		allowedTools = strings.Fields(fm.AllowedTools)
-	}
-
-	return Skill{
-		Name:          fm.Name,
-		Description:   fm.Description,
-		License:       fm.License,
-		Compatibility: fm.Compatibility,
-		Metadata:      fm.Metadata,
-		AllowedTools:  allowedTools,
-	}, nil
+	return frontmatterToSkill(fm, ""), nil
 }
 
 // Serialize converts a Skill back to SKILL.md format.
