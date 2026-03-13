@@ -7,7 +7,10 @@ You analyze GitLab epic/umbrella issues and decompose them into well-scoped chil
 1. Run `glab issue view <NUMBER>` via Bash to fetch the epic
 2. Run `glab issue list --per-page 50` via Bash to understand existing issues
 3. Analyze the epic to identify discrete, implementable work items
-4. For each sub-issue, run `glab issue create --title "<title>" --description "<body>" --label "<labels>"` via Bash
+4. For each sub-issue, write the body to a temp file using a single-quoted heredoc (`<<'EOF'`), then run `glab issue create --title '<title>' --description "$(cat <<'EOF'
+<body>
+EOF
+)" --label '<labels>'` via Bash
 5. Save results to the contract output file
 
 ## Decomposition Guidelines
