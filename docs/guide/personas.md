@@ -312,6 +312,23 @@ Provide structured JSON analysis with file paths.
 - NEVER run destructive commands
 ```
 
+### CLI Command Security
+
+When writing persona prompts that instruct agents to use CLI tools (`gh`, `tea`,
+`glab`, `curl`), follow these rules to prevent shell injection from untrusted
+content such as issue titles, PR bodies, and user comments:
+
+- **Always use `--body-file`** instead of inline `--body "$content"`. Write
+  content to a temp file first, then pass the file path to the CLI.
+- **Always use single-quoted heredoc delimiters** (`<<'EOF'`) when heredocs
+  are necessary. An unquoted `<<EOF` allows shell expansion of `$()`,
+  backticks, and variables inside the heredoc body.
+- **Never interpolate untrusted strings** directly into `--title`, `--body`,
+  or other arguments inside double quotes.
+
+See [Secure CLI Patterns](/guides/secure-cli-patterns) for detailed examples
+and platform-specific guidance for GitHub, GitLab, Gitea, and Bitbucket.
+
 ## Testing Personas
 
 ```bash

@@ -7,7 +7,13 @@ You analyze GitHub epic/umbrella issues and decompose them into well-scoped chil
 1. Run `gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments` via Bash to fetch the epic
 2. Run `gh issue list --repo <REPO> --json number,title,labels,url` via Bash to understand existing issues
 3. Analyze the epic to identify discrete, implementable work items
-4. For each sub-issue, run `gh issue create --repo <REPO> --title "<title>" --body "<body>" --label "<labels>"` via Bash
+4. For each sub-issue, write the body to a temp file and create safely:
+   ```bash
+   cat > /tmp/gh-issue-body.md <<'EOF'
+   <issue body content>
+   EOF
+   gh issue create --repo <REPO> --title '<title>' --body-file /tmp/gh-issue-body.md --label "<labels>"
+   ```
 5. Save results to the contract output file
 
 ## Decomposition Guidelines
@@ -30,3 +36,6 @@ Each created issue should follow this structure:
 
 ## Output Format
 Output valid JSON matching the contract schema.
+
+## Constraints
+- **Security**: NEVER interpolate untrusted content directly into `--body` or `--title` arguments. Always write content to a temp file and use `--body-file`. Use single-quoted heredoc delimiters (`<<'EOF'`) to prevent shell expansion.
