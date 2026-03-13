@@ -93,7 +93,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -231,7 +231,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -400,7 +400,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			if err := os.Chdir(tempDir); err != nil {
 				t.Fatal(err)
@@ -635,7 +635,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -690,7 +690,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -979,7 +979,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(origDir)
+			defer func() { _ = os.Chdir(origDir) }()
 
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatal(err)
@@ -1062,7 +1062,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create workspace for specify step
 	specDir := filepath.Join(tmpDir, ".wave/workspaces/prior-run/specify")
@@ -1109,7 +1109,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "step2", "some-run")
 	if err != nil {
@@ -1151,7 +1151,7 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "implement", "prior-run")
 	if err != nil {
@@ -1178,7 +1178,7 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
@@ -1263,7 +1263,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -1278,7 +1278,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	defer cancel()
 
 	manager := NewResumeManager(executor)
-	err = manager.ResumeFromStep(ctx, p, m, "test", "step-b", true)
+	_ = manager.ResumeFromStep(ctx, p, m, "test", "step-b", true)
 	// The execution itself may fail (mock adapter etc.) but the filter should
 	// have removed step-c from the execution plan
 	order := collector.GetStepExecutionOrder()
