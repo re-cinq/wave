@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -109,6 +110,7 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 }
 
 // newContextWithProject creates a PipelineContext and injects project variables from the manifest.
+// It also auto-detects forge metadata and injects forge template variables.
 func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.Manifest) *PipelineContext {
 	ctx := NewPipelineContext(pipelineID, pipelineName, stepID)
 	if m != nil && m.Project != nil {
@@ -116,7 +118,29 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 			ctx.SetCustomVariable(k, v)
 		}
 	}
+
+	// Auto-detect forge and inject template variables
+	if fi, err := forge.DetectFromGitRemotes(); err == nil && fi.Type != forge.ForgeUnknown {
+		ctx.InjectForgeVariables(fi)
+	}
+
 	return ctx
+}
+
+// InjectForgeVariables populates forge-related template variables from a ForgeInfo.
+// Variables are available as {{ forge.type }}, {{ forge.host }}, {{ forge.owner }},
+// {{ forge.repo }}, {{ forge.cli_tool }}, {{ forge.prefix }}, {{ forge.pr_term }},
+// {{ forge.pr_command }}, and {{ forge.slug }}.
+func (ctx *PipelineContext) InjectForgeVariables(fi forge.ForgeInfo) {
+	ctx.SetCustomVariable("forge.type", string(fi.Type))
+	ctx.SetCustomVariable("forge.host", fi.Host)
+	ctx.SetCustomVariable("forge.owner", fi.Owner)
+	ctx.SetCustomVariable("forge.repo", fi.Repo)
+	ctx.SetCustomVariable("forge.cli_tool", fi.CLITool)
+	ctx.SetCustomVariable("forge.prefix", fi.PipelinePrefix)
+	ctx.SetCustomVariable("forge.pr_term", fi.PRTerm)
+	ctx.SetCustomVariable("forge.pr_command", fi.PRCommand)
+	ctx.SetCustomVariable("forge.slug", fi.Slug())
 }
 
 // SetCustomVariable adds a custom template variable

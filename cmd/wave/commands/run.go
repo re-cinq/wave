@@ -481,6 +481,13 @@ func runRun(opts RunOptions, debug bool) error {
 }
 
 func loadPipeline(name string, m *manifest.Manifest) (*pipeline.Pipeline, error) {
+	// Resolve deprecated forge-prefixed names to unified equivalents
+	resolvedName, deprecated := pipeline.ResolveDeprecatedName(name)
+	if deprecated {
+		fmt.Fprintf(os.Stderr, "⚠ Pipeline %q is deprecated, using %q instead. Update your scripts to use the unified name.\n", name, resolvedName)
+		name = resolvedName
+	}
+
 	candidates := []string{
 		".wave/pipelines/" + name + ".yaml",
 		".wave/pipelines/" + name,

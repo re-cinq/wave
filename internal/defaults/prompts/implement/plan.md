@@ -1,4 +1,4 @@
-You are creating an implementation plan for a Bitbucket issue.
+You are creating an implementation plan for a {{ forge.type }} issue.
 
 Input: {{ input }}
 
@@ -81,9 +81,9 @@ Mark parallelizable tasks with `[P]`.
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
-- Do NOT start implementation — only planning in this step
-- Do NOT use WebSearch — all information is in the issue and codebase
+- Do NOT spawn Task subagents -- work directly in the main context
+- Do NOT start implementation -- only planning in this step
+- Do NOT use WebSearch -- all information is in the issue and codebase
 
 ## Output
 

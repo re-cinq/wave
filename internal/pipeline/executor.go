@@ -245,12 +245,26 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	e.etaCalculator = NewETACalculator(e.store, p.Metadata.Name, stepIDs)
 
-	// Preflight validation: check required tools and skills before execution
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+
+	// Preflight validation: check required tools and skills before execution.
+	// Context is created first so forge template variables (e.g., {{ forge.cli_tool }})
+	// in requires.tools can be resolved before checking tool availability.
 	if p.Requires != nil {
 		checker := preflight.NewChecker(p.Requires.Skills)
 		var tools []string
 		if len(p.Requires.Tools) > 0 {
-			tools = p.Requires.Tools
+			for _, tool := range p.Requires.Tools {
+				resolved := pipelineContext.ResolvePlaceholders(tool)
+				if resolved != "" {
+					tools = append(tools, resolved)
+				}
+			}
 		}
 		skillNames := p.Requires.SkillNames()
 		if len(tools) > 0 || len(skillNames) > 0 {
@@ -267,13 +281,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			}
 		}
 	}
-
-	pipelineName := p.Metadata.Name
-	pipelineID := e.runID
-	if pipelineID == "" {
-		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
-	}
-	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Start cancellation poller for cross-process cancel support.
 	// When another process (TUI, webui) writes a cancellation record to the DB,
@@ -1037,9 +1044,15 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	persona := execution.Manifest.GetPersona(step.Persona)
+	// Resolve persona name through template variables (supports {{ forge.prefix }}-commenter etc.)
+	personaName := step.Persona
+	if execution.Context != nil {
+		personaName = execution.Context.ResolvePlaceholders(personaName)
+	}
+
+	persona := execution.Manifest.GetPersona(personaName)
 	if persona == nil {
-		return fmt.Errorf("persona %q not found in manifest", step.Persona)
+		return fmt.Errorf("persona %q not found in manifest", personaName)
 	}
 
 	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
@@ -1069,8 +1082,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
 		State:         "running",
-		Persona:       step.Persona,
-		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
+		Persona:       personaName,
+		Message:       fmt.Sprintf("Starting %s persona in %s", personaName, workspacePath),
 		CurrentAction: "Initializing",
 		Model:            e.resolveModel(persona),
 		Adapter:       adapterDef.Binary,
@@ -1164,7 +1177,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
-		Persona:          step.Persona,
+		Persona:          personaName,
 		WorkspacePath:    workspacePath,
 		Prompt:           prompt,
 		SystemPrompt:     systemPrompt,
@@ -1693,13 +1706,18 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 	// Load prompt from external file if source_path is set
 	if step.Exec.SourcePath != "" {
-		if e.debug {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", step.Exec.SourcePath)
+		// Resolve template variables in source_path (e.g., {{ forge.prefix }})
+		sourcePath := step.Exec.SourcePath
+		if execution.Context != nil {
+			sourcePath = execution.Context.ResolvePlaceholders(sourcePath)
 		}
-		data, err := os.ReadFile(step.Exec.SourcePath)
+		if e.debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", sourcePath)
+		}
+		data, err := os.ReadFile(sourcePath)
 		if err != nil {
 			if e.debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", step.Exec.SourcePath, err)
+				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", sourcePath, err)
 			}
 		} else {
 			prompt = string(data)

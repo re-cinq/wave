@@ -1,4 +1,4 @@
-You are implementing a Bitbucket issue according to the plan and task breakdown.
+You are implementing an issue according to the plan and task breakdown.
 
 Input: {{ input }}
 
@@ -19,9 +19,9 @@ the main working tree.
 ### Step 2: Read Plan Files
 
 Navigate to the feature directory and read:
-- `spec.md` — the full specification
-- `plan.md` — the implementation plan
-- `tasks.md` — the phased task breakdown
+- `spec.md` -- the full specification
+- `plan.md` -- the implementation plan
+- `tasks.md` -- the phased task breakdown
 
 ### Step 3: Execute Implementation
 
@@ -62,7 +62,7 @@ After all tasks are complete:
    ```bash
    git add -A
    git reset HEAD -- .wave/artifacts .wave/output .claude CLAUDE.md 2>/dev/null || true
-   git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
+   git commit -m "feat: implement #<ISSUE_NUMBER> -- <short description>"
    ```
 
 Commit changes to the worktree branch.
@@ -73,7 +73,7 @@ Commit changes to the worktree branch.
 - Use the Write tool for new files. Do NOT use cat heredocs or echo redirection
 - Use the Read tool for reading files. Do NOT use cat, head, or tail
 - Use the Grep tool for searching. Do NOT use grep or rg via Bash
-- Do NOT push to remote — that happens in the create-pr step
+- Do NOT push to remote -- that happens in the create-pr step
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 These rules apply to both the main context AND any Task subagents you spawn.

@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: gt-refresh
-  description: "Refresh a stale Gitea issue by comparing it against recent codebase changes"
+  name: refresh
+  description: "Refresh a stale issue by comparing it against recent codebase changes"
   release: true
 
 input:
@@ -11,16 +11,22 @@ input:
     type: string
     description: "owner/repo number [-- optional criticism or direction]"
 
+requires:
+  tools:
+    - "{{ forge.cli_tool }}"
+
 steps:
   - id: gather-context
-    persona: gitea-analyst
+    persona: "{{ forge.prefix }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        MANDATORY: You MUST call the Bash tool. NEVER say "tea CLI not installed" without trying.
+        MANDATORY: You MUST call the Bash tool. NEVER say the CLI tool is not installed without trying.
+
+        You are working on a **{{ forge.type }}** repository. Use the **{{ forge.cli_tool }}** CLI.
 
         Input: {{ input }}
 
@@ -32,16 +38,25 @@ steps:
 
         Execute these commands using the Bash tool:
 
-        1. tea --version
+        1. {{ forge.cli_tool }} --version
 
         2. Fetch the full issue:
-           tea issues view NUMBER --repo REPO --output json
+
+           **GitHub**: gh issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+           **GitLab**: glab issue view NUMBER --repo REPO --output json
+           **Bitbucket**: curl -s -H "Authorization: Bearer $BB_TOKEN" "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER"
+           **Gitea**: tea issues view NUMBER --repo REPO --output json
 
         3. Get commits since the issue was created (cap at 100):
            git log --since="<createdAt>" --oneline -100
 
         4. Get releases since the issue was created:
-           tea releases list --repo REPO --limit 20
+
+           **GitHub**: gh release list --repo REPO --limit 20
+           **GitLab**: glab release list --repo REPO
+           **Bitbucket**: curl -s -H "Authorization: Bearer $BB_TOKEN" "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/downloads?pagelen=20"
+           **Gitea**: tea releases list --repo REPO --limit 20
+
            Then filter to only releases after the issue's createdAt date.
 
         5. Scan the issue body for file path references (anything matching patterns like
@@ -70,7 +85,7 @@ steps:
         progressive_validation: false
 
   - id: draft-update
-    persona: gitea-analyst
+    persona: "{{ forge.prefix }}-analyst"
     dependencies: [gather-context]
     memory:
       inject_artifacts:
@@ -127,7 +142,7 @@ steps:
         progressive_validation: false
 
   - id: apply-update
-    persona: gitea-enhancer
+    persona: "{{ forge.prefix }}-enhancer"
     dependencies: [draft-update]
     memory:
       inject_artifacts:
@@ -145,21 +160,37 @@ steps:
       source: |
         CRITICAL: You MUST use the Bash tool for all commands. Do NOT generate fake output.
 
-        Step 1: Use Bash tool to verify tea works:
-        tea --version
+        You are working on a **{{ forge.type }}** repository. Use the **{{ forge.cli_tool }}** CLI.
+
+        Step 1: Verify CLI works:
+        {{ forge.cli_tool }} --version
 
         Step 2: Extract the repo as "<owner>/<name>" and the issue number from the available artifacts.
 
         Step 3: Apply the update:
-        - If title_changed is true:
-          tea issues edit <NUMBER> --repo <REPO> --title '<updated_title>'
-        - Write the updated_body to a temp file, then apply it:
-          Write updated_body to /tmp/issue-body.md
-          tea issues edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md
-        - Clean up /tmp/issue-body.md after applying.
+
+        **GitHub**:
+        - If title_changed: gh issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
+        - Write updated_body to /tmp/issue-body.md, then: gh issue edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md
+
+        **GitLab**:
+        - If title_changed: glab issue update <NUMBER> --repo <REPO> --title '<updated_title>'
+        - glab issue update <NUMBER> --repo <REPO> --description "$(cat /tmp/issue-body.md)"
+
+        **Bitbucket**:
+        - Write JSON payload to /tmp/bb-update.json with title and content fields
+        - curl -s -X PUT -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" -d @/tmp/bb-update.json "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER"
+
+        **Gitea**:
+        - If title_changed: tea issues edit <NUMBER> --repo <REPO> --title '<updated_title>'
+        - tea issues edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body.md
 
         Step 4: Verify the update was applied:
-        tea issues view <NUMBER> --repo <REPO> --output json
+
+        **GitHub**: gh issue view <NUMBER> --repo <REPO> --json number,title,body,url
+        **GitLab**: glab issue view <NUMBER> --repo <REPO> --output json
+        **Bitbucket**: curl -s -H "Authorization: Bearer $BB_TOKEN" "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER"
+        **Gitea**: tea issues view <NUMBER> --repo <REPO> --output json
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 

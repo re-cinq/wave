@@ -24,6 +24,8 @@ type ForgeInfo struct {
 	Repo           string    `json:"repo"`
 	CLITool        string    `json:"cli_tool"`
 	PipelinePrefix string    `json:"pipeline_prefix"`
+	PRTerm         string    `json:"pr_term"`    // "Pull Request" or "Merge Request"
+	PRCommand      string    `json:"pr_command"` // "pr" or "mr"
 }
 
 // Slug returns "owner/repo" if both are set, otherwise empty string.
@@ -43,7 +45,7 @@ func Detect(remoteURL string) ForgeInfo {
 	}
 
 	ft := classifyHost(host)
-	cli, prefix := forgeMetadata(ft)
+	cli, prefix, prTerm, prCommand := forgeMetadata(ft)
 
 	return ForgeInfo{
 		Type:           ft,
@@ -52,6 +54,8 @@ func Detect(remoteURL string) ForgeInfo {
 		Repo:           repo,
 		CLITool:        cli,
 		PipelinePrefix: prefix,
+		PRTerm:         prTerm,
+		PRCommand:      prCommand,
 	}
 }
 
@@ -86,7 +90,7 @@ func DetectFromGitRemotes() (ForgeInfo, error) {
 // FilterPipelinesByForge returns pipeline names that match the given forge's
 // prefix convention. Pipelines without a forge prefix are always included.
 func FilterPipelinesByForge(ft ForgeType, names []string) []string {
-	_, prefix := forgeMetadata(ft)
+	_, prefix, _, _ := forgeMetadata(ft)
 	if prefix == "" {
 		return names
 	}
@@ -177,19 +181,19 @@ func classifyHost(host string) ForgeType {
 	}
 }
 
-// forgeMetadata returns the CLI tool and pipeline prefix for a forge type.
-func forgeMetadata(ft ForgeType) (cli, prefix string) {
+// forgeMetadata returns the CLI tool, pipeline prefix, PR terminology, and PR command for a forge type.
+func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 	switch ft {
 	case ForgeGitHub:
-		return "gh", "gh"
+		return "gh", "gh", "Pull Request", "pr"
 	case ForgeGitLab:
-		return "glab", "gl"
+		return "glab", "gl", "Merge Request", "mr"
 	case ForgeBitbucket:
-		return "bb", "bb"
+		return "bb", "bb", "Pull Request", "pr"
 	case ForgeGitea:
-		return "tea", "gt"
+		return "tea", "gt", "Pull Request", "pr"
 	default:
-		return "", ""
+		return "", "", "", ""
 	}
 }
 

@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: gh-research
-  description: Research a GitHub issue and post findings as a comment
+  name: research
+  description: "Research an issue and post findings as a comment"
   release: true
 
 input:
@@ -9,32 +9,48 @@ input:
   example: "re-cinq/wave 42"
   schema:
     type: string
-    description: "GitHub repository and issue number (e.g. 'owner/repo number')"
+    description: "Repository and issue number (e.g. 'owner/repo number')"
+
+requires:
+  tools:
+    - "{{ forge.cli_tool }}"
 
 steps:
   - id: fetch-issue
-    persona: github-analyst
+    persona: "{{ forge.prefix }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        Fetch the GitHub issue specified in the input: {{ input }}
+        Fetch the issue specified in the input: {{ input }}
 
         CRITICAL: If the input above is empty, blank, or missing, you MUST immediately fail.
         Write an error JSON to .wave/output/issue-content.json with issue_number: 0 and
-        title: "ERROR: No input provided — expected a GitHub issue URL or owner/repo number".
+        title: "ERROR: No input provided — expected an issue URL or owner/repo number".
         Do NOT guess, infer, or use any example. Stop here.
 
+        You are working on a **{{ forge.type }}** repository. Use the **{{ forge.cli_tool }}** CLI tool.
+
         Accepted input formats (parse the actual input, never fabricate values):
-        - Full URL: https://github.com/owner/repo/issues/123
+        - Full URL (e.g. https://github.com/owner/repo/issues/123, https://gitlab.com/owner/repo/-/issues/123, https://bitbucket.org/workspace/repo/issues/123)
         - Short form: owner/repo 123
 
         Parse the input to extract the repository and issue number.
-        Use the gh CLI to fetch the issue:
 
-        gh issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        Fetch the issue using the appropriate CLI:
+
+        **GitHub**: gh issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        **GitLab**: glab issue view <number> --repo <owner/repo> --output json
+        **Bitbucket**:
+          curl -s -H "Authorization: Bearer $BB_TOKEN" \
+            "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER" \
+            | jq '{id, title, content: .content.raw, state, kind, reporter: .reporter.display_name, created_on, url: .links.html.href}'
+          curl -s -H "Authorization: Bearer $BB_TOKEN" \
+            "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER/comments" \
+            | jq '[.values[] | {id, content: .content.raw, user: .user.display_name, created_on}]'
+        **Gitea**: tea issues view <number> --repo <owner/repo> --output json
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
@@ -65,7 +81,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the GitHub issue and extract research topics.
+        Analyze the issue and extract research topics.
 
         Identify:
         1. Key technical questions that need external research
@@ -162,7 +178,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the research findings into a coherent report for the GitHub issue.
+        Synthesize the research findings into a coherent report for the issue.
 
         Create a well-structured research report that includes:
 
@@ -187,7 +203,7 @@ steps:
            - Include URL, title, type, and reliability
 
         5. Pre-rendered Markdown:
-           - Generate complete markdown_content field ready for GitHub comment
+           - Generate complete markdown_content field ready for posting as a comment
            - Use proper headers, bullet points, and formatting
            - Include a header: "## Research Findings (Wave Pipeline)"
            - End with sources section
@@ -205,7 +221,7 @@ steps:
         on_failure: retry
 
   - id: post-comment
-    persona: github-commenter
+    persona: "{{ forge.prefix }}-commenter"
     dependencies: [synthesize-report]
     memory:
       inject_artifacts:
@@ -221,26 +237,53 @@ steps:
     exec:
       type: prompt
       source: |
-        Post the research report as a comment on the GitHub issue.
+        Post the research report as a comment on the issue.
+
+        You are working on a **{{ forge.type }}** repository. Use the **{{ forge.cli_tool }}** CLI.
 
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
-        3. Write the markdown content to a file, then use gh CLI to post the comment:
+        3. Write the markdown content to a file, then post the comment:
 
-           # Write to file to avoid shell escaping issues with large markdown
+        **GitHub**:
            cat > /tmp/comment-body.md << 'COMMENT_EOF'
            <markdown_content>
-           COMMENT_EOF
 
-           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
-
-        4. Add a footer to the comment:
            ---
            *Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*
+           COMMENT_EOF
+           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
 
-        5. Capture the result and verify success
-        6. If successful, extract the comment URL from the output
+        **GitLab**:
+           cat > /tmp/comment-body.md << 'COMMENT_EOF'
+           <markdown_content>
+
+           ---
+           *Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*
+           COMMENT_EOF
+           glab issue note <number> --repo <owner/repo> --message "$(cat /tmp/comment-body.md)"
+
+        **Bitbucket**:
+           cat > /tmp/bb-comment.json << 'COMMENT_EOF'
+           {"content":{"raw":"<markdown_content>\n\n---\n*Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*"}}
+           COMMENT_EOF
+           curl -s -X POST -H "Authorization: Bearer $BB_TOKEN" -H "Content-Type: application/json" \
+             -d @/tmp/bb-comment.json \
+             "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/issues/NUMBER/comments" \
+             | jq '{id, url: .links.html.href}'
+
+        **Gitea**:
+           cat > /tmp/comment-body.md << 'COMMENT_EOF'
+           <markdown_content>
+
+           ---
+           *Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*
+           COMMENT_EOF
+           tea issues comment <number> --repo <owner/repo> --body "$(cat /tmp/comment-body.md)"
+
+        4. Capture the result and verify success
+        5. If successful, extract the comment URL from the output
 
         Record the result with:
         - success: true/false
