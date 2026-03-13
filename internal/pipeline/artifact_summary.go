@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -64,9 +65,16 @@ func summarizeJSON(data []byte, path string, maxBytes int) string {
 
 	// For objects, show top-level keys with truncated values
 	if obj, ok := raw.(map[string]interface{}); ok {
+		keys := make([]string, 0, len(obj))
+		for key := range obj {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
 		var b strings.Builder
 		b.WriteString("{\n")
-		for key, val := range obj {
+		for _, key := range keys {
+			val := obj[key]
 			valStr := formatJSONValue(val)
 			if len(valStr) > 200 {
 				valStr = valStr[:197] + "..."

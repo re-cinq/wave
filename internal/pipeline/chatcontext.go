@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/state"
@@ -92,6 +93,8 @@ func loadArtifactContents(cfg *ChatContextConfig, artifacts []state.ArtifactReco
 	maxBytes := cfg.EffectiveMaxContextTokens() * 4
 	totalBytes := 0
 
+	cleanRoot := filepath.Clean(projectRoot) + string(filepath.Separator)
+
 	for _, name := range cfg.ArtifactSummaries {
 		artPath, ok := artifactPaths[name]
 		if !ok {
@@ -102,6 +105,12 @@ func loadArtifactContents(cfg *ChatContextConfig, artifacts []state.ArtifactReco
 		fullPath := artPath
 		if !filepath.IsAbs(artPath) {
 			fullPath = filepath.Join(projectRoot, artPath)
+		}
+
+		// Enforce path containment within project root to prevent traversal
+		fullPath = filepath.Clean(fullPath)
+		if !strings.HasPrefix(fullPath, cleanRoot) {
+			continue // Skip paths that escape project root
 		}
 
 		remaining := maxBytes - totalBytes
