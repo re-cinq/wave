@@ -1,4 +1,4 @@
-You are implementing a Bitbucket issue according to the plan and task breakdown.
+You are implementing an issue according to the plan and task breakdown.
 
 Input: {{ input }}
 

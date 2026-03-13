@@ -269,7 +269,7 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 }
 
 func TestPipelineRelevanceScore_NameMatchesTitle(t *testing.T) {
-	p := PipelineInfo{Name: "gh-pr-review", Description: "Automated code review workflow"}
+	p := PipelineInfo{Name: "pr-review", Description: "Automated code review workflow"}
 	issue := &IssueData{Title: "Review the PR for auth module", Labels: nil}
 
 	score := pipelineRelevanceScore(p, issue)

@@ -56,10 +56,10 @@ The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
 
 Arguments can be provided as positional args or flags:
-  wave run gh-pr-review "Review auth module"
-  wave run --pipeline gh-pr-review --input "Review auth module"
-  wave run gh-pr-review --input "Review auth module"`,
-		Example: `  wave run gh-pr-review "Review the authentication changes"
+  wave run pr-review "Review auth module"
+  wave run --pipeline pr-review --input "Review auth module"
+  wave run pr-review --input "Review auth module"`,
+		Example: `  wave run pr-review "Review the authentication changes"
   wave run --pipeline speckit-flow --input "add user auth"
   wave run hotfix --dry-run
   wave run migrate --from-step validate
@@ -159,6 +159,17 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	p, err := loadPipeline(opts.Pipeline, &m)
+	if err != nil {
+		// Check if this is a deprecated forge-prefixed name
+		if resolved, deprecated := pipeline.ResolveDeprecatedName(opts.Pipeline); deprecated {
+			if pp, resolveErr := loadPipeline(resolved, &m); resolveErr == nil {
+				fmt.Fprintf(os.Stderr, "⚠ Pipeline %q is deprecated. Use %q instead.\n", opts.Pipeline, resolved)
+				p = pp
+				err = nil
+				opts.Pipeline = resolved
+			}
+		}
+	}
 	if err != nil {
 		// Pipeline not found — if interactive, try TUI with partial name as filter
 		if isInteractive() {
