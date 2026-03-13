@@ -311,7 +311,6 @@ func (m ComposeListModel) View() string {
 	}
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 	normalStyle := lipgloss.NewStyle()
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
@@ -388,9 +387,6 @@ func (m ComposeListModel) View() string {
 			entry := m.sequence.Entries[i]
 			isSelected := i == m.cursor
 			prefix := "  "
-			if isSelected {
-				prefix = cursorStyle.Render("▸ ")
-			}
 
 			// Status icon for entries after the first (boundary indicator).
 			statusIcon := ""
@@ -412,13 +408,30 @@ func (m ComposeListModel) View() string {
 			}
 
 			indexStr := fmt.Sprintf("%d. ", i+1)
-			var line string
 			if isSelected {
-				line = prefix + cursorStyle.Render(indexStr+entry.PipelineName) + dupIndicator + statusIcon
+				// Plain text when selected — inner ANSI codes break the highlight background.
+				plainDup := ""
+				if nameCounts[entry.PipelineName] > 1 {
+					plainDup = " (duplicate)"
+				}
+				plainStatus := ""
+				if i > 0 {
+					switch boundaryStatus[i] {
+					case CompatibilityValid:
+						plainStatus = " ✓"
+					case CompatibilityWarning:
+						plainStatus = " ~"
+					case CompatibilityError:
+						plainStatus = " ✗"
+					}
+				}
+				line := prefix + indexStr + entry.PipelineName + plainDup + plainStatus
+				style := SelectionStyle(m.focused)
+				lines = append(lines, style.Render(line))
 			} else {
-				line = prefix + normalStyle.Render(indexStr+entry.PipelineName) + dupIndicator + statusIcon
+				line := prefix + normalStyle.Render(indexStr+entry.PipelineName) + dupIndicator + statusIcon
+				lines = append(lines, line)
 			}
-			lines = append(lines, line)
 
 			// Stage break indicator after this entry
 			if m.parallel && m.breaks[i] && i < m.sequence.Len()-1 {

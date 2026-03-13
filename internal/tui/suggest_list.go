@@ -149,32 +149,43 @@ func (m SuggestListModel) View() string {
 	}
 
 	for i, p := range m.proposals {
-		cursor := "  "
-		if i == m.cursor {
-			cursor = "> "
-		}
+		prefix := "  "
+		isSelected := i == m.cursor
 
-		// Selection marker
+		// Selection marker — plain text when cursor is on this item so
+		// SelectionStyle controls all colors (inner ANSI codes break the highlight).
 		selMarker := " "
 		if m.selected[i] {
-			selMarker = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("●")
-		}
-
-		style := lipgloss.NewStyle()
-		if i == m.cursor && m.focused {
-			style = style.Bold(true).Foreground(lipgloss.Color("12"))
+			if isSelected {
+				selMarker = "●"
+			} else {
+				selMarker = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("●")
+			}
 		}
 
 		// Type badge for sequence/parallel proposals
 		typeBadge := ""
 		if p.Type == "sequence" {
-			typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("[seq]") + " "
+			if isSelected {
+				typeBadge = "[seq] "
+			} else {
+				typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("[seq]") + " "
+			}
 		} else if p.Type == "parallel" {
-			typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("[par]") + " "
+			if isSelected {
+				typeBadge = "[par] "
+			} else {
+				typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("[par]") + " "
+			}
 		}
 
-		line := fmt.Sprintf("%s%s %s[P%d] %s", cursor, selMarker, typeBadge, p.Priority, p.Name)
-		sb.WriteString(style.Render(line))
+		line := fmt.Sprintf("%s%s %s[P%d] %s", prefix, selMarker, typeBadge, p.Priority, p.Name)
+		if isSelected {
+			style := SelectionStyle(m.focused).Width(m.width)
+			sb.WriteString(style.Render(line))
+		} else {
+			sb.WriteString(line)
+		}
 		sb.WriteString("\n")
 	}
 
