@@ -502,6 +502,85 @@ steps:
 
 ---
 
+## Retry and Rework
+
+Control what happens when a step fails after exhausting its retry attempts.
+
+### Retry Configuration
+
+```yaml
+steps:
+  - id: flaky-step
+    persona: craftsman
+    exec:
+      type: prompt
+      source: "Implement feature"
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      base_delay: "2s"
+      adapt_prompt: true
+      on_failure: fail
+```
+
+### Retry Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `max_attempts` | no | `1` | Total number of attempts (1 = no retry) |
+| `backoff` | no | `linear` | `fixed`, `linear`, or `exponential` |
+| `base_delay` | no | `1s` | Base delay between retries (e.g., `2s`, `500ms`) |
+| `adapt_prompt` | no | `false` | Inject prior failure context into retry prompt |
+| `on_failure` | no | `fail` | Action when all attempts are exhausted: `fail`, `skip`, `continue`, `rework` |
+| `rework_step` | conditional | - | Step ID to execute when `on_failure: rework`. Required when `on_failure` is `rework`. |
+
+### On-Failure Actions
+
+| Action | Description |
+|--------|-------------|
+| `fail` | Halt the pipeline (default) |
+| `skip` | Mark step as skipped, continue pipeline |
+| `continue` | Mark step as failed, continue pipeline |
+| `rework` | Execute an alternative step (`rework_step`) as a fallback |
+
+### Rework Branching
+
+When `on_failure: rework` is set, the executor redirects to an alternative step after all retry attempts are exhausted:
+
+```yaml
+steps:
+  - id: complex-impl
+    persona: craftsman
+    exec:
+      type: prompt
+      source: "Implement the complex feature"
+    retry:
+      max_attempts: 2
+      on_failure: rework
+      rework_step: simple-impl
+
+  - id: simple-impl
+    persona: craftsman
+    exec:
+      type: prompt
+      source: "Implement a simpler fallback"
+```
+
+**Rework behavior:**
+1. The failed step is marked as `failed`
+2. Failure context (error, duration, partial artifacts) is injected into the rework step's prompt
+3. The rework step executes with the failure context
+4. On success, the rework step's artifacts replace the failed step's artifacts for downstream steps
+5. If the rework step itself fails, its own `on_failure` policy applies
+
+**DAG validation rules for rework targets:**
+- The rework target must be an existing step in the pipeline
+- The rework target cannot be an upstream dependency of the failing step
+- The failing step cannot be a dependency of the rework target
+- A step cannot rework to itself
+
+---
+
 ## Step States
 
 | State | Description |
@@ -510,7 +589,9 @@ steps:
 | `running` | Currently executing |
 | `completed` | Finished successfully |
 | `retrying` | Failed, attempting retry |
+| `reworking` | Rework step executing after failure |
 | `failed` | Max retries exceeded |
+| `skipped` | Skipped (dependency failed or on_failure: skip) |
 
 ---
 

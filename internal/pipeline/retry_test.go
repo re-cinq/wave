@@ -158,3 +158,66 @@ func TestRetryConfig_ComputeDelay(t *testing.T) {
 		})
 	}
 }
+
+func TestRetryConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  RetryConfig
+		wantErr string
+	}{
+		{
+			name:   "empty config is valid",
+			config: RetryConfig{},
+		},
+		{
+			name:   "on_failure=fail is valid",
+			config: RetryConfig{OnFailure: "fail"},
+		},
+		{
+			name:   "on_failure=skip is valid",
+			config: RetryConfig{OnFailure: "skip"},
+		},
+		{
+			name:   "on_failure=continue is valid",
+			config: RetryConfig{OnFailure: "continue"},
+		},
+		{
+			name: "on_failure=rework with rework_step is valid",
+			config: RetryConfig{
+				OnFailure:  "rework",
+				ReworkStep: "fallback",
+			},
+		},
+		{
+			name:    "on_failure=rework without rework_step is invalid",
+			config:  RetryConfig{OnFailure: "rework"},
+			wantErr: "rework_step is required when on_failure is \"rework\"",
+		},
+		{
+			name: "rework_step set without on_failure=rework is invalid",
+			config: RetryConfig{
+				OnFailure:  "fail",
+				ReworkStep: "fallback",
+			},
+			wantErr: "rework_step is set but on_failure is \"fail\" (must be \"rework\")",
+		},
+		{
+			name: "rework_step set with empty on_failure is invalid",
+			config: RetryConfig{
+				ReworkStep: "fallback",
+			},
+			wantErr: "rework_step is set but on_failure is \"\" (must be \"rework\")",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

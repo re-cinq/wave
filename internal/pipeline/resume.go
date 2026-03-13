@@ -196,12 +196,13 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 // ResumeState holds state information needed for resumption
 type ResumeState struct {
-	States          map[string]string
-	Results         map[string]map[string]interface{}
-	ArtifactPaths   map[string]string
-	WorkspacePaths  map[string]string
-	CompletedSteps  []string
-	FailureContexts map[string]*AttemptContext // stepID -> failure context from prior run
+	States             map[string]string
+	Results            map[string]map[string]interface{}
+	ArtifactPaths      map[string]string
+	WorkspacePaths     map[string]string
+	CompletedSteps     []string
+	FailureContexts    map[string]*AttemptContext // stepID -> failure context from prior run
+	ReworkTransitions  map[string]string          // failedStepID -> reworkStepID
 }
 
 // lookupStepPersona finds the persona for a step by ID in the full pipeline.
@@ -220,12 +221,13 @@ func (r *ResumeManager) lookupStepPersona(p *Pipeline, stepID string) string {
 // the most recent match is used.
 func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID ...string) (*ResumeState, error) {
 	state := &ResumeState{
-		States:          make(map[string]string),
-		Results:         make(map[string]map[string]interface{}),
-		ArtifactPaths:   make(map[string]string),
-		WorkspacePaths:  make(map[string]string),
-		CompletedSteps:  []string{},
-		FailureContexts: make(map[string]*AttemptContext),
+		States:            make(map[string]string),
+		Results:           make(map[string]map[string]interface{}),
+		ArtifactPaths:     make(map[string]string),
+		WorkspacePaths:    make(map[string]string),
+		CompletedSteps:    []string{},
+		FailureContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
 	}
 
 	wsRoot := ".wave/workspaces"
