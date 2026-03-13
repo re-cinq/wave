@@ -169,6 +169,11 @@
           "maximum": 10,
           "description": "Maximum concurrent sub-agents the persona may spawn. Values > 1 inject a concurrency hint into the system prompt. Capped at 10."
         },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of parallel agent instances the executor spawns for this step. Each agent gets an isolated workspace. Results are merged. Capped at runtime.max_step_concurrency (default 10). Mutually exclusive with strategy and iterate."
+        },
         "memory": {
           "$ref": "#/definitions/MemoryConfig"
         },

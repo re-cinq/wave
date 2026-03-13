@@ -71,6 +71,7 @@ type HookRule struct {
 type Runtime struct {
 	WorkspaceRoot        string                 `yaml:"workspace_root"`
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
+	MaxStepConcurrency   int                    `yaml:"max_step_concurrency,omitempty"`
 	DefaultTimeoutMin    int                    `yaml:"default_timeout_minutes,omitempty"`
 	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`
 	Relay                RelayConfig            `yaml:"relay,omitempty"`
@@ -79,6 +80,14 @@ type Runtime struct {
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+}
+
+// GetMaxStepConcurrency returns the configured max step concurrency or the default (10).
+func (r *Runtime) GetMaxStepConcurrency() int {
+	if r.MaxStepConcurrency > 0 {
+		return r.MaxStepConcurrency
+	}
+	return 10
 }
 
 // RuntimeArtifactsConfig holds global configuration for artifact handling.

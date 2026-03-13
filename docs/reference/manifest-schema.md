@@ -289,6 +289,7 @@ Global runtime settings governing execution behavior.
 |-------|------|----------|---------|-------------|
 | `workspace_root` | `string` | no | `".wave/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
+| `max_step_concurrency` | `int` | no | `10` | Global cap on per-step concurrency. Limits how many parallel agents a single step can spawn via `concurrency`. Range: `1`–`10`. |
 | `default_timeout_minutes` | `int` | no | `5` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
 | `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |
 | `audit` | [`AuditConfig`](#auditconfig) | no | see defaults | Audit logging settings. |
@@ -500,6 +501,62 @@ steps:
     exec:
       type: prompt
       source: "Implement the feature using parallel sub-agents."
+```
+
+---
+
+## Step Concurrency
+
+Steps can spawn multiple parallel agent instances via `concurrency`. Unlike `max_concurrent_agents` (which hints to the agent about internal sub-agent spawning), `concurrency` causes the **executor** to fork N parallel adapter processes for the same step.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `concurrency` | `int` | no | `1` | Number of parallel agent instances the executor spawns. Each agent gets an isolated workspace with the same prompt and input artifacts. Results are merged into an indexed artifact set. Capped at `runtime.max_step_concurrency` (default 10). |
+
+### Key Behaviors
+
+- **Workspace isolation**: Each agent gets its own workspace at `<step_workspace>_agent_<N>/`
+- **Same prompt**: All agents receive the same prompt and input artifacts. Work partitioning is the prompt author's responsibility
+- **Result aggregation**: JSON artifacts are merged into an array; text artifacts are concatenated with agent index headers
+- **Fail-fast**: If any agent fails, the step fails immediately (errgroup cancellation)
+- **Mutual exclusion**: `concurrency` is mutually exclusive with `strategy` and `iterate`
+
+### Step Concurrency vs Agent Concurrency
+
+| Feature | `concurrency` | `max_concurrent_agents` |
+|---------|--------------|-------------------------|
+| Level | Executor (Wave) | Agent (internal) |
+| What it does | Spawns N adapter processes | Tells agent it may use N sub-agents |
+| Isolation | Each agent gets own workspace | All sub-agents share one workspace |
+| Can coexist? | Yes — orthogonal | Yes — orthogonal |
+
+A step with `concurrency: 3, max_concurrent_agents: 5` spawns 3 parallel adapter processes, each of which is allowed to use 5 sub-agents internally.
+
+### Step Concurrency Example
+
+```yaml
+steps:
+  - id: process-items
+    persona: worker
+    concurrency: 3
+    exec:
+      type: prompt
+      source: "Process the assigned work items in parallel."
+```
+
+### With Global Cap
+
+```yaml
+runtime:
+  max_step_concurrency: 5  # No step can spawn more than 5 agents
+
+steps:
+  - id: analyze
+    persona: navigator
+    concurrency: 8  # Capped at 5 by runtime setting
+    exec:
+      type: prompt
+      source: "Analyze the codebase."
 ```
 
 ---

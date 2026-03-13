@@ -133,6 +133,125 @@ func TestValidateDAG_ArtifactRefStepAndPipelineMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestValidateDAG_ConcurrencyNegativeRejected(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{ID: "step1", Persona: "agent1", Concurrency: -1},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Error("expected error for negative concurrency, got nil")
+	}
+	if err != nil && !contains(err.Error(), "non-negative") {
+		t.Errorf("expected 'non-negative' in error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ConcurrencyWithStrategyRejected(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:          "step1",
+				Persona:     "agent1",
+				Concurrency: 3,
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: "items.json",
+					ItemKey:     "tasks",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Error("expected error for concurrency + strategy, got nil")
+	}
+	if err != nil && !contains(err.Error(), "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' in error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ConcurrencyWithIterateRejected(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:          "step1",
+				Persona:     "agent1",
+				Concurrency: 2,
+				Iterate: &IterateConfig{
+					Over: "{{ items }}",
+					Mode: "parallel",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err == nil {
+		t.Error("expected error for concurrency + iterate, got nil")
+	}
+	if err != nil && !contains(err.Error(), "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' in error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ConcurrencyOneWithStrategyAllowed(t *testing.T) {
+	// concurrency=1 should NOT trigger mutual exclusion check
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{
+				ID:          "step1",
+				Persona:     "agent1",
+				Concurrency: 1,
+				Strategy: &MatrixStrategy{
+					Type:        "matrix",
+					ItemsSource: "items.json",
+					ItemKey:     "tasks",
+				},
+			},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err != nil {
+		t.Errorf("expected no error for concurrency=1 + strategy, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ConcurrencyZeroValid(t *testing.T) {
+	pipeline := &Pipeline{
+		Steps: []Step{
+			{ID: "step1", Persona: "agent1", Concurrency: 0},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(pipeline)
+	if err != nil {
+		t.Errorf("expected no error for concurrency=0, got: %v", err)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTopologicalSort_SimplePipeline(t *testing.T) {
 	pipeline := &Pipeline{
 		Steps: []Step{

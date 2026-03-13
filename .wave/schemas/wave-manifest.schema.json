@@ -270,6 +270,12 @@
           "minimum": 1,
           "description": "Maximum parallel step executions"
         },
+        "max_step_concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Global cap on per-step concurrency (how many parallel agents a single step can spawn). Default: 10."
+        },
         "default_timeout_minutes": {
           "type": "integer",
           "minimum": 1,

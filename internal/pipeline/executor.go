@@ -584,6 +584,12 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeMatrixStep(ctx, execution, step)
 	}
 
+	// Check if this step uses concurrency > 1
+	maxStepConcurrency := execution.Manifest.Runtime.GetMaxStepConcurrency()
+	if step.EffectiveConcurrency(maxStepConcurrency) > 1 {
+		return e.executeConcurrentStep(ctx, execution, step)
+	}
+
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
 	var lastErr error
@@ -811,6 +817,39 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 	e.trackStepDeliverables(execution, step)
 
 	// Extract declared outcomes from matrix step artifacts
+	e.processStepOutcomes(execution, step)
+
+	return nil
+}
+
+// executeConcurrentStep handles steps with concurrency > 1 using parallel agent spawning.
+func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	concurrentExecutor := NewConcurrentExecutor(e)
+	err := concurrentExecutor.Execute(ctx, execution, step)
+
+	if err != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return err
+	}
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	// Track deliverables from completed concurrent step
+	e.trackStepDeliverables(execution, step)
+
+	// Extract declared outcomes from concurrent step artifacts
 	e.processStepOutcomes(execution, step)
 
 	return nil

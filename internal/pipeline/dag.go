@@ -61,6 +61,19 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+
+		// Validate concurrency field
+		if step.Concurrency < 0 {
+			return fmt.Errorf("step %q: concurrency must be non-negative, got %d", step.ID, step.Concurrency)
+		}
+		if step.Concurrency > 1 {
+			if step.Strategy != nil {
+				return fmt.Errorf("step %q: concurrency and strategy are mutually exclusive", step.ID)
+			}
+			if step.Iterate != nil {
+				return fmt.Errorf("step %q: concurrency and iterate are mutually exclusive", step.ID)
+			}
+		}
 	}
 
 	visited := make(map[string]bool)

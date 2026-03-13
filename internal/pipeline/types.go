@@ -141,6 +141,7 @@ type Step struct {
 	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
+	Concurrency         int          `yaml:"concurrency,omitempty"`
 
 	// Composition primitives
 	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
@@ -164,6 +165,25 @@ func (s *Step) GetTimeout() time.Duration {
 		return time.Duration(s.TimeoutMinutes) * time.Minute
 	}
 	return 0
+}
+
+// EffectiveConcurrency returns the effective concurrency for a step.
+// Values <= 1 return 1 (single agent). Values > maxStepConcurrency are
+// capped at maxStepConcurrency. The hard maximum is 10.
+func (s *Step) EffectiveConcurrency(maxStepConcurrency int) int {
+	if s.Concurrency <= 1 {
+		return 1
+	}
+	if maxStepConcurrency <= 0 {
+		maxStepConcurrency = 10
+	}
+	if maxStepConcurrency > 10 {
+		maxStepConcurrency = 10
+	}
+	if s.Concurrency > maxStepConcurrency {
+		return maxStepConcurrency
+	}
+	return s.Concurrency
 }
 
 type MemoryConfig struct {
