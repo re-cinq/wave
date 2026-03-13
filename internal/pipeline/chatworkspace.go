@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -230,6 +231,56 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 		}
 	}
 
+	// Injected artifact content (from chat_context config)
+	if len(ctx.ArtifactContents) > 0 {
+		b.WriteString("\n## Key Artifact Content\n\n")
+		b.WriteString("The following artifact content has been pre-loaded for immediate reference:\n\n")
+		artifactNames := make([]string, 0, len(ctx.ArtifactContents))
+		for name := range ctx.ArtifactContents {
+			artifactNames = append(artifactNames, name)
+		}
+		sort.Strings(artifactNames)
+		for _, name := range artifactNames {
+			content := ctx.ArtifactContents[name]
+			fence := "```"
+			if strings.Contains(content, "```") {
+				fence = "``````"
+			}
+			fmt.Fprintf(&b, "### %s\n\n%s\n%s\n%s\n\n", name, fence, content, fence)
+		}
+	}
+
+	// Suggested questions (from pipeline chat_context config)
+	if ctx.ChatConfig != nil && len(ctx.ChatConfig.SuggestedQuestions) > 0 {
+		b.WriteString("\n## Suggested Questions\n\n")
+		b.WriteString("The pipeline author suggests starting with these questions:\n\n")
+		for _, q := range ctx.ChatConfig.SuggestedQuestions {
+			fmt.Fprintf(&b, "- %s\n", q)
+		}
+		b.WriteString("\n")
+	}
+
+	// Focus areas (from pipeline chat_context config)
+	if ctx.ChatConfig != nil && len(ctx.ChatConfig.FocusAreas) > 0 {
+		b.WriteString("\n## Focus Areas\n\n")
+		b.WriteString("Pay special attention to:\n\n")
+		for _, area := range ctx.ChatConfig.FocusAreas {
+			fmt.Fprintf(&b, "- %s\n", area)
+		}
+		b.WriteString("\n")
+	}
+
+	// Post-mortem questions (auto-generated based on run context)
+	postMortems := generatePostMortemQuestions(ctx)
+	if len(postMortems) > 0 {
+		b.WriteString("\n## Post-Mortem Questions\n\n")
+		b.WriteString("Based on this pipeline run, consider asking the user these questions:\n\n")
+		for _, q := range postMortems {
+			fmt.Fprintf(&b, "- %s\n", q)
+		}
+		b.WriteString("\n")
+	}
+
 	// Wave infrastructure reference
 	b.WriteString("\n## Wave Infrastructure\n\n")
 	b.WriteString("Use these CLI commands — do NOT query the database directly.\n\n")
@@ -333,9 +384,14 @@ func provisionSlashCommands(wsDir string) error {
 		"wave-diff.md":   waveDiffCommand,
 	}
 
-	for name, content := range commands {
+	cmdNames := make([]string, 0, len(commands))
+	for name := range commands {
+		cmdNames = append(cmdNames, name)
+	}
+	sort.Strings(cmdNames)
+	for _, name := range cmdNames {
 		path := filepath.Join(commandsDir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(commands[name]), 0644); err != nil {
 			return fmt.Errorf("failed to write slash command %s: %w", name, err)
 		}
 	}
@@ -353,3 +409,79 @@ const waveDiffCommand = `Show what has changed in the current step's workspace.
 Run git diff or compare files against the original state.
 Summarize the key changes made.
 `
+
+// generatePostMortemQuestions creates 3 context-aware questions based on the pipeline run.
+func generatePostMortemQuestions(ctx *ChatContext) []string {
+	var questions []string
+
+	// Find failed steps
+	var failedSteps []string
+	for _, step := range ctx.Steps {
+		if step.State == "failed" {
+			failedSteps = append(failedSteps, step.StepID)
+		}
+	}
+
+	// Check for specific artifact types
+	hasPR := false
+	hasReview := false
+	hasAnalysis := false
+	for _, art := range ctx.Artifacts {
+		switch {
+		case strings.Contains(art.Name, "pr-result") || strings.Contains(art.Name, "pr_result"):
+			hasPR = true
+		case strings.Contains(art.Name, "review") || strings.Contains(art.Name, "verdict"):
+			hasReview = true
+		case strings.Contains(art.Name, "analysis") || strings.Contains(art.Name, "assessment"):
+			hasAnalysis = true
+		}
+	}
+
+	// Determine pipeline category from name
+	pipelineName := ""
+	if ctx.Pipeline != nil {
+		pipelineName = ctx.Pipeline.PipelineName()
+	}
+
+	switch {
+	case ctx.Run.Status == "failed":
+		// Failed run questions
+		if len(failedSteps) > 0 {
+			questions = append(questions, fmt.Sprintf("What caused the failure in step '%s' and how can it be resolved?", failedSteps[0]))
+		} else {
+			questions = append(questions, "What caused the pipeline failure and how can it be resolved?")
+		}
+		questions = append(questions, "Should we retry the pipeline with modified parameters or a different approach?")
+		questions = append(questions, "Are there any pre-conditions or dependencies that were not met?")
+	case hasPR:
+		// Implementation/PR pipeline
+		questions = append(questions, "Would you like to review the changes in the pull request?")
+		questions = append(questions, "Are there any edge cases or error scenarios not covered by the implementation?")
+		questions = append(questions, "Should we add additional tests or documentation?")
+	case hasReview:
+		// Review pipeline
+		questions = append(questions, "What are the most critical findings from the review?")
+		questions = append(questions, "Are there any blocking concerns that must be addressed before merging?")
+		questions = append(questions, "What improvements should be prioritized?")
+	case hasAnalysis:
+		// Analysis pipeline
+		questions = append(questions, "What are the key findings from the analysis?")
+		questions = append(questions, "Which items need immediate attention?")
+		questions = append(questions, "What is the recommended next step based on the analysis?")
+	case strings.Contains(pipelineName, "implement"):
+		questions = append(questions, "Would you like to review the implementation changes?")
+		questions = append(questions, "Are there any areas that need additional testing?")
+		questions = append(questions, "Should we refine any part of the implementation?")
+	case strings.Contains(pipelineName, "review"):
+		questions = append(questions, "What are the most important review findings?")
+		questions = append(questions, "Are there any security or quality concerns?")
+		questions = append(questions, "What should be addressed before the next review?")
+	default:
+		// Generic completed pipeline
+		questions = append(questions, "What are the key outputs from this pipeline run?")
+		questions = append(questions, "Are there any issues or areas of concern in the results?")
+		questions = append(questions, "What should be the next step based on these results?")
+	}
+
+	return questions
+}

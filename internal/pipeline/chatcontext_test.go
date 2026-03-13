@@ -285,3 +285,216 @@ func TestMostRecentCompletedRunID_OnlyRunning(t *testing.T) {
 		t.Errorf("expected running-1, got %s", runID)
 	}
 }
+
+func TestBuildChatContext_WithChatContextConfig(t *testing.T) {
+	now := time.Now()
+	completed := now.Add(time.Minute)
+	tmpDir := t.TempDir()
+
+	// Create artifact files on disk
+	artDir := filepath.Join(tmpDir, ".wave", "output")
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "result.json"), []byte(`{"score":95,"verdict":"pass"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "notes.md"), []byte("# Summary\n\nAll good.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &mockChatStore{
+		run: &state.RunRecord{
+			RunID:        "ctx-run",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			StartedAt:    now,
+			CompletedAt:  &completed,
+		},
+		events: []state.LogRecord{
+			{StepID: "step-1", State: "completed", Persona: "navigator"},
+		},
+		artifacts: []state.ArtifactRecord{
+			{StepID: "step-1", Name: "result.json", Path: ".wave/output/result.json", Type: "json"},
+			{StepID: "step-1", Name: "notes.md", Path: ".wave/output/notes.md", Type: "markdown"},
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-pipeline"},
+		Steps:    []Step{{ID: "step-1", Persona: "navigator"}},
+		ChatContext: &ChatContextConfig{
+			ArtifactSummaries:  []string{"result.json", "notes.md"},
+			SuggestedQuestions: []string{"How did the analysis go?"},
+			FocusAreas:         []string{"score", "verdict"},
+		},
+	}
+
+	ctx, err := BuildChatContext(store, "ctx-run", p, tmpDir)
+	if err != nil {
+		t.Fatalf("BuildChatContext failed: %v", err)
+	}
+
+	// ChatConfig should be propagated
+	if ctx.ChatConfig == nil {
+		t.Fatal("expected ChatConfig to be set")
+	}
+	if len(ctx.ChatConfig.SuggestedQuestions) != 1 {
+		t.Errorf("expected 1 suggested question, got %d", len(ctx.ChatConfig.SuggestedQuestions))
+	}
+
+	// ArtifactContents should be populated
+	if len(ctx.ArtifactContents) != 2 {
+		t.Fatalf("expected 2 artifact contents, got %d", len(ctx.ArtifactContents))
+	}
+
+	if _, ok := ctx.ArtifactContents["result.json"]; !ok {
+		t.Error("missing artifact content for result.json")
+	}
+	if _, ok := ctx.ArtifactContents["notes.md"]; !ok {
+		t.Error("missing artifact content for notes.md")
+	}
+}
+
+func TestBuildChatContext_NoChatContextConfig(t *testing.T) {
+	now := time.Now()
+	completed := now.Add(time.Minute)
+
+	store := &mockChatStore{
+		run: &state.RunRecord{
+			RunID:        "no-ctx-run",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+			CompletedAt:  &completed,
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test"},
+		Steps:    []Step{{ID: "step-1", Persona: "navigator"}},
+		// No ChatContext configured
+	}
+
+	ctx, err := BuildChatContext(store, "no-ctx-run", p, t.TempDir())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ctx.ChatConfig != nil {
+		t.Error("expected ChatConfig to be nil when pipeline has no chat_context")
+	}
+	if ctx.ArtifactContents != nil {
+		t.Error("expected ArtifactContents to be nil when no chat_context")
+	}
+}
+
+func TestBuildChatContext_TokenBudget(t *testing.T) {
+	now := time.Now()
+	completed := now.Add(time.Minute)
+	tmpDir := t.TempDir()
+
+	// Create a large artifact
+	artDir := filepath.Join(tmpDir, ".wave", "output")
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	largeContent := make([]byte, 10000)
+	for i := range largeContent {
+		largeContent[i] = 'x'
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "large.txt"), largeContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "small.txt"), []byte("small content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &mockChatStore{
+		run: &state.RunRecord{
+			RunID:        "budget-run",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+			CompletedAt:  &completed,
+		},
+		artifacts: []state.ArtifactRecord{
+			{StepID: "s1", Name: "large.txt", Path: ".wave/output/large.txt", Type: "text"},
+			{StepID: "s1", Name: "small.txt", Path: ".wave/output/small.txt", Type: "text"},
+		},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test"},
+		Steps:    []Step{{ID: "s1", Persona: "nav"}},
+		ChatContext: &ChatContextConfig{
+			ArtifactSummaries: []string{"large.txt", "small.txt"},
+			MaxContextTokens:  500, // Very small budget: 500 tokens ~2000 bytes
+		},
+	}
+
+	ctx, err := BuildChatContext(store, "budget-run", p, tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Large artifact should be truncated or budget message for small
+	totalLen := 0
+	for _, content := range ctx.ArtifactContents {
+		totalLen += len(content)
+	}
+	// Total should be within budget (500 tokens * 4 bytes = 2000 bytes + some overhead)
+	if totalLen > 3000 {
+		t.Errorf("artifact contents exceed expected budget: %d bytes", totalLen)
+	}
+}
+
+func TestBuildChatContext_MissingArtifactFile(t *testing.T) {
+	now := time.Now()
+	completed := now.Add(time.Minute)
+
+	store := &mockChatStore{
+		run: &state.RunRecord{
+			RunID:        "missing-art-run",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+			CompletedAt:  &completed,
+		},
+		artifacts: []state.ArtifactRecord{
+			{StepID: "s1", Name: "exists.txt", Path: ".wave/output/exists.txt"},
+			{StepID: "s1", Name: "missing.txt", Path: ".wave/output/missing.txt"},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	artDir := filepath.Join(tmpDir, ".wave", "output")
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "exists.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test"},
+		Steps:    []Step{{ID: "s1", Persona: "nav"}},
+		ChatContext: &ChatContextConfig{
+			ArtifactSummaries: []string{"exists.txt", "missing.txt"},
+		},
+	}
+
+	ctx, err := BuildChatContext(store, "missing-art-run", p, tmpDir)
+	if err != nil {
+		t.Fatalf("missing artifact should not cause error: %v", err)
+	}
+
+	// Should have content for the existing artifact
+	if _, ok := ctx.ArtifactContents["exists.txt"]; !ok {
+		t.Error("expected content for exists.txt")
+	}
+	// Missing artifact should be silently skipped
+	if _, ok := ctx.ArtifactContents["missing.txt"]; ok {
+		t.Error("expected missing.txt to be skipped")
+	}
+}

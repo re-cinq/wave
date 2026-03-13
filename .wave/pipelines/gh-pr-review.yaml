@@ -4,6 +4,21 @@ metadata:
   description: "GitHub pull request code review with automated security and quality analysis"
   release: true
 
+chat_context:
+  artifact_summaries:
+    - diff
+    - security
+    - quality
+    - verdict
+  suggested_questions:
+    - "What issues were found in the review?"
+    - "Are there any blocking concerns that must be addressed before merging?"
+    - "What should be fixed before the next review cycle?"
+  focus_areas:
+    - "Review findings and severity"
+    - "Code quality and maintainability"
+    - "Security concerns and vulnerabilities"
+
 requires:
   tools:
     - gh
