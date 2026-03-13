@@ -28,16 +28,23 @@ previous step and is already checked out.
    git push -u origin HEAD
    ```
 
-6. **Create Pull Request**: Use `gh pr create` with a descriptive summary:
+6. **Create Pull Request**: Use `gh pr create` with a descriptive summary. Write the PR body to a temp file to avoid shell injection:
    ```bash
-   gh pr create --title "<concise title>" --body "<PR body with summary and test plan>"
-   ```
+   cat > /tmp/pr-body.md <<'EOF'
+   ## Summary
+   <3-5 bullet points describing the changes>
 
-   The PR body should include:
-   - Summary of changes (3-5 bullet points)
-   - Link to the spec file in the specs/ directory
-   - Test plan describing how changes were validated
-   - Any known limitations or follow-up work needed
+   ## Spec
+   <link to spec file in specs/ directory>
+
+   ## Test Plan
+   <how the changes were validated>
+
+   ## Known Limitations
+   <any follow-up work needed>
+   EOF
+   gh pr create --title '<concise title>' --body-file /tmp/pr-body.md
+   ```
 
 7. **Request Copilot Review**: After the PR is created, request a review from Copilot:
    ```bash

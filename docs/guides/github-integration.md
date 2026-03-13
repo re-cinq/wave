@@ -145,6 +145,12 @@ wave run github-issue-enhancer --input '{"repo": "owner/repo", "threshold": 80}'
 2. **Use environment variables**: Store GITHUB_TOKEN in env
 3. **Minimal permissions**: Use fine-grained PATs with minimal scope
 4. **Rotate regularly**: Refresh tokens every 90 days
+5. **Prevent shell injection in persona commands**: When personas construct
+   `gh` CLI commands from untrusted content (issue titles, PR bodies, comments),
+   shell metacharacters like `$()` or backticks can trigger unintended command
+   execution. Always use `--body-file /tmp/body.md` instead of inline
+   `--body "$content"`. See [Secure CLI Patterns](secure-cli-patterns.md)
+   for the full set of safe and unsafe patterns
 
 ## Troubleshooting
 
