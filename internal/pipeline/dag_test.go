@@ -448,3 +448,42 @@ invalid: yaml: content:
 		t.Error("Expected error for invalid YAML, got nil")
 	}
 }
+
+func TestValidateDAG_DuplicateReworkTarget(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-1", Persona: "nav", Exec: ExecConfig{Source: "a"},
+				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
+			{ID: "step-2", Persona: "nav", Exec: ExecConfig{Source: "b"},
+				Retry: RetryConfig{OnFailure: "rework", ReworkStep: "rework-step"}},
+			{ID: "rework-step", Persona: "nav", Exec: ExecConfig{Source: "fix"}},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for duplicate rework target, got nil")
+	}
+	if err != nil && !contains(err.Error(), "is used by both") {
+		t.Errorf("Expected 'is used by both' error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_InvalidOnFailureValue(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-1", Persona: "nav", Exec: ExecConfig{Source: "a"},
+				Retry: RetryConfig{OnFailure: "invalid_value"}},
+		},
+	}
+
+	validator := &DAGValidator{}
+	err := validator.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for invalid on_failure value, got nil")
+	}
+	if err != nil && !contains(err.Error(), "invalid on_failure") {
+		t.Errorf("Expected 'invalid on_failure' error, got: %v", err)
+	}
+}

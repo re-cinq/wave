@@ -209,6 +209,11 @@
           "default": false,
           "description": "If true, step failure does not fail the pipeline"
         },
+        "rework_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, step only runs via rework trigger, not normal DAG scheduling"
+        },
         "retry": {
           "$ref": "#/definitions/RetryConfig"
         }
