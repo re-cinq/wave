@@ -94,21 +94,27 @@ func splitFrontmatter(data []byte) (yamlBlock []byte, body string, err error) {
 	return []byte(yamlContent), remaining, nil
 }
 
-// validateFrontmatter validates the parsed frontmatter fields.
-func validateFrontmatter(fm *frontmatter) error {
-	if err := ValidateName(fm.Name); err != nil {
+// ValidateFields checks name, description, and compatibility constraints.
+// Used by both Parse (via validateFrontmatter) and Serialize for consistent validation.
+func ValidateFields(name, description, compatibility string) error {
+	if err := ValidateName(name); err != nil {
 		return err
 	}
-	if fm.Description == "" {
+	if description == "" {
 		return &ParseError{Field: "description", Constraint: "required"}
 	}
-	if len(fm.Description) > 1024 {
-		return &ParseError{Field: "description", Constraint: "max 1024 characters", Value: fm.Description[:50] + "..."}
+	if len(description) > 1024 {
+		return &ParseError{Field: "description", Constraint: "max 1024 characters", Value: description[:50] + "..."}
 	}
-	if fm.Compatibility != "" && len(fm.Compatibility) > 500 {
+	if compatibility != "" && len(compatibility) > 500 {
 		return &ParseError{Field: "compatibility", Constraint: "max 500 characters"}
 	}
 	return nil
+}
+
+// validateFrontmatter validates the parsed frontmatter fields.
+func validateFrontmatter(fm *frontmatter) error {
+	return ValidateFields(fm.Name, fm.Description, fm.Compatibility)
 }
 
 // parseFrontmatter splits and validates frontmatter, returning the parsed
@@ -172,11 +178,8 @@ func ParseMetadata(data []byte) (Skill, error) {
 
 // Serialize converts a Skill back to SKILL.md format.
 func Serialize(skill Skill) ([]byte, error) {
-	if err := ValidateName(skill.Name); err != nil {
+	if err := ValidateFields(skill.Name, skill.Description, skill.Compatibility); err != nil {
 		return nil, err
-	}
-	if skill.Description == "" {
-		return nil, &ParseError{Field: "description", Constraint: "required"}
 	}
 
 	fm := frontmatter{
