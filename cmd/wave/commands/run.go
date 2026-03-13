@@ -39,6 +39,8 @@ type RunOptions struct {
 	Output            OutputConfig
 	Model             string
 	PreserveWorkspace bool
+	Steps             string // Comma-separated step names to include (--steps)
+	Exclude           string // Comma-separated step names to exclude (-x/--exclude)
 }
 
 func NewRunCmd() *cobra.Command {
@@ -62,7 +64,10 @@ Arguments can be provided as positional args or flags:
   wave run hotfix --dry-run
   wave run migrate --from-step validate
   wave run my-pipeline --model haiku
-  wave run my-pipeline --preserve-workspace`,
+  wave run my-pipeline --preserve-workspace
+  wave run --steps clarify,plan speckit-flow
+  wave run -x implement,create-pr speckit-flow
+  wave run --from-step clarify -x create-pr speckit-flow`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -113,6 +118,8 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
+	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
+	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
 
 	return cmd
 }
@@ -176,8 +183,19 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 
+	// Parse and validate step filter flags
+	stepFilter := pipeline.ParseStepFilter(opts.Steps, opts.Exclude)
+	if stepFilter != nil {
+		if err := stepFilter.Validate(p); err != nil {
+			return err
+		}
+		if err := stepFilter.ValidateCombinations(opts.FromStep); err != nil {
+			return err
+		}
+	}
+
 	if opts.DryRun {
-		return performDryRun(p, &m)
+		return performDryRun(p, &m, stepFilter)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -301,6 +319,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.PreserveWorkspace {
 		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
+	}
+	if stepFilter != nil {
+		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -527,14 +548,23 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
 	fmt.Fprintf(os.Stderr, "Execution plan:\n")
 
 	for i, step := range p.Steps {
-		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
+		// Show [SKIP] or [RUN] status when a filter is active
+		status := ""
+		if filter != nil && filter.IsActive() {
+			if filter.ShouldRun(step.ID) {
+				status = " [RUN]"
+			} else {
+				status = " [SKIP]"
+			}
+		}
+		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)%s\n", i+1, step.ID, step.Persona, status)
 
 		if len(step.Dependencies) > 0 {
 			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
@@ -585,6 +615,34 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
 		}
 
 		fmt.Fprintln(os.Stderr)
+	}
+
+	// Show artifact warnings when a filter is active
+	if filter != nil && filter.IsActive() {
+		skippedSteps := make(map[string]bool)
+		for _, step := range p.Steps {
+			if !filter.ShouldRun(step.ID) {
+				skippedSteps[step.ID] = true
+			}
+		}
+		var warnings []string
+		for _, step := range p.Steps {
+			if !filter.ShouldRun(step.ID) {
+				continue
+			}
+			for _, dep := range step.Dependencies {
+				if skippedSteps[dep] {
+					warnings = append(warnings, fmt.Sprintf("  ⚠ Step %q depends on skipped step %q — ensure prior artifacts exist", step.ID, dep))
+				}
+			}
+		}
+		if len(warnings) > 0 {
+			fmt.Fprintln(os.Stderr, "Artifact warnings:")
+			for _, w := range warnings {
+				fmt.Fprintln(os.Stderr, w)
+			}
+			fmt.Fprintln(os.Stderr)
+		}
 	}
 
 	return nil
