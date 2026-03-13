@@ -13,7 +13,6 @@ Complete field reference for `wave.yaml` — the single source of truth for all 
 | `personas` | `map[string]`[`Persona`](#persona) | **yes** | Named persona configurations. |
 | `runtime` | [`Runtime`](#runtime) | **yes** | Global runtime settings. |
 | `project` | [`Project`](#project) | no | Project metadata for language, test commands, and source globs. |
-| `skills` | `map[string]`[`SkillConfig`](#skillconfig) | no | Named skill configurations with install, check, and provisioning settings. |
 
 ### Minimal Example
 
@@ -134,6 +133,13 @@ Agent configuration binding an adapter to a specific role. Personas enforce sepa
 | `permissions` | [`Permissions`](#permissions) | no | inherit from adapter | Tool permission overrides. Merged with adapter defaults; persona-level `deny` always takes precedence. |
 | `model` | `string` | no | adapter default | LLM model override for this persona (e.g., "opus", "sonnet"). |
 | `hooks` | [`HookConfig`](#hookconfig) | no | `{}` | Pre/post tool use hook definitions. |
+| `sandbox` | [`PersonaSandbox`](#personasandbox) | no | `null` | Per-persona network sandbox settings. |
+
+### PersonaSandbox
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `allowed_domains` | `[]string` | no | `[]` | Network domains this persona is allowed to access. Merged with `runtime.sandbox.default_allowed_domains`. |
 
 ### Built-in Persona Archetypes
 
@@ -304,6 +310,8 @@ Global runtime settings governing execution behavior.
 |-------|------|----------|---------|-------------|
 | `token_threshold_percent` | `int` | no | `80` | Context utilization percentage that triggers relay. Range: `50`–`95`. |
 | `strategy` | `string` | no | `"summarize_to_checkpoint"` | Compaction strategy. Currently only `"summarize_to_checkpoint"`. |
+| `context_window` | `int` | no | `0` | Context window size in tokens. `0` uses adapter default. |
+| `summarizer_persona` | `string` | no | `""` | Persona to use for relay summarization. Must reference a key in `personas`. |
 
 ### AuditConfig
 
@@ -340,6 +348,7 @@ Audit logs **never** capture environment variable values or credential content. 
 | `pattern` | `string` | no | `""` | Glob pattern for matching input strings. Supports `*`, `?`, `[abc]`, `[a-z]`. |
 | `pipeline` | `string` | **yes** | — | Pipeline name to route to when this rule matches. |
 | `priority` | `int` | no | `0` | Evaluation order. Higher priority rules are evaluated first. |
+| `match_labels` | `map[string]string` | no | `{}` | Label key-value patterns that must all match. Keys are exact matches, values support glob patterns. |
 
 ### RuntimeSandbox
 
@@ -379,51 +388,13 @@ runtime:
 
 ---
 
-## SkillConfig
-
-Declares an external skill with install, check, and provisioning commands. Skills are referenced by pipelines via the [`requires`](#pipeline-requires) block and validated at preflight time before execution begins.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `install` | `string` | no | `""` | Shell command to install the skill. Executed via `sh -c` when preflight detects the skill is missing. |
-| `init` | `string` | no | `""` | Shell command to initialize the skill after installation (e.g., create config files). |
-| `check` | `string` | **yes** | — | Shell command to verify the skill is installed. Exit code 0 = installed. |
-| `commands_glob` | `string` | no | `.claude/commands/<name>.*.md` | Glob pattern for skill command files provisioned into workspaces. |
-
-### SkillConfig Example
-
-```yaml
-skills:
-  speckit:
-    install: "npm install -g @anthropic/speckit"
-    init: "speckit init --non-interactive"
-    check: "speckit --version"
-    commands_glob: ".claude/commands/speckit.*.md"
-
-  golangci-lint:
-    install: "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
-    check: "golangci-lint --version"
-```
-
-### Preflight Flow
-
-When a pipeline declares `requires.skills`, the executor runs preflight validation before any step executes:
-
-1. For each required skill, run its `check` command.
-2. If the check fails and `install` is configured, run the install command.
-3. If `init` is configured, run it after successful install.
-4. Re-run the `check` command to verify installation succeeded.
-5. If any skill remains unavailable, the pipeline fails with a preflight error.
-
----
-
 ## Pipeline Requires
 
 Pipelines can declare tool and skill dependencies via a `requires` block. These are validated at preflight time before any step executes.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `requires.skills` | `[]string` | no | Skill names that must be installed. Each name must match a key in the manifest `skills` map. |
+| `requires.skills` | `[]string` | no | Skill names that must be installed. Resolved by the skill discovery system at preflight time. |
 | `requires.tools` | `[]string` | no | CLI tool names that must be available on `$PATH` (checked via `exec.LookPath`). |
 
 ### Requires Example
@@ -637,9 +608,4 @@ runtime:
     max_total_steps: 20
     max_total_tokens: 500000
     timeout_minutes: 60
-
-skills:
-  speckit:
-    install: "npm install -g @anthropic/speckit"
-    check: "speckit --version"
 ```
