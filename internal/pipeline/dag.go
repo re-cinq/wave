@@ -61,6 +61,42 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+
+		// Validate RetryConfig
+		if err := step.Retry.Validate(); err != nil {
+			return fmt.Errorf("step %q: %w", step.ID, err)
+		}
+
+		// Validate rework targets
+		if step.Retry.OnFailure == "rework" {
+			if err := v.validateReworkTarget(step.ID, step.Retry.ReworkStep, stepMap); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Validate that each rework target is unique (prevent race on concurrent rework)
+	reworkTargets := make(map[string]string) // target -> source step
+	for _, step := range p.Steps {
+		if step.Retry.OnFailure == "rework" {
+			target := step.Retry.ReworkStep
+			if existing, ok := reworkTargets[target]; ok {
+				return fmt.Errorf("rework target %q is used by both step %q and step %q (each target must be unique)", target, existing, step.ID)
+			}
+			reworkTargets[target] = step.ID
+		}
+	}
+
+	// Validate on_failure enum values
+	for _, step := range p.Steps {
+		if step.Retry.OnFailure != "" {
+			switch step.Retry.OnFailure {
+			case "fail", "skip", "continue", "rework":
+				// valid
+			default:
+				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, or rework)", step.ID, step.Retry.OnFailure)
+			}
+		}
 	}
 
 	visited := make(map[string]bool)
@@ -75,6 +111,66 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	}
 
 	return nil
+}
+
+// validateReworkTarget checks that a rework_step reference is valid:
+// 1. The target step exists in the pipeline
+// 2. The target is not a direct or transitive dependency of the failing step
+// 3. The failing step is not a dependency of the rework target (would create cycle)
+func (v *DAGValidator) validateReworkTarget(stepID, reworkStepID string, stepMap map[string]*Step) error {
+	if _, exists := stepMap[reworkStepID]; !exists {
+		return fmt.Errorf("step %q has rework_step %q which does not exist in the pipeline", stepID, reworkStepID)
+	}
+
+	if stepID == reworkStepID {
+		return fmt.Errorf("step %q cannot rework to itself", stepID)
+	}
+
+	// Rework target must be marked as rework_only to prevent double execution
+	if target := stepMap[reworkStepID]; !target.ReworkOnly {
+		return fmt.Errorf("rework target %q must have rework_only: true (referenced by step %q)", reworkStepID, stepID)
+	}
+
+	// Check that rework target is not an upstream dependency of the failing step
+	if v.isTransitiveDep(stepID, reworkStepID, stepMap) {
+		return fmt.Errorf("step %q has rework_step %q which is an upstream dependency (would create cycle)", stepID, reworkStepID)
+	}
+
+	// Check that the failing step is not a dependency of the rework target
+	if v.isTransitiveDep(reworkStepID, stepID, stepMap) {
+		return fmt.Errorf("step %q has rework_step %q which depends on step %q (would create cycle)", stepID, reworkStepID, stepID)
+	}
+
+	return nil
+}
+
+// isTransitiveDep returns true if targetID is a direct or transitive dependency of stepID.
+func (v *DAGValidator) isTransitiveDep(stepID, targetID string, stepMap map[string]*Step) bool {
+	visited := make(map[string]bool)
+	return v.reachable(stepID, targetID, stepMap, visited)
+}
+
+// reachable checks if targetID is reachable from stepID via dependencies.
+func (v *DAGValidator) reachable(stepID, targetID string, stepMap map[string]*Step, visited map[string]bool) bool {
+	if visited[stepID] {
+		return false
+	}
+	visited[stepID] = true
+
+	step, exists := stepMap[stepID]
+	if !exists {
+		return false
+	}
+
+	for _, dep := range step.Dependencies {
+		if dep == targetID {
+			return true
+		}
+		if v.reachable(dep, targetID, stepMap, visited) {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *DAGValidator) detectCycle(stepID string, stepMap map[string]*Step, visited, recStack map[string]bool) error {

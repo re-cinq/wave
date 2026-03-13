@@ -167,7 +167,8 @@ type PipelineExecution struct {
 	Input           string
 	Status          *PipelineStatus
 	Context         *PipelineContext  // Dynamic template variables
-	AttemptContexts map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
+	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
+	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -299,8 +300,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		ArtifactPaths:   make(map[string]string),
 		WorkspacePaths:  make(map[string]string),
 		WorktreePaths:   make(map[string]*WorktreeInfo),
-		AttemptContexts: make(map[string]*AttemptContext),
-		Input:           input,
+		AttemptContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
+		Input:             input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
@@ -373,7 +375,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
 
-	for completedCount < len(sortedSteps) {
+	// Count schedulable steps (excludes rework-only steps which run only via rework trigger)
+	schedulableSteps := 0
+	for _, step := range sortedSteps {
+		if !step.ReworkOnly {
+			schedulableSteps++
+		}
+	}
+
+	for completedCount < schedulableSteps {
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
 			e.cleanupCompletedPipeline(pipelineID)
@@ -431,6 +441,19 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			}
 		}
 
+		// Sync rework-only steps that were triggered during this batch
+		for _, step := range sortedSteps {
+			if !step.ReworkOnly || completed[step.ID] {
+				continue
+			}
+			execution.mu.Lock()
+			stepState := execution.States[step.ID]
+			execution.mu.Unlock()
+			if stepState == StateCompleted || stepState == StateFailed {
+				completed[step.ID] = true
+			}
+		}
+
 		// Skip steps whose dependencies include failed/skipped steps (transitive propagation)
 		e.skipDependentSteps(execution, sortedSteps, completed, &completedCount)
 
@@ -438,10 +461,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
 			State:          "running",
-			TotalSteps:     len(p.Steps),
+			TotalSteps:     schedulableSteps,
 			CompletedSteps: completedCount,
-			Progress:       (completedCount * 100) / len(p.Steps),
-			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, len(p.Steps)),
+			Progress:       (completedCount * 100) / schedulableSteps,
+			Message:        fmt.Sprintf("%d/%d steps completed", completedCount, schedulableSteps),
 		})
 	}
 
@@ -467,7 +490,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		PipelineID: pipelineID,
 		State:      "completed",
 		DurationMs: elapsed,
-		Message:    fmt.Sprintf("%d steps completed", len(p.Steps)),
+		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
@@ -477,10 +500,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 }
 
 // findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
+// Rework-only steps are excluded from normal DAG scheduling — they only run via rework trigger.
 func (e *DefaultPipelineExecutor) findReadySteps(steps []*Step, completed map[string]bool) []*Step {
 	var ready []*Step
 	for _, step := range steps {
 		if completed[step.ID] {
+			continue
+		}
+		if step.ReworkOnly {
 			continue
 		}
 		allDepsReady := true
@@ -740,6 +767,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				})
 				return nil
 
+			case "rework":
+				return e.executeReworkStep(ctx, execution, step, lastErr, attemptDuration)
+
 			default: // "fail"
 				execution.mu.Lock()
 				execution.States[step.ID] = StateFailed
@@ -799,6 +829,176 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	}
 
 	return lastErr
+}
+
+// executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,
+// executes the rework target step, and re-registers its artifacts under the original step's ID.
+func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, execution *PipelineExecution, failedStep *Step, failErr error, failDuration time.Duration) error {
+	pipelineID := execution.Status.ID
+	reworkStepID := failedStep.Retry.ReworkStep
+
+	// Mark the failed step
+	execution.mu.Lock()
+	execution.States[failedStep.ID] = StateFailed
+	execution.mu.Unlock()
+	if e.store != nil {
+		_ = e.store.SaveStepState(pipelineID, failedStep.ID, state.StateFailed, failErr.Error())
+	}
+
+	// Find the rework target step in the pipeline
+	var reworkStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == reworkStepID {
+			reworkStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if reworkStep == nil {
+		return fmt.Errorf("rework step %q not found in pipeline (referenced by step %q)", reworkStepID, failedStep.ID)
+	}
+
+	// Build enhanced failure context for the rework step
+	attemptCtx := &AttemptContext{
+		Attempt:      failedStep.Retry.EffectiveMaxAttempts(),
+		MaxAttempts:  failedStep.Retry.EffectiveMaxAttempts(),
+		PriorError:   failErr.Error(),
+		StepDuration: failDuration,
+		FailedStepID: failedStep.ID,
+	}
+
+	// Capture stdout tail from results if available
+	execution.mu.Lock()
+	if result, ok := execution.Results[failedStep.ID]; ok {
+		if stdout, ok := result["stdout"].(string); ok {
+			if len(stdout) > 2000 {
+				attemptCtx.PriorStdout = stdout[len(stdout)-2000:]
+			} else {
+				attemptCtx.PriorStdout = stdout
+			}
+		}
+	}
+	execution.mu.Unlock()
+
+	// Scan workspace for partial artifacts (use relative paths to avoid exposing directory structure)
+	execution.mu.Lock()
+	wsPath := execution.WorkspacePaths[failedStep.ID]
+	execution.mu.Unlock()
+	if wsPath != "" && len(failedStep.OutputArtifacts) > 0 {
+		partialArtifacts := make(map[string]string)
+		for _, art := range failedStep.OutputArtifacts {
+			artPath := filepath.Join(wsPath, art.Path)
+			if _, err := os.Stat(artPath); err == nil {
+				partialArtifacts[art.Name] = art.Path // relative path, not absolute
+			}
+		}
+		if len(partialArtifacts) > 0 {
+			attemptCtx.PartialArtifacts = partialArtifacts
+		}
+	}
+
+	// Inject failure context into rework step
+	execution.mu.Lock()
+	execution.AttemptContexts[reworkStep.ID] = attemptCtx
+	execution.mu.Unlock()
+
+	// Emit reworking event
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     failedStep.ID,
+		State:      event.StateReworking,
+		Message:    fmt.Sprintf("rework: executing step %q after %q failed", reworkStepID, failedStep.ID),
+	})
+	if e.store != nil {
+		_ = e.store.SaveStepState(pipelineID, reworkStepID, state.StateReworking, "")
+	}
+
+	// Execute the rework step
+	reworkStart := time.Now()
+	reworkErr := e.runStepExecution(ctx, execution, reworkStep)
+	reworkDuration := time.Since(reworkStart)
+	if reworkErr != nil {
+		execution.mu.Lock()
+		execution.States[reworkStep.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			_ = e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateFailed, reworkErr.Error())
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     reworkStepID,
+			State:      event.StateFailed,
+			Message:    fmt.Sprintf("rework step %q also failed: %s", reworkStepID, reworkErr.Error()),
+		})
+		return reworkErr
+	}
+
+	// Rework succeeded — replace failed step's artifacts with rework step's artifacts
+	execution.mu.Lock()
+	// Copy workspace path
+	if rwPath, ok := execution.WorkspacePaths[reworkStep.ID]; ok {
+		execution.WorkspacePaths[failedStep.ID] = rwPath
+	}
+	// Copy artifact paths: register rework step's artifacts under the original step's keys
+	for _, art := range reworkStep.OutputArtifacts {
+		reworkKey := fmt.Sprintf("%s:%s", reworkStep.ID, art.Name)
+		if artPath, ok := execution.ArtifactPaths[reworkKey]; ok {
+			originalKey := fmt.Sprintf("%s:%s", failedStep.ID, art.Name)
+			execution.ArtifactPaths[originalKey] = artPath
+		}
+	}
+	execution.States[reworkStep.ID] = StateCompleted
+	// Mark the failed step as completed so downstream steps are not skipped
+	execution.States[failedStep.ID] = StateCompleted
+	// Record the rework transition for resume support
+	execution.ReworkTransitions[failedStep.ID] = reworkStep.ID
+	execution.mu.Unlock()
+
+	if e.store != nil {
+		_ = e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateCompleted, "")
+		_ = e.store.SaveStepState(pipelineID, failedStep.ID, state.StateCompleted, "reworked by "+reworkStepID)
+	}
+
+	// Record step attempt for audit trail
+	if e.store != nil {
+		completedAt := time.Now()
+		_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
+			RunID:       pipelineID,
+			StepID:      reworkStep.ID,
+			Attempt:     1,
+			State:       "succeeded",
+			DurationMs:  reworkDuration.Milliseconds(),
+			StartedAt:   reworkStart,
+			CompletedAt: &completedAt,
+		})
+	}
+
+	// Record step completion for ETA calculation
+	if e.etaCalculator != nil {
+		e.etaCalculator.RecordStepCompletion(reworkStep.ID, reworkDuration.Milliseconds())
+	}
+
+	// Track deliverables from rework step
+	e.trackStepDeliverables(execution, reworkStep)
+
+	// Extract declared outcomes from rework step
+	e.processStepOutcomes(execution, reworkStep)
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     reworkStepID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("rework step %q completed, artifacts replaced for %q", reworkStepID, failedStep.ID),
+	})
+
+	// Clear attempt context
+	execution.mu.Lock()
+	delete(execution.AttemptContexts, reworkStep.ID)
+	execution.mu.Unlock()
+
+	return nil
 }
 
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.
@@ -1569,17 +1769,38 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 	if attemptCtx != nil {
 		var sb strings.Builder
-		sb.WriteString("## RETRY CONTEXT\n\n")
-		sb.WriteString(fmt.Sprintf("This is attempt %d of %d. The previous attempt failed.\n\n", attemptCtx.Attempt, attemptCtx.MaxAttempts))
+		if attemptCtx.FailedStepID != "" {
+			// Rework context — this step is a rework target for a failed step
+			sb.WriteString("## REWORK CONTEXT\n\n")
+			fmt.Fprintf(&sb, "You are executing as a rework step for failed step %q.\n", attemptCtx.FailedStepID)
+			fmt.Fprintf(&sb, "The original step failed after %d attempt(s) (ran for %s).\n\n", attemptCtx.Attempt, attemptCtx.StepDuration.Round(time.Second))
+		} else {
+			sb.WriteString("## RETRY CONTEXT\n\n")
+			fmt.Fprintf(&sb, "This is attempt %d of %d. The previous attempt failed.\n\n", attemptCtx.Attempt, attemptCtx.MaxAttempts)
+		}
 		if attemptCtx.PriorError != "" {
 			sb.WriteString("### Previous Error\n```\n")
 			sb.WriteString(attemptCtx.PriorError)
 			sb.WriteString("\n```\n\n")
 		}
+		if len(attemptCtx.ContractErrors) > 0 {
+			sb.WriteString("### Contract Validation Errors\n")
+			for _, ce := range attemptCtx.ContractErrors {
+				sb.WriteString(fmt.Sprintf("- %s\n", ce))
+			}
+			sb.WriteString("\n")
+		}
 		if attemptCtx.PriorStdout != "" {
 			sb.WriteString("### Previous Output (last 2000 chars)\n```\n")
 			sb.WriteString(attemptCtx.PriorStdout)
 			sb.WriteString("\n```\n\n")
+		}
+		if len(attemptCtx.PartialArtifacts) > 0 {
+			sb.WriteString("### Partial Artifacts from Failed Step\n")
+			for name, path := range attemptCtx.PartialArtifacts {
+				sb.WriteString(fmt.Sprintf("- %s: %s\n", name, path))
+			}
+			sb.WriteString("\n")
 		}
 		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
 		sb.WriteString(prompt)
