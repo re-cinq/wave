@@ -20,7 +20,7 @@ func setupPipelineDir(t *testing.T, names []string) string {
 }
 
 func TestSuggest_CIFailing(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"debug", "improve"})
+	dir := setupPipelineDir(t, []string{"ops-debug", "impl-improve"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -37,16 +37,40 @@ func TestSuggest_CIFailing(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	if proposal.Pipelines[0].Name != "debug" {
-		t.Errorf("expected first proposal to be 'debug', got %q", proposal.Pipelines[0].Name)
+	if proposal.Pipelines[0].Name != "ops-debug" {
+		t.Errorf("expected first proposal to be 'ops-debug', got %q", proposal.Pipelines[0].Name)
 	}
 	if proposal.Pipelines[0].Priority != 1 {
 		t.Errorf("expected priority 1, got %d", proposal.Pipelines[0].Priority)
 	}
 }
 
+func TestSuggest_CIFailing_BareNameFallback(t *testing.T) {
+	// Old-style bare name should still work
+	dir := setupPipelineDir(t, []string{"debug"})
+
+	proposal, err := Suggest(EngineOptions{
+		PipelinesDir: dir,
+		Report: &doctor.Report{
+			Codebase: &doctor.CodebaseHealth{
+				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(proposal.Pipelines) == 0 {
+		t.Fatal("expected at least one proposal")
+	}
+	if proposal.Pipelines[0].Name != "debug" {
+		t.Errorf("expected 'debug' (bare fallback), got %q", proposal.Pipelines[0].Name)
+	}
+}
+
 func TestSuggest_PrefixedPipelines(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"gh-debug", "gh-implement", "debug"})
+	dir := setupPipelineDir(t, []string{"gh-debug", "gh-implement", "ops-debug"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -67,14 +91,14 @@ func TestSuggest_PrefixedPipelines(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	// Should prefer unified (bare) pipeline over forge-prefixed
-	if proposal.Pipelines[0].Name != "debug" {
-		t.Errorf("expected unified pipeline 'debug', got %q", proposal.Pipelines[0].Name)
+	// Should prefer taxonomy-prefixed over forge-prefixed
+	if proposal.Pipelines[0].Name != "ops-debug" {
+		t.Errorf("expected taxonomy-prefixed 'ops-debug', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
 func TestSuggest_PrefixedFallback(t *testing.T) {
-	// When only prefixed pipeline exists, it should be used
+	// When only forge-prefixed pipeline exists, it should be used
 	dir := setupPipelineDir(t, []string{"gh-debug"})
 
 	proposal, err := Suggest(EngineOptions{
@@ -96,14 +120,14 @@ func TestSuggest_PrefixedFallback(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	// Should fall back to gh-debug when bare debug doesn't exist
+	// Should fall back to gh-debug when bare and taxonomy-prefixed don't exist
 	if proposal.Pipelines[0].Name != "gh-debug" {
 		t.Errorf("expected fallback to 'gh-debug', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
 func TestSuggest_CleanState(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"improve", "refactor"})
+	dir := setupPipelineDir(t, []string{"impl-improve", "impl-refactor"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -125,16 +149,16 @@ func TestSuggest_CleanState(t *testing.T) {
 	for _, p := range proposal.Pipelines {
 		names[p.Name] = true
 	}
-	if !names["improve"] {
-		t.Error("expected 'improve' in proposals")
+	if !names["impl-improve"] {
+		t.Error("expected 'impl-improve' in proposals")
 	}
-	if !names["refactor"] {
-		t.Error("expected 'refactor' in proposals")
+	if !names["impl-refactor"] {
+		t.Error("expected 'impl-refactor' in proposals")
 	}
 }
 
 func TestSuggest_NilCodebase(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"improve"})
+	dir := setupPipelineDir(t, []string{"impl-improve"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -158,7 +182,7 @@ func TestSuggest_NilReport(t *testing.T) {
 }
 
 func TestSuggest_Limit(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"debug", "implement", "pr-review", "improve", "refactor"})
+	dir := setupPipelineDir(t, []string{"ops-debug", "implement", "pr-review", "impl-improve", "impl-refactor"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -338,18 +362,18 @@ func TestStripForgePrefix(t *testing.T) {
 }
 
 func TestResolvePipeline(t *testing.T) {
-	catalog := []string{"gh-debug", "debug", "improve"}
+	catalog := []string{"gh-debug", "ops-debug", "impl-improve"}
 
 	tests := []struct {
 		prefix string
 		base   string
 		want   string
 	}{
-		{"gh", "debug", "debug"},       // bare name preferred over prefixed
-		{"gl", "debug", "debug"},       // bare name found, no gl-debug needed
-		{"gh", "improve", "improve"},   // bare name only
-		{"gh", "nonexistent", ""},      // neither exists
-		{"", "debug", "debug"},         // no prefix, bare name found
+		{"gh", "debug", "ops-debug"},     // taxonomy-prefixed preferred over forge-prefixed
+		{"gl", "debug", "ops-debug"},     // taxonomy-prefixed found, no gl-debug needed
+		{"gh", "improve", "impl-improve"}, // taxonomy-prefixed resolved
+		{"gh", "nonexistent", ""},         // neither exists
+		{"", "debug", "ops-debug"},        // no forge prefix, taxonomy resolved
 	}
 
 	for _, tt := range tests {
@@ -360,12 +384,22 @@ func TestResolvePipeline(t *testing.T) {
 	}
 }
 
-func TestResolvePipeline_FallbackToPrefixed(t *testing.T) {
-	// When bare name doesn't exist, fall back to forge-prefixed
+func TestResolvePipeline_BareNamePreferred(t *testing.T) {
+	// When bare name exists, prefer it over taxonomy-prefixed
+	catalog := []string{"debug", "ops-debug"}
+
+	got := resolvePipeline(catalog, "", "debug")
+	if got != "debug" {
+		t.Errorf("resolvePipeline should prefer bare name, got %q", got)
+	}
+}
+
+func TestResolvePipeline_FallbackToForgePrefixed(t *testing.T) {
+	// When only forge-prefixed exists, fall back to it
 	catalog := []string{"gh-debug"}
 
 	got := resolvePipeline(catalog, "gh", "debug")
 	if got != "gh-debug" {
-		t.Errorf("resolvePipeline should fall back to prefixed, got %q", got)
+		t.Errorf("resolvePipeline should fall back to forge-prefixed, got %q", got)
 	}
 }

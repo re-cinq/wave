@@ -818,8 +818,8 @@ func printInitSuccess(cmd *cobra.Command, outputPath string, assets *initAssets)
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Next steps:\n")
 	fmt.Fprintf(out, "    1. Run 'wave validate' to check configuration\n")
-	fmt.Fprintf(out, "    2. Run 'wave run hello-world \"test\"' to verify setup\n")
-	fmt.Fprintf(out, "    3. Run 'wave run plan \"your feature\"' to plan a task\n")
+	fmt.Fprintf(out, "    2. Run 'wave run ops-hello-world \"test\"' to verify setup\n")
+	fmt.Fprintf(out, "    3. Run 'wave run plan-task \"your feature\"' to plan a task\n")
 	fmt.Fprintf(out, "\n")
 }
 
