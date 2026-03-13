@@ -433,12 +433,20 @@ func TestDirectoryStoreRead(t *testing.T) {
 		createSkillDir(t, root, "resourced", "Has resources")
 
 		skillDir := filepath.Join(root, "resourced")
-		os.MkdirAll(filepath.Join(skillDir, "scripts"), 0755)
-		os.MkdirAll(filepath.Join(skillDir, "references"), 0755)
-		os.MkdirAll(filepath.Join(skillDir, "assets"), 0755)
-		os.WriteFile(filepath.Join(skillDir, "scripts", "setup.sh"), []byte("#!/bin/bash"), 0644)
-		os.WriteFile(filepath.Join(skillDir, "references", "api.json"), []byte("{}"), 0644)
-		os.WriteFile(filepath.Join(skillDir, "assets", "template.txt"), []byte("template"), 0644)
+		for _, sub := range []string{"scripts", "references", "assets"} {
+			if err := os.MkdirAll(filepath.Join(skillDir, sub), 0755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, f := range []struct{ path, content string }{
+			{filepath.Join(skillDir, "scripts", "setup.sh"), "#!/bin/bash"},
+			{filepath.Join(skillDir, "references", "api.json"), "{}"},
+			{filepath.Join(skillDir, "assets", "template.txt"), "template"},
+		} {
+			if err := os.WriteFile(f.path, []byte(f.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
 
 		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 		skill, err := store.Read("resourced")
@@ -579,8 +587,12 @@ func TestDirectoryStoreWrite(t *testing.T) {
 		root := t.TempDir()
 		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
 
-		store.Write(Skill{Name: "overwrite", Description: "First version", Body: "v1"})
-		store.Write(Skill{Name: "overwrite", Description: "Second version", Body: "v2"})
+		if err := store.Write(Skill{Name: "overwrite", Description: "First version", Body: "v1"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.Write(Skill{Name: "overwrite", Description: "Second version", Body: "v2"}); err != nil {
+			t.Fatal(err)
+		}
 
 		skill, err := store.Read("overwrite")
 		if err != nil {
@@ -747,7 +759,9 @@ func TestMultiSourceResolution(t *testing.T) {
 			SkillSource{Root: userRoot, Precedence: 1},
 		)
 
-		store.Write(Skill{Name: "new-skill", Description: "New skill"})
+		if err := store.Write(Skill{Name: "new-skill", Description: "New skill"}); err != nil {
+			t.Fatal(err)
+		}
 
 		// Should be written to projectRoot (highest precedence)
 		if _, err := os.Stat(filepath.Join(projectRoot, "new-skill", "SKILL.md")); err != nil {
@@ -1006,7 +1020,7 @@ func TestDirectoryStoreReadIOError(t *testing.T) {
 	}
 
 	// Restore permissions for cleanup
-	os.Chmod(path, 0644)
+	_ = os.Chmod(path, 0644)
 }
 
 func TestParseMetadataValidation(t *testing.T) {
