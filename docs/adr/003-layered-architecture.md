@@ -187,11 +187,15 @@ Split `internal/` into separate Go modules (e.g., `go.recinq.io/wave/presentatio
 - Clear ownership boundaries for teams
 
 **Cons:**
-- Extreme restructuring effort — the most disruptive option
-- Go multi-module repositories are complex to manage (replace directives, version coordination)
-- Overkill for a single-team project in prototype phase
+- Go multi-module repositories are complex to manage (`replace` directives, version coordination across 4 `go.mod` files)
+- `go test ./...` no longer works from the repo root — each module is a separate build unit, adding friction for both humans and AI agents
+- Agents already struggle with `go.mod` management; multi-module coordination introduces a new class of failure
 - Significantly increases build and CI complexity
 - No community precedent for this pattern at Wave's scale
+
+**Multi-agent consideration:** The "single-team" framing understates the challenge. Wave's "team" is dozens of AI agents with no shared memory, each starting fresh per step. Agents default to the path of least resistance — importing whatever resolves a compile error — and module boundaries are the only mechanism that makes cross-layer imports physically impossible rather than merely discouraged. The mechanical restructuring effort (rename packages, update imports) is low-cost for an agent swarm. However, the ongoing operational complexity of multi-module Go repos is the real concern, not the one-time migration.
+
+**Escalation path:** Option 4 is the designated escalation if Option 3 (depguard linting) proves insufficient for agent discipline — i.e., if agents routinely produce code that passes compilation but violates layer rules and lint failures are not caught early enough in the pipeline to prevent wasted work. If this pattern emerges, revisit this option.
 
 ## Consequences
 
