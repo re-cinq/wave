@@ -56,3 +56,5 @@ The template is `000-template.md` and is not itself a decision record.
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
 | [001](001-formalize-adr-process.md) | Formalize ADR Process | Proposed | 2026-03-07 |
+| [002](002-extract-step-executor.md) | Extract StepExecutor from Pipeline Executor | Proposed | 2026-03-12 |
+| [003](003-layered-architecture.md) | Layered Architecture Separation | Proposed | 2026-03-13 |
