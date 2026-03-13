@@ -67,10 +67,10 @@ cd /path/to/your/project
 wave init
 
 # Run your first pipeline
-wave run hello-world
+wave run ops-hello-world
 
 # Run a feature development pipeline
-wave run speckit-flow "add user authentication"
+wave run plan-speckit "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
@@ -166,10 +166,10 @@ Use "wave [command] --help" for more information about a command.
 
 ```bash
 # Feature development
-wave run speckit-flow "add OAuth2 with Google"
+wave run plan-speckit "add OAuth2 with Google"
 
 # Fix production bug
-wave run hotfix "500 errors on /api/users"
+wave run impl-hotfix "500 errors on /api/users"
 
 # Review PR
 wave run gh-pr-review "review auth module changes"

@@ -659,7 +659,7 @@ func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testi
 	m, _ = sendKey(m, tea.KeyEnter)
 	require.False(t, m.filtering)
 
-	// Only speckit-flow should be visible
+	// Only plan-speckit should be visible
 	view := listStripAnsi(m.View())
 	assert.Contains(t, view, "plan-speckit")
 	assert.NotContains(t, view, "wave-evolve")

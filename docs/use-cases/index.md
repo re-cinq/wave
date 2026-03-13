@@ -24,14 +24,14 @@ const useCases = [
     link: '/use-cases/gh-pr-review'
   },
   {
-    id: 'doc-audit',
+    id: 'audit-docs',
     title: 'Documentation Consistency',
     description: 'Pre-PR gate that scans code changes, cross-references docs, and creates a GitHub issue for inconsistencies.',
     category: 'documentation',
     complexity: 'intermediate',
     personas: ['navigator', 'reviewer', 'github-analyst'],
     tags: ['docs', 'consistency', 'gh'],
-    link: '/use-cases/doc-audit'
+    link: '/use-cases/audit-docs'
   },
   {
     id: 'github-issue-enhancer',

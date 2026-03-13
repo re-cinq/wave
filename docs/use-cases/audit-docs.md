@@ -14,19 +14,19 @@ graph TD
     A --> I[Create Issue]
 ```
 
-The doc-audit pipeline catches documentation drift before it reaches main. It compares code changes against docs, CLI help text, and README content, then opens a GitHub issue listing every mismatch.
+The audit-docs pipeline catches documentation drift before it reaches main. It compares code changes against docs, CLI help text, and README content, then opens a GitHub issue listing every mismatch.
 
 ## Running
 
 ```bash
 # Scan branch diff against main
-wave run doc-audit
+wave run audit-docs
 
 # Full scan of all documentation
-wave run doc-audit "full"
+wave run audit-docs "full"
 
 # Scan against a specific ref
-wave run doc-audit "v0.2.0"
+wave run audit-docs "v0.2.0"
 ```
 
 ## Expected Output
@@ -42,7 +42,7 @@ With `-o text`:
 [10:03:46] → create-issue (github-analyst)
 [10:04:22] ✓ create-issue completed (36.0s, 1.4k tokens)
 
-  ✓ Pipeline 'doc-audit' completed successfully (4m 21s)
+  ✓ Pipeline 'audit-docs' completed successfully (4m 21s)
 ```
 
 ## Steps

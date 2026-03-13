@@ -421,7 +421,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Documentation references to stale `gh-issue-impl` updated to `gh-implement`
-- Preserved recinq and speckit-flow trademark names in pipeline identifiers
+- Preserved impl-recinq and plan-speckit trademark names in pipeline identifiers
 
 ## [0.31.0] - 2026-02-24
 

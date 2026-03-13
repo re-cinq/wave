@@ -26,7 +26,7 @@ Adopt a **hybrid approach**: establish `docs/adr/` as the canonical location for
 Both paths produce the same format in the same directory:
 
 - **Manual path**: Contributors create ADR files directly using the template (`docs/adr/000-template.md`). No tooling required beyond a text editor and git.
-- **Pipeline path**: Run `wave run adr` to generate a pipeline-assisted draft. The pipeline explores the codebase, analyzes options, drafts the record, and opens a PR for human review.
+- **Pipeline path**: Run `wave run doc-adr` to generate a pipeline-assisted draft. The pipeline explores the codebase, analyzes options, drafts the record, and opens a PR for human review.
 
 ADR files follow the naming convention `docs/adr/NNN-short-title.md` where NNN is a zero-padded sequential number.
 

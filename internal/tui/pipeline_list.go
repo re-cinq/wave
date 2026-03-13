@@ -39,7 +39,7 @@ type navigableItem struct {
 // RunningSequence represents a group of pipelines executing as a composed sequence.
 // TODO(#249): Render grouped sequence items in Running section.
 type RunningSequence struct {
-	Label       string            // e.g. "speckit-flow → wave-evolve"
+	Label       string            // e.g. "plan-speckit → wave-evolve"
 	Entries     []RunningPipeline
 	ActiveIndex int
 }

@@ -70,25 +70,25 @@ func TestCompositionExecutor_BranchDispatch(t *testing.T) {
 		{
 			name:     "exact match",
 			value:    "high",
-			cases:    map[string]string{"high": "hotfix", "low": "backlog"},
-			expected: "hotfix",
+			cases:    map[string]string{"high": "impl-hotfix", "low": "backlog"},
+			expected: "impl-hotfix",
 		},
 		{
 			name:     "default fallback",
 			value:    "unknown",
-			cases:    map[string]string{"high": "hotfix", "default": "backlog"},
+			cases:    map[string]string{"high": "impl-hotfix", "default": "backlog"},
 			expected: "backlog",
 		},
 		{
 			name:    "no match no default",
 			value:   "unknown",
-			cases:   map[string]string{"high": "hotfix"},
+			cases:   map[string]string{"high": "impl-hotfix"},
 			wantErr: true,
 		},
 		{
 			name:     "skip case",
 			value:    "low",
-			cases:    map[string]string{"high": "hotfix", "low": "skip"},
+			cases:    map[string]string{"high": "impl-hotfix", "low": "skip"},
 			expected: "skip",
 		},
 	}
@@ -285,7 +285,7 @@ func TestValidateCompositionTemplates(t *testing.T) {
 	p := &Pipeline{
 		Steps: []Step{
 			{ID: "scope", SubPipeline: "gh-scope", SubInput: "{{input}}"},
-			{ID: "implement", SubPipeline: "speckit-flow", SubInput: "{{scope.output.url}}",
+			{ID: "implement", SubPipeline: "plan-speckit", SubInput: "{{scope.output.url}}",
 				Iterate: &IterateConfig{Over: "{{scope.output.child_issues}}", Mode: "sequential"}},
 			{ID: "bad-ref", SubPipeline: "test", SubInput: "{{nonexistent.output.field}}"},
 		},

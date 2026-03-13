@@ -26,7 +26,7 @@ not available.
 Run the ADR pipeline:
 
 ```bash
-wave run adr "Description of the decision"
+wave run doc-adr "Description of the decision"
 ```
 
 The pipeline explores the codebase, analyzes options, drafts the record, and

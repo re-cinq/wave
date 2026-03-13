@@ -268,7 +268,7 @@ func generateDummyPhaseOutput(cfg AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"phase": "dummy",
 		"artifacts": map[string]interface{}{
-			"prototype": map[string]interface{}{
+			"impl-prototype": map[string]interface{}{
 				"path":         "prototype/",
 				"exists":       true,
 				"content_type": "code",

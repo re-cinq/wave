@@ -798,11 +798,11 @@ func TestInitTransitivePromptExclusion(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	// The speckit-flow pipeline is NOT release: true, so its prompts
+	// The plan-speckit pipeline is NOT release: true, so its prompts
 	// should not be present (unless referenced by another release pipeline)
-	// speckit-flow references prompts under .wave/prompts/speckit-flow/
-	if !fileExists(".wave/prompts/speckit-flow") {
-		// Good - speckit-flow prompts excluded because no release pipeline references them
+	// plan-speckit references prompts under .wave/prompts/plan-speckit/
+	if !fileExists(".wave/prompts/plan-speckit") {
+		// Good - plan-speckit prompts excluded because no release pipeline references them
 		return
 	}
 

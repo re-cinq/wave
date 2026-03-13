@@ -114,7 +114,7 @@ cd wave && wave init
 ## 5. Run Your First Pipeline
 
 ```bash
-wave run hello-world "testing Wave"
+wave run ops-hello-world "testing Wave"
 ```
 
 ### Expected Output
@@ -122,7 +122,7 @@ wave run hello-world "testing Wave"
 With the default TUI mode you'll see a progress bar and spinners. To see text output, use `-o text`:
 
 ```bash
-wave run hello-world "testing Wave" -o text
+wave run ops-hello-world "testing Wave" -o text
 ```
 
 ```
@@ -135,18 +135,18 @@ wave run hello-world "testing Wave" -o text
 [10:00:12]   verify: Processing results
 [10:00:12] ✓ verify completed (6.9s, 0k tokens)
 
-  ✓ Pipeline 'hello-world' completed successfully (10.9s)
+  ✓ Pipeline 'ops-hello-world' completed successfully (10.9s)
 
   Deliverables (4):
-     • .wave/workspaces/hello-world-aca3e016/greet/CLAUDE.md
-     • .wave/workspaces/hello-world-aca3e016/greet/greeting.txt
-     • .wave/workspaces/hello-world-aca3e016/verify/CLAUDE.md
-     • .wave/workspaces/hello-world-aca3e016/verify/output/result.json
+     • .wave/workspaces/ops-hello-world-aca3e016/greet/CLAUDE.md
+     • .wave/workspaces/ops-hello-world-aca3e016/greet/greeting.txt
+     • .wave/workspaces/ops-hello-world-aca3e016/verify/CLAUDE.md
+     • .wave/workspaces/ops-hello-world-aca3e016/verify/output/result.json
 ```
 
 ### What Just Happened?
 
-1. Wave loaded the `hello-world` pipeline from `.wave/pipelines/`
+1. Wave loaded the `ops-hello-world` pipeline from `.wave/pipelines/`
 2. The **greet** step ran with the craftsman persona
 3. The **verify** step received the greeting artifact and confirmed it
 4. Each step ran with fresh memory (no context bleed between steps)

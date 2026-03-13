@@ -19,7 +19,7 @@ steps:
 
   - id: implement
     dependencies: [research]
-    pipeline: speckit-flow
+    pipeline: plan-speckit
     input: "{{input}}"
 
   - id: review

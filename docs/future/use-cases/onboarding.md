@@ -21,7 +21,7 @@ Generate comprehensive onboarding materials for new team members. This pipeline 
 ## Quick Start
 
 ```bash
-wave run onboarding "create onboarding guide for new backend developers"
+wave run doc-onboard "create onboarding guide for new backend developers"
 ```
 
 Expected output:
@@ -302,17 +302,17 @@ Welcome to the team!
 ### Role-specific onboarding
 
 ```bash
-wave run onboarding "create onboarding guide for frontend developers"
+wave run doc-onboard "create onboarding guide for frontend developers"
 ```
 
 ```bash
-wave run onboarding "create onboarding guide for QA engineers"
+wave run doc-onboard "create onboarding guide for QA engineers"
 ```
 
 ### Project-specific focus
 
 ```bash
-wave run onboarding "onboarding guide focused on the API layer"
+wave run doc-onboard "onboarding guide focused on the API layer"
 ```
 
 ### Include architecture diagrams

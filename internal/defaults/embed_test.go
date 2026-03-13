@@ -175,25 +175,25 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 	}
 
 	expected := []string{
-		"adr.yaml",
-		"changelog.yaml",
-		"gh-pr-review.yaml",
-		"dead-code.yaml",
-		"debug.yaml",
+		"audit-security.yaml",
+		"doc-adr.yaml",
+		"doc-changelog.yaml",
+		"doc-explain.yaml",
 		"doc-fix.yaml",
-		"explain.yaml",
+		"doc-onboard.yaml",
+		"gh-pr-review.yaml",
 		"gh-research.yaml",
 		"gh-rewrite.yaml",
-		"improve.yaml",
-		"onboard.yaml",
-		"plan.yaml",
-		"refactor.yaml",
-		"security-scan.yaml",
-		"test-gen.yaml",
 		"gh-scope.yaml",
-		"gt-scope.yaml",
 		"gl-scope.yaml",
+		"gt-scope.yaml",
 		"bb-scope.yaml",
+		"impl-dead-code.yaml",
+		"impl-debug.yaml",
+		"impl-improve.yaml",
+		"impl-refactor.yaml",
+		"plan-feature.yaml",
+		"test-gen.yaml",
 	}
 
 	for _, name := range expected {

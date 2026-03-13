@@ -14,15 +14,15 @@ input:
 
 steps:
   - id: quality-check
-    pipeline: supervise
+    pipeline: audit-supervise
     input: "{{input}}"
     loop:
       max_iterations: 3
       until: "{{supervise.output.verdict}}"
       steps:
         - id: improve
-          pipeline: improve
+          pipeline: impl-improve
           input: "{{input}}"
         - id: recheck
-          pipeline: supervise
+          pipeline: audit-supervise
           input: "{{input}}"

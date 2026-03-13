@@ -117,8 +117,8 @@ func TestPrototypePipelineEndToEnd(t *testing.T) {
 			}
 
 			// Verify pipeline metadata
-			if pipeline.Metadata.Name != "prototype" {
-				t.Errorf("Expected pipeline name 'prototype', got %s", pipeline.Metadata.Name)
+			if pipeline.Metadata.Name != "impl-prototype" {
+				t.Errorf("Expected pipeline name 'impl-prototype', got %s", pipeline.Metadata.Name)
 			}
 
 			if pipeline.Metadata.Description == "" {

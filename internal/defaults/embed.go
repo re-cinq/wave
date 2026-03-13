@@ -78,7 +78,7 @@ func GetContracts() (map[string]string, error) {
 }
 
 // GetPrompts returns a map of relative path to content for all default prompts.
-// Keys are like "speckit-flow/specify.md" (preserving subdirectory structure).
+// Keys are like "plan-speckit/specify.md" (preserving subdirectory structure).
 func GetPrompts() (map[string]string, error) {
 	return readDirNested(promptsFS, "prompts")
 }
@@ -124,7 +124,7 @@ func readDirNested(fsys embed.FS, dir string) (map[string]string, error) {
 		}
 
 		// Preserve relative path from the embed root directory
-		// e.g. "prompts/speckit-flow/specify.md" → "speckit-flow/specify.md"
+		// e.g. "prompts/plan-speckit/specify.md" → "plan-speckit/specify.md"
 		relPath := strings.TrimPrefix(path, dir+"/")
 		result[relPath] = string(content)
 		return nil

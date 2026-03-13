@@ -30,8 +30,8 @@ The interactive wizard guides you through adapter selection and pipeline configu
 
   Next steps:
     1. Run 'wave validate' to check configuration
-    2. Run 'wave run hello-world "test"' to verify setup
-    3. Run 'wave run plan "your feature"' to plan a task
+    2. Run 'wave run ops-hello-world "test"' to verify setup
+    3. Run 'wave run plan-feature "your feature"' to plan a task
 ```
 
 ## 2. Review Configuration
@@ -80,13 +80,13 @@ Expected output:
 ## 4. Run First Pipeline
 
 ```bash
-wave run hello-world "testing Wave"
+wave run ops-hello-world "testing Wave"
 ```
 
 The default TUI shows a progress bar and spinners. For text output, use `-o text`:
 
 ```bash
-wave run hello-world "testing Wave" -o text
+wave run ops-hello-world "testing Wave" -o text
 ```
 
 ```
@@ -108,7 +108,7 @@ Artifacts are saved in `.wave/workspaces/<pipeline-id>/<step-id>/`. Each step pr
 wave do "fix typo in README"
 
 # Resume from a specific step
-wave run speckit-flow --from-step implement
+wave run plan-speckit --from-step implement
 
 # Clean up workspaces
 wave clean

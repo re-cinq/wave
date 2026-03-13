@@ -42,8 +42,8 @@ next pipeline's expected input artifacts. This ensures data flows correctly
 across pipeline boundaries before execution begins.
 
 Use --validate-only to check compatibility without executing.`,
-		Example: `  wave compose speckit-flow wave-evolve wave-review
-  wave compose speckit-flow wave-evolve --validate-only
+		Example: `  wave compose plan-speckit wave-evolve wave-review
+  wave compose plan-speckit wave-evolve --validate-only
   wave compose pipeline-a pipeline-b pipeline-c --input "build feature X"
   wave compose --parallel A B -- C  (A+B parallel, then C sequential)`,
 		Args: cobra.MinimumNArgs(2),

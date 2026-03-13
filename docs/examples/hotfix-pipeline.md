@@ -1,10 +1,10 @@
-# Example: Hotfix Pipeline
+# Example: Impl-Hotfix Pipeline
 
 A streamlined pipeline for investigating and fixing production issues quickly, with built-in verification.
 
 ## Overview
 
-The hotfix pipeline is designed for speed. It skips the full specification phase and goes straight from investigation to fix, with a verification step to prevent regressions.
+The impl-hotfix pipeline is designed for speed. It skips the full specification phase and goes straight from investigation to fix, with a verification step to prevent regressions.
 
 ```mermaid
 graph TD
@@ -20,7 +20,7 @@ graph TD
 ```yaml
 kind: WavePipeline
 metadata:
-  name: hotfix
+  name: impl-hotfix
   description: "Quick investigation and fix for production issues"
 
 input:
@@ -149,23 +149,23 @@ steps:
 
 </div>
 
-## Running the Hotfix Pipeline
+## Running the Impl-Hotfix Pipeline
 
 ```bash
 # Investigate and fix
-wave run hotfix \
+wave run impl-hotfix \
   --input "Users receiving 500 error on login when email contains '+' character"
 
 # Or use ad-hoc mode for simpler fixes
 wave do "fix the login 500 error for emails with + character"
 ```
 
-## When to Use Hotfix vs Spec Develop
+## When to Use Impl-Hotfix vs Plan-Speckit
 
 | Scenario | Pipeline |
 |----------|----------|
-| Production bug, needs fast fix | **hotfix** |
-| New feature development | speckit-flow |
-| Security vulnerability | **hotfix** (with auditor persona) |
-| Refactoring | speckit-flow |
+| Production bug, needs fast fix | **impl-hotfix** |
+| New feature development | plan-speckit |
+| Security vulnerability | **impl-hotfix** (with auditor persona) |
+| Refactoring | plan-speckit |
 | Quick typo/config fix | `wave do` (ad-hoc) |

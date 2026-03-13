@@ -34,12 +34,12 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run speckit-flow',
+    command: 'wave run plan-speckit',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: speckit-flow', variant: 'logo' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: plan-speckit', variant: 'logo' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml', variant: 'logo' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  26m 27s', variant: 'logo' },
-      { text: ' Pipeline: speckit-flow', variant: 'meta' },
+      { text: ' Pipeline: plan-speckit', variant: 'meta' },
       { text: ' Config:   wave.yaml', variant: 'meta' },
       { text: ' Elapsed:  26m 27s', variant: 'meta' },
       { text: ' ' },
@@ -76,12 +76,12 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run dead-code',
+    command: 'wave run impl-dead-code',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: dead-code', variant: 'logo' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: impl-dead-code', variant: 'logo' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml', variant: 'logo' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  2m 15s', variant: 'logo' },
-      { text: ' Pipeline: dead-code', variant: 'meta' },
+      { text: ' Pipeline: impl-dead-code', variant: 'meta' },
       { text: ' Config:   wave.yaml', variant: 'meta' },
       { text: ' Elapsed:  2m 15s', variant: 'meta' },
       { text: ' ' },
@@ -95,19 +95,19 @@ const terminals = [
     ]
   },
   {
-    command: 'wave run security-scan',
+    command: 'wave run audit-security',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: security-scan', variant: 'logo' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: audit-security', variant: 'logo' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml', variant: 'logo' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  5m 42s', variant: 'logo' },
-      { text: ' Pipeline: security-scan', variant: 'meta' },
+      { text: ' Pipeline: audit-security', variant: 'meta' },
       { text: ' Config:   wave.yaml', variant: 'meta' },
       { text: ' Elapsed:  5m 42s', variant: 'meta' },
       { text: ' ' },
       { text: ' [████████████████] 100% 3/3 (3 ok)', variant: 'info' },
       { text: ' ' },
       { text: ' ✓ scan (navigator) (98.4s)', variant: 'success' },
-      { text: '    ├─ contract: security-scan ✓' },
+      { text: '    ├─ contract: audit-security ✓' },
       { text: '    └─ handover → deep-dive' },
       { text: ' ✓ deep-dive (auditor) (145.2s)', variant: 'success' },
       { text: '    └─ handover → report' },

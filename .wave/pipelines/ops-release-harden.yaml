@@ -14,7 +14,7 @@ input:
 
 steps:
   - id: scan
-    pipeline: security-scan
+    pipeline: audit-security
     input: "{{input}}"
 
   - id: triage
@@ -22,9 +22,9 @@ steps:
     branch:
       on: "{{scan.output.risk_level}}"
       cases:
-        critical: hotfix
-        high: hotfix
-        medium: improve
+        critical: impl-hotfix
+        high: impl-hotfix
+        medium: impl-improve
         low: skip
 
   - id: gate

@@ -60,14 +60,14 @@ Arguments can be provided as positional args or flags:
   wave run --pipeline gh-pr-review --input "Review auth module"
   wave run gh-pr-review --input "Review auth module"`,
 		Example: `  wave run gh-pr-review "Review the authentication changes"
-  wave run --pipeline speckit-flow --input "add user auth"
-  wave run hotfix --dry-run
+  wave run --pipeline plan-speckit --input "add user auth"
+  wave run impl-hotfix --dry-run
   wave run migrate --from-step validate
   wave run my-pipeline --model haiku
   wave run my-pipeline --preserve-workspace
-  wave run --steps clarify,plan speckit-flow
-  wave run -x implement,create-pr speckit-flow
-  wave run --from-step clarify -x create-pr speckit-flow`,
+  wave run --steps clarify,plan plan-speckit
+  wave run -x implement,create-pr plan-speckit
+  wave run --from-step clarify -x create-pr plan-speckit`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments

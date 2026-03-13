@@ -68,8 +68,8 @@ The command prints a categorized change summary to stderr, then prompts for conf
     + new          .wave/personas/auditor.md
 
   Pipelines:
-    = up to date   .wave/pipelines/hello-world.yaml
-    ~ preserved    .wave/pipelines/plan.yaml
+    = up to date   .wave/pipelines/ops-hello-world.yaml
+    ~ preserved    .wave/pipelines/plan-feature.yaml
     + new          .wave/pipelines/security-audit.yaml
 
   Contracts:
@@ -226,7 +226,7 @@ Summary:
 Run a simple pipeline to confirm everything works end-to-end:
 
 ```bash
-wave run hello-world "upgrade test"
+wave run ops-hello-world "upgrade test"
 ```
 
 If this completes successfully, your upgrade is finished.

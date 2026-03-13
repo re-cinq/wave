@@ -18,7 +18,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
-		Metadata: PipelineMetadata{Name: "prototype"},
+		Metadata: PipelineMetadata{Name: "impl-prototype"},
 		Steps: []Step{
 			{ID: "spec"},
 			{ID: "docs", Dependencies: []string{"spec"}},
@@ -39,7 +39,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec phase
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -67,7 +67,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "dummy",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create spec but not docs
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -124,7 +124,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
-		Metadata: PipelineMetadata{Name: "prototype"},
+		Metadata: PipelineMetadata{Name: "impl-prototype"},
 		Steps: []Step{
 			{
 				ID: "spec",
@@ -165,7 +165,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -196,7 +196,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -445,7 +445,7 @@ func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 	pipeline := &Pipeline{
 		Kind: "WavePipeline",
 		Metadata: PipelineMetadata{
-			Name:        "prototype",
+			Name:        "impl-prototype",
 			Description: "Test pipeline",
 		},
 		Steps: []Step{
@@ -514,7 +514,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
-		Metadata: PipelineMetadata{Name: "prototype"},
+		Metadata: PipelineMetadata{Name: "impl-prototype"},
 		Steps: []Step{
 			{ID: "spec"},
 			{ID: "docs"},
@@ -541,7 +541,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 			name: "spec completed, docs incomplete",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -570,7 +570,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -602,7 +602,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -669,7 +669,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
-		Metadata: PipelineMetadata{Name: "prototype"},
+		Metadata: PipelineMetadata{Name: "impl-prototype"},
 		Steps: []Step{
 			{ID: "spec"},
 			{ID: "docs", Dependencies: []string{"spec"}},
@@ -701,7 +701,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	baseTime := time.Now().Add(-1 * time.Hour)
 
 	// Create docs workspace (older)
-	docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/docs")
+	docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/docs")
 	err = os.MkdirAll(docsWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -723,7 +723,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create spec workspace (newer - simulating re-run after docs)
-	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/spec")
 	err = os.MkdirAll(specWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -746,7 +746,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create dummy workspace (older than docs re-run scenario)
-	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/dummy")
+	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/impl-prototype/dummy")
 	err = os.MkdirAll(dummyWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -835,7 +835,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "speckit-flow"},
+		Metadata: PipelineMetadata{Name: "plan-speckit"},
 		Steps: []Step{
 			{
 				ID:        "specify",
@@ -871,11 +871,11 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 	}{
 		{
 			name:       "resolves artifacts from specified run ID",
-			priorRunID: "speckit-flow-20260306-084028-bd46",
+			priorRunID: "plan-speckit-20260306-084028-bd46",
 			fromStep:   "checklist",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create the specific run's worktree workspace with artifacts
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/__wt_speckit-flow-20260306-084028-bd46")
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-084028-bd46/__wt_plan-speckit-20260306-084028-bd46")
 				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -888,15 +888,15 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			},
 			expectedCompleted: []string{"specify", "clarify"},
 			expectedArtifacts: 2,
-			checkArtifactPath: "speckit-flow-20260306-084028-bd46",
+			checkArtifactPath: "plan-speckit-20260306-084028-bd46",
 		},
 		{
 			name:       "prefers specified run over newer run",
-			priorRunID: "speckit-flow-20260306-084028-old1",
+			priorRunID: "plan-speckit-20260306-084028-old1",
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create the specified (older) run's workspace
-				oldDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-old1/__wt_branch-old")
+				oldDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-084028-old1/__wt_branch-old")
 				if err := os.MkdirAll(filepath.Join(oldDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -905,7 +905,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 				}
 
 				// Create a newer run's workspace that should NOT be used
-				newDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-200000-new2/__wt_branch-new")
+				newDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-200000-new2/__wt_branch-new")
 				if err := os.MkdirAll(filepath.Join(newDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -915,15 +915,15 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			},
 			expectedCompleted: []string{"specify"},
 			expectedArtifacts: 1,
-			checkArtifactPath: "speckit-flow-20260306-084028-old1",
+			checkArtifactPath: "plan-speckit-20260306-084028-old1",
 		},
 		{
 			name:       "falls back to glob scan when run ID dir does not exist",
-			priorRunID: "speckit-flow-nonexistent",
+			priorRunID: "plan-speckit-nonexistent",
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Only the glob-matched run exists
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-100000-abcd/__wt_some-branch")
 				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -933,14 +933,14 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			},
 			expectedCompleted: []string{"specify"},
 			expectedArtifacts: 1,
-			checkArtifactPath: "speckit-flow-20260306-100000-abcd",
+			checkArtifactPath: "plan-speckit-20260306-100000-abcd",
 		},
 		{
 			name:       "no run ID uses default glob behavior",
 			priorRunID: "",
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				wtDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-100000-abcd/__wt_some-branch")
 				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -950,15 +950,15 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			},
 			expectedCompleted: []string{"specify"},
 			expectedArtifacts: 1,
-			checkArtifactPath: "speckit-flow-20260306-100000-abcd",
+			checkArtifactPath: "plan-speckit-20260306-100000-abcd",
 		},
 		{
 			name:       "resolves non-worktree step artifacts from specified run",
-			priorRunID: "speckit-flow-20260306-084028-bd46",
+			priorRunID: "plan-speckit-20260306-084028-bd46",
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create a basic (non-worktree) step workspace under the specified run
-				stepDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/specify")
+				stepDir := filepath.Join(tmpDir, ".wave/workspaces/plan-speckit-20260306-084028-bd46/specify")
 				if err := os.MkdirAll(filepath.Join(stepDir, ".wave/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -968,7 +968,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			},
 			expectedCompleted: []string{"specify"},
 			expectedArtifacts: 1,
-			checkArtifactPath: "speckit-flow-20260306-084028-bd46",
+			checkArtifactPath: "plan-speckit-20260306-084028-bd46",
 		},
 	}
 
@@ -1052,7 +1052,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "speckit-flow"},
+		Metadata: PipelineMetadata{Name: "plan-speckit"},
 		Steps: []Step{
 			{ID: "specify"},
 			{ID: "implement", Dependencies: []string{"specify"}},
@@ -1206,7 +1206,7 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	}
 
 	p := &Pipeline{
-		Metadata: PipelineMetadata{Name: "prototype"},
+		Metadata: PipelineMetadata{Name: "impl-prototype"},
 		Steps: []Step{
 			{ID: "spec", Persona: "researcher", Exec: ExecConfig{Source: "generate spec"}},
 			{ID: "docs", Persona: "researcher", Dependencies: []string{"spec"}, Exec: ExecConfig{Source: "generate docs"}},

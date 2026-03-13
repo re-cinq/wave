@@ -268,7 +268,7 @@ permissions:
   actions: read         # Read workflow status
 ```
 
-For pipelines that commit changes (e.g., `doc-fix`, `speckit-flow`), you also need `contents: write`.
+For pipelines that commit changes (e.g., `doc-fix`, `plan-speckit`), you also need `contents: write`.
 
 ## Headless / No-TTY Mode
 

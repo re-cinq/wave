@@ -22,16 +22,16 @@ Supervise completed work by evaluating both the **output quality** (correctness,
 
 ```bash
 # Auto-detect last pipeline run
-wave run supervise
+wave run audit-supervise
 
 # Review a specific pipeline run
-wave run supervise "last pipeline run"
+wave run audit-supervise "last pipeline run"
 
 # Review a specific branch
-wave run supervise "feature/add-auth"
+wave run audit-supervise "feature/add-auth"
 
 # Review current PR
-wave run supervise "current pr"
+wave run audit-supervise "current pr"
 ```
 
 With `-o text`:
@@ -45,7 +45,7 @@ With `-o text`:
 [10:08:46] -> verdict (reviewer)
 [10:12:30] + verdict completed (224s, 3.8k tokens)
 
-  + Pipeline 'supervise' completed successfully (748s)
+  + Pipeline 'audit-supervise' completed successfully (748s)
 ```
 
 ## Pipeline Structure
@@ -135,13 +135,13 @@ Estimated 30% of tokens were spent on non-productive exploration.
 ### Focus on process quality only
 
 ```bash
-wave run supervise "focus on process efficiency of the last pipeline run"
+wave run audit-supervise "focus on process efficiency of the last pipeline run"
 ```
 
 ### Review a specific PR
 
 ```bash
-wave run supervise "PR #42"
+wave run audit-supervise "PR #42"
 ```
 
 ## Related Use Cases

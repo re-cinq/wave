@@ -540,8 +540,8 @@ func (r *ResumeManager) ValidateResumePoint(p *Pipeline, fromStep string) error 
 
 // GetRecommendedResumePoint suggests the best step to resume from based on current state
 func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
-	if p.Metadata.Name != "prototype" {
-		return "", fmt.Errorf("resume point recommendation only available for prototype pipeline")
+	if p.Metadata.Name != "impl-prototype" {
+		return "", fmt.Errorf("resume point recommendation only available for impl-prototype pipeline")
 	}
 
 	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)

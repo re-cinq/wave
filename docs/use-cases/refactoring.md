@@ -22,7 +22,7 @@ Perform systematic code refactoring with analysis, safe implementation, and veri
 ## Quick Start
 
 ```bash
-wave run refactor "refactor the database connection handling for better error management"
+wave run impl-refactor "refactor the database connection handling for better error management"
 ```
 
 With `-o text`:
@@ -38,7 +38,7 @@ With `-o text`:
 [10:02:16] → verify (auditor)
 [10:02:45] ✓ verify completed (29.0s, 2.1k tokens)
 
-  ✓ Pipeline 'refactor' completed successfully (2m 44s)
+  ✓ Pipeline 'impl-refactor' completed successfully (2m 44s)
 ```
 
 ## Complete Pipeline
@@ -50,7 +50,7 @@ Save the following YAML to `.wave/pipelines/refactor.yaml`:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: refactor
+  name: impl-refactor
   description: "Systematic code refactoring with verification"
 
 input:
@@ -256,25 +256,25 @@ None. Refactoring complete.
 ### Extract methods
 
 ```bash
-wave run refactor "extract common validation logic into reusable functions"
+wave run impl-refactor "extract common validation logic into reusable functions"
 ```
 
 ### Rename for consistency
 
 ```bash
-wave run refactor "rename all handler functions to follow HandleXxx pattern"
+wave run impl-refactor "rename all handler functions to follow HandleXxx pattern"
 ```
 
 ### Reduce coupling
 
 ```bash
-wave run refactor "decouple the notification service from email implementation"
+wave run impl-refactor "decouple the notification service from email implementation"
 ```
 
 ### Add dependency injection
 
 ```bash
-wave run refactor "add dependency injection to the user service for testability"
+wave run impl-refactor "add dependency injection to the user service for testability"
 ```
 
 ### Safe mode (dry run)
