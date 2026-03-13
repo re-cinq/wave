@@ -22,6 +22,7 @@ const (
 	StateFailed    StepState = "failed"
 	StateRetrying  StepState = "retrying"
 	StateSkipped   StepState = "skipped"
+	StateReworking StepState = "reworking"
 )
 
 // PipelineStateRecord holds persisted pipeline state.

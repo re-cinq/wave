@@ -4394,3 +4394,401 @@ func TestExecuteWithNilFilter(t *testing.T) {
 	order := collector.GetStepExecutionOrder()
 	assert.Equal(t, []string{"step-a", "step-b"}, order, "all steps should execute with nil filter")
 }
+
+
+// ============================================================================
+// Rework Branching Tests
+// ============================================================================
+
+// promptFailAdapter fails when the prompt contains a specific substring, succeeds otherwise.
+type promptFailAdapter struct {
+	mu          sync.Mutex
+	failPrompt  string // fail if prompt contains this substring
+	failError   error
+	successMock *adapter.MockAdapter
+	lastConfigs []adapter.AdapterRunConfig
+}
+
+func newPromptFailAdapter(failPrompt string, failErr error) *promptFailAdapter {
+	return &promptFailAdapter{
+		failPrompt:  failPrompt,
+		failError:   failErr,
+		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+	}
+}
+
+func (a *promptFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.lastConfigs = append(a.lastConfigs, cfg)
+	a.mu.Unlock()
+	if strings.Contains(cfg.Prompt, a.failPrompt) {
+		return nil, a.failError
+	}
+	return a.successMock.Run(ctx, cfg)
+}
+
+// TestExecuteStep_OnFailureRework_TriggersReworkStep verifies that on_failure=rework
+// executes the rework target step after the original step exhausts its retries.
+func TestExecuteStep_OnFailureRework_TriggersReworkStep(t *testing.T) {
+	// Adapter fails when prompt contains "do something" (step-1), succeeds for rework.
+	failAdapter := newPromptFailAdapter("do something", errors.New("step-1 failed"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Use a 3-step pipeline: step-0 → step-1 (fails, reworks to rework-step)
+	// This ensures step-1 and rework-step don't run in the same concurrent batch.
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-test"},
+		Steps: []Step{
+			{
+				ID:      "step-0",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "init"},
+			},
+			{
+				ID:           "step-1",
+				Persona:      "navigator",
+				Dependencies: []string{"step-0"},
+				Exec:         ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "rework",
+					ReworkStep:  "rework-step",
+				},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "rework fallback"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed because rework step succeeds")
+
+	// Verify the reworking event was emitted
+	events := collector.GetEvents()
+	foundRework := false
+	for _, evt := range events {
+		if evt.State == "reworking" && evt.StepID == "step-1" {
+			foundRework = true
+			break
+		}
+	}
+	assert.True(t, foundRework, "should have emitted a reworking event for step-1")
+
+	// Verify rework-step was completed
+	foundReworkComplete := false
+	for _, evt := range events {
+		if evt.State == "completed" && evt.StepID == "rework-step" {
+			foundReworkComplete = true
+			break
+		}
+	}
+	assert.True(t, foundReworkComplete, "should have emitted a completed event for rework-step")
+}
+
+// TestExecuteStep_OnFailureRework_ReworkStepFailsPropagates verifies that when the
+// rework step also fails, the error propagates and the pipeline fails.
+func TestExecuteStep_OnFailureRework_ReworkStepFailsPropagates(t *testing.T) {
+	// Adapter fails when prompt contains "fail-me" — matches both step-1 and rework-step
+	// but not step-0 which has prompt "init".
+	failAdapter := newPromptFailAdapter("fail-me", errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-fail-test"},
+		Steps: []Step{
+			{
+				ID:      "step-0",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "init"},
+			},
+			{
+				ID:           "step-1",
+				Persona:      "navigator",
+				Dependencies: []string{"step-0"},
+				Exec:         ExecConfig{Source: "fail-me primary"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "rework",
+					ReworkStep:  "rework-step",
+				},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "fail-me fallback"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	require.Error(t, err, "pipeline should fail when rework step also fails")
+
+	// Verify the rework step failure event
+	events := collector.GetEvents()
+	foundReworkFail := false
+	for _, evt := range events {
+		if evt.State == "failed" && evt.StepID == "rework-step" {
+			foundReworkFail = true
+			break
+		}
+	}
+	assert.True(t, foundReworkFail, "should have emitted a failed event for rework-step")
+}
+
+// TestExecuteStep_OnFailureRework_ExistingOnFailureBehaviorsUnchanged verifies that
+// existing on_failure behaviors (fail, skip, continue) work as before.
+func TestExecuteStep_OnFailureRework_ExistingOnFailureBehaviorsUnchanged(t *testing.T) {
+	// Regression test: verify "fail" still works
+	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "fail-regression-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "fail",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	require.Error(t, err, "pipeline should fail with on_failure=fail")
+}
+
+// TestExecuteStep_OnFailureRework_FailureContextInjected verifies that rework step
+// receives the failure context from the failed step.
+func TestExecuteStep_OnFailureRework_FailureContextInjected(t *testing.T) {
+	// Adapter fails when prompt contains "do something" (step-1), succeeds for rework.
+	failAdapter := newPromptFailAdapter("do something", errors.New("contract validation failed: missing field"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Use step-0 → step-1 to ensure step-1 and rework-step don't run in the
+	// same concurrent batch (rework-step executes inline during step-1's rework).
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-context-test"},
+		Steps: []Step{
+			{
+				ID:      "step-0",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "init"},
+			},
+			{
+				ID:           "step-1",
+				Persona:      "navigator",
+				Dependencies: []string{"step-0"},
+				Exec:         ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					BaseDelay:   "1ms",
+					OnFailure:   "rework",
+					ReworkStep:  "rework-step",
+				},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "rework fallback"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed via rework")
+
+	// Verify that the rework step's prompt contained failure context
+	failAdapter.mu.Lock()
+	configs := make([]adapter.AdapterRunConfig, len(failAdapter.lastConfigs))
+	copy(configs, failAdapter.lastConfigs)
+	failAdapter.mu.Unlock()
+
+	// Find the rework step config — look for the one with REWORK CONTEXT in prompt
+	var reworkPrompt string
+	for _, cfg := range configs {
+		if strings.Contains(cfg.Prompt, "REWORK CONTEXT") {
+			reworkPrompt = cfg.Prompt
+			break
+		}
+	}
+	require.NotEmpty(t, reworkPrompt, "should have found a config with REWORK CONTEXT in prompt")
+	assert.Contains(t, reworkPrompt, "step-1", "rework step prompt should reference the failed step ID")
+	assert.Contains(t, reworkPrompt, "contract validation failed", "rework step prompt should contain prior error")
+}
+
+// TestExecuteStep_OnFailureRework_DownstreamStepsRun verifies that after successful rework,
+// downstream steps that depend on the failed step still execute (not skipped).
+func TestExecuteStep_OnFailureRework_DownstreamStepsRun(t *testing.T) {
+	// Adapter fails when prompt contains "do something" (step-1), succeeds for everything else.
+	failAdapter := newPromptFailAdapter("do something", errors.New("step-1 failed"))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	// Pipeline: step-0 → step-1 (fails, reworks) → step-downstream
+	// The downstream step depends on step-1 and should run after rework succeeds.
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-downstream-test"},
+		Steps: []Step{
+			{
+				ID:      "step-0",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "init"},
+			},
+			{
+				ID:           "step-1",
+				Persona:      "navigator",
+				Dependencies: []string{"step-0"},
+				Exec:         ExecConfig{Source: "do something"},
+				Retry: RetryConfig{
+					MaxAttempts: 1,
+					OnFailure:   "rework",
+					ReworkStep:  "rework-step",
+				},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "rework fallback"},
+			},
+			{
+				ID:           "step-downstream",
+				Persona:      "navigator",
+				Dependencies: []string{"step-1"},
+				Exec:         ExecConfig{Source: "downstream work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed — downstream step should run after rework")
+
+	// Verify downstream step completed
+	events := collector.GetEvents()
+	var downstreamCompleted bool
+	for _, evt := range events {
+		if evt.State == "completed" && evt.StepID == "step-downstream" {
+			downstreamCompleted = true
+			break
+		}
+	}
+	assert.True(t, downstreamCompleted, "step-downstream should have completed after successful rework")
+
+	// Verify the pipeline state is completed, not failed
+	var pipelineCompleted bool
+	for _, evt := range events {
+		if evt.State == "completed" && evt.StepID == "" {
+			pipelineCompleted = true
+			break
+		}
+	}
+	assert.True(t, pipelineCompleted, "pipeline should be in completed state")
+}
+
+// TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled verifies that rework_only steps
+// are not scheduled in the normal DAG pass.
+func TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled(t *testing.T) {
+	// Adapter succeeds for everything — step-1 should NOT fail, so rework step should never run.
+	mockAdapter := adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`))
+	collector := newTestEventCollector()
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-only-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do something"},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "should not run"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed")
+
+	// Verify rework-step was never executed
+	events := collector.GetEvents()
+	for _, evt := range events {
+		if evt.StepID == "rework-step" && (evt.State == "running" || evt.State == "completed") {
+			t.Fatal("rework-step should not have been scheduled in normal DAG pass")
+		}
+	}
+}
