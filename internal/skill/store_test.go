@@ -422,9 +422,8 @@ func TestDirectoryStoreRead(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for non-existent skill")
 		}
-		var pe *ParseError
-		if !errors.As(err, &pe) || pe.Constraint != "not found" {
-			t.Errorf("expected not found ParseError, got %v", err)
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("expected ErrNotFound, got %v", err)
 		}
 	})
 
@@ -637,6 +636,14 @@ func TestDirectoryStoreWrite(t *testing.T) {
 			t.Fatal("expected error for path traversal")
 		}
 	})
+
+	t.Run("empty sources returns error", func(t *testing.T) {
+		store := NewDirectoryStore()
+		err := store.Write(Skill{Name: "test", Description: "test"})
+		if err == nil {
+			t.Fatal("expected error for empty sources")
+		}
+	})
 }
 
 func TestDirectoryStoreDelete(t *testing.T) {
@@ -663,9 +670,8 @@ func TestDirectoryStoreDelete(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for non-existent skill")
 		}
-		var pe *ParseError
-		if !errors.As(err, &pe) || pe.Constraint != "not found" {
-			t.Errorf("expected not found error, got %v", err)
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("expected ErrNotFound, got %v", err)
 		}
 	})
 

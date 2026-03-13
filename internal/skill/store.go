@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,6 +50,9 @@ func (e *DiscoveryError) Error() string {
 	}
 	return fmt.Sprintf("discovery errors: %s", strings.Join(msgs, "; "))
 }
+
+// ErrNotFound is returned when a skill does not exist in any source.
+var ErrNotFound = errors.New("skill not found")
 
 // Store defines CRUD operations for skill management.
 type Store interface {
@@ -116,11 +120,14 @@ func (ds *DirectoryStore) Read(name string) (Skill, error) {
 		return skill, nil
 	}
 
-	return Skill{}, &ParseError{Field: "name", Constraint: "not found", Value: name}
+	return Skill{}, fmt.Errorf("%w: %s", ErrNotFound, name)
 }
 
 // Write persists a skill to the highest-precedence source directory.
 func (ds *DirectoryStore) Write(skill Skill) error {
+	if len(ds.sources) == 0 {
+		return fmt.Errorf("no skill sources configured")
+	}
 	if err := ValidateName(skill.Name); err != nil {
 		return err
 	}
@@ -208,6 +215,20 @@ func (ds *DirectoryStore) Delete(name string) error {
 
 	for _, source := range ds.sources {
 		dir := filepath.Join(source.Root, name)
+
+		// Defense-in-depth: verify resolved path stays within source root
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			return fmt.Errorf("failed to resolve path: %w", err)
+		}
+		absRoot, err := filepath.Abs(source.Root)
+		if err != nil {
+			return fmt.Errorf("failed to resolve root: %w", err)
+		}
+		if !strings.HasPrefix(absDir, absRoot+string(filepath.Separator)) {
+			return fmt.Errorf("path traversal detected: %s escapes %s", absDir, absRoot)
+		}
+
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			continue
 		}
@@ -218,7 +239,7 @@ func (ds *DirectoryStore) Delete(name string) error {
 		return nil
 	}
 
-	return &ParseError{Field: "name", Constraint: "not found", Value: name}
+	return fmt.Errorf("%w: %s", ErrNotFound, name)
 }
 
 // discoverResources scans for resource files in known subdirectories of a skill directory.
