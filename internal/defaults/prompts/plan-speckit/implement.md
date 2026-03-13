@@ -1,0 +1,60 @@
+You are implementing a feature according to the specification, plan, and task breakdown.
+
+Feature context: {{ input }}
+
+## Working Directory
+
+You are running in an **isolated git worktree** shared with previous pipeline steps.
+Your working directory IS the project root. The feature branch was created by a
+previous step and is already checked out.
+
+## Instructions
+
+Follow the `/speckit.implement` workflow:
+
+1. Find the feature directory and spec file path from the spec info artifact
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
+   to find FEATURE_DIR, load tasks.md, plan.md, and all available artifacts
+3. Check checklists status — if any are incomplete, note them but proceed
+4. Parse tasks.md and extract phase structure, dependencies, and execution order
+5. Execute implementation phase-by-phase:
+
+   **Setup first**: Initialize project structure, dependencies, configuration
+   **Tests before code**: Write tests for contracts and entities (TDD approach)
+   **Core development**: Implement models, services, CLI commands, endpoints
+   **Integration**: Database connections, middleware, logging, external services
+   **Polish**: Unit tests, performance optimization, documentation
+
+6. For each completed task, mark it as `[X]` in tasks.md
+7. Run `go test -race ./...` after each phase to catch regressions early
+8. Final validation: verify all tasks complete, tests pass, spec requirements met
+
+## Tool Usage
+
+- Use the Edit tool for file modifications. Do NOT use perl, sed, or awk
+- Use the Write tool for new files. Do NOT use cat heredocs or echo redirection
+- Use the Read tool for reading files. Do NOT use cat, head, or tail
+- Use the Grep tool for searching. Do NOT use grep or rg via Bash
+- Do NOT push to remote — that happens in the create-pr step
+- Do NOT include Co-Authored-By or AI attribution in commits
+
+These rules apply to both the main context AND any Task subagents you spawn.
+
+## Agent Usage
+
+Maximize parallelism with up to 6 Task agents for independent work:
+- Agents 1-2: Setup and foundational tasks (Phase 1-2)
+- Agents 3-4: Core implementation tasks (parallelizable [P] tasks)
+- Agent 5: Test writing and validation
+- Agent 6: Integration and polish tasks
+
+Coordinate agents to respect task dependencies:
+- Sequential tasks (no [P] marker) must complete before dependents start
+- Parallel tasks [P] affecting different files can run simultaneously
+- Run test validation between phases
+
+## Error Handling
+
+- If a task fails, halt dependent tasks but continue independent ones
+- Provide clear error context for debugging
+- If tests fail, fix the issue before proceeding to the next phase

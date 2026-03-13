@@ -643,13 +643,13 @@ func TestRenderContractDetail_WithUsage(t *testing.T) {
 		Label: "spec.json",
 		Type:  "json_schema",
 		PipelineUsage: []PipelineStepRef{
-			{PipelineName: "speckit-flow", StepID: "implement"},
+			{PipelineName: "plan-speckit", StepID: "implement"},
 		},
 	}
 
 	result := renderContractDetail(info, 80)
 	assert.Contains(t, result, "spec.json")
-	assert.Contains(t, result, "speckit-flow")
+	assert.Contains(t, result, "plan-speckit")
 }
 
 func TestRenderSkillDetail_NilInput(t *testing.T) {

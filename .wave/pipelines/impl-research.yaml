@@ -1,0 +1,28 @@
+kind: WavePipeline
+metadata:
+  name: impl-research
+  description: "Research a GitHub issue, implement the solution, then review the PR"
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "re-cinq/wave 42"
+  schema:
+    type: string
+    description: "GitHub issue reference (owner/repo number)"
+
+steps:
+  - id: research
+    pipeline: gh-research
+    input: "{{input}}"
+
+  - id: implement
+    dependencies: [research]
+    pipeline: speckit-flow
+    input: "{{input}}"
+
+  - id: review
+    dependencies: [implement]
+    pipeline: gh-pr-review
+    input: "{{input}}"

@@ -206,9 +206,9 @@ func TestFilterPipelinesByForge(t *testing.T) {
 		"gl-deploy",
 		"bb-build",
 		"gt-test",
-		"speckit-flow",
+		"plan-speckit",
 		"wave-evolve",
-		"debug",
+		"impl-debug",
 	}
 
 	tests := []struct {
@@ -219,22 +219,22 @@ func TestFilterPipelinesByForge(t *testing.T) {
 		{
 			name:      "GitHub forge filters to gh- and generic",
 			forgeType: ForgeGitHub,
-			want:      []string{"gh-implement", "gh-review", "speckit-flow", "wave-evolve", "debug"},
+			want:      []string{"gh-implement", "gh-review", "plan-speckit", "wave-evolve", "impl-debug"},
 		},
 		{
 			name:      "GitLab forge filters to gl- and generic",
 			forgeType: ForgeGitLab,
-			want:      []string{"gl-deploy", "speckit-flow", "wave-evolve", "debug"},
+			want:      []string{"gl-deploy", "plan-speckit", "wave-evolve", "impl-debug"},
 		},
 		{
 			name:      "Bitbucket forge filters to bb- and generic",
 			forgeType: ForgeBitbucket,
-			want:      []string{"bb-build", "speckit-flow", "wave-evolve", "debug"},
+			want:      []string{"bb-build", "plan-speckit", "wave-evolve", "impl-debug"},
 		},
 		{
 			name:      "Gitea forge filters to gt- and generic",
 			forgeType: ForgeGitea,
-			want:      []string{"gt-test", "speckit-flow", "wave-evolve", "debug"},
+			want:      []string{"gt-test", "plan-speckit", "wave-evolve", "impl-debug"},
 		},
 		{
 			name:      "Unknown forge returns all",

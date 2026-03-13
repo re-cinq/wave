@@ -221,11 +221,11 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 }
 
 func TestPipelineListModel_View_AvailableItemsShowNameOnly(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow", Description: "A pipeline"}}
+	avail := []PipelineInfo{{Name: "plan-speckit", Description: "A pipeline"}}
 	m := newTestListModel(nil, nil, avail)
 	view := listStripAnsi(m.View())
 
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	// Should not contain status markers or durations (no runs)
 	assert.NotContains(t, view, "✓")
 	assert.NotContains(t, view, "✗")
@@ -239,7 +239,7 @@ func TestPipelineListModel_View_EmptyList_ShowsEmptyMessage(t *testing.T) {
 }
 
 func TestPipelineListModel_View_NoMatchingPipelines_ShowsEmptyMessage(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []PipelineInfo{{Name: "plan-speckit"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Activate filter with a query that matches nothing
@@ -454,7 +454,7 @@ func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
 }
 
 func TestPipelineListModel_Navigation_PipelineNameHasEmptyRunID(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []PipelineInfo{{Name: "plan-speckit"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Cursor starts on the pipeline name node
@@ -465,7 +465,7 @@ func TestPipelineListModel_Navigation_PipelineNameHasEmptyRunID(t *testing.T) {
 	require.NotNil(t, sel)
 
 	assert.Equal(t, "", sel.RunID)
-	assert.Equal(t, "speckit-flow", sel.Name)
+	assert.Equal(t, "plan-speckit", sel.Name)
 	assert.Equal(t, itemKindAvailable, sel.Kind)
 }
 
@@ -483,7 +483,7 @@ func TestPipelineListModel_Filter_SlashActivates(t *testing.T) {
 
 func TestPipelineListModel_Filter_MatchesSubstring(t *testing.T) {
 	avail := []PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-evolve"},
 		{Name: "speckit-debug"},
 	}
@@ -498,7 +498,7 @@ func TestPipelineListModel_Filter_MatchesSubstring(t *testing.T) {
 	}
 
 	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "speckit-debug")
 	assert.NotContains(t, view, "wave-evolve")
 }
@@ -530,7 +530,7 @@ func TestPipelineListModel_Filter_AcrossPipelines(t *testing.T) {
 
 func TestPipelineListModel_Filter_EscapeDismisses(t *testing.T) {
 	avail := []PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-evolve"},
 	}
 	m := newTestListModel(nil, nil, avail)
@@ -548,12 +548,12 @@ func TestPipelineListModel_Filter_EscapeDismisses(t *testing.T) {
 
 	// All items should be visible again
 	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "wave-evolve")
 }
 
 func TestPipelineListModel_Filter_ZeroMatchesMessage(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []PipelineInfo{{Name: "plan-speckit"}}
 	m := newTestListModel(nil, nil, avail)
 
 	m, _ = sendRune(m, '/')
@@ -623,7 +623,7 @@ func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_EnterWithZeroResults_StaysInFilterMode(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []PipelineInfo{{Name: "plan-speckit"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Activate filter and type a query that matches nothing
@@ -646,7 +646,7 @@ func TestPipelineListModel_Filter_EnterWithZeroResults_StaysInFilterMode(t *test
 
 func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testing.T) {
 	avail := []PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-evolve"},
 	}
 	m := newTestListModel(nil, nil, avail)
@@ -661,7 +661,7 @@ func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testi
 
 	// Only speckit-flow should be visible
 	view := listStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.NotContains(t, view, "wave-evolve")
 
 	// Press '/' to start new filter — should restore full list immediately
@@ -670,7 +670,7 @@ func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testi
 	assert.Equal(t, "", m.filterQuery)
 
 	view = listStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "wave-evolve")
 }
 

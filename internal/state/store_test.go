@@ -915,7 +915,7 @@ func TestCreateRun(t *testing.T) {
 	}{
 		{
 			name:         "create run with input",
-			pipelineName: "debug",
+			pipelineName: "impl-debug",
 			input:        `{"task": "test"}`,
 		},
 		{
@@ -956,11 +956,11 @@ func TestCreateRun(t *testing.T) {
 		store, cleanup := setupTestStore(t)
 		defer cleanup()
 
-		runID, err := store.CreateRun("debug", "")
+		runID, err := store.CreateRun("impl-debug", "")
 		require.NoError(t, err)
 
 		// Should match pattern: {pipeline}-{YYYYMMDD}-{HHMMSS}-{hex suffix}
-		assert.Regexp(t, `^debug-\d{8}-\d{6}-[a-f0-9]{4}$`, runID)
+		assert.Regexp(t, `^impl-debug-\d{8}-\d{6}-[a-f0-9]{4}$`, runID)
 	})
 }
 

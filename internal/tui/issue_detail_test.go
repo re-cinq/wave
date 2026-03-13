@@ -87,7 +87,7 @@ func TestIssueDetailModel_PipelineChooser_Open(t *testing.T) {
 	m.SetFocused(true)
 
 	m.SetPipelines([]PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-bugfix"},
 		{Name: "wave-review"},
 	})
@@ -112,7 +112,7 @@ func TestIssueDetailModel_PipelineChooser_Navigate(t *testing.T) {
 	m.SetFocused(true)
 
 	m.SetPipelines([]PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-bugfix"},
 		{Name: "wave-review"},
 	})
@@ -150,7 +150,7 @@ func TestIssueDetailModel_PipelineChooser_Launch(t *testing.T) {
 	m.SetFocused(true)
 
 	m.SetPipelines([]PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-bugfix"},
 	})
 
@@ -188,7 +188,7 @@ func TestIssueDetailModel_PipelineChooser_Cancel(t *testing.T) {
 	m.SetFocused(true)
 
 	m.SetPipelines([]PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 	})
 
 	issue := &IssueData{
@@ -231,7 +231,7 @@ func TestIssueDetailModel_UnfocusedIgnoresKeys(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(false)
 
-	m.SetPipelines([]PipelineInfo{{Name: "speckit-flow"}})
+	m.SetPipelines([]PipelineInfo{{Name: "plan-speckit"}})
 
 	issue := &IssueData{
 		Number:  1,
@@ -251,7 +251,7 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 	m.SetSize(80, 40)
 
 	m.SetPipelines([]PipelineInfo{
-		{Name: "speckit-flow"},
+		{Name: "plan-speckit"},
 		{Name: "wave-bugfix"},
 	})
 
@@ -264,7 +264,7 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 
 	view := m.View()
 	assert.Contains(t, view, "Launch Pipeline")
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "wave-bugfix")
 }
 
@@ -307,7 +307,7 @@ func TestIssueDetailModel_RelevanceSorting(t *testing.T) {
 	m.SetPipelines([]PipelineInfo{
 		{Name: "deploy-prod", Description: "Deploy to production"},
 		{Name: "wave-bugfix", Description: "Fix bugs quickly"},
-		{Name: "speckit-flow", Description: "Feature development"},
+		{Name: "plan-speckit", Description: "Feature development"},
 	})
 
 	issue := &IssueData{

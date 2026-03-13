@@ -19,9 +19,9 @@ func TestDiscoverPipelines(t *testing.T) {
 		{
 			name: "discovers valid pipelines",
 			files: map[string]string{
-				"feature.yaml": `kind: WavePipeline
+				"impl-feature.yaml": `kind: WavePipeline
 metadata:
-  name: feature
+  name: impl-feature
   description: "Plan and implement a feature"
 input:
   source: cli
@@ -32,9 +32,9 @@ steps:
   - id: implement
     persona: craftsman
 `,
-				"debug.yaml": `kind: WavePipeline
+				"impl-debug.yaml": `kind: WavePipeline
 metadata:
-  name: debug
+  name: impl-debug
   description: "Systematic debugging"
 input:
   source: cli
@@ -45,8 +45,8 @@ steps:
 `,
 			},
 			want: []PipelineInfo{
-				{Name: "debug", Description: "Systematic debugging", StepCount: 1, InputExample: "fix nil pointer"},
-				{Name: "feature", Description: "Plan and implement a feature", StepCount: 2, InputExample: "add dark mode"},
+				{Name: "impl-debug", Description: "Systematic debugging", StepCount: 1, InputExample: "fix nil pointer"},
+				{Name: "impl-feature", Description: "Plan and implement a feature", StepCount: 2, InputExample: "add dark mode"},
 			},
 		},
 		{
@@ -58,9 +58,9 @@ steps:
 			name: "skips non-yaml files",
 			files: map[string]string{
 				"readme.md": "# README",
-				"feature.yaml": `kind: WavePipeline
+				"impl-feature.yaml": `kind: WavePipeline
 metadata:
-  name: feature
+  name: impl-feature
   description: "A feature pipeline"
 steps:
   - id: step1
@@ -68,7 +68,7 @@ steps:
 `,
 			},
 			want: []PipelineInfo{
-				{Name: "feature", Description: "A feature pipeline", StepCount: 1},
+				{Name: "impl-feature", Description: "A feature pipeline", StepCount: 1},
 			},
 		},
 		{
@@ -159,7 +159,7 @@ func TestLoadPipelineByName_ValidPipeline(t *testing.T) {
 	dir := t.TempDir()
 	content := `kind: WavePipeline
 metadata:
-  name: feature
+  name: impl-feature
   description: "Plan and implement a feature"
 input:
   source: cli
@@ -170,13 +170,13 @@ steps:
   - id: implement
     persona: craftsman
 `
-	err := os.WriteFile(filepath.Join(dir, "feature.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(dir, "impl-feature.yaml"), []byte(content), 0644)
 	require.NoError(t, err)
 
-	p, err := LoadPipelineByName(dir, "feature")
+	p, err := LoadPipelineByName(dir, "impl-feature")
 	require.NoError(t, err)
 	assert.NotNil(t, p)
-	assert.Equal(t, "feature", p.Metadata.Name)
+	assert.Equal(t, "impl-feature", p.Metadata.Name)
 	assert.Equal(t, "Plan and implement a feature", p.Metadata.Description)
 	assert.Equal(t, 2, len(p.Steps))
 	assert.Equal(t, "explore", p.Steps[0].ID)
@@ -187,10 +187,10 @@ func TestLoadPipelineByName_NonexistentName(t *testing.T) {
 	dir := t.TempDir()
 	content := `kind: WavePipeline
 metadata:
-  name: feature
+  name: impl-feature
 steps: []
 `
-	err := os.WriteFile(filepath.Join(dir, "feature.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(dir, "impl-feature.yaml"), []byte(content), 0644)
 	require.NoError(t, err)
 
 	_, err = LoadPipelineByName(dir, "nonexistent")

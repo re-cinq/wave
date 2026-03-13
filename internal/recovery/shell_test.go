@@ -22,7 +22,7 @@ func TestShellEscape(t *testing.T) {
 		{"glob characters", "*.go", "'*.go'"},
 		{"newline", "foo\nbar", "'foo\nbar'"},
 		{"multiple single quotes", "it's it's", "'it'\\''s it'\\''s'"},
-		{"pipeline name", "feature", "feature"},
+		{"pipeline name", "impl-feature", "impl-feature"},
 		{"step id with hyphen", "implement-code", "implement-code"},
 	}
 

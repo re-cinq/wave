@@ -1,0 +1,26 @@
+kind: WavePipeline
+metadata:
+  name: ops-epic-runner
+  description: "Scope an epic, implement each child issue sequentially"
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "re-cinq/wave 42"
+  schema:
+    type: string
+    description: "GitHub epic reference (owner/repo number)"
+
+steps:
+  - id: scope
+    pipeline: gh-scope
+    input: "{{input}}"
+
+  - id: implement-all
+    dependencies: [scope]
+    pipeline: speckit-flow
+    input: "{{item.url}} — child of {{input}}, see parent for full context"
+    iterate:
+      over: "{{scope.output.child_issues}}"
+      mode: sequential

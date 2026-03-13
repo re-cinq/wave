@@ -28,12 +28,12 @@ func TestApplySelection_PipelineAndInput(t *testing.T) {
 	opts := RunOptions{}
 	debug := false
 	sel := &tui.Selection{
-		Pipeline: "feature",
+		Pipeline: "impl-feature",
 		Input:    "add user auth",
 	}
 	applySelection(&opts, sel, &debug)
 
-	assert.Equal(t, "feature", opts.Pipeline)
+	assert.Equal(t, "impl-feature", opts.Pipeline)
 	assert.Equal(t, "add user auth", opts.Input)
 	assert.False(t, debug)
 }
@@ -42,13 +42,13 @@ func TestApplySelection_AllFlags(t *testing.T) {
 	opts := RunOptions{}
 	debug := false
 	sel := &tui.Selection{
-		Pipeline: "debug",
+		Pipeline: "impl-debug",
 		Input:    "fix nil pointer",
 		Flags:    []string{"--verbose", "--output json", "--dry-run", "--mock", "--debug"},
 	}
 	applySelection(&opts, sel, &debug)
 
-	assert.Equal(t, "debug", opts.Pipeline)
+	assert.Equal(t, "impl-debug", opts.Pipeline)
 	assert.Equal(t, "fix nil pointer", opts.Input)
 	assert.True(t, opts.Output.Verbose)
 	assert.Equal(t, OutputFormatJSON, opts.Output.Format)
@@ -61,12 +61,12 @@ func TestApplySelection_EmptyInput(t *testing.T) {
 	opts := RunOptions{Input: "existing input"}
 	debug := false
 	sel := &tui.Selection{
-		Pipeline: "hotfix",
+		Pipeline: "impl-hotfix",
 		Input:    "",
 	}
 	applySelection(&opts, sel, &debug)
 
-	assert.Equal(t, "hotfix", opts.Pipeline)
+	assert.Equal(t, "impl-hotfix", opts.Pipeline)
 	assert.Equal(t, "existing input", opts.Input, "empty selection input should not overwrite existing")
 }
 
@@ -74,11 +74,11 @@ func TestApplySelection_NoFlags(t *testing.T) {
 	opts := RunOptions{}
 	debug := false
 	sel := &tui.Selection{
-		Pipeline: "refactor",
+		Pipeline: "impl-refactor",
 	}
 	applySelection(&opts, sel, &debug)
 
-	assert.Equal(t, "refactor", opts.Pipeline)
+	assert.Equal(t, "impl-refactor", opts.Pipeline)
 	assert.False(t, opts.DryRun)
 	assert.False(t, opts.Mock)
 	assert.False(t, opts.Output.Verbose)

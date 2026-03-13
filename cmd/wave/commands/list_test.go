@@ -182,15 +182,15 @@ func TestListCmd_Pipelines_TableFormat(t *testing.T) {
 	h.writeFile("personas/auditor.md", "# Auditor")
 
 	// Create some pipelines
-	h.writeFile(".wave/pipelines/feature.yaml", samplePipeline("feature", "Feature development pipeline", 3))
-	h.writeFile(".wave/pipelines/hotfix.yaml", samplePipeline("hotfix", "Quick fix pipeline", 2))
+	h.writeFile(".wave/pipelines/impl-feature.yaml", samplePipeline("impl-feature", "Feature development pipeline", 3))
+	h.writeFile(".wave/pipelines/impl-hotfix.yaml", samplePipeline("impl-hotfix", "Quick fix pipeline", 2))
 
 	stdout, _, err := executeListCmd("pipelines")
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "Pipelines")
-	assert.Contains(t, stdout, "feature")
-	assert.Contains(t, stdout, "hotfix")
+	assert.Contains(t, stdout, "impl-feature")
+	assert.Contains(t, stdout, "impl-hotfix")
 	assert.Contains(t, stdout, "Feature development pipeline")
 	assert.Contains(t, stdout, "Quick fix pipeline")
 }
@@ -1368,9 +1368,9 @@ func TestListCmd_Skills_ShowsPipelineUsage(t *testing.T) {
 	h.writeFile("personas/navigator.md", "# Navigator")
 
 	// Create a pipeline that declares speckit inline
-	h.writeFile(".wave/pipelines/feature.yaml", `kind: WavePipeline
+	h.writeFile(".wave/pipelines/impl-feature.yaml", `kind: WavePipeline
 metadata:
-  name: feature
+  name: impl-feature
   description: Feature pipeline
 requires:
   skills:
@@ -1389,7 +1389,7 @@ steps:
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "used by:")
-	assert.Contains(t, stdout, "feature")
+	assert.Contains(t, stdout, "impl-feature")
 }
 
 func TestListCmd_Skills_NoSkillsDefined(t *testing.T) {

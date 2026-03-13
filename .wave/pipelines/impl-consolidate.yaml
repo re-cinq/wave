@@ -1,0 +1,69 @@
+kind: WavePipeline
+metadata:
+  name: impl-consolidate
+  description: "Detect redundant implementations and architectural drift"
+  release: true
+
+input:
+  source: cli
+  example: "internal/pipeline — check for redundant patterns"
+  schema:
+    type: string
+    description: "Package or directory scope to analyze, or empty for full codebase"
+
+steps:
+  - id: scan
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan for redundant implementations and architectural drift.
+
+        Scope: {{ input }}
+
+        ## What to Look For
+
+        1. **Duplicate logic**: Functions doing the same thing in different packages.
+           Search for similar function signatures and bodies.
+
+        2. **Parallel abstractions**: Multiple interfaces or types representing
+           the same concept (e.g., two different error types for the same domain).
+
+        3. **Inconsistent patterns**: Same operation done differently in different
+           places (e.g., file reading with os.ReadFile in one place, io.ReadAll in another).
+
+        4. **Dead abstractions**: Interfaces with only one implementation,
+           wrapper types that add no value.
+
+        5. **Package boundary violations**: Packages reaching into each other's
+           internals instead of using proper interfaces.
+
+        6. **Naming inconsistencies**: Same concept with different names across
+           packages (e.g., "workspace" vs "workdir" vs "cwd").
+
+        ## Analysis
+
+        For each finding:
+        - List the affected file:line locations
+        - Explain what's redundant or inconsistent
+        - Propose a consolidation strategy
+        - Assess effort (trivial/small/medium/large) and risk
+
+        Produce a structured assessment.
+    output_artifacts:
+      - name: assessment
+        path: .wave/output/assessment.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/assessment.json
+        schema_path: .wave/contracts/improvement-assessment.schema.json
+        on_failure: retry

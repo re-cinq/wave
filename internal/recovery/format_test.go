@@ -6,7 +6,7 @@ import (
 )
 
 func TestFormatRecoveryBlock_AllHintTypes(t *testing.T) {
-	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "add auth", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassContractValidation})
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "impl-feature", Input: "add auth", StepID: "implement", RunID: "impl-feature-abc123", ErrClass: ClassContractValidation})
 	output := FormatRecoveryBlock(block)
 
 	if !strings.Contains(output, "Recovery options:") {
@@ -21,7 +21,7 @@ func TestFormatRecoveryBlock_AllHintTypes(t *testing.T) {
 	if !strings.Contains(output, "Inspect workspace artifacts") {
 		t.Error("expected workspace hint in output")
 	}
-	if !strings.Contains(output, "wave run feature") {
+	if !strings.Contains(output, "wave run impl-feature") {
 		t.Error("expected wave run command in output")
 	}
 
@@ -38,7 +38,7 @@ func TestFormatRecoveryBlock_AllHintTypes(t *testing.T) {
 }
 
 func TestFormatRecoveryBlock_ResumeOnly(t *testing.T) {
-	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "add auth", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassSecurityViolation})
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "impl-feature", Input: "add auth", StepID: "implement", RunID: "impl-feature-abc123", ErrClass: ClassSecurityViolation})
 	output := FormatRecoveryBlock(block)
 
 	if !strings.Contains(output, "Recovery options:") {
@@ -72,7 +72,7 @@ func TestFormatRecoveryBlock_EmptyHints(t *testing.T) {
 }
 
 func TestFormatRecoveryBlock_Indentation(t *testing.T) {
-	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "add auth", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassRuntimeError})
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "impl-feature", Input: "add auth", StepID: "implement", RunID: "impl-feature-abc123", ErrClass: ClassRuntimeError})
 	output := FormatRecoveryBlock(block)
 
 	lines := strings.Split(output, "\n")
@@ -96,7 +96,7 @@ func TestFormatRecoveryBlock_Indentation(t *testing.T) {
 
 func TestFormatRecoveryBlock_LineCount(t *testing.T) {
 	// Runtime error block has resume, workspace, debug = 3 hints = 7 content lines (1 header + 3*2 label+command)
-	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "add auth", StepID: "implement", RunID: "feature-abc123", ErrClass: ClassRuntimeError})
+	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "impl-feature", Input: "add auth", StepID: "implement", RunID: "impl-feature-abc123", ErrClass: ClassRuntimeError})
 	output := FormatRecoveryBlock(block)
 
 	contentLines := 0

@@ -131,7 +131,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Completed(t *testing.T) {
 	store := &detailMockStore{
 		run: &state.RunRecord{
 			RunID:        "run-abc",
-			PipelineName: "speckit-flow",
+			PipelineName: "plan-speckit",
 			Status:       "completed",
 			BranchName:   "feat/my-branch",
 			StartedAt:    timeAt(10, 0),
@@ -166,7 +166,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Completed(t *testing.T) {
 	require.NotNil(t, got)
 
 	assert.Equal(t, "run-abc", got.RunID)
-	assert.Equal(t, "speckit-flow", got.Name)
+	assert.Equal(t, "plan-speckit", got.Name)
 	assert.Equal(t, "completed", got.Status)
 	assert.Equal(t, 45*time.Minute, got.Duration)
 	assert.Equal(t, timeAt(10, 45), got.CompletedAt)

@@ -1,0 +1,52 @@
+kind: WavePipeline
+metadata:
+  name: ops-hello-world
+  description: "Simple test pipeline to verify Wave is working"
+
+input:
+  source: cli
+  example: "testing Wave"
+
+steps:
+  - id: greet
+    persona: craftsman
+    exec:
+      type: prompt
+      source: |
+        You are a simple greeting bot. The user said: "{{ input }}"
+
+        Your final response must be ONLY this text (nothing else - no explanation, no markdown):
+
+        Hello from Wave! Your message was: {{ input }}
+    output_artifacts:
+      - name: greeting
+        path: greeting.txt
+        type: text
+
+  - id: verify
+    persona: navigator
+    dependencies: [greet]
+    memory:
+      inject_artifacts:
+        - step: greet
+          artifact: greeting
+          as: greeting_file
+    exec:
+      type: prompt
+      source: |
+        Verify the greeting artifact exists and contains content.
+
+        Output a JSON result confirming verification status.
+    output_artifacts:
+      - name: result
+        path: .wave/output/result.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/result.json
+        schema_path: .wave/contracts/hello-world-result.schema.json
+        must_pass: true
+        on_failure: retry

@@ -165,7 +165,7 @@ func TestDefaultPipelineDataProvider_FetchRunningPipelines(t *testing.T) {
 		runningRuns: []state.RunRecord{
 			{
 				RunID:        "run-1",
-				PipelineName: "speckit-flow",
+				PipelineName: "plan-speckit",
 				BranchName:   "feat/speckit",
 				StartedAt:    startedOlder,
 				Status:       "running",
@@ -191,7 +191,7 @@ func TestDefaultPipelineDataProvider_FetchRunningPipelines(t *testing.T) {
 	assert.Equal(t, "feat/evolve", got[0].BranchName)
 
 	assert.Equal(t, "run-1", got[1].RunID)
-	assert.Equal(t, "speckit-flow", got[1].Name)
+	assert.Equal(t, "plan-speckit", got[1].Name)
 	assert.Equal(t, "feat/speckit", got[1].BranchName)
 }
 

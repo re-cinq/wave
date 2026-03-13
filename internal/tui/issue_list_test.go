@@ -305,7 +305,7 @@ func TestIssueListModel_PipelineDataMsg_AddsChildren(t *testing.T) {
 	// Send pipeline data with a running pipeline linked to issue #1
 	m, _ = m.Update(PipelineDataMsg{
 		Running: []RunningPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1 fix the auth bug", StartedAt: time.Now()},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1 fix the auth bug", StartedAt: time.Now()},
 		},
 	})
 
@@ -329,7 +329,7 @@ func TestIssueListModel_FinishedChildren_HiddenWhenCollapsed(t *testing.T) {
 	// Send finished pipeline data
 	m, _ = m.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now(), Duration: 30 * time.Second},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now(), Duration: 30 * time.Second},
 		},
 	})
 
@@ -358,7 +358,7 @@ func TestIssueListModel_RunningChildren_AlwaysVisible(t *testing.T) {
 
 	m, _ = m.Update(PipelineDataMsg{
 		Running: []RunningPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
 		},
 	})
 
@@ -380,7 +380,7 @@ func TestIssueListModel_SelectingRunningChild_EmitsPipelineSelectedMsg(t *testin
 
 	m, _ = m.Update(PipelineDataMsg{
 		Running: []RunningPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
 		},
 	})
 
@@ -392,7 +392,7 @@ func TestIssueListModel_SelectingRunningChild_EmitsPipelineSelectedMsg(t *testin
 	selMsg, ok := msg.(PipelineSelectedMsg)
 	assert.True(t, ok)
 	assert.Equal(t, "run-001", selMsg.RunID)
-	assert.Equal(t, "speckit-flow", selMsg.Name)
+	assert.Equal(t, "plan-speckit", selMsg.Name)
 	assert.Equal(t, itemKindRunning, selMsg.Kind)
 }
 
@@ -410,7 +410,7 @@ func TestIssueListModel_FinishedChildrenLimitedToMax(t *testing.T) {
 	for i := range finished {
 		finished[i] = FinishedPipeline{
 			RunID:    fmt.Sprintf("run-%03d", i),
-			Name:     "speckit-flow",
+			Name:     "plan-speckit",
 			Input:    "https://github.com/org/repo/issues/1",
 			Duration: time.Duration(i+1) * time.Minute,
 		}
@@ -437,7 +437,7 @@ func TestIssueListModel_UnlinkedPipelines_NotShown(t *testing.T) {
 	// Pipeline with input that doesn't reference any issue
 	m, _ = m.Update(PipelineDataMsg{
 		Running: []RunningPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "some unrelated input", StartedAt: time.Now()},
+			{RunID: "run-001", Name: "plan-speckit", Input: "some unrelated input", StartedAt: time.Now()},
 		},
 	})
 
@@ -457,7 +457,7 @@ func TestIssueListModel_CollapseToggle(t *testing.T) {
 
 	m, _ = m.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Duration: 30 * time.Second},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", Duration: 30 * time.Second},
 		},
 	})
 
@@ -485,13 +485,13 @@ func TestIssueListModel_RenderRunningChild(t *testing.T) {
 
 	m, _ = m.Update(PipelineDataMsg{
 		Running: []RunningPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
 		},
 	})
 
 	view := m.View()
 	assert.Contains(t, view, "●")
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "run-001")
 }
 
@@ -507,7 +507,7 @@ func TestIssueListModel_RenderFinishedChild(t *testing.T) {
 
 	m, _ = m.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Status: "completed", Duration: 30 * time.Second},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", Status: "completed", Duration: 30 * time.Second},
 		},
 	})
 
@@ -516,7 +516,7 @@ func TestIssueListModel_RenderFinishedChild(t *testing.T) {
 
 	view := m.View()
 	assert.Contains(t, view, "✓")
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "run-001")
 }
 
@@ -532,7 +532,7 @@ func TestIssueListModel_FailedPipelineShowsCross(t *testing.T) {
 
 	m, _ = m.Update(PipelineDataMsg{
 		Finished: []FinishedPipeline{
-			{RunID: "run-001", Name: "speckit-flow", Input: "https://github.com/org/repo/issues/1", Status: "failed", Duration: 10 * time.Second},
+			{RunID: "run-001", Name: "plan-speckit", Input: "https://github.com/org/repo/issues/1", Status: "failed", Duration: 10 * time.Second},
 		},
 	})
 

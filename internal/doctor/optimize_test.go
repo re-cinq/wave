@@ -196,13 +196,13 @@ func TestOptimize_PipelineRecommendations_GitHubForge(t *testing.T) {
 	}
 
 	pipelines := []string{
-		"speckit-flow",
+		"plan-speckit",
 		"gh-implement",
 		"gh-research",
 		"bb-implement",
 		"gl-scope",
 		"wave-evolve",
-		"doc-audit",
+		"audit-docs",
 	}
 
 	result := Optimize(&ProjectProfile{}, &manifest.Project{}, fi, pipelines)
@@ -213,7 +213,7 @@ func TestOptimize_PipelineRecommendations_GitHubForge(t *testing.T) {
 	}
 
 	// Universal pipelines should be recommended
-	for _, name := range []string{"speckit-flow", "wave-evolve", "doc-audit"} {
+	for _, name := range []string{"plan-speckit", "wave-evolve", "audit-docs"} {
 		rec, ok := recs[name]
 		if !ok {
 			t.Errorf("missing recommendation for %q", name)
@@ -255,7 +255,7 @@ func TestOptimize_PipelineRecommendations_UnknownForge(t *testing.T) {
 	}
 
 	pipelines := []string{
-		"speckit-flow",
+		"plan-speckit",
 		"gh-implement",
 		"bb-implement",
 		"gl-scope",
@@ -639,7 +639,7 @@ func TestApplyTo_SkipsMatchingValues(t *testing.T) {
 }
 
 func TestClassifyPipeline_UniversalPipeline(t *testing.T) {
-	rec := classifyPipeline("speckit-flow", forge.ForgeGitHub, "gh")
+	rec := classifyPipeline("plan-speckit", forge.ForgeGitHub, "gh")
 	if !rec.Recommended {
 		t.Error("universal pipeline should be recommended")
 	}
@@ -668,9 +668,9 @@ func TestExtractForgePrefix(t *testing.T) {
 		{"gl-scope", "gl"},
 		{"bb-refresh", "bb"},
 		{"gt-implement", "gt"},
-		{"speckit-flow", ""},
+		{"plan-speckit", ""},
 		{"wave-evolve", ""},
-		{"doc-audit", ""},
+		{"audit-docs", ""},
 	}
 	for _, tt := range tests {
 		got := extractForgePrefix(tt.name)

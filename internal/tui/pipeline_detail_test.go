@@ -66,7 +66,7 @@ func updateAndView(m PipelineDetailModel, msgs ...tea.Msg) string {
 // fullAvailableDetail returns a fully-populated AvailableDetail for testing.
 func fullAvailableDetail() *AvailableDetail {
 	return &AvailableDetail{
-		Name:         "speckit-flow",
+		Name:         "plan-speckit",
 		Description:  "A specification pipeline",
 		Category:     "spec",
 		StepCount:    3,
@@ -93,7 +93,7 @@ func fullFinishedDetail(status string) *FinishedDetail {
 	}
 	return &FinishedDetail{
 		RunID:        "run-123",
-		Name:         "speckit-flow",
+		Name:         "plan-speckit",
 		Status:       status,
 		Duration:     5*time.Minute + 30*time.Second,
 		BranchName:   "feat/my-feature",
@@ -129,7 +129,7 @@ func TestPipelineDetailModel_AvailableDetailRendering(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Send selection, then simulate data arrival
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	require.NotNil(t, cmd, "should return fetch cmd")
 
@@ -137,7 +137,7 @@ func TestPipelineDetailModel_AvailableDetailRendering(t *testing.T) {
 	dataMsg := cmd()
 	view := detailStripAnsi(updateAndView(m, dataMsg))
 
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "A specification pipeline")
 	assert.Contains(t, view, "specify")
 	assert.Contains(t, view, "navigator")
@@ -155,14 +155,14 @@ func TestPipelineDetailModel_FinishedCompleted(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	require.NotNil(t, cmd)
 
 	dataMsg := cmd()
 	view := detailStripAnsi(updateAndView(m, dataMsg))
 
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 	assert.Contains(t, view, "✓")
 	assert.Contains(t, view, "completed")
 	assert.Contains(t, view, "5m 30s")
@@ -176,7 +176,7 @@ func TestPipelineDetailModel_FinishedFailed(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	require.NotNil(t, cmd)
 
@@ -195,7 +195,7 @@ func TestPipelineDetailModel_BranchDeleted(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow", BranchDeleted: true}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit", BranchDeleted: true}
 	m, cmd := m.Update(selMsg)
 	require.NotNil(t, cmd)
 
@@ -211,7 +211,7 @@ func TestPipelineDetailModel_ZeroArtifacts(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	require.NotNil(t, cmd)
 
@@ -237,7 +237,7 @@ func TestPipelineDetailModel_SelectionTriggersFetch(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Available kind should trigger fetch
-	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"})
+	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"})
 	assert.NotNil(t, cmd, "available selection should return fetch cmd")
 	assert.Equal(t, stateLoading, m.paneState)
 
@@ -354,7 +354,7 @@ func TestPipelineDetailModel_AvailableDetailWithAllSections(t *testing.T) {
 	provider := &mockDetailProvider{availableDetail: detail}
 	m := newTestDetailModel(provider)
 
-	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"})
+	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"})
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
@@ -381,7 +381,7 @@ func TestPipelineDetailModel_FinishedDetailTimeFormat(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"})
+	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"})
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
@@ -396,7 +396,7 @@ func TestPipelineDetailModel_ActionHints(t *testing.T) {
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"})
+	m, cmd := m.Update(PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"})
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
@@ -418,14 +418,14 @@ func TestPipelineDetailModel_ConfigureFormMsg_CreatesForm(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load available detail first
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 	require.Equal(t, stateAvailableDetail, m.paneState)
 
 	// Send ConfigureFormMsg to create the form
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "https://github.com/org/repo/issues/123"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "https://github.com/org/repo/issues/123"}
 	m, _ = m.Update(cfgMsg)
 
 	assert.Equal(t, stateConfiguring, m.paneState)
@@ -488,13 +488,13 @@ func TestPipelineDetailModel_FormAbort_RevertsToAvailableDetail(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load available detail first
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
 	// Send ConfigureFormMsg
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example"}
 	m, _ = m.Update(cfgMsg)
 	require.Equal(t, stateConfiguring, m.paneState)
 	require.NotNil(t, m.launchForm)
@@ -510,7 +510,7 @@ func TestPipelineDetailModel_FormAbort_RevertsToAvailableDetail(t *testing.T) {
 	assert.Nil(t, m.launchForm)
 
 	view := detailStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 }
 
 func TestPipelineDetailModel_View_Configuring_ShowsForm(t *testing.T) {
@@ -518,7 +518,7 @@ func TestPipelineDetailModel_View_Configuring_ShowsForm(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Send ConfigureFormMsg to create the form
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example input"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example input"}
 	m, _ = m.Update(cfgMsg)
 
 	assert.Equal(t, stateConfiguring, m.paneState)
@@ -561,7 +561,7 @@ func TestPipelineDetailModel_LaunchErrorMsg_SetsErrorState(t *testing.T) {
 	m := newTestDetailModel(&mockDetailProvider{})
 
 	errMsg := LaunchErrorMsg{
-		PipelineName: "speckit-flow",
+		PipelineName: "plan-speckit",
 		Err:          errors.New("adapter resolution failed"),
 	}
 	m, _ = m.Update(errMsg)
@@ -576,14 +576,14 @@ func TestPipelineDetailModel_PaneStateRefactor_PreservesAvailableDetail(t *testi
 	provider := &mockDetailProvider{availableDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
 	assert.Equal(t, stateAvailableDetail, m.paneState)
 	view := detailStripAnsi(m.View())
-	assert.Contains(t, view, "speckit-flow")
+	assert.Contains(t, view, "plan-speckit")
 }
 
 func TestPipelineDetailModel_PaneStateRefactor_PreservesFinishedDetail(t *testing.T) {
@@ -591,7 +591,7 @@ func TestPipelineDetailModel_PaneStateRefactor_PreservesFinishedDetail(t *testin
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -621,7 +621,7 @@ func TestPipelineDetailModel_Form_ResizeUpdatesFormDimensions(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Create the form
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example"}
 	m, _ = m.Update(cfgMsg)
 	require.Equal(t, stateConfiguring, m.paneState)
 	require.NotNil(t, m.launchForm)
@@ -649,7 +649,7 @@ func TestPipelineDetailModel_EnterOnFinishedDetail_EmptyWorkspace_SetsActionErro
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -670,7 +670,7 @@ func TestPipelineDetailModel_EnterOnFinishedDetail_ValidWorkspace_ReturnsExecCmd
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -711,7 +711,7 @@ func TestPipelineDetailModel_BKey_ValidBranch_ReturnsCheckoutCmd(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -731,7 +731,7 @@ func TestPipelineDetailModel_BKey_BranchDeleted_IsNoOp(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -751,7 +751,7 @@ func TestPipelineDetailModel_BKey_EmptyBranch_IsNoOp(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -802,7 +802,7 @@ func TestPipelineDetailModel_DKey_ValidBranch_ReturnsExecCmd(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -822,7 +822,7 @@ func TestPipelineDetailModel_DKey_BranchDeleted_IsNoOp(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -842,7 +842,7 @@ func TestPipelineDetailModel_DKey_EmptyBranch_IsNoOp(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -874,7 +874,7 @@ func TestPipelineDetailModel_ActionHints_DiffFaintedWhenBranchDeleted(t *testing
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow", BranchDeleted: true}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit", BranchDeleted: true}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -891,7 +891,7 @@ func TestPipelineDetailModel_ActionHints_EnterFaintedWhenNoWorkspace(t *testing.
 	provider := &mockDetailProvider{finishedDetail: detail}
 	m := newTestDetailModel(provider)
 
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -908,7 +908,7 @@ func TestPipelineDetailModel_ActionError_RenderedInRed(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -931,7 +931,7 @@ func TestPipelineDetailModel_ActionError_ClearsOnNextKeypress(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -953,7 +953,7 @@ func TestPipelineDetailModel_ActionKeysIgnoredWhenNotFocused(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail but DON'T focus
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -989,7 +989,7 @@ func TestPipelineDetailModel_BranchDeletedUpdatedFromFinishedDetail(t *testing.T
 	m := newTestDetailModel(provider)
 
 	// Selection does NOT set branchDeleted
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow", BranchDeleted: false}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit", BranchDeleted: false}
 	m, cmd := m.Update(selMsg)
 	assert.False(t, m.branchDeleted)
 
@@ -1066,7 +1066,7 @@ func TestPipelineDetailModel_LKey_FinishedDetail_FetchesEvents(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load finished detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindFinished, RunID: "run-123", Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
@@ -1094,13 +1094,13 @@ func TestPipelineDetailModel_ConfiguringFormUsesViewport(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load available detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
 	// Enter configuring state
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example"}
 	m, _ = m.Update(cfgMsg)
 	require.Equal(t, stateConfiguring, m.paneState)
 	require.NotNil(t, m.launchForm)
@@ -1116,20 +1116,20 @@ func TestPipelineDetailModel_ConfiguringFormViewportResetsOnNew(t *testing.T) {
 	m := newTestDetailModel(provider)
 
 	// Load available detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
 	// Enter configuring state
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example"}
 	m, _ = m.Update(cfgMsg)
 
 	// Scroll the viewport down
 	m.viewport.SetYOffset(5)
 
 	// Create a new form — viewport should reset
-	cfgMsg2 := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "other example"}
+	cfgMsg2 := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "other example"}
 	m, _ = m.Update(cfgMsg2)
 
 	assert.Equal(t, 0, m.viewport.YOffset,
@@ -1142,13 +1142,13 @@ func TestPipelineDetailModel_ConfiguringSmallViewport_FormIsScrollable(t *testin
 	m.SetSize(80, 5) // Very small height
 
 	// Load available detail
-	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "speckit-flow"}
+	selMsg := PipelineSelectedMsg{Kind: itemKindAvailable, Name: "plan-speckit"}
 	m, cmd := m.Update(selMsg)
 	dataMsg := cmd()
 	m, _ = m.Update(dataMsg)
 
 	// Enter configuring state
-	cfgMsg := ConfigureFormMsg{PipelineName: "speckit-flow", InputExample: "example"}
+	cfgMsg := ConfigureFormMsg{PipelineName: "plan-speckit", InputExample: "example"}
 	m, _ = m.Update(cfgMsg)
 	require.Equal(t, stateConfiguring, m.paneState)
 

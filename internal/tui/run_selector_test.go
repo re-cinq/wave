@@ -8,11 +8,11 @@ import (
 
 func TestFilterPipelines(t *testing.T) {
 	pipelines := []PipelineInfo{
-		{Name: "feature", Description: "Plan and implement"},
-		{Name: "hotfix", Description: "Quick fix"},
+		{Name: "impl-feature", Description: "Plan and implement"},
+		{Name: "impl-hotfix", Description: "Quick fix"},
 		{Name: "gh-pr-review", Description: "Review GitHub PRs"},
-		{Name: "debug", Description: "Debug issues"},
-		{Name: "refactor", Description: "Safe refactoring"},
+		{Name: "impl-debug", Description: "Debug issues"},
+		{Name: "impl-refactor", Description: "Safe refactoring"},
 	}
 
 	tests := []struct {
@@ -22,28 +22,28 @@ func TestFilterPipelines(t *testing.T) {
 	}{
 		{
 			name:   "exact match",
-			filter: "feature",
-			want:   []string{"feature"},
+			filter: "impl-feature",
+			want:   []string{"impl-feature"},
 		},
 		{
 			name:   "partial match",
 			filter: "feat",
-			want:   []string{"feature"},
+			want:   []string{"impl-feature"},
 		},
 		{
 			name:   "multiple matches",
 			filter: "fix",
-			want:   []string{"hotfix"},
+			want:   []string{"impl-hotfix"},
 		},
 		{
 			name:   "substring in multiple names",
 			filter: "re",
-			want:   []string{"feature", "gh-pr-review", "refactor"},
+			want:   []string{"impl-feature", "gh-pr-review", "impl-refactor"},
 		},
 		{
 			name:   "case insensitive",
 			filter: "DEBUG",
-			want:   []string{"debug"},
+			want:   []string{"impl-debug"},
 		},
 		{
 			name:   "no match",
@@ -53,7 +53,7 @@ func TestFilterPipelines(t *testing.T) {
 		{
 			name:   "empty filter returns all",
 			filter: "",
-			want:   []string{"feature", "hotfix", "gh-pr-review", "debug", "refactor"},
+			want:   []string{"impl-feature", "impl-hotfix", "gh-pr-review", "impl-debug", "impl-refactor"},
 		},
 	}
 
@@ -79,34 +79,34 @@ func TestComposeCommand(t *testing.T) {
 	}{
 		{
 			name:     "pipeline only",
-			pipeline: "feature",
-			want:     "wave run feature",
+			pipeline: "impl-feature",
+			want:     "wave run impl-feature",
 		},
 		{
 			name:     "with input",
-			pipeline: "feature",
+			pipeline: "impl-feature",
 			input:    "add user auth",
-			want:     `wave run feature "add user auth"`,
+			want:     `wave run impl-feature "add user auth"`,
 		},
 		{
 			name:     "with flags",
-			pipeline: "debug",
+			pipeline: "impl-debug",
 			flags:    []string{"--mock"},
-			want:     "wave run debug --mock",
+			want:     "wave run impl-debug --mock",
 		},
 		{
 			name:     "with input and flags",
-			pipeline: "feature",
+			pipeline: "impl-feature",
 			input:    "add dark mode",
 			flags:    []string{"--mock"},
-			want:     `wave run feature "add dark mode" --mock`,
+			want:     `wave run impl-feature "add dark mode" --mock`,
 		},
 		{
 			name:     "empty input excluded",
-			pipeline: "hotfix",
+			pipeline: "impl-hotfix",
 			input:    "",
 			flags:    []string{"--mock"},
-			want:     "wave run hotfix --mock",
+			want:     "wave run impl-hotfix --mock",
 		},
 	}
 
@@ -120,7 +120,7 @@ func TestComposeCommand(t *testing.T) {
 
 func TestBuildPipelineOptions(t *testing.T) {
 	pipelines := []PipelineInfo{
-		{Name: "feature", Description: "Plan and implement"},
+		{Name: "impl-feature", Description: "Plan and implement"},
 		{Name: "minimal"},
 	}
 
@@ -128,11 +128,11 @@ func TestBuildPipelineOptions(t *testing.T) {
 	assert.Len(t, options, 2)
 
 	// Option values should be pipeline names.
-	assert.Equal(t, "feature", options[0].Value)
+	assert.Equal(t, "impl-feature", options[0].Value)
 	assert.Equal(t, "minimal", options[1].Value)
 
 	// First option key should contain both name and description.
-	assert.Contains(t, options[0].Key, "feature")
+	assert.Contains(t, options[0].Key, "impl-feature")
 	assert.Contains(t, options[0].Key, "Plan and implement")
 
 	// Second option key should just be the name (no description).
@@ -167,12 +167,12 @@ func TestDefaultFlags(t *testing.T) {
 
 func TestSelectionStruct(t *testing.T) {
 	s := Selection{
-		Pipeline: "feature",
+		Pipeline: "impl-feature",
 		Input:    "add auth",
 		Flags:    []string{"--verbose", "--dry-run"},
 	}
 
-	assert.Equal(t, "feature", s.Pipeline)
+	assert.Equal(t, "impl-feature", s.Pipeline)
 	assert.Equal(t, "add auth", s.Input)
 	assert.Equal(t, []string{"--verbose", "--dry-run"}, s.Flags)
 }

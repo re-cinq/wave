@@ -291,14 +291,14 @@ func TestDiscoverPipelineNames(t *testing.T) {
 
 	// Create some pipeline files
 	require.NoError(t, writeTestFile(tmpDir, "gh-implement.yaml", "kind: Pipeline"))
-	require.NoError(t, writeTestFile(tmpDir, "speckit-flow.yml", "kind: Pipeline"))
+	require.NoError(t, writeTestFile(tmpDir, "plan-speckit.yml", "kind: Pipeline"))
 	require.NoError(t, writeTestFile(tmpDir, "bb-implement.yaml", "kind: Pipeline"))
 	require.NoError(t, writeTestFile(tmpDir, "README.md", "not a pipeline"))
 
 	names := discoverPipelineNames(tmpDir)
 	assert.Len(t, names, 3)
 	assert.Contains(t, names, "gh-implement")
-	assert.Contains(t, names, "speckit-flow")
+	assert.Contains(t, names, "plan-speckit")
 	assert.Contains(t, names, "bb-implement")
 }
 
