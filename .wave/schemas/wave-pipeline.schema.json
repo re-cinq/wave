@@ -569,6 +569,10 @@
         "input_template": {
           "type": "string",
           "description": "Go template string for constructing child pipeline input from item fields"
+        },
+        "stacked": {
+          "type": "boolean",
+          "description": "When true, tier N+1 child pipelines branch from tier N's output branches instead of the base branch"
         }
       }
     },

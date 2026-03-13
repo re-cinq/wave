@@ -76,6 +76,8 @@ type DefaultPipelineExecutor struct {
 	etaCalculator *ETACalculator
 	// Preserve workspace from previous run (skip cleanup for debugging)
 	preserveWorkspace bool
+	// Base branch override for stacked worktree execution (child pipelines)
+	baseBranchOverride string
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -206,6 +208,22 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 	}
+}
+
+// LastWorktreeBranch returns the first worktree branch name from the most
+// recent execution, or empty string if no worktrees were created.
+func (e *DefaultPipelineExecutor) LastWorktreeBranch() string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	for _, exec := range e.pipelines {
+		exec.mu.Lock()
+		for branch := range exec.WorktreePaths {
+			exec.mu.Unlock()
+			return branch
+		}
+		exec.mu.Unlock()
+	}
+	return ""
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
@@ -1319,6 +1337,12 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		base := step.Workspace.Base
 		if execution.Context != nil && base != "" {
 			base = execution.Context.ResolvePlaceholders(base)
+		}
+
+		// Apply stacked worktree override: when a child pipeline is launched
+		// with baseBranchOverride set, use it instead of the configured base
+		if e.baseBranchOverride != "" && base != "" {
+			base = e.baseBranchOverride
 		}
 
 		if branch == "" && base == "" {

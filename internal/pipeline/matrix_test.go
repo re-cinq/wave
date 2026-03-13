@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"gopkg.in/yaml.v3"
 )
 
 // matrixTestEventCollector for matrix tests
@@ -2060,4 +2061,325 @@ func TestMatrixExecutor_ChildPipeline_NotFound(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to load child pipeline") {
 		t.Errorf("Expected load error, got: %v", err)
 	}
+}
+
+// ============================================================================
+// Stacked Worktree Tests
+// ============================================================================
+
+func TestMatrixStrategy_StackedFieldParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		yamlStr  string
+		expected bool
+	}{
+		{
+			name:     "stacked true",
+			yamlStr:  "type: matrix\nitems_source: items.json\nitem_key: tasks\nstacked: true",
+			expected: true,
+		},
+		{
+			name:     "stacked false",
+			yamlStr:  "type: matrix\nitems_source: items.json\nitem_key: tasks\nstacked: false",
+			expected: false,
+		},
+		{
+			name:     "stacked omitted",
+			yamlStr:  "type: matrix\nitems_source: items.json\nitem_key: tasks",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var strategy MatrixStrategy
+			if err := yamlUnmarshal([]byte(tt.yamlStr), &strategy); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if strategy.Stacked != tt.expected {
+				t.Errorf("Expected Stacked=%v, got %v", tt.expected, strategy.Stacked)
+			}
+		})
+	}
+}
+
+func TestMatrixExecutor_TieredExecution_StackedSingleParent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A (tier 0) → B (tier 1) — B should receive A's branch as base
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	// Create child pipeline file in tmpDir
+	childPipelinePath := createTestChildPipeline(t, tmpDir, "test-stacked-child")
+
+	branchCapture := &branchCaptureAdapter{
+		branches: make(map[string]string),
+		baseAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(branchCapture, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-single-parent")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			ChildPipeline: childPipelinePath,
+			Stacked:       true,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	if err != nil {
+		t.Fatalf("Stacked execution failed: %v", err)
+	}
+
+	// Verify all items succeeded
+	results := execution.Results[step.ID]
+	if results["success_count"] != 2 {
+		t.Errorf("Expected 2 successes, got %v", results["success_count"])
+	}
+
+	// Verify that tier events show 2 tiers
+	events := eventCollector.GetEvents()
+	tierStartCount := 0
+	for _, e := range events {
+		if e.State == "matrix_tier_start" {
+			tierStartCount++
+		}
+	}
+	if tierStartCount != 2 {
+		t.Errorf("Expected 2 tiers, got %d tier_start events", tierStartCount)
+	}
+}
+
+func TestMatrixExecutor_TieredExecution_StackedDefaultUnchanged(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Same structure as LinearChain — verify existing behavior with Stacked=false
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+		{"id": "C", "deps": []interface{}{"B"}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	orderTracker := &executionOrderTracker{}
+	trackAdapter := &orderTrackingAdapter{
+		tracker: orderTracker,
+		baseAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-default-unchanged")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			Stacked:       false, // explicitly false
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	if err != nil {
+		t.Fatalf("Tiered execution failed: %v", err)
+	}
+
+	// All 3 items should succeed
+	results := execution.Results[step.ID]
+	if results["total_workers"] != 3 {
+		t.Errorf("Expected 3 total workers, got %v", results["total_workers"])
+	}
+	if results["success_count"] != 3 {
+		t.Errorf("Expected 3 successes, got %v", results["success_count"])
+	}
+
+	// Verify 3 tiers (A → B → C linear chain)
+	events := eventCollector.GetEvents()
+	tierStartCount := 0
+	for _, e := range events {
+		if e.State == "matrix_tier_start" {
+			tierStartCount++
+		}
+	}
+	if tierStartCount != 3 {
+		t.Errorf("Expected 3 tiers, got %d tier_start events", tierStartCount)
+	}
+}
+
+func TestMatrixExecutor_TieredExecution_StackedFailurePropagation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A fails → B (depends on A) should be skipped, C (independent) should succeed
+	// With stacking enabled — verify skip behavior is preserved
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+		{"id": "C", "deps": []interface{}{}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	failAdapter := &tieredFailureAdapter{
+		failPatterns: []string{`"id":"A"`},
+		baseAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-failure-prop")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			Stacked:       true,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	// Should return error due to A failing
+	if err == nil {
+		t.Fatal("Expected error due to A failing")
+	}
+
+	// Verify results — same as non-stacked: 1 success, 1 fail, 1 skip
+	results := execution.Results[step.ID]
+	successCount, _ := results["success_count"].(int)
+	failCount, _ := results["fail_count"].(int)
+	skipCount, _ := results["skip_count"].(int)
+
+	if successCount != 1 {
+		t.Errorf("Expected 1 success (C), got %d", successCount)
+	}
+	if failCount != 1 {
+		t.Errorf("Expected 1 failure (A), got %d", failCount)
+	}
+	if skipCount != 1 {
+		t.Errorf("Expected 1 skip (B), got %d", skipCount)
+	}
+}
+
+func TestResolveStackedBase_NoParentBranches(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	branchMap := map[string]string{}
+	base, err := matrixExecutor.resolveStackedBase("B", []string{"A"}, branchMap, "test-pipeline")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if base != "" {
+		t.Errorf("Expected empty base when no parent produced a branch, got %q", base)
+	}
+}
+
+func TestResolveStackedBase_SingleParent(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	branchMap := map[string]string{
+		"A": "feature/issue-206",
+	}
+	base, err := matrixExecutor.resolveStackedBase("B", []string{"A"}, branchMap, "test-pipeline")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if base != "feature/issue-206" {
+		t.Errorf("Expected parent branch 'feature/issue-206', got %q", base)
+	}
+}
+
+func TestLastWorktreeBranch(t *testing.T) {
+	executor := &DefaultPipelineExecutor{
+		pipelines: make(map[string]*PipelineExecution),
+	}
+
+	// No executions — should return empty
+	if branch := executor.LastWorktreeBranch(); branch != "" {
+		t.Errorf("Expected empty branch with no executions, got %q", branch)
+	}
+
+	// Add an execution with a worktree
+	execution := &PipelineExecution{
+		WorktreePaths: map[string]*WorktreeInfo{
+			"feature/test-branch": {AbsPath: "/tmp/wt", RepoRoot: "/tmp/repo"},
+		},
+	}
+	executor.pipelines["test-pipeline"] = execution
+
+	branch := executor.LastWorktreeBranch()
+	if branch != "feature/test-branch" {
+		t.Errorf("Expected 'feature/test-branch', got %q", branch)
+	}
+}
+
+// branchCaptureAdapter is a test adapter that records adapter calls.
+type branchCaptureAdapter struct {
+	mu          sync.Mutex
+	branches    map[string]string
+	baseAdapter adapter.AdapterRunner
+}
+
+func (a *branchCaptureAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	return a.baseAdapter.Run(ctx, cfg)
+}
+
+// yamlUnmarshal wraps yaml.Unmarshal for test use.
+func yamlUnmarshal(data []byte, v interface{}) error {
+	return yaml.Unmarshal(data, v)
 }

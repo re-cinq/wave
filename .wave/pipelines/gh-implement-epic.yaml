@@ -51,6 +51,7 @@ steps:
       child_pipeline: gh-implement
       input_template: "{{ .repository }} {{ .number }}"
       max_concurrency: 3
+      stacked: true
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

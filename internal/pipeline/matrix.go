@@ -2,13 +2,15 @@ package pipeline
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"sync"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -28,6 +30,7 @@ type MatrixResult struct {
 	Skipped    bool
 	SkipReason string
 	ItemID     string
+	BranchName string // Output branch from child pipeline (used by stacked execution)
 }
 
 // MatrixExecutor handles fan-out execution for matrix strategy steps.
@@ -655,6 +658,17 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 	allResults := make([]MatrixResult, 0, len(items))
 	failed := make(map[string]bool)     // IDs of items that failed
 	succeeded := make(map[string]bool)   // IDs of items that succeeded
+	branchMap := make(map[string]string) // itemID → output branch name (stacked mode)
+
+	// Load the child pipeline once for stacked mode (needed to create per-tier workers)
+	var childPipeline *Pipeline
+	if strategy.Stacked && strategy.ChildPipeline != "" {
+		var err error
+		childPipeline, err = m.loadChildPipeline(strategy.ChildPipeline)
+		if err != nil {
+			return err
+		}
+	}
 
 	for tierIdx, tier := range tiers {
 		m.emit(event.Event{
@@ -711,8 +725,29 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 			itemIndex := idToIndex[itemID]
 			itemValue := items[itemIndex]
 
+			// Resolve the worker for this item (may have stacked base override)
+			tierWorker := worker
+			if strategy.Stacked && childPipeline != nil && tierIdx > 0 {
+				baseBranch, mergeErr := m.resolveStackedBase(itemID, deps[itemID], branchMap, pipelineID)
+				if mergeErr != nil {
+					mu.Lock()
+					tierResults = append(tierResults, MatrixResult{
+						ItemIndex: itemIndex,
+						Item:      itemValue,
+						ItemID:    itemID,
+						Error:     mergeErr,
+					})
+					mu.Unlock()
+					continue
+				}
+				if baseBranch != "" {
+					tierWorker = m.childPipelineWorkerWithBase(childPipeline, baseBranch)
+				}
+			}
+
+			currentWorker := tierWorker
 			g.Go(func() error {
-				result := worker(gctx, execution, step, itemIndex, itemValue)
+				result := currentWorker(gctx, execution, step, itemIndex, itemValue)
 				result.ItemID = itemID
 
 				mu.Lock()
@@ -733,6 +768,10 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 				failed[result.ItemID] = true
 			} else {
 				succeeded[result.ItemID] = true
+				// Track branch names for stacked propagation
+				if strategy.Stacked && result.BranchName != "" {
+					branchMap[result.ItemID] = result.BranchName
+				}
 			}
 		}
 	}
@@ -906,6 +945,66 @@ func (m *MatrixExecutor) shouldSkipItem(id string, itemDeps []string, failed map
 	return false, ""
 }
 
+// resolveStackedBase determines the base branch for a stacked item.
+// For single-parent items, returns the parent's branch directly.
+// For multi-parent items, creates an integration branch by merging all parent branches.
+func (m *MatrixExecutor) resolveStackedBase(itemID string, itemDeps []string, branchMap map[string]string, pipelineID string) (string, error) {
+	// Collect parent branches (only deps that produced a branch)
+	var parentBranches []string
+	for _, dep := range itemDeps {
+		if branch, ok := branchMap[dep]; ok && branch != "" {
+			parentBranches = append(parentBranches, branch)
+		}
+	}
+
+	if len(parentBranches) == 0 {
+		return "", nil // No parent produced a branch — use default base
+	}
+
+	if len(parentBranches) == 1 {
+		return parentBranches[0], nil // Single parent — branch directly from it
+	}
+
+	// Multi-parent: create integration branch by merging all parent branches
+	return m.createIntegrationBranch(parentBranches, pipelineID, itemID)
+}
+
+// createIntegrationBranch creates a temporary branch by merging multiple parent branches.
+// Returns the integration branch name or an error if the merge fails.
+func (m *MatrixExecutor) createIntegrationBranch(branches []string, pipelineID string, itemID string) (string, error) {
+	// Generate deterministic branch name from inputs
+	h := sha256.New()
+	for _, b := range branches {
+		h.Write([]byte(b))
+	}
+	hash := fmt.Sprintf("%x", h.Sum(nil))[:8]
+	integrationBranch := fmt.Sprintf("wave/stacked/%s/merge-%s", pipelineID, hash)
+
+	// Check out the first parent branch into a new branch
+	cmd := exec.Command("git", "checkout", "-b", integrationBranch, branches[0])
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to create integration branch from %q: %s: %w", branches[0], string(out), err)
+	}
+
+	// Merge remaining parent branches
+	for _, branch := range branches[1:] {
+		cmd := exec.Command("git", "merge", "--no-edit", branch)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			// Abort the failed merge and clean up
+			_ = exec.Command("git", "merge", "--abort").Run()
+			_ = exec.Command("git", "checkout", "-").Run()
+			_ = exec.Command("git", "branch", "-D", integrationBranch).Run()
+			return "", fmt.Errorf("merge conflict while creating integration branch: cannot merge %q into %q: %s: %w",
+				branch, integrationBranch, string(out), err)
+		}
+	}
+
+	// Return to previous branch (integration branch is created as a ref)
+	_ = exec.Command("git", "checkout", "-").Run()
+
+	return integrationBranch, nil
+}
+
 // loadChildPipeline loads a pipeline by name or path for use in child pipeline execution.
 func (m *MatrixExecutor) loadChildPipeline(name string) (*Pipeline, error) {
 	path := m.resolveChildPipelinePath(name)
@@ -930,6 +1029,12 @@ func (m *MatrixExecutor) resolveChildPipelinePath(name string) string {
 // childPipelineWorker returns a matrixWorkerFunc that executes a full child
 // pipeline for each matrix item, using a fresh executor per item.
 func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWorkerFunc {
+	return m.childPipelineWorkerWithBase(childPipeline, "")
+}
+
+// childPipelineWorkerWithBase returns a matrixWorkerFunc that executes a child
+// pipeline with an optional base branch override for stacked worktree execution.
+func (m *MatrixExecutor) childPipelineWorkerWithBase(childPipeline *Pipeline, baseBranch string) matrixWorkerFunc {
 	return func(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int, item interface{}) MatrixResult {
 		result := MatrixResult{
 			ItemIndex: itemIndex,
@@ -956,6 +1061,11 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 		// Create child executor with independent state
 		childExecutor := m.executor.NewChildExecutor()
 
+		// Set base branch override for stacked execution
+		if baseBranch != "" {
+			childExecutor.baseBranchOverride = baseBranch
+		}
+
 		// Execute the child pipeline
 		if err := childExecutor.Execute(ctx, childPipeline, execution.Manifest, input); err != nil {
 			result.Error = err
@@ -968,6 +1078,9 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 			})
 			return result
 		}
+
+		// Capture the output branch name from the child execution
+		result.BranchName = childExecutor.LastWorktreeBranch()
 
 		m.emit(event.Event{
 			Timestamp:  time.Now(),
