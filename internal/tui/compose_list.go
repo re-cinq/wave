@@ -409,7 +409,23 @@ func (m ComposeListModel) View() string {
 
 			indexStr := fmt.Sprintf("%d. ", i+1)
 			if isSelected {
-				line := prefix + indexStr + entry.PipelineName + dupIndicator + statusIcon
+				// Plain text when selected — inner ANSI codes break the highlight background.
+				plainDup := ""
+				if nameCounts[entry.PipelineName] > 1 {
+					plainDup = " (duplicate)"
+				}
+				plainStatus := ""
+				if i > 0 {
+					switch boundaryStatus[i] {
+					case CompatibilityValid:
+						plainStatus = " ✓"
+					case CompatibilityWarning:
+						plainStatus = " ~"
+					case CompatibilityError:
+						plainStatus = " ✗"
+					}
+				}
+				line := prefix + indexStr + entry.PipelineName + plainDup + plainStatus
 				style := SelectionStyle(m.focused)
 				lines = append(lines, style.Render(line))
 			} else {
