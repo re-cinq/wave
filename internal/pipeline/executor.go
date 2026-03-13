@@ -76,6 +76,8 @@ type DefaultPipelineExecutor struct {
 	etaCalculator *ETACalculator
 	// Preserve workspace from previous run (skip cleanup for debugging)
 	preserveWorkspace bool
+	// Step filter for --steps / --exclude selective execution
+	stepFilter *StepFilter
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -127,6 +129,11 @@ func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) Executor
 // preserving the workspace from a previous run for debugging purposes.
 func WithPreserveWorkspace(preserve bool) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.preserveWorkspace = preserve }
+}
+
+// WithStepFilter sets the step filter for selective step execution.
+func WithStepFilter(f *StepFilter) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -205,6 +212,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		deliverableTracker:     deliverable.NewTracker(""),
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
+		stepFilter:             e.stepFilter,
 	}
 }
 
@@ -217,6 +225,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
+	}
+
+	// Apply step filter (--steps / --exclude) before execution
+	if e.stepFilter != nil && e.stepFilter.IsActive() {
+		if err := e.stepFilter.ValidateStepNames(p.Steps); err != nil {
+			return fmt.Errorf("step filter error: %w", err)
+		}
+		sortedSteps = e.stepFilter.Apply(sortedSteps)
 	}
 
 	// Initialize ETA calculator from historical step performance data

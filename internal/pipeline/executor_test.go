@@ -4262,3 +4262,145 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 	_, err = os.Stat(markerFile)
 	assert.True(t, os.IsNotExist(err), "marker file should have been removed by workspace cleanup")
 }
+
+// TestExecuteWithIncludeFilter verifies that --steps runs only the named steps.
+func TestExecuteWithIncludeFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	filter := &StepFilter{Include: []string{"step-a", "step-c"}}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "include-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Dependencies: []string{}, Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.ElementsMatch(t, []string{"step-a", "step-c"}, order, "only included steps should have executed")
+	assert.NotContains(t, order, "step-b", "step-b should not have executed")
+}
+
+// TestExecuteWithExcludeFilter verifies that --exclude skips the named steps.
+func TestExecuteWithExcludeFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	filter := &StepFilter{Exclude: []string{"step-b"}}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "exclude-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Dependencies: []string{}, Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.ElementsMatch(t, []string{"step-a", "step-c"}, order, "non-excluded steps should have executed")
+	assert.NotContains(t, order, "step-b", "excluded step should not have executed")
+}
+
+// TestExecuteWithInvalidFilterStepName verifies clear error for unknown step names.
+func TestExecuteWithInvalidFilterStepName(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	collector := newTestEventCollector()
+
+	filter := &StepFilter{Include: []string{"nonexistent"}}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "invalid-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown step(s): nonexistent")
+	assert.Contains(t, err.Error(), "available: step-a")
+}
+
+// TestExecuteWithNilFilterIsNoOp verifies nil filter runs all steps.
+func TestExecuteWithNilFilterIsNoOp(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	// Explicitly pass nil filter
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(nil),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "nil-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Len(t, order, 2, "all steps should execute with nil filter")
+}

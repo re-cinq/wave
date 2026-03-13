@@ -39,6 +39,8 @@ type RunOptions struct {
 	Output            OutputConfig
 	Model             string
 	PreserveWorkspace bool
+	Steps             []string
+	Exclude           []string
 }
 
 func NewRunCmd() *cobra.Command {
@@ -113,6 +115,8 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
+	cmd.Flags().StringSliceVar(&opts.Steps, "steps", nil, "Run only the named steps (comma-separated)")
+	cmd.Flags().StringSliceVarP(&opts.Exclude, "exclude", "x", nil, "Skip the named steps (comma-separated)")
 
 	return cmd
 }
@@ -176,8 +180,25 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 
+	// Build step filter from --steps / --exclude flags
+	var stepFilter *pipeline.StepFilter
+	if len(opts.Steps) > 0 || len(opts.Exclude) > 0 {
+		stepFilter = &pipeline.StepFilter{
+			Include: opts.Steps,
+			Exclude: opts.Exclude,
+		}
+		if err := stepFilter.Validate(); err != nil {
+			return NewCLIError(CodeFlagConflict, err.Error(),
+				"Use --steps OR --exclude, not both")
+		}
+		if err := stepFilter.ValidateWithFromStep(opts.FromStep); err != nil {
+			return NewCLIError(CodeFlagConflict, err.Error(),
+				"Use --from-step with --exclude, or use --steps alone")
+		}
+	}
+
 	if opts.DryRun {
-		return performDryRun(p, &m)
+		return performDryRun(p, &m, stepFilter)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -301,6 +322,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.PreserveWorkspace {
 		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
+	}
+	if stepFilter != nil {
+		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -527,14 +551,43 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest) error {
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
-	fmt.Fprintf(os.Stderr, "Execution plan:\n")
+
+	// Build set of steps that will run when filter is active
+	var runSet map[string]bool
+	if filter != nil && filter.IsActive() {
+		if err := filter.ValidateStepNames(p.Steps); err != nil {
+			return err
+		}
+		// Build temporary step pointer slice for Apply
+		ptrs := make([]*pipeline.Step, len(p.Steps))
+		for i := range p.Steps {
+			ptrs[i] = &p.Steps[i]
+		}
+		filtered := filter.Apply(ptrs)
+		runSet = make(map[string]bool, len(filtered))
+		for _, s := range filtered {
+			runSet[s.ID] = true
+		}
+		fmt.Fprintf(os.Stderr, "Execution plan (%d of %d steps will execute):\n", len(filtered), len(p.Steps))
+	} else {
+		fmt.Fprintf(os.Stderr, "Execution plan:\n")
+	}
 
 	for i, step := range p.Steps {
-		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
+		// Show [SKIP]/[RUN] annotation when filter is active
+		tag := ""
+		if runSet != nil {
+			if runSet[step.ID] {
+				tag = " [RUN]"
+			} else {
+				tag = " [SKIP]"
+			}
+		}
+		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)%s\n", i+1, step.ID, step.Persona, tag)
 
 		if len(step.Dependencies) > 0 {
 			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
