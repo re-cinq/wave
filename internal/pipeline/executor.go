@@ -1051,7 +1051,7 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 		execution.States[step.ID] = StateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
-			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
 		return err
 	}
@@ -1060,7 +1060,7 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 	execution.States[step.ID] = StateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
-		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
 
 	// Track deliverables from completed concurrent step
