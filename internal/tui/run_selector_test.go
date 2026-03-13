@@ -10,7 +10,7 @@ func TestFilterPipelines(t *testing.T) {
 	pipelines := []PipelineInfo{
 		{Name: "feature", Description: "Plan and implement"},
 		{Name: "hotfix", Description: "Quick fix"},
-		{Name: "gh-pr-review", Description: "Review GitHub PRs"},
+		{Name: "pr-review", Description: "Review PRs"},
 		{Name: "debug", Description: "Debug issues"},
 		{Name: "refactor", Description: "Safe refactoring"},
 	}
@@ -38,7 +38,7 @@ func TestFilterPipelines(t *testing.T) {
 		{
 			name:   "substring in multiple names",
 			filter: "re",
-			want:   []string{"feature", "gh-pr-review", "refactor"},
+			want:   []string{"feature", "pr-review", "refactor"},
 		},
 		{
 			name:   "case insensitive",
@@ -53,7 +53,7 @@ func TestFilterPipelines(t *testing.T) {
 		{
 			name:   "empty filter returns all",
 			filter: "",
-			want:   []string{"feature", "hotfix", "gh-pr-review", "debug", "refactor"},
+			want:   []string{"feature", "hotfix", "pr-review", "debug", "refactor"},
 		},
 	}
 
