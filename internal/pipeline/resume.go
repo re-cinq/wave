@@ -420,6 +420,14 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 		return r.errors.FormatPhaseFailureError(fromStep, fmt.Errorf("failed to sort resume pipeline: %w", err), pipelineName)
 	}
 
+	// Apply step filter (--exclude) to the sorted step list for --from-step + -x combo
+	if f := r.executor.stepFilter; f != nil && f.IsActive() {
+		sortedSteps = f.Apply(sortedSteps)
+		if len(sortedSteps) == 0 {
+			return fmt.Errorf("step filter produced no runnable steps after resume from %q", fromStep)
+		}
+	}
+
 	// Execute each step in order
 	for _, step := range sortedSteps {
 		select {

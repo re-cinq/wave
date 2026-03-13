@@ -4262,3 +4262,135 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 	_, err = os.Stat(markerFile)
 	assert.True(t, os.IsNotExist(err), "marker file should have been removed by workspace cleanup")
 }
+
+// TestExecuteWithIncludeFilter verifies that --steps filter runs only the named steps
+func TestExecuteWithIncludeFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	filter := &StepFilter{Include: []string{"step-a", "step-c"}}
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "include-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-c"}, order, "only included steps should execute")
+}
+
+// TestExecuteWithExcludeFilter verifies that --exclude filter skips the named steps
+func TestExecuteWithExcludeFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	filter := &StepFilter{Exclude: []string{"step-b"}}
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "exclude-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-c"}, order, "excluded step should not execute")
+}
+
+// TestExecuteWithInvalidStepFilter verifies that invalid step names in filter produce errors
+func TestExecuteWithInvalidStepFilter(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter()
+	filter := &StepFilter{Include: []string{"nonexistent"}}
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithStepFilter(filter),
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "invalid-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown step")
+}
+
+// TestExecuteWithNilFilter verifies that nil filter runs all steps (no-op)
+func TestExecuteWithNilFilter(t *testing.T) {
+	collector := newTestEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		// No WithStepFilter — defaults to nil
+	)
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "nil-filter-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	order := collector.GetStepExecutionOrder()
+	assert.Equal(t, []string{"step-a", "step-b"}, order, "all steps should execute with nil filter")
+}
