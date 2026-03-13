@@ -232,16 +232,7 @@ func (m IssueListModel) renderIssueLine(item issueNavItem, isSelected bool) stri
 
 	hasChildren := m.issueHasChildren(issue.HTMLURL)
 	prefix := "  "
-	if isSelected {
-		prefix = "› "
-		if hasChildren {
-			if m.collapsed[issue.HTMLURL] {
-				prefix = "▶ "
-			} else {
-				prefix = "▼ "
-			}
-		}
-	} else if hasChildren {
+	if hasChildren {
 		if m.collapsed[issue.HTMLURL] {
 			prefix = "▶ "
 		} else {
@@ -324,12 +315,14 @@ func (m IssueListModel) renderIssueLine(item issueNavItem, isSelected bool) stri
 		text += strings.Repeat(" ", pad)
 	}
 
-	// Use only MaxWidth (truncates without wrapping) to prevent multi-line output.
+	if isSelected {
+		style := SelectionStyle(m.focused).
+			MaxWidth(m.width)
+		return style.Render(text)
+	}
+
 	style := lipgloss.NewStyle().
 		MaxWidth(m.width)
-	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
-	}
 	return style.Render(text)
 }
 
@@ -366,10 +359,12 @@ func (m IssueListModel) renderRunningChild(item issueNavItem, navIdx int, isSele
 	}
 	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), elapsed)
 
-	style := lipgloss.NewStyle().Width(maxWidth)
 	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
+		style := SelectionStyle(m.focused).Width(maxWidth)
+		return style.Render(text)
 	}
+
+	style := lipgloss.NewStyle().Width(maxWidth)
 	return style.Render(text)
 }
 
@@ -410,10 +405,12 @@ func (m IssueListModel) renderFinishedChild(item issueNavItem, navIdx int, isSel
 	}
 	text := fmt.Sprintf("%s%s%s%s", connector, displayName, strings.Repeat(" ", spacer), duration)
 
-	style := lipgloss.NewStyle().Width(maxWidth)
 	if isSelected {
-		style = style.Foreground(lipgloss.Color("6"))
+		style := SelectionStyle(m.focused).Width(maxWidth)
+		return style.Render(text)
 	}
+
+	style := lipgloss.NewStyle().Width(maxWidth)
 	return style.Render(text)
 }
 

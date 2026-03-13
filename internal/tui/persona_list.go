@@ -143,14 +143,12 @@ func (m PersonaListModel) View() string {
 		isSelected := i == m.cursor
 
 		name := truncateName(persona.Name, m.width-3)
+		text := "  " + name
 		if isSelected {
-			text := "▶ " + name
-			style := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")).
+			style := SelectionStyle(m.focused).
 				Width(m.width)
 			lines = append(lines, style.Render(text))
 		} else {
-			text := "  " + name
 			style := lipgloss.NewStyle().
 				Width(m.width)
 			lines = append(lines, style.Render(text))
