@@ -18,6 +18,7 @@ import (
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/relay"
@@ -245,12 +246,29 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	e.etaCalculator = NewETACalculator(e.store, p.Metadata.Name, stepIDs)
 
+	// Create pipeline context early so forge variables are available for preflight tool resolution
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+
+	// Inject forge variables for unified pipeline template resolution
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	InjectForgeVariables(pipelineContext, forgeInfo)
+
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
 		checker := preflight.NewChecker(p.Requires.Skills)
 		var tools []string
 		if len(p.Requires.Tools) > 0 {
-			tools = p.Requires.Tools
+			for _, tool := range p.Requires.Tools {
+				resolved := pipelineContext.ResolvePlaceholders(tool)
+				if resolved != "" {
+					tools = append(tools, resolved)
+				}
+			}
 		}
 		skillNames := p.Requires.SkillNames()
 		if len(tools) > 0 || len(skillNames) > 0 {
@@ -267,13 +285,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			}
 		}
 	}
-
-	pipelineName := p.Metadata.Name
-	pipelineID := e.runID
-	if pipelineID == "" {
-		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
-	}
-	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Start cancellation poller for cross-process cancel support.
 	// When another process (TUI, webui) writes a cancellation record to the DB,
@@ -1075,9 +1086,13 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	persona := execution.Manifest.GetPersona(step.Persona)
+	resolvedPersona := step.Persona
+	if execution.Context != nil {
+		resolvedPersona = execution.Context.ResolvePlaceholders(step.Persona)
+	}
+	persona := execution.Manifest.GetPersona(resolvedPersona)
 	if persona == nil {
-		return fmt.Errorf("persona %q not found in manifest", step.Persona)
+		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
 	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
@@ -1729,15 +1744,21 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 	prompt := step.Exec.Source
 
+	// Resolve source_path through template variables (e.g., {{ forge.prefix }})
+	sourcePath := step.Exec.SourcePath
+	if execution.Context != nil && sourcePath != "" {
+		sourcePath = execution.Context.ResolvePlaceholders(sourcePath)
+	}
+
 	// Load prompt from external file if source_path is set
-	if step.Exec.SourcePath != "" {
+	if sourcePath != "" {
 		if e.debug {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", step.Exec.SourcePath)
+			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", sourcePath)
 		}
-		data, err := os.ReadFile(step.Exec.SourcePath)
+		data, err := os.ReadFile(sourcePath)
 		if err != nil {
 			if e.debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", step.Exec.SourcePath, err)
+				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", sourcePath, err)
 			}
 		} else {
 			prompt = string(data)
