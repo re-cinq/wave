@@ -73,12 +73,21 @@ type Runtime struct {
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
 	DefaultTimeoutMin    int                    `yaml:"default_timeout_minutes,omitempty"`
 	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`
+	MaxConcurrency       int                    `yaml:"max_concurrency,omitempty"`
 	Relay                RelayConfig            `yaml:"relay,omitempty"`
 	Audit                AuditConfig            `yaml:"audit,omitempty"`
 	MetaPipeline         MetaConfig             `yaml:"meta_pipeline,omitempty"`
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+}
+
+// GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.
+func (r *Runtime) GetMaxConcurrency() int {
+	if r.MaxConcurrency > 0 {
+		return r.MaxConcurrency
+	}
+	return 10
 }
 
 // RuntimeArtifactsConfig holds global configuration for artifact handling.
