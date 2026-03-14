@@ -757,7 +757,7 @@ func writeTestManifest(t *testing.T, tmpDir string, globalSkills []string, perso
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
 	// Build personas YAML
-	personasYAML := ""
+	var personasYAML string
 	promptFiles := []string{"prompts/dev.txt"}
 	if len(personaSkills) > 0 {
 		personasYAML = "personas:\n"
