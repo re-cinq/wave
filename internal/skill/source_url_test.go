@@ -84,13 +84,15 @@ func TestURLAdapterPrefix(t *testing.T) {
 func TestURLAdapterTarGz(t *testing.T) {
 	archive := createTestTarGz(t, "tar-skill", "Skill from tar.gz")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/gzip")
-		w.Write(archive)
+		if _, err := w.Write(archive); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
@@ -111,13 +113,15 @@ func TestURLAdapterTarGz(t *testing.T) {
 func TestURLAdapterZip(t *testing.T) {
 	archive := createTestZip(t, "zip-skill", "Skill from zip")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/zip")
-		w.Write(archive)
+		if _, err := w.Write(archive); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.zip", store)
@@ -133,13 +137,15 @@ func TestURLAdapterZip(t *testing.T) {
 }
 
 func TestURLAdapterNonArchive(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte("<html>Not an archive</html>"))
+		if _, err := w.Write([]byte("<html>Not an archive</html>")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/page.html", store)
@@ -152,12 +158,12 @@ func TestURLAdapterNonArchive(t *testing.T) {
 }
 
 func TestURLAdapterHTTPError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
@@ -171,11 +177,12 @@ func TestURLAdapterHTTPError(t *testing.T) {
 
 func TestURLAdapterUnreachable(t *testing.T) {
 	// Use a closed server to get connection refused
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	client := server.Client()
 	serverURL := server.URL
 	server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: client}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), serverURL+"/skill.tar.gz", store)
@@ -193,15 +200,21 @@ func TestURLAdapterZipSlip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Write([]byte("malicious content"))
-	w.Close()
+	if _, err := f.Write([]byte("malicious content")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(buf.Bytes())
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	_, err = a.Install(context.Background(), server.URL+"/skill.zip", store)
@@ -216,12 +229,14 @@ func TestURLAdapterZipSlip(t *testing.T) {
 func TestURLAdapterTgzExtension(t *testing.T) {
 	archive := createTestTarGz(t, "tgz-skill", "Skill from tgz")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(archive)
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write(archive); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.tgz", store)
@@ -239,15 +254,23 @@ func TestExtractTarGzPathTraversal(t *testing.T) {
 	tw := tar.NewWriter(gw)
 
 	content := []byte("malicious")
-	tw.WriteHeader(&tar.Header{
+	if err := tw.WriteHeader(&tar.Header{
 		Name:     "../../../etc/passwd",
 		Size:     int64(len(content)),
 		Mode:     0644,
 		Typeflag: tar.TypeReg,
-	})
-	tw.Write(content)
-	tw.Close()
-	gw.Close()
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	destDir := t.TempDir()
 	err := extractTarGz(bytes.NewReader(buf.Bytes()), destDir)
@@ -260,12 +283,12 @@ func TestExtractTarGzPathTraversal(t *testing.T) {
 }
 
 func TestURLAdapterHTTPServer500(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
-	a := NewURLAdapter()
+	a := &URLAdapter{client: server.Client()}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
