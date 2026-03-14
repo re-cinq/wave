@@ -286,11 +286,6 @@ type SkillStore interface {
 	Read(name string) (interface{}, error)
 }
 
-// skillStoreAdapter adapts a SkillStore to the interface expected by skill.ValidateSkillRefs.
-type skillStoreAdapter struct {
-	store SkillStore
-}
-
 // LoadWithSkillStore loads a manifest and additionally validates all skill references
 // (global and persona scopes) against the provided skill store.
 func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
