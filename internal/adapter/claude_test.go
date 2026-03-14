@@ -2054,7 +2054,7 @@ func TestSkillSectionInClaudeMD(t *testing.T) {
 			t.Fatalf("missing sections: skill=%d contract=%d persona=%d", skillIdx, contractIdx, personaIdx)
 		}
 
-		if !(personaIdx < skillIdx && skillIdx < contractIdx) {
+		if personaIdx >= skillIdx || skillIdx >= contractIdx {
 			t.Errorf("wrong ordering: persona=%d < skill=%d < contract=%d", personaIdx, skillIdx, contractIdx)
 		}
 	})
