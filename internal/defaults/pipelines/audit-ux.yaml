@@ -1,0 +1,64 @@
+kind: WavePipeline
+metadata:
+  name: audit-ux
+  description: "Evaluate user experience across CLI, TUI, docs, or workflows"
+  release: true
+
+input:
+  source: cli
+  example: "audit the CLI onboarding flow for new users"
+  schema:
+    type: string
+    description: "UX area to audit: cli, tui, docs, onboarding, or empty for full audit"
+
+steps:
+  - id: audit
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a UX audit of: {{ input }}
+
+        ## Evaluation Criteria
+
+        1. **Discoverability**: Can users find features without reading docs?
+           Check help text, error messages, command suggestions.
+
+        2. **Error experience**: Are error messages actionable? Do they suggest
+           fixes? Check all error paths for user-friendly messages.
+
+        3. **Progressive disclosure**: Does the interface reveal complexity
+           gradually? Check default behaviors, optional flags, advanced modes.
+
+        4. **Consistency**: Are patterns uniform across commands? Check flag
+           names, output formats, exit codes.
+
+        5. **Feedback**: Does the system communicate progress? Check spinners,
+           status messages, completion indicators.
+
+        6. **Recovery**: Can users recover from mistakes? Check undo capabilities,
+           dry-run modes, confirmation prompts for destructive actions.
+
+        7. **Documentation alignment**: Does the actual behavior match what's
+           documented? Cross-reference docs/ with implementation.
+
+        ## For Each Finding
+
+        - Severity: critical (blocks usage), high (causes confusion),
+          medium (suboptimal), low (polish)
+        - Current behavior with reproduction steps
+        - Expected behavior
+        - Suggested fix with effort estimate
+    output_artifacts:
+      - name: ux-report
+        path: .wave/output/ux-audit-report.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/ux-audit-report.md

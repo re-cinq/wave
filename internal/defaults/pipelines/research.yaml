@@ -1,30 +1,34 @@
 kind: WavePipeline
 metadata:
   name: research
-  description: "Research an issue and post findings as a comment"
+  description: Research a GitHub issue and post findings as a comment
   release: true
+
+requires:
+  tools:
+    - gh
 
 input:
   source: cli
   example: "re-cinq/wave 42"
   schema:
     type: string
-    description: "Repository and issue number (e.g. 'owner/repo number')"
+    description: "GitHub repository and issue number (e.g. 'owner/repo number')"
 
 steps:
   - id: fetch-issue
-    persona: "{{ forge.prefix }}-analyst"
+    persona: github-analyst
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
-        Fetch the issue specified in the input: {{ input }}
+        Fetch the GitHub issue specified in the input: {{ input }}
 
         CRITICAL: If the input above is empty, blank, or missing, you MUST immediately fail.
         Write an error JSON to .wave/output/issue-content.json with issue_number: 0 and
-        title: "ERROR: No input provided — expected an issue URL or owner/repo number".
+        title: "ERROR: No input provided — expected a GitHub issue URL or owner/repo number".
         Do NOT guess, infer, or use any example. Stop here.
 
         Accepted input formats (parse the actual input, never fabricate values):
@@ -32,9 +36,9 @@ steps:
         - Short form: owner/repo 123
 
         Parse the input to extract the repository and issue number.
-        Use the {{ forge.cli_tool }} CLI to fetch the issue:
+        Use the gh CLI to fetch the issue:
 
-        {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        gh issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
@@ -65,7 +69,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the issue and extract research topics.
+        Analyze the GitHub issue and extract research topics.
 
         Identify:
         1. Key technical questions that need external research
@@ -162,7 +166,7 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the research findings into a coherent report for the issue.
+        Synthesize the research findings into a coherent report for the GitHub issue.
 
         Create a well-structured research report that includes:
 
@@ -187,7 +191,7 @@ steps:
            - Include URL, title, type, and reliability
 
         5. Pre-rendered Markdown:
-           - Generate complete markdown_content field ready for posting as a comment
+           - Generate complete markdown_content field ready for GitHub comment
            - Use proper headers, bullet points, and formatting
            - Include a header: "## Research Findings (Wave Pipeline)"
            - End with sources section
@@ -205,7 +209,7 @@ steps:
         on_failure: retry
 
   - id: post-comment
-    persona: "{{ forge.prefix }}-commenter"
+    persona: github-commenter
     dependencies: [synthesize-report]
     memory:
       inject_artifacts:
@@ -221,19 +225,19 @@ steps:
     exec:
       type: prompt
       source: |
-        Post the research report as a comment on the issue.
+        Post the research report as a comment on the GitHub issue.
 
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
-        3. Write the markdown content to a file, then use the CLI to post the comment:
+        3. Write the markdown content to a file, then use gh CLI to post the comment:
 
            # Write to file to avoid shell escaping issues with large markdown
            cat > /tmp/comment-body.md << 'COMMENT_EOF'
            <markdown_content>
            COMMENT_EOF
 
-           {{ forge.cli_tool }} issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
+           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
 
         4. Add a footer to the comment:
            ---
