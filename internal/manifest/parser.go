@@ -280,3 +280,44 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)
 }
+
+// SkillStore is a minimal interface for skill existence checks during manifest validation.
+type SkillStore interface {
+	Read(name string) (interface{}, error)
+}
+
+// skillStoreAdapter adapts a SkillStore to the interface expected by skill.ValidateSkillRefs.
+type skillStoreAdapter struct {
+	store SkillStore
+}
+
+// LoadWithSkillStore loads a manifest and additionally validates all skill references
+// (global and persona scopes) against the provided skill store.
+func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
+	m, err := Load(path)
+	if err != nil {
+		return nil, err
+	}
+	if store == nil {
+		return m, nil
+	}
+	// Validate skill references using the skill package's validation
+	// We import skill validation indirectly to avoid circular imports
+	var validationErrs []string
+	for _, name := range m.Skills {
+		if _, readErr := store.Read(name); readErr != nil {
+			validationErrs = append(validationErrs, fmt.Sprintf("global: skill %q not found in store", name))
+		}
+	}
+	for pName, persona := range m.Personas {
+		for _, name := range persona.Skills {
+			if _, readErr := store.Read(name); readErr != nil {
+				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: skill %q not found in store", pName, name))
+			}
+		}
+	}
+	if len(validationErrs) > 0 {
+		return nil, fmt.Errorf("skill validation failed: %s", strings.Join(validationErrs, "; "))
+	}
+	return m, nil
+}
