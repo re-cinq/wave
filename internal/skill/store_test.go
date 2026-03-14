@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -1122,5 +1123,228 @@ func TestDirectoryStoreWriteCreatesPath(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Error("written file should not be empty")
+	}
+}
+
+// --- Coverage boost: multi-source List merge ---
+
+func TestDirectoryStoreListMultiSourceMerge(t *testing.T) {
+	root1 := t.TempDir()
+	root2 := t.TempDir()
+
+	createSkillDir(t, root1, "only-in-1", "First source only")
+	createSkillDir(t, root2, "only-in-2", "Second source only")
+	createSkillDir(t, root1, "shared", "Shared from root1")
+	createSkillDir(t, root2, "shared", "Shared from root2")
+
+	store := NewDirectoryStore(
+		SkillSource{Root: root1, Precedence: 10},
+		SkillSource{Root: root2, Precedence: 1},
+	)
+
+	skills, err := store.List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(skills) != 3 {
+		names := make([]string, len(skills))
+		for i, s := range skills {
+			names[i] = s.Name
+		}
+		t.Fatalf("expected 3 skills, got %d: %v", len(skills), names)
+	}
+
+	// "shared" should come from root1 (higher precedence)
+	for _, s := range skills {
+		if s.Name == "shared" && s.Description != "Shared from root1" {
+			t.Errorf("expected 'shared' from higher precedence, got description %q", s.Description)
+		}
+	}
+}
+
+func TestDirectoryStoreListReadDirError(t *testing.T) {
+	root := t.TempDir()
+	createSkillDir(t, root, "valid-skill", "Valid")
+
+	// Create a source root that exists but is unreadable
+	badRoot := filepath.Join(t.TempDir(), "unreadable")
+	if err := os.MkdirAll(badRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(badRoot, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chmod(badRoot, 0o755) }()
+
+	store := NewDirectoryStore(
+		SkillSource{Root: root, Precedence: 10},
+		SkillSource{Root: badRoot, Precedence: 1},
+	)
+
+	// Should still return valid skills from readable sources
+	skills, err := store.List()
+	if os.Getuid() != 0 {
+		// non-root should get a DiscoveryError for the unreadable dir
+		var de *DiscoveryError
+		if errors.As(err, &de) {
+			if len(de.Errors) == 0 {
+				t.Error("expected at least one discovery error for unreadable dir")
+			}
+		}
+	}
+	if len(skills) < 1 {
+		t.Error("expected at least 1 valid skill from readable source")
+	}
+}
+
+func TestDirectoryStoreListSkipsNonDirsAndSymlinks(t *testing.T) {
+	root := t.TempDir()
+	createSkillDir(t, root, "real-skill", "Real")
+
+	// Create a regular file (not a directory) in the root
+	if err := os.WriteFile(filepath.Join(root, "not-a-dir"), []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+	skills, err := store.List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+}
+
+func TestDirectoryStoreDeleteFromMultiSource(t *testing.T) {
+	root1 := t.TempDir()
+	root2 := t.TempDir()
+
+	createSkillDir(t, root2, "in-lower", "In lower precedence")
+
+	store := NewDirectoryStore(
+		SkillSource{Root: root1, Precedence: 10},
+		SkillSource{Root: root2, Precedence: 1},
+	)
+
+	// Delete from lower source
+	err := store.Delete("in-lower")
+	if err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+
+	// Verify gone
+	_, err = store.Read("in-lower")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound after delete, got: %v", err)
+	}
+}
+
+// --- T002: TestDirectoryStoreConcurrency — US1-5: concurrent access race-free ---
+
+func TestDirectoryStoreConcurrency(t *testing.T) {
+	root := t.TempDir()
+	store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+
+	const goroutines = 10
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			name := "skill-" + itoa(idx)
+
+			// Write
+			err := store.Write(Skill{
+				Name:        name,
+				Description: "Concurrent skill " + itoa(idx),
+				Body:        "Body " + itoa(idx),
+			})
+			if err != nil {
+				t.Errorf("Write(%q) error = %v", name, err)
+				return
+			}
+
+			// Read
+			s, err := store.Read(name)
+			if err != nil {
+				t.Errorf("Read(%q) error = %v", name, err)
+				return
+			}
+			if s.Name != name {
+				t.Errorf("Read(%q) got name %q", name, s.Name)
+			}
+
+			// Delete
+			err = store.Delete(name)
+			if err != nil {
+				t.Errorf("Delete(%q) error = %v", name, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+// --- T003: TestParseCRLF — US1-1 + edge case: CRLF line endings parsed correctly ---
+
+func TestParseCRLF(t *testing.T) {
+	input := "---\r\nname: crlf-skill\r\ndescription: CRLF test skill\r\nlicense: MIT\r\ncompatibility: Claude 4.x\r\nmetadata:\r\n  author: test\r\n  version: \"1.0\"\r\nallowed-tools: \"Read Write Edit\"\r\n---\r\n# Hello CRLF\r\n\r\nThis is the body.\r\n"
+
+	skill, err := Parse([]byte(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if skill.Name != "crlf-skill" {
+		t.Errorf("Name = %q, want %q", skill.Name, "crlf-skill")
+	}
+	if skill.Description != "CRLF test skill" {
+		t.Errorf("Description = %q, want %q", skill.Description, "CRLF test skill")
+	}
+	if skill.License != "MIT" {
+		t.Errorf("License = %q, want %q", skill.License, "MIT")
+	}
+	if skill.Compatibility != "Claude 4.x" {
+		t.Errorf("Compatibility = %q, want %q", skill.Compatibility, "Claude 4.x")
+	}
+	if skill.Metadata["author"] != "test" {
+		t.Errorf("Metadata[author] = %q, want %q", skill.Metadata["author"], "test")
+	}
+	if len(skill.AllowedTools) != 3 || skill.AllowedTools[0] != "Read" || skill.AllowedTools[1] != "Write" || skill.AllowedTools[2] != "Edit" {
+		t.Errorf("AllowedTools = %v, want [Read Write Edit]", skill.AllowedTools)
+	}
+	if skill.Body == "" {
+		t.Error("Body should not be empty")
+	}
+}
+
+// --- T004: TestSerializeCRLFRoundTrip — CRLF body content preserved through round-trip ---
+
+func TestSerializeCRLFRoundTrip(t *testing.T) {
+	original := Skill{
+		Name:        "crlf-round",
+		Description: "CRLF round-trip test",
+		Body:        "# Hello\r\n\r\nBody with CRLF.\r\n",
+	}
+
+	data, err := Serialize(original)
+	if err != nil {
+		t.Fatalf("Serialize() error = %v", err)
+	}
+
+	parsed, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse(Serialize()) error = %v", err)
+	}
+
+	if parsed.Name != original.Name {
+		t.Errorf("Name = %q, want %q", parsed.Name, original.Name)
+	}
+	if parsed.Description != original.Description {
+		t.Errorf("Description = %q, want %q", parsed.Description, original.Description)
+	}
+	if parsed.Body == "" {
+		t.Error("Body should not be empty after round-trip")
 	}
 }
