@@ -78,15 +78,18 @@ func (r *SourceRouter) Parse(source string) (SourceAdapter, string, error) {
 		return nil, "", fmt.Errorf("empty source string")
 	}
 
-	// Check URL-scheme prefixes first
-	for _, scheme := range []string{"https://", "http://"} {
-		if strings.HasPrefix(source, scheme) {
-			adapter, ok := r.adapters["https://"]
-			if !ok {
-				return nil, "", fmt.Errorf("no adapter registered for URL sources")
-			}
-			return adapter, source, nil
+	// Reject plaintext HTTP — HTTPS only
+	if strings.HasPrefix(source, "http://") {
+		return nil, "", fmt.Errorf("only HTTPS URLs are allowed; got %q", source)
+	}
+
+	// Check HTTPS URL scheme prefix
+	if strings.HasPrefix(source, "https://") {
+		adapter, ok := r.adapters["https://"]
+		if !ok {
+			return nil, "", fmt.Errorf("no adapter registered for URL sources")
 		}
+		return adapter, source, nil
 	}
 
 	// Split on first colon for standard prefixes

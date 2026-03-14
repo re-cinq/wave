@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -92,7 +93,7 @@ func TestURLAdapterTarGz(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
@@ -121,7 +122,7 @@ func TestURLAdapterZip(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.zip", store)
@@ -145,7 +146,7 @@ func TestURLAdapterNonArchive(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/page.html", store)
@@ -163,7 +164,7 @@ func TestURLAdapterHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
@@ -214,7 +215,7 @@ func TestURLAdapterZipSlip(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	_, err = a.Install(context.Background(), server.URL+"/skill.zip", store)
@@ -236,7 +237,7 @@ func TestURLAdapterTgzExtension(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	result, err := a.Install(context.Background(), server.URL+"/skill.tgz", store)
@@ -288,7 +289,7 @@ func TestURLAdapterHTTPServer500(t *testing.T) {
 	}))
 	defer server.Close()
 
-	a := &URLAdapter{client: server.Client()}
+	a := &URLAdapter{client: server.Client(), skipSSRF: true}
 	store := newMemoryStore()
 
 	_, err := a.Install(context.Background(), server.URL+"/skill.tar.gz", store)
@@ -297,5 +298,59 @@ func TestURLAdapterHTTPServer500(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "500") {
 		t.Errorf("error should contain 500: %v", err)
+	}
+}
+
+func TestURLAdapterRejectsHTTP(t *testing.T) {
+	a := NewURLAdapter()
+	store := newMemoryStore()
+
+	_, err := a.Install(context.Background(), "http://example.com/skill.tar.gz", store)
+	if err == nil {
+		t.Fatal("expected error for HTTP URL")
+	}
+	if !strings.Contains(err.Error(), "only HTTPS") {
+		t.Errorf("error should mention HTTPS requirement: %v", err)
+	}
+}
+
+func TestValidateURLRejectsInternalIPs(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"loopback", "https://127.0.0.1/skill.tar.gz"},
+		{"loopback_other", "https://127.0.0.2/skill.tar.gz"},
+		{"metadata", "https://169.254.169.254/skill.tar.gz"},
+		{"private_10", "https://10.0.0.1/skill.tar.gz"},
+		{"private_172", "https://172.16.0.1/skill.tar.gz"},
+		{"private_192", "https://192.168.1.1/skill.tar.gz"},
+		{"ipv6_loopback", "https://[::1]/skill.tar.gz"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := url.Parse(tt.url)
+			if err != nil {
+				t.Fatalf("failed to parse URL: %v", err)
+			}
+			if err := validateURL(u); err == nil {
+				t.Errorf("expected error for internal IP %s", tt.url)
+			}
+		})
+	}
+}
+
+func TestValidateURLRejectsHTTPScheme(t *testing.T) {
+	u, err := url.Parse("http://example.com/skill.tar.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validateURL(u)
+	if err == nil {
+		t.Fatal("expected error for HTTP scheme")
+	}
+	if !strings.Contains(err.Error(), "only HTTPS") {
+		t.Errorf("error should mention HTTPS: %v", err)
 	}
 }

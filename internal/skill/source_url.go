@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,11 +19,14 @@ import (
 const (
 	maxExtractedFiles = 1000
 	maxExtractedSize  = 100 * 1024 * 1024 // 100 MB
+	maxResponseSize   = maxExtractedSize + 1 // 100 MB + 1 byte for overflow detection
 )
 
 // URLAdapter installs skills from remote archive URLs.
 type URLAdapter struct {
-	client *http.Client
+	client     *http.Client
+	// skipSSRF disables SSRF validation for testing with localhost servers.
+	skipSSRF   bool
 }
 
 // NewURLAdapter creates a URLAdapter with configured timeouts.
@@ -31,8 +36,67 @@ func NewURLAdapter() *URLAdapter {
 			Transport: &http.Transport{
 				ResponseHeaderTimeout: HTTPHeaderTimeout,
 			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 10 {
+					return fmt.Errorf("too many redirects")
+				}
+				return validateURL(req.URL)
+			},
 		},
 	}
+}
+
+// validateURL checks that a URL is safe to fetch (HTTPS only, no internal IPs).
+func validateURL(u *url.URL) error {
+	if u.Scheme != "https" {
+		return fmt.Errorf("only HTTPS URLs are allowed, got %s://", u.Scheme)
+	}
+
+	host := u.Hostname()
+
+	// Resolve the host to IP addresses and validate each one
+	ips, err := net.LookupHost(host)
+	if err != nil {
+		return fmt.Errorf("failed to resolve host %q: %w", host, err)
+	}
+
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return fmt.Errorf("invalid IP address %q for host %q", ipStr, host)
+		}
+		if isInternalIP(ip) {
+			return fmt.Errorf("URL resolves to internal/reserved IP %s (host %q)", ipStr, host)
+		}
+	}
+
+	return nil
+}
+
+// isInternalIP returns true if the IP is in a private, loopback, link-local,
+// or cloud metadata address range.
+func isInternalIP(ip net.IP) bool {
+	// Loopback (127.0.0.0/8, ::1)
+	if ip.IsLoopback() {
+		return true
+	}
+
+	// Link-local (169.254.0.0/16, fe80::/10) — includes cloud metadata 169.254.169.254
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+
+	// Private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7)
+	if ip.IsPrivate() {
+		return true
+	}
+
+	// Unspecified (0.0.0.0, ::)
+	if ip.IsUnspecified() {
+		return true
+	}
+
+	return false
 }
 
 // Prefix returns "https://".
@@ -40,8 +104,20 @@ func (a *URLAdapter) Prefix() string { return "https://" }
 
 // Install downloads an archive from the URL, extracts it, and installs discovered skills.
 func (a *URLAdapter) Install(ctx context.Context, ref string, store Store) (*InstallResult, error) {
-	if !strings.HasPrefix(ref, "https://") && !strings.HasPrefix(ref, "http://") {
-		return nil, fmt.Errorf("invalid URL: must start with https:// or http://")
+	// Require HTTPS — reject plaintext HTTP to prevent MITM attacks
+	if !strings.HasPrefix(ref, "https://") {
+		return nil, fmt.Errorf("only HTTPS URLs are allowed; got %q", ref)
+	}
+
+	// Parse and validate the URL against SSRF attacks
+	parsed, err := url.Parse(ref)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL %q: %w", ref, err)
+	}
+	if !a.skipSSRF {
+		if err := validateURL(parsed); err != nil {
+			return nil, fmt.Errorf("URL validation failed: %w", err)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, HTTPTimeout)
@@ -62,9 +138,14 @@ func (a *URLAdapter) Install(ctx context.Context, ref string, store Store) (*Ins
 		return nil, fmt.Errorf("HTTP %d downloading %s", resp.StatusCode, ref)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit response body to prevent memory exhaustion DoS
+	limitedReader := io.LimitReader(resp.Body, maxResponseSize)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if int64(len(body)) >= maxResponseSize {
+		return nil, fmt.Errorf("response body exceeds size limit (%d bytes)", maxExtractedSize)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "wave-skill-url-*")
@@ -153,9 +234,15 @@ func extractTarGz(r io.Reader, destDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
-			if _, err := io.Copy(f, tr); err != nil {
+			// Use LimitReader to enforce per-file size limit (hdr.Size may lie)
+			written, err := io.Copy(f, io.LimitReader(tr, maxExtractedSize+1))
+			if err != nil {
 				f.Close()
 				return fmt.Errorf("failed to write file: %w", err)
+			}
+			if written > maxExtractedSize {
+				f.Close()
+				return fmt.Errorf("file %s exceeds size limit (%d bytes)", hdr.Name, maxExtractedSize)
 			}
 			f.Close()
 		}
@@ -219,10 +306,17 @@ func extractZip(data []byte, destDir string) error {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
 
-		if _, err := io.Copy(outFile, rc); err != nil {
+		// Use LimitReader to enforce per-file size limit (declared size may lie)
+		written, err := io.Copy(outFile, io.LimitReader(rc, maxExtractedSize+1))
+		if err != nil {
 			outFile.Close()
 			rc.Close()
 			return fmt.Errorf("failed to write file: %w", err)
+		}
+		if written > maxExtractedSize {
+			outFile.Close()
+			rc.Close()
+			return fmt.Errorf("file %s exceeds size limit (%d bytes)", f.Name, maxExtractedSize)
 		}
 
 		outFile.Close()
