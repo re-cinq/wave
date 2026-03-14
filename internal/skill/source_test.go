@@ -142,10 +142,10 @@ func TestSourceRouterParse(t *testing.T) {
 			wantRef:    "https://example.com/skill.tar.gz",
 		},
 		{
-			name:       "http URL",
-			source:     "http://example.com/skill.tar.gz",
-			wantPrefix: "https://",
-			wantRef:    "http://example.com/skill.tar.gz",
+			name:        "http URL rejected",
+			source:      "http://example.com/skill.tar.gz",
+			wantErr:     true,
+			errContains: "only HTTPS",
 		},
 		{
 			name:        "unknown prefix",
