@@ -5,8 +5,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
@@ -279,4 +281,54 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)
+}
+
+// SkillStore is a minimal interface for skill existence checks during manifest validation.
+type SkillStore interface {
+	Read(name string) (interface{}, error)
+}
+
+// LoadWithSkillStore loads a manifest and additionally validates all skill references
+// (global and persona scopes) against the provided skill store.
+func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
+	m, err := Load(path)
+	if err != nil {
+		return nil, err
+	}
+	if store == nil {
+		return m, nil
+	}
+	// Validate skill name format and existence against the store
+	var validationErrs []string
+	for _, name := range m.Skills {
+		if err := skill.ValidateName(name); err != nil {
+			validationErrs = append(validationErrs, fmt.Sprintf("global: invalid skill name %q: %v", name, err))
+			continue
+		}
+		if _, readErr := store.Read(name); readErr != nil {
+			validationErrs = append(validationErrs, fmt.Sprintf("global: skill %q not found in store", name))
+		}
+	}
+	// Sort persona names for deterministic error ordering
+	personaNames := make([]string, 0, len(m.Personas))
+	for pName := range m.Personas {
+		personaNames = append(personaNames, pName)
+	}
+	sort.Strings(personaNames)
+	for _, pName := range personaNames {
+		persona := m.Personas[pName]
+		for _, name := range persona.Skills {
+			if err := skill.ValidateName(name); err != nil {
+				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: invalid skill name %q: %v", pName, name, err))
+				continue
+			}
+			if _, readErr := store.Read(name); readErr != nil {
+				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: skill %q not found in store", pName, name))
+			}
+		}
+	}
+	if len(validationErrs) > 0 {
+		return nil, fmt.Errorf("skill validation failed: %s", strings.Join(validationErrs, "; "))
+	}
+	return m, nil
 }
