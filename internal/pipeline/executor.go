@@ -2283,7 +2283,7 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			if info, err := os.Stat(registeredPath); err == nil {
 				size = info.Size()
 			}
-			e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, registeredPath, art.Type, size)
+			_ = e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, registeredPath, art.Type, size)
 		}
 	}
 }
