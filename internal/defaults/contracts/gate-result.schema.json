@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gate Result",
+  "description": "Gate step resolution metadata",
+  "type": "object",
+  "required": ["gate_type", "status", "resolved_at"],
+  "properties": {
+    "gate_type": {
+      "type": "string",
+      "enum": ["approval", "pr_merge", "ci_pass", "timer"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["approved", "rejected", "timed_out", "merged", "checks_passed", "checks_failed"]
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "User or system that resolved the gate"
+    },
+    "wait_duration_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Gate-type-specific metadata (PR number, check suite ID, etc.)"
+    }
+  }
+}

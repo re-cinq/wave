@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Iteration State",
+  "description": "Per-iteration status for resumability tracking",
+  "type": "object",
+  "required": ["step_id", "total_items", "items"],
+  "properties": {
+    "step_id": {
+      "type": "string"
+    },
+    "total_items": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completed_items": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "status"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "status": { "type": "string", "enum": ["pending", "running", "completed", "failed", "skipped"] },
+          "input": { "type": "string" },
+          "error": { "type": "string" },
+          "pipeline_run_id": { "type": "string" },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

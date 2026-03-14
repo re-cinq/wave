@@ -1,0 +1,28 @@
+kind: WavePipeline
+metadata:
+  name: audit-quality-loop
+  description: "Supervise work, loop improvements until quality passes"
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "last pipeline run"
+  schema:
+    type: string
+    description: "Work reference to evaluate"
+
+steps:
+  - id: quality-check
+    pipeline: ops-supervise
+    input: "{{input}}"
+    loop:
+      max_iterations: 3
+      until: "{{supervise.output.verdict}}"
+      steps:
+        - id: improve
+          pipeline: impl-improve
+          input: "{{input}}"
+        - id: recheck
+          pipeline: ops-supervise
+          input: "{{input}}"
