@@ -576,7 +576,11 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 				status = " [SKIP]"
 			}
 		}
-		fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)%s\n", i+1, step.ID, step.Persona, status)
+		if step.SubPipeline != "" {
+			fmt.Fprintf(os.Stderr, "  %d. %s (pipeline: %s)%s\n", i+1, step.ID, step.SubPipeline, status)
+		} else {
+			fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)%s\n", i+1, step.ID, step.Persona, status)
+		}
 
 		if len(step.Dependencies) > 0 {
 			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
