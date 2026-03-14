@@ -28,6 +28,12 @@ type StreamEvent struct {
 	Subtype   string // result event subtype: "success", "error_max_turns", "error_during_execution"
 }
 
+// SkillRef holds metadata about a resolved skill for CLAUDE.md injection.
+type SkillRef struct {
+	Name        string
+	Description string
+}
+
 type AdapterRunConfig struct {
 	Adapter       string
 	Persona       string
@@ -49,7 +55,8 @@ type AdapterRunConfig struct {
 	EnvPassthrough []string // Env var names to pass through from host
 
 	// Skill provisioning
-	SkillCommandsDir string // Source directory containing skill command files to copy into workspace
+	SkillCommandsDir string     // Source directory containing skill command files to copy into workspace
+	ResolvedSkills   []SkillRef // Skills resolved from hierarchical config, provisioned into workspace
 
 	// Maximum concurrent sub-agents the persona may spawn (0 or 1 = no hint).
 	MaxConcurrentAgents int

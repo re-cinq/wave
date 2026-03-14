@@ -1921,3 +1921,141 @@ func TestParseOutput_ReturnsTokensInOut(t *testing.T) {
 		t.Errorf("Tokens = %d, want %d", parsed.Tokens, 8000)
 	}
 }
+
+func TestBuildSkillSection(t *testing.T) {
+	t.Run("empty skills returns empty string", func(t *testing.T) {
+		result := buildSkillSection(nil)
+		if result != "" {
+			t.Errorf("expected empty string, got %q", result)
+		}
+		result = buildSkillSection([]SkillRef{})
+		if result != "" {
+			t.Errorf("expected empty string for empty slice, got %q", result)
+		}
+	})
+
+	t.Run("single skill", func(t *testing.T) {
+		result := buildSkillSection([]SkillRef{
+			{Name: "golang", Description: "Expert Go development"},
+		})
+		if !strings.Contains(result, "## Available Skills") {
+			t.Error("missing Available Skills heading")
+		}
+		if !strings.Contains(result, "**golang**") {
+			t.Error("missing skill name")
+		}
+		if !strings.Contains(result, "Expert Go development") {
+			t.Error("missing skill description")
+		}
+		if !strings.Contains(result, ".wave/skills/golang/SKILL.md") {
+			t.Error("missing SKILL.md path")
+		}
+	})
+
+	t.Run("multiple skills", func(t *testing.T) {
+		result := buildSkillSection([]SkillRef{
+			{Name: "golang", Description: "Go development"},
+			{Name: "cli", Description: "CLI patterns"},
+		})
+		if !strings.Contains(result, "**golang**") {
+			t.Error("missing first skill")
+		}
+		if !strings.Contains(result, "**cli**") {
+			t.Error("missing second skill")
+		}
+	})
+}
+
+func TestSkillSectionInClaudeMD(t *testing.T) {
+	setupBaseProtocol(t)
+	adapter := NewClaudeAdapter()
+	workspace := t.TempDir()
+
+	t.Run("skills appear in CLAUDE.md when ResolvedSkills non-empty", func(t *testing.T) {
+		cfg := AdapterRunConfig{
+			Persona:      "craftsman",
+			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
+			ResolvedSkills: []SkillRef{
+				{Name: "golang", Description: "Go development"},
+				{Name: "cli", Description: "CLI patterns"},
+			},
+		}
+
+		if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+			t.Fatalf("prepareWorkspace failed: %v", err)
+		}
+
+		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
+		data, err := os.ReadFile(claudeMDPath)
+		if err != nil {
+			t.Fatalf("failed to read CLAUDE.md: %v", err)
+		}
+		content := string(data)
+
+		if !strings.Contains(content, "## Available Skills") {
+			t.Error("CLAUDE.md missing Available Skills section")
+		}
+		if !strings.Contains(content, "**golang**") {
+			t.Error("CLAUDE.md missing golang skill")
+		}
+		if !strings.Contains(content, "**cli**") {
+			t.Error("CLAUDE.md missing cli skill")
+		}
+	})
+
+	t.Run("no skill section when ResolvedSkills empty", func(t *testing.T) {
+		cfg := AdapterRunConfig{
+			Persona:      "craftsman",
+			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
+		}
+
+		if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+			t.Fatalf("prepareWorkspace failed: %v", err)
+		}
+
+		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
+		data, err := os.ReadFile(claudeMDPath)
+		if err != nil {
+			t.Fatalf("failed to read CLAUDE.md: %v", err)
+		}
+		content := string(data)
+
+		if strings.Contains(content, "## Available Skills") {
+			t.Error("CLAUDE.md should not have Available Skills section when no skills")
+		}
+	})
+
+	t.Run("skill section appears between persona and contract", func(t *testing.T) {
+		cfg := AdapterRunConfig{
+			Persona:      "craftsman",
+			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
+			ContractPrompt: "## Contract\n\nYour output must be valid JSON.",
+			ResolvedSkills: []SkillRef{
+				{Name: "golang", Description: "Go development"},
+			},
+		}
+
+		if err := adapter.prepareWorkspace(workspace, cfg); err != nil {
+			t.Fatalf("prepareWorkspace failed: %v", err)
+		}
+
+		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
+		data, err := os.ReadFile(claudeMDPath)
+		if err != nil {
+			t.Fatalf("failed to read CLAUDE.md: %v", err)
+		}
+		content := string(data)
+
+		skillIdx := strings.Index(content, "## Available Skills")
+		contractIdx := strings.Index(content, "## Contract")
+		personaIdx := strings.Index(content, "# Craftsman")
+
+		if skillIdx == -1 || contractIdx == -1 || personaIdx == -1 {
+			t.Fatalf("missing sections: skill=%d contract=%d persona=%d", skillIdx, contractIdx, personaIdx)
+		}
+
+		if personaIdx >= skillIdx || skillIdx >= contractIdx {
+			t.Errorf("wrong ordering: persona=%d < skill=%d < contract=%d", personaIdx, skillIdx, contractIdx)
+		}
+	})
+}
