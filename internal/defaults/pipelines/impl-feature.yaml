@@ -105,7 +105,7 @@ steps:
           as: context
         - step: plan
           artifact: plan
-          as: plan
+          as: impl_plan
     workspace:
       type: worktree
       branch: "feat/{{ pipeline_id }}"

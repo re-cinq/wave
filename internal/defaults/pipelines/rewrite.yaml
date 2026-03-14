@@ -1,19 +1,23 @@
 kind: WavePipeline
 metadata:
   name: rewrite
-  description: "Analyze and rewrite poorly documented issues"
+  description: "Analyze and rewrite poorly documented GitHub issues"
   release: true
+
+requires:
+  tools:
+    - gh
 
 input:
   source: cli
   example: "re-cinq/wave 42 or https://github.com/re-cinq/wave/issues/42"
   schema:
     type: string
-    description: "Repo with optional issue number, or full issue URL"
+    description: "GitHub repo with optional issue number, or full issue URL"
 
 steps:
   - id: scan-and-score
-    persona: "{{ forge.prefix }}-analyst"
+    persona: github-analyst
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -27,9 +31,9 @@ steps:
         - If "owner/repo NUM" → extract <REPO> and <NUM>
         - If "owner/repo" alone → batch mode, use {{ input }} as <REPO>
 
-        Step 2: Fetch issues via CLI.
-        - Single: {{ forge.cli_tool }} issue view <NUM> --repo <REPO> --json number,title,body,labels,url
-        - Batch: {{ forge.cli_tool }} issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
+        Step 2: Fetch issues via gh CLI.
+        - Single: gh issue view <NUM> --repo <REPO> --json number,title,body,labels,url
+        - Batch: gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
         IMPORTANT: If a specific issue number was parsed from the input but the fetch
         fails (not found, permissions error), STOP. Output JSON with repository set
@@ -60,13 +64,13 @@ steps:
         progressive_validation: false
 
   - id: apply-enhancements
-    persona: "{{ forge.prefix }}-enhancer"
+    persona: github-enhancer
     dependencies: [scan-and-score]
     memory:
       inject_artifacts:
         - step: scan-and-score
           artifact: enhancement_plan
-          as: plan
+          as: impl_plan
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -76,14 +80,14 @@ steps:
         Read the "repository" field from the plan artifact to get <REPO>.
 
         For each issue in issues_to_enhance:
-        1. Apply title: {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --title 'suggested_title'
+        1. Apply title: gh issue edit <NUM> --repo <REPO> --title 'suggested_title'
         2. Apply body — write to temp file first, then apply:
            cat > /tmp/issue-body.md <<'BODY_EOF'
            <body_template content>
            BODY_EOF
-           {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --body-file /tmp/issue-body.md
-        3. Add labels: {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --add-label "label1,label2"
-        4. Capture URL: {{ forge.cli_tool }} issue view <NUM> --repo <REPO> --json url --jq .url
+           gh issue edit <NUM> --repo <REPO> --body-file /tmp/issue-body.md
+        3. Add labels: gh issue edit <NUM> --repo <REPO> --add-label "label1,label2"
+        4. Capture URL: gh issue view <NUM> --repo <REPO> --json url --jq .url
 
         Output JSON with enhanced_issues (issue_number, success, changes_made, url),
         total_attempted, total_successful.
