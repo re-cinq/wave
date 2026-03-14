@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+// SC-005 Traceability: ResolveSkills test cases map to acceptance criteria as follows:
+//   "all empty returns nil"                        → US3-4: all nil → nil
+//   "global only sorted"                           → US3-1: global-only resolved
+//   "all three scopes merged deduped sorted"       → US3-3: all scopes merged sorted
+//   "duplicate across scopes appears once"         → US3-2: global+persona deduplicated
+//   "empty slices not nil"                         → US3-5: all empty → nil
 func TestResolveSkills(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -15,11 +21,11 @@ func TestResolveSkills(t *testing.T) {
 		want     []string
 	}{
 		{
-			name: "all empty returns nil",
+			name: "all empty returns nil", // US3-4: all nil → nil
 			want: nil,
 		},
 		{
-			name:   "global only sorted",
+			name:   "global only sorted", // US3-1: global-only resolved
 			global: []string{"zeta", "alpha", "mu"},
 			want:   []string{"alpha", "mu", "zeta"},
 		},
@@ -34,14 +40,14 @@ func TestResolveSkills(t *testing.T) {
 			want:     []string{"alpha", "beta"},
 		},
 		{
-			name:     "all three scopes merged deduped sorted",
+			name:     "all three scopes merged deduped sorted", // US3-3: all scopes merged sorted
 			global:   []string{"alpha", "gamma"},
 			persona:  []string{"beta", "delta"},
 			pipeline: []string{"epsilon", "alpha"},
 			want:     []string{"alpha", "beta", "delta", "epsilon", "gamma"},
 		},
 		{
-			name:     "duplicate across scopes appears once",
+			name:     "duplicate across scopes appears once", // US3-2: global+persona deduplicated
 			global:   []string{"shared", "global-only"},
 			persona:  []string{"shared", "persona-only"},
 			pipeline: []string{"shared", "pipeline-only"},
@@ -67,7 +73,7 @@ func TestResolveSkills(t *testing.T) {
 			want:   []string{"only"},
 		},
 		{
-			name:     "empty slices not nil",
+			name:     "empty slices not nil", // US3-5: all empty → nil
 			global:   []string{},
 			persona:  []string{},
 			pipeline: []string{},

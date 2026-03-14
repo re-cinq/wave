@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -326,5 +327,104 @@ func TestDiscoverSkillFilesSkipsSymlinks(t *testing.T) {
 	// Should only find the real skill, not symlinked ones
 	if len(paths) != 1 {
 		t.Errorf("expected 1 path (real skill only), got %d: %v", len(paths), paths)
+	}
+}
+
+// --- T005: TestBMADAdapterTimeout — US2-3: timeout for BMAD adapter ---
+
+func TestBMADAdapterTimeout(t *testing.T) {
+	a := &BMADAdapter{
+		dep: CLIDependency{
+			Binary:       "npx",
+			Instructions: "npm i -g npx (comes with npm)",
+		},
+		lookPath: func(name string) (string, error) {
+			return "/usr/bin/npx", nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Millisecond)
+
+	store := newMemoryStore()
+	_, err := a.Install(ctx, "install", store)
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+// --- T006: TestOpenSpecAdapterTimeout — US2-3: timeout for OpenSpec adapter [P] ---
+
+func TestOpenSpecAdapterTimeout(t *testing.T) {
+	a := &OpenSpecAdapter{
+		dep: CLIDependency{
+			Binary:       "openspec",
+			Instructions: "npm i -g @openspec/cli",
+		},
+		lookPath: func(name string) (string, error) {
+			return "/usr/bin/openspec", nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Millisecond)
+
+	store := newMemoryStore()
+	_, err := a.Install(ctx, "init", store)
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+// --- T007: TestSpecKitAdapterTimeout — US2-3: timeout for SpecKit adapter [P] ---
+
+func TestSpecKitAdapterTimeout(t *testing.T) {
+	a := &SpecKitAdapter{
+		dep: CLIDependency{
+			Binary:       "specify",
+			Instructions: "npm i -g @speckit/cli",
+		},
+		lookPath: func(name string) (string, error) {
+			return "/usr/bin/specify", nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Millisecond)
+
+	store := newMemoryStore()
+	_, err := a.Install(ctx, "init", store)
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+// --- T008: TestCLIAdapterStderrCapture — US2-4: stderr in error diagnostics ---
+
+func TestCLIAdapterStderrCapture(t *testing.T) {
+	a := &TesslAdapter{
+		dep: CLIDependency{
+			Binary:       "tessl",
+			Instructions: "npm i -g @tessl/cli",
+		},
+		lookPath: func(name string) (string, error) {
+			return "/usr/bin/tessl", nil
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Millisecond)
+
+	store := newMemoryStore()
+	_, err := a.Install(ctx, "some-ref", store)
+	if err == nil {
+		t.Fatal("expected error for expired context")
+	}
+	if !strings.Contains(err.Error(), "stderr:") {
+		t.Errorf("expected error to include 'stderr:' substring, got: %v", err)
 	}
 }
