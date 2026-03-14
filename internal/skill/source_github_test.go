@@ -268,6 +268,22 @@ func TestParseGitHubRefRejectsInjection(t *testing.T) {
 	}
 }
 
+func TestGitHubAdapterTimeout(t *testing.T) {
+	a := &GitHubAdapter{
+		dep:      CLIDependency{Binary: "git", Instructions: "install git"},
+		lookPath: func(name string) (string, error) { return "/usr/bin/git", nil },
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // immediately cancel
+
+	store := newMemoryStore()
+	_, err := a.Install(ctx, "owner/repo", store)
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
 func TestGitHubAdapterSubpathTraversal(t *testing.T) {
 	a := &GitHubAdapter{
 		dep:      CLIDependency{Binary: "git", Instructions: "install git"},

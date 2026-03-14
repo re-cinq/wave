@@ -292,6 +292,30 @@ func TestNewDefaultRouterParsesAllPrefixes(t *testing.T) {
 	}
 }
 
+func TestDependencyErrorFormat(t *testing.T) {
+	e := &DependencyError{
+		Binary:       "tessl",
+		Instructions: "npm i -g @tessl/cli",
+	}
+	msg := e.Error()
+	if !strings.Contains(msg, "tessl") {
+		t.Errorf("expected binary name in error, got: %s", msg)
+	}
+	if !strings.Contains(msg, "npm i -g @tessl/cli") {
+		t.Errorf("expected install instructions in error, got: %s", msg)
+	}
+}
+
+func TestSourceRouterInstallParseError(t *testing.T) {
+	router := NewSourceRouter(&stubAdapter{prefix: "tessl"})
+
+	// Invalid source string with no prefix
+	_, err := router.Install(context.Background(), "no-prefix", newMemoryStore())
+	if err == nil {
+		t.Fatal("expected error for invalid source")
+	}
+}
+
 func TestUnknownPrefixListsRecognized(t *testing.T) {
 	router := NewSourceRouter(
 		&stubAdapter{prefix: "tessl"},
