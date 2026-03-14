@@ -276,6 +276,11 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		}
 	}
 
+	// 1.5. Available skills section (resolved from hierarchical config)
+	if skillSection := buildSkillSection(cfg.ResolvedSkills); skillSection != "" {
+		claudeMd.WriteString(skillSection)
+	}
+
 	// 2. Contract compliance section (auto-generated from step contract)
 	if cfg.ContractPrompt != "" {
 		claudeMd.WriteString("\n\n---\n\n")
@@ -774,6 +779,22 @@ func buildConcurrencyHint(n int) string {
 		n = maxConcurrentAgentsCap
 	}
 	return fmt.Sprintf("\n\n## Agent Concurrency\n\nYou may spawn up to %d concurrent sub-agents or workers for this step.\n", n)
+}
+
+// buildSkillSection generates a CLAUDE.md section listing available skills.
+// Returns "" when no skills are provided.
+func buildSkillSection(skills []SkillRef) string {
+	if len(skills) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n\n---\n\n## Available Skills\n\n")
+	b.WriteString("The following skills are available in this workspace:\n\n")
+	for _, s := range skills {
+		fmt.Fprintf(&b, "- **%s**: %s (see `.wave/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
+	}
+	return b.String()
 }
 
 // buildRestrictionSection generates the restriction directives for CLAUDE.md
