@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,11 +11,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/spf13/cobra"
 )
+
+// tesslTimeout is the maximum duration for tessl subprocess calls.
+const tesslTimeout = 30 * time.Second
 
 // CLI output structs for wave skills subcommands.
 
@@ -148,7 +153,7 @@ func runSkillsList(cmd *cobra.Command, format string) error {
 
 	switch format {
 	case "json":
-		return json.NewEncoder(os.Stdout).Encode(output)
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
 	default:
 		return renderSkillsListTable(cmd.OutOrStdout(), output)
 	}
@@ -246,7 +251,7 @@ func runSkillsInstall(cmd *cobra.Command, source, format string) error {
 
 	switch format {
 	case "json":
-		return json.NewEncoder(os.Stdout).Encode(output)
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
 	default:
 		f := display.NewFormatter()
 		for _, name := range names {
@@ -340,7 +345,7 @@ func runSkillsRemove(cmd *cobra.Command, name, format string, yes bool, in io.Re
 
 	switch format {
 	case "json":
-		return json.NewEncoder(os.Stdout).Encode(output)
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
 	default:
 		f := display.NewFormatter()
 		fmt.Fprintf(cmd.OutOrStdout(), "%s Removed skill %s\n", f.Success("✓"), f.Primary(name))
@@ -377,11 +382,19 @@ func runSkillsSearch(cmd *cobra.Command, query, format string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, tesslTimeout)
+	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "tessl", "search", query).Output()
+	var stderr bytes.Buffer
+	searchCmd := exec.CommandContext(ctx, "tessl", "search", query)
+	searchCmd.Stderr = &stderr
+	out, err := searchCmd.Output()
 	if err != nil {
-		return NewCLIError(CodeSkillSourceError,
-			fmt.Sprintf("tessl search failed: %v", err),
+		detail := fmt.Sprintf("tessl search failed: %v", err)
+		if stderr.Len() > 0 {
+			detail += ": " + strings.TrimSpace(stderr.String())
+		}
+		return NewCLIError(CodeSkillSourceError, detail,
 			"Check that tessl is configured correctly")
 	}
 
@@ -389,9 +402,10 @@ func runSkillsSearch(cmd *cobra.Command, query, format string) error {
 
 	switch format {
 	case "json":
-		return json.NewEncoder(os.Stdout).Encode(results)
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(results)
 	default:
-		return renderSearchTable(cmd.OutOrStdout(), results)
+		renderSearchTable(cmd.OutOrStdout(), results)
+		return nil
 	}
 }
 
@@ -422,10 +436,10 @@ func parseTesslSearchOutput(output string) []SkillSearchResult {
 	return results
 }
 
-func renderSearchTable(w io.Writer, results []SkillSearchResult) error {
+func renderSearchTable(w io.Writer, results []SkillSearchResult) {
 	if len(results) == 0 {
 		fmt.Fprintln(w, "No results found.")
-		return nil
+		return
 	}
 
 	f := display.NewFormatter()
@@ -443,7 +457,6 @@ func renderSearchTable(w io.Writer, results []SkillSearchResult) error {
 	}
 
 	fmt.Fprintln(w)
-	return nil
 }
 
 // --- Sync ---
@@ -475,11 +488,19 @@ func runSkillsSync(cmd *cobra.Command, format string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, tesslTimeout)
+	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "tessl", "install", "--project-dependencies").Output()
+	var stderr bytes.Buffer
+	syncCmd := exec.CommandContext(ctx, "tessl", "install", "--project-dependencies")
+	syncCmd.Stderr = &stderr
+	out, err := syncCmd.Output()
 	if err != nil {
-		return NewCLIError(CodeSkillSourceError,
-			fmt.Sprintf("tessl sync failed: %v", err),
+		detail := fmt.Sprintf("tessl sync failed: %v", err)
+		if stderr.Len() > 0 {
+			detail += ": " + strings.TrimSpace(stderr.String())
+		}
+		return NewCLIError(CodeSkillSourceError, detail,
 			"Check that tessl is configured and your project has skill dependencies declared")
 	}
 
@@ -498,7 +519,7 @@ func runSkillsSync(cmd *cobra.Command, format string) error {
 
 	switch format {
 	case "json":
-		return json.NewEncoder(os.Stdout).Encode(output)
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
 	default:
 		f := display.NewFormatter()
 		w := cmd.OutOrStdout()
