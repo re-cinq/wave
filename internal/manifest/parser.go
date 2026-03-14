@@ -5,8 +5,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
@@ -296,16 +298,30 @@ func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
 	if store == nil {
 		return m, nil
 	}
-	// Validate skill references using the skill package's validation
-	// We import skill validation indirectly to avoid circular imports
+	// Validate skill name format and existence against the store
 	var validationErrs []string
 	for _, name := range m.Skills {
+		if err := skill.ValidateName(name); err != nil {
+			validationErrs = append(validationErrs, fmt.Sprintf("global: invalid skill name %q: %v", name, err))
+			continue
+		}
 		if _, readErr := store.Read(name); readErr != nil {
 			validationErrs = append(validationErrs, fmt.Sprintf("global: skill %q not found in store", name))
 		}
 	}
-	for pName, persona := range m.Personas {
+	// Sort persona names for deterministic error ordering
+	personaNames := make([]string, 0, len(m.Personas))
+	for pName := range m.Personas {
+		personaNames = append(personaNames, pName)
+	}
+	sort.Strings(personaNames)
+	for _, pName := range personaNames {
+		persona := m.Personas[pName]
 		for _, name := range persona.Skills {
+			if err := skill.ValidateName(name); err != nil {
+				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: invalid skill name %q: %v", pName, name, err))
+				continue
+			}
 			if _, readErr := store.Read(name); readErr != nil {
 				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: skill %q not found in store", pName, name))
 			}
