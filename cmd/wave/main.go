@@ -152,6 +152,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewComposeCmd())
 	rootCmd.AddCommand(commands.NewDoctorCmd())
 	rootCmd.AddCommand(commands.NewSuggestCmd())
+	rootCmd.AddCommand(commands.NewSkillsCmd())
 }
 
 // shouldLaunchTUI determines whether to launch the Bubble Tea TUI.

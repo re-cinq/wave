@@ -10,20 +10,23 @@ import (
 
 // Error code constants for machine-parseable error classification.
 const (
-	CodePipelineNotFound   = "pipeline_not_found"
-	CodeManifestMissing    = "manifest_missing"
-	CodeManifestInvalid    = "manifest_invalid"
-	CodeContractViolation  = "contract_violation"
-	CodeAdapterNotFound    = "adapter_not_found"
-	CodeFlagConflict       = "flag_conflict"
-	CodeOnboardingRequired = "onboarding_required"
-	CodeStepNotFound       = "step_not_found"
-	CodeRunNotFound        = "run_not_found"
-	CodePreflightFailed    = "preflight_failed"
-	CodeTimeout            = "timeout"
-	CodeCancelled          = "cancelled"
-	CodeInternalError      = "internal_error"
-	CodeSecurityViolation  = "security_violation"
+	CodePipelineNotFound       = "pipeline_not_found"
+	CodeManifestMissing        = "manifest_missing"
+	CodeManifestInvalid        = "manifest_invalid"
+	CodeContractViolation      = "contract_violation"
+	CodeAdapterNotFound        = "adapter_not_found"
+	CodeFlagConflict           = "flag_conflict"
+	CodeOnboardingRequired     = "onboarding_required"
+	CodeStepNotFound           = "step_not_found"
+	CodeRunNotFound            = "run_not_found"
+	CodePreflightFailed        = "preflight_failed"
+	CodeTimeout                = "timeout"
+	CodeCancelled              = "cancelled"
+	CodeInternalError          = "internal_error"
+	CodeSecurityViolation      = "security_violation"
+	CodeSkillNotFound          = "skill_not_found"
+	CodeSkillSourceError       = "skill_source_error"
+	CodeSkillDependencyMissing = "skill_dependency_missing"
 )
 
 // CLIError represents a structured error for CLI output.
