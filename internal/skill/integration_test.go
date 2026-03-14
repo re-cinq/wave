@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,7 @@ func TestSkillLifecycle_FileAdapter(t *testing.T) {
 
 	// Install via FileAdapter
 	adapter := NewFileAdapter(srcDir)
-	result, err := adapter.Install(nil, skillDir, store)
+	result, err := adapter.Install(context.TODO(), skillDir, store)
 	if err != nil {
 		t.Fatalf("FileAdapter.Install() error = %v", err)
 	}
@@ -124,7 +125,7 @@ func TestSkillLifecycle_MultiSource(t *testing.T) {
 
 	// Install first skill (goes to highest precedence = storeDir1)
 	adapter1 := NewFileAdapter(srcDir1)
-	result1, err := adapter1.Install(nil, skill1Dir, store)
+	result1, err := adapter1.Install(context.TODO(), skill1Dir, store)
 	if err != nil {
 		t.Fatalf("FileAdapter.Install(skill-one) error = %v", err)
 	}
@@ -134,7 +135,7 @@ func TestSkillLifecycle_MultiSource(t *testing.T) {
 
 	// Install second skill
 	adapter2 := NewFileAdapter(srcDir2)
-	result2, err := adapter2.Install(nil, skill2Dir, store)
+	result2, err := adapter2.Install(context.TODO(), skill2Dir, store)
 	if err != nil {
 		t.Fatalf("FileAdapter.Install(skill-two) error = %v", err)
 	}
