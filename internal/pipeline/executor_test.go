@@ -16,6 +16,7 @@ import (
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -4791,4 +4792,134 @@ func TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled(t *testing.T) {
 			t.Fatal("rework-step should not have been scheduled in normal DAG pass")
 		}
 	}
+}
+
+// TestExecuteWithoutSkillsField (T019) verifies backward compatibility:
+// a pipeline with NO skills: fields at any scope (manifest, persona, pipeline)
+// produces the same behavior as before the skill hierarchy feature was added.
+func TestExecuteWithoutSkillsField(t *testing.T) {
+	t.Run("pipeline_with_only_requires_skills_unchanged", func(t *testing.T) {
+		// A pipeline using only the legacy requires.skills field (SkillConfig map)
+		// should execute without errors and without needing a skill store.
+		// The check command uses "true" which always succeeds on Linux.
+		collector := newTestEventCollector()
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		)
+
+		// No WithSkillStore option — executor has nil skillStore
+		executor := NewDefaultPipelineExecutor(mockAdapter,
+			WithEmitter(collector),
+		)
+
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+		// Manifest has no Skills field (zero value: nil slice)
+		assert.Nil(t, m.Skills, "createTestManifest should not set manifest-level Skills")
+		// Personas have no Skills field (zero value: nil slice)
+		for name, p := range m.Personas {
+			assert.Nil(t, p.Skills, "persona %q should not have Skills set", name)
+		}
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "legacy-requires-skills"},
+			Requires: &Requires{
+				Skills: map[string]skill.SkillConfig{
+					"test-skill": {Check: "true"},
+				},
+			},
+			// No Skills field set (zero value: nil slice)
+			Steps: []Step{
+				{ID: "step-1", Persona: "navigator", Exec: ExecConfig{Source: "do work"}},
+			},
+		}
+		// Pipeline.Skills is nil (no new-style skill references)
+		assert.Nil(t, p.Skills, "pipeline Skills should be nil for legacy-only usage")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test input")
+		assert.NoError(t, err, "pipeline with only requires.skills should execute without error")
+
+		// Verify the step ran
+		order := collector.GetStepExecutionOrder()
+		assert.Equal(t, []string{"step-1"}, order, "step-1 should have executed")
+	})
+
+	t.Run("validateSkillRefs_nil_store_returns_nil", func(t *testing.T) {
+		// When the executor has no skill store, validateSkillRefs should
+		// return nil regardless of what skill references exist.
+		mockAdapter := adapter.NewMockAdapter()
+		executor := NewDefaultPipelineExecutor(mockAdapter)
+
+		// Pipeline with skills references at all scopes
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "no-store-test"},
+			Skills:   []string{"skill-a", "skill-b"},
+			Steps:    []Step{{ID: "s1", Persona: "navigator", Exec: ExecConfig{Source: "x"}}},
+		}
+		m := &manifest.Manifest{
+			Skills: []string{"global-skill"},
+			Personas: map[string]manifest.Persona{
+				"navigator": {
+					Adapter: "claude",
+					Skills:  []string{"persona-skill"},
+				},
+			},
+		}
+
+		errs := executor.validateSkillRefs(p, m)
+		assert.Nil(t, errs, "validateSkillRefs should return nil when skill store is nil")
+	})
+
+	t.Run("no_skills_at_any_scope_executes_normally", func(t *testing.T) {
+		// A pipeline with zero skill references anywhere should behave
+		// identically to pre-skill-hierarchy pipelines.
+		collector := newTestEventCollector()
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"result": "ok"}`),
+			adapter.WithTokensUsed(200),
+		)
+		executor := NewDefaultPipelineExecutor(mockAdapter,
+			WithEmitter(collector),
+		)
+
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "no-skills-anywhere"},
+			// No Requires, no Skills
+			Steps: []Step{
+				{ID: "a", Persona: "navigator", Exec: ExecConfig{Source: "first"}},
+				{ID: "b", Persona: "craftsman", Dependencies: []string{"a"}, Exec: ExecConfig{Source: "second"}},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test")
+		require.NoError(t, err, "pipeline with no skills at any scope should succeed")
+
+		order := collector.GetStepExecutionOrder()
+		require.Len(t, order, 2, "both steps should execute")
+		assert.Equal(t, "a", order[0])
+		assert.Equal(t, "b", order[1])
+	})
+
+	t.Run("ResolveSkills_all_empty_returns_nil", func(t *testing.T) {
+		// ResolveSkills with nil/empty slices at all scopes should return
+		// nil, meaning no change to existing behavior.
+		result := skill.ResolveSkills(nil, nil, nil)
+		assert.Nil(t, result, "ResolveSkills(nil, nil, nil) should return nil")
+
+		result = skill.ResolveSkills([]string{}, []string{}, []string{})
+		assert.Nil(t, result, "ResolveSkills(empty, empty, empty) should return nil")
+
+		result = skill.ResolveSkills(nil, []string{}, nil)
+		assert.Nil(t, result, "ResolveSkills(nil, empty, nil) should return nil")
+	})
 }

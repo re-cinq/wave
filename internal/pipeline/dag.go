@@ -2,8 +2,10 @@ package pipeline
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"github.com/recinq/wave/internal/skill"
+	"gopkg.in/yaml.v3"
 )
 
 type PipelineLoader interface {
@@ -238,5 +240,14 @@ func (v *DAGValidator) TopologicalSort(p *Pipeline) ([]*Step, error) {
 	}
 
 	return result, nil
+}
+
+// ValidatePipelineSkills validates skill references declared in the pipeline's Skills field.
+// This is called from the executor when a skill store is available.
+func ValidatePipelineSkills(p *Pipeline, store skill.Store) []error {
+	if len(p.Skills) == 0 || store == nil {
+		return nil
+	}
+	return skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, store)
 }
 

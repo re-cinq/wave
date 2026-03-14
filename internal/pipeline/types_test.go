@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -628,4 +629,137 @@ func TestStep_Optional_YAMLParsing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPipelineSkillsYAMLRoundTrip(t *testing.T) {
+	t.Run("pipeline with skills", func(t *testing.T) {
+		yamlStr := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+skills:
+  - golang
+  - testing
+input:
+  source: cli
+steps:
+  - id: step1
+    persona: agent1
+    exec:
+      type: prompt
+      source: "do work"
+`
+		var p Pipeline
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		want := []string{"golang", "testing"}
+		if !reflect.DeepEqual(p.Skills, want) {
+			t.Errorf("Skills = %v, want %v", p.Skills, want)
+		}
+
+		// Round-trip
+		out, err := yaml.Marshal(&p)
+		if err != nil {
+			t.Fatalf("marshal error: %v", err)
+		}
+
+		var p2 Pipeline
+		if err := yaml.Unmarshal(out, &p2); err != nil {
+			t.Fatalf("round-trip unmarshal error: %v", err)
+		}
+
+		if !reflect.DeepEqual(p2.Skills, want) {
+			t.Errorf("round-trip Skills = %v, want %v", p2.Skills, want)
+		}
+	})
+
+	t.Run("pipeline skills does not affect requires.skills", func(t *testing.T) {
+		yamlStr := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+skills:
+  - golang
+  - testing
+requires:
+  skills:
+    speckit:
+      install: "wave skill install speckit"
+      check: "test -d .wave/skills/speckit"
+input:
+  source: cli
+steps:
+  - id: step1
+    persona: agent1
+    exec:
+      type: prompt
+      source: "do work"
+`
+		var p Pipeline
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		// Verify top-level Skills
+		wantSkills := []string{"golang", "testing"}
+		if !reflect.DeepEqual(p.Skills, wantSkills) {
+			t.Errorf("Skills = %v, want %v", p.Skills, wantSkills)
+		}
+
+		// Verify Requires.Skills map is independent
+		if p.Requires == nil {
+			t.Fatal("Requires should not be nil")
+		}
+		if len(p.Requires.Skills) != 1 {
+			t.Fatalf("Requires.Skills length = %d, want 1", len(p.Requires.Skills))
+		}
+		sc, ok := p.Requires.Skills["speckit"]
+		if !ok {
+			t.Fatal("Requires.Skills[\"speckit\"] not found")
+		}
+		if sc.Install != "wave skill install speckit" {
+			t.Errorf("Requires.Skills[\"speckit\"].Install = %q, want %q", sc.Install, "wave skill install speckit")
+		}
+
+		// Round-trip
+		out, err := yaml.Marshal(&p)
+		if err != nil {
+			t.Fatalf("marshal error: %v", err)
+		}
+
+		var p2 Pipeline
+		if err := yaml.Unmarshal(out, &p2); err != nil {
+			t.Fatalf("round-trip unmarshal error: %v", err)
+		}
+
+		if !reflect.DeepEqual(p2.Skills, wantSkills) {
+			t.Errorf("round-trip Skills = %v, want %v", p2.Skills, wantSkills)
+		}
+		if p2.Requires == nil || len(p2.Requires.Skills) != 1 {
+			t.Errorf("round-trip Requires.Skills was lost or changed")
+		}
+	})
+
+	t.Run("pipeline without skills key", func(t *testing.T) {
+		yamlStr := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+input:
+  source: cli
+steps:
+  - id: step1
+    persona: agent1
+    exec:
+      type: prompt
+      source: "do work"
+`
+		var p Pipeline
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		if p.Skills != nil {
+			t.Errorf("Skills should be nil when key is absent, got %v", p.Skills)
+		}
+	})
 }

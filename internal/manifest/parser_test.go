@@ -1,9 +1,14 @@
 package manifest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadValidManifest(t *testing.T) {
@@ -444,4 +449,472 @@ func TestManifestGetPersona(t *testing.T) {
 	if notFound != nil {
 		t.Error("Expected nil for nonexistent persona")
 	}
+}
+
+func TestManifestSkillsYAMLRoundTrip(t *testing.T) {
+	t.Run("skills populated", func(t *testing.T) {
+		yamlStr := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test
+skills:
+  - speckit
+  - golang
+runtime:
+  workspace_root: ./workspace
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		want := []string{"speckit", "golang"}
+		if !reflect.DeepEqual(m.Skills, want) {
+			t.Errorf("Skills = %v, want %v", m.Skills, want)
+		}
+
+		// Marshal back to YAML
+		out, err := yaml.Marshal(&m)
+		if err != nil {
+			t.Fatalf("marshal error: %v", err)
+		}
+
+		// Unmarshal again and verify identical
+		var m2 Manifest
+		if err := yaml.Unmarshal(out, &m2); err != nil {
+			t.Fatalf("round-trip unmarshal error: %v", err)
+		}
+
+		if !reflect.DeepEqual(m2.Skills, want) {
+			t.Errorf("round-trip Skills = %v, want %v", m2.Skills, want)
+		}
+	})
+
+	t.Run("no skills key", func(t *testing.T) {
+		yamlStr := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test
+runtime:
+  workspace_root: ./workspace
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		if m.Skills != nil {
+			t.Errorf("Skills should be nil when key is absent, got %v", m.Skills)
+		}
+	})
+}
+
+func TestPersonaSkillsYAMLRoundTrip(t *testing.T) {
+	t.Run("persona with skills", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/nav.md
+skills:
+  - speckit
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		want := []string{"speckit"}
+		if !reflect.DeepEqual(p.Skills, want) {
+			t.Errorf("Skills = %v, want %v", p.Skills, want)
+		}
+
+		// Round-trip
+		out, err := yaml.Marshal(&p)
+		if err != nil {
+			t.Fatalf("marshal error: %v", err)
+		}
+
+		var p2 Persona
+		if err := yaml.Unmarshal(out, &p2); err != nil {
+			t.Fatalf("round-trip unmarshal error: %v", err)
+		}
+
+		if !reflect.DeepEqual(p2.Skills, want) {
+			t.Errorf("round-trip Skills = %v, want %v", p2.Skills, want)
+		}
+	})
+
+	t.Run("persona with multiple skills", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/impl.md
+skills:
+  - speckit
+  - golang
+  - testing
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		want := []string{"speckit", "golang", "testing"}
+		if !reflect.DeepEqual(p.Skills, want) {
+			t.Errorf("Skills = %v, want %v", p.Skills, want)
+		}
+
+		// Round-trip
+		out, err := yaml.Marshal(&p)
+		if err != nil {
+			t.Fatalf("marshal error: %v", err)
+		}
+
+		var p2 Persona
+		if err := yaml.Unmarshal(out, &p2); err != nil {
+			t.Fatalf("round-trip unmarshal error: %v", err)
+		}
+
+		if !reflect.DeepEqual(p2.Skills, want) {
+			t.Errorf("round-trip Skills = %v, want %v", p2.Skills, want)
+		}
+	})
+
+	t.Run("persona without skills key", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/nav.md
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		if p.Skills != nil {
+			t.Errorf("Skills should be nil when key is absent, got %v", p.Skills)
+		}
+	})
+}
+
+func TestSkillsNullAndEmptyParsing(t *testing.T) {
+	t.Run("manifest skills null", func(t *testing.T) {
+		yamlStr := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test
+skills: null
+runtime:
+  workspace_root: ./workspace
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if m.Skills != nil {
+			t.Errorf("skills: null should parse to nil, got %v", m.Skills)
+		}
+	})
+
+	t.Run("manifest skills empty list", func(t *testing.T) {
+		yamlStr := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test
+skills: []
+runtime:
+  workspace_root: ./workspace
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if len(m.Skills) != 0 {
+			t.Errorf("skills: [] should parse to empty slice, got %v", m.Skills)
+		}
+	})
+
+	t.Run("manifest skills missing key", func(t *testing.T) {
+		yamlStr := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test
+runtime:
+  workspace_root: ./workspace
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if m.Skills != nil {
+			t.Errorf("missing skills key should parse to nil, got %v", m.Skills)
+		}
+	})
+
+	t.Run("persona skills null", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/nav.md
+skills: null
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if p.Skills != nil {
+			t.Errorf("skills: null should parse to nil, got %v", p.Skills)
+		}
+	})
+
+	t.Run("persona skills empty list", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/nav.md
+skills: []
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if len(p.Skills) != 0 {
+			t.Errorf("skills: [] should parse to empty slice, got %v", p.Skills)
+		}
+	})
+
+	t.Run("persona skills missing key", func(t *testing.T) {
+		yamlStr := `adapter: claude
+system_prompt_file: prompts/nav.md
+`
+		var p Persona
+		if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+		if p.Skills != nil {
+			t.Errorf("missing skills key should parse to nil, got %v", p.Skills)
+		}
+	})
+
+	// Pipeline scope: use a generic map to verify the "skills" YAML key behavior
+	// since the Pipeline struct lives in the pipeline package (tested separately there).
+	for _, tt := range []struct {
+		name      string
+		yamlStr   string
+		wantNil   bool
+		wantEmpty bool
+	}{
+		{
+			name: "pipeline skills null",
+			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\nskills: null\ninput:\n  source: cli\nsteps: []\n",
+			wantNil: true,
+		},
+		{
+			name: "pipeline skills empty list",
+			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\nskills: []\ninput:\n  source: cli\nsteps: []\n",
+			wantEmpty: true,
+		},
+		{
+			name: "pipeline skills missing key",
+			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\ninput:\n  source: cli\nsteps: []\n",
+			wantNil: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var raw map[string]interface{}
+			if err := yaml.Unmarshal([]byte(tt.yamlStr), &raw); err != nil {
+				t.Fatalf("unmarshal error: %v", err)
+			}
+
+			skills, exists := raw["skills"]
+			if tt.wantNil {
+				if exists && skills != nil {
+					t.Errorf("expected skills to be nil/absent, got %v", skills)
+				}
+			}
+			if tt.wantEmpty {
+				if !exists {
+					t.Fatal("expected skills key to exist")
+				}
+				sl, ok := skills.([]interface{})
+				if !ok {
+					t.Fatalf("expected skills to be a slice, got %T", skills)
+				}
+				if len(sl) != 0 {
+					t.Errorf("expected empty skills slice, got %v", sl)
+				}
+			}
+		})
+	}
+}
+
+// mockSkillStore implements manifest.SkillStore for testing.
+type mockSkillStore struct {
+	skills map[string]bool
+}
+
+func (m *mockSkillStore) Read(name string) (interface{}, error) {
+	if m.skills[name] {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+// writeTestManifest creates a valid manifest YAML in tmpDir with optional skills and persona skills.
+// Returns the path to the manifest file.
+func writeTestManifest(t *testing.T, tmpDir string, globalSkills []string, personaSkills map[string][]string) string {
+	t.Helper()
+	manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+	// Build personas YAML
+	var personasYAML string
+	promptFiles := []string{"prompts/dev.txt"}
+	if len(personaSkills) > 0 {
+		personasYAML = "personas:\n"
+		for pName, skills := range personaSkills {
+			promptFile := fmt.Sprintf("prompts/%s.txt", pName)
+			promptFiles = append(promptFiles, promptFile)
+			personasYAML += fmt.Sprintf("  %s:\n    adapter: claude\n    system_prompt_file: %s\n", pName, promptFile)
+			if len(skills) > 0 {
+				personasYAML += "    skills:\n"
+				for _, s := range skills {
+					personasYAML += fmt.Sprintf("      - %s\n", s)
+				}
+			}
+		}
+	} else {
+		personasYAML = "personas:\n  navigator:\n    adapter: claude\n    system_prompt_file: prompts/dev.txt\n"
+	}
+
+	// Build global skills YAML
+	skillsYAML := ""
+	if len(globalSkills) > 0 {
+		skillsYAML = "skills:\n"
+		for _, s := range globalSkills {
+			skillsYAML += fmt.Sprintf("  - %s\n", s)
+		}
+	}
+
+	content := fmt.Sprintf(`apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-skills
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+%s%sruntime:
+  workspace_root: ./workspace
+`, skillsYAML, personasYAML)
+
+	if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test manifest: %v", err)
+	}
+
+	// Create all prompt files
+	for _, f := range promptFiles {
+		p := filepath.Join(tmpDir, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatalf("Failed to create prompt dir: %v", err)
+		}
+		if err := os.WriteFile(p, []byte("# Persona prompt"), 0644); err != nil {
+			t.Fatalf("Failed to write prompt file: %v", err)
+		}
+	}
+
+	return manifestPath
+}
+
+func TestLoadWithSkillStore(t *testing.T) {
+	t.Run("valid global skills pass validation", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := writeTestManifest(t, tmpDir, []string{"speckit", "golang"}, nil)
+		store := &mockSkillStore{skills: map[string]bool{"speckit": true, "golang": true}}
+
+		m, err := LoadWithSkillStore(manifestPath, store)
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		if len(m.Skills) != 2 {
+			t.Errorf("expected 2 global skills, got %d", len(m.Skills))
+		}
+	})
+
+	t.Run("invalid global skill produces error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := writeTestManifest(t, tmpDir, []string{"nonexistent-skill"}, nil)
+		store := &mockSkillStore{skills: map[string]bool{"speckit": true}}
+
+		_, err := LoadWithSkillStore(manifestPath, store)
+		if err == nil {
+			t.Fatal("expected error for nonexistent skill, got nil")
+		}
+		if !strings.Contains(err.Error(), "nonexistent-skill") {
+			t.Errorf("expected error to mention skill name, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "global") {
+			t.Errorf("expected error to mention global scope, got: %v", err)
+		}
+	})
+
+	t.Run("persona with invalid skill produces scoped error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		personaSkills := map[string][]string{
+			"craftsman": {"missing-skill"},
+		}
+		manifestPath := writeTestManifest(t, tmpDir, nil, personaSkills)
+		store := &mockSkillStore{skills: map[string]bool{"speckit": true}}
+
+		_, err := LoadWithSkillStore(manifestPath, store)
+		if err == nil {
+			t.Fatal("expected error for missing persona skill, got nil")
+		}
+		if !strings.Contains(err.Error(), "persona:craftsman") {
+			t.Errorf("expected error to contain 'persona:craftsman' scope, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "missing-skill") {
+			t.Errorf("expected error to mention skill name, got: %v", err)
+		}
+	})
+
+	t.Run("errors aggregated across global and persona scopes", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		personaSkills := map[string][]string{
+			"navigator": {"persona-bad-skill"},
+		}
+		manifestPath := writeTestManifest(t, tmpDir, []string{"global-bad-skill"}, personaSkills)
+		store := &mockSkillStore{skills: map[string]bool{}}
+
+		_, err := LoadWithSkillStore(manifestPath, store)
+		if err == nil {
+			t.Fatal("expected error for multiple invalid skills, got nil")
+		}
+		errMsg := err.Error()
+		if !strings.Contains(errMsg, "global-bad-skill") {
+			t.Errorf("expected error to mention global-bad-skill, got: %v", err)
+		}
+		if !strings.Contains(errMsg, "persona-bad-skill") {
+			t.Errorf("expected error to mention persona-bad-skill, got: %v", err)
+		}
+	})
+
+	t.Run("absent skills field produces no error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := writeTestManifest(t, tmpDir, nil, nil)
+		store := &mockSkillStore{skills: map[string]bool{}}
+
+		m, err := LoadWithSkillStore(manifestPath, store)
+		if err != nil {
+			t.Fatalf("expected no error for absent skills, got: %v", err)
+		}
+		if m == nil {
+			t.Fatal("expected manifest to be returned")
+		}
+	})
+
+	t.Run("nil store skips existence checks", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := writeTestManifest(t, tmpDir, []string{"any-skill"}, nil)
+
+		m, err := LoadWithSkillStore(manifestPath, nil)
+		if err != nil {
+			t.Fatalf("expected no error with nil store, got: %v", err)
+		}
+		if m == nil {
+			t.Fatal("expected manifest to be returned")
+		}
+		if len(m.Skills) != 1 {
+			t.Errorf("expected 1 skill in manifest, got %d", len(m.Skills))
+		}
+	})
 }
