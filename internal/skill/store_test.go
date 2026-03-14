@@ -1314,8 +1314,9 @@ func TestParseCRLF(t *testing.T) {
 	if len(skill.AllowedTools) != 3 || skill.AllowedTools[0] != "Read" || skill.AllowedTools[1] != "Write" || skill.AllowedTools[2] != "Edit" {
 		t.Errorf("AllowedTools = %v, want [Read Write Edit]", skill.AllowedTools)
 	}
-	if skill.Body == "" {
-		t.Error("Body should not be empty")
+	wantBody := "# Hello CRLF\r\n\r\nThis is the body.\r\n"
+	if skill.Body != wantBody {
+		t.Errorf("Body = %q, want %q", skill.Body, wantBody)
 	}
 }
 
@@ -1344,7 +1345,7 @@ func TestSerializeCRLFRoundTrip(t *testing.T) {
 	if parsed.Description != original.Description {
 		t.Errorf("Description = %q, want %q", parsed.Description, original.Description)
 	}
-	if parsed.Body == "" {
-		t.Error("Body should not be empty after round-trip")
+	if parsed.Body != original.Body {
+		t.Errorf("Body = %q, want %q", parsed.Body, original.Body)
 	}
 }

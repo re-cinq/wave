@@ -7,11 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/tui"
 )
+
+// skillInstallTimeout is the maximum duration for skill installation operations.
+const skillInstallTimeout = 2 * time.Minute
 
 // lookPathFunc is a function type for looking up executables on PATH.
 // Defaults to exec.LookPath but can be overridden for testing.
@@ -84,11 +88,15 @@ func (s *SkillSelectionStep) Name() string { return "Skill Selection" }
 
 // Run executes the skill selection wizard step.
 func (s *SkillSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
-	// Non-interactive: skip skill selection entirely (FR-006)
+	// Non-interactive: preserve existing skills on reconfigure, empty otherwise (FR-006)
 	if !cfg.Interactive {
+		existing := []string{}
+		if cfg.Reconfigure && cfg.Existing != nil {
+			existing = cfg.Existing.Skills
+		}
 		return &StepResult{
 			Data: map[string]interface{}{
-				"skills": []string{},
+				"skills": existing,
 			},
 		}, nil
 	}
@@ -165,7 +173,8 @@ func (s *SkillSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 	// Create store and router for installation
 	store := skill.NewDirectoryStore(skill.SkillSource{Root: skillsDir, Precedence: 1})
 	router := skill.NewDefaultRouter(".")
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), skillInstallTimeout)
+	defer cancel()
 
 	var installedSkills []string
 
