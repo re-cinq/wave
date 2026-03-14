@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -30,6 +31,14 @@ func NewGitHubAdapter() *GitHubAdapter {
 // Prefix returns "github".
 func (a *GitHubAdapter) Prefix() string { return "github" }
 
+// GitHub naming patterns per GitHub's actual constraints.
+var (
+	// Owner: alphanumeric, hyphens allowed in the middle, no consecutive hyphens.
+	githubOwnerPattern = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$`)
+	// Repo: alphanumeric, hyphens, underscores, periods.
+	githubRepoPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+)
+
 // parseGitHubRef splits a reference into owner, repo, and optional subpath.
 // Format: owner/repo[/path/to/skill]
 func parseGitHubRef(ref string) (owner, repo, subpath string, err error) {
@@ -39,6 +48,12 @@ func parseGitHubRef(ref string) (owner, repo, subpath string, err error) {
 	}
 	owner = parts[0]
 	repo = parts[1]
+	if !githubOwnerPattern.MatchString(owner) {
+		return "", "", "", fmt.Errorf("invalid GitHub owner %q: must match [a-zA-Z0-9-]", owner)
+	}
+	if !githubRepoPattern.MatchString(repo) {
+		return "", "", "", fmt.Errorf("invalid GitHub repo %q: must match [a-zA-Z0-9._-]", repo)
+	}
 	if len(parts) == 3 {
 		subpath = parts[2]
 	}
@@ -78,8 +93,13 @@ func (a *GitHubAdapter) Install(ctx context.Context, ref string, store Store) (*
 
 	// If a subpath is specified, look for SKILL.md there
 	if subpath != "" {
+		// Validate subpath doesn't escape the clone directory
 		skillDir := filepath.Join(cloneDir, subpath)
-		skillFile := filepath.Join(skillDir, "SKILL.md")
+		cleanDir := filepath.Clean(skillDir)
+		if !strings.HasPrefix(cleanDir, filepath.Clean(cloneDir)+string(filepath.Separator)) {
+			return nil, fmt.Errorf("subpath %q escapes repository directory", subpath)
+		}
+		skillFile := filepath.Join(cleanDir, "SKILL.md")
 		if _, err := os.Stat(skillFile); err != nil {
 			return nil, fmt.Errorf("SKILL.md not found at %s in repository %s/%s", subpath, owner, repo)
 		}
