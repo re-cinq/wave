@@ -20,6 +20,7 @@ type Manifest struct {
 	Project     *Project            `yaml:"project,omitempty"`
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
+	Skills      []string            `yaml:"skills,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
 }
 
@@ -47,6 +48,7 @@ type Persona struct {
 	Permissions      Permissions     `yaml:"permissions,omitempty"`
 	Hooks            HookConfig      `yaml:"hooks,omitempty"`
 	Sandbox          *PersonaSandbox `yaml:"sandbox,omitempty"`
+	Skills           []string        `yaml:"skills,omitempty"`
 }
 
 type PersonaSandbox struct {
