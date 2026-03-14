@@ -222,6 +222,39 @@ func TestBuildManifest_PersonaFallbackModel(t *testing.T) {
 	assert.Equal(t, "sonnet", nav["model"], "should fall back to persona config model")
 }
 
+func TestBuildManifest_WithSkills(t *testing.T) {
+	cfg := WizardConfig{
+		Workspace: ".wave/workspaces",
+	}
+	result := &WizardResult{
+		Adapter: "claude",
+		Skills:  []string{"golang", "spec-kit", "agentic-coding"},
+	}
+
+	m := buildManifest(cfg, result)
+
+	skills, ok := m["skills"]
+	require.True(t, ok, "manifest must contain skills key when skills are present")
+	skillsList, ok := skills.([]string)
+	require.True(t, ok)
+	assert.Equal(t, []string{"golang", "spec-kit", "agentic-coding"}, skillsList)
+}
+
+func TestBuildManifest_NoSkills(t *testing.T) {
+	cfg := WizardConfig{
+		Workspace: ".wave/workspaces",
+	}
+	result := &WizardResult{
+		Adapter: "claude",
+		Skills:  []string{},
+	}
+
+	m := buildManifest(cfg, result)
+
+	_, ok := m["skills"]
+	assert.False(t, ok, "manifest should not have skills key when skills list is empty")
+}
+
 func TestBuildManifest_NoPersonas(t *testing.T) {
 	cfg := WizardConfig{
 		Workspace: ".wave/workspaces",
