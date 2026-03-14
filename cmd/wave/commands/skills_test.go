@@ -37,10 +37,10 @@ func (e *skillTestEnv) cleanup() {
 	}
 }
 
-// createSkill creates a SKILL.md in the given skills root directory.
-func (e *skillTestEnv) createSkill(root, name, description string) {
+// createSkill creates a SKILL.md in the .wave/skills directory.
+func (e *skillTestEnv) createSkill(name, description string) {
 	e.t.Helper()
-	dir := filepath.Join(root, name)
+	dir := filepath.Join(".wave/skills", name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		e.t.Fatal(err)
 	}
@@ -51,13 +51,10 @@ func (e *skillTestEnv) createSkill(root, name, description string) {
 }
 
 // executeSkillsCmd runs the skills command with given arguments and captures output.
+// Since all output (including JSON) goes through cmd.OutOrStdout(), we only need
+// to capture via cmd.SetOut.
 func executeSkillsCmd(args ...string) (stdout string, err error) {
 	cmd := NewSkillsCmd()
-
-	// We need to capture stdout because JSON output goes to os.Stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
 
 	var outBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
@@ -65,16 +62,7 @@ func executeSkillsCmd(args ...string) (stdout string, err error) {
 	cmd.SetArgs(args)
 
 	err = cmd.Execute()
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var pipeBuf bytes.Buffer
-	pipeBuf.ReadFrom(r)
-
-	// Combine cmd.SetOut output and os.Stdout output
-	combined := outBuf.String() + pipeBuf.String()
-	return combined, err
+	return outBuf.String(), err
 }
 
 // T019: TestSkillsListEmpty
@@ -83,7 +71,9 @@ func TestSkillsListEmpty(t *testing.T) {
 	defer env.cleanup()
 
 	// Create empty skill directories
-	os.MkdirAll(".wave/skills", 0755)
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := executeSkillsCmd("list")
 	if err != nil {
@@ -102,8 +92,8 @@ func TestSkillsListWithSkills(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
-	env.createSkill(".wave/skills", "python", "Python development skill")
+	env.createSkill("golang", "Go development skill")
+	env.createSkill("python", "Python development skill")
 
 	out, err := executeSkillsCmd("list")
 	if err != nil {
@@ -125,7 +115,7 @@ func TestSkillsListJSON(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	out, err := executeSkillsCmd("list", "--format", "json")
 	if err != nil {
@@ -153,12 +143,16 @@ func TestSkillsListDiscoveryWarnings(t *testing.T) {
 	defer env.cleanup()
 
 	// Create a valid skill
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	// Create a malformed SKILL.md (name mismatch triggers a DiscoveryError)
 	dir := filepath.Join(".wave/skills", "badskill")
-	os.MkdirAll(dir, 0755)
-	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: wrong-name\ndescription: bad\n---\n"), 0644)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: wrong-name\ndescription: bad\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := executeSkillsCmd("list", "--format", "json")
 	if err != nil {
@@ -185,7 +179,9 @@ func TestSkillsInstallUnknownPrefix(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	os.MkdirAll(".wave/skills", 0755)
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := executeSkillsCmd("install", "unknown:something")
 	if err == nil {
@@ -219,11 +215,17 @@ func TestSkillsInstallFileSource(t *testing.T) {
 
 	// Create the source skill directory
 	srcDir := filepath.Join(env.rootDir, "my-skill")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("---\nname: my-skill\ndescription: Test skill\n---\nBody.\n"), 0644)
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("---\nname: my-skill\ndescription: Test skill\n---\nBody.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create target store directory
-	os.MkdirAll(".wave/skills", 0755)
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := executeSkillsCmd("install", "file:"+srcDir)
 	if err != nil {
@@ -241,10 +243,16 @@ func TestSkillsInstallJSON(t *testing.T) {
 
 	// Create a source skill
 	srcDir := filepath.Join(env.rootDir, "test-skill")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("---\nname: test-skill\ndescription: Test\n---\nBody.\n"), 0644)
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte("---\nname: test-skill\ndescription: Test\n---\nBody.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	os.MkdirAll(".wave/skills", 0755)
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := executeSkillsCmd("install", "file:"+srcDir, "--format", "json")
 	if err != nil {
@@ -265,7 +273,7 @@ func TestSkillsRemoveExisting(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	out, err := executeSkillsCmd("remove", "golang", "--yes")
 	if err != nil {
@@ -286,7 +294,9 @@ func TestSkillsRemoveNonexistent(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	os.MkdirAll(".wave/skills", 0755)
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := executeSkillsCmd("remove", "nonexistent", "--yes")
 	if err == nil {
@@ -306,7 +316,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	// Test confirmation with "y"
 	cmd := NewSkillsCmd()
@@ -327,16 +337,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 		}
 	}
 
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
 	err := cmd.Execute()
-	w.Close()
-	os.Stdout = oldStdout
-	var pipeBuf bytes.Buffer
-	pipeBuf.ReadFrom(r)
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -346,7 +347,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 	}
 
 	// Test confirmation with "n" — recreate skill
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	cmd2 := NewSkillsCmd()
 	cmd2.SetOut(&bytes.Buffer{})
@@ -362,15 +363,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 		}
 	}
 
-	oldStdout = os.Stdout
-	r, w, _ = os.Pipe()
-	os.Stdout = w
 	err = cmd2.Execute()
-	w.Close()
-	os.Stdout = oldStdout
-	pipeBuf.Reset()
-	pipeBuf.ReadFrom(r)
-
 	if err != nil {
 		t.Fatalf("unexpected error on cancel: %v", err)
 	}
@@ -386,7 +379,7 @@ func TestSkillsRemoveYesFlag(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	out, err := executeSkillsCmd("remove", "golang", "--yes")
 	if err != nil {
@@ -402,7 +395,7 @@ func TestSkillsRemoveJSON(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	env.createSkill(".wave/skills", "golang", "Go development skill")
+	env.createSkill("golang", "Go development skill")
 
 	out, err := executeSkillsCmd("remove", "golang", "--yes", "--format", "json")
 	if err != nil {
@@ -424,9 +417,7 @@ func TestSkillsSearchMissingTessl(t *testing.T) {
 	defer env.cleanup()
 
 	// Ensure tessl is not in PATH by using empty PATH
-	origPath := os.Getenv("PATH")
-	os.Setenv("PATH", "")
-	defer os.Setenv("PATH", origPath)
+	t.Setenv("PATH", "")
 
 	_, err := executeSkillsCmd("search", "golang")
 	if err == nil {
@@ -446,9 +437,7 @@ func TestSkillsSyncMissingTessl(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	origPath := os.Getenv("PATH")
-	os.Setenv("PATH", "")
-	defer os.Setenv("PATH", origPath)
+	t.Setenv("PATH", "")
 
 	_, err := executeSkillsCmd("sync")
 	if err == nil {
