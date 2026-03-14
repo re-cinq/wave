@@ -42,10 +42,10 @@ func TestSkillSelectionStep_NonInteractiveWithExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Non-interactive always returns empty skills regardless of existing
+	// Non-interactive reconfigure preserves existing skills
 	skills, ok := result.Data["skills"].([]string)
 	require.True(t, ok)
-	assert.Empty(t, skills)
+	assert.Equal(t, []string{"golang", "spec-kit"}, skills)
 }
 
 func TestParseTesslOutput(t *testing.T) {
@@ -248,7 +248,7 @@ func TestSkillSelectionStep_ReconfigureShowsExisting(t *testing.T) {
 
 	skills, ok := result.Data["skills"].([]string)
 	require.True(t, ok)
-	assert.Empty(t, skills, "non-interactive reconfigure returns empty skills")
+	assert.Equal(t, []string{"golang", "spec-kit"}, skills, "non-interactive reconfigure preserves existing skills")
 }
 
 func TestSkillSelectionStep_MissingCLI(t *testing.T) {
