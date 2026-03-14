@@ -915,6 +915,10 @@ func ValidatePipelineYAML(data []byte) (*Pipeline, error) {
 		if step.ID == "" {
 			return nil, fmt.Errorf("step[%d] missing required field: id", i)
 		}
+		// Composition steps use pipeline: instead of persona: + exec:
+		if step.IsCompositionStep() {
+			continue
+		}
 		if step.Persona == "" {
 			return nil, fmt.Errorf("step[%d] (%s) missing required field: persona", i, step.ID)
 		}
