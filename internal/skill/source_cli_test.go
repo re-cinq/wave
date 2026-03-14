@@ -297,3 +297,34 @@ func TestTesslAdapterTimeout(t *testing.T) {
 		t.Fatal("expected error for cancelled context")
 	}
 }
+
+func TestDiscoverSkillFilesSkipsSymlinks(t *testing.T) {
+	root := t.TempDir()
+
+	// Create a real SKILL.md
+	makeTestSkillDir(t, root, "real-skill", "Real skill")
+
+	// Create a symlink pointing outside the directory
+	outsideDir := t.TempDir()
+	makeTestSkillDir(t, outsideDir, "outside-skill", "Outside skill")
+	if err := os.Symlink(outsideDir, filepath.Join(root, "symlinked-dir")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a symlink file pointing to a SKILL.md outside
+	outsideSkill := filepath.Join(outsideDir, "outside-skill", "SKILL.md")
+	symlinkSkill := filepath.Join(root, "SKILL.md")
+	if err := os.Symlink(outsideSkill, symlinkSkill); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, err := discoverSkillFiles(root)
+	if err != nil {
+		t.Fatalf("discoverSkillFiles() error = %v", err)
+	}
+
+	// Should only find the real skill, not symlinked ones
+	if len(paths) != 1 {
+		t.Errorf("expected 1 path (real skill only), got %d: %v", len(paths), paths)
+	}
+}

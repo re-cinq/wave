@@ -28,11 +28,23 @@ func checkDependency(dep CLIDependency, lookPath lookPathFunc) error {
 
 // discoverSkillFiles walks a directory tree finding all SKILL.md files.
 // Returns absolute paths to each discovered SKILL.md.
+// Symlinks are skipped to prevent directory escape attacks.
 func discoverSkillFiles(dir string) ([]string, error) {
 	var paths []string
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		// Use Lstat to detect symlinks — skip them to prevent escape attacks
+		linfo, lerr := os.Lstat(path)
+		if lerr != nil {
+			return lerr
+		}
+		if linfo.Mode()&os.ModeSymlink != 0 {
+			if linfo.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			abs, err := filepath.Abs(path)
