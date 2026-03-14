@@ -79,6 +79,8 @@ type DefaultPipelineExecutor struct {
 	preserveWorkspace bool
 	// Step filter for selective step execution (--steps / --exclude)
 	stepFilter *StepFilter
+	// Skill store for DirectoryStore-based skill provisioning
+	skillStore skill.Store
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -135,6 +137,11 @@ func WithPreserveWorkspace(preserve bool) ExecutorOption {
 // WithStepFilter sets the step filter for selective step execution.
 func WithStepFilter(f *StepFilter) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
+}
+
+// WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
+func WithSkillStore(s skill.Store) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -221,6 +228,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
+	}
+
+	// Validate skill references at manifest and pipeline scopes
+	if errs := e.validateSkillRefs(p, m); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return fmt.Errorf("skill validation failed:\n  %s", strings.Join(msgs, "\n  "))
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
@@ -1189,13 +1205,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		envPassthrough = execution.Manifest.Runtime.Sandbox.EnvPassthrough
 	}
 
-	// Resolve skill commands directory for provisioning
+	// Resolve skills from all three scopes: global, persona, pipeline
+	// Pipeline scope includes both pipeline.Skills and requires.skills keys
+	var pipelineSkills []string
+	pipelineSkills = append(pipelineSkills, execution.Pipeline.Skills...)
+	if execution.Pipeline.Requires != nil {
+		pipelineSkills = append(pipelineSkills, execution.Pipeline.Requires.SkillNames()...)
+	}
+	resolvedSkills := skill.ResolveSkills(execution.Manifest.Skills, persona.Skills, pipelineSkills)
+
+	// Provision skill commands from requires.skills (SkillConfig-backed skills)
 	var skillCommandsDir string
 	if execution.Pipeline.Requires != nil && len(execution.Pipeline.Requires.Skills) > 0 {
 		skillNames := execution.Pipeline.Requires.SkillNames()
 		provisioner := skill.NewProvisioner(execution.Pipeline.Requires.Skills, "")
 		commands, _ := provisioner.DiscoverCommands(skillNames)
-		// If we found any commands, provision them into a temp dir that the adapter can use
 		if len(commands) > 0 {
 			tmpDir := filepath.Join(workspacePath, ".wave-skill-commands")
 			if err := provisioner.Provision(tmpDir, skillNames); err != nil {
@@ -1208,6 +1232,53 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				})
 			} else {
 				skillCommandsDir = filepath.Join(tmpDir, ".claude", "commands")
+			}
+		}
+	}
+
+	// Provision DirectoryStore skills (name-only references not in requires.skills)
+	if e.skillStore != nil && len(resolvedSkills) > 0 {
+		requiresSkills := make(map[string]bool)
+		if execution.Pipeline.Requires != nil {
+			for name := range execution.Pipeline.Requires.Skills {
+				requiresSkills[name] = true
+			}
+		}
+		for _, name := range resolvedSkills {
+			if requiresSkills[name] {
+				continue // Already provisioned via SkillConfig
+			}
+			s, err := e.skillStore.Read(name)
+			if err != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "warning",
+					Message:    fmt.Sprintf("skill %q store read failed: %v", name, err),
+				})
+				continue
+			}
+			// Write SKILL.md content into workspace
+			skillDir := filepath.Join(workspacePath, ".wave", "skills", name)
+			if err := os.MkdirAll(skillDir, 0o755); err != nil {
+				continue
+			}
+			if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(s.Body), 0o644); err != nil {
+				continue
+			}
+			// Copy resource files
+			for _, rp := range s.ResourcePaths {
+				srcPath := filepath.Join(s.SourcePath, rp)
+				data, err := os.ReadFile(srcPath)
+				if err != nil {
+					continue
+				}
+				dstPath := filepath.Join(skillDir, rp)
+				if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+					continue
+				}
+				_ = os.WriteFile(dstPath, data, 0o644)
 			}
 		}
 	}
@@ -2166,6 +2237,30 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, registeredPath, art.Type, size)
 		}
 	}
+}
+
+// validateSkillRefs validates skill references at manifest (global + persona)
+// and pipeline scopes against the skill store. Returns nil if no store is set.
+func (e *DefaultPipelineExecutor) validateSkillRefs(p *Pipeline, m *manifest.Manifest) []error {
+	if e.skillStore == nil {
+		return nil
+	}
+
+	// Validate manifest-level skills (global + persona scopes)
+	var personas []skill.PersonaSkills
+	for name, persona := range m.Personas {
+		if len(persona.Skills) > 0 {
+			personas = append(personas, skill.PersonaSkills{Name: name, Skills: persona.Skills})
+		}
+	}
+	errs := skill.ValidateManifestSkills(m.Skills, personas, e.skillStore)
+
+	// Validate pipeline-level skills
+	if len(p.Skills) > 0 {
+		errs = append(errs, skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, e.skillStore)...)
+	}
+
+	return errs
 }
 
 func (e *DefaultPipelineExecutor) emit(ev event.Event) {

@@ -26,6 +26,7 @@ type Pipeline struct {
 	Steps           []Step                       `yaml:"steps"`
 	PipelineOutputs map[string]PipelineOutput    `yaml:"pipeline_outputs,omitempty"` // Named output aliases
 	ChatContext     *ChatContextConfig           `yaml:"chat_context,omitempty"`     // Chat session context injection
+	Skills          []string                     `yaml:"skills,omitempty"`           // Declarative skill references
 }
 
 // ChatContextConfig configures what context to inject into post-pipeline chat sessions.
