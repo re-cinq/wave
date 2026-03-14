@@ -238,12 +238,15 @@ func validatePipeline(pipelineName string, m *manifest.Manifest) error {
 		}
 		stepIDs[stepID] = true
 
-		persona, ok := step["persona"].(string)
-		if !ok || persona == "" {
-			return fmt.Errorf("step[%d].persona is required", i)
+		// Composition steps use `pipeline:` instead of `persona:`
+		_, hasSubPipeline := step["pipeline"].(string)
+
+		persona, hasPersona := step["persona"].(string)
+		if !hasSubPipeline && (!hasPersona || persona == "") {
+			return fmt.Errorf("step[%d].persona is required (or use pipeline: for composition steps)", i)
 		}
 
-		if m.GetPersona(persona) == nil {
+		if hasPersona && persona != "" && m.GetPersona(persona) == nil {
 			return fmt.Errorf("step[%d].persona '%s' not found in manifest", i, persona)
 		}
 

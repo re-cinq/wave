@@ -645,6 +645,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeMatrixStep(ctx, execution, step)
 	}
 
+	// Composition step: delegate to sub-pipeline execution
+	if step.IsCompositionStep() {
+		return e.executeCompositionStep(ctx, execution, step)
+	}
+
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
 	var lastErr error
@@ -2901,6 +2906,100 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 			})
 		}
 	}
+}
+
+// executeCompositionStep handles steps that reference sub-pipelines (via the
+// `pipeline:` field) rather than executing a persona directly. It loads the
+// referenced pipeline YAML, resolves the step's input template, and delegates
+// execution to a fresh DefaultPipelineExecutor instance.
+func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	// Resolve the input for the sub-pipeline
+	input := execution.Input
+	if step.SubInput != "" && execution.Context != nil {
+		resolved := execution.Context.ResolvePlaceholders(step.SubInput)
+		if resolved != "" {
+			input = resolved
+		}
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("composition: loading sub-pipeline %q", step.SubPipeline),
+	})
+
+	// Load the sub-pipeline from disk
+	loader := &YAMLPipelineLoader{}
+	subPipelinePath := filepath.Join(".wave", "pipelines", step.SubPipeline+".yaml")
+	subPipeline, err := loader.Load(subPipelinePath)
+	if err != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return fmt.Errorf("failed to load sub-pipeline %q: %w", step.SubPipeline, err)
+	}
+
+	// Build executor options for the child pipeline, inheriting configuration
+	// from the parent but generating a fresh run ID.
+	childOpts := []ExecutorOption{
+		WithDebug(e.debug),
+	}
+	if e.emitter != nil {
+		childOpts = append(childOpts, WithEmitter(e.emitter))
+	}
+	if e.store != nil {
+		childOpts = append(childOpts, WithStateStore(e.store))
+	}
+	if e.modelOverride != "" {
+		childOpts = append(childOpts, WithModelOverride(e.modelOverride))
+	}
+	if e.stepTimeoutOverride > 0 {
+		childOpts = append(childOpts, WithStepTimeout(e.stepTimeoutOverride))
+	}
+
+	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", step.SubPipeline),
+	})
+
+	if err := childExecutor.Execute(ctx, subPipeline, execution.Manifest, input); err != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return fmt.Errorf("sub-pipeline %q failed: %w", step.SubPipeline, err)
+	}
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("composition: sub-pipeline %q completed", step.SubPipeline),
+	})
+
+	return nil
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
