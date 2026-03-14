@@ -65,14 +65,17 @@ Body content here.
 	}
 }
 
-func TestProvisionFromStore_MissingSkillError(t *testing.T) {
+func TestProvisionFromStore_MissingSkillSkipsWithWarning(t *testing.T) {
 	storeDir := t.TempDir()
 	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
 	workspace := t.TempDir()
 
-	_, err := ProvisionFromStore(store, workspace, []string{"nonexistent"})
-	if err == nil {
-		t.Fatal("expected error for missing skill")
+	infos, err := ProvisionFromStore(store, workspace, []string{"nonexistent"})
+	if err != nil {
+		t.Fatalf("expected no error for missing skill (should warn and skip), got: %v", err)
+	}
+	if len(infos) != 0 {
+		t.Errorf("expected empty infos for missing skill, got %d", len(infos))
 	}
 }
 

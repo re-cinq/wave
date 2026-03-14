@@ -1,7 +1,9 @@
 package skill
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +31,10 @@ func ProvisionFromStore(store Store, workspacePath string, skillNames []string) 
 	for _, name := range skillNames {
 		s, err := store.Read(name)
 		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				log.Printf("[WARN] skill %q not found in store, skipping", name)
+				continue
+			}
 			return nil, fmt.Errorf("skill %q: %w", name, err)
 		}
 

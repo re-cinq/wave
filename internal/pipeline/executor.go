@@ -221,6 +221,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		deliverableTracker:     deliverable.NewTracker(""),
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
+		skillStore:             e.skillStore,
 	}
 }
 
