@@ -4923,3 +4923,85 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		assert.Nil(t, result, "ResolveSkills(nil, empty, nil) should return nil")
 	})
 }
+
+// TestSkillProvisioningIntegration verifies the executor correctly provisions
+// DirectoryStore skills and passes skill metadata to the adapter config.
+func TestSkillProvisioningIntegration(t *testing.T) {
+	t.Run("executor_passes_resolved_skills_to_adapter_config", func(t *testing.T) {
+		// Create a skill store with a test skill
+		storeDir := t.TempDir()
+		skillSrc := filepath.Join(storeDir, "test-skill")
+		require.NoError(t, os.MkdirAll(skillSrc, 0o755))
+
+		skillMD := "---\nname: test-skill\ndescription: A test skill\n---\n# Test Skill\n\nBody.\n"
+		require.NoError(t, os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644))
+
+		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
+
+		capturingAdapter := &configCapturingAdapter{
+			MockAdapter: adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(100),
+			),
+		}
+
+		executor := NewDefaultPipelineExecutor(capturingAdapter,
+			WithSkillStore(store),
+		)
+
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+		m.Skills = []string{"test-skill"} // Global skill reference
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "skill-provision-test"},
+			Steps: []Step{
+				{ID: "step-1", Persona: "navigator", Exec: ExecConfig{Source: "do work"}},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test input")
+		require.NoError(t, err)
+
+		cfg := capturingAdapter.getLastConfig()
+		require.Len(t, cfg.ResolvedSkills, 1, "should have 1 resolved skill")
+		assert.Equal(t, "test-skill", cfg.ResolvedSkills[0].Name)
+		assert.Equal(t, "A test skill", cfg.ResolvedSkills[0].Description)
+	})
+
+	t.Run("executor_returns_error_for_missing_store_skill", func(t *testing.T) {
+		// Create an empty store — no skills available
+		storeDir := t.TempDir()
+		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
+
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		)
+
+		executor := NewDefaultPipelineExecutor(mockAdapter,
+			WithSkillStore(store),
+		)
+
+		tmpDir := t.TempDir()
+		m := createTestManifest(tmpDir)
+		m.Skills = []string{"nonexistent-skill"}
+
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "missing-skill-test"},
+			Steps: []Step{
+				{ID: "step-1", Persona: "navigator", Exec: ExecConfig{Source: "do work"}},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test input")
+		require.Error(t, err, "should return error for missing skill")
+		assert.Contains(t, err.Error(), "nonexistent-skill")
+	})
+}

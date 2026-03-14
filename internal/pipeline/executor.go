@@ -1242,6 +1242,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Provision DirectoryStore skills (name-only references not in requires.skills)
+	var resolvedSkillRefs []adapter.SkillRef
 	if e.skillStore != nil && len(resolvedSkills) > 0 {
 		requiresSkills := make(map[string]bool)
 		if execution.Pipeline.Requires != nil {
@@ -1249,90 +1250,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				requiresSkills[name] = true
 			}
 		}
+		// Filter out skills already handled by requires.skills
+		var storeSkills []string
 		for _, name := range resolvedSkills {
-			if requiresSkills[name] {
-				continue // Already provisioned via SkillConfig
+			if !requiresSkills[name] {
+				storeSkills = append(storeSkills, name)
 			}
-			s, err := e.skillStore.Read(name)
+		}
+		if len(storeSkills) > 0 {
+			infos, err := skill.ProvisionFromStore(e.skillStore, workspacePath, storeSkills)
 			if err != nil {
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "warning",
-					Message:    fmt.Sprintf("skill %q store read failed: %v", name, err),
-				})
-				continue
+				return fmt.Errorf("skill provisioning failed: %w", err)
 			}
-			// Write SKILL.md content into workspace
-			skillDir := filepath.Join(workspacePath, ".wave", "skills", name)
-			if err := os.MkdirAll(skillDir, 0o755); err != nil {
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "warning",
-					Message:    fmt.Sprintf("skill %q mkdir failed: %v", name, err),
+			for _, info := range infos {
+				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
+					Name:        info.Name,
+					Description: info.Description,
 				})
-				continue
-			}
-			if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(s.Body), 0o644); err != nil {
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "warning",
-					Message:    fmt.Sprintf("skill %q SKILL.md write failed: %v", name, err),
-				})
-				continue
-			}
-			// Copy resource files with path containment checks
-			absSkillDir, absSkillErr := filepath.Abs(skillDir)
-			for _, rp := range s.ResourcePaths {
-				dstPath := filepath.Join(skillDir, rp)
-				// Path containment: verify resolved destination stays within skillDir
-				absDst, absDstErr := filepath.Abs(dstPath)
-				if absSkillErr != nil || absDstErr != nil || !strings.HasPrefix(absDst, absSkillDir+string(filepath.Separator)) {
-					e.emit(event.Event{
-						Timestamp:  time.Now(),
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						State:      "warning",
-						Message:    fmt.Sprintf("skill %q resource %q path traversal blocked", name, rp),
-					})
-					continue
-				}
-				srcPath := filepath.Join(s.SourcePath, rp)
-				data, err := os.ReadFile(srcPath)
-				if err != nil {
-					e.emit(event.Event{
-						Timestamp:  time.Now(),
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						State:      "warning",
-						Message:    fmt.Sprintf("skill %q resource %q read failed: %v", name, rp, err),
-					})
-					continue
-				}
-				if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
-					e.emit(event.Event{
-						Timestamp:  time.Now(),
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						State:      "warning",
-						Message:    fmt.Sprintf("skill %q resource %q mkdir failed: %v", name, rp, err),
-					})
-					continue
-				}
-				if err := os.WriteFile(dstPath, data, 0o644); err != nil {
-					e.emit(event.Event{
-						Timestamp:  time.Now(),
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						State:      "warning",
-						Message:    fmt.Sprintf("skill %q resource %q write failed: %v", name, rp, err),
-					})
-				}
 			}
 		}
 	}
@@ -1357,6 +1291,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		AllowedDomains:   sandboxDomains,
 		EnvPassthrough:   envPassthrough,
 		SkillCommandsDir:    skillCommandsDir,
+		ResolvedSkills:      resolvedSkillRefs,
 		ContractPrompt:      contractPrompt,
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
