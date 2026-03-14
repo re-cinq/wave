@@ -31,6 +31,7 @@ type WizardResult struct {
 	Language     string
 	SourceGlob   string
 	Pipelines    []string // selected pipeline names
+	Skills       []string // installed skill names from onboarding
 	Dependencies []DependencyStatus
 }
 
@@ -129,6 +130,18 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 	if modelResult != nil && modelResult.Data != nil {
 		if v, ok := modelResult.Data["model"].(string); ok {
 			result.Model = v
+		}
+	}
+
+	// Step 6: Skill selection
+	skillStep := &SkillSelectionStep{}
+	skillResult, err := skillStep.Run(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("skill selection failed: %w", err)
+	}
+	if skillResult != nil && skillResult.Data != nil {
+		if skills, ok := skillResult.Data["skills"].([]string); ok {
+			result.Skills = skills
 		}
 	}
 
@@ -249,6 +262,10 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 			personas[name] = entry
 		}
 		m["personas"] = personas
+	}
+
+	if len(result.Skills) > 0 {
+		m["skills"] = result.Skills
 	}
 
 	return m
