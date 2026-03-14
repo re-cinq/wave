@@ -189,3 +189,143 @@ func (m *mockStoreForTraversal) Read(name string) (Skill, error) {
 func (m *mockStoreForTraversal) Write(skill Skill) error { return nil }
 func (m *mockStoreForTraversal) List() ([]Skill, error)  { return nil, nil }
 func (m *mockStoreForTraversal) Delete(name string) error { return nil }
+
+// --- T009: TestProvisionFromStore_AllResources — US4-1: all resource dirs provisioned ---
+
+func TestProvisionFromStore_AllResources(t *testing.T) {
+	storeDir := t.TempDir()
+	skillSrc := filepath.Join(storeDir, "full-skill")
+
+	for _, sub := range []string{"scripts", "references", "assets"} {
+		if err := os.MkdirAll(filepath.Join(skillSrc, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	skillMD := "---\nname: full-skill\ndescription: Skill with all resources\n---\n# Full Skill\n\nBody.\n"
+	if err := os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillSrc, "scripts", "setup.sh"), []byte("#!/bin/bash\necho setup"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillSrc, "references", "api.json"), []byte(`{"version":"1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillSrc, "assets", "logo.txt"), []byte("LOGO"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
+	workspace := t.TempDir()
+
+	infos, err := ProvisionFromStore(store, workspace, []string{"full-skill"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(infos) != 1 {
+		t.Fatalf("expected 1 info, got %d", len(infos))
+	}
+
+	// Verify SKILL.md exists
+	skillMDPath := filepath.Join(workspace, ".wave", "skills", "full-skill", "SKILL.md")
+	if _, err := os.Stat(skillMDPath); err != nil {
+		t.Errorf("SKILL.md not found: %v", err)
+	}
+
+	// Verify all resource files exist at correct paths under .wave/skills/<name>/
+	for _, path := range []string{
+		filepath.Join(workspace, ".wave", "skills", "full-skill", "scripts", "setup.sh"),
+		filepath.Join(workspace, ".wave", "skills", "full-skill", "references", "api.json"),
+		filepath.Join(workspace, ".wave", "skills", "full-skill", "assets", "logo.txt"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("resource file not found: %s: %v", path, err)
+		}
+	}
+}
+
+// --- T010: TestProvisionFromStore_ContentMatch — US6-2: body content matches ---
+
+func TestProvisionFromStore_ContentMatch(t *testing.T) {
+	storeDir := t.TempDir()
+	skillSrc := filepath.Join(storeDir, "content-skill")
+	if err := os.MkdirAll(skillSrc, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	bodyContent := "# Content Skill\n\nThis is the expected body content.\nWith multiple lines.\n"
+	skillMD := "---\nname: content-skill\ndescription: Content match test\n---\n" + bodyContent
+	if err := os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
+	workspace := t.TempDir()
+
+	_, err := ProvisionFromStore(store, workspace, []string{"content-skill"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ProvisionFromStore writes only the Body (not full SKILL.md with frontmatter) to workspace
+	data, err := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "content-skill", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("failed to read provisioned SKILL.md: %v", err)
+	}
+	if string(data) != bodyContent {
+		t.Errorf("provisioned SKILL.md body mismatch:\ngot:  %q\nwant: %q", string(data), bodyContent)
+	}
+}
+
+// --- T011: TestProvisionFromStore_IsolatedDirs — US4-4: multi-skill isolation ---
+
+func TestProvisionFromStore_IsolatedDirs(t *testing.T) {
+	storeDir := t.TempDir()
+
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		skillSrc := filepath.Join(storeDir, name)
+		if err := os.MkdirAll(skillSrc, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		skillMD := "---\nname: " + name + "\ndescription: " + name + " skill\n---\n# " + name + "\n"
+		if err := os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
+	workspace := t.TempDir()
+
+	infos, err := ProvisionFromStore(store, workspace, []string{"alpha", "beta", "gamma"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(infos) != 3 {
+		t.Fatalf("expected 3 infos, got %d", len(infos))
+	}
+
+	// Verify each skill has its own isolated directory
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		skillMDPath := filepath.Join(workspace, ".wave", "skills", name, "SKILL.md")
+		if _, err := os.Stat(skillMDPath); err != nil {
+			t.Errorf("SKILL.md for %q not found: %v", name, err)
+		}
+	}
+
+	// Verify no cross-contamination: each dir should only have SKILL.md
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		skillDir := filepath.Join(workspace, ".wave", "skills", name)
+		entries, err := os.ReadDir(skillDir)
+		if err != nil {
+			t.Fatalf("failed to read dir for %q: %v", name, err)
+		}
+		if len(entries) != 1 {
+			names := make([]string, len(entries))
+			for i, e := range entries {
+				names[i] = e.Name()
+			}
+			t.Errorf("skill %q dir has %d entries (expected 1): %v", name, len(entries), names)
+		}
+	}
+}
