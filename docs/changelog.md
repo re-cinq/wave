@@ -416,7 +416,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Pipeline identifier renaming for improved clarity (#136)
   - `gh-issue-impl` → `gh-implement`
-  - `gh-pr-comment` → `gh-pr-review`
+  - `gh-pr-comment` → `gh-ops-pr-review`
   - 6 additional pipelines renamed for consistency
 
 ### Fixed

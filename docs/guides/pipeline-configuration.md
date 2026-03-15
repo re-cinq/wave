@@ -504,7 +504,7 @@ Reference other pipelines as steps:
 ```yaml
 steps:
   - id: review
-    pipeline: gh-pr-review
+    pipeline: gh-ops-pr-review
     input: "{{ input }}"
 
   - id: deploy
@@ -587,7 +587,7 @@ Use the YAML playground below to experiment with pipeline configurations:
 
 Explore complete, working pipeline examples:
 
-- [Code Review Pipeline](/examples/gh-pr-review.yaml) - Multi-step PR review
+- [Code Review Pipeline](/examples/gh-ops-pr-review.yaml) - Multi-step PR review
 - [Security Audit Pipeline](/examples/security-audit.yaml) - Security-focused analysis
 - [Documentation Pipeline](/examples/documentation.yaml) - Auto-generate docs
 

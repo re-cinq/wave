@@ -59,7 +59,7 @@ steps:
 
 ```yaml
 metadata:
-  name: gh-pr-review
+  name: gh-ops-pr-review
   description: "Automated code review with security analysis"
 ```
 
@@ -313,7 +313,7 @@ handover:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-pr-review
+  name: gh-ops-pr-review
   description: "Security-focused automated code review"
 
 input:
@@ -453,7 +453,7 @@ Organize pipelines and related files:
 ```
 .wave/
 ├── pipelines/
-│   ├── gh-pr-review.yaml
+│   ├── gh-ops-pr-review.yaml
 │   ├── documentation.yaml
 │   └── testing.yaml
 ├── personas/
@@ -481,7 +481,7 @@ Checks syntax, references, and schema compliance.
 Test with actual input:
 
 ```bash
-wave run gh-pr-review "Review changes to auth module"
+wave run gh-ops-pr-review "Review changes to auth module"
 ```
 
 ### Debug Mode
@@ -489,7 +489,7 @@ wave run gh-pr-review "Review changes to auth module"
 Enable verbose output:
 
 ```bash
-wave run gh-pr-review "test input" --debug
+wave run gh-ops-pr-review "test input" --debug
 ```
 
 ### Monitor Execution

@@ -33,6 +33,7 @@ var taxonomyMappings = map[string]string{
 	"research":           "plan-research",
 	"rewrite":            "ops-rewrite",
 	"scope":              "plan-scope",
+	"pr-review":          "ops-pr-review",
 }
 
 // ResolveDeprecatedName checks if a pipeline name uses a legacy forge-prefixed

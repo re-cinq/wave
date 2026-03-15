@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: pr-review
-  description: "GitHub pull request code review with automated security and quality analysis"
+  name: ops-pr-review
+  description: "Pull request code review with automated security and quality analysis"
   release: true
 
 chat_context:

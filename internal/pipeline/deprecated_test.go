@@ -14,7 +14,7 @@ func TestResolveDeprecatedName(t *testing.T) {
 		{"gl prefix", "gl-research", "plan-research", true},
 		{"bb prefix", "bb-scope", "plan-scope", true},
 		{"gt prefix", "gt-refresh", "ops-refresh", true},
-		{"gh with hyphenated base", "gh-pr-review", "pr-review", true},
+		{"gh with hyphenated base", "gh-pr-review", "ops-pr-review", true},
 
 		// Taxonomy resolution
 		{"old debug", "debug", "ops-debug", true},
@@ -33,6 +33,7 @@ func TestResolveDeprecatedName(t *testing.T) {
 		{"old consolidate", "consolidate", "audit-consolidate", true},
 		{"old ops-consolidate", "ops-consolidate", "audit-consolidate", true},
 		{"old implement", "implement", "impl-issue", true},
+		{"old pr-review", "pr-review", "ops-pr-review", true},
 		{"old refresh", "refresh", "ops-refresh", true},
 		{"old research", "research", "plan-research", true},
 		{"old rewrite", "rewrite", "ops-rewrite", true},

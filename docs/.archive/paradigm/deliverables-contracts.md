@@ -174,7 +174,7 @@ Ensure structured analysis before generating review:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-pr-review
+  name: gh-ops-pr-review
 
 steps:
   - id: analyze
@@ -356,7 +356,7 @@ Store contracts in a dedicated directory:
 │   ├── review.schema.json
 │   └── implementation.schema.json
 ├── pipelines/
-│   └── gh-pr-review.yaml
+│   └── gh-ops-pr-review.yaml
 └── personas/
     ├── navigator.md
     └── auditor.md
