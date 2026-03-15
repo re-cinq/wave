@@ -1,4 +1,4 @@
-You are parsing the scope output from a previously-run `gh-scope` pipeline to extract the list of subissues and their dependency graph.
+You are parsing the scope output from a previously-run `scope` pipeline to extract the list of subissues and their dependency graph.
 
 Input: {{ input }}
 
@@ -6,8 +6,8 @@ The input format is `owner/repo number` (e.g. `re-cinq/wave 184`) where the numb
 
 ## Working Directory
 
-You are running in an isolated Wave workspace. The `gh` CLI works from any
-directory when using the `--repo` flag, so no directory change is needed.
+You are running in an isolated Wave workspace. Use `{{ forge.cli_tool }}` with
+the `--repo` flag, so no directory change is needed.
 
 ## Instructions
 
@@ -17,15 +17,15 @@ Extract the repository (`owner/repo`) and epic issue number from the input strin
 
 ### Step 2: Fetch Epic Issue and Comments
 
-Use the `gh` CLI to fetch the epic issue with its comments:
+Fetch the epic issue with its comments:
 
 ```bash
-gh issue view <NUMBER> --repo <OWNER/REPO> --json number,title,body,url,state,comments
+{{ forge.cli_tool }} issue view <NUMBER> --repo <OWNER/REPO> --json number,title,body,url,state,comments
 ```
 
 ### Step 3: Find Scope Summary Comment
 
-Search through the issue comments for the scope summary posted by `gh-scope`. The scope comment contains a structured list of subissues with:
+Search through the issue comments for the scope summary posted by `scope`. The scope comment contains a structured list of subissues with:
 - Issue numbers and titles
 - Dependency relationships (e.g., "depends on #206")
 - Complexity ratings (S/M/L/XL)
@@ -37,7 +37,7 @@ Look for a comment containing a section like "## Scope Summary" or a table/list 
 For each subissue referenced in the scope comment:
 
 ```bash
-gh issue view <SUBISSUE_NUMBER> --repo <OWNER/REPO> --json number,title,url,state,labels,body
+{{ forge.cli_tool }} issue view <SUBISSUE_NUMBER> --repo <OWNER/REPO> --json number,title,url,state,labels,body
 ```
 
 Verify each subissue:

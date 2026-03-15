@@ -35,7 +35,7 @@ steps:
         - If "owner/repo NUM" → extract <REPO> and <NUM>
         - If "owner/repo" alone → batch mode, use {{ input }} as <REPO>
 
-        Step 2: Fetch issues via gh CLI.
+        Step 2: Fetch issues via {{ forge.cli_tool }}.
         - Single: {{ forge.cli_tool }} issue view <NUM> --repo <REPO> --json number,title,body,labels,url
         - Batch: {{ forge.cli_tool }} issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
