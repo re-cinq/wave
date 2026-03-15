@@ -10,10 +10,10 @@ func TestResolveDeprecatedName(t *testing.T) {
 		wantDeprecated bool
 	}{
 		// Forge prefix resolution
-		{"gh prefix", "gh-implement", "implement", true},
-		{"gl prefix", "gl-research", "research", true},
-		{"bb prefix", "bb-scope", "scope", true},
-		{"gt prefix", "gt-refresh", "refresh", true},
+		{"gh prefix", "gh-implement", "impl-issue", true},
+		{"gl prefix", "gl-research", "plan-research", true},
+		{"bb prefix", "bb-scope", "plan-scope", true},
+		{"gt prefix", "gt-refresh", "ops-refresh", true},
 		{"gh with hyphenated base", "gh-pr-review", "pr-review", true},
 
 		// Taxonomy resolution
@@ -32,6 +32,11 @@ func TestResolveDeprecatedName(t *testing.T) {
 		{"old plan-prototype", "plan-prototype", "impl-prototype", true},
 		{"old consolidate", "consolidate", "audit-consolidate", true},
 		{"old ops-consolidate", "ops-consolidate", "audit-consolidate", true},
+		{"old implement", "implement", "impl-issue", true},
+		{"old refresh", "refresh", "ops-refresh", true},
+		{"old research", "research", "plan-research", true},
+		{"old rewrite", "rewrite", "ops-rewrite", true},
+		{"old scope", "scope", "plan-scope", true},
 
 		// Forge + taxonomy (double resolution)
 		{"gh-debug", "gh-debug", "ops-debug", true},
@@ -39,9 +44,9 @@ func TestResolveDeprecatedName(t *testing.T) {
 
 		// No change needed
 		{"wave prefix is not forge", "wave-evolve", "wave-evolve", false},
-		{"already unified", "implement", "implement", false},
 		{"already taxonomy", "ops-debug", "ops-debug", false},
 		{"already taxonomy impl", "impl-hotfix", "impl-hotfix", false},
+		{"already taxonomy impl-issue", "impl-issue", "impl-issue", false},
 		{"partial prefix no match", "g-test", "g-test", false},
 		{"empty string", "", "", false},
 	}

@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: implement
-  description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
+  name: impl-issue
+  description: "Implement an issue end-to-end: fetch, assess, plan, implement, create PR"
 
 chat_context:
   artifact_summaries:

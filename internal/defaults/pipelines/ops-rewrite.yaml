@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: rewrite
-  description: "Analyze and rewrite poorly documented GitHub issues"
+  name: ops-rewrite
+  description: "Analyze and rewrite poorly documented issues"
   release: true
 
 skills:

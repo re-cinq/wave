@@ -28,6 +28,11 @@ var taxonomyMappings = map[string]string{
 	"ops-consolidate":    "audit-consolidate",
 	"supervise":          "ops-supervise",
 	"research-implement": "impl-research",
+	"implement":          "impl-issue",
+	"refresh":            "ops-refresh",
+	"research":           "plan-research",
+	"rewrite":            "ops-rewrite",
+	"scope":              "plan-scope",
 }
 
 // ResolveDeprecatedName checks if a pipeline name uses a legacy forge-prefixed

@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: refresh
-  description: "Refresh a stale GitHub issue by comparing it against recent codebase changes"
+  name: ops-refresh
+  description: "Refresh a stale issue by comparing it against recent codebase changes"
   release: true
 
 skills:

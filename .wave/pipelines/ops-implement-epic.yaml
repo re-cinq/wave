@@ -48,7 +48,7 @@ steps:
       item_key: subissues
       item_id_key: "number"
       dependency_key: "dependencies"
-      child_pipeline: implement
+      child_pipeline: impl-issue
       input_template: "{{ .repository }} {{ .number }}"
       max_concurrency: 3
     workspace:

@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: research
-  description: Research a GitHub issue and post findings as a comment
+  name: plan-research
+  description: Research an issue and post findings as a comment
   release: true
 
 skills:

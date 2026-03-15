@@ -14,7 +14,7 @@ input:
 
 steps:
   - id: scope
-    pipeline: scope
+    pipeline: plan-scope
     input: "{{input}}"
 
   - id: implement-all

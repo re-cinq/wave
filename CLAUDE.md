@@ -152,8 +152,8 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
-| Bug fix, small tweak | `implement` | Single-file or few-file changes, clear scope |
-| Medium feature | `implement` | Well-scoped feature with clear acceptance criteria |
+| Bug fix, small tweak | `impl-issue` | Single-file or few-file changes, clear scope |
+| Medium feature | `impl-issue` | Well-scoped feature with clear acceptance criteria |
 | Complex feature | `impl-speckit` | Multi-component changes, needs spec → plan → tasks → impl |
 | Architecture change | `impl-speckit` | Touches 5+ files, needs design discussion |
 | Code quality | `audit-junk-code`, `audit-dx`, `wave-test-hardening` | Analysis and improvement |
@@ -187,7 +187,7 @@ Before launching a pipeline for an issue:
 | Category | Action | Pipeline |
 |----------|--------|----------|
 | **close** | Already implemented, superseded, or duplicate | Close with comment |
-| **implement** | Well-scoped, single-PR implementation | `implement` |
+| **implement** | Well-scoped, single-PR implementation | `impl-issue` |
 | **impl-speckit** | Complex, needs spec → plan → tasks → implement | `impl-speckit` |
 | **defer** | Needs design discussion, experiment, or blocked | Leave open |
 
