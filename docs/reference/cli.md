@@ -65,18 +65,18 @@ Execute a pipeline. Arguments can be provided as positional args or flags.
 
 ```bash
 # Positional arguments (recommended for quick usage)
-wave run gh-pr-review "Review auth module"
+wave run gh-ops-pr-review "Review auth module"
 
 # Flag-based (explicit)
-wave run --pipeline gh-pr-review --input "Review auth module"
+wave run --pipeline gh-ops-pr-review --input "Review auth module"
 
 # Mixed
-wave run gh-pr-review --input "Review auth module"
+wave run gh-ops-pr-review --input "Review auth module"
 ```
 
 **Output:**
 ```
-[run-abc123] Starting pipeline: gh-pr-review
+[run-abc123] Starting pipeline: gh-ops-pr-review
 [run-abc123] Step: analyze (navigator) - started
 [run-abc123] Step: analyze (navigator) - completed (45s)
 [run-abc123] Step: review (auditor) - started
@@ -178,7 +178,7 @@ wave status
 **Output:**
 ```
 RUN_ID          PIPELINE      STATUS     STEP        ELAPSED    TOKENS
-run-abc123      gh-pr-review   running    review      2m15s      12k
+run-abc123      gh-ops-pr-review   running    review      2m15s      12k
 run-xyz789      hotfix        completed  -           5m23s      28k
 ```
 
@@ -191,7 +191,7 @@ wave status run-abc123
 **Output:**
 ```
 Run ID:     run-abc123
-Pipeline:   gh-pr-review
+Pipeline:   gh-ops-pr-review
 Status:     running
 Step:       review
 Started:    2026-02-03 14:30:22
@@ -252,7 +252,7 @@ wave cancel run-abc123
 
 **Output:**
 ```
-Cancellation requested for run-abc123 (gh-pr-review)
+Cancellation requested for run-abc123 (gh-ops-pr-review)
 Pipeline will stop after current step completes.
 ```
 
@@ -265,7 +265,7 @@ wave cancel run-abc123 -f              # Short flag for --force
 
 **Output:**
 ```
-Force cancellation sent to run-abc123 (gh-pr-review)
+Force cancellation sent to run-abc123 (gh-ops-pr-review)
 Process terminated.
 ```
 
@@ -354,7 +354,7 @@ wave list runs
 Recent Pipeline Runs
 ────────────────────────────────────────────────────────────────────────────────
   RUN_ID                    PIPELINE          STATUS        STARTED             DURATION
-  run-abc123                gh-pr-review       completed     2026-02-03 14:30    5m23s
+  run-abc123                gh-ops-pr-review       completed     2026-02-03 14:30    5m23s
   run-xyz789                hotfix            failed        2026-02-03 09:30    2m15s
 ```
 
@@ -369,7 +369,7 @@ wave list pipelines
 Pipelines
 ────────────────────────────────────────────────────────────
 
-  gh-pr-review [4 steps]
+  gh-ops-pr-review [4 steps]
     Automated code review workflow
     ○ analyze → review → report → notify
 
@@ -479,7 +479,7 @@ wave clean --dry-run
 **Output:**
 ```
 Would delete:
-  .wave/workspaces/run-abc123/  (gh-pr-review, 145 MB)
+  .wave/workspaces/run-abc123/  (gh-ops-pr-review, 145 MB)
   .wave/workspaces/run-xyz789/  (hotfix, 23 MB)
 Total: 168 MB across 2 runs
 

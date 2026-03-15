@@ -14,14 +14,14 @@ Wave ships with 46 pipelines organized by use case:
 | `feature` | explore → plan → implement → publish | Feature planning and implementation |
 | `hotfix` | investigate → fix → verify | Production bugs |
 | `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
-| `prototype` | spec → docs → dummy → implement → pr-create → pr-review → pr-respond → pr-fix → pr-merge | Prototype-driven development |
+| `prototype` | spec → docs → dummy → implement → pr-create → ops-pr-review → pr-respond → pr-fix → pr-merge | Prototype-driven development |
 | `improve` | assess → implement → verify | Targeted code improvements |
 
 ### Quality & Debugging
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `gh-pr-review` | diff-analysis → security-review + quality-review → summary → publish | PR reviews |
+| `gh-ops-pr-review` | diff-analysis → security-review + quality-review → summary → publish | PR reviews |
 | `test-gen` | analyze-coverage → generate-tests → verify-coverage | Test coverage |
 | `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
 | `security-scan` | scan → deep-dive → report | Security vulnerability audit |

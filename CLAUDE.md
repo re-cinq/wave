@@ -158,13 +158,13 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 | Architecture change | `impl-speckit` | Touches 5+ files, needs design discussion |
 | Code quality | `audit-junk-code`, `audit-dx`, `wave-test-hardening` | Analysis and improvement |
 | Security | `wave-security-audit` | Threat modeling and hardening |
-| PR review | `pr-review` | **Always** run before merging any PR |
+| PR review | `ops-pr-review` | **Always** run before merging any PR |
 
 ### PR Review-Then-Merge Protocol
 
-**MANDATORY**: Never merge a PR without running the `pr-review` pipeline first.
+**MANDATORY**: Never merge a PR without running the `ops-pr-review` pipeline first.
 
-1. Launch review: `wave run -v pr-review -- "<PR-URL>" &`
+1. Launch review: `wave run -v ops-pr-review -- "<PR-URL>" &`
 2. Wait for review completion and check results
 3. Only merge after review pipeline passes
 4. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
@@ -201,7 +201,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 ### Post-Pipeline PR Validation
 
-1. Run `pr-review`: `wave run -v pr-review -- "<PR-URL>" &`
+1. Run `ops-pr-review`: `wave run -v ops-pr-review -- "<PR-URL>" &`
 2. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
 3. After review passes: `gh pr merge <N> --merge`
 

@@ -182,7 +182,7 @@ func TestSuggest_NilReport(t *testing.T) {
 }
 
 func TestSuggest_Limit(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-debug", "impl-issue", "pr-review", "impl-improve", "impl-refactor"})
+	dir := setupPipelineDir(t, []string{"ops-debug", "impl-issue", "ops-pr-review", "impl-improve", "impl-refactor"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -310,7 +310,7 @@ func TestSuggest_SequenceChain(t *testing.T) {
 }
 
 func TestSuggest_ParallelGroup(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"impl-issue", "pr-review"})
+	dir := setupPipelineDir(t, []string{"impl-issue", "ops-pr-review"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,

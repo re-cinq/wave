@@ -110,7 +110,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 4: PRs needing review
 		if cb.PRs.NeedsReview > 0 {
-			if name := resolvePipeline(catalog, prefix, "pr-review"); name != "" {
+			if name := resolvePipeline(catalog, prefix, "ops-pr-review"); name != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     name,
 					Reason:   fmt.Sprintf("%d PRs awaiting review", cb.PRs.NeedsReview),
@@ -157,7 +157,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 	// a sequence proposal (research → implement).
 	proposals = detectSequences(proposals, catalog, prefix)
 
-	// Detect parallel-eligible groups: if implement and pr-review are both
+	// Detect parallel-eligible groups: if implement and ops-pr-review are both
 	// proposed, mark them as parallel-eligible.
 	proposals = detectParallelGroups(proposals)
 
@@ -304,7 +304,7 @@ func detectSequences(proposals []ProposedPipeline, catalog []string, prefix stri
 }
 
 // detectParallelGroups marks proposals that can run concurrently. Currently
-// detects implement + pr-review as parallel-eligible.
+// detects implement + ops-pr-review as parallel-eligible.
 func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 	byBase := make(map[string]int)
 	for i, p := range proposals {
@@ -316,7 +316,7 @@ func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 	}
 
 	// Known parallel groups
-	groups := [][2]string{{"impl-issue", "pr-review"}}
+	groups := [][2]string{{"impl-issue", "ops-pr-review"}}
 
 	for _, group := range groups {
 		firstIdx, hasFirst := byBase[group[0]]
