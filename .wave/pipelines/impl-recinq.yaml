@@ -528,7 +528,7 @@ steps:
 
         4. Write the JSON status report to the output artifact path.
 
-        If any `gh` command fails, log the error and continue.
+        If any `{{ forge.cli_tool }}` command fails, log the error and continue.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

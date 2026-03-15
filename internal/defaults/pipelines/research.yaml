@@ -40,7 +40,7 @@ steps:
         - Short form: owner/repo 123
 
         Parse the input to extract the repository and issue number.
-        Use the gh CLI to fetch the issue:
+        Fetch the issue:
 
         {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
 
@@ -234,7 +234,7 @@ steps:
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
-        3. Write the markdown content to a file, then use gh CLI to post the comment:
+        3. Write the markdown content to a file, then use {{ forge.cli_tool }} to post the comment:
 
            # Write to file to avoid shell escaping issues with large markdown
            cat > /tmp/comment-body.md << 'COMMENT_EOF'

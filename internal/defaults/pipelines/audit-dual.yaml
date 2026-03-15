@@ -2,7 +2,7 @@
 #
 # This pipeline demonstrates two fully independent analysis tracks
 # running simultaneously and converging at a final merge step.
-# Unlike the fan-out pattern (used in gh-pr-review.yaml), these tracks
+# Unlike the fan-out pattern (used in pr-review.yaml), these tracks
 # have NO shared upstream step — they start independently and converge
 # only at the end.
 #
