@@ -77,13 +77,13 @@ export default withMermaid(
             text: 'Use Cases',
             items: [
               { text: 'Overview', link: '/use-cases/' },
-              { text: 'Code Review', link: '/use-cases/gh-ops-pr-review' },
-              { text: 'Doc Consistency', link: '/use-cases/doc-audit' },
+              { text: 'Code Review', link: '/use-cases/ops-pr-review' },
+              { text: 'Doc Consistency', link: '/use-cases/audit-doc' },
               { text: 'Issue Enhancement', link: '/use-cases/github-issue-enhancer' },
-              { text: 'Issue Research', link: '/use-cases/issue-research' },
+              { text: 'Issue Research', link: '/use-cases/plan-research' },
               { text: 'Test Generation', link: '/use-cases/test-generation' },
               { text: 'Refactoring', link: '/use-cases/refactoring' },
-              { text: 'Work Supervision', link: '/use-cases/supervise' },
+              { text: 'Work Supervision', link: '/use-cases/ops-supervise' },
               { text: 'Recinq', link: '/use-cases/recinq' }
             ]
           }

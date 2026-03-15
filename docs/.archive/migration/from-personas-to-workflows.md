@@ -26,7 +26,7 @@ Problems:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-ops-pr-review
+  name: ops-pr-review
 
 steps:
   - id: security
@@ -125,7 +125,7 @@ personas:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-ops-pr-review
+  name: ops-pr-review
 
 input:
   source: cli
@@ -181,7 +181,7 @@ handover:
 wave validate
 
 # Test with real input
-wave run gh-ops-pr-review "Review auth changes"
+wave run ops-pr-review "Review auth changes"
 
 # Check output
 cat .wave/workspaces/*/.wave/output/

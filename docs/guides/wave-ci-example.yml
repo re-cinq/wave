@@ -62,7 +62,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Run Code Review
-        run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}" -o json
+        run: wave run ops-pr-review "${{ github.event.pull_request.title }}" -o json
 
       - name: Upload Results
         uses: actions/upload-artifact@v4

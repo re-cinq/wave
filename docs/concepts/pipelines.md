@@ -7,7 +7,7 @@ A pipeline is a multi-step AI workflow where each step runs one persona in an is
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-ops-pr-review
+  name: ops-pr-review
 steps:
   - id: analyze
     persona: navigator
@@ -184,23 +184,23 @@ steps:
         type: markdown
 
   # Track B — starts immediately (no dependency on Track A)
-  - id: security-scan
+  - id: audit-security
     persona: navigator
     exec:
       type: prompt
       source: "Scan for security vulnerabilities: {{ input }}"
     output_artifacts:
       - name: security_scan
-        path: .wave/output/security-scan.json
+        path: .wave/output/audit-security.json
         type: json
 
   - id: security-detail
     persona: navigator
-    dependencies: [security-scan]
+    dependencies: [audit-security]
     memory:
       strategy: fresh
       inject_artifacts:
-        - step: security-scan
+        - step: audit-security
           artifact: security_scan
           as: scan_results
     exec:
@@ -231,7 +231,7 @@ steps:
 
 </div>
 
-In this example, Track A (`quality-scan` → `quality-detail`) and Track B (`security-scan` → `security-detail`) run simultaneously from the start. The `merge` step waits for both tracks to complete before synthesizing results.
+In this example, Track A (`quality-scan` → `quality-detail`) and Track B (`audit-security` → `security-detail`) run simultaneously from the start. The `merge` step waits for both tracks to complete before synthesizing results.
 
 > See `.wave/pipelines/dual-analysis.yaml` for a complete working example of this pattern.
 
@@ -268,7 +268,7 @@ The independent parallel tracks pattern creates a different topology — two tra
 flowchart TD
   qs[quality-scan<br/><small>navigator</small>]
   qd[quality-detail<br/><small>navigator</small>]
-  ss[security-scan<br/><small>navigator</small>]
+  ss[audit-security<br/><small>navigator</small>]
   sd[security-detail<br/><small>navigator</small>]
   merge[merge<br/><small>summarizer</small>]
 
@@ -299,13 +299,13 @@ Each pipeline run produces timestamped events in `.wave/traces/`. Look for `STEP
 
 ```
 2026-01-15T10:00:01.123Z  STEP_START  quality-scan
-2026-01-15T10:00:01.456Z  STEP_START  security-scan    ← started ~300ms later
+2026-01-15T10:00:01.456Z  STEP_START  audit-security    ← started ~300ms later
 2026-01-15T10:00:15.789Z  STEP_END    quality-scan
-2026-01-15T10:00:18.234Z  STEP_END    security-scan
+2026-01-15T10:00:18.234Z  STEP_END    audit-security
 2026-01-15T10:00:18.567Z  STEP_START  merge             ← started after both ended
 ```
 
-Overlapping `STEP_START`/`STEP_END` intervals prove the steps ran concurrently. If `security-scan` started before `quality-scan` ended, they were running in parallel.
+Overlapping `STEP_START`/`STEP_END` intervals prove the steps ran concurrently. If `audit-security` started before `quality-scan` ended, they were running in parallel.
 
 ### Status Display
 
@@ -428,13 +428,13 @@ Supported outcome types: `pr`, `issue`, `url`, `deployment`. See [Outcomes](/con
 Execute a pipeline with input:
 
 ```bash
-wave run gh-ops-pr-review "Review authentication changes"
+wave run ops-pr-review "Review authentication changes"
 ```
 
 Check pipeline status:
 
 ```bash
-wave status gh-ops-pr-review
+wave status ops-pr-review
 ```
 
 View artifacts from a run:
@@ -452,7 +452,7 @@ A production-ready code review pipeline:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-ops-pr-review
+  name: ops-pr-review
   description: "Multi-perspective code review with security and quality checks"
 
 input:

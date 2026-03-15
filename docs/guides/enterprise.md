@@ -21,7 +21,7 @@ org-wave-config/
 │   ├── auditor.md
 │   └── craftsman.md
 ├── contracts/
-│   ├── gh-ops-pr-review.schema.json
+│   ├── ops-pr-review.schema.json
 │   └── security-report.schema.json
 └── README.md
 ```

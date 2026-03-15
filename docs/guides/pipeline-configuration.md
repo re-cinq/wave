@@ -467,11 +467,11 @@ steps:
     dependencies: [quality-scan]
 
   # Track B — starts immediately (independent of Track A)
-  - id: security-scan
+  - id: audit-security
     persona: navigator
   - id: security-detail
     persona: navigator
-    dependencies: [security-scan]
+    dependencies: [audit-security]
 
   # Merge — waits for both tracks
   - id: merge
@@ -482,7 +482,7 @@ steps:
 ```mermaid
 flowchart TD
   qs[quality-scan] --> qd[quality-detail]
-  ss[security-scan] --> sd[security-detail]
+  ss[audit-security] --> sd[security-detail]
   qd --> merge
   sd --> merge
 
@@ -504,7 +504,7 @@ Reference other pipelines as steps:
 ```yaml
 steps:
   - id: review
-    pipeline: gh-ops-pr-review
+    pipeline: ops-pr-review
     input: "{{ input }}"
 
   - id: deploy
@@ -587,7 +587,7 @@ Use the YAML playground below to experiment with pipeline configurations:
 
 Explore complete, working pipeline examples:
 
-- [Code Review Pipeline](/examples/gh-ops-pr-review.yaml) - Multi-step PR review
+- [Code Review Pipeline](/examples/ops-pr-review.yaml) - Multi-step PR review
 - [Security Audit Pipeline](/examples/security-audit.yaml) - Security-focused analysis
 - [Documentation Pipeline](/examples/documentation.yaml) - Auto-generate docs
 

@@ -156,9 +156,20 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 | Medium feature | `impl-issue` | Well-scoped feature with clear acceptance criteria |
 | Complex feature | `impl-speckit` | Multi-component changes, needs spec → plan → tasks → impl |
 | Architecture change | `impl-speckit` | Touches 5+ files, needs design discussion |
-| Code quality | `audit-junk-code`, `audit-dx`, `wave-test-hardening` | Analysis and improvement |
-| Security | `wave-security-audit` | Threat modeling and hardening |
+| Research then implement | `impl-research` | External integrations, unfamiliar APIs, need web research first |
+| Code quality | `audit-junk-code`, `audit-dx`, `audit-dual` | Analysis and improvement |
+| Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
 | PR review | `ops-pr-review` | **Always** run before merging any PR |
+| Wave bug fix | `wave-bugfix` | Fix bugs in Wave's own codebase |
+| Wave evolution | `wave-evolve` | Evolve Wave pipelines, personas, and prompts |
+| Wave test hardening | `wave-test-hardening` | Harden Wave's test suite — find gaps, add edge cases |
+| Wave audit | `wave-audit` | Zero-trust implementation fidelity audit of Wave |
+| Wave PR review | `wave-review` | Review Wave's own PRs |
+| Epic decomposition | `plan-scope` | Decompose an epic into child issues |
+| Issue research | `plan-research` | Research an issue and post findings |
+| Stale issues | `ops-refresh` | Refresh a stale issue against recent codebase changes |
+| Dead code | `audit-dead-code` | Detect and report unused code |
+| Code simplification | `impl-recinq` | Divergent-convergent code simplification (Double Diamond) |
 
 ### PR Review-Then-Merge Protocol
 

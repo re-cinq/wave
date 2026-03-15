@@ -94,7 +94,7 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 
 1. **Watchdog pattern** — Can be implemented as a parallel read-only step that validates critical operations. Already partially present in auditor/reviewer verify steps.
 
-2. **Council pattern** — Can be implemented as parallel steps (e.g., multiple reviewers) with a synthesizer merge step. The `recinq` pipeline already uses a variant of this.
+2. **Council pattern** — Can be implemented as parallel steps (e.g., multiple reviewers) with a synthesizer merge step. The `impl-recinq` pipeline already uses a variant of this.
 
 3. **Anti-pattern guidance in roles** — Claude Code Teams' failure handling table suggests documenting what NOT to do is as important as documenting responsibilities.
 
@@ -159,12 +159,12 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 
 ### Proposal 1: Consolidate Craftsman + Implementer
 
-**Rationale**: The implementer persona was created for gh-implement and speckit-flow pipelines but is functionally a subset of craftsman. Both write code, follow patterns, and produce artifacts. Maintaining two similar implementation personas creates confusion for pipeline authors.
+**Rationale**: The implementer persona was created for impl-issue and impl-speckit pipelines but is functionally a subset of craftsman. Both write code, follow patterns, and produce artifacts. Maintaining two similar implementation personas creates confusion for pipeline authors.
 
 **Changes**:
 - Merge implementer's capabilities into craftsman prompt
 - Add Glob and Grep to craftsman's permissions (from implementer)
-- Update `speckit-flow.yaml` and `gh-implement.yaml` to use `craftsman`
+- Update `impl-speckit.yaml` and `impl-issue.yaml` to use `craftsman`
 - Remove `implementer.md` persona file
 - Remove `implementer` entry from `wave.yaml`
 
@@ -181,7 +181,7 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 - Remove `auditor.md` persona file
 - Remove `auditor` entry from `wave.yaml`
 
-**Impact**: 7 pipeline files updated, 1 persona removed. The `gh-ops-pr-review` pipeline's security-review and quality-review steps retain distinct prompts even though both use the unified reviewer persona.
+**Impact**: 7 pipeline files updated, 1 persona removed. The `ops-pr-review` pipeline's security-review and quality-review steps retain distinct prompts even though both use the unified reviewer persona.
 
 ### Proposal 3: Clarify Planner vs Philosopher Boundaries
 
