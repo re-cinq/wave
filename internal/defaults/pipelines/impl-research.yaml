@@ -14,7 +14,7 @@ input:
 
 steps:
   - id: research
-    pipeline: research
+    pipeline: plan-research
     input: "{{input}}"
 
   - id: implement
