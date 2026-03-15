@@ -82,6 +82,52 @@ wave run <pipeline-name> --from-step implement --run <run-id>
 
 This marks all steps before `implement` as completed (their workspace artifacts must exist) and starts execution from `implement`. Input is auto-recovered from the most recent run unless `--input` or `--run` is specified.
 
+### Resume Flags
+
+| Flag | Description |
+|------|-------------|
+| `--from-step <step>` | Resume from a specific step. Steps before it are treated as completed. |
+| `--run <run-id>` | Target a specific prior run for artifact resolution. Without this, the most recent run is used. |
+| `--force` | Skip phase validation and stale artifact checks. Useful when validation incorrectly blocks a resume (e.g., artifacts exist but in a non-standard location). |
+| `-x, --exclude <step>` | Exclude specific steps from execution. Can be combined with `--from-step` to skip steps in the resumed portion. |
+
+```bash
+# Resume from "implement" step, skipping "create-pr" at the end
+wave run impl-issue --from-step implement -x create-pr
+
+# Force resume even if validation fails (artifacts from a different run layout)
+wave run impl-issue --from-step implement --force
+
+# Resume from a specific prior run
+wave run impl-issue --from-step implement --run impl-issue-20260315-142150-deb8
+```
+
+### Recovery Hints
+
+When a step fails, Wave displays recovery hints with the exact resume command:
+
+```
+step "implement" failed: contract validation failed
+
+Recovery hints:
+  Resume from failed step:
+    wave run impl-issue --input 'https://github.com/org/repo/issues/42' --from-step implement
+  Resume and skip validation checks:
+    wave run impl-issue --input 'https://github.com/org/repo/issues/42' --from-step implement --force
+  Inspect workspace artifacts:
+    ls .wave/workspaces/impl-issue-20260315-142150-deb8/implement/
+```
+
+### Failure Modes
+
+| Failure Mode | What Happens | Recovery |
+|-------------|-------------|----------|
+| **Contract validation** | Step output doesn't match schema. Step is marked failed. | Fix the issue, then `--from-step <step>` to retry. Use `--force` to skip contract checks. |
+| **Adapter crash** | LLM CLI process exits unexpectedly. Step is marked failed. | `--from-step <step>` to retry with a fresh adapter invocation. |
+| **Missing artifact** | A required input artifact from a prior step is missing. | Re-run the upstream step that produces the artifact, then resume. |
+| **Timeout** | Step exceeds its configured timeout. | Increase timeout in manifest or simplify the prompt, then resume. |
+| **Interruption (Ctrl+C)** | Current step is interrupted mid-execution. | `--from-step <step>` to retry the interrupted step. |
+
 ## Interruption Safety
 
 When Wave receives SIGINT (Ctrl+C):
@@ -144,7 +190,7 @@ Always resume interrupted pipelines **before** cleaning their workspaces.
 
 ## Further Reading
 
-- [CLI Reference — resume](/reference/cli#wave-resume) — resume command details
+- [CLI Reference — run](/reference/cli#wave-run) — run command details (includes `--from-step`, `--force`, `--run`, `--exclude`)
 - [CLI Reference — list](/reference/cli#wave-list) — listing runs
 - [Workspaces](/concepts/workspaces) — workspace lifecycle
 - [Events](/reference/events) — monitoring pipeline progress
