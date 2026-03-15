@@ -55,8 +55,7 @@ func (m *PRDetailModel) SetPR(pr *PRData) {
 
 // Update handles messages.
 func (m PRDetailModel) Update(msg tea.Msg) (PRDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if !m.focused {
 			return m, nil
 		}
@@ -110,28 +109,28 @@ func (m PRDetailModel) renderPRDetail() string {
 
 	// Metadata
 	sb.WriteString("\n")
-	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("State:"), m.statusLabel(pr)))
+	fmt.Fprintf(&sb, "%s %s\n", labelStyle.Render("State:"), m.statusLabel(pr))
 	if pr.Author != "" {
-		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Author:"), pr.Author))
+		fmt.Fprintf(&sb, "%s %s\n", labelStyle.Render("Author:"), pr.Author)
 	}
 	if len(pr.Labels) > 0 {
-		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Labels:"), strings.Join(pr.Labels, ", ")))
+		fmt.Fprintf(&sb, "%s %s\n", labelStyle.Render("Labels:"), strings.Join(pr.Labels, ", "))
 	}
 	if pr.HeadBranch != "" && pr.BaseBranch != "" {
-		sb.WriteString(fmt.Sprintf("%s %s → %s\n", labelStyle.Render("Branches:"), pr.HeadBranch, pr.BaseBranch))
+		fmt.Fprintf(&sb, "%s %s → %s\n", labelStyle.Render("Branches:"), pr.HeadBranch, pr.BaseBranch)
 	}
 	if pr.Additions > 0 || pr.Deletions > 0 || pr.ChangedFiles > 0 {
-		sb.WriteString(fmt.Sprintf("%s +%d/-%d in %d files\n",
-			labelStyle.Render("Changes:"), pr.Additions, pr.Deletions, pr.ChangedFiles))
+		fmt.Fprintf(&sb, "%s +%d/-%d in %d files\n",
+			labelStyle.Render("Changes:"), pr.Additions, pr.Deletions, pr.ChangedFiles)
 	}
 	if !pr.CreatedAt.IsZero() {
-		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Created:"), pr.CreatedAt.Format("2006-01-02")))
+		fmt.Fprintf(&sb, "%s %s\n", labelStyle.Render("Created:"), pr.CreatedAt.Format("2006-01-02"))
 	}
 	if pr.Comments > 0 {
-		sb.WriteString(fmt.Sprintf("%s %d\n", labelStyle.Render("Comments:"), pr.Comments))
+		fmt.Fprintf(&sb, "%s %d\n", labelStyle.Render("Comments:"), pr.Comments)
 	}
 	if pr.Commits > 0 {
-		sb.WriteString(fmt.Sprintf("%s %d\n", labelStyle.Render("Commits:"), pr.Commits))
+		fmt.Fprintf(&sb, "%s %d\n", labelStyle.Render("Commits:"), pr.Commits)
 	}
 
 	// Body
