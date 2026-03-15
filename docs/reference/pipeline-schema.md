@@ -31,7 +31,7 @@ Copy this to `.wave/pipelines/simple-task.yaml` and run with `wave run simple-ta
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-ops-pr-review
+  name: ops-pr-review
   description: "Automated code review pipeline"
 
 input:

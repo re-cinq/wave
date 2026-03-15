@@ -10,68 +10,68 @@ Wave ships with 46 pipelines organized by use case:
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `speckit-flow` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
-| `feature` | explore → plan → implement → publish | Feature planning and implementation |
-| `hotfix` | investigate → fix → verify | Production bugs |
-| `refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
-| `prototype` | spec → docs → dummy → implement → pr-create → ops-pr-review → pr-respond → pr-fix → pr-merge | Prototype-driven development |
-| `improve` | assess → implement → verify | Targeted code improvements |
+| `impl-speckit` | specify → clarify → plan → tasks → checklist → analyze → implement → create-pr | Feature development |
+| `impl-feature` | explore → plan → implement → publish | Feature planning and implementation |
+| `impl-hotfix` | investigate → fix → verify | Production bugs |
+| `impl-refactor` | analyze → test-baseline → refactor → verify | Safe refactoring |
+| `impl-prototype` | spec → docs → dummy → implement → pr-create → ops-pr-review → pr-respond → pr-fix → pr-merge | Prototype-driven development |
+| `impl-improve` | assess → implement → verify | Targeted code improvements |
 
 ### Quality & Debugging
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `gh-ops-pr-review` | diff-analysis → security-review + quality-review → summary → publish | PR reviews |
+| `ops-pr-review` | diff-analysis → security-review + quality-review → summary → publish | PR reviews |
 | `test-gen` | analyze-coverage → generate-tests → verify-coverage | Test coverage |
-| `debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
-| `security-scan` | scan → deep-dive → report | Security vulnerability audit |
-| `dead-code` | scan → clean → verify → create-pr | Dead code removal |
-| `supervise` | gather → evaluate → verdict | Work and process quality review |
-| `smoke-test` | analyze → summarize | Configuration validation |
+| `ops-debug` | reproduce → hypothesize → investigate → fix | Root cause analysis |
+| `audit-security` | scan → deep-dive → report | Security vulnerability audit |
+| `audit-dead-code` | scan → clean → verify → create-pr | Dead code removal |
+| `ops-supervise` | gather → evaluate → verdict | Work and process quality review |
+| `test-smoke` | analyze → summarize | Configuration validation |
 
 ### Planning & Documentation
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `plan` | explore → breakdown → review | Task planning |
-| `doc-audit` | scan-changes → analyze-consistency → compose-report → publish | Documentation consistency gate |
+| `plan-task` | explore → breakdown → review | Task planning |
+| `audit-doc` | scan-changes → analyze-consistency → compose-report → publish | Documentation consistency gate |
 | `doc-fix` | scan-changes → analyze → fix-docs → create-pr | Documentation fix and commit |
-| `explain` | explore → analyze → document | Code explanation deep-dive |
-| `adr` | explore-context → analyze-options → draft-record → publish | Architecture Decision Records |
-| `changelog` | analyze-commits → categorize → format | Changelog generation |
-| `onboard` | survey → guide | New contributor onboarding |
+| `doc-explain` | explore → analyze → document | Code explanation deep-dive |
+| `plan-adr` | explore-context → analyze-options → draft-record → publish | Architecture Decision Records |
+| `doc-changelog` | analyze-commits → categorize → format | Changelog generation |
+| `doc-onboard` | survey → guide | New contributor onboarding |
 
-### GitHub Automation (gh-*)
+### Issue Automation
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `gh-implement` | fetch-assess → plan → implement → create-pr | Implement GitHub issue end-to-end |
-| `gh-implement-epic` | fetch-scope → implement-subissues → report | Implement all subissues from an epic |
-| `gh-research` | fetch-issue → analyze-topics → research-topics → synthesize-report → post-comment | Research and report on issues |
-| `gh-rewrite` | scan-and-score → apply-enhancements | Rewrite poorly documented issues |
-| `gh-refresh` | gather-context → draft-update → apply-update | Refresh stale issues |
-| `gh-scope` | fetch-epic → scope-and-create → verify-report | Decompose epics into child issues |
+| `impl-issue` | fetch-assess → plan → implement → create-pr | Implement GitHub issue end-to-end |
+| `ops-implement-epic` | fetch-scope → implement-subissues → report | Implement all subissues from an epic |
+| `plan-research` | fetch-issue → analyze-topics → research-topics → synthesize-report → post-comment | Research and report on issues |
+| `ops-rewrite` | scan-and-score → apply-enhancements | Rewrite poorly documented issues |
+| `ops-refresh` | gather-context → draft-update → apply-update | Refresh stale issues |
+| `plan-scope` | fetch-epic → scope-and-create → verify-report | Decompose epics into child issues |
 
 ### Code Quality & Analysis
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `consolidate` | scan | Detect redundant implementations and architectural drift |
-| `dead-code-issue` | scan → compose-report → create-issue | Scan for dead code and create a GitHub issue |
-| `dead-code-review` | scan → compose → publish | Scan PR-changed files for dead code and post a review comment |
-| `dual-analysis` | quality-scan + quality-detail, security-scan + security-detail → merge | Parallel code-quality and security analysis |
-| `dx-audit` | audit | Evaluate developer experience for contributors and integrators |
-| `junk-code` | scan | Identify accidental complexity, conceptual misalignment, and technical debt |
-| `quality-loop` | quality-check | Supervise work, loop improvements until quality passes |
-| `ux-audit` | audit | Evaluate user experience across CLI, TUI, docs, or workflows |
+| `audit-consolidate` | scan | Detect redundant implementations and architectural drift |
+| `audit-dead-code-issue` | scan → compose-report → create-issue | Scan for dead code and create a GitHub issue |
+| `audit-dead-code-review` | scan → compose → publish | Scan PR-changed files for dead code and post a review comment |
+| `audit-dual` | quality-scan + quality-detail, audit-security + security-detail → merge | Parallel code-quality and security analysis |
+| `audit-dx` | audit | Evaluate developer experience for contributors and integrators |
+| `audit-junk-code` | scan | Identify accidental complexity, conceptual misalignment, and technical debt |
+| `audit-quality-loop` | quality-check | Supervise work, loop improvements until quality passes |
+| `audit-ux` | audit | Evaluate user experience across CLI, TUI, docs, or workflows |
 
 ### Multi-Pipeline Orchestration
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `epic-runner` | scope → implement-all | Scope an epic, implement each child issue sequentially |
-| `release-harden` | scan → triage → gate | Security scan, branch on severity, apply hotfixes, generate changelog |
-| `research-implement` | research → implement → review | Research a GitHub issue, implement the solution, then review the PR |
+| `ops-epic-runner` | scope → implement-all | Scope an epic, implement each child issue sequentially |
+| `ops-release-harden` | scan → triage → gate | Security scan, branch on severity, apply hotfixes, generate changelog |
+| `impl-research` | research → implement → review | Research a GitHub issue, implement the solution, then review the PR |
 
 ### Wave Self-Evolution (wave-*)
 
@@ -88,21 +88,21 @@ Wave ships with 46 pipelines organized by use case:
 
 | Pipeline | Steps | Use Case |
 |----------|-------|----------|
-| `hello-world` | greet → verify | Smoke test / example |
+| `ops-hello-world` | greet → verify | Smoke test / example |
 | `wave-land` | commit → ship | Branch, commit, push, PR, merge |
-| `recinq` | gather → diverge → converge → probe → distill → simplify → report → publish | Double Diamond code simplification |
+| `impl-recinq` | gather → diverge → converge → probe → distill → simplify → report → publish | Double Diamond code simplification |
 
 ## Running Pipelines
 
 ```bash
 # Run with input
-wave run speckit-flow "add user authentication"
+wave run impl-speckit "add user authentication"
 
 # Preview execution plan
-wave run hotfix --dry-run
+wave run impl-hotfix --dry-run
 
 # Start from specific step
-wave run speckit-flow --from-step implement
+wave run impl-speckit --from-step implement
 
 # Custom timeout
 wave run migrate --timeout 120
@@ -270,7 +270,7 @@ Spawn parallel instances from a task list:
 
 ## Pipeline Examples
 
-### speckit-flow
+### impl-speckit
 
 Full feature development workflow (8 steps):
 
@@ -324,7 +324,7 @@ steps:
       source: "Create pull request"
 ```
 
-### hotfix
+### impl-hotfix
 
 Fast-track bug fix:
 
@@ -348,7 +348,7 @@ steps:
       source: "Verify fix is safe for production"
 ```
 
-### debug
+### ops-debug
 
 Systematic debugging:
 

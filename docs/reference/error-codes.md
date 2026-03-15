@@ -274,7 +274,7 @@ WAVE_E005: adapter not available: binary 'claude' not found on PATH
 5. In CI/CD, ensure adapter is installed before running Wave:
    ```yaml
    - npm install -g @anthropic-ai/claude-code
-   - wave run gh-ops-pr-review
+   - wave run ops-pr-review
    ```
 
 ---

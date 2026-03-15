@@ -527,7 +527,7 @@ Recommended directory structure:
 ├── scripts/
 │   └── validate.sh
 └── pipelines/
-    └── gh-ops-pr-review.yaml
+    └── ops-pr-review.yaml
 ```
 
 ---

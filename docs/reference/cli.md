@@ -65,18 +65,18 @@ Execute a pipeline. Arguments can be provided as positional args or flags.
 
 ```bash
 # Positional arguments (recommended for quick usage)
-wave run gh-ops-pr-review "Review auth module"
+wave run ops-pr-review "Review auth module"
 
 # Flag-based (explicit)
-wave run --pipeline gh-ops-pr-review --input "Review auth module"
+wave run --pipeline ops-pr-review --input "Review auth module"
 
 # Mixed
-wave run gh-ops-pr-review --input "Review auth module"
+wave run ops-pr-review --input "Review auth module"
 ```
 
 **Output:**
 ```
-[run-abc123] Starting pipeline: gh-ops-pr-review
+[run-abc123] Starting pipeline: ops-pr-review
 [run-abc123] Step: analyze (navigator) - started
 [run-abc123] Step: analyze (navigator) - completed (45s)
 [run-abc123] Step: review (auditor) - started
@@ -87,10 +87,10 @@ wave run gh-ops-pr-review --input "Review auth module"
 ### Options
 
 ```bash
-wave run hotfix --dry-run                      # Preview without executing
-wave run speckit-flow --from-step implement    # Start from step (auto-recovers input)
-wave run speckit-flow --from-step implement --force  # Skip validation for --from-step
-wave run recinq --from-step report --run recinq-20260219-fa19  # Recover input from specific run
+wave run impl-impl-hotfix --dry-run                 # Preview without executing
+wave run impl-speckit --from-step implement    # Start from step (auto-recovers input)
+wave run impl-speckit --from-step implement --force  # Skip validation for --from-step
+wave run impl-recinq --from-step report --run impl-recinq-20260219-fa19  # Recover input from specific run
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
 wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
@@ -98,7 +98,7 @@ wave run deploy -o text                        # Plain text progress to stderr
 wave run review -o text -v                     # Plain text with real-time tool activity
 wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
-wave run debug --preserve-workspace            # Preserve workspace from previous run (for debugging)
+wave run ops-debug --preserve-workspace        # Preserve workspace from previous run (for debugging)
 ```
 
 ---
@@ -178,8 +178,8 @@ wave status
 **Output:**
 ```
 RUN_ID          PIPELINE      STATUS     STEP        ELAPSED    TOKENS
-run-abc123      gh-ops-pr-review   running    review      2m15s      12k
-run-xyz789      hotfix        completed  -           5m23s      28k
+run-abc123      ops-pr-review   running    review      2m15s      12k
+run-xyz789      impl-hotfix        completed  -           5m23s      28k
 ```
 
 ### Detailed Status
@@ -191,7 +191,7 @@ wave status run-abc123
 **Output:**
 ```
 Run ID:     run-abc123
-Pipeline:   gh-ops-pr-review
+Pipeline:   ops-pr-review
 Status:     running
 Step:       review
 Started:    2026-02-03 14:30:22
@@ -252,7 +252,7 @@ wave cancel run-abc123
 
 **Output:**
 ```
-Cancellation requested for run-abc123 (gh-ops-pr-review)
+Cancellation requested for run-abc123 (ops-pr-review)
 Pipeline will stop after current step completes.
 ```
 
@@ -265,7 +265,7 @@ wave cancel run-abc123 -f              # Short flag for --force
 
 **Output:**
 ```
-Force cancellation sent to run-abc123 (gh-ops-pr-review)
+Force cancellation sent to run-abc123 (ops-pr-review)
 Process terminated.
 ```
 
@@ -354,8 +354,8 @@ wave list runs
 Recent Pipeline Runs
 ────────────────────────────────────────────────────────────────────────────────
   RUN_ID                    PIPELINE          STATUS        STARTED             DURATION
-  run-abc123                gh-ops-pr-review       completed     2026-02-03 14:30    5m23s
-  run-xyz789                hotfix            failed        2026-02-03 09:30    2m15s
+  run-abc123                ops-pr-review       completed     2026-02-03 14:30    5m23s
+  run-xyz789                impl-hotfix            failed        2026-02-03 09:30    2m15s
 ```
 
 ### Pipelines
@@ -369,11 +369,11 @@ wave list pipelines
 Pipelines
 ────────────────────────────────────────────────────────────
 
-  gh-ops-pr-review [4 steps]
+  ops-pr-review [4 steps]
     Automated code review workflow
     ○ analyze → review → report → notify
 
-  speckit-flow [5 steps]
+  impl-speckit [5 steps]
     Feature development pipeline
     ○ navigate → specify → plan → implement → validate
 ```
@@ -411,11 +411,11 @@ Contracts
 
   navigation [json-schema]
     used by:
-      • speckit-flow → navigate (navigator)
+      • impl-speckit → navigate (navigator)
 
   specification [json-schema]
     used by:
-      • speckit-flow → specify (philosopher)
+      • impl-speckit → specify (philosopher)
 
   validation-report [json-schema]
     (unused)
@@ -426,7 +426,7 @@ Contracts
 ```bash
 wave list runs --run-status failed       # Filter by status
 wave list runs --limit 20                # Show more runs
-wave list runs --run-pipeline hotfix     # Filter by pipeline
+wave list runs --run-pipeline impl-hotfix     # Filter by pipeline
 wave list --format json                  # JSON output
 ```
 
@@ -463,7 +463,7 @@ Validation failed with 2 errors.
 
 ```bash
 wave validate -v                     # Show all checks (global --verbose flag)
-wave validate --pipeline hotfix.yaml # Validate specific pipeline
+wave validate --pipeline impl-hotfix.yaml # Validate specific pipeline
 ```
 
 ---
@@ -479,8 +479,8 @@ wave clean --dry-run
 **Output:**
 ```
 Would delete:
-  .wave/workspaces/run-abc123/  (gh-ops-pr-review, 145 MB)
-  .wave/workspaces/run-xyz789/  (hotfix, 23 MB)
+  .wave/workspaces/run-abc123/  (ops-pr-review, 145 MB)
+  .wave/workspaces/run-xyz789/  (impl-hotfix, 23 MB)
 Total: 168 MB across 2 runs
 
 Run without --dry-run to delete.
@@ -555,17 +555,17 @@ wave serve --db .wave/state.db
 Validate artifact compatibility between adjacent pipelines in a sequence and optionally execute them in order.
 
 ```bash
-wave compose speckit-flow wave-evolve wave-review
+wave compose impl-speckit wave-evolve wave-review
 ```
 
 **Output:**
 ```
-Validating pipeline sequence: speckit-flow → wave-evolve → wave-review
-  speckit-flow → wave-evolve: compatible (3 artifacts)
+Validating pipeline sequence: impl-speckit → wave-evolve → wave-review
+  impl-speckit → wave-evolve: compatible (3 artifacts)
   wave-evolve → wave-review: compatible (2 artifacts)
 
 Executing pipeline sequence...
-[run-abc123] speckit-flow completed (2m15s)
+[run-abc123] impl-speckit completed (2m15s)
 [run-def456] wave-evolve completed (3m42s)
 [run-ghi789] wave-review completed (1m08s)
 
@@ -584,7 +584,7 @@ Sequence completed in 7m05s
 
 ```bash
 # Validate without executing
-wave compose speckit-flow wave-evolve --validate-only
+wave compose impl-speckit wave-evolve --validate-only
 
 # Pass input to all pipelines
 wave compose pipeline-a pipeline-b --input "build feature X"
@@ -593,7 +593,7 @@ wave compose pipeline-a pipeline-b --input "build feature X"
 wave compose --parallel A B -- C
 
 # Use mock adapter for testing
-wave compose speckit-flow wave-evolve --mock
+wave compose impl-speckit wave-evolve --mock
 ```
 
 ---

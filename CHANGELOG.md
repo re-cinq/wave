@@ -9,11 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Mobile responsiveness improvements for documentation landing page terminal
+- Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
+- Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
+- Forge-agnostic template variables (`{{ forge.cli_tool }}`, `{{ forge.pr_command }}`) in pipeline prompts
+- Skill management CLI subcommand (`wave skills list|install|remove|search|sync`)
 
 ### Changed
-- Renamed `code-review` pipeline to `gh-pr-review` for clarity and consistency
+- Renamed all pipelines to use taxonomy prefixes (e.g., `implement` → `impl-issue`, `pr-review` → `ops-pr-review`, `speckit-flow` → `impl-speckit`)
+- Unified forge-specific pipelines (`gh-implement`, `gl-implement`, etc.) into forge-agnostic pipelines
+- Renamed `code-review` → `gh-pr-review` → `ops-pr-review` for clarity and consistency
 - Generalized `github-commenter` persona to support multiple GitHub operations
-- Updated all documentation references from `code-review` to `gh-pr-review`
+- Updated all documentation references to use taxonomy-prefixed pipeline names
 
 ### Fixed
 - Terminal text alignment on mobile devices in documentation

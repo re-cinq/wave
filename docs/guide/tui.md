@@ -20,16 +20,16 @@ The TUI is enabled by default when running in an interactive terminal. Wave auto
 
 ```bash
 # Default: TUI auto-detected
-wave run speckit-flow "task"
+wave run impl-speckit "task"
 
 # Force disable TUI
-wave run speckit-flow "task" --no-tui
+wave run impl-speckit "task" --no-tui
 
 # Force text output
-wave run speckit-flow "task" -o text
+wave run impl-speckit "task" -o text
 
 # Force TUI in non-TTY context
-WAVE_FORCE_TTY=1 wave run speckit-flow "task"
+WAVE_FORCE_TTY=1 wave run impl-speckit "task"
 ```
 
 ## CI/CD Environments
@@ -40,10 +40,10 @@ For explicit control in CI:
 
 ```bash
 # JSON output for machine parsing
-wave run speckit-flow "task" -o json
+wave run impl-speckit "task" -o json
 
 # Plain text for CI logs
-wave run speckit-flow "task" -o text
+wave run impl-speckit "task" -o text
 ```
 
 ## Output Modes

@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `l` key toggle between dashboard and event log in live output
 - Header completion counts (e.g. "1 ok, 1 fail") in live output
 - Handover metadata (artifacts, contracts, targets) in verbose dashboard mode
+- Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
+- Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
+- Forge-agnostic template variables in pipeline prompts
+- Skill management CLI (`wave skills list|install|remove|search|sync`)
+
+### Changed
+- Renamed all pipelines to use taxonomy prefixes (e.g., `implement` → `impl-issue`, `pr-review` → `ops-pr-review`, `speckit-flow` → `impl-speckit`)
+- Unified forge-specific pipelines into forge-agnostic pipelines with template variables
 
 ### Removed
 - Stale multiplatform pipeline tests referencing non-existent gl-*/gt-* YAML files
@@ -262,7 +270,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.44.3] - 2026-03-03
 
 ### Fixed
-- gh-implement pipeline flaws from parallel run audit
+- impl-issue pipeline flaws from parallel run audit
 
 ## [0.44.2] - 2026-03-03
 
@@ -301,7 +309,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.42.0] - 2026-03-02
 
 ### Added
-- `gh-implement-epic` pipeline and artifacts
+- `impl-issue-epic` pipeline and artifacts
 - Child pipeline invocation in matrix executor
 - Dependency tiers in matrix executor
 
@@ -335,7 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `wave-land` pipeline for commit-and-ship workflow
 
 ### Fixed
-- Templatized test command; removed stale script reference in gh-implement
+- Templatized test command; removed stale script reference in impl-issue
 - Tightened persona permissions with granular tool controls
 - Real-execution-only constraint added to base protocol
 
@@ -366,7 +374,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.38.0] - 2026-02-28
 
 ### Added
-- `gh-scope` pipeline for epic decomposition across all 4 forges
+- `plan-scope` pipeline for epic decomposition across all 4 forges
 - Scope contracts and pipelines added to `.wave/` runtime directory
 
 ## [0.37.0] - 2026-02-28
@@ -416,7 +424,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Pipeline identifier renaming for improved clarity (#136)
   - `gh-issue-impl` → `gh-implement`
-  - `gh-pr-comment` → `gh-ops-pr-review`
+  - `gh-pr-comment` → `gh-pr-review`
   - 6 additional pipelines renamed for consistency
 
 ### Fixed

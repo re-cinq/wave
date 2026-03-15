@@ -21,7 +21,7 @@ graph TD
 ```yaml
 kind: WavePipeline
 metadata:
-  name: speckit-flow
+  name: impl-speckit
   description: "Specification-driven feature development"
 
 input:
@@ -236,14 +236,14 @@ steps:
 
 ```bash
 # Full run
-wave run speckit-flow \
+wave run impl-speckit \
   --input "add user authentication with JWT and refresh tokens"
 
 # Dry run first
-wave run speckit-flow --dry-run
+wave run impl-speckit --dry-run
 
 # Resume after interruption
-wave run speckit-flow --from-step implement
+wave run impl-speckit --from-step implement
 ```
 
 ## Expected Output
@@ -267,7 +267,7 @@ With `-o text`:
 [10:10:46]   review: Executing agent
 [10:11:51] ✓ review completed (65.0s, 2.1k tokens)
 
-  ✓ Pipeline 'speckit-flow' completed successfully (11m 50s)
+  ✓ Pipeline 'impl-speckit' completed successfully (11m 50s)
 ```
 
 ## Artifacts Produced

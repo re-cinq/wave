@@ -226,7 +226,7 @@ Summary:
 Run a simple pipeline to confirm everything works end-to-end:
 
 ```bash
-wave run hello-world "upgrade test"
+wave run ops-hello-world "upgrade test"
 ```
 
 If this completes successfully, your upgrade is finished.
