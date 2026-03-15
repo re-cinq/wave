@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: plan-speckit
-  description: "Specification-driven feature development using the full speckit workflow"
+  name: impl-speckit
+  description: "Specification-driven implementation: specify → clarify → plan → tasks → implement → PR"
   release: true
 
 requires:

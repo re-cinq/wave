@@ -3,6 +3,10 @@ metadata:
   name: impl-hotfix
   description: "Quick investigation and fix for production issues"
 
+skills:
+  - golang
+  - software-design
+
 input:
   source: cli
   example: "fix panic in pipeline executor when step has nil context"

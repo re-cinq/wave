@@ -4,6 +4,9 @@ metadata:
   description: "Generate a project onboarding guide for new contributors"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "create an onboarding guide for this project"

@@ -4,6 +4,10 @@ metadata:
   description: Research a GitHub issue and post findings as a comment
   release: true
 
+skills:
+  - gh-cli
+  - software-design
+
 requires:
   tools:
     - gh
@@ -38,7 +42,7 @@ steps:
         Parse the input to extract the repository and issue number.
         Use the gh CLI to fetch the issue:
 
-        gh issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
@@ -237,7 +241,7 @@ steps:
            <markdown_content>
            COMMENT_EOF
 
-           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
+           {{ forge.cli_tool }} issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
 
         4. Add a footer to the comment:
            ---
