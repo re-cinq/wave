@@ -4,6 +4,9 @@ metadata:
   description: "Evaluate user experience across CLI, TUI, docs, or workflows"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "audit the CLI onboarding flow for new users"

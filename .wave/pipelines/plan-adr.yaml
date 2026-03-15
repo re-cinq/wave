@@ -4,6 +4,9 @@ metadata:
   description: "Create an Architecture Decision Record for a design choice"
   release: true
 
+skills:
+  - software-architecture
+
 input:
   source: cli
   example: "ADR: should we use SQLite or PostgreSQL for pipeline state?"
@@ -207,7 +210,7 @@ steps:
         3. Push and create PR:
            ```bash
            git push -u origin HEAD
-           gh pr create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
            ```
     output_artifacts:
       - name: pr-result

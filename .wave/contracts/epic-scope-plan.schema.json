@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Epic Scope Plan",
-  "description": "Output from the fetch-scope step of gh-implement-epic: parsed subissues with dependency graph",
+  "description": "Output from the fetch-scope step of ops-implement-epic: parsed subissues with dependency graph",
   "type": "object",
   "required": ["parent_issue", "subissues", "total_subissues", "open_subissues"],
   "properties": {

@@ -1,8 +1,11 @@
 kind: WavePipeline
 metadata:
-  name: ops-consolidate
+  name: audit-consolidate
   description: "Detect redundant implementations and architectural drift"
   release: true
+
+skills:
+  - software-design
 
 input:
   source: cli

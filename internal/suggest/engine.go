@@ -71,7 +71,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 2: Poor quality issues
 		if cb.Issues.PoorQuality > 0 {
-			if name := resolvePipeline(catalog, prefix, "rewrite"); name != "" {
+			if name := resolvePipeline(catalog, prefix, "ops-rewrite"); name != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     name,
 					Reason:   fmt.Sprintf("%d issues with poor quality scores", cb.Issues.PoorQuality),
@@ -83,8 +83,8 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 3: Open issues without linked PRs
 		if cb.Issues.Open > 0 {
-			implName := resolvePipeline(catalog, prefix, "implement")
-			researchName := resolvePipeline(catalog, prefix, "research")
+			implName := resolvePipeline(catalog, prefix, "impl-issue")
+			researchName := resolvePipeline(catalog, prefix, "plan-research")
 			if implName != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     implName,
@@ -122,7 +122,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 5: Stale PRs
 		if cb.PRs.Stale > 0 {
-			if name := resolvePipeline(catalog, prefix, "refresh"); name != "" {
+			if name := resolvePipeline(catalog, prefix, "ops-refresh"); name != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     name,
 					Reason:   fmt.Sprintf("%d stale PRs (>14 days)", cb.PRs.Stale),
@@ -280,7 +280,7 @@ func detectSequences(proposals []ProposedPipeline, catalog []string, prefix stri
 	}
 
 	// Known chains: research → implement
-	chains := [][2]string{{"research", "implement"}}
+	chains := [][2]string{{"plan-research", "impl-issue"}}
 
 	for _, chain := range chains {
 		firstIdx, hasFirst := byBase[chain[0]]
@@ -316,7 +316,7 @@ func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 	}
 
 	// Known parallel groups
-	groups := [][2]string{{"implement", "pr-review"}}
+	groups := [][2]string{{"impl-issue", "pr-review"}}
 
 	for _, group := range groups {
 		firstIdx, hasFirst := byBase[group[0]]

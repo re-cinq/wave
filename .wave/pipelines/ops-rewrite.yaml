@@ -1,8 +1,12 @@
 kind: WavePipeline
 metadata:
-  name: rewrite
-  description: "Analyze and rewrite poorly documented GitHub issues"
+  name: ops-rewrite
+  description: "Analyze and rewrite poorly documented issues"
   release: true
+
+skills:
+  - gh-cli
+  - software-design
 
 requires:
   tools:
@@ -31,9 +35,9 @@ steps:
         - If "owner/repo NUM" → extract <REPO> and <NUM>
         - If "owner/repo" alone → batch mode, use {{ input }} as <REPO>
 
-        Step 2: Fetch issues via gh CLI.
-        - Single: gh issue view <NUM> --repo <REPO> --json number,title,body,labels,url
-        - Batch: gh issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
+        Step 2: Fetch issues via {{ forge.cli_tool }}.
+        - Single: {{ forge.cli_tool }} issue view <NUM> --repo <REPO> --json number,title,body,labels,url
+        - Batch: {{ forge.cli_tool }} issue list --repo {{ input }} --limit 10 --json number,title,body,labels,url
 
         IMPORTANT: If a specific issue number was parsed from the input but the fetch
         fails (not found, permissions error), STOP. Output JSON with repository set
@@ -80,14 +84,14 @@ steps:
         Read the "repository" field from the plan artifact to get <REPO>.
 
         For each issue in issues_to_enhance:
-        1. Apply title: gh issue edit <NUM> --repo <REPO> --title 'suggested_title'
+        1. Apply title: {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --title 'suggested_title'
         2. Apply body — write to temp file first, then apply:
            cat > /tmp/issue-body.md <<'BODY_EOF'
            <body_template content>
            BODY_EOF
-           gh issue edit <NUM> --repo <REPO> --body-file /tmp/issue-body.md
-        3. Add labels: gh issue edit <NUM> --repo <REPO> --add-label "label1,label2"
-        4. Capture URL: gh issue view <NUM> --repo <REPO> --json url --jq .url
+           {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --body-file /tmp/issue-body.md
+        3. Add labels: {{ forge.cli_tool }} issue edit <NUM> --repo <REPO> --add-label "label1,label2"
+        4. Capture URL: {{ forge.cli_tool }} issue view <NUM> --repo <REPO> --json url --jq .url
 
         Output JSON with enhanced_issues (issue_number, success, changes_made, url),
         total_attempted, total_successful.

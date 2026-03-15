@@ -4,6 +4,9 @@ metadata:
   description: "Systematic debugging with hypothesis testing"
   release: true
 
+skills:
+  - golang
+
 input:
   source: cli
   example: "TestPipelineExecutor fails with nil pointer on resume"

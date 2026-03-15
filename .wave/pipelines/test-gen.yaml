@@ -4,6 +4,9 @@ metadata:
   description: "Generate comprehensive test coverage"
   release: true
 
+skills:
+  - golang
+
 input:
   source: cli
   example: "generate tests for internal/pipeline to improve coverage"

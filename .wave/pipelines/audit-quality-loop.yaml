@@ -5,6 +5,9 @@ metadata:
   category: composition
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "last pipeline run"

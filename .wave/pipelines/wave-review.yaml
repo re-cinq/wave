@@ -4,6 +4,10 @@ metadata:
   description: "Code review of Wave changes — quality, safety, test coverage, and architectural alignment"
   release: false
 
+skills:
+  - wave
+  - golang
+
 requires:
   tools:
     - gh
@@ -32,8 +36,8 @@ steps:
 
         If the input is a PR number (starts with # or is numeric):
         ```bash
-        gh pr diff {{ input }}
-        gh pr view {{ input }} --json title,body,files
+        {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }}
+        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json title,body,files
         ```
 
         If the input is a branch name:
