@@ -164,9 +164,9 @@ func (v *FormatValidator) validateGitHubPRFormat(output map[string]interface{}) 
 			}
 		}
 
-		// Check for issue references (Closes #123 or Fixes #456)
-		if !regexp.MustCompile(`(?i)(closes|fixes|resolves)\s+#\d+`).MatchString(body) {
-			violations = append(violations, "PR body should reference related issues (Closes #123)")
+		// Check for issue references (Related to #123, Closes #123, or Fixes #456)
+		if !regexp.MustCompile(`(?i)(closes|fixes|resolves|related\s+to)\s+#\d+`).MatchString(body) {
+			violations = append(violations, "PR body should reference related issues (Related to #123 or Closes #123)")
 		}
 
 		// Check for checklist
