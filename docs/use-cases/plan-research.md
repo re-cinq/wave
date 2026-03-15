@@ -16,12 +16,12 @@ graph TD
     S --> C[Post Comment]
 ```
 
-The issue-research pipeline takes a GitHub issue, extracts research questions, performs web searches, synthesizes findings, and posts a structured research comment back on the issue.
+The plan-research pipeline takes a GitHub issue, extracts research questions, performs web searches, synthesizes findings, and posts a structured research comment back on the issue.
 
 ## Running
 
 ```bash
-wave run issue-research "re-cinq/wave 42"
+wave run plan-research "re-cinq/wave 42"
 ```
 
 ## Expected Output
@@ -41,7 +41,7 @@ With `-o text`:
 [10:05:29] → post-comment (github-commenter)
 [10:05:52] ✓ post-comment completed (23.0s, 0.8k tokens)
 
-  ✓ Pipeline 'issue-research' completed successfully (5m 51s)
+  ✓ Pipeline 'plan-research' completed successfully (5m 51s)
 ```
 
 ## Steps

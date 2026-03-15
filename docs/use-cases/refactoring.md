@@ -16,13 +16,13 @@ Perform systematic code refactoring with analysis, safe implementation, and veri
 
 - Wave installed and initialized (`wave init`)
 - Git repository with tests (highly recommended)
-- Understanding of [code-review](/use-cases/gh-ops-pr-review) pipeline
+- Understanding of [code-review](/use-cases/ops-pr-review) pipeline
 - Familiarity with common refactoring patterns
 
 ## Quick Start
 
 ```bash
-wave run refactor "refactor the database connection handling for better error management"
+wave run impl-refactor "refactor the database connection handling for better error management"
 ```
 
 With `-o text`:
@@ -38,7 +38,7 @@ With `-o text`:
 [10:02:16] → verify (auditor)
 [10:02:45] ✓ verify completed (29.0s, 2.1k tokens)
 
-  ✓ Pipeline 'refactor' completed successfully (2m 44s)
+  ✓ Pipeline 'impl-refactor' completed successfully (2m 44s)
 ```
 
 ## Complete Pipeline
@@ -50,7 +50,7 @@ Save the following YAML to `.wave/pipelines/refactor.yaml`:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: refactor
+  name: impl-refactor
   description: "Systematic code refactoring with verification"
 
 input:
@@ -256,25 +256,25 @@ None. Refactoring complete.
 ### Extract methods
 
 ```bash
-wave run refactor "extract common validation logic into reusable functions"
+wave run impl-refactor "extract common validation logic into reusable functions"
 ```
 
 ### Rename for consistency
 
 ```bash
-wave run refactor "rename all handler functions to follow HandleXxx pattern"
+wave run impl-refactor "rename all handler functions to follow HandleXxx pattern"
 ```
 
 ### Reduce coupling
 
 ```bash
-wave run refactor "decouple the notification service from email implementation"
+wave run impl-refactor "decouple the notification service from email implementation"
 ```
 
 ### Add dependency injection
 
 ```bash
-wave run refactor "add dependency injection to the user service for testability"
+wave run impl-refactor "add dependency injection to the user service for testability"
 ```
 
 ### Safe mode (dry run)
@@ -317,12 +317,12 @@ steps:
 ### After Refactoring
 
 1. **Full test run** - Verify all tests pass
-2. **Code review** - Use [code-review](/use-cases/gh-ops-pr-review) pipeline
+2. **Code review** - Use [code-review](/use-cases/ops-pr-review) pipeline
 3. **Documentation** - Update any affected docs
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/gh-ops-pr-review) - Review refactoring changes
+- [Code Review](/use-cases/ops-pr-review) - Review refactoring changes
 - [Test Generation](/use-cases/test-generation) - Add tests before refactoring
 
 ## Next Steps

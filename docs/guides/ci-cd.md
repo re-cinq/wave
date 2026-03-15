@@ -27,7 +27,7 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
-        run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+        run: wave run ops-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -48,7 +48,7 @@ jobs:
         run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
 
       - name: Run Review
-        run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+        run: wave run ops-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -74,12 +74,12 @@ name: Wave CI
 on: [pull_request]
 
 jobs:
-  gh-ops-pr-review:
+  ops-pr-review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-      - run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+      - run: wave run ops-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -105,7 +105,7 @@ wave-review:
   stage: review
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run gh-ops-pr-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -124,7 +124,7 @@ wave-review:
   stage: review
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run gh-ops-pr-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -137,11 +137,11 @@ wave-review:
 stages:
   - analyze
 
-gh-ops-pr-review:
+ops-pr-review:
   stage: analyze
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run gh-ops-pr-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
 
 security-audit:
   stage: analyze
@@ -188,7 +188,7 @@ jobs:
 
       - name: Run Code Review
         run: |
-          wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+          wave run ops-pr-review "${{ github.event.pull_request.title }}"
 
       - name: Check Status
         run: wave status
@@ -263,12 +263,12 @@ Configure GitHub Actions permissions based on what your pipeline needs:
 ```yaml
 permissions:
   contents: read        # Read repository files
-  pull-requests: write  # Comment on PRs (gh-ops-pr-review)
-  issues: write         # Create/update issues (gh-implement, gh-scope)
+  pull-requests: write  # Comment on PRs (ops-pr-review)
+  issues: write         # Create/update issues (impl-issue, plan-scope)
   actions: read         # Read workflow status
 ```
 
-For pipelines that commit changes (e.g., `doc-fix`, `speckit-flow`), you also need `contents: write`.
+For pipelines that commit changes (e.g., `doc-fix`, `impl-speckit`), you also need `contents: write`.
 
 ## Headless / No-TTY Mode
 
@@ -286,7 +286,7 @@ CI runners typically have no TTY. Wave handles this automatically, but you can a
 
 ```yaml
 - name: Run Pipeline
-  run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}" -o json
+  run: wave run ops-pr-review "${{ github.event.pull_request.title }}" -o json
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     WAVE_FORCE_TTY: "0"
@@ -334,7 +334,7 @@ jobs:
       - name: Install Wave
         run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
       - name: Run Pipeline
-        run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+        run: wave run ops-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -375,7 +375,7 @@ jobs:
       - name: Install Wave
         run: curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
       - name: Run Pipeline
-        run: wave run gh-ops-pr-review "${{ github.event.pull_request.title }}"
+        run: wave run ops-pr-review "${{ github.event.pull_request.title }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -391,7 +391,7 @@ wave-review:
     GH_TOKEN: $GH_TOKEN
   script:
     - curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh
-    - wave run gh-ops-pr-review "$CI_MERGE_REQUEST_TITLE"
+    - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
 ```
 
 > **Security note:** Never commit API keys or tokens. Use your CI platform's secret management (GitHub Secrets, GitLab CI Variables with masking, etc.). Wave's credential scrubbing ensures secrets are redacted from audit logs even if accidentally logged. See [Environment Variables & Credentials](/reference/environment) for the full credential model.

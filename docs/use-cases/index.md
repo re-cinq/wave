@@ -14,24 +14,24 @@ import UseCaseGallery from '../.vitepress/theme/components/UseCaseGallery.vue'
 
 const useCases = [
   {
-    id: 'gh-ops-pr-review',
+    id: 'ops-pr-review',
     title: 'Code Review',
     description: 'Automated PR reviews with security checks, quality analysis, and actionable feedback.',
     category: 'code-quality',
     complexity: 'beginner',
     personas: ['navigator', 'auditor', 'summarizer'],
     tags: ['PR review', 'quality'],
-    link: '/use-cases/gh-ops-pr-review'
+    link: '/use-cases/ops-pr-review'
   },
   {
-    id: 'doc-audit',
+    id: 'audit-doc',
     title: 'Documentation Consistency',
     description: 'Pre-PR gate that scans code changes, cross-references docs, and creates a GitHub issue for inconsistencies.',
     category: 'documentation',
     complexity: 'intermediate',
     personas: ['navigator', 'reviewer', 'github-analyst'],
     tags: ['docs', 'consistency', 'gh'],
-    link: '/use-cases/doc-audit'
+    link: '/use-cases/audit-doc'
   },
   {
     id: 'github-issue-enhancer',
@@ -51,7 +51,7 @@ const useCases = [
     complexity: 'intermediate',
     personas: ['github-analyst', 'researcher', 'summarizer', 'github-commenter'],
     tags: ['research', 'issues', 'gh'],
-    link: '/use-cases/issue-research'
+    link: '/use-cases/plan-research'
   },
   {
     id: 'test-generation',
@@ -74,14 +74,14 @@ const useCases = [
     link: '/use-cases/refactoring'
   },
   {
-    id: 'supervise',
+    id: 'ops-supervise',
     title: 'Work Supervision',
     description: 'Review output quality and process quality of completed work, including AI session transcripts.',
     category: 'code-quality',
     complexity: 'intermediate',
     personas: ['supervisor', 'reviewer'],
     tags: ['quality', 'process review', 'claudit'],
-    link: '/use-cases/supervise'
+    link: '/use-cases/ops-supervise'
   },
   {
     id: 'recinq',

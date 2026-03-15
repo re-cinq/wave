@@ -67,10 +67,10 @@ cd /path/to/your/project
 wave init
 
 # Run your first pipeline
-wave run hello-world
+wave run ops-hello-world
 
 # Run a feature development pipeline
-wave run speckit-flow "add user authentication"
+wave run impl-speckit "add user authentication"
 
 # Or run ad-hoc tasks
 wave do "fix the failing test in auth_test.go"
@@ -166,13 +166,13 @@ Use "wave [command] --help" for more information about a command.
 
 ```bash
 # Feature development
-wave run speckit-flow "add OAuth2 with Google"
+wave run impl-speckit "add OAuth2 with Google"
 
 # Fix production bug
-wave run hotfix "500 errors on /api/users"
+wave run impl-hotfix "500 errors on /api/users"
 
 # Review PR
-wave run gh-pr-review "review auth module changes"
+wave run ops-pr-review "review auth module changes"
 
 # Generate tests
 wave run test-gen "improve coverage for internal/cache"
@@ -356,37 +356,37 @@ A selection of the 46 built-in pipelines:
 
 | Pipeline | Description |
 |----------|-------------|
-| `speckit-flow` | Specification-driven feature development |
-| `feature` | Feature planning and implementation |
-| `hotfix` | Quick investigation and fix for production issues |
-| `refactor` | Safe refactoring with comprehensive test coverage |
-| `prototype` | Prototype-driven development (spec → docs → dummy → implement → pr) |
+| `impl-speckit` | Specification-driven feature development |
+| `impl-feature` | Feature planning and implementation |
+| `impl-hotfix` | Quick investigation and fix for production issues |
+| `impl-refactor` | Safe refactoring with comprehensive test coverage |
+| `impl-prototype` | Prototype-driven development (spec → docs → dummy → implement → pr) |
 
 ### Quality & Debugging
 
 | Pipeline | Description |
 |----------|-------------|
-| `gh-pr-review` | Comprehensive code review for pull requests |
+| `ops-pr-review` | Comprehensive code review for pull requests |
 | `test-gen` | Generate comprehensive test coverage |
-| `debug` | Systematic debugging with hypothesis testing |
+| `ops-debug` | Systematic debugging with hypothesis testing |
 
 ### Planning & Documentation
 
 | Pipeline | Description |
 |----------|-------------|
-| `plan` | Break down a feature into actionable tasks |
+| `plan-task` | Break down a feature into actionable tasks |
 | `doc-fix` | Generate or update documentation |
-| `doc-audit` | Documentation consistency gate |
+| `audit-doc` | Documentation consistency gate |
 
-### GitHub Automation
+### Issue Automation
 
 | Pipeline | Description |
 |----------|-------------|
-| `gh-implement` | Implement a GitHub issue end-to-end |
-| `gh-scope` | Decompose epics into child issues |
-| `gh-research` | Research and report on issues |
+| `impl-issue` | Implement a GitHub issue end-to-end |
+| `plan-scope` | Decompose epics into child issues |
+| `plan-research` | Research and report on issues |
 
-> **More pipelines:** `hello-world`, `smoke-test`, `explain`, `onboard`, `improve`, `dead-code`, `security-scan`, `changelog`, `adr`, `wave-land`, `recinq`, `supervise`, plus GitHub automation (gh-\*) and Wave self-evolution (wave-\*) pipelines
+> **More pipelines:** `ops-hello-world`, `test-smoke`, `doc-explain`, `doc-onboard`, `impl-improve`, `audit-dead-code`, `audit-security`, `doc-changelog`, `plan-adr`, `wave-land`, `impl-recinq`, `ops-supervise`, plus Wave self-evolution (wave-\*) pipelines
 >
 > Explore all in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -422,8 +422,8 @@ wave.yaml                    # Project manifest
 │   ├── craftsman.md
 │   └── ...
 ├── pipelines/               # Pipeline definitions
-│   ├── speckit-flow.yaml
-│   ├── hotfix.yaml
+│   ├── impl-speckit.yaml
+│   ├── impl-hotfix.yaml
 │   └── ...
 ├── contracts/               # JSON schemas
 ├── workspaces/              # Ephemeral step workspaces

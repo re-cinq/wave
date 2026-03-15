@@ -16,7 +16,7 @@ Perform comprehensive security analysis of your codebase. This pipeline performs
 
 - Wave installed and initialized (`wave init`)
 - Git repository to audit
-- Understanding of [code-review](/use-cases/gh-ops-pr-review) pipeline (recommended)
+- Understanding of [code-review](/use-cases/ops-pr-review) pipeline (recommended)
 - Familiarity with OWASP Top 10 and common vulnerability types
 
 ## Quick Start
@@ -308,7 +308,7 @@ Ensure compliance report follows expected format:
 
 ## Related Use Cases
 
-- [Code Review](/use-cases/gh-ops-pr-review) - Regular PR reviews with security checks
+- [Code Review](/use-cases/ops-pr-review) - Regular PR reviews with security checks
 - [Test Generation](/use-cases/test-generation) - Generate security-focused tests
 - [Incident Response](./incident-response) - Respond to security incidents
 
