@@ -21,6 +21,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
+	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
@@ -726,6 +727,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Attempt:      attempt,
 					State:        "failed",
 					ErrorMessage: err.Error(),
+					FailureClass: string(recovery.ClassifyError(err)),
 					DurationMs:   attemptDuration.Milliseconds(),
 					StartedAt:    attemptStart,
 					CompletedAt:  &completedAt,
