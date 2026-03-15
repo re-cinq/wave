@@ -91,9 +91,10 @@ type PullRequest struct {
 	MergedAt    *time.Time `json:"merged_at,omitempty"`
 	Head        *GitRef    `json:"head"`
 	Base        *GitRef    `json:"base"`
-	HTMLURL     string     `json:"html_url"`
-	Merged      bool       `json:"merged"`
-	Mergeable   *bool      `json:"mergeable,omitempty"`
+	HTMLURL      string     `json:"html_url"`
+	Draft        bool       `json:"draft"`
+	Merged       bool       `json:"merged"`
+	Mergeable    *bool      `json:"mergeable,omitempty"`
 	Comments    int        `json:"comments"`
 	Commits     int        `json:"commits"`
 	Additions   int        `json:"additions"`
