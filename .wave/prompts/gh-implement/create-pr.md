@@ -40,7 +40,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 Create the PR using `{{ forge.cli_tool }} {{ forge.pr_command }} create` with `--head` to target the branch. The PR body MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
 
 ```bash
-gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'
+{{ forge.cli_tool }} {{ forge.pr_command }} create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
@@ -59,7 +59,7 @@ EOF
 
 After the PR is created, attempt to add Copilot as a reviewer:
 ```bash
-gh pr edit --add-reviewer "copilot"
+{{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot"
 ```
 
 This is a best-effort command. If Copilot isn't available in the repository, the command will fail silently and the PR will still be created successfully.

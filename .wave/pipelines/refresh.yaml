@@ -45,7 +45,7 @@ steps:
            git log --since="<createdAt>" --oneline -30
 
         3. Get releases since the issue was created:
-           gh release list --repo REPO --limit 20
+           {{ forge.cli_tool }} release list --repo REPO --limit 20
            Filter to only releases after the issue's createdAt date.
 
         4. Scan the issue body for file path references (backtick-quoted paths, relative paths).

@@ -32,7 +32,7 @@ steps:
 
         ## Detect Repository
 
-        Run: `gh repo view --json nameWithOwner --jq .nameWithOwner`
+        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
 
         ## Parse Scope
 
@@ -300,7 +300,7 @@ steps:
 
         ## Detect Repository
 
-        Run: `gh repo view --json nameWithOwner --jq .nameWithOwner`
+        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
 
         ## Create Issues for Fixable Gaps
 
