@@ -26,10 +26,9 @@ type PipelineHealthMsg struct {
 	Err    error
 }
 
-// RunningCountMsg signals a change in the number of running pipelines and total pipeline count.
+// RunningCountMsg signals a change in the number of running pipelines.
 type RunningCountMsg struct {
-	Count      int
-	TotalPipes int
+	Count int
 }
 
 // PipelineSelectedMsg signals that a pipeline (running, finished, or available) was selected in the UI.
