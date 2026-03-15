@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: scope
-  description: "Decompose a GitHub epic into well-scoped child issues"
+  name: plan-scope
+  description: "Decompose an epic into well-scoped child issues"
   release: true
 
 skills:
