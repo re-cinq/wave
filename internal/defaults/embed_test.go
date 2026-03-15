@@ -14,9 +14,9 @@ func TestRewritePipeline_NoHardcodedRepo(t *testing.T) {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["rewrite.yaml"]
+	content, ok := pipelines["ops-rewrite.yaml"]
 	if !ok {
-		t.Fatal("rewrite.yaml not found in embedded pipelines")
+		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// The unified pipeline uses {{ forge.cli_tool }} instead of hardcoded gh/glab/tea/bb.
@@ -42,9 +42,9 @@ func TestRewritePipeline_UsesInputTemplate(t *testing.T) {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["rewrite.yaml"]
+	content, ok := pipelines["ops-rewrite.yaml"]
 	if !ok {
-		t.Fatal("rewrite.yaml not found in embedded pipelines")
+		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// The pipeline must contain {{ input }} template variables for interpolation
@@ -67,9 +67,9 @@ func TestRewritePipeline_InputSchemaIsString(t *testing.T) {
 		t.Fatalf("GetPipelines() error: %v", err)
 	}
 
-	content, ok := pipelines["rewrite.yaml"]
+	content, ok := pipelines["ops-rewrite.yaml"]
 	if !ok {
-		t.Fatal("rewrite.yaml not found in embedded pipelines")
+		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
 	}
 
 	// Input schema should be a simple string type, not a structured object
@@ -183,18 +183,18 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 		"ops-debug.yaml",
 		"doc-fix.yaml",
 		"doc-explain.yaml",
-		"refresh.yaml",
-		"research.yaml",
-		"rewrite.yaml",
+		"ops-refresh.yaml",
+		"plan-research.yaml",
+		"ops-rewrite.yaml",
 		"impl-improve.yaml",
 		"doc-onboard.yaml",
 		"plan-task.yaml",
 		"impl-refactor.yaml",
 		"audit-security.yaml",
 		"test-gen.yaml",
-		"scope.yaml",
+		"plan-scope.yaml",
 		"impl-recinq.yaml",
-		"plan-speckit.yaml",
+		"impl-speckit.yaml",
 	}
 
 	for _, name := range expected {

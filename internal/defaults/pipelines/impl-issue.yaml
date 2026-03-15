@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: implement
-  description: "Implement a GitHub issue end-to-end: fetch, assess, plan, implement, create PR"
+  name: impl-issue
+  description: "Implement an issue end-to-end: fetch, assess, plan, implement, create PR"
 
 chat_context:
   artifact_summaries:
@@ -16,6 +16,11 @@ chat_context:
     - "Code changes and implementation quality"
     - "Test results and coverage"
     - "PR status and review readiness"
+
+skills:
+  - golang
+  - gh-cli
+  - software-design
 
 requires:
   tools:
@@ -36,7 +41,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/fetch-assess.md
+      source_path: .wave/prompts/implement/fetch-assess.md
     output_artifacts:
       - name: assessment
         path: .wave/output/issue-assessment.json
@@ -65,7 +70,7 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/plan.md
+      source_path: .wave/prompts/implement/plan.md
     output_artifacts:
       - name: impl-plan
         path: .wave/output/impl-plan.json
@@ -96,7 +101,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/implement.md
+      source_path: .wave/prompts/implement/implement.md
     retry:
       max_attempts: 3
     handover:
@@ -122,7 +127,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/gh-implement/create-pr.md
+      source_path: .wave/prompts/implement/create-pr.md
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

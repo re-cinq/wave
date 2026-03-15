@@ -4,6 +4,10 @@ metadata:
   description: "Evolve Wave's own pipelines, personas, and prompts based on execution analysis"
   release: false
 
+skills:
+  - wave
+  - golang
+
 input:
   source: cli
   example: "analyze last 5 pipeline runs and improve prompts that had retries"

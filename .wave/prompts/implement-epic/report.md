@@ -10,8 +10,8 @@ The input format is `owner/repo number` (e.g. `re-cinq/wave 184`).
 
 ## Working Directory
 
-You are running in an isolated Wave workspace. The `gh` CLI works from any
-directory when using the `--repo` flag, so no directory change is needed.
+You are running in an isolated Wave workspace. Use `{{ forge.cli_tool }}` with
+the `--repo` flag, so no directory change is needed.
 
 ## Instructions
 
@@ -24,13 +24,13 @@ Extract the repository and epic number from the input. Read the scope plan artif
 For each subissue in the scope plan, check whether a pull request was created:
 
 ```bash
-gh pr list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER> OR Related to #<SUBISSUE_NUMBER>" --json number,title,url,state --limit 5
+{{ forge.cli_tool }} {{ forge.pr_command }} list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER> OR Related to #<SUBISSUE_NUMBER>" --json number,title,url,state --limit 5
 ```
 
 Also check if the subissue itself was closed:
 
 ```bash
-gh issue view <SUBISSUE_NUMBER> --repo <OWNER/REPO> --json state,stateReason
+{{ forge.cli_tool }} issue view <SUBISSUE_NUMBER> --repo <OWNER/REPO> --json state,stateReason
 ```
 
 Classify each subissue as:
@@ -50,10 +50,10 @@ Compile the results into a structured summary with:
 Post a summary comment on the parent epic:
 
 ```bash
-gh issue comment <EPIC_NUMBER> --repo <OWNER/REPO> --body "$(cat <<'COMMENT'
+{{ forge.cli_tool }} issue comment <EPIC_NUMBER> --repo <OWNER/REPO> --body "$(cat <<'COMMENT'
 ## Implementation Summary
 
-**Pipeline**: gh-implement-epic
+**Pipeline**: ops-implement-epic
 **Status**: X/Y subissues implemented
 
 ### Results

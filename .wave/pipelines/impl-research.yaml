@@ -14,12 +14,12 @@ input:
 
 steps:
   - id: research
-    pipeline: research
+    pipeline: plan-research
     input: "{{input}}"
 
   - id: implement
     dependencies: [research]
-    pipeline: plan-speckit
+    pipeline: impl-speckit
     input: "{{input}}"
 
   - id: review

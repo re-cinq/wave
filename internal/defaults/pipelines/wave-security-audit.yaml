@@ -4,6 +4,10 @@ metadata:
   description: "Security audit of Wave's own codebase — prompt injection, sandbox escapes, permission enforcement"
   release: false
 
+skills:
+  - wave
+  - golang
+
 input:
   source: cli
   example: "audit persona permission enforcement and sandbox isolation"

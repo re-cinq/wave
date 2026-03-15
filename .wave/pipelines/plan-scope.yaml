@@ -1,8 +1,12 @@
 kind: WavePipeline
 metadata:
-  name: scope
-  description: "Decompose a GitHub epic into well-scoped child issues"
+  name: plan-scope
+  description: "Decompose an epic into well-scoped child issues"
   release: true
+
+skills:
+  - gh-cli
+  - software-design
 
 requires:
   tools:
@@ -31,10 +35,10 @@ steps:
         Execute these steps:
 
         1. Fetch the epic issue with full details:
-           gh issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments,author,state
+           {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments,author,state
 
         2. List existing open issues to check for duplicates:
-           gh issue list --repo <REPO> --limit 50 --json number,title,labels,url
+           {{ forge.cli_tool }} issue list --repo <REPO> --limit 50 --json number,title,labels,url
 
         Analyze the epic:
         - Determine if this is truly an epic/umbrella issue (contains multiple work items)
@@ -82,7 +86,7 @@ steps:
         cat > /tmp/issue-body.md <<'ISSUE_EOF'
         <body content here>
         ISSUE_EOF
-        gh issue create --repo <REPO> --title '<title>' --body-file /tmp/issue-body.md --label "<labels>"
+        {{ forge.cli_tool }} issue create --repo <REPO> --title '<title>' --body-file /tmp/issue-body.md --label "<labels>"
 
         Each sub-issue body MUST include:
         - A "Parent: #<epic_number>" reference line
@@ -141,7 +145,7 @@ steps:
         Parse the repo (first token) and epic number (second token).
 
         Step 1: For each created issue in the results, verify it exists:
-        gh issue view <N> --repo <REPO> --json number,title,body,labels
+        {{ forge.cli_tool }} issue view <N> --repo <REPO> --json number,title,body,labels
 
         Check that each issue:
         - Exists and is open

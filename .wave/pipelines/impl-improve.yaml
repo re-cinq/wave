@@ -4,6 +4,10 @@ metadata:
   description: "Analyze code and apply targeted improvements"
   release: true
 
+skills:
+  - golang
+  - software-design
+
 input:
   source: cli
   example: "improve error handling in internal/pipeline"

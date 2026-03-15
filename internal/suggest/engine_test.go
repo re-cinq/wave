@@ -182,7 +182,7 @@ func TestSuggest_NilReport(t *testing.T) {
 }
 
 func TestSuggest_Limit(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-debug", "implement", "pr-review", "impl-improve", "impl-refactor"})
+	dir := setupPipelineDir(t, []string{"ops-debug", "impl-issue", "pr-review", "impl-improve", "impl-refactor"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -205,7 +205,7 @@ func TestSuggest_Limit(t *testing.T) {
 }
 
 func TestSuggest_PoorQualityIssues(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"rewrite"})
+	dir := setupPipelineDir(t, []string{"ops-rewrite"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -223,13 +223,13 @@ func TestSuggest_PoorQualityIssues(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected rewrite proposal")
 	}
-	if proposal.Pipelines[0].Name != "rewrite" {
-		t.Errorf("expected 'rewrite', got %q", proposal.Pipelines[0].Name)
+	if proposal.Pipelines[0].Name != "ops-rewrite" {
+		t.Errorf("expected 'ops-rewrite', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
 func TestSuggest_StalePRs(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"refresh"})
+	dir := setupPipelineDir(t, []string{"ops-refresh"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -247,8 +247,8 @@ func TestSuggest_StalePRs(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected refresh proposal")
 	}
-	if proposal.Pipelines[0].Name != "refresh" {
-		t.Errorf("expected 'refresh', got %q", proposal.Pipelines[0].Name)
+	if proposal.Pipelines[0].Name != "ops-refresh" {
+		t.Errorf("expected 'ops-refresh', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
@@ -273,7 +273,7 @@ func TestSuggest_NoPipelinesAvailable(t *testing.T) {
 }
 
 func TestSuggest_SequenceChain(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"research", "implement"})
+	dir := setupPipelineDir(t, []string{"plan-research", "impl-issue"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -304,13 +304,13 @@ func TestSuggest_SequenceChain(t *testing.T) {
 	if len(seqProposal.Sequence) != 2 {
 		t.Errorf("expected sequence of 2, got %d", len(seqProposal.Sequence))
 	}
-	if seqProposal.Sequence[0] != "research" || seqProposal.Sequence[1] != "implement" {
-		t.Errorf("expected [research, implement], got %v", seqProposal.Sequence)
+	if seqProposal.Sequence[0] != "plan-research" || seqProposal.Sequence[1] != "impl-issue" {
+		t.Errorf("expected [plan-research, impl-issue], got %v", seqProposal.Sequence)
 	}
 }
 
 func TestSuggest_ParallelGroup(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"implement", "pr-review"})
+	dir := setupPipelineDir(t, []string{"impl-issue", "pr-review"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -348,7 +348,7 @@ func TestStripForgePrefix(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"gh-implement", "implement"},
+		{"gh-implement", "implement"},  // stripForgePrefix strips gh- prefix
 		{"gl-debug", "debug"},
 		{"implement", "implement"},
 		{"bb-review", "review"},

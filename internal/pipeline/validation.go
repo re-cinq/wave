@@ -23,7 +23,7 @@ func NewPhaseSkipValidator() *PhaseSkipValidator {
 // ValidatePhaseSequence validates that phases are not skipped in the prototype pipeline
 func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string) error {
 	// Only apply phase skip validation to prototype pipeline
-	if p.Metadata.Name != "plan-prototype" && p.Metadata.Name != "prototype" {
+	if p.Metadata.Name != "impl-prototype" && p.Metadata.Name != "prototype" {
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func NewStaleArtifactDetector() *StaleArtifactDetector {
 
 // DetectStaleArtifacts checks if any upstream artifacts are newer than dependent phase artifacts
 func (d *StaleArtifactDetector) DetectStaleArtifacts(p *Pipeline, currentStep string) ([]string, error) {
-	if p.Metadata.Name != "plan-prototype" && p.Metadata.Name != "prototype" {
+	if p.Metadata.Name != "impl-prototype" && p.Metadata.Name != "prototype" {
 		return nil, nil
 	}
 

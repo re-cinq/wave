@@ -3,6 +3,10 @@ metadata:
   name: wave-land
   description: "Branch, commit, push, PR, merge, and update local main"
 
+skills:
+  - wave
+  - golang
+
 input:
   source: cli
   example: "fix onboarding wizard bugs — personas missing from manifest, model at wrong level"
@@ -64,9 +68,9 @@ steps:
         Run these steps in order. Stop and report errors if any step fails.
 
         1. **Push**: `git push -u origin HEAD`
-        2. **Create PR**: `gh pr create --fill`
+        2. **Create PR**: `{{ forge.cli_tool }} {{ forge.pr_command }} create --fill`
            If a PR already exists for this branch, skip creation.
-        3. **Merge PR**: `gh pr merge --merge --delete-branch`
+        3. **Merge PR**: `{{ forge.cli_tool }} {{ forge.pr_command }} merge --merge --delete-branch`
         4. **Switch to main**: `git checkout main`
         5. **Pull latest**: `git pull`
         6. **Install**: `make install`
@@ -75,6 +79,6 @@ steps:
         ## Rules
 
         - If `git push` fails due to auth, report the error and stop
-        - If `gh` is not found, try the full nix store path
+        - If `{{ forge.cli_tool }}` is not found, try the full nix store path
         - Do NOT force push
         - Do NOT amend existing commits

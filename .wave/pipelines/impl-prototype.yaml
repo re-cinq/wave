@@ -1,7 +1,7 @@
 kind: WavePipeline
 metadata:
-  name: plan-prototype
-  description: "Prototype-driven development pipeline with 5 phases (9 steps): spec, docs, dummy, implement, pr-cycle"
+  name: impl-prototype
+  description: "Prototype-driven implementation: spec → docs → dummy → implement → PR cycle"
   release: false
 
 input:
