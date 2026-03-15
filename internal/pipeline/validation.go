@@ -20,17 +20,26 @@ func NewPhaseSkipValidator() *PhaseSkipValidator {
 	}
 }
 
-// ValidatePhaseSequence validates that phases are not skipped in the prototype pipeline
+// ValidatePhaseSequence validates that phases are not skipped when resuming.
+// For prototype pipelines, it checks prototype-specific phase artifacts.
+// For other pipelines, it verifies that prior steps have workspace directories
+// from at least one prior run.
 func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string) error {
-	// Only apply phase skip validation to prototype pipeline
-	if p.Metadata.Name != "impl-prototype" && p.Metadata.Name != "prototype" {
-		return nil
-	}
-
 	if fromStep == "" {
 		return nil // Starting from beginning, no validation needed
 	}
 
+	// Prototype-specific validation (backward compatible)
+	if p.Metadata.Name == "impl-prototype" || p.Metadata.Name == "prototype" {
+		return v.validatePrototypePhaseSequence(p, fromStep)
+	}
+
+	// Generic validation for non-prototype pipelines
+	return v.validateGenericStepSequence(p, fromStep)
+}
+
+// validatePrototypePhaseSequence validates prototype pipeline phase prerequisites.
+func (v *PhaseSkipValidator) validatePrototypePhaseSequence(p *Pipeline, fromStep string) error {
 	// Find the index of the fromStep in the expected order
 	fromIndex := -1
 	for i, phase := range v.prototypePhasesOrder {
@@ -59,6 +68,62 @@ func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string)
 	}
 
 	return nil
+}
+
+// validateGenericStepSequence validates that prior steps have workspace artifacts
+// from at least one prior run. This catches the common case where a user tries
+// to resume from a step that has no prior state at all.
+func (v *PhaseSkipValidator) validateGenericStepSequence(p *Pipeline, fromStep string) error {
+	// If fromStep is the first step, no prior work is needed
+	if len(p.Steps) > 0 && p.Steps[0].ID == fromStep {
+		return nil
+	}
+
+	wsRoot := ".wave/workspaces"
+
+	// Collect run directories for this pipeline
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
+	if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
+		runDirs = append(runDirs, filepath.Join(wsRoot, p.Metadata.Name))
+	}
+
+	// If no run directories exist at all, prior steps can't have completed
+	if len(runDirs) == 0 {
+		return fmt.Errorf("cannot resume from '%s': no prior run state found for pipeline '%s'",
+			fromStep, p.Metadata.Name)
+	}
+
+	// Check that each step before fromStep has a workspace in at least one run dir
+	for _, step := range p.Steps {
+		if step.ID == fromStep {
+			break
+		}
+
+		if v.hasWorkspaceInAnyRun(step, runDirs) {
+			continue
+		}
+
+		return fmt.Errorf("cannot resume from '%s': prior step '%s' has no workspace artifacts",
+			fromStep, step.ID)
+	}
+
+	return nil
+}
+
+// hasWorkspaceInAnyRun checks if a step has a workspace directory in any run dir.
+func (v *PhaseSkipValidator) hasWorkspaceInAnyRun(step Step, runDirs []string) bool {
+	for _, runDir := range runDirs {
+		// Check step-named directory
+		if _, err := os.Stat(filepath.Join(runDir, step.ID)); err == nil {
+			return true
+		}
+		// Check __wt_ directories (worktree steps)
+		entries, _ := filepath.Glob(filepath.Join(runDir, "__wt_*"))
+		if len(entries) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // validatePhaseCompletion checks if a phase has been properly completed
