@@ -467,7 +467,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 
 				// Persist failed state to store
 				if r.executor.store != nil {
-					r.executor.store.SavePipelineState(pipelineID, StateFailed, execution.Input)
+					_ = r.executor.store.SavePipelineState(pipelineID, StateFailed, execution.Input)
 				}
 
 				return &StepError{StepID: step.ID, Err: err}
