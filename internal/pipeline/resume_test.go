@@ -1064,7 +1064,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create workspace for specify step
@@ -1111,7 +1111,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "step2", "some-run")
@@ -1153,7 +1153,7 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	rs, err := manager.loadResumeState(p, "implement", "prior-run")
@@ -1180,7 +1180,7 @@ func (s *resumeMockStore) GetStepAttempts(runID string, stepID string) ([]state.
 func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	mockAdapter := adapter.NewMockAdapter(
@@ -1298,7 +1298,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create a mock adapter that always fails
@@ -1369,7 +1369,7 @@ func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
 func TestResumeNonPrototypePipeline(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	mockAdapter := adapter.NewMockAdapter(
@@ -1420,7 +1420,7 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
@@ -1461,7 +1461,7 @@ func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
@@ -1527,7 +1527,7 @@ func (s *capturingMockStore) getAttempts() []*state.StepAttemptRecord {
 func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
+	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Use a failing adapter
