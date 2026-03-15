@@ -24,7 +24,7 @@ Extract the repository and epic number from the input. Read the scope plan artif
 For each subissue in the scope plan, check whether a pull request was created:
 
 ```bash
-gh pr list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER>" --json number,title,url,state --limit 5
+gh pr list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER> OR Related to #<SUBISSUE_NUMBER>" --json number,title,url,state --limit 5
 ```
 
 Also check if the subissue itself was closed:
