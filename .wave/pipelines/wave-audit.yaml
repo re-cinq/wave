@@ -74,7 +74,7 @@ steps:
         - `number`, `type` (issue or pr), `title`, `url`, `body`, `labels`
         - `close_reason`: "completed" for issues, "merged" for PRs
         - `closed_at`: ISO 8601 timestamp
-        - `linked_prs`: For issues, search the body for "Fixes #N", "Closes #N", or PR cross-references
+        - `linked_prs`: For issues, search the body for "Fixes #N", "Closes #N", "Related to #N", or PR cross-references
         - `linked_commits`: For PRs, include the merge commit SHA
         - `acceptance_criteria`: Extract from issue body by looking for checklist patterns (`- [ ]`, `- [x]`) or sections titled "Acceptance Criteria", "Requirements", or similar headers
 

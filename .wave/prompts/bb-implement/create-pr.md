@@ -37,7 +37,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 
 ### Step 3: Create Pull Request
 
-Create the PR via the Bitbucket REST API. The PR description MUST include `Closes #<NUMBER>` to link to the issue.
+Create the PR via the Bitbucket REST API. The PR description MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
 
 Write the PR payload to a temp file to avoid shell escaping issues:
 
@@ -45,7 +45,7 @@ Write the PR payload to a temp file to avoid shell escaping issues:
 cat > /tmp/bb-payload.json << 'PRBODY'
 {
   "title": "PR title",
-  "description": "PR description\n\nCloses #NUMBER",
+  "description": "PR description\n\nRelated to #NUMBER",
   "source": {"branch": {"name": "BRANCH_NAME"}},
   "destination": {"branch": {"name": "main"}},
   "close_source_branch": true
@@ -76,7 +76,7 @@ This is a best-effort operation. If reviewers aren't configured, the command wil
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-- The PR description MUST contain `Closes #<NUMBER>` to link to the issue
+- The PR description MUST contain `Related to #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 ## Output

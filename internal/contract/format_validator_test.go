@@ -141,7 +141,7 @@ This PR adds OAuth2 authentication to the application.
 - Manual testing with Google OAuth
 
 ## Related Issues
-Closes #123
+Related to #123
 
 ## Checklist
 - [x] Tests added
