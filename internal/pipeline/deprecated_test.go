@@ -23,11 +23,15 @@ func TestResolveDeprecatedName(t *testing.T) {
 		{"old changelog", "changelog", "doc-changelog", true},
 		{"old dead-code", "dead-code", "audit-dead-code", true},
 		{"old security-scan", "security-scan", "audit-security", true},
-		{"old speckit-flow", "speckit-flow", "plan-speckit", true},
+		{"old speckit-flow", "speckit-flow", "impl-speckit", true},
 		{"old smoke-test", "smoke-test", "test-smoke", true},
 		{"old plan", "plan", "plan-task", true},
-		{"old prototype", "prototype", "plan-prototype", true},
+		{"old prototype", "prototype", "impl-prototype", true},
 		{"old supervise", "supervise", "ops-supervise", true},
+		{"old plan-speckit", "plan-speckit", "impl-speckit", true},
+		{"old plan-prototype", "plan-prototype", "impl-prototype", true},
+		{"old consolidate", "consolidate", "audit-consolidate", true},
+		{"old ops-consolidate", "ops-consolidate", "audit-consolidate", true},
 
 		// Forge + taxonomy (double resolution)
 		{"gh-debug", "gh-debug", "ops-debug", true},

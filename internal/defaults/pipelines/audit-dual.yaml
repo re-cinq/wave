@@ -20,6 +20,9 @@ metadata:
   description: "Parallel code-quality and security analysis with independent tracks"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "analyze the authentication module"

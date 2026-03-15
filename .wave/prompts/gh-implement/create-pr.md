@@ -37,7 +37,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 
 ### Step 3: Create Pull Request
 
-Create the PR using `gh pr create` with `--head` to target the branch. The PR body MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
+Create the PR using `{{ forge.cli_tool }} {{ forge.pr_command }} create` with `--head` to target the branch. The PR body MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
 
 ```bash
 gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'

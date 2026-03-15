@@ -4,6 +4,10 @@ metadata:
   description: "Harden Wave's test suite — find gaps, add edge cases, improve coverage"
   release: false
 
+skills:
+  - wave
+  - golang
+
 input:
   source: cli
   example: "harden tests in internal/pipeline and internal/contract"
