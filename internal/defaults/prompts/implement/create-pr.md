@@ -38,7 +38,7 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 ### Step 3: Create {{ forge.pr_term }}
 
 Use the appropriate CLI for your platform ({{ forge.type }}) to create the {{ forge.pr_term }}.
-The description MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
+The description MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
 
 **For GitHub** (`gh`):
 ```bash
@@ -46,7 +46,7 @@ gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" 
 ## Summary
 <3-5 bullet points describing the changes>
 
-Closes #<ISSUE_NUMBER>
+Related to #<ISSUE_NUMBER>
 
 ## Changes
 <list of key files changed and why>
@@ -63,7 +63,7 @@ cat > /tmp/mr-body.md <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
-Closes #<ISSUE_NUMBER>
+Related to #<ISSUE_NUMBER>
 
 ## Changes
 <list of key files changed and why>
@@ -79,7 +79,7 @@ glab mr create --repo <OWNER/REPO> --source-branch <BRANCH_NAME> --target-branch
 cat > /tmp/bb-payload.json << 'PRBODY'
 {
   "title": "PR title",
-  "description": "PR description\n\nCloses #NUMBER",
+  "description": "PR description\n\nRelated to #NUMBER",
   "source": {"branch": {"name": "BRANCH_NAME"}},
   "destination": {"branch": {"name": "main"}},
   "close_source_branch": true
@@ -98,7 +98,7 @@ cat > /tmp/pr-body.md <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
-Closes #<ISSUE_NUMBER>
+Related to #<ISSUE_NUMBER>
 
 ## Changes
 <list of key files changed and why>
@@ -123,7 +123,7 @@ operation — if it fails, the {{ forge.pr_term }} is still created successfully
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-- The {{ forge.pr_term }} description MUST contain `Closes #<NUMBER>` to link to the issue
+- The {{ forge.pr_term }} description MUST contain `Related to #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 ## Output

@@ -37,14 +37,14 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 
 ### Step 3: Create Merge Request
 
-Create the merge request using `glab mr create` with `--source-branch` to target the branch. The merge request description MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
+Create the merge request using `glab mr create` with `--source-branch` to target the branch. The merge request description MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the MR is closed without merge).
 
 ```bash
 cat > /tmp/mr-body.md <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
-Closes #<ISSUE_NUMBER>
+Related to #<ISSUE_NUMBER>
 
 ## Changes
 <list of key files changed and why>
@@ -68,7 +68,7 @@ This is a best-effort command. If the reviewer isn't available in the project, t
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-- The merge request description MUST contain `Closes #<NUMBER>` to link to the issue
+- The merge request description MUST contain `Related to #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 ## Output

@@ -24,7 +24,7 @@ Extract the repository and epic number from the input. Read the scope plan artif
 For each subissue in the scope plan, check whether a merge request was created:
 
 ```bash
-glab mr list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER>" --output json --per-page 5
+glab mr list --repo <OWNER/REPO> --search "Closes #<SUBISSUE_NUMBER> OR Related to #<SUBISSUE_NUMBER>" --output json --per-page 5
 ```
 
 Also check if the subissue itself was closed:
