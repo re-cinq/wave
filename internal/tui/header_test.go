@@ -872,6 +872,50 @@ func TestHeaderModel_RenderHealth_AllStatuses(t *testing.T) {
 	}
 }
 
+func TestHeaderModel_RenderPipesValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		running  int
+		expected string
+	}{
+		{
+			name:     "zero running shows em dash",
+			running:  0,
+			expected: "—",
+		},
+		{
+			name:     "one running shows count",
+			running:  1,
+			expected: "1 running",
+		},
+		{
+			name:     "multiple running shows count",
+			running:  5,
+			expected: "5 running",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewHeaderModel(nil)
+			h.metadata.RunningCount = tt.running
+			result := stripAnsi(h.renderPipesValue())
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHeaderModel_View_ShowsRunningLabel(t *testing.T) {
+	h := NewHeaderModel(nil)
+	h.SetWidth(120)
+	h.metadata.RunningCount = 3
+
+	view := stripAnsi(h.View())
+	assert.Contains(t, view, "Running:")
+	assert.Contains(t, view, "3 running")
+	assert.NotContains(t, view, "Pipes:")
+}
+
 func TestHeaderModel_RenderRemote_NoRemote(t *testing.T) {
 	h := NewHeaderModel(nil)
 	result := stripAnsi(h.renderRemoteValue())

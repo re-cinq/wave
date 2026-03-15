@@ -64,7 +64,6 @@ type HeaderMetadata struct {
 
 	// Pipeline state
 	RunningCount int
-	TotalPipes   int
 	StepCount    int
 	Health       HealthStatus
 
