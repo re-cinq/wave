@@ -24,7 +24,7 @@ Extract the workspace, repository slug, and epic number from the input. Read the
 For each subissue in the scope plan, check whether a pull request was created. Search for PRs that reference the subissue:
 
 ```bash
-curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/pullrequests?q=title+%7E+%22%23<SUBISSUE_NUMBER>%22+OR+description+%7E+%22closes+%23<SUBISSUE_NUMBER>%22&pagelen=5" \
+curl -s "https://api.bitbucket.org/2.0/repositories/<WORKSPACE>/<REPO>/pullrequests?q=title+%7E+%22%23<SUBISSUE_NUMBER>%22+OR+description+%7E+%22closes+%23<SUBISSUE_NUMBER>%22+OR+description+%7E+%22related+to+%23<SUBISSUE_NUMBER>%22&pagelen=5" \
   -H "Authorization: Bearer $BB_TOKEN" | jq '.values[] | {id: .id, title: .title, state: .state, links: .links}'
 ```
 

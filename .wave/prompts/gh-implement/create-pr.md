@@ -37,14 +37,14 @@ git push -u origin <BRANCH_NAME> || GIT_SSH_COMMAND="ssh -F /dev/null" git push 
 
 ### Step 3: Create Pull Request
 
-Create the PR using `gh pr create` with `--head` to target the branch. The PR body MUST include `Closes #<NUMBER>` to auto-close the issue on merge.
+Create the PR using `gh pr create` with `--head` to target the branch. The PR body MUST include `Related to #<NUMBER>` to link the issue (without auto-closing it when the PR is closed without merge).
 
 ```bash
 gh pr create --repo <OWNER/REPO> --head <BRANCH_NAME> --title "<concise title>" --body "$(cat <<'EOF'
 ## Summary
 <3-5 bullet points describing the changes>
 
-Closes #<ISSUE_NUMBER>
+Related to #<ISSUE_NUMBER>
 
 ## Changes
 <list of key files changed and why>
@@ -68,7 +68,7 @@ This is a best-effort command. If Copilot isn't available in the repository, the
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-- The PR body MUST contain `Closes #<NUMBER>` to link to the issue
+- The PR body MUST contain `Related to #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits
 
 ## Output
