@@ -2,9 +2,12 @@ package pipeline
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1286,5 +1289,288 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 		if stepID == "step-c" {
 			t.Error("step-c should have been excluded by the filter")
 		}
+	}
+}
+
+// TestExecuteResumedPipeline_ReturnsStepError verifies that errors from
+// executeResumedPipeline are wrapped as *StepError so the CLI can extract
+// the step ID via errors.As() for recovery hints.
+func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create a mock adapter that always fails
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(fmt.Errorf("adapter crashed")),
+	)
+
+	collector := newTestEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+	manager := NewResumeManager(executor)
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-resume-steperr"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "B"}},
+		},
+	}
+
+	// Create workspace for step-a to simulate prior completion
+	stepAWs := filepath.Join(tmpDir, ".wave/workspaces/test-resume-steperr/step-a")
+	if err := os.MkdirAll(stepAWs, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := manager.ResumeFromStep(ctx, p, m, "test input", "step-b", true)
+	if err == nil {
+		t.Fatal("expected error from resumed pipeline, got nil")
+	}
+
+	// Verify the error is a *StepError
+	var stepErr *StepError
+	if !errors.As(err, &stepErr) {
+		t.Fatalf("expected error to be *StepError, got %T: %v", err, err)
+	}
+
+	if stepErr.StepID != "step-b" {
+		t.Errorf("expected StepError.StepID = %q, got %q", "step-b", stepErr.StepID)
+	}
+
+	// Verify the original error is preserved
+	if !strings.Contains(stepErr.Err.Error(), "adapter crashed") {
+		t.Errorf("expected original error to contain 'adapter crashed', got %q", stepErr.Err.Error())
+	}
+
+	// Verify a "failed" event was emitted
+	foundFailed := false
+	for _, ev := range collector.events {
+		if ev.StepID == "step-b" && ev.State == "failed" {
+			foundFailed = true
+			break
+		}
+	}
+	if !foundFailed {
+		t.Error("expected a 'failed' event for step-b to be emitted")
+	}
+}
+
+// TestResumeNonPrototypePipeline verifies that PhaseSkipValidator does not
+// reject non-prototype pipelines when valid prior state exists.
+func TestResumeNonPrototypePipeline(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+	manager := NewResumeManager(executor)
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "impl-issue"},
+		Steps: []Step{
+			{ID: "fetch-assess", Persona: "navigator", Exec: ExecConfig{Source: "assess"}},
+			{ID: "plan", Persona: "navigator", Dependencies: []string{"fetch-assess"}, Exec: ExecConfig{Source: "plan"}},
+			{ID: "implement", Persona: "craftsman", Dependencies: []string{"plan"}, Exec: ExecConfig{Source: "implement"}},
+		},
+	}
+
+	// Create workspace for fetch-assess and plan to simulate prior completion
+	for _, stepID := range []string{"fetch-assess", "plan"} {
+		wsDir := filepath.Join(tmpDir, ".wave/workspaces/impl-issue-20260316-000000-abcd", stepID)
+		if err := os.MkdirAll(wsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Without force: should pass validation (non-prototype pipelines now validate
+	// workspace existence)
+	err := manager.ResumeFromStep(ctx, p, m, "test", "implement", false)
+	// The execution itself may fail (mock adapter), but the phase validation
+	// should NOT reject it
+	if err != nil && strings.Contains(err.Error(), "prerequisite phase") {
+		t.Errorf("non-prototype pipeline should not get prototype phase validation error, got: %v", err)
+	}
+	if err != nil && strings.Contains(err.Error(), "no prior run state") {
+		t.Errorf("should find prior run state, got: %v", err)
+	}
+}
+
+// TestResumeNonPrototype_NoRunStateFails verifies that resuming a non-prototype
+// pipeline without any prior run state fails validation (unless --force is used).
+func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "impl-issue"},
+		Steps: []Step{
+			{ID: "fetch-assess"},
+			{ID: "plan", Dependencies: []string{"fetch-assess"}},
+			{ID: "implement", Dependencies: []string{"plan"}},
+		},
+	}
+
+	validator := NewPhaseSkipValidator()
+
+	// No workspaces exist — should fail validation
+	err := validator.ValidatePhaseSequence(p, "implement")
+	if err == nil {
+		t.Error("expected validation error when no prior run state exists")
+	}
+	if err != nil && !strings.Contains(err.Error(), "no prior run state") {
+		t.Errorf("expected 'no prior run state' error, got: %v", err)
+	}
+
+	// Starting from first step should pass (no prior work needed)
+	err = validator.ValidatePhaseSequence(p, "fetch-assess")
+	if err != nil {
+		t.Errorf("starting from first step should not require prior state, got: %v", err)
+	}
+
+	// Force should skip validation entirely (tested via ResumeFromStep)
+	_ = manager // prevent unused
+}
+
+// TestGetRecommendedResumePoint_NonPrototype verifies that GetRecommendedResumePoint
+// works for non-prototype pipelines.
+func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "impl-issue"},
+		Steps: []Step{
+			{ID: "fetch-assess"},
+			{ID: "plan", Dependencies: []string{"fetch-assess"}},
+			{ID: "implement", Dependencies: []string{"plan"}},
+		},
+	}
+
+	// No workspaces — should recommend first step
+	point, err := manager.GetRecommendedResumePoint(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if point != "fetch-assess" {
+		t.Errorf("expected first step with no state, got %q", point)
+	}
+
+	// Create workspace for fetch-assess only
+	runDir := filepath.Join(tmpDir, ".wave/workspaces/impl-issue-20260316-000000-abcd")
+	if err := os.MkdirAll(filepath.Join(runDir, "fetch-assess"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	point, err = manager.GetRecommendedResumePoint(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if point != "plan" {
+		t.Errorf("expected 'plan' with only fetch-assess complete, got %q", point)
+	}
+}
+
+// capturingMockStore wraps MockStateStore and captures RecordStepAttempt calls.
+type capturingMockStore struct {
+	*MockStateStore
+	mu       sync.Mutex
+	attempts []*state.StepAttemptRecord
+}
+
+func (s *capturingMockStore) RecordStepAttempt(record *state.StepAttemptRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempts = append(s.attempts, record)
+	return nil
+}
+
+func (s *capturingMockStore) getAttempts() []*state.StepAttemptRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make([]*state.StepAttemptRecord, len(s.attempts))
+	copy(cp, s.attempts)
+	return cp
+}
+
+// TestFailureClassRecordedOnStepAttempt verifies that the executor populates
+// FailureClass on StepAttemptRecord when recording a failed step.
+func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Use a failing adapter
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(fmt.Errorf("runtime failure: process exited with code 1")),
+	)
+
+	store := &capturingMockStore{MockStateStore: NewMockStateStore()}
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithStateStore(store),
+		WithEmitter(newTestEventCollector()),
+	)
+
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "test-failure-class"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "do something"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_ = executor.Execute(ctx, p, m, "test input")
+
+	// Check that at least one attempt was recorded with a FailureClass
+	attempts := store.getAttempts()
+	if len(attempts) == 0 {
+		t.Fatal("expected at least one recorded step attempt, got none")
+	}
+
+	// The adapter.WithFailure returns a generic error (not contract/security/preflight),
+	// so it should be classified as "unknown" by recovery.ClassifyError()
+	lastAttempt := attempts[len(attempts)-1]
+	if lastAttempt.FailureClass == "" {
+		t.Error("expected FailureClass to be set on failed step attempt, got empty string")
+	}
+	if lastAttempt.StepID != "step-a" {
+		t.Errorf("expected step ID 'step-a', got %q", lastAttempt.StepID)
+	}
+	if lastAttempt.State != "failed" {
+		t.Errorf("expected state 'failed', got %q", lastAttempt.State)
 	}
 }
