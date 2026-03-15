@@ -28,7 +28,7 @@ previous step and is already checked out.
    git push -u origin HEAD
    ```
 
-6. **Create Pull Request**: Use `gh pr create` with a descriptive summary. Write the PR body to a temp file to avoid shell injection:
+6. **Create Pull Request**: Use `{{ forge.cli_tool }} {{ forge.pr_command }} create` with a descriptive summary. Write the PR body to a temp file to avoid shell injection:
    ```bash
    cat > /tmp/pr-body.md <<'EOF'
    ## Summary
@@ -43,12 +43,12 @@ previous step and is already checked out.
    ## Known Limitations
    <any follow-up work needed>
    EOF
-   gh pr create --title '<concise title>' --body-file /tmp/pr-body.md
+   {{ forge.cli_tool }} {{ forge.pr_command }} create --title '<concise title>' --body-file /tmp/pr-body.md
    ```
 
 7. **Request Copilot Review**: After the PR is created, request a review from Copilot:
    ```bash
-   gh pr edit --add-reviewer "copilot"
+   {{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot"
    ```
 
 ## CONSTRAINTS
