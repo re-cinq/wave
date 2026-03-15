@@ -56,10 +56,10 @@ The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
 
 Arguments can be provided as positional args or flags:
-  wave run pr-review "Review auth module"
-  wave run --pipeline pr-review --input "Review auth module"
-  wave run pr-review --input "Review auth module"`,
-		Example: `  wave run pr-review "Review the authentication changes"
+  wave run ops-pr-review "Review auth module"
+  wave run --pipeline ops-pr-review --input "Review auth module"
+  wave run ops-pr-review --input "Review auth module"`,
+		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
   wave run impl-hotfix --dry-run
   wave run migrate --from-step validate

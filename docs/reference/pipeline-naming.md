@@ -1,64 +1,120 @@
 # Pipeline Naming Conventions
 
-This document defines the naming conventions for Wave pipelines. All new pipelines should follow these rules.
+All Wave pipelines use a mandatory taxonomy prefix that guarantees the pipeline's behavior category.
+
+## Taxonomy Prefixes
+
+| Prefix | Behavior | Description |
+|--------|----------|-------------|
+| `audit-` | Read-only | Analysis, scanning, reporting — never modifies code |
+| `doc-` | Documentation | Creates or fixes documentation |
+| `impl-` | Writes code | Implements features, fixes bugs, creates PRs |
+| `ops-` | Operational | Orchestration, maintenance, issue management, reviews |
+| `plan-` | Read-only | Planning, research, scoping — never modifies code |
+| `test-` | Testing | Test generation and validation |
+| `wave-` | Self-evolution | Wave's own development and maintenance pipelines |
 
 ## Rules
 
-1. **Pattern**: Use `<verb>` or `<scope>-<verb>` in kebab-case.
-2. **Max length**: 20 characters.
-3. **Clarity**: A developer should be able to guess what the pipeline does from the name alone.
-4. **Grouping**: Related pipelines share a common prefix (e.g., `gh-` for GitHub operations, `doc-` for documentation).
-5. **No abbreviations** unless universally understood (e.g., `adr`, `gh`).
+1. **Every pipeline must have a prefix** from the table above.
+2. **Pattern**: `<prefix><name>` in kebab-case (e.g., `impl-issue`, `ops-pr-review`).
+3. **Max length**: 25 characters.
+4. **Prefix guarantees behavior**: `plan-*` and `audit-*` pipelines never write code. `impl-*` pipelines always produce code changes.
+5. **No abbreviations** unless universally understood (e.g., `adr`, `pr`, `dx`).
 
 ## Current Pipeline Inventory
 
+### `audit-` — Analysis and Scanning
+
 | Name | Description |
-|---|---|
-| `adr` | Create an Architecture Decision Record |
-| `changelog` | Generate a changelog from recent commits |
-| `gh-pr-review` | Review code changes and provide feedback |
-| `dead-code` | Detect and report unused code |
-| `debug` | Debug a failing test or runtime issue |
-| `doc-audit` | Audit documentation for consistency and create issues for drift |
-| `doc-fix` | Scan documentation for inconsistencies, fix them, and create a PR |
-| `explain` | Explain a piece of code or architecture |
-| `feature` | Implement a new feature end-to-end |
-| `gh-implement` | Implement a GitHub issue end-to-end with PR creation |
-| `gh-research` | Research a GitHub issue and post findings as a comment |
-| `gh-rewrite` | Analyze and rewrite poorly documented GitHub issues |
-| `gh-refresh` | Refresh a stale GitHub issue against recent codebase changes |
-| `hello-world` | Example pipeline for testing and demos |
-| `hotfix` | Apply a targeted bug fix |
-| `improve` | Improve existing code quality |
-| `onboard` | Generate onboarding documentation for new contributors |
-| `plan` | Create an implementation plan for a task |
-| `prototype` | Rapidly prototype a feature or concept |
-| `refactor` | Refactor code for better structure and maintainability |
-| `security-scan` | Scan the codebase for security vulnerabilities |
-| `recinq` | Rethink and simplify code using divergent-convergent analysis |
-| `smoke-test` | Run smoke tests to verify basic functionality |
-| `speckit-flow` | Specification-driven feature development using the speckit workflow |
-| `supervise` | Supervise and coordinate multi-agent pipeline execution |
-| `test-gen` | Generate tests for existing code |
+|------|-------------|
+| `audit-consolidate` | Read-only codebase consolidation scan |
+| `audit-dead-code` | Detect and report unused code |
+| `audit-dead-code-issue` | Dead code scan with GitHub issue creation |
+| `audit-dead-code-review` | Dead code scan with PR comment |
+| `audit-doc` | Documentation consistency audit |
+| `audit-dual` | Parallel code quality and security analysis |
+| `audit-dx` | Developer experience analysis |
+| `audit-junk-code` | Junk code detection |
+| `audit-quality-loop` | Iterative quality improvement analysis |
+| `audit-security` | Security vulnerability scanning |
+| `audit-ux` | User experience analysis |
 
-## Prefix Groups
+### `doc-` — Documentation
 
-| Prefix | Scope |
-|---|---|
-| `gh-` | GitHub API operations (issues, PRs, comments) |
-| `doc-` | Documentation analysis and maintenance |
-| `spec-` | Specification-driven workflows |
-| _(none)_ | General development operations |
+| Name | Description |
+|------|-------------|
+| `doc-changelog` | Generate changelog from recent commits |
+| `doc-explain` | Explain code or architecture |
+| `doc-fix` | Fix documentation inconsistencies and create PR |
+| `doc-onboard` | Generate onboarding documentation |
 
-## Examples
+### `impl-` — Implementation
 
-Good names:
-- `gh-implement` — GitHub scope, implement verb
-- `doc-audit` — documentation scope, audit verb
-- `security-scan` — security scope, scan verb
-- `refactor` — single verb, self-explanatory
+| Name | Description |
+|------|-------------|
+| `impl-feature` | Plan, implement, test, and commit a feature |
+| `impl-hotfix` | Apply a targeted bug fix |
+| `impl-improve` | Improve existing code quality |
+| `impl-issue` | Implement an issue end-to-end with PR creation |
+| `impl-prototype` | Prototype-driven implementation (spec → docs → dummy → implement) |
+| `impl-recinq` | Divergent-convergent code simplification |
+| `impl-refactor` | Refactor code for better structure |
+| `impl-research` | Research then implement (composition pipeline) |
+| `impl-speckit` | Specification-driven implementation (specify → plan → tasks → implement) |
 
-Avoid:
-- Abbreviations that aren't universally understood (e.g., `impl`, `sync`)
-- Verbose prefixes that repeat scope (e.g., `gh-issue-` when `gh-` suffices)
-- Abstract nouns that don't convey action (e.g., `loop`, `flow`)
+### `ops-` — Operational
+
+| Name | Description |
+|------|-------------|
+| `ops-debug` | Debug a failing test or runtime issue |
+| `ops-epic-runner` | Scope an epic and implement child issues sequentially |
+| `ops-hello-world` | Example pipeline for testing and demos |
+| `ops-implement-epic` | Implement all subissues from a scoped epic |
+| `ops-pr-review` | Pull request code review with security and quality analysis |
+| `ops-refresh` | Refresh a stale issue against recent codebase changes |
+| `ops-release-harden` | Harden a release with targeted fixes |
+| `ops-rewrite` | Rewrite poorly documented issues |
+| `ops-supervise` | Supervise multi-agent pipeline execution |
+
+### `plan-` — Planning and Research
+
+| Name | Description |
+|------|-------------|
+| `plan-adr` | Create an Architecture Decision Record |
+| `plan-research` | Research an issue and post findings |
+| `plan-scope` | Decompose an epic into well-scoped child issues |
+| `plan-task` | Create an implementation plan for a task |
+
+### `test-` — Testing
+
+| Name | Description |
+|------|-------------|
+| `test-gen` | Generate comprehensive test coverage |
+| `test-smoke` | Minimal pipeline for testing contracts and artifacts |
+
+### `wave-` — Self-Evolution
+
+| Name | Description |
+|------|-------------|
+| `wave-audit` | Audit Wave's own codebase |
+| `wave-bugfix` | Fix bugs in Wave itself |
+| `wave-evolve` | Evolve Wave's capabilities |
+| `wave-land` | Land changes to Wave's main branch |
+| `wave-review` | Review Wave's own PRs |
+| `wave-security-audit` | Security audit of Wave itself |
+| `wave-test-hardening` | Harden Wave's test suite |
+
+## Deprecated Names
+
+Old pipeline names are automatically resolved to their new taxonomy names via `ResolveDeprecatedName()`. For example:
+
+- `implement` → `impl-issue`
+- `gh-implement` → `impl-issue`
+- `pr-review` → `ops-pr-review`
+- `research` → `plan-research`
+- `scope` → `plan-scope`
+- `speckit-flow` → `impl-speckit`
+- `prototype` → `impl-prototype`
+
+See `internal/pipeline/deprecated.go` for the full mapping.

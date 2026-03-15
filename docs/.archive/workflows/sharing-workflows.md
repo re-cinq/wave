@@ -13,7 +13,7 @@ your-project/
 ├── .wave/
 │   ├── wave.yaml              # Project manifest
 │   ├── pipelines/
-│   │   ├── gh-pr-review.yaml
+│   │   ├── gh-ops-pr-review.yaml
 │   │   ├── documentation.yaml
 │   │   └── testing.yaml
 │   ├── personas/
@@ -55,18 +55,18 @@ Pipeline changes go through normal code review:
 
 ```bash
 # Create feature branch
-git checkout -b improve-gh-pr-review-pipeline
+git checkout -b improve-gh-ops-pr-review-pipeline
 
 # Modify pipeline
-vim .wave/pipelines/gh-pr-review.yaml
+vim .wave/pipelines/gh-ops-pr-review.yaml
 
 # Test changes
-wave run gh-pr-review "Test the changes"
+wave run gh-ops-pr-review "Test the changes"
 
 # Submit PR
 git add .wave/
 git commit -m "Add security scanning step to code review"
-git push origin improve-gh-pr-review-pipeline
+git push origin improve-gh-ops-pr-review-pipeline
 gh pr create
 ```
 
@@ -98,12 +98,12 @@ Wave guarantees identical behavior when the same pipeline runs on different mach
 
 ```bash
 # Developer A
-wave run gh-pr-review "Review auth changes"
+wave run gh-ops-pr-review "Review auth changes"
 # Output: output/review-summary.md
 
 # Developer B (same repository state)
 git checkout same-commit
-wave run gh-pr-review "Review auth changes"
+wave run gh-ops-pr-review "Review auth changes"
 # Output: identical output/review-summary.md
 ```
 
@@ -111,10 +111,10 @@ wave run gh-pr-review "Review auth changes"
 
 ```bash
 # See pipeline evolution
-git log --oneline .wave/pipelines/gh-pr-review.yaml
+git log --oneline .wave/pipelines/gh-ops-pr-review.yaml
 
 # Compare versions
-git diff HEAD~5 .wave/pipelines/gh-pr-review.yaml
+git diff HEAD~5 .wave/pipelines/gh-ops-pr-review.yaml
 
 # Revert problematic changes
 git revert <commit>
@@ -127,10 +127,10 @@ git revert <commit>
 Create team-standard pipelines that encode your practices:
 
 ```yaml
-# .wave/pipelines/pr-review.yaml
+# .wave/pipelines/ops-pr-review.yaml
 kind: WavePipeline
 metadata:
-  name: pr-review
+  name: ops-pr-review
   description: "Team standard PR review process"
 
 steps:
@@ -255,14 +255,14 @@ jobs:
 
       - name: Run Code Review
         run: |
-          wave run gh-pr-review "$(git diff origin/main..HEAD)"
+          wave run gh-ops-pr-review "$(git diff origin/main..HEAD)"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Upload Review
         uses: actions/upload-artifact@v3
         with:
-          name: gh-pr-review
+          name: gh-ops-pr-review
           path: .wave/workspaces/*/output/
 ```
 
@@ -274,7 +274,7 @@ ai-review:
   stage: review
   script:
     - curl -L https://wave.dev/install | sh
-    - wave run gh-pr-review "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+    - wave run gh-ops-pr-review "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
   artifacts:
     paths:
       - .wave/workspaces/*/output/
@@ -289,11 +289,11 @@ Add descriptions and comments:
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-pr-review
+  name: gh-ops-pr-review
   description: |
     Security-focused code review pipeline.
 
-    Usage: wave run gh-pr-review "description of changes"
+    Usage: wave run gh-ops-pr-review "description of changes"
 
     Outputs:
     - Security findings (output/security.md)
@@ -307,11 +307,11 @@ Changes to persona prompts affect all pipelines using them. Test thoroughly:
 
 ```bash
 # Before changing a persona
-wave run gh-pr-review "test input" > before.txt
+wave run gh-ops-pr-review "test input" > before.txt
 
 # After changing
 vim .wave/personas/auditor.md
-wave run gh-pr-review "test input" > after.txt
+wave run gh-ops-pr-review "test input" > after.txt
 
 # Compare
 diff before.txt after.txt
@@ -343,7 +343,7 @@ When modifying shared pipelines:
 ```
 .wave/pipelines/
 ├── review/
-│   ├── gh-pr-review.yaml
+│   ├── gh-ops-pr-review.yaml
 │   └── security-review.yaml
 ├── development/
 │   ├── feature.yaml
@@ -358,12 +358,12 @@ When modifying shared pipelines:
 ### Pipeline Not Found
 
 ```
-Error: pipeline "gh-pr-review" not found
+Error: pipeline "gh-ops-pr-review" not found
 ```
 
 Check:
-1. File exists: `ls .wave/pipelines/gh-pr-review.yaml`
-2. Metadata name matches: `grep "name:" .wave/pipelines/gh-pr-review.yaml`
+1. File exists: `ls .wave/pipelines/gh-ops-pr-review.yaml`
+2. Metadata name matches: `grep "name:" .wave/pipelines/gh-ops-pr-review.yaml`
 
 ### Persona Not Found
 

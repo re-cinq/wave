@@ -31,7 +31,7 @@ sudo dnf install git
 npm install -g @anthropic-ai/claude-code
 ```
 
-**GitHub CLI** (optional — needed for `gh-implement`, `gh-pr-review`, etc.):
+**GitHub CLI** (optional — needed for `gh-implement`, `gh-ops-pr-review`, etc.):
 ```bash
 # macOS
 brew install gh

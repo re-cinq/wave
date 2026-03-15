@@ -299,7 +299,7 @@ Reference personas by name in pipeline steps:
 
 ```yaml
 pipelines:
-  gh-pr-review:
+  gh-ops-pr-review:
     description: "Review and improve code quality"
     steps:
       - id: analyze

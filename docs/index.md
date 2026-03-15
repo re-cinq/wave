@@ -11,12 +11,12 @@ let rotationInterval = null
 
 const terminals = [
   {
-    command: 'wave run gh-pr-review',
+    command: 'wave run gh-ops-pr-review',
     outputLines: [
-      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: gh-pr-review', variant: 'logo' },
+      { text: ' ╦ ╦╔═╗╦  ╦╔═╗    Pipeline: gh-ops-pr-review', variant: 'logo' },
       { text: ' ║║║╠═╣╚╗╔╝║╣     Config:   wave.yaml', variant: 'logo' },
       { text: ' ╚╩╝╩ ╩ ╚╝ ╚═╝    Elapsed:  1m 21s', variant: 'logo' },
-      { text: ' Pipeline: gh-pr-review', variant: 'meta' },
+      { text: ' Pipeline: gh-ops-pr-review', variant: 'meta' },
       { text: ' Config:   wave.yaml', variant: 'meta' },
       { text: ' Elapsed:  1m 21s', variant: 'meta' },
       { text: ' ' },

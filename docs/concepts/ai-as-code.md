@@ -54,7 +54,7 @@ Define **what** you want, not **how** to get there. Your pipeline is a YAML file
 ```yaml
 kind: WavePipeline
 metadata:
-  name: gh-pr-review
+  name: gh-ops-pr-review
 
 steps:
   - id: analyze
