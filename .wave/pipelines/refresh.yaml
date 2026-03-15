@@ -4,6 +4,10 @@ metadata:
   description: "Refresh a stale GitHub issue by comparing it against recent codebase changes"
   release: true
 
+skills:
+  - gh-cli
+  - software-design
+
 requires:
   tools:
     - gh
@@ -35,7 +39,7 @@ steps:
         Execute these steps:
 
         1. Fetch the full issue:
-           gh issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+           {{ forge.cli_tool }} issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
 
         2. Get recent commits since the issue was created (cap at 30):
            git log --since="<createdAt>" --oneline -30
@@ -141,13 +145,13 @@ steps:
 
         Apply the update:
         - If title_changed is true:
-          gh issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
+          {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
         - Write the updated_body to a temp file, then apply it:
-          gh issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
+          {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
         - Clean up the temp file after applying.
 
         Verify the update was applied:
-        gh issue view <NUMBER> --repo <REPO> --json number,title,body,url
+        {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json number,title,body,url
 
         Compare the returned title and body against what was intended. Flag any discrepancies.
 

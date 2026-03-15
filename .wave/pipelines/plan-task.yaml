@@ -4,6 +4,9 @@ metadata:
   description: "Break down a feature into actionable tasks with structured exploration, planning, and review"
   release: true
 
+skills:
+  - software-architecture
+
 input:
   source: cli
   example: "add webhook support for pipeline completion events"

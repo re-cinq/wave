@@ -194,7 +194,7 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 		"test-gen.yaml",
 		"scope.yaml",
 		"impl-recinq.yaml",
-		"plan-speckit.yaml",
+		"impl-speckit.yaml",
 	}
 
 	for _, name := range expected {

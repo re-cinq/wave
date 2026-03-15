@@ -9,6 +9,9 @@ requires:
     - go
     - gh
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "scan all packages for dead code and report findings"
@@ -160,7 +163,7 @@ steps:
         ## Create the Issue
 
         ```bash
-        gh issue create \
+        {{ forge.cli_tool }} issue create \
           --title "chore: dead code report" \
           --body-file .wave/artifacts/report \
           --label "code-quality"

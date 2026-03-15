@@ -4,6 +4,9 @@ metadata:
   description: "Evaluate developer experience for contributors and integrators"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "audit the contributor onboarding experience"

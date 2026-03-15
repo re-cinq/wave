@@ -17,6 +17,11 @@ chat_context:
     - "Test results and coverage"
     - "PR status and review readiness"
 
+skills:
+  - golang
+  - gh-cli
+  - software-design
+
 requires:
   tools:
     - gh

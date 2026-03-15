@@ -4,6 +4,9 @@ metadata:
   description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "sync docs with current implementation"
@@ -194,7 +197,7 @@ steps:
         ### Step 2: Create Pull Request
 
         ```bash
-        gh pr create --title "docs: sync documentation with implementation" --body "$(cat <<'PREOF'
+        {{ forge.cli_tool }} {{ forge.pr_command }} create --title "docs: sync documentation with implementation" --body "$(cat <<'PREOF'
         ## Summary
 
         Automated documentation sync to fix inconsistencies between docs and code.
@@ -219,7 +222,7 @@ steps:
         ### Step 3: Request Copilot Review (Best-Effort)
 
         ```bash
-        gh pr edit --add-reviewer "copilot" 2>/dev/null || true
+        {{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot" 2>/dev/null || true
         ```
 
         ## CONSTRAINTS

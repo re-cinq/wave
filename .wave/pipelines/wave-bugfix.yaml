@@ -4,6 +4,10 @@ metadata:
   description: "Investigate and fix a bug in Wave — root cause analysis, minimal fix, regression test"
   release: false
 
+skills:
+  - wave
+  - golang
+
 input:
   source: cli
   example: "pipeline executor panics when step has nil workspace config"

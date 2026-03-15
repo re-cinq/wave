@@ -8,6 +8,9 @@ requires:
   tools:
     - go
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "find and remove dead code in internal/pipeline"
@@ -212,7 +215,7 @@ steps:
         ### Step 3: Create Pull Request
 
         ```bash
-        gh pr create --title "chore: remove dead code" --body "$(cat <<'PREOF'
+        {{ forge.cli_tool }} {{ forge.pr_command }} create --title "chore: remove dead code" --body "$(cat <<'PREOF'
         ## Summary
 
         Automated dead code removal based on static analysis scan.
@@ -239,7 +242,7 @@ steps:
         ### Step 4: Request Copilot Review (Best-Effort)
 
         ```bash
-        gh pr edit --add-reviewer "copilot" 2>/dev/null || true
+        {{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot" 2>/dev/null || true
         ```
 
         ## CONSTRAINTS

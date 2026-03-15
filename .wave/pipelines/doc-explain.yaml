@@ -4,6 +4,9 @@ metadata:
   description: "Deep-dive explanation of code, modules, or architectural patterns"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "explain the pipeline execution system and how steps are scheduled"
