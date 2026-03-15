@@ -135,9 +135,8 @@ func (m PipelineListModel) Update(msg tea.Msg) (PipelineListModel, tea.Cmd) {
 		}
 
 		// Emit running count and selection messages
-		totalPipes := len(m.running) + len(m.available) + len(m.finished)
 		cmds := []tea.Cmd{
-			func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
+			func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
 		}
 		if cmd := m.emitSelectionMsg(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -246,9 +245,8 @@ func (m PipelineListModel) handleDataMsg(msg PipelineDataMsg) (PipelineListModel
 		m.cursor = len(m.navigable) - 1
 	}
 
-	totalPipes := len(m.running) + len(m.available) + len(m.finished)
 	cmds := []tea.Cmd{
-		func() tea.Msg { return RunningCountMsg{Count: len(m.running), TotalPipes: totalPipes} },
+		func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
 	}
 
 	// Re-emit PipelineSelectedMsg if cursor is on a pipeline item
