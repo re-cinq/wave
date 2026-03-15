@@ -14,12 +14,12 @@ input:
 
 steps:
   - id: scope
-    pipeline: scope
+    pipeline: plan-scope
     input: "{{input}}"
 
   - id: implement-all
     dependencies: [scope]
-    pipeline: plan-speckit
+    pipeline: impl-speckit
     input: "{{item.url}} — child of {{input}}, see parent for full context"
     iterate:
       over: "{{scope.output.child_issues}}"

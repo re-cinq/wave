@@ -9,6 +9,9 @@ requires:
     - go
     - gh
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "scan all packages for dead code and report findings"
@@ -155,19 +158,19 @@ steps:
 
         ## Detect Repository
 
-        Run: `gh repo view --json nameWithOwner --jq .nameWithOwner`
+        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
 
         ## Create the Issue
 
         ```bash
-        gh issue create \
+        {{ forge.cli_tool }} issue create \
           --title "chore: dead code report" \
           --body-file .wave/artifacts/report \
           --label "code-quality"
         ```
 
         If the `code-quality` label doesn't exist, create without labels.
-        If any `gh` command fails, log the error and continue.
+        If any `{{ forge.cli_tool }}` command fails, log the error and continue.
 
         ## Capture Result
 

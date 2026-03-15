@@ -114,9 +114,9 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 // falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
 	// Check for pipeline-specific step generators first
-	// (workspace path contains pipeline name, e.g., ".wave/workspaces/gh-implement/fetch-assess/")
-	// gh-implement-epic must be checked before gh-implement to avoid false match
-	if strings.Contains(cfg.WorkspacePath, "gh-implement-epic") {
+	// (workspace path contains pipeline name, e.g., ".wave/workspaces/implement/fetch-assess/")
+	// implement-epic must be checked before implement to avoid false match
+	if strings.Contains(cfg.WorkspacePath, "implement-epic") || strings.Contains(cfg.WorkspacePath, "ops-implement-epic") {
 		phase := filepath.Base(cfg.WorkspacePath)
 		switch phase {
 		case "fetch-scope":
@@ -126,7 +126,7 @@ func generateRealisticOutput(cfg AdapterRunConfig) string {
 		}
 	}
 
-	if strings.Contains(cfg.WorkspacePath, "gh-implement") {
+	if strings.Contains(cfg.WorkspacePath, "implement") {
 		phase := filepath.Base(cfg.WorkspacePath)
 		switch phase {
 		case "fetch-assess":

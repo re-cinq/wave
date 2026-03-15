@@ -4,6 +4,9 @@ metadata:
   description: "Generate structured changelog from git history"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "generate changelog from v0.1.0 to HEAD"

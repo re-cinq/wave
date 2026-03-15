@@ -4,6 +4,9 @@ metadata:
   description: "Identify accidental complexity, conceptual misalignment, and technical debt"
   release: true
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "internal/ — find accidental complexity and dead weight"

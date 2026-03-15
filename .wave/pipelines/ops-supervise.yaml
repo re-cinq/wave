@@ -24,7 +24,7 @@ steps:
 
         Determine what to inspect based on the input:
         - **Empty or "last pipeline run"**: Find the most recent pipeline run via `.wave/workspaces/` timestamps and recent git activity
-        - **"current pr" or "PR #N"**: Inspect the current or specified pull request (`git log`, `gh pr view`)
+        - **"current pr" or "PR #N"**: Inspect the current or specified pull request (`git log`, `{{ forge.cli_tool }} {{ forge.pr_command }} view`)
         - **Branch name**: Inspect all commits on that branch vs main
         - **Free-form description**: Use grep/git log to find relevant recent work
 

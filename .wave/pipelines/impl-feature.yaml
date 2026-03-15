@@ -4,6 +4,10 @@ metadata:
   description: "Plan, implement, test, and commit a feature to a new branch"
   release: false
 
+skills:
+  - golang
+  - software-design
+
 input:
   source: cli
   example: "add a --dry-run flag to the run command"
@@ -184,7 +188,7 @@ steps:
         2. Create a pull request using the implementation result as context:
            ```bash
            COMMIT_SUBJECT=$(git log --format=%s -1)
-           gh pr create --title "feat: $COMMIT_SUBJECT" --body-file .wave/artifacts/result
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "feat: $COMMIT_SUBJECT" --body-file .wave/artifacts/result
            ```
     output_artifacts:
       - name: pr-result

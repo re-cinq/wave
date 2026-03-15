@@ -1,4 +1,4 @@
-You are fetching a GitHub issue and assessing whether it has enough detail to implement.
+You are fetching an issue and assessing whether it has enough detail to implement.
 
 Input: {{ input }}
 
@@ -6,8 +6,8 @@ The input format is `owner/repo number` (e.g. `re-cinq/wave 42`).
 
 ## Working Directory
 
-You are running in an isolated Wave workspace. The `gh` CLI works from any
-directory when using the `--repo` flag, so no directory change is needed.
+You are running in an isolated Wave workspace. Use `{{ forge.cli_tool }}` with
+the `--repo` flag, so no directory change is needed.
 
 ## Instructions
 
@@ -17,10 +17,10 @@ Extract the repository (`owner/repo`) and issue number from the input string.
 
 ### Step 2: Fetch Issue
 
-Use the `gh` CLI to fetch the issue with full details:
+Fetch the issue with full details:
 
 ```bash
-gh issue view <NUMBER> --repo <OWNER/REPO> --json number,title,body,url,labels,state,author,comments
+{{ forge.cli_tool }} issue view <NUMBER> --repo <OWNER/REPO> --json number,title,body,url,labels,state,author,comments
 ```
 
 ### Step 3: Assess Implementability

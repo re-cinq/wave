@@ -4,6 +4,9 @@ metadata:
   description: Pre-PR documentation consistency gate — scans changes, cross-references docs, and creates a GitHub issue with inconsistencies
   release: false
 
+skills:
+  - software-design
+
 input:
   source: cli
   example: "full -- scan all documentation for inconsistencies with the codebase"
@@ -221,19 +224,19 @@ steps:
 
         ## Detect Repository
 
-        Run: `gh repo view --json nameWithOwner --jq .nameWithOwner`
+        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
 
         ## Create the Issue
 
         ```bash
-        gh issue create \
+        {{ forge.cli_tool }} issue create \
           --title "docs: documentation consistency report" \
           --body-file .wave/artifacts/report \
           --label "documentation"
         ```
 
         If the `documentation` label doesn't exist, create without labels.
-        If any `gh` command fails, log the error and continue.
+        If any `{{ forge.cli_tool }}` command fails, log the error and continue.
 
         ## Capture Result
 

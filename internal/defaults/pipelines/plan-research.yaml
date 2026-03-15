@@ -1,8 +1,12 @@
 kind: WavePipeline
 metadata:
-  name: research
-  description: Research a GitHub issue and post findings as a comment
+  name: plan-research
+  description: Research an issue and post findings as a comment
   release: true
+
+skills:
+  - gh-cli
+  - software-design
 
 requires:
   tools:
@@ -36,9 +40,9 @@ steps:
         - Short form: owner/repo 123
 
         Parse the input to extract the repository and issue number.
-        Use the gh CLI to fetch the issue:
+        Fetch the issue:
 
-        gh issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
 
         Parse the output and produce structured JSON with the issue content.
         Include repository information in the output.
@@ -230,14 +234,14 @@ steps:
         Steps:
         1. Read the issue details to get the repository and issue number
         2. Read the report to get the markdown_content
-        3. Write the markdown content to a file, then use gh CLI to post the comment:
+        3. Write the markdown content to a file, then use {{ forge.cli_tool }} to post the comment:
 
            # Write to file to avoid shell escaping issues with large markdown
            cat > /tmp/comment-body.md << 'COMMENT_EOF'
            <markdown_content>
            COMMENT_EOF
 
-           gh issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
+           {{ forge.cli_tool }} issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
 
         4. Add a footer to the comment:
            ---
