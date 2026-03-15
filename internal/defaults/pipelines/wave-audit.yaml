@@ -70,7 +70,7 @@ steps:
 
         ## Rate Limit Awareness
 
-        The `gh` CLI handles rate limits automatically. If you see rate-limit errors, wait briefly and retry. For very large repositories, space out requests.
+        The `{{ forge.cli_tool }}` CLI handles rate limits automatically. If you see rate-limit errors, wait briefly and retry. For very large repositories, space out requests.
 
         ## Build Inventory
 

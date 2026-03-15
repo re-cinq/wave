@@ -79,6 +79,6 @@ steps:
         ## Rules
 
         - If `git push` fails due to auth, report the error and stop
-        - If `gh` is not found, try the full nix store path
+        - If `{{ forge.cli_tool }}` is not found, try the full nix store path
         - Do NOT force push
         - Do NOT amend existing commits
