@@ -452,7 +452,25 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			// Execute the step (reuse existing step execution logic)
 			if err := r.executeStep(ctx, execution, step); err != nil {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				return r.errors.FormatPhaseFailureError(step.ID, err, pipelineName)
+				execution.Status.State = StateFailed
+
+				// Emit failed event (matching Execute() behavior)
+				if r.executor.emitter != nil {
+					r.executor.emitter.Emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "failed",
+						Message:    err.Error(),
+					})
+				}
+
+				// Persist failed state to store
+				if r.executor.store != nil {
+					_ = r.executor.store.SavePipelineState(pipelineID, StateFailed, execution.Input)
+				}
+
+				return &StepError{StepID: step.ID, Err: err}
 			}
 
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -538,12 +556,25 @@ func (r *ResumeManager) ValidateResumePoint(p *Pipeline, fromStep string) error 
 	return nil
 }
 
-// GetRecommendedResumePoint suggests the best step to resume from based on current state
+// GetRecommendedResumePoint suggests the best step to resume from based on current state.
+// For prototype pipelines, it checks prototype-specific phase artifacts.
+// For other pipelines, it finds the first step without a workspace from any prior run.
 func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
-	if p.Metadata.Name != "prototype" {
-		return "", fmt.Errorf("resume point recommendation only available for prototype pipeline")
+	if len(p.Steps) == 0 {
+		return "", fmt.Errorf("pipeline has no steps")
 	}
 
+	// Prototype-specific logic (backward compatible)
+	if p.Metadata.Name == "prototype" || p.Metadata.Name == "impl-prototype" {
+		return r.getPrototypeResumePoint(p)
+	}
+
+	// Generic: find the first step without a workspace from any prior run
+	return r.getGenericResumePoint(p)
+}
+
+// getPrototypeResumePoint uses prototype-specific phase completion checks.
+func (r *ResumeManager) getPrototypeResumePoint(p *Pipeline) (string, error) {
 	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
 
 	// Check phases in forward order to find the first incomplete phase
@@ -558,4 +589,48 @@ func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
 
 	// All phases complete, suggest implement phase for any additional work
 	return "implement", nil
+}
+
+// getGenericResumePoint finds the first step without a workspace in any prior run.
+func (r *ResumeManager) getGenericResumePoint(p *Pipeline) (string, error) {
+	wsRoot := ".wave/workspaces"
+
+	// Collect run directories for this pipeline
+	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
+	if info, err := os.Stat(filepath.Join(wsRoot, p.Metadata.Name)); err == nil && info.IsDir() {
+		runDirs = append(runDirs, filepath.Join(wsRoot, p.Metadata.Name))
+	}
+
+	// If no run directories exist, start from the first step
+	if len(runDirs) == 0 {
+		return p.Steps[0].ID, nil
+	}
+
+	for _, step := range p.Steps {
+		found := false
+		for _, runDir := range runDirs {
+			// Check step-named directory
+			if _, err := os.Stat(filepath.Join(runDir, step.ID)); err == nil {
+				found = true
+				break
+			}
+			// Check __wt_ directories (worktree steps)
+			entries, _ := filepath.Glob(filepath.Join(runDir, "__wt_*"))
+			for _, entry := range entries {
+				if hasStepArtifacts(entry, step) {
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			return step.ID, nil
+		}
+	}
+
+	// All steps have workspaces, suggest the last step
+	return p.Steps[len(p.Steps)-1].ID, nil
 }
