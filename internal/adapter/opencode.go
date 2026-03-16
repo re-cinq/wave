@@ -1,11 +1,11 @@
 package adapter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,9 +71,23 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	var stdoutBuf bytes.Buffer
 	stdoutDone := make(chan error, 1)
 
+	// Stream stdout line-by-line, parsing NDJSON events in real-time.
 	go func() {
-		_, err := io.Copy(&stdoutBuf, stdoutPipe)
-		stdoutDone <- err
+		scanner := bufio.NewScanner(stdoutPipe)
+		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024) // 10MB max line
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			stdoutBuf.Write(line)
+			stdoutBuf.WriteByte('\n')
+
+			// Parse and emit stream events to the callback.
+			if cfg.OnStreamEvent != nil {
+				if evt, ok := parseOpenCodeStreamLine(line); ok {
+					cfg.OnStreamEvent(evt)
+				}
+			}
+		}
+		stdoutDone <- scanner.Err()
 	}()
 
 	select {
@@ -102,6 +116,120 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	result.TokensUsed = estimateTokens(stdoutBuf.String())
 
 	return result, nil
+}
+
+// parseOpenCodeStreamLine parses a single NDJSON line from opencode's JSON output
+// and converts it to a StreamEvent. Returns (event, true) if the line produced a
+// meaningful event, or (zero, false) if it should be skipped (malformed or unrecognised).
+//
+// OpenCode event format mapping (--output-format json):
+//
+//	{"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+//	  → StreamEvent{Type:"text", Content:"..."}
+//
+//	{"type":"tool","tool":"Read","input":{"file_path":"..."}}
+//	  → StreamEvent{Type:"tool_use", ToolName:"Read", ToolInput:"..."}
+//
+//	{"type":"result","usage":{"input_tokens":N,"output_tokens":M},"content":"..."}
+//	  → StreamEvent{Type:"result", TokensIn:N, TokensOut:M, Content:"..."}
+//
+//	{"type":"system","message":"..."}
+//	  → StreamEvent{Type:"system"}
+//
+// Unrecognised or malformed lines are silently skipped.
+func parseOpenCodeStreamLine(line []byte) (StreamEvent, bool) {
+	line = bytes.TrimSpace(line)
+	if len(line) == 0 {
+		return StreamEvent{}, false
+	}
+
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(line, &obj); err != nil {
+		// Malformed NDJSON — skip gracefully.
+		return StreamEvent{}, false
+	}
+
+	var eventType string
+	if raw, ok := obj["type"]; ok {
+		if err := json.Unmarshal(raw, &eventType); err != nil {
+			return StreamEvent{}, false
+		}
+	}
+
+	switch eventType {
+	case "system":
+		return StreamEvent{Type: "system"}, true
+
+	case "assistant":
+		// OpenCode assistant events carry message content blocks.
+		var msg struct {
+			Message struct {
+				Content []struct {
+					Type string `json:"type"`
+					Text string `json:"text,omitempty"`
+				} `json:"content"`
+			} `json:"message"`
+		}
+		data, _ := json.Marshal(obj)
+		if err := json.Unmarshal(data, &msg); err != nil {
+			return StreamEvent{}, false
+		}
+		for _, block := range msg.Message.Content {
+			if block.Type == "text" && block.Text != "" {
+				text := block.Text
+				if len(text) > 200 {
+					text = text[:200]
+				}
+				return StreamEvent{Type: "text", Content: text}, true
+			}
+		}
+		return StreamEvent{}, false
+
+	case "tool":
+		// OpenCode tool events carry the tool name and input fields.
+		var toolEvt struct {
+			Tool  string          `json:"tool"`
+			Input json.RawMessage `json:"input"`
+		}
+		data, _ := json.Marshal(obj)
+		if err := json.Unmarshal(data, &toolEvt); err != nil {
+			return StreamEvent{}, false
+		}
+		if toolEvt.Tool == "" {
+			return StreamEvent{}, false
+		}
+		target := extractToolTarget(toolEvt.Tool, toolEvt.Input)
+		return StreamEvent{
+			Type:      "tool_use",
+			ToolName:  toolEvt.Tool,
+			ToolInput: target,
+		}, true
+
+	case "result":
+		// OpenCode result events carry cumulative usage and final content.
+		var resultEvt struct {
+			Usage struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+			Content string `json:"content"`
+			Subtype string `json:"subtype"`
+		}
+		data, _ := json.Marshal(obj)
+		if err := json.Unmarshal(data, &resultEvt); err != nil {
+			return StreamEvent{}, false
+		}
+		return StreamEvent{
+			Type:      "result",
+			TokensIn:  resultEvt.Usage.InputTokens,
+			TokensOut: resultEvt.Usage.OutputTokens,
+			Content:   resultEvt.Content,
+			Subtype:   resultEvt.Subtype,
+		}, true
+
+	default:
+		return StreamEvent{}, false
+	}
 }
 
 func (a *OpenCodeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
