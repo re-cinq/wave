@@ -67,6 +67,7 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
+├── continuous/   # Continuous pipeline execution
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
 ├── defaults/     # Embedded default personas, pipelines, and contracts
 ├── deliverable/  # Pipeline deliverable tracking and output
@@ -80,6 +81,8 @@ internal/
 ├── preflight/    # Pipeline dependency validation and auto-install
 ├── recovery/     # Pipeline recovery hints and error guidance
 ├── relay/        # Context compaction and summarization
+├── sandbox/      # Docker and bubblewrap sandbox backends
+├── scope/        # Persona token scope parsing and validation
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
 ├── doctor/       # Project health checking and optimization
