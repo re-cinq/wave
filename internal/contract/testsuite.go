@@ -20,6 +20,20 @@ func (v *testSuiteValidator) Validate(cfg ContractConfig, workspacePath string) 
 		}
 	}
 
+	// Detect unresolved template variables (e.g. {{ project.test_command }}).
+	// These indicate missing project configuration in wave.yaml.
+	if strings.Contains(cfg.Command, "{{ ") || strings.Contains(cfg.Command, "{{") {
+		return &ValidationError{
+			ContractType: "test_suite",
+			Message:      "unresolved template variable in contract command — configure project section in wave.yaml",
+			Details: []string{
+				fmt.Sprintf("command: %s", cfg.Command),
+				"add the missing variable to the project section of your wave.yaml",
+			},
+			Retryable: false,
+		}
+	}
+
 	var command string
 	var args []string
 

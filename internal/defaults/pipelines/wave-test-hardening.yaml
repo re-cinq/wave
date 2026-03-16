@@ -32,7 +32,8 @@ steps:
 
         ## Analysis
 
-        1. **Run coverage analysis**:
+        1. **Run coverage analysis** (hardcoded Go commands — this is a Wave self-evolution
+           pipeline that always targets Wave's own Go codebase):
            ```bash
            go test -coverprofile=coverage.out ./... 2>&1 || true
            go tool cover -func=coverage.out | tail -20
