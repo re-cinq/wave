@@ -95,6 +95,44 @@ func TestBuildInteractiveArgs_NoResumeOrPrompt(t *testing.T) {
 	}
 }
 
+func TestExtractSessionID(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{
+			name:   "simple session ID",
+			input:  "Session: abc123def456",
+			expect: "abc123def456",
+		},
+		{
+			name:   "session ID with surrounding output",
+			input:  "some output\nSession: 01234567-89ab-cdef\nmore output",
+			expect: "01234567-89ab-cdef",
+		},
+		{
+			name:   "no session info",
+			input:  "no session info here",
+			expect: "",
+		},
+		{
+			name:   "empty string",
+			input:  "",
+			expect: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractSessionID(tt.input)
+			if got != tt.expect {
+				t.Errorf("extractSessionID(%q) = %q, want %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}
+
 func containsArg(args []string, target string) bool {
 	for _, a := range args {
 		if a == target {
