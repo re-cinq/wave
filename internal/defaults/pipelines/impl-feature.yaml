@@ -2,7 +2,7 @@ kind: WavePipeline
 metadata:
   name: impl-feature
   description: "Plan, implement, test, and commit a feature to a new branch"
-  release: false
+  release: true
 
 skills:
   - "{{ project.skill }}"
