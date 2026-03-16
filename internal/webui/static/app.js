@@ -143,6 +143,47 @@ function filterRuns() {
     window.location.search = params.toString();
 }
 
+// Resume from a specific step
+async function resumeFromStep(runID, stepID) {
+    try {
+        const resp = await fetch('/api/runs/' + encodeURIComponent(runID) + '/resume', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({from_step: stepID})
+        });
+
+        if (resp.ok) {
+            const data = await resp.json();
+            window.location.href = '/runs/' + data.run_id;
+        } else {
+            const err = await resp.json();
+            alert('Failed to resume: ' + (err.error || resp.statusText));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+
+function showResumeDialog() {
+    var dialog = document.getElementById('resume-dialog');
+    if (dialog) dialog.style.display = 'flex';
+}
+
+// Keyboard handlers for interactive elements
+document.addEventListener('keydown', function(e) {
+    // Escape closes the start form or resume dialog if open
+    if (e.key === 'Escape') {
+        var form = document.getElementById('start-form');
+        if (form && form.style.display !== 'none') {
+            toggleStartForm();
+        }
+        var dialog = document.getElementById('resume-dialog');
+        if (dialog && dialog.style.display !== 'none') {
+            dialog.style.display = 'none';
+        }
+    }
+});
+
 // Auto-refresh run list every 10 seconds if there are running pipelines
 (function() {
     const rows = document.querySelectorAll('.run-row[data-status="running"]');

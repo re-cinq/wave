@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -17,6 +15,8 @@ var credentialPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)bearer\s+[a-zA-Z0-9._\-]{20,}`),                   // Bearer tokens
 	regexp.MustCompile(`(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+`),               // Generic API keys
 	regexp.MustCompile(`(?i)(token)\s*[=:]\s*[a-zA-Z0-9._\-]{20,}`),           // Generic tokens
+	regexp.MustCompile(`glpat-[a-zA-Z0-9_\-]{20,}`),                           // GitLab PATs
+	regexp.MustCompile(`xox[bporas]-[a-zA-Z0-9\-]{10,}`),                      // Slack tokens
 }
 
 const redactedPlaceholder = "[REDACTED]"

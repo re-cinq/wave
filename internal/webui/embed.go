@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -8,6 +6,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/display"
@@ -39,6 +38,7 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 		"formatTokens":   formatTokensFunc,
+		"contains":       strings.Contains,
 	}
 
 	// Parse layout into the base template.

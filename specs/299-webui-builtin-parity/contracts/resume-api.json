@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Resume Run API",
+  "description": "Contract for POST /api/runs/{id}/resume endpoint",
+  "definitions": {
+    "ResumeRunRequest": {
+      "type": "object",
+      "required": ["from_step"],
+      "properties": {
+        "from_step": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Step ID to resume execution from"
+        },
+        "force": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip validation checks when resuming"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ResumeRunResponse": {
+      "type": "object",
+      "required": ["run_id", "original_run_id", "pipeline_name", "from_step", "status", "started_at"],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "ID of the new resumed run"
+        },
+        "original_run_id": {
+          "type": "string",
+          "description": "ID of the original failed/cancelled run"
+        },
+        "pipeline_name": {
+          "type": "string",
+          "description": "Name of the pipeline being resumed"
+        },
+        "from_step": {
+          "type": "string",
+          "description": "Step ID execution resumes from"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["running"],
+          "description": "Status of the new run"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the resumed run started"
+        }
+      }
+    }
+  }
+}

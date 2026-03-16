@@ -12,6 +12,7 @@
         <div class="persona-meta">
             <span class="badge">{{.Adapter}}</span>
             {{if .Model}}<span class="badge">{{.Model}}</span>{{end}}
+            {{if .Temperature}}<span class="badge">temp: {{.Temperature}}</span>{{end}}
         </div>
         {{if .AllowedTools}}
         <div class="persona-tools">
