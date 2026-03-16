@@ -2,7 +2,7 @@ kind: WavePipeline
 metadata:
   name: impl-prototype
   description: "Prototype-driven implementation: spec → docs → dummy → implement → PR cycle"
-  release: false
+  release: true
 
 input:
   source: cli
