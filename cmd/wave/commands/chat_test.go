@@ -12,7 +12,7 @@ func TestNewChatCmd(t *testing.T) {
 	}
 
 	// Verify flags exist
-	flags := []string{"step", "artifact", "manifest", "model", "prompt", "list"}
+	flags := []string{"step", "artifact", "manifest", "model", "prompt", "list", "resume"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("missing flag: %s", flag)
@@ -88,5 +88,32 @@ func TestChatOptions_Defaults(t *testing.T) {
 	}
 	if opts.Prompt != "" {
 		t.Errorf("expected empty Prompt, got %q", opts.Prompt)
+	}
+	if opts.Resume != "" {
+		t.Errorf("expected empty Resume, got %q", opts.Resume)
+	}
+}
+
+func TestNewChatCmd_ResumeFlag(t *testing.T) {
+	cmd := NewChatCmd()
+
+	resumeFlag := cmd.Flags().Lookup("resume")
+	if resumeFlag == nil {
+		t.Fatal("missing --resume flag")
+	}
+	if resumeFlag.DefValue != "" {
+		t.Errorf("expected empty default for resume, got %q", resumeFlag.DefValue)
+	}
+}
+
+func TestNewChatCmd_ResumeFlagDescription(t *testing.T) {
+	cmd := NewChatCmd()
+
+	resumeFlag := cmd.Flags().Lookup("resume")
+	if resumeFlag == nil {
+		t.Fatal("missing --resume flag")
+	}
+	if resumeFlag.Usage == "" {
+		t.Error("resume flag should have a usage description")
 	}
 }
