@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/flavour"
 	"github.com/recinq/wave/internal/tui"
 )
 
@@ -103,6 +104,8 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 	buildCmd := getStringDefault(detected, "build_command", "")
 	language := getStringDefault(detected, "language", "")
 	sourceGlob := getStringDefault(detected, "source_glob", "")
+	flavourName := getStringDefault(detected, "flavour", "")
+	formatCmd := getStringDefault(detected, "format_command", "")
 
 	// Pre-fill from existing manifest if reconfiguring
 	if cfg.Reconfigure && cfg.Existing != nil && cfg.Existing.Project != nil {
@@ -120,6 +123,12 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}
 		if cfg.Existing.Project.SourceGlob != "" {
 			sourceGlob = cfg.Existing.Project.SourceGlob
+		}
+		if cfg.Existing.Project.FormatCommand != "" {
+			formatCmd = cfg.Existing.Project.FormatCommand
+		}
+		if cfg.Existing.Project.Flavour != "" {
+			flavourName = cfg.Existing.Project.Flavour
 		}
 	}
 
@@ -152,64 +161,42 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 
 	return &StepResult{
 		Data: map[string]interface{}{
-			"test_command":  testCmd,
-			"lint_command":  lintCmd,
-			"build_command": buildCmd,
-			"language":      language,
-			"source_glob":   sourceGlob,
+			"test_command":   testCmd,
+			"lint_command":   lintCmd,
+			"build_command":  buildCmd,
+			"language":       language,
+			"source_glob":    sourceGlob,
+			"flavour":        flavourName,
+			"format_command": formatCmd,
 		},
 	}, nil
 }
 
 // detectProjectType probes the current directory for project type markers.
 func detectProjectType() map[string]string {
-	fileExists := func(name string) bool {
-		_, err := os.Stat(name)
-		return err == nil
+	result := flavour.Detect(".")
+	if result.Flavour == "" {
+		return map[string]string{}
 	}
 
-	switch {
-	case fileExists("go.mod"):
-		return map[string]string{
-			"language":      "go",
-			"test_command":  "go test ./...",
-			"lint_command":  "go vet ./...",
-			"build_command": "go build ./...",
-			"source_glob":   "*.go",
-		}
-	case fileExists("deno.json") || fileExists("deno.jsonc"):
-		return map[string]string{
-			"language":      "typescript",
-			"test_command":  "deno test",
-			"lint_command":  "deno lint",
-			"build_command": "deno compile",
-			"source_glob":   "*.{ts,tsx}",
-		}
-	case fileExists("package.json"):
-		return map[string]string{
-			"language":     "javascript",
-			"test_command": "npm test",
-			"lint_command": "npm run lint",
-			"source_glob":  "*.{js,jsx}",
-		}
-	case fileExists("Cargo.toml"):
-		return map[string]string{
-			"language":      "rust",
-			"test_command":  "cargo test",
-			"lint_command":  "cargo clippy",
-			"build_command": "cargo build",
-			"source_glob":   "*.rs",
-		}
-	case fileExists("pyproject.toml") || fileExists("setup.py"):
-		return map[string]string{
-			"language":     "python",
-			"test_command": "pytest",
-			"lint_command": "ruff check .",
-			"source_glob":  "*.py",
-		}
+	m := map[string]string{
+		"flavour":     result.Flavour,
+		"language":    result.Language,
+		"source_glob": result.SourceGlob,
 	}
-
-	return map[string]string{}
+	if result.TestCommand != "" {
+		m["test_command"] = result.TestCommand
+	}
+	if result.LintCommand != "" {
+		m["lint_command"] = result.LintCommand
+	}
+	if result.BuildCommand != "" {
+		m["build_command"] = result.BuildCommand
+	}
+	if result.FormatCommand != "" {
+		m["format_command"] = result.FormatCommand
+	}
+	return m
 }
 
 func getStringDefault(m map[string]string, key, fallback string) string {

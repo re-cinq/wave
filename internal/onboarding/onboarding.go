@@ -23,16 +23,18 @@ type WizardConfig struct {
 
 // WizardResult holds the collected results from all wizard steps.
 type WizardResult struct {
-	Adapter      string
-	Model        string
-	TestCommand  string
-	LintCommand  string
-	BuildCommand string
-	Language     string
-	SourceGlob   string
-	Pipelines    []string // selected pipeline names
-	Skills       []string // installed skill names from onboarding
-	Dependencies []DependencyStatus
+	Adapter       string
+	Model         string
+	Flavour       string
+	TestCommand   string
+	LintCommand   string
+	BuildCommand  string
+	FormatCommand string
+	Language      string
+	SourceGlob    string
+	Pipelines     []string // selected pipeline names
+	Skills        []string // installed skill names from onboarding
+	Dependencies  []DependencyStatus
 }
 
 // DependencyStatus reports the status of a required dependency.
@@ -93,6 +95,12 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 		}
 		if v, ok := testResult.Data["source_glob"].(string); ok {
 			result.SourceGlob = v
+		}
+		if v, ok := testResult.Data["flavour"].(string); ok {
+			result.Flavour = v
+		}
+		if v, ok := testResult.Data["format_command"].(string); ok {
+			result.FormatCommand = v
 		}
 	}
 
@@ -232,6 +240,12 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 	}
 	if result.BuildCommand != "" {
 		project["build_command"] = result.BuildCommand
+	}
+	if result.FormatCommand != "" {
+		project["format_command"] = result.FormatCommand
+	}
+	if result.Flavour != "" {
+		project["flavour"] = result.Flavour
 	}
 	if result.SourceGlob != "" {
 		project["source_glob"] = result.SourceGlob

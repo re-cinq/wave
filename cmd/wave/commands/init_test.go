@@ -307,7 +307,8 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 		assert.Equal(t, "WavePipeline", pipelineData["kind"], "%s should have kind WavePipeline", pipeline)
 	}
 
-	// Verify non-release pipelines are NOT created
+	// Verify non-release pipelines are NOT created (except required ones)
+	requiredPipelines := map[string]bool{"impl-issue.yaml": true}
 	allPipelines := defaults.PipelineNames()
 	for _, pipeline := range allPipelines {
 		isRelease := false
@@ -317,7 +318,7 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 				break
 			}
 		}
-		if !isRelease {
+		if !isRelease && !requiredPipelines[pipeline] {
 			path := filepath.Join(".wave", "pipelines", pipeline)
 			assert.False(t, fileExists(path), "non-release pipeline file %s should NOT be created", pipeline)
 		}
@@ -742,7 +743,8 @@ func TestInitAllFlagExtractsAllPipelines(t *testing.T) {
 	assert.Equal(t, len(allPipelines), len(entries), "--all should create all pipeline files")
 }
 
-// TestInitDefaultOnlyReleasePipelines tests that default wave init writes only release pipelines.
+// TestInitDefaultOnlyReleasePipelines tests that default wave init writes only release pipelines
+// plus any required pipelines (e.g., impl-issue) that are always included via the safeguard.
 func TestInitDefaultOnlyReleasePipelines(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -753,13 +755,27 @@ func TestInitDefaultOnlyReleasePipelines(t *testing.T) {
 	releasePipelines, err := defaults.GetReleasePipelines()
 	require.NoError(t, err)
 
+	// Required pipelines are always included even if not marked release
+	requiredPipelines := []string{"impl-issue.yaml"}
+	expectedCount := len(releasePipelines)
+	for _, req := range requiredPipelines {
+		if _, ok := releasePipelines[req]; !ok {
+			expectedCount++
+		}
+	}
+
 	entries, err := os.ReadDir(".wave/pipelines")
 	require.NoError(t, err)
-	assert.Equal(t, len(releasePipelines), len(entries), "default init should create only release pipeline files")
+	assert.Equal(t, expectedCount, len(entries), "default init should create release + required pipeline files")
 
+	requiredSet := make(map[string]bool)
+	for _, req := range requiredPipelines {
+		requiredSet[req] = true
+	}
 	for _, entry := range entries {
 		_, isRelease := releasePipelines[entry.Name()]
-		assert.True(t, isRelease, "pipeline %s should be a release pipeline", entry.Name())
+		isRequired := requiredSet[entry.Name()]
+		assert.True(t, isRelease || isRequired, "pipeline %s should be a release or required pipeline", entry.Name())
 	}
 }
 
@@ -891,8 +907,16 @@ func TestInitDisplayShowsFilteredCounts(t *testing.T) {
 	releasePipelines, err := defaults.GetReleasePipelines()
 	require.NoError(t, err)
 
-	// The output should show the filtered pipeline count
-	expectedCount := fmt.Sprintf("%d pipelines", len(releasePipelines))
+	// The output should show the pipeline count (release + required)
+	// Required pipelines (e.g., impl-issue) may add to the count
+	requiredExtra := 0
+	requiredPipelines := []string{"impl-issue.yaml"}
+	for _, req := range requiredPipelines {
+		if _, ok := releasePipelines[req]; !ok {
+			requiredExtra++
+		}
+	}
+	expectedCount := fmt.Sprintf("%d pipelines", len(releasePipelines)+requiredExtra)
 	assert.Contains(t, stdout, expectedCount,
 		"init output should show filtered pipeline count")
 }
@@ -1808,5 +1832,87 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		require.Error(t, err, "merge without --yes in non-interactive terminal should fail")
 		assert.Contains(t, err.Error(), "non-interactive",
 			"error should mention non-interactive terminal, got: %v", err)
+	})
+}
+
+// TestEnsureGitRepo tests the cold-start git repository initialization scenarios.
+func TestEnsureGitRepo(t *testing.T) {
+	t.Run("initializes git in empty dir", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		needsCommit, err := ensureGitRepo()
+		require.NoError(t, err)
+		assert.True(t, needsCommit)
+		assert.DirExists(t, ".git")
+	})
+
+	t.Run("detects no commits", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		cmd := exec.Command("git", "init")
+		require.NoError(t, cmd.Run())
+
+		needsCommit, err := ensureGitRepo()
+		require.NoError(t, err)
+		assert.True(t, needsCommit)
+	})
+
+	t.Run("detects existing commits", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		require.NoError(t, exec.Command("git", "init").Run())
+		require.NoError(t, exec.Command("git", "config", "user.email", "test@test.com").Run())
+		require.NoError(t, exec.Command("git", "config", "user.name", "Test").Run())
+		require.NoError(t, os.WriteFile("dummy.txt", []byte("hello"), 0644))
+		require.NoError(t, exec.Command("git", "add", ".").Run())
+		require.NoError(t, exec.Command("git", "commit", "-m", "initial").Run())
+
+		needsCommit, err := ensureGitRepo()
+		require.NoError(t, err)
+		assert.False(t, needsCommit)
+	})
+}
+
+// TestDetectProjectInInit tests that detectProject() uses the flavour package.
+func TestDetectProjectInInit(t *testing.T) {
+	t.Run("detects go project with flavour", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		require.NoError(t, os.WriteFile("go.mod", []byte("module example.com/test\n\ngo 1.21\n"), 0644))
+
+		result := detectProject()
+		require.NotNil(t, result)
+		assert.Equal(t, "go", result["flavour"])
+		assert.Equal(t, "go", result["language"])
+		assert.Equal(t, "go test ./...", result["test_command"])
+		assert.Equal(t, "gofmt -l .", result["format_command"])
+	})
+
+	t.Run("returns nil for unknown project", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+
+		result := detectProject()
+		assert.Nil(t, result)
+	})
+}
+
+// TestSuggestFirstPipeline tests the pipeline suggestion logic.
+func TestSuggestFirstPipeline(t *testing.T) {
+	t.Run("suggests audit-dx for existing code", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644))
+		assert.Equal(t, "audit-dx", suggestFirstPipeline(dir))
+	})
+
+	t.Run("suggests ops-bootstrap for empty project", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".wave"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "wave.yaml"), []byte("apiVersion: v1"), 0644))
+		assert.Equal(t, "ops-bootstrap", suggestFirstPipeline(dir))
 	})
 }
