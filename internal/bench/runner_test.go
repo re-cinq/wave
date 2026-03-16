@@ -104,13 +104,26 @@ func TestRunBenchmark(t *testing.T) {
 		}
 	})
 
-	t.Run("missing pipeline", func(t *testing.T) {
+	t.Run("missing pipeline wave mode", func(t *testing.T) {
 		runner := &mockRunner{}
 		cfg := RunConfig{Pipeline: ""}
 
 		_, err := RunBenchmark(context.Background(), tasks, cfg, runner)
 		if err == nil {
-			t.Fatal("expected error for empty pipeline name")
+			t.Fatal("expected error for empty pipeline name in wave mode")
+		}
+	})
+
+	t.Run("missing pipeline claude mode ok", func(t *testing.T) {
+		runner := &mockRunner{}
+		cfg := RunConfig{Pipeline: "", Mode: ModeClaude}
+
+		report, err := RunBenchmark(context.Background(), tasks, cfg, runner)
+		if err != nil {
+			t.Fatalf("RunBenchmark() error = %v", err)
+		}
+		if report.Mode != ModeClaude {
+			t.Errorf("Mode = %q, want %q", report.Mode, ModeClaude)
 		}
 	})
 
@@ -128,6 +141,22 @@ func TestRunBenchmark(t *testing.T) {
 		// Should still return a partial report
 		if report == nil {
 			t.Fatal("expected partial report even on cancellation")
+		}
+	})
+
+	t.Run("mode and label propagation", func(t *testing.T) {
+		runner := &mockRunner{}
+		cfg := RunConfig{Pipeline: "bench-solve", Mode: ModeWave, RunLabel: "test-v1", Limit: 1}
+
+		report, err := RunBenchmark(context.Background(), tasks, cfg, runner)
+		if err != nil {
+			t.Fatalf("RunBenchmark() error = %v", err)
+		}
+		if report.Mode != ModeWave {
+			t.Errorf("Mode = %q, want %q", report.Mode, ModeWave)
+		}
+		if report.RunLabel != "test-v1" {
+			t.Errorf("RunLabel = %q, want %q", report.RunLabel, "test-v1")
 		}
 	})
 
