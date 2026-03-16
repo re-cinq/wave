@@ -151,19 +151,19 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		nextCursor = encodeCursor(lastRun.StartedAt, lastRun.RunID)
 	}
 
-	// Get pipeline names for the start form from .wave/pipelines/
-	pipelineNames := listPipelineNames()
+	// Get pipeline info for the enhanced start form
+	pipelineInfos := getPipelineStartInfos()
 
 	data := struct {
 		Runs       []RunSummary
 		HasMore    bool
 		NextCursor string
-		Pipelines  []string
+		Pipelines  []PipelineStartInfo
 	}{
 		Runs:       summaries,
 		HasMore:    hasMore,
 		NextCursor: nextCursor,
-		Pipelines:  pipelineNames,
+		Pipelines:  pipelineInfos,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

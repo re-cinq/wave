@@ -20,6 +20,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /personas", s.handlePersonasPage)
 	mux.HandleFunc("GET /contracts", s.handleContractsPage)
 	mux.HandleFunc("GET /skills", s.handleSkillsPage)
+	mux.HandleFunc("GET /compose", s.handleComposePage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
@@ -33,6 +34,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/contracts", s.handleAPIContracts)
 	mux.HandleFunc("GET /api/skills", s.handleAPISkills)
 	mux.HandleFunc("GET /api/contracts/{name}", s.handleAPIContractDetail)
+	mux.HandleFunc("GET /api/compose", s.handleAPICompose)
+	mux.HandleFunc("GET /api/pipelines/info", s.handleAPIPipelineInfo)
 	mux.HandleFunc("GET /api/runs/{id}/artifacts/{step}/{name}", s.handleArtifact)
 	mux.HandleFunc("GET /api/runs/{id}/events", s.handleSSE)
 }

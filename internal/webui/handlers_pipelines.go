@@ -38,6 +38,39 @@ func (s *Server) handleAPIPipelines(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"pipelines": pipelines})
 }
 
+// handleAPIPipelineInfo handles GET /api/pipelines/info - returns pipeline metadata
+// for the enhanced start form (description, step count, category).
+func (s *Server) handleAPIPipelineInfo(w http.ResponseWriter, r *http.Request) {
+	infos := getPipelineStartInfos()
+	writeJSON(w, http.StatusOK, map[string]interface{}{"pipelines": infos})
+}
+
+// getPipelineStartInfos returns lightweight pipeline metadata for the start form.
+func getPipelineStartInfos() []PipelineStartInfo {
+	names := listPipelineNames()
+	var infos []PipelineStartInfo
+
+	for _, name := range names {
+		p, err := loadPipelineYAML(name)
+		if err != nil {
+			infos = append(infos, PipelineStartInfo{Name: name})
+			continue
+		}
+		infos = append(infos, PipelineStartInfo{
+			Name:        name,
+			Description: p.Metadata.Description,
+			Category:    p.Metadata.Category,
+			StepCount:   len(p.Steps),
+		})
+	}
+
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Name < infos[j].Name
+	})
+
+	return infos
+}
+
 // getPipelineSummaries reads pipeline YAML files and returns summaries.
 func (s *Server) getPipelineSummaries() []PipelineSummary {
 	names := listPipelineNames()
