@@ -138,6 +138,10 @@ personas:
         description: GitHub issue analysis and quality assessment
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:read
+            - pulls:read
+            - repos:read
         permissions:
             allowed_tools:
                 - Read
@@ -164,6 +168,8 @@ personas:
         description: GitHub issue enhancement and improvement
         model: opus
         #temperature: 0.5
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -184,6 +190,8 @@ personas:
         description: GitHub epic decomposition into child issues
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -262,6 +270,9 @@ personas:
         description: Post comments on GitHub issues and pull requests, create PRs
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
+            - pulls:write
         permissions:
             allowed_tools:
                 - Read
@@ -288,6 +299,10 @@ personas:
         description: GitLab issue analysis and quality assessment
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:read
+            - pulls:read
+            - repos:read
         permissions:
             allowed_tools:
                 - Read
@@ -314,6 +329,8 @@ personas:
         description: GitLab issue enhancement and improvement
         model: opus
         #temperature: 0.5
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -334,6 +351,8 @@ personas:
         description: GitLab epic decomposition into child issues
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -354,6 +373,9 @@ personas:
         description: Post comments on GitLab issues and merge requests
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
+            - pulls:write
         permissions:
             allowed_tools:
                 - Read
@@ -380,6 +402,10 @@ personas:
         description: Gitea issue analysis and quality assessment
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:read
+            - pulls:read
+            - repos:read
         permissions:
             allowed_tools:
                 - Read
@@ -406,6 +432,8 @@ personas:
         description: Gitea issue enhancement and improvement
         model: opus
         #temperature: 0.5
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -426,6 +454,8 @@ personas:
         description: Gitea epic decomposition into child issues
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -446,6 +476,9 @@ personas:
         description: Post comments on Gitea issues and pull requests
         model: opus
         #temperature: 0.3
+        token_scopes:
+            - issues:write
+            - pulls:write
         permissions:
             allowed_tools:
                 - Read
@@ -471,6 +504,10 @@ personas:
         description: Bitbucket issue analysis and quality assessment
         model: haiku
         #temperature: 0.3
+        token_scopes:
+            - issues:read
+            - pulls:read
+            - repos:read
         permissions:
             allowed_tools:
                 - Read
@@ -495,6 +532,8 @@ personas:
         description: Bitbucket issue enhancement and improvement
         model: haiku
         #temperature: 0.5
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -515,6 +554,8 @@ personas:
         description: Bitbucket epic decomposition into child issues
         model: haiku
         #temperature: 0.3
+        token_scopes:
+            - issues:write
         permissions:
             allowed_tools:
                 - Read
@@ -534,6 +575,9 @@ personas:
         description: Post comments on Bitbucket issues and pull requests, create PRs
         model: haiku
         #temperature: 0.3
+        token_scopes:
+            - issues:write
+            - pulls:write
         permissions:
             allowed_tools:
                 - Read
