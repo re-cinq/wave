@@ -8,10 +8,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/recinq/wave/internal/github"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
@@ -25,8 +28,10 @@ type Server struct {
 	manifest   *manifest.Manifest
 	templates  map[string]*template.Template
 	broker     *SSEBroker
-	wsManager  workspace.WorkspaceManager
-	bind       string
+	wsManager    workspace.WorkspaceManager
+	githubClient *github.Client
+	repoSlug     string // "owner/repo"
+	bind         string
 	port       int
 	token      string
 	activeRuns map[string]context.CancelFunc // runID -> cancel
@@ -70,14 +75,25 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
+	// Initialize GitHub client if token is available
+	ghToken := resolveGitHubToken()
+	var ghClient *github.Client
+	var repoSlug string
+	if ghToken != "" {
+		ghClient = github.NewClient(github.ClientConfig{Token: ghToken})
+		repoSlug = detectRepoSlug()
+	}
+
 	s := &Server{
 		store:      roStore,
 		rwStore:    rwStore,
 		manifest:   cfg.Manifest,
 		templates:  tmpl,
 		broker:     NewSSEBroker(),
-		wsManager:  wsManager,
-		bind:       cfg.Bind,
+		wsManager:    wsManager,
+		githubClient: ghClient,
+		repoSlug:     repoSlug,
+		bind:         cfg.Bind,
 		port:       cfg.Port,
 		token:      cfg.Token,
 		activeRuns: make(map[string]context.CancelFunc),
@@ -146,4 +162,43 @@ func (s *Server) Start() error {
 // GetBroker returns the SSE broker for external event integration.
 func (s *Server) GetBroker() *SSEBroker {
 	return s.broker
+}
+
+// resolveGitHubToken tries GH_TOKEN, GITHUB_TOKEN, then `gh auth token`.
+func resolveGitHubToken() string {
+	if t := os.Getenv("GH_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+		return t
+	}
+	out, err := exec.Command("gh", "auth", "token").Output()
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
+	return ""
+}
+
+// detectRepoSlug extracts "owner/repo" from the git remote origin URL.
+func detectRepoSlug() string {
+	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	if err != nil {
+		return ""
+	}
+	remote := strings.TrimSpace(string(out))
+	// Handle SSH URLs: git@github.com:owner/repo.git
+	if strings.HasPrefix(remote, "git@") {
+		parts := strings.SplitN(remote, ":", 2)
+		if len(parts) == 2 {
+			slug := strings.TrimSuffix(parts[1], ".git")
+			return slug
+		}
+	}
+	// Handle HTTPS URLs: https://github.com/owner/repo.git
+	remote = strings.TrimSuffix(remote, ".git")
+	parts := strings.Split(remote, "/")
+	if len(parts) >= 2 {
+		return parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	}
+	return ""
 }

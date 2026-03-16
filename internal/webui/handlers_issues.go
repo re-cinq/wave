@@ -1,0 +1,139 @@
+package webui
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/recinq/wave/internal/github"
+)
+
+// handleIssuesPage handles GET /issues - serves the HTML issues page.
+func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
+	data := s.getIssueListData()
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/issues.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// handleAPIIssues handles GET /api/issues - returns issue list as JSON.
+func (s *Server) handleAPIIssues(w http.ResponseWriter, r *http.Request) {
+	data := s.getIssueListData()
+	writeJSON(w, http.StatusOK, data)
+}
+
+// handleAPIStartFromIssue handles POST /api/issues/start - launches a pipeline from an issue.
+func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IssueURL     string `json:"issue_url"`
+		PipelineName string `json:"pipeline_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.IssueURL == "" || req.PipelineName == "" {
+		writeJSONError(w, http.StatusBadRequest, "issue_url and pipeline_name are required")
+		return
+	}
+
+	// Delegate to the existing pipeline start logic
+	pl, err := loadPipelineYAML(req.PipelineName)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "pipeline not found: "+req.PipelineName)
+		return
+	}
+
+	runID, err := s.rwStore.CreateRun(req.PipelineName, req.IssueURL)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
+		return
+	}
+
+	s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl)
+
+	writeJSON(w, http.StatusCreated, StartPipelineResponse{
+		RunID:        runID,
+		PipelineName: req.PipelineName,
+		Status:       "running",
+		StartedAt:    time.Now().UTC(),
+	})
+}
+
+func (s *Server) getIssueListData() IssueListResponse {
+	if s.githubClient == nil || s.repoSlug == "" {
+		return IssueListResponse{
+			Issues:  []IssueSummary{},
+			Message: "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
+		}
+	}
+
+	owner, repo := splitRepoSlug(s.repoSlug)
+	if owner == "" {
+		return IssueListResponse{
+			Issues:  []IssueSummary{},
+			Message: "Could not determine repository from git remote.",
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	issues, err := s.githubClient.ListIssues(ctx, owner, repo, github.ListIssuesOptions{
+		State:   "open",
+		PerPage: 50,
+	})
+	if err != nil {
+		return IssueListResponse{
+			Issues:  []IssueSummary{},
+			Message: "Failed to fetch issues: " + err.Error(),
+		}
+	}
+
+	var summaries []IssueSummary
+	for _, issue := range issues {
+		if issue.IsPullRequest() {
+			continue
+		}
+		var labels []string
+		for _, l := range issue.Labels {
+			labels = append(labels, l.Name)
+		}
+		author := ""
+		if issue.User != nil {
+			author = issue.User.Login
+		}
+		summaries = append(summaries, IssueSummary{
+			Number:    issue.Number,
+			Title:     issue.Title,
+			State:     issue.State,
+			Author:    author,
+			Labels:    labels,
+			Comments:  issue.Comments,
+			CreatedAt: issue.CreatedAt.Format("2006-01-02"),
+			URL:       issue.HTMLURL,
+		})
+	}
+
+	if summaries == nil {
+		summaries = []IssueSummary{}
+	}
+
+	return IssueListResponse{
+		Issues:   summaries,
+		RepoSlug: s.repoSlug,
+	}
+}
+
+// splitRepoSlug splits "owner/repo" into owner and repo parts.
+func splitRepoSlug(slug string) (string, string) {
+	parts := strings.SplitN(slug, "/", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
