@@ -108,6 +108,34 @@ func (m SuggestListModel) Update(msg tea.Msg) (SuggestListModel, tea.Cmd) {
 					return SuggestLaunchMsg{Pipeline: m.proposals[m.cursor]}
 				}
 			}
+		case "s":
+			// Skip/dismiss the current proposal
+			if m.cursor < len(m.proposals) {
+				m.proposals = append(m.proposals[:m.cursor], m.proposals[m.cursor+1:]...)
+				// Rebuild selected map with adjusted indices
+				newSelected := make(map[int]bool)
+				for idx, sel := range m.selected {
+					if idx < m.cursor {
+						newSelected[idx] = sel
+					} else if idx > m.cursor {
+						newSelected[idx-1] = sel
+					}
+				}
+				m.selected = newSelected
+				// Adjust cursor
+				if m.cursor >= len(m.proposals) && m.cursor > 0 {
+					m.cursor--
+				}
+				return m, m.emitSelection()
+			}
+		case "m":
+			// Modify input before launch
+			if m.cursor < len(m.proposals) {
+				p := m.proposals[m.cursor]
+				return m, func() tea.Msg {
+					return SuggestModifyMsg{Pipeline: p}
+				}
+			}
 		}
 	}
 	return m, nil

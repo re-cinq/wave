@@ -111,8 +111,16 @@ func (m SuggestDetailModel) View() string {
 		sb.WriteString("\n")
 	}
 
+	// DAG preview for sequence/parallel proposals
+	if dag := RenderDAG(*p); dag != "" {
+		sb.WriteString("\n")
+		sb.WriteString(labelStyle.Render("Execution Flow:"))
+		sb.WriteString("\n")
+		sb.WriteString(dag)
+	}
+
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle.Render("Press Enter to launch  Space to select"))
+	sb.WriteString(mutedStyle.Render("Press Enter to launch  Space to select  m: modify  s: skip"))
 
 	return lipgloss.NewStyle().
 		Width(m.width).
