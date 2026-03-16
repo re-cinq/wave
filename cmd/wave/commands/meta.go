@@ -132,6 +132,9 @@ func runMeta(input string, opts MetaOptions) error {
 		pipeline.WithMetaEmitter(emitterResult.Emitter),
 		pipeline.WithChildExecutor(childExecutor),
 	}
+	if opts.Mock {
+		metaOpts = append(metaOpts, pipeline.WithMockMode())
+	}
 	metaExecutor := pipeline.NewMetaPipelineExecutor(runner, metaOpts...)
 
 	// Handle dry-run mode
