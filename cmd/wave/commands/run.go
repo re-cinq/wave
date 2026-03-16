@@ -332,11 +332,30 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 
+	// Initialize debug tracer when --debug is set
+	var debugTracer *audit.DebugTracer
+	if debug {
+		traceDir := m.Runtime.Audit.LogDir
+		if traceDir == "" {
+			traceDir = ".wave/traces"
+		}
+		if dt, dtErr := audit.NewDebugTracer(traceDir, runID); dtErr == nil {
+			debugTracer = dt
+			defer dt.Close()
+			fmt.Fprintf(os.Stderr, "  Debug trace: %s\n", dt.TracePath())
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: failed to create debug tracer: %v\n", dtErr)
+		}
+	}
+
 	// Build executor with all components
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(runID),
+	}
+	if debugTracer != nil {
+		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/audit"
 	"github.com/spf13/cobra"
 
 	_ "modernc.org/sqlite"
@@ -27,6 +28,7 @@ type LogsOptions struct {
 	Level    string // Log level: all, info, error
 	Format   string // text, json
 	Manifest string
+	Trace    bool // Show structured debug trace events
 }
 
 // LogsOutput represents the JSON output for logs command.
@@ -66,7 +68,8 @@ Examples:
   wave logs --tail 20            # Show last 20 log entries
   wave logs --since 10m          # Show logs from last 10 minutes
   wave logs --follow             # Stream logs in real-time
-  wave logs --format json        # Output as JSON for scripting`,
+  wave logs --format json        # Output as JSON for scripting
+  wave logs --trace              # Show debug trace events (requires --debug run)`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -85,11 +88,17 @@ Examples:
 	cmd.Flags().StringVar(&opts.Level, "level", "all", "Log level: all, info, error")
 	cmd.Flags().StringVar(&opts.Format, "format", "text", "Output format (text, json)")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().BoolVar(&opts.Trace, "trace", false, "Show structured debug trace events (requires a --debug run)")
 
 	return cmd
 }
 
 func runLogs(opts LogsOptions) error {
+	// Handle --trace mode: read NDJSON trace file instead of state DB.
+	if opts.Trace {
+		return runLogsTrace(opts)
+	}
+
 	dbPath := ".wave/state.db"
 
 	// Check if state database exists
@@ -537,6 +546,106 @@ func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
 
 // parseSinceDuration is an alias for parseDuration to maintain semantic clarity in logs context.
 var parseSinceDuration = parseDuration
+
+// runLogsTrace reads and displays structured NDJSON trace events from a debug trace file.
+func runLogsTrace(opts LogsOptions) error {
+	traceDir := ".wave/traces"
+
+	// If no run ID, find the most recent trace file.
+	runID := opts.RunID
+	if runID == "" {
+		dbPath := ".wave/state.db"
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			fmt.Println("No trace files found (no runs recorded)")
+			return nil
+		}
+		db, err := sql.Open("sqlite", dbPath)
+		if err != nil {
+			return fmt.Errorf("failed to open state database: %w", err)
+		}
+		defer db.Close()
+		db.SetMaxOpenConns(1)
+
+		runID, err = getMostRecentRunID(db)
+		if err != nil {
+			fmt.Println("No pipeline runs found")
+			return nil
+		}
+	}
+
+	tracePath, err := audit.FindTraceFile(traceDir, runID)
+	if err != nil {
+		if opts.Format == "json" {
+			fmt.Printf(`{"run_id":"%s","trace_events":[],"error":"no trace file"}`, runID)
+			fmt.Println()
+			return nil
+		}
+		fmt.Printf("No trace file found for run %s (was it run with --debug?)\n", runID)
+		return nil
+	}
+
+	events, err := audit.ReadTraceFile(tracePath)
+	if err != nil {
+		return fmt.Errorf("failed to read trace file: %w", err)
+	}
+
+	// Filter by step if requested.
+	if opts.Step != "" {
+		var filtered []audit.TraceEvent
+		for _, ev := range events {
+			if ev.StepID == opts.Step {
+				filtered = append(filtered, ev)
+			}
+		}
+		events = filtered
+	}
+
+	if opts.Format == "json" {
+		output := struct {
+			RunID  string             `json:"run_id"`
+			Events []audit.TraceEvent `json:"trace_events"`
+		}{RunID: runID, Events: events}
+		if output.Events == nil {
+			output.Events = []audit.TraceEvent{}
+		}
+		jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(jsonBytes))
+		return nil
+	}
+
+	if len(events) == 0 {
+		fmt.Printf("No trace events found for run %s\n", runID)
+		return nil
+	}
+
+	// Text format.
+	for _, ev := range events {
+		ts := ev.Timestamp
+		// Shorten to time-only if it's a full RFC3339 timestamp.
+		if len(ts) > 19 {
+			if t, parseErr := time.Parse(time.RFC3339Nano, ts); parseErr == nil {
+				ts = t.Format("15:04:05.000")
+			}
+		}
+
+		line := fmt.Sprintf("[%s] %-28s", ts, ev.EventType)
+		if ev.StepID != "" {
+			line += fmt.Sprintf(" step=%-20s", ev.StepID)
+		}
+		if ev.DurationMs > 0 {
+			line += fmt.Sprintf(" %dms", ev.DurationMs)
+		}
+
+		// Print selected metadata inline.
+		for k, v := range ev.Metadata {
+			line += fmt.Sprintf(" %s=%s", k, v)
+		}
+
+		fmt.Println(line)
+	}
+
+	return nil
+}
 
 // renderPerformanceSummary displays aggregated performance metrics for a run.
 func renderPerformanceSummary(db *sql.DB, runID string) {
