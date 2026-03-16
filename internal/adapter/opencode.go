@@ -52,8 +52,7 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	cmd := exec.CommandContext(ctx, a.opencodePath, args...)
 	cmd.Dir = workspacePath
 
-	mergedEnv := append(os.Environ(), cfg.Env...)
-	cmd.Env = mergedEnv
+	cmd.Env = BuildCuratedEnvironment(cfg)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -112,9 +111,10 @@ func (a *OpenCodeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunC
 		return fmt.Errorf("failed to create .opencode directory: %w", err)
 	}
 
+	pm := ParseProviderModel(cfg.Model)
 	config := map[string]interface{}{
-		"provider":    "anthropic",
-		"model":       "claude-sonnet-4-20250514",
+		"provider":    pm.Provider,
+		"model":       pm.Model,
 		"temperature": cfg.Temperature,
 	}
 
