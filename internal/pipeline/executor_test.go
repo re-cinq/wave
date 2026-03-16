@@ -197,6 +197,9 @@ func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return n
 func (m *MockStateStore) UpdateRunPID(runID string, pid int) error    { return nil }
 func (m *MockStateStore) RecordStepAttempt(record *state.StepAttemptRecord) error { return nil }
 func (m *MockStateStore) GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error) { return nil, nil }
+func (m *MockStateStore) SaveChatSession(session *state.ChatSession) error { return nil }
+func (m *MockStateStore) GetChatSession(sessionID string) (*state.ChatSession, error) { return nil, errors.New("not found") }
+func (m *MockStateStore) ListChatSessions(runID string) ([]state.ChatSession, error) { return nil, nil }
 
 // createTestManifest creates a manifest for testing
 func createTestManifest(workspaceRoot string) *manifest.Manifest {
