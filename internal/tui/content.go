@@ -70,6 +70,9 @@ type ContentModel struct {
 	// Detached pipeline event polling
 	detachedPollRunID  string
 	detachedPollOffset int
+
+	// Guided workflow state machine (nil when not in guided mode)
+	guidedFlow *GuidedFlowState
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -96,6 +99,20 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.issueProvider = p.IssueProvider
 		m.prProvider = p.PRProvider
 		m.suggestProvider = p.SuggestProvider
+	}
+
+	// Activate guided workflow mode: start at health view
+	if deps.Guided {
+		m.guidedFlow = &GuidedFlowState{Phase: GuidedPhaseHealth}
+		m.list.guided = true
+		m.currentView = ViewHealth
+		// Pre-create health models so Init() can start health checks
+		if m.healthProvider != nil {
+			hl := NewHealthListModel(m.healthProvider)
+			m.healthList = &hl
+			hd := NewHealthDetailModel()
+			m.healthDetail = &hd
+		}
 	}
 
 	return m
@@ -146,7 +163,15 @@ func (m *ContentModel) CancelAll() {
 
 // Init returns commands from child components.
 func (m ContentModel) Init() tea.Cmd {
-	return tea.Batch(m.list.Init(), m.detail.Init())
+	cmds := []tea.Cmd{m.list.Init(), m.detail.Init()}
+	if m.guidedFlow != nil && m.healthList != nil {
+		// Guided mode: start health checks immediately
+		cmds = append(cmds, m.healthList.Init())
+		cmds = append(cmds, func() tea.Msg {
+			return ViewChangedMsg{View: ViewHealth}
+		})
+	}
+	return tea.Batch(cmds...)
 }
 
 // SetSize updates the content area dimensions and propagates to children.
@@ -369,6 +394,177 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	return tea.Batch(batchCmds...)
 }
 
+// setView switches directly to a specific view, lazy-initializing models as needed.
+func (m *ContentModel) setView(v ViewType) tea.Cmd {
+	m.currentView = v
+	m.focus = FocusPaneLeft
+
+	var initCmd tea.Cmd
+	leftWidth := m.leftPaneWidth()
+	rightWidth := m.width - leftWidth - 3
+
+	switch v {
+	case ViewPipelines:
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+
+	case ViewPersonas:
+		if m.personaList == nil && m.personaProvider != nil {
+			pl := NewPersonaListModel(m.personaProvider)
+			pl.SetSize(leftWidth, m.childHeight())
+			m.personaList = &pl
+			pd := NewPersonaDetailModel(m.personaProvider)
+			pd.SetSize(rightWidth, m.childHeight())
+			m.personaDetail = &pd
+			initCmd = m.personaList.Init()
+		}
+		if m.personaList != nil {
+			m.personaList.SetFocused(true)
+		}
+		if m.personaDetail != nil {
+			m.personaDetail.SetFocused(false)
+		}
+
+	case ViewContracts:
+		if m.contractList == nil && m.contractProvider != nil {
+			cl := NewContractListModel(m.contractProvider)
+			cl.SetSize(leftWidth, m.childHeight())
+			m.contractList = &cl
+			cd := NewContractDetailModel()
+			cd.SetSize(rightWidth, m.childHeight())
+			m.contractDetail = &cd
+			initCmd = m.contractList.Init()
+		}
+		if m.contractList != nil {
+			m.contractList.SetFocused(true)
+		}
+		if m.contractDetail != nil {
+			m.contractDetail.SetFocused(false)
+		}
+
+	case ViewSkills:
+		if m.skillList == nil && m.skillProvider != nil {
+			sl := NewSkillListModel(m.skillProvider)
+			sl.SetSize(leftWidth, m.childHeight())
+			m.skillList = &sl
+			sd := NewSkillDetailModel()
+			sd.SetSize(rightWidth, m.childHeight())
+			m.skillDetail = &sd
+			initCmd = m.skillList.Init()
+		}
+		if m.skillList != nil {
+			m.skillList.SetFocused(true)
+		}
+		if m.skillDetail != nil {
+			m.skillDetail.SetFocused(false)
+		}
+
+	case ViewHealth:
+		if m.healthList == nil && m.healthProvider != nil {
+			hl := NewHealthListModel(m.healthProvider)
+			hl.SetSize(leftWidth, m.childHeight())
+			m.healthList = &hl
+			hd := NewHealthDetailModel()
+			hd.SetSize(rightWidth, m.childHeight())
+			m.healthDetail = &hd
+			initCmd = m.healthList.Init()
+		}
+		if m.healthList != nil {
+			m.healthList.SetFocused(true)
+		}
+		if m.healthDetail != nil {
+			m.healthDetail.SetFocused(false)
+		}
+
+	case ViewIssues:
+		if m.issueList == nil && m.issueProvider != nil {
+			il := NewIssueListModel(m.issueProvider)
+			il.SetSize(leftWidth, m.childHeight())
+			m.issueList = &il
+			id := NewIssueDetailModel()
+			id.SetSize(rightWidth, m.childHeight())
+			if m.list.available != nil {
+				id.SetPipelines(m.list.available)
+			}
+			m.issueDetail = &id
+			initCmd = m.issueList.Init()
+		}
+		if m.issueList != nil {
+			m.issueList.SetFocused(true)
+		}
+		if m.issueDetail != nil {
+			m.issueDetail.SetFocused(false)
+		}
+
+	case ViewPullRequests:
+		if m.prList == nil && m.prProvider != nil {
+			pl := NewPRListModel(m.prProvider)
+			pl.SetSize(leftWidth, m.childHeight())
+			m.prList = &pl
+			pd := NewPRDetailModel()
+			pd.SetSize(rightWidth, m.childHeight())
+			m.prDetail = &pd
+			initCmd = m.prList.Init()
+		}
+		if m.prList != nil {
+			m.prList.SetFocused(true)
+		}
+		if m.prDetail != nil {
+			m.prDetail.SetFocused(false)
+		}
+
+	case ViewSuggest:
+		if m.suggestList == nil && m.suggestProvider != nil {
+			sl := NewSuggestListModel(m.suggestProvider)
+			sl.SetSize(leftWidth, m.childHeight())
+			m.suggestList = &sl
+			sd := NewSuggestDetailModel()
+			sd.SetSize(rightWidth, m.childHeight())
+			m.suggestDetail = &sd
+			initCmd = m.suggestList.Init()
+		}
+		if m.suggestList != nil {
+			m.suggestList.SetFocused(true)
+		}
+		if m.suggestDetail != nil {
+			m.suggestDetail.SetFocused(false)
+		}
+	}
+
+	batchCmds := []tea.Cmd{
+		func() tea.Msg { return ViewChangedMsg{View: m.currentView} },
+		func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
+	}
+	if initCmd != nil {
+		batchCmds = append(batchCmds, initCmd)
+	}
+	return tea.Batch(batchCmds...)
+}
+
+// numberKeyToView maps number key strings to view types.
+func numberKeyToView(key string) (ViewType, bool) {
+	switch key {
+	case "1":
+		return ViewPipelines, true
+	case "2":
+		return ViewPersonas, true
+	case "3":
+		return ViewContracts, true
+	case "4":
+		return ViewSkills, true
+	case "5":
+		return ViewHealth, true
+	case "6":
+		return ViewIssues, true
+	case "7":
+		return ViewPullRequests, true
+	case "8":
+		return ViewSuggest, true
+	default:
+		return 0, false
+	}
+}
+
 // Update handles messages by forwarding to child components with focus-aware routing.
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -379,6 +575,21 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if msg.Type == tea.KeyShiftTab {
 			if m.composing {
 				return m, nil
+			}
+			if m.guidedFlow != nil {
+				// Guided mode: reverse toggle between Suggest and Pipelines
+				target := m.guidedFlow.TabTarget()
+				if target == ViewType(-1) {
+					return m, nil // blocked during attachment
+				}
+				// Reverse: if target is Pipelines, go to Suggest and vice versa
+				if target == ViewPipelines {
+					target = ViewSuggest
+				} else {
+					target = ViewPipelines
+				}
+				cmd := m.setView(target)
+				return m, cmd
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
 			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
@@ -398,9 +609,26 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.detail, cmd = m.detail.Update(msg)
 				return m, cmd
 			}
+			if m.guidedFlow != nil {
+				// Guided mode: toggle between Suggest and Pipelines
+				target := m.guidedFlow.TabTarget()
+				if target == ViewType(-1) {
+					return m, nil // blocked during attachment
+				}
+				cmd := m.setView(target)
+				return m, cmd
+			}
 			// Otherwise, cycle view
 			cmd := m.cycleView()
 			return m, cmd
+		}
+
+		// Number key direct-jump navigation (1-8) when in left pane and no input active
+		if m.focus == FocusPaneLeft && !m.IsInputActive() {
+			if v, ok := numberKeyToView(msg.String()); ok {
+				cmd := m.setView(v)
+				return m, cmd
+			}
 		}
 
 		// Handle Enter for alternative views — focus right pane.
@@ -476,6 +704,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					m.detachedPollRunID = r.RunID
 					m.detachedPollOffset = eventCount
 					capturedRunID := r.RunID
+					if m.guidedFlow != nil {
+						m.guidedFlow.TransitionToAttached()
+					}
 					enterCmds = append(enterCmds, func() tea.Msg {
 						return LiveOutputActiveMsg{Active: true}
 					})
@@ -515,6 +746,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
+			if m.guidedFlow != nil {
+				m.guidedFlow.DetachToFleet()
+			}
 			return m, tea.Batch(
 				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
 				func() tea.Msg { return FormActiveMsg{Active: false} },
@@ -872,6 +1106,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
+		if m.guidedFlow != nil {
+			m.guidedFlow.TransitionToFleet()
+		}
 		launchCmd := func() tea.Msg {
 			return LaunchRequestMsg{Config: LaunchConfig{
 				PipelineName: msg.Pipeline.Name,
@@ -963,6 +1200,47 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case HealthAllCompleteMsg:
+		if m.guidedFlow != nil {
+			m.guidedFlow.HealthComplete = true
+			if msg.HasErrors {
+				m.guidedFlow.HasErrors = true
+				// Stay on health view — user must confirm to continue
+				return m, nil
+			}
+			// No errors — start auto-transition timer
+			m.guidedFlow.TransitionTimer = true
+			return m, tea.Tick(1*time.Second, func(time.Time) tea.Msg {
+				return HealthTransitionMsg{}
+			})
+		}
+		return m, nil
+
+	case HealthTransitionMsg:
+		if m.guidedFlow != nil {
+			m.guidedFlow.TransitionToProposals()
+			cmd := m.setView(ViewSuggest)
+			return m, cmd
+		}
+		return m, nil
+
+	case HealthContinueMsg:
+		if m.guidedFlow != nil {
+			m.guidedFlow.UserConfirmed = true
+			m.guidedFlow.TransitionTimer = true
+			return m, tea.Tick(1*time.Second, func(time.Time) tea.Msg {
+				return HealthTransitionMsg{}
+			})
+		}
+		return m, nil
+
+	case SuggestModifyMsg:
+		// Show input editor for proposal modification
+		// For now, launch with existing input (input modification can be enhanced later)
+		return m, func() tea.Msg {
+			return SuggestLaunchMsg(msg)
+		}
 
 	// Pipeline-specific messages — always route to pipeline models
 	case PipelineSelectedMsg:

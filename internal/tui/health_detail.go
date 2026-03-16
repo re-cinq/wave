@@ -12,11 +12,13 @@ import (
 
 // HealthDetailModel is the right pane model for the Health view.
 type HealthDetailModel struct {
-	width    int
-	height   int
-	focused  bool
-	viewport viewport.Model
-	selected *HealthCheck
+	width          int
+	height         int
+	focused        bool
+	viewport       viewport.Model
+	selected       *HealthCheck
+	guidedComplete bool // true when all health checks resolved in guided mode
+	guidedErrors   bool // true when health errors exist in guided mode
 }
 
 // NewHealthDetailModel creates a new health detail model.
@@ -66,8 +68,20 @@ func (m HealthDetailModel) Update(msg tea.Msg) (HealthDetailModel, tea.Cmd) {
 		}
 		return m, nil
 
+	case HealthAllCompleteMsg:
+		m.guidedComplete = true
+		m.guidedErrors = msg.HasErrors
+		if m.selected != nil {
+			m.viewport.SetContent(renderHealthDetail(m.selected, m.width))
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		if m.focused {
+			// Handle 'y' key to continue despite health errors in guided mode
+			if msg.String() == "y" && m.guidedComplete && m.guidedErrors {
+				return m, func() tea.Msg { return HealthContinueMsg{} }
+			}
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
