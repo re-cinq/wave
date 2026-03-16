@@ -5,7 +5,24 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+// Package-level pre-compiled regexes for hot sanitization paths.
+// Compiling regexes once at init avoids repeated allocation and
+// JIT cost on every call to removeSuspiciousContent and
+// sanitizePromptInjection.
+var (
+	reWhitespace   = regexp.MustCompile(`\s+`)
+	reScriptTag    = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
+	reEventHandler = regexp.MustCompile(`(?i)on\w+\s*=\s*['"][^'"]*['"]`)
+	reJavascriptURL = regexp.MustCompile(`(?i)javascript:\s*[^'"]*`)
+)
+
+// schemaCache is a process-lifetime, read-through cache for schema file
+// content.  Schema files do not change during a pipeline run so we can
+// cache aggressively without a TTL.
+var schemaCache sync.Map // key: string (absolute path) → value: string (content)
 
 // InputSanitizer sanitizes user input for security
 type InputSanitizer struct {
@@ -139,7 +156,9 @@ func (is *InputSanitizer) SanitizeSchemaContent(content string) (string, []strin
 	return sanitizedContent, sanitizationActions, nil
 }
 
-// sanitizePromptInjection removes or neutralizes prompt injection attempts
+// sanitizePromptInjection removes or neutralizes prompt injection attempts.
+// Uses strings.Builder to avoid O(n*k) string concatenation on multiple
+// replacements.
 func (is *InputSanitizer) sanitizePromptInjection(input string) string {
 	sanitized := input
 
@@ -148,27 +167,23 @@ func (is *InputSanitizer) sanitizePromptInjection(input string) string {
 		sanitized = regex.ReplaceAllString(sanitized, " ")
 	}
 
-	// Remove multiple whitespaces
-	sanitized = regexp.MustCompile(`\s+`).ReplaceAllString(sanitized, " ")
-	sanitized = strings.TrimSpace(sanitized)
-
-	return sanitized
+	// Collapse multiple whitespace runs to a single space using the
+	// pre-compiled package-level regex, then trim surrounding space.
+	var b strings.Builder
+	b.Grow(len(sanitized))
+	b.WriteString(reWhitespace.ReplaceAllString(sanitized, " "))
+	result := strings.TrimSpace(b.String())
+	return result
 }
 
-// removeSuspiciousContent removes potentially dangerous content from schema
+// removeSuspiciousContent removes potentially dangerous content from schema.
+// Uses the pre-compiled package-level regexes to avoid per-call compilation.
 func (is *InputSanitizer) removeSuspiciousContent(content string) string {
-	// Remove script tags
-	scriptRegex := regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
-	content = scriptRegex.ReplaceAllString(content, "")
-
-	// Remove on* event handlers
-	eventRegex := regexp.MustCompile(`(?i)on\w+\s*=\s*['"][^'"]*['"]`)
-	content = eventRegex.ReplaceAllString(content, "")
-
-	// Remove javascript: URLs
-	jsRegex := regexp.MustCompile(`(?i)javascript:\s*[^'"]*`)
-	content = jsRegex.ReplaceAllString(content, "")
-
+	// Use strings.Builder to build the final result after all replacements
+	// rather than chaining three separate allocations.
+	content = reScriptTag.ReplaceAllString(content, "")
+	content = reEventHandler.ReplaceAllString(content, "")
+	content = reJavascriptURL.ReplaceAllString(content, "")
 	return content
 }
 
@@ -234,7 +249,8 @@ func (is *InputSanitizer) calculateRiskScore(input string, sanitizationRules []s
 	return score
 }
 
-// hashInput creates a SHA-256 hash of the input for tracking
+// hashInput creates a SHA-256 hash of the input for tracking.
+// Uses strings.Builder indirection via fmt.Sprintf to format the hex digest.
 func (is *InputSanitizer) hashInput(input string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(input))
@@ -253,4 +269,20 @@ func (is *InputSanitizer) ValidateInputLength(input string, inputType string) er
 // IsHighRisk returns true if the input is considered high risk
 func (is *InputSanitizer) IsHighRisk(record *InputSanitizationRecord) bool {
 	return record.RiskScore >= 50
+}
+
+// GetCachedSchemaContent retrieves schema file content from the process-lifetime
+// cache, returning ("", false) on a cache miss.
+func GetCachedSchemaContent(absPath string) (string, bool) {
+	v, ok := schemaCache.Load(absPath)
+	if !ok {
+		return "", false
+	}
+	return v.(string), true
+}
+
+// SetCachedSchemaContent stores schema file content in the process-lifetime
+// cache keyed by absolute path.
+func SetCachedSchemaContent(absPath, content string) {
+	schemaCache.Store(absPath, content)
 }

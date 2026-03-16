@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // PathValidator validates file paths for security
@@ -25,8 +28,26 @@ func NewPathValidator(config SecurityConfig, logger *SecurityLogger) *PathValida
 func (pv *PathValidator) ValidatePath(requestedPath string) (*SchemaValidationResult, error) {
 	result := NewSchemaValidationResult(requestedPath, "", "", false)
 
+	// Unicode normalization: reject paths that contain Unicode homographs or
+	// mixed-script sequences that could be used to bypass string comparisons.
+	if err := pv.validateUnicode(requestedPath); err != nil {
+		result.AddSecurityFlag("unicode_homograph")
+		pv.logger.LogViolation(
+			string(ViolationPathTraversal),
+			string(SourceSchemaPath),
+			fmt.Sprintf("Unicode homograph or encoding attack detected in path (length: %d)", len(requestedPath)),
+			SeverityCritical,
+			true,
+		)
+		return result, err
+	}
+
+	// NFC-normalise the path before all further checks so that visually
+	// identical but differently-encoded Unicode paths are handled uniformly.
+	normalizedPath := norm.NFC.String(requestedPath)
+
 	// Clean the path to normalize it
-	cleanedPath := filepath.Clean(requestedPath)
+	cleanedPath := filepath.Clean(normalizedPath)
 
 	// Check for path traversal attempts
 	if pv.containsTraversal(cleanedPath) {
@@ -89,6 +110,139 @@ func (pv *PathValidator) ValidatePath(requestedPath string) (*SchemaValidationRe
 	pv.logger.LogPathValidation(requestedPath, validatedPath, result.SecurityFlags)
 
 	return result, nil
+}
+
+// validateUnicode checks for Unicode-based path attacks:
+//   - UTF-7 encoded sequences (+AD4- style) that may bypass ASCII checks
+//   - Mixed-script homograph attacks (e.g. Cyrillic 'а' alongside Latin 'a')
+//   - Non-NFC input that might be crafted to fool comparison logic
+func (pv *PathValidator) validateUnicode(path string) error {
+	// UTF-7 detection: UTF-7 encodes characters as +<base64>- sequences.
+	// This encoding is not used in filesystem paths and its presence strongly
+	// indicates an encoding attack attempt.
+	if strings.Contains(path, "+A") || strings.Contains(path, "+/") {
+		// Only flag if the sequence looks like a real UTF-7 escape (+XX-)
+		if containsUTF7Sequence(path) {
+			return NewInputValidationError("path", "UTF-7 encoding detected")
+		}
+	}
+
+	// Mixed-script homograph detection: iterate runes and collect Unicode
+	// scripts.  A path containing characters from two or more incompatible
+	// scripts (e.g. Latin + Cyrillic) is a homograph attack candidate.
+	if err := detectMixedScript(path); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// containsUTF7Sequence returns true if s contains a UTF-7 escape sequence of
+// the form +<one-or-more-base64-chars>-.
+// This is a heuristic: it matches the +<ALPHA/DIGIT/+//>+- pattern which
+// covers all real UTF-7 encoded code points.
+func containsUTF7Sequence(s string) bool {
+	inSeq := false
+	seqLen := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !inSeq {
+			if c == '+' && i+1 < len(s) && s[i+1] != '-' {
+				inSeq = true
+				seqLen = 0
+			}
+		} else {
+			if isBase64Char(c) {
+				seqLen++
+			} else if c == '-' {
+				if seqLen > 0 {
+					return true
+				}
+				inSeq = false
+			} else {
+				inSeq = false
+			}
+		}
+	}
+	return false
+}
+
+// isBase64Char returns true for characters that appear in base64 encoded data.
+func isBase64Char(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+		(c >= '0' && c <= '9') || c == '+' || c == '/'
+}
+
+// dominantScript represents the Unicode script family used for mixed-script
+// detection.  We classify scripts into broad families to reduce false positives
+// from legitimate multi-script content (e.g. CJK paths on Asian systems).
+type dominantScript int
+
+const (
+	scriptNone   dominantScript = iota
+	scriptLatin                 // Latin, ASCII
+	scriptCyrillic
+	scriptGreek
+	scriptArabic
+	scriptHebrew
+	scriptOther // All other scripts — CJK, Devanagari, etc.
+)
+
+// runeScript returns a coarse script classification for a rune.
+func runeScript(r rune) dominantScript {
+	switch {
+	case r <= 0x007F: // Basic ASCII — treat as Latin
+		return scriptLatin
+	case unicode.Is(unicode.Latin, r):
+		return scriptLatin
+	case unicode.Is(unicode.Cyrillic, r):
+		return scriptCyrillic
+	case unicode.Is(unicode.Greek, r):
+		return scriptGreek
+	case unicode.Is(unicode.Arabic, r):
+		return scriptArabic
+	case unicode.Is(unicode.Hebrew, r):
+		return scriptHebrew
+	default:
+		return scriptOther
+	}
+}
+
+// detectMixedScript returns an error if path contains characters from more
+// than one of the confusable-script families (Latin, Cyrillic, Greek, Arabic,
+// Hebrew).  CJK and other scripts are not considered confusable with Latin
+// in practice, so they do not trigger the check.
+func detectMixedScript(path string) error {
+	// confusableScripts are the scripts that can produce look-alike
+	// characters for Latin.
+	confusable := map[dominantScript]bool{
+		scriptLatin:    false,
+		scriptCyrillic: false,
+		scriptGreek:    false,
+		scriptArabic:   false,
+		scriptHebrew:   false,
+	}
+
+	for _, r := range path {
+		s := runeScript(r)
+		if _, tracked := confusable[s]; tracked {
+			confusable[s] = true
+		}
+	}
+
+	// Count how many confusable script families are present.
+	present := 0
+	for _, seen := range confusable {
+		if seen {
+			present++
+		}
+	}
+
+	if present >= 2 {
+		return NewInputValidationError("path", "mixed-script Unicode homograph attack detected")
+	}
+
+	return nil
 }
 
 // containsTraversal checks for path traversal sequences
