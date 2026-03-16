@@ -77,8 +77,6 @@ type PipelineListModel struct {
 	// Elapsed ticker state
 	tickerActive bool
 
-	// Guided mode: use archive layout (running first, divider, finished)
-	guided bool
 }
 
 // NewPipelineListModel creates a new pipeline list model with the given data provider.
@@ -441,12 +439,6 @@ func (m *PipelineListModel) buildNavigableItems() {
 	m.navigable = nil
 	query := strings.ToLower(m.filterQuery)
 
-	// Guided mode: archive layout (running first, divider, finished)
-	if m.guided {
-		m.buildGuidedNavigableItems(query)
-		return
-	}
-
 	// Index running and finished entries by pipeline name.
 	runningByName := make(map[string][]int)
 	for i, r := range m.running {
@@ -533,64 +525,6 @@ func (m *PipelineListModel) buildNavigableItems() {
 		// No special entry for available — the pipeline name node itself
 		// serves that role. The availableIdx map is used by emitSelectionMsg.
 		_ = availableIdx
-	}
-}
-
-// buildGuidedNavigableItems creates a flat archive layout: running runs first,
-// then a divider, then finished runs. Sequence-grouped runs are visually linked.
-func (m *PipelineListModel) buildGuidedNavigableItems(query string) {
-	// Running runs first (flat, no tree grouping)
-	for i, r := range m.running {
-		if query != "" && !strings.Contains(strings.ToLower(r.Name), query) {
-			continue
-		}
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindRunning,
-			pipelineName: r.Name,
-			dataIndex:    i,
-			label:        r.Name,
-		})
-	}
-
-	// Add archive divider if both running and finished exist
-	hasRunning := false
-	hasFinished := false
-	for _, item := range m.navigable {
-		if item.kind == itemKindRunning {
-			hasRunning = true
-			break
-		}
-	}
-	for _, f := range m.finished {
-		if query == "" || strings.Contains(strings.ToLower(f.Name), query) {
-			hasFinished = true
-			break
-		}
-	}
-	if hasRunning && hasFinished {
-		m.navigable = append(m.navigable, navigableItem{
-			kind:      itemKindDivider,
-			dataIndex: -1,
-			label:     "Archive",
-		})
-	}
-
-	// Finished runs
-	limit := finishedPipelineLimit
-	if limit > len(m.finished) {
-		limit = len(m.finished)
-	}
-	for i := 0; i < limit; i++ {
-		f := m.finished[i]
-		if query != "" && !strings.Contains(strings.ToLower(f.Name), query) {
-			continue
-		}
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindFinished,
-			pipelineName: f.Name,
-			dataIndex:    i,
-			label:        f.Name,
-		})
 	}
 }
 

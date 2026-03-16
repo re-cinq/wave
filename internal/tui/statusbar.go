@@ -17,8 +17,7 @@ type StatusBarModel struct {
 	liveOutputActive     bool
 	finishedDetailActive bool
 	runningInfoActive    bool
-	currentView          ViewType
-	guidedMode           bool
+	currentView ViewType
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -80,23 +79,13 @@ func (m StatusBarModel) View() string {
 	} else if m.composeActive {
 		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
 	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
-		if m.guidedMode {
-			hintsText = "Esc: detach"
-		} else {
-			hintsText = "v: verbose  d: debug  o: output-only  l: log  c: cancel  ↑↓: scroll  Esc: back"
-		}
+		hintsText = "v: verbose  d: debug  o: output-only  l: log  c: cancel  ↑↓: scroll  Esc: back"
 	} else if m.runningInfoActive && m.focusPane == FocusPaneRight {
 		hintsText = "c: dismiss  l: logs  ↑↓: scroll  Esc: back"
 	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
 		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [l] Logs  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
-	} else if m.guidedMode && m.currentView == ViewHealth {
-		hintsText = "Tab: skip to proposals  r: re-run  q: quit"
-	} else if m.guidedMode && m.currentView == ViewSuggest {
-		hintsText = "Enter: launch  Space: select  m: modify  s: skip  Tab: fleet"
-	} else if m.guidedMode && m.currentView == ViewPipelines {
-		hintsText = "Enter: attach  Tab: proposals  c: cancel"
 	} else if m.currentView == ViewHealth {
 		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
 	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneLeft {
