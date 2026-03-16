@@ -61,7 +61,7 @@ func TestHealthListModel_CompletionWithFailure(t *testing.T) {
 	m := NewHealthListModel(provider)
 
 	m, _ = m.Update(HealthCheckResultMsg{Name: "Check A", Status: HealthCheckErr, Message: "failed"})
-	m, cmd := m.Update(HealthCheckResultMsg{Name: "Check B", Status: HealthCheckOK, Message: "ok"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "Check B", Status: HealthCheckOK, Message: "ok"})
 	require.NotNil(t, cmd)
 
 	msg := cmd()

@@ -76,9 +76,10 @@ func (m SuggestDetailModel) View() string {
 		hasSequence := false
 		hasParallel := false
 		for _, p := range m.multiSelected {
-			if p.Type == "sequence" {
+			switch p.Type {
+			case "sequence":
 				hasSequence = true
-			} else if p.Type == "parallel" {
+			case "parallel":
 				hasParallel = true
 			}
 		}
@@ -143,7 +144,7 @@ func (m SuggestDetailModel) View() string {
 				sb.WriteString(mutedStyle.Render("    ↓"))
 				sb.WriteString("\n")
 			}
-			sb.WriteString(fmt.Sprintf("  [%d] %s", i+1, step))
+			fmt.Fprintf(&sb, "  [%d] %s", i+1, step)
 			sb.WriteString("\n")
 		}
 	} else if p.Type == "parallel" && len(p.Sequence) > 1 {
@@ -151,7 +152,7 @@ func (m SuggestDetailModel) View() string {
 		sb.WriteString(labelStyle.Render("Execution (parallel):"))
 		sb.WriteString("\n")
 		for i, step := range p.Sequence {
-			sb.WriteString(fmt.Sprintf("  ├─ %s", step))
+			fmt.Fprintf(&sb, "  ├─ %s", step)
 			if i < len(p.Sequence)-1 {
 				sb.WriteString("\n")
 			}

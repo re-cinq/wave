@@ -77,9 +77,6 @@ type PipelineListModel struct {
 	// Archive divider separates running from finished-only pipeline groups
 	showArchiveDivider bool
 
-	// Sequence groups tracks compose-launched pipeline groups (label → run IDs)
-	sequenceGroups map[string][]string
-
 	// Elapsed ticker state
 	tickerActive bool
 }

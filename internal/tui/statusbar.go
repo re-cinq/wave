@@ -18,8 +18,7 @@ type StatusBarModel struct {
 	finishedDetailActive bool
 	runningInfoActive    bool
 	currentView          ViewType
-	guidedMode           bool
-	guidedState          GuidedState
+	guidedMode bool
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
