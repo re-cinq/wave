@@ -1158,3 +1158,104 @@ func TestLiveOutputModel_DashboardTickMsg_UpdatesViewport(t *testing.T) {
 	m, cmd = m.Update(DashboardTickMsg{})
 	assert.Nil(t, cmd, "dashboard tick should return nil when pipeline is completed")
 }
+
+// ===========================================================================
+// Persisted-event tailing indicator tests
+// ===========================================================================
+
+func TestLiveOutputModel_TailingPersisted_HeaderShowsIndicator(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.tailingPersisted = true
+	m.SetSize(120, 40)
+
+	nc := noColor()
+	header := m.renderHeader(nc)
+	assert.Contains(t, header, "Tailing persisted events", "header should show tailing indicator for detached runs")
+}
+
+func TestLiveOutputModel_TailingPersisted_FooterShowsSQLiteIndicator(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.tailingPersisted = true
+	m.SetSize(120, 40)
+
+	nc := noColor()
+	footer := m.renderFooter(nc)
+	assert.Contains(t, footer, "tailing from SQLite", "footer should show SQLite tailing indicator")
+}
+
+func TestLiveOutputModel_TailingPersisted_NotShownWhenCompleted(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.tailingPersisted = true
+	m.completed = true
+	m.SetSize(120, 40)
+
+	nc := noColor()
+	footer := m.renderFooter(nc)
+	assert.NotContains(t, footer, "tailing from SQLite", "footer should not show tailing indicator when completed")
+}
+
+func TestLiveOutputModel_TailingPersisted_NotShownForLiveRuns(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	// tailingPersisted is false by default (in-process run)
+	m.SetSize(120, 40)
+
+	nc := noColor()
+	header := m.renderHeader(nc)
+	assert.NotContains(t, header, "Tailing persisted events", "header should not show tailing indicator for live runs")
+
+	footer := m.renderFooter(nc)
+	assert.NotContains(t, footer, "tailing from SQLite", "footer should not show SQLite indicator for live runs")
+}
+
+func TestLiveOutputModel_TailingPersisted_HeaderWithStepProgress(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 3)
+	m.tailingPersisted = true
+	m.stepNumber = 2
+	m.totalSteps = 5
+	m.currentStep = "plan"
+	m.SetSize(120, 40)
+
+	nc := noColor()
+	header := m.renderHeader(nc)
+	assert.Contains(t, header, "Tailing persisted events")
+	assert.Contains(t, header, "step 2/5")
+	assert.Contains(t, header, "plan")
+}
+
+func TestLiveOutputModel_TailingPersisted_DashboardPopulatedFromStoredRecords(t *testing.T) {
+	// Verify that stored records populate the dashboard correctly
+	// when tailingPersisted is true (simulating hover-selection of detached run)
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 2)
+	m.tailingPersisted = true
+
+	now := time.Now()
+	records := []state.LogRecord{
+		{StepID: "specify", State: event.StateStarted, Persona: "navigator", Timestamp: now},
+		{StepID: "specify", State: event.StateCompleted, DurationMs: 20000, TokensUsed: 5000},
+		{StepID: "plan", State: event.StateStarted, Persona: "craftsman", Timestamp: now},
+	}
+
+	// Simulate what content.go does for hover-selected detached runs
+	for _, rec := range records {
+		m.storedRecords = append(m.storedRecords, rec)
+		m.updateDashStepFromRecord(rec)
+		if shouldFormatRecord(rec, m.flags) {
+			buf.Append(formatStoredEvent(rec))
+		}
+	}
+	m.SetSize(120, 40)
+
+	// Dashboard should show step states
+	assert.Len(t, m.dashSteps, 2)
+	assert.Equal(t, "completed", m.dashStepMap["specify"].status)
+	assert.Equal(t, "running", m.dashStepMap["plan"].status)
+
+	// Buffer should have events too
+	assert.Equal(t, 3, buf.Len(), "buffer should contain started, completed, started events")
+}

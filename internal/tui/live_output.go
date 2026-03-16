@@ -380,6 +380,10 @@ type LiveOutputModel struct {
 	dashSteps   []*stepDashState
 	dashStepMap map[string]*stepDashState
 	showLog     bool // true = event log, false = dashboard (default)
+
+	// Persisted-event tailing indicator: true when events come from SQLite
+	// polling rather than in-memory PipelineEventMsg (detached/previous-session runs).
+	tailingPersisted bool
 }
 
 const (
@@ -942,6 +946,11 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 	var statusStr string
 	if m.completed {
 		statusStr = "Finished"
+	} else if m.tailingPersisted {
+		statusStr = "▶ Tailing persisted events"
+		if m.stepNumber > 0 {
+			statusStr = fmt.Sprintf("▶ Tailing persisted events (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
+		}
 	} else if m.stepNumber > 0 {
 		statusStr = fmt.Sprintf("▶ Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
 		var okCount, failCount int
@@ -1018,6 +1027,10 @@ func (m LiveOutputModel) renderFooter(nc bool) string {
 	parts = append(parts, verboseFlag, debugFlag, outputFlag, logFlag)
 
 	flagsStr := strings.Join(parts, "  ")
+
+	if m.tailingPersisted && !m.completed {
+		flagsStr += "  |  tailing from SQLite"
+	}
 
 	if !m.autoScroll {
 		if nc {
