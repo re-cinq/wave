@@ -64,7 +64,9 @@ func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("raw") == "true" {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
-		w.Write(content)
+		if _, err := w.Write(content); err != nil {
+			return
+		}
 		return
 	}
 
