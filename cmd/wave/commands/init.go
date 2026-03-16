@@ -1264,6 +1264,7 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 		".wave/prompts",
 		".wave/traces",
 		".wave/workspaces",
+		".claude/commands",
 	}
 	for _, dir := range waveDirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
