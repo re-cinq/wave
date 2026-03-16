@@ -1259,3 +1259,77 @@ func TestLiveOutputModel_TailingPersisted_DashboardPopulatedFromStoredRecords(t 
 	// Buffer should have events too
 	assert.Equal(t, 3, buf.Len(), "buffer should contain started, completed, started events")
 }
+
+func TestLiveOutputModel_UpdateStepTrackingFromRecord(t *testing.T) {
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "pipe", buf, time.Now(), 0)
+
+	// Non-started events should be ignored
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateRunning,
+		StepID: "step-a",
+	})
+	assert.Equal(t, 0, m.stepNumber)
+	assert.Equal(t, "", m.currentStep)
+
+	// Started event with StepID should increment stepNumber
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateStarted,
+		StepID: "specify",
+	})
+	assert.Equal(t, 1, m.stepNumber)
+	assert.Equal(t, "specify", m.currentStep)
+	assert.Equal(t, []string{"specify"}, m.stepOrder)
+
+	// Second step
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateStarted,
+		StepID: "plan",
+	})
+	assert.Equal(t, 2, m.stepNumber)
+	assert.Equal(t, "plan", m.currentStep)
+	assert.Equal(t, []string{"specify", "plan"}, m.stepOrder)
+
+	// Duplicate stepID should not add to stepOrder again
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateStarted,
+		StepID: "specify",
+	})
+	assert.Equal(t, 3, m.stepNumber)
+	assert.Equal(t, "specify", m.currentStep)
+	assert.Equal(t, []string{"specify", "plan"}, m.stepOrder)
+
+	// Pipeline-level started (no StepID) should be ignored
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State: event.StateStarted,
+	})
+	assert.Equal(t, 3, m.stepNumber, "pipeline-level started should not increment stepNumber")
+}
+
+func TestLiveOutputModel_TailingPersisted_HeaderShowsStepProgress(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	buf := NewEventBuffer(100)
+	m := NewLiveOutputModel("run-1", "test-pipeline", buf, time.Now(), 0)
+	m.tailingPersisted = true
+	m.SetSize(120, 40)
+
+	// Before step tracking, header shows generic tailing message
+	header := m.renderHeader(true)
+	assert.Contains(t, header, "Tailing persisted events")
+	assert.NotContains(t, header, "step")
+
+	// Populate step tracking from stored records
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateStarted,
+		StepID: "specify",
+	})
+	m.updateStepTrackingFromRecord(state.LogRecord{
+		State:  event.StateStarted,
+		StepID: "plan",
+	})
+
+	header = m.renderHeader(true)
+	assert.Contains(t, header, "step 2")
+	assert.Contains(t, header, "plan")
+}

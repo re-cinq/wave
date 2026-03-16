@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Mock navigation analysis",
+  "required": [
+    "summary"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Analysis summary"
+    }
+  }
+}

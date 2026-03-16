@@ -19,7 +19,8 @@ type SuggestListModel struct {
 	loaded     bool
 	provider   SuggestDataProvider
 	errMsg     string
-	selected   map[int]bool // Multi-select state: index -> selected
+	selected   map[int]bool    // Multi-select state: index -> selected
+	launched   map[string]bool // Tracks which proposals have been launched by name
 }
 
 // NewSuggestListModel creates a new suggest list model.
@@ -49,6 +50,13 @@ func (m *SuggestListModel) SetFocused(focused bool) {
 // Update handles messages.
 func (m SuggestListModel) Update(msg tea.Msg) (SuggestListModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case SuggestLaunchedMsg:
+		if m.launched == nil {
+			m.launched = make(map[string]bool)
+		}
+		m.launched[msg.Name] = true
+		return m, nil
+
 	case SuggestDataMsg:
 		if msg.Err != nil {
 			m.errMsg = msg.Err.Error()
@@ -207,7 +215,17 @@ func (m SuggestListModel) View() string {
 			}
 		}
 
-		line := fmt.Sprintf("%s%s %s[P%d] %s", prefix, selMarker, typeBadge, p.Priority, p.Name)
+		// Launched badge
+		launchedBadge := ""
+		if m.launched[p.Name] {
+			if isSelected {
+				launchedBadge = " ✓"
+			} else {
+				launchedBadge = " " + lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("✓")
+			}
+		}
+
+		line := fmt.Sprintf("%s%s %s[P%d] %s%s", prefix, selMarker, typeBadge, p.Priority, p.Name, launchedBadge)
 		if isSelected {
 			style := SelectionStyle(m.focused).Width(m.width)
 			sb.WriteString(style.Render(line))

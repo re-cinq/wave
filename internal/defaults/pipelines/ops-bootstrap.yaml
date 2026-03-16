@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: ops-bootstrap
   description: "Scaffold a greenfield project with language-appropriate structure, CI config, and initial files"
+  release: true
 
 input:
   source: cli
