@@ -1,7 +1,23 @@
+# Epic Runner — Composition Primitives Example
+#
+# Demonstrates: iterate (sequential), gate (ci_pass), forge template variables
+#
+# Execution flow:
+#
+#   fetch-children          ← persona step: fetch parent issue, emit child URLs as JSON
+#        │
+#   implement-children      ← iterate (sequential): runs impl-issue for each child URL
+#        │
+#   ci-gate                 ← gate (ci_pass): block until CI is green across all PRs
+#        │
+#   summarise               ← persona step: post a completion comment on the epic
+
 kind: WavePipeline
 metadata:
   name: ops-implement-epic
-  description: "Implement all subissues from a scoped epic, respecting dependency ordering"
+  description: "Implement all child issues from a parent epic, gate on CI, then summarise"
+  category: composition
+  release: true
 
 requires:
   tools:
@@ -9,24 +25,50 @@ requires:
 
 input:
   source: cli
+  example: "https://github.com/re-cinq/wave/issues/184"
   schema:
     type: string
-    description: "GitHub epic URL or 'owner/repo number' format"
-  example: "re-cinq/wave 184"
+    description: "Parent epic URL (e.g. https://github.com/owner/repo/issues/N)"
 
 steps:
-  - id: fetch-scope
+  # ── Step 1: fetch parent issue, emit child issue URLs ─────────────────────
+  - id: fetch-children
     persona: github-analyst
     workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-      base: main
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
     exec:
       type: prompt
-      source_path: .wave/prompts/implement-epic/fetch-scope.md
+      source: |
+        Input: {{ input }}
+
+        You are given a parent epic URL. Your job is to extract all child issue URLs
+        listed in the epic body.
+
+        1. Parse the URL to get repo (owner/repo) and issue number.
+        2. Fetch the issue:
+           {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> \
+             --json number,title,body,url
+        3. Scan the body for linked child issues. Look for patterns like:
+           - Checkbox lists: `- [ ] #123` or `- [ ] https://github.com/…/issues/123`
+           - "Closes #N" / "Part of #N" references
+           - Bulleted task lists pointing to issue URLs
+        4. For each child issue URL found, verify it is open:
+           {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json state,url
+           Include only open issues.
+        5. Output a JSON object with:
+           {
+             "parent_url": "<epic_url>",
+             "repo": "<owner/repo>",
+             "child_urls": ["https://…/issues/N", …]
+           }
+
+        Write this JSON to .wave/output/epic-children.json.
     output_artifacts:
-      - name: scope_plan
-        path: .wave/output/epic-scope-plan.json
+      - name: children
+        path: .wave/output/epic-children.json
         type: json
         required: true
     retry:
@@ -34,66 +76,69 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/epic-scope-plan.json
-        schema_path: .wave/contracts/epic-scope-plan.schema.json
+        source: .wave/output/epic-children.json
+        schema_path: .wave/contracts/epic-children.schema.json
         must_pass: true
         on_failure: retry
 
-  - id: implement-subissues
-    persona: implementer
-    dependencies: [fetch-scope]
-    strategy:
-      type: matrix
-      items_source: fetch-scope/.wave/output/epic-scope-plan.json
-      item_key: subissues
-      item_id_key: "number"
-      dependency_key: "dependencies"
-      child_pipeline: impl-issue
-      input_template: "{{ .repository }} {{ .number }}"
-      max_concurrency: 3
-    workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-    memory:
-      inject_artifacts:
-        - step: fetch-scope
-          artifact: scope_plan
-          as: scope_plan
-    exec:
-      type: prompt
-      source: "Implement subissues from epic"
+  # ── Step 2: iterate over child issues, run impl-issue for each ───────────
+  - id: implement-children
+    dependencies: [fetch-children]
+    pipeline: impl-issue
+    input: "{{ item }}"
+    iterate:
+      over: "{{ fetch-children.output.child_urls }}"
+      mode: sequential
+      max_concurrent: 3
 
-  - id: report
+  # ── Step 3: gate — wait for CI to pass across all opened PRs ─────────────
+  - id: ci-gate
+    dependencies: [implement-children]
+    gate:
+      type: ci_pass
+      timeout: 2h
+      message: "Waiting for CI to pass on all PRs opened by child-issue implementations"
+
+  # ── Step 4: post a summary comment on the parent epic ────────────────────
+  - id: summarise
     persona: github-commenter
-    dependencies: [implement-subissues]
-    workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-      ref: fetch-scope
+    dependencies: [ci-gate]
     memory:
       inject_artifacts:
-        - step: fetch-scope
-          artifact: scope_plan
-          as: scope_plan
+        - step: fetch-children
+          artifact: children
+          as: epic_children
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
     exec:
       type: prompt
-      source_path: .wave/prompts/implement-epic/report.md
+      source: |
+        Input: {{ input }}
+
+        All child issues have been implemented and CI has passed.
+
+        Read .wave/artifacts/epic_children to get the parent epic URL and repo.
+
+        Post a completion comment on the parent epic:
+        {{ forge.cli_tool }} issue comment <NUMBER> --repo <REPO> --body-file /tmp/summary.md
+
+        The comment should include:
+        - A completion header: "All child issues implemented — CI green"
+        - A checkbox list of every child URL that was processed (mark each done)
+        - A note to reviewers about next steps (merge the PRs in dependency order)
+
+        Write the comment body to /tmp/summary.md before posting.
     output_artifacts:
-      - name: epic_report
-        path: .wave/output/epic-report.json
+      - name: epic-summary
+        path: .wave/output/epic-summary.json
         type: json
-        required: true
     outcomes:
       - type: url
-        extract_from: .wave/output/epic-report.json
-        json_path: .summary.comment_url
-        label: "Epic Summary"
+        extract_from: .wave/output/epic-summary.json
+        json_path: .comment_url
+        label: "Epic Summary Comment"
     retry:
       max_attempts: 2
-    handover:
-      contract:
-        type: json_schema
-        source: .wave/output/epic-report.json
-        schema_path: .wave/contracts/epic-report.schema.json
-        must_pass: true
-        on_failure: retry
