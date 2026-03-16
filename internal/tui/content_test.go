@@ -1152,7 +1152,7 @@ func TestContentModel_Guided_SuggestLaunchMsg_EmitsLaunchRequest(t *testing.T) {
 		Name:  "impl-issue",
 		Input: "test input",
 	}
-	m, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
 
 	require.NotNil(t, cmd)
 	msgs := extractMsgFromBatch(cmd)

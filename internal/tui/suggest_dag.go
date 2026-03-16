@@ -19,7 +19,7 @@ func RenderDAG(proposal SuggestProposedPipeline) string {
 	switch proposal.Type {
 	case "sequence":
 		for i, name := range proposal.Sequence {
-			sb.WriteString(fmt.Sprintf("  [%s]", name))
+			fmt.Fprintf(&sb, "  [%s]", name)
 			if i < len(proposal.Sequence)-1 {
 				sb.WriteString("\n    │\n    ▼\n")
 			}
@@ -30,11 +30,11 @@ func RenderDAG(proposal SuggestProposedPipeline) string {
 		for i, name := range proposal.Sequence {
 			switch {
 			case i == 0:
-				sb.WriteString(fmt.Sprintf("  ┌ [%s]\n", name))
+				fmt.Fprintf(&sb, "  ┌ [%s]\n", name)
 			case i == len(proposal.Sequence)-1:
-				sb.WriteString(fmt.Sprintf("  └ [%s]\n", name))
+				fmt.Fprintf(&sb, "  └ [%s]\n", name)
 			default:
-				sb.WriteString(fmt.Sprintf("  ├ [%s]\n", name))
+				fmt.Fprintf(&sb, "  ├ [%s]\n", name)
 			}
 		}
 		sb.WriteString("  (concurrent)\n")

@@ -84,7 +84,7 @@ func TestHealthListModel_OneError_EmitsHealthAllCompleteMsg_HasErrors(t *testing
 
 	// Deliver one OK and one error
 	m, _ = m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckOK, Message: "ok"})
-	m, cmd := m.Update(HealthCheckResultMsg{Name: "check-b", Status: HealthCheckErr, Message: "failed"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-b", Status: HealthCheckErr, Message: "failed"})
 
 	require.NotNil(t, cmd, "completing all checks should emit a command")
 	msg := executeCmd(cmd)
@@ -98,7 +98,7 @@ func TestHealthListModel_WarnStatus_EmitsHealthAllCompleteMsg_NoErrors(t *testin
 	provider := newMockHealthProvider(names...)
 	m := newHealthListModelWithSize(provider)
 
-	m, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckWarn, Message: "warn"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckWarn, Message: "warn"})
 
 	require.NotNil(t, cmd)
 	msg := executeCmd(cmd)

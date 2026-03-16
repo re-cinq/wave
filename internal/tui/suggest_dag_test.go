@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ===========================================================================
@@ -99,6 +100,7 @@ func TestRenderDAG_Sequence_NoArrowAfterLastEntry(t *testing.T) {
 
 	// The last entry [pipeline-b] should not be followed by an arrow.
 	idxB := strings.Index(result, "[pipeline-b]")
+	require.GreaterOrEqual(t, idxB, 0, "expected [pipeline-b] in DAG output")
 	textAfterB := result[idxB:]
 	assert.NotContains(t, textAfterB, "▼", "no arrow should follow the last sequence entry")
 }
