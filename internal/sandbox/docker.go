@@ -13,8 +13,8 @@ type DockerSandbox struct {
 	dockerPath string
 }
 
-// NewDockerSandbox creates a Docker sandbox, resolving the docker binary path.
-func NewDockerSandbox() (*DockerSandbox, error) {
+// newDockerSandbox creates a Docker sandbox, resolving the docker binary path.
+func newDockerSandbox() (*DockerSandbox, error) {
 	path, err := exec.LookPath("docker")
 	if err != nil {
 		return nil, fmt.Errorf("docker binary not found on PATH: %w", err)

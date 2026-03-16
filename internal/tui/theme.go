@@ -66,18 +66,18 @@ func WaveTheme() *huh.Theme {
 	return t
 }
 
-// ActiveSelectionStyle returns the style for selected items in the focused pane.
+// activeSelectionStyle returns the style for selected items in the focused pane.
 // White background with dark foreground for high contrast.
-func ActiveSelectionStyle() lipgloss.Style {
+func activeSelectionStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(lipgloss.Color("7")).
 		Foreground(lipgloss.Color("0")).
 		Bold(true)
 }
 
-// InactiveSelectionStyle returns the style for selected items in unfocused panes.
+// inactiveSelectionStyle returns the style for selected items in unfocused panes.
 // Dimmed background matching the border separator color.
-func InactiveSelectionStyle() lipgloss.Style {
+func inactiveSelectionStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(lipgloss.Color("240")).
 		Foreground(lipgloss.Color("7"))
@@ -86,9 +86,9 @@ func InactiveSelectionStyle() lipgloss.Style {
 // SelectionStyle returns the active or inactive selection style based on focus state.
 func SelectionStyle(focused bool) lipgloss.Style {
 	if focused {
-		return ActiveSelectionStyle()
+		return activeSelectionStyle()
 	}
-	return InactiveSelectionStyle()
+	return inactiveSelectionStyle()
 }
 
 // WaveLogo returns the styled Wave ASCII logo matching the list/run display header.
