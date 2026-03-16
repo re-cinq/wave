@@ -75,6 +75,45 @@ func TestGuidedFlowState_TransitionToProposals_SetsHealthComplete(t *testing.T) 
 	}
 }
 
+func TestGuidedFlowState_ViewForPhase(t *testing.T) {
+	tests := []struct {
+		name     string
+		phase    GuidedFlowPhase
+		wantView ViewType
+	}{
+		{
+			name:     "Health phase maps to ViewHealth",
+			phase:    GuidedPhaseHealth,
+			wantView: ViewHealth,
+		},
+		{
+			name:     "Proposals phase maps to ViewSuggest",
+			phase:    GuidedPhaseProposals,
+			wantView: ViewSuggest,
+		},
+		{
+			name:     "Fleet phase maps to ViewPipelines",
+			phase:    GuidedPhaseFleet,
+			wantView: ViewPipelines,
+		},
+		{
+			name:     "Attached phase maps to ViewPipelines",
+			phase:    GuidedPhaseAttached,
+			wantView: ViewPipelines,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &GuidedFlowState{Phase: tt.phase}
+			got := s.ViewForPhase()
+			if got != tt.wantView {
+				t.Errorf("got %d, want %d", got, tt.wantView)
+			}
+		})
+	}
+}
+
 func TestGuidedFlowState_TabTarget(t *testing.T) {
 	tests := []struct {
 		name      string

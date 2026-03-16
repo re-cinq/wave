@@ -46,6 +46,22 @@ func (s *GuidedFlowState) DetachToFleet() {
 	s.Phase = GuidedPhaseFleet
 }
 
+// ViewForPhase returns the canonical view type for the current phase.
+// Used to enforce phase-view binding: the content area should display
+// the view that matches the guided flow phase.
+func (s *GuidedFlowState) ViewForPhase() ViewType {
+	switch s.Phase {
+	case GuidedPhaseHealth:
+		return ViewHealth
+	case GuidedPhaseProposals:
+		return ViewSuggest
+	case GuidedPhaseFleet, GuidedPhaseAttached:
+		return ViewPipelines
+	default:
+		return ViewPipelines
+	}
+}
+
 // TabTarget returns the toggle destination view for the current phase.
 // In guided mode, Tab toggles between Suggest (proposals) and Pipelines (fleet).
 func (s *GuidedFlowState) TabTarget() ViewType {

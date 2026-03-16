@@ -161,6 +161,26 @@ func (m *ContentModel) CancelAll() {
 	}
 }
 
+// guidedViewAllowed returns true if the given view is allowed in the current
+// guided flow phase. In guided mode, only specific views are reachable per phase.
+func (m *ContentModel) guidedViewAllowed(v ViewType) bool {
+	if m.guidedFlow == nil {
+		return true
+	}
+	switch m.guidedFlow.Phase {
+	case GuidedPhaseHealth:
+		return v == ViewHealth
+	case GuidedPhaseProposals:
+		return v == ViewSuggest || v == ViewPipelines
+	case GuidedPhaseFleet:
+		return v == ViewPipelines || v == ViewSuggest
+	case GuidedPhaseAttached:
+		return v == ViewPipelines
+	default:
+		return true
+	}
+}
+
 // Init returns commands from child components.
 func (m ContentModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.list.Init(), m.detail.Init()}
@@ -380,6 +400,9 @@ func (m *ContentModel) cycleView() tea.Cmd {
 		}
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
+			if m.guidedFlow != nil {
+				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
+			}
 		}
 	}
 
@@ -528,6 +551,9 @@ func (m *ContentModel) setView(v ViewType) tea.Cmd {
 		}
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
+			if m.guidedFlow != nil {
+				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
+			}
 		}
 	}
 
@@ -624,8 +650,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 
 		// Number key direct-jump navigation (1-8) when in left pane and no input active
+		// In guided mode, restrict to views allowed by the current phase.
 		if m.focus == FocusPaneLeft && !m.IsInputActive() {
 			if v, ok := numberKeyToView(msg.String()); ok {
+				if m.guidedFlow != nil && !m.guidedViewAllowed(v) {
+					return m, nil
+				}
 				cmd := m.setView(v)
 				return m, cmd
 			}
@@ -698,6 +728,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 							}
 						}
 					}
+					liveModel.tailingPersisted = true
 					liveModel.SetSize(m.detail.width, m.detail.height)
 					m.detail.liveOutput = &liveModel
 					m.detail.paneState = stateRunningLive
@@ -1092,6 +1123,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			}
 		}
 		if m.suggestDetail != nil {
+			if m.guidedFlow != nil {
+				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
+			}
 			var detailCmd tea.Cmd
 			*m.suggestDetail, detailCmd = m.suggestDetail.Update(msg)
 			if detailCmd != nil {
@@ -1281,12 +1315,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						eventCount = len(events)
 						for _, ev := range events {
 							liveModel.storedRecords = append(liveModel.storedRecords, ev)
+							liveModel.updateDashStepFromRecord(ev)
 							if shouldFormatRecord(ev, liveModel.flags) {
 								buf.Append(formatStoredEvent(ev))
 							}
 						}
 					}
 				}
+				liveModel.tailingPersisted = true
 				liveModel.SetSize(m.detail.width, m.detail.height)
 				m.detail.liveOutput = &liveModel
 				m.detail.paneState = stateRunningLive
@@ -1530,6 +1566,33 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					if m.detail.liveOutput.autoScroll {
 						m.detail.liveOutput.viewport.GotoBottom()
 					}
+				}
+			}
+			// Check if the run has terminated — stop polling and transition
+			if run, runErr := m.launcher.deps.Store.GetRun(msg.RunID); runErr == nil && run != nil {
+				if run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled" {
+					if m.detail.liveOutput != nil {
+						m.detail.liveOutput.completed = true
+						m.detail.liveOutput.tailingPersisted = false
+						elapsed := time.Since(m.detail.liveOutput.startedAt)
+						var summaryLine string
+						if noColor() {
+							summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+						} else if run.Status == "completed" {
+							summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
+						} else {
+							summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+						}
+						m.detail.liveOutput.buffer.Append(summaryLine)
+						m.detail.liveOutput.updateViewportContent()
+						if m.detail.liveOutput.autoScroll {
+							m.detail.liveOutput.viewport.GotoBottom()
+						}
+					}
+					m.detachedPollRunID = ""
+					return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+						return TransitionTimerMsg(msg)
+					})
 				}
 			}
 		}
