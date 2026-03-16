@@ -58,12 +58,16 @@ As you complete each task, mark it as `[X]` in `tasks.md`.
 After all tasks are complete:
 1. Run `{{ project.test_command }}` one final time
 2. Verify all tasks in `tasks.md` are marked complete
-3. Stage and commit all changes:
+3. Stage and commit all changes — YOU MUST run the git reset to exclude Wave internals:
    ```bash
    git add -A
-   git reset HEAD -- .wave/artifacts .wave/output .claude CLAUDE.md 2>/dev/null || true
+   git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/ CLAUDE.md 2>/dev/null || true
+   git diff --cached --name-only | head -20  # verify no .wave/artifacts, .wave/output, .claude, or CLAUDE.md
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
+
+   CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.wave/artifacts/`, or `.wave/output/`.
+   These are Wave-managed files. The `specs/` directory IS allowed.
 
 Commit changes to the worktree branch.
 
