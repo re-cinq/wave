@@ -40,6 +40,7 @@ type LaunchDependencies struct {
 	Store           state.StateStore
 	PipelinesDir    string
 	SuggestProvider SuggestDataProvider
+	GuidedMode      bool
 }
 
 // LaunchConfig holds the user's pipeline launch configuration from the argument form.
@@ -153,3 +154,9 @@ type DetachedEventPollTickMsg struct {
 
 // DashboardTickMsg drives elapsed time updates in the live output dashboard view.
 type DashboardTickMsg struct{}
+
+// HealthPhaseCompleteMsg is emitted when all health checks have completed.
+type HealthPhaseCompleteMsg struct {
+	AllPassed bool
+	Summary   string
+}

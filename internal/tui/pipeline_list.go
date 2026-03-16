@@ -26,6 +26,7 @@ const (
 	itemKindRunning
 	itemKindFinished
 	itemKindAvailable
+	itemKindArchiveDivider
 )
 
 // navigableItem is a single entry in the flat navigation list.
@@ -72,6 +73,12 @@ type PipelineListModel struct {
 
 	// Scroll state
 	scrollOffset int
+
+	// Archive divider separates running from finished-only pipeline groups
+	showArchiveDivider bool
+
+	// Sequence groups tracks compose-launched pipeline groups (label → run IDs)
+	sequenceGroups map[string][]string
 
 	// Elapsed ticker state
 	tickerActive bool
@@ -360,10 +367,26 @@ func (m PipelineListModel) handleNavigation(msg tea.KeyMsg) (PipelineListModel, 
 	case tea.KeyUp:
 		if m.cursor > 0 {
 			m.cursor--
+			// Skip archive divider
+			if m.cursor >= 0 && m.cursor < len(m.navigable) && m.navigable[m.cursor].kind == itemKindArchiveDivider {
+				if m.cursor > 0 {
+					m.cursor--
+				} else {
+					m.cursor++
+				}
+			}
 		}
 	case tea.KeyDown:
 		if m.cursor < len(m.navigable)-1 {
 			m.cursor++
+			// Skip archive divider
+			if m.cursor < len(m.navigable) && m.navigable[m.cursor].kind == itemKindArchiveDivider {
+				if m.cursor < len(m.navigable)-1 {
+					m.cursor++
+				} else {
+					m.cursor--
+				}
+			}
 		}
 	}
 
@@ -464,57 +487,82 @@ func (m *PipelineListModel) buildNavigableItems() {
 		availableIdx[a.Name] = i
 	}
 
-	for _, name := range names {
-		// Apply filter at the pipeline-name level.
-		if query != "" && !strings.Contains(strings.ToLower(name), query) {
-			continue
+	// When showArchiveDivider is true, separate pipelines with running
+	// instances from those that are finished/available-only.
+	if m.showArchiveDivider {
+		var withRunning, withoutRunning []string
+		for _, name := range names {
+			if len(runningByName[name]) > 0 {
+				withRunning = append(withRunning, name)
+			} else {
+				withoutRunning = append(withoutRunning, name)
+			}
 		}
-
-		running := runningByName[name]
-		finished := finishedByName[name]
-
-		// Default to collapsed for pipelines not yet toggled.
-		if _, seen := m.collapsed[name]; !seen {
-			m.collapsed[name] = true
+		for _, name := range withRunning {
+			m.addPipelineGroup(name, runningByName[name], finishedByName[name], query)
 		}
-
-		// Pipeline name entry (tree root).
-		m.navigable = append(m.navigable, navigableItem{
-			kind:         itemKindPipelineName,
-			pipelineName: name,
-			dataIndex:    -1,
-			label:        name,
-		})
-
-		// Running entries — always visible regardless of collapse state.
-		for _, idx := range running {
+		if len(withRunning) > 0 && len(withoutRunning) > 0 {
 			m.navigable = append(m.navigable, navigableItem{
-				kind:         itemKindRunning,
-				pipelineName: name,
-				dataIndex:    idx,
-				label:        m.running[idx].Name,
+				kind:      itemKindArchiveDivider,
+				dataIndex: -1,
+				label:     "Archive",
 			})
 		}
-
-		// Finished entries — only when expanded.
-		if !m.collapsed[name] || query != "" {
-			limit := finishedPerPipelineMax
-			if limit > len(finished) {
-				limit = len(finished)
-			}
-			for _, idx := range finished[:limit] {
-				m.navigable = append(m.navigable, navigableItem{
-					kind:         itemKindFinished,
-					pipelineName: name,
-					dataIndex:    idx,
-					label:        m.finished[idx].Name,
-				})
-			}
+		for _, name := range withoutRunning {
+			m.addPipelineGroup(name, nil, finishedByName[name], query)
 		}
+	} else {
+		for _, name := range names {
+			m.addPipelineGroup(name, runningByName[name], finishedByName[name], query)
+		}
+	}
 
-		// No special entry for available — the pipeline name node itself
-		// serves that role. The availableIdx map is used by emitSelectionMsg.
-		_ = availableIdx
+	_ = availableIdx
+}
+
+// addPipelineGroup appends a pipeline name node and its children to m.navigable.
+func (m *PipelineListModel) addPipelineGroup(name string, runningIndices, finishedIndices []int, query string) {
+	if query != "" && !strings.Contains(strings.ToLower(name), query) {
+		return
+	}
+
+	// Default to collapsed for pipelines not yet toggled.
+	if _, seen := m.collapsed[name]; !seen {
+		m.collapsed[name] = true
+	}
+
+	// Pipeline name entry (tree root).
+	m.navigable = append(m.navigable, navigableItem{
+		kind:         itemKindPipelineName,
+		pipelineName: name,
+		dataIndex:    -1,
+		label:        name,
+	})
+
+	// Running entries — always visible regardless of collapse state.
+	for _, idx := range runningIndices {
+		m.navigable = append(m.navigable, navigableItem{
+			kind:         itemKindRunning,
+			pipelineName: name,
+			dataIndex:    idx,
+			label:        m.running[idx].Name,
+		})
+	}
+
+	// Finished entries — only when expanded.
+	if !m.collapsed[name] || query != "" {
+		limit := finishedPerPipelineMax
+		if limit > len(finishedIndices) {
+			limit = len(finishedIndices)
+		}
+		for _, idx := range finishedIndices[:limit] {
+			m.navigable = append(m.navigable, navigableItem{
+				kind:         itemKindFinished,
+				pipelineName: name,
+				dataIndex:    idx,
+				label:        m.finished[idx].Name,
+			})
+		}
 	}
 }
 
@@ -583,6 +631,8 @@ func (m PipelineListModel) renderItem(item navigableItem, isSelected bool) strin
 		return m.renderRunningItem(item, isSelected, maxWidth)
 	case itemKindFinished:
 		return m.renderFinishedItem(item, isSelected, maxWidth)
+	case itemKindArchiveDivider:
+		return m.renderArchiveDivider(maxWidth)
 	}
 	return ""
 }
@@ -593,7 +643,8 @@ func (m PipelineListModel) isLastChildOf(i int) bool {
 	if i+1 >= len(m.navigable) {
 		return true
 	}
-	return m.navigable[i+1].kind == itemKindPipelineName
+	next := m.navigable[i+1].kind
+	return next == itemKindPipelineName || next == itemKindArchiveDivider
 }
 
 // renderPipelineName renders a pipeline tree root node.
@@ -729,6 +780,22 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 	style := lipgloss.NewStyle().
 		Width(maxWidth)
 	return style.Render(text)
+}
+
+// renderArchiveDivider renders a horizontal divider line with centered "Archive" label.
+func (m PipelineListModel) renderArchiveDivider(maxWidth int) string {
+	label := " Archive "
+	lineWidth := maxWidth - len(label)
+	if lineWidth < 2 {
+		lineWidth = 2
+	}
+	leftLine := strings.Repeat("─", lineWidth/2)
+	rightLine := strings.Repeat("─", lineWidth-lineWidth/2)
+	text := leftLine + label + rightLine
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Width(maxWidth).
+		Render(text)
 }
 
 // truncateName truncates a name with ellipsis if it exceeds maxWidth visual columns.

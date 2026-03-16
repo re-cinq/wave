@@ -70,6 +70,11 @@ type ContentModel struct {
 	// Detached pipeline event polling
 	detachedPollRunID  string
 	detachedPollOffset int
+
+	// Guided workflow mode
+	guidedMode  bool
+	guidedState GuidedState
+	healthDone  bool
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -98,6 +103,21 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.suggestProvider = p.SuggestProvider
 	}
 
+	m.guidedMode = deps.GuidedMode
+	if m.guidedMode {
+		m.guidedState = GuidedStateHealth
+		m.currentView = ViewHealth
+	}
+
+	if m.guidedMode && m.healthProvider != nil {
+		leftWidth := 30 // default before SetSize is called
+		hl := NewHealthListModel(m.healthProvider)
+		hl.SetSize(leftWidth, 20)
+		m.healthList = &hl
+		hd := NewHealthDetailModel()
+		m.healthDetail = &hd
+	}
+
 	return m
 }
 
@@ -111,6 +131,9 @@ func (m ContentModel) IsInputActive() bool {
 		return true
 	}
 	if m.composing {
+		return true
+	}
+	if m.currentView == ViewSuggest && m.suggestList != nil && m.suggestList.IsInputActive() {
 		return true
 	}
 	return false
@@ -146,7 +169,11 @@ func (m *ContentModel) CancelAll() {
 
 // Init returns commands from child components.
 func (m ContentModel) Init() tea.Cmd {
-	return tea.Batch(m.list.Init(), m.detail.Init())
+	cmds := []tea.Cmd{m.list.Init(), m.detail.Init()}
+	if m.guidedMode && m.healthList != nil {
+		cmds = append(cmds, m.healthList.Init())
+	}
+	return tea.Batch(cmds...)
 }
 
 // SetSize updates the content area dimensions and propagates to children.
@@ -369,6 +396,64 @@ func (m *ContentModel) cycleView() tea.Cmd {
 	return tea.Batch(batchCmds...)
 }
 
+// guidedTabToggle handles Tab in guided mode: toggles between Proposals and Fleet,
+// or skips from Health to Fleet.
+func (m *ContentModel) guidedTabToggle() (ContentModel, tea.Cmd) {
+	leftWidth := m.leftPaneWidth()
+	rightWidth := m.width - leftWidth - 3
+
+	switch m.guidedState {
+	case GuidedStateHealth:
+		// Tab during health: skip to fleet view
+		m.guidedState = GuidedStateFleet
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		return *m, func() tea.Msg { return ViewChangedMsg{View: ViewPipelines} }
+
+	case GuidedStateProposals:
+		// Toggle to Fleet
+		m.guidedState = GuidedStateFleet
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneLeft
+		m.list.SetFocused(true)
+		m.detail.SetFocused(false)
+		return *m, func() tea.Msg { return ViewChangedMsg{View: ViewPipelines} }
+
+	case GuidedStateFleet:
+		// Toggle to Proposals
+		m.guidedState = GuidedStateProposals
+		m.currentView = ViewSuggest
+		m.focus = FocusPaneLeft
+		// Initialize suggest models if needed
+		if m.suggestList == nil && m.suggestProvider != nil {
+			sl := NewSuggestListModel(m.suggestProvider)
+			sl.SetSize(leftWidth, m.childHeight())
+			m.suggestList = &sl
+			sd := NewSuggestDetailModel()
+			sd.SetSize(rightWidth, m.childHeight())
+			m.suggestDetail = &sd
+			return *m, tea.Batch(
+				m.suggestList.Init(),
+				func() tea.Msg { return ViewChangedMsg{View: ViewSuggest} },
+			)
+		}
+		if m.suggestList != nil {
+			m.suggestList.SetFocused(true)
+		}
+		if m.suggestDetail != nil {
+			m.suggestDetail.SetFocused(false)
+		}
+		return *m, func() tea.Msg { return ViewChangedMsg{View: ViewSuggest} }
+
+	case GuidedStateAttached:
+		// No Tab toggle while attached
+		return *m, nil
+	}
+	return *m, nil
+}
+
 // Update handles messages by forwarding to child components with focus-aware routing.
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -379,6 +464,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if msg.Type == tea.KeyShiftTab {
 			if m.composing {
 				return m, nil
+			}
+			if m.guidedMode {
+				return m.guidedTabToggle()
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
 			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
@@ -398,7 +486,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.detail, cmd = m.detail.Update(msg)
 				return m, cmd
 			}
-			// Otherwise, cycle view
+			// Guided mode: Tab toggles between Proposals and Fleet only
+			if m.guidedMode {
+				return m.guidedTabToggle()
+			}
 			cmd := m.cycleView()
 			return m, cmd
 		}
@@ -485,6 +576,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					enterCmds = append(enterCmds, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
 						return DashboardTickMsg{}
 					}))
+					if m.guidedMode {
+						m.guidedState = GuidedStateAttached
+					}
 				}
 
 				// For finished items, activate finished detail hints
@@ -512,6 +606,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			}
 			// Stop detached event polling
 			m.detachedPollRunID = ""
+			if m.guidedMode && m.guidedState == GuidedStateAttached {
+				m.guidedState = GuidedStateFleet
+			}
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
@@ -869,6 +966,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case SuggestLaunchMsg:
 		// Switch to Pipelines view and launch the suggested pipeline
 		m.currentView = ViewPipelines
+		if m.guidedMode {
+			m.guidedState = GuidedStateFleet
+		}
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
@@ -890,6 +990,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Bridge suggest multi-select to compose mode: switch to Pipelines view,
 		// enter compose mode with the selected proposals pre-populated.
 		m.currentView = ViewPipelines
+		if m.guidedMode {
+			m.guidedState = GuidedStateFleet
+		}
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
@@ -961,6 +1064,31 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			if m.healthDetail != nil {
 				m.healthDetail.SetCheck(&check)
 			}
+		}
+		return m, nil
+
+	case HealthPhaseCompleteMsg:
+		m.healthDone = true
+		if m.guidedMode {
+			m.guidedState = GuidedStateProposals
+			m.currentView = ViewSuggest
+			m.focus = FocusPaneLeft
+			// Initialize suggest models if needed
+			if m.suggestList == nil && m.suggestProvider != nil {
+				leftWidth := m.leftPaneWidth()
+				rightWidth := m.width - leftWidth - 3
+				sl := NewSuggestListModel(m.suggestProvider)
+				sl.SetSize(leftWidth, m.childHeight())
+				m.suggestList = &sl
+				sd := NewSuggestDetailModel()
+				sd.SetSize(rightWidth, m.childHeight())
+				m.suggestDetail = &sd
+				return m, tea.Batch(
+					m.suggestList.Init(),
+					func() tea.Msg { return ViewChangedMsg{View: ViewSuggest} },
+				)
+			}
+			return m, func() tea.Msg { return ViewChangedMsg{View: ViewSuggest} }
 		}
 		return m, nil
 
@@ -1155,6 +1283,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.focus = FocusPaneRight
 		m.list.SetFocused(false)
 		m.detail.SetFocused(true)
+		if m.guidedMode {
+			m.guidedState = GuidedStateAttached
+		}
 		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }

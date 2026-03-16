@@ -1062,3 +1062,66 @@ func TestPipelineListModel_TreeLayout_FilterExpandsCollapsed(t *testing.T) {
 	}
 	assert.Equal(t, 1, finishedCount, "filter should override collapse and show finished items")
 }
+
+// ===========================================================================
+// T032: Archive divider tests
+// ===========================================================================
+
+func TestPipelineListModel_ArchiveDivider(t *testing.T) {
+	m := NewPipelineListModel(nil)
+	m.showArchiveDivider = true
+	m.SetSize(40, 20)
+
+	m.running = []RunningPipeline{{RunID: "r1", Name: "pipe-a"}}
+	m.finished = []FinishedPipeline{{RunID: "f1", Name: "pipe-b", Status: "completed"}}
+	m.buildNavigableItems()
+
+	hasDivider := false
+	for _, item := range m.navigable {
+		if item.kind == itemKindArchiveDivider {
+			hasDivider = true
+		}
+	}
+	assert.True(t, hasDivider, "should have archive divider between running and finished groups")
+}
+
+func TestPipelineListModel_ArchiveDivider_NoDividerWhenNoRunning(t *testing.T) {
+	m := NewPipelineListModel(nil)
+	m.showArchiveDivider = true
+	m.SetSize(40, 20)
+
+	m.finished = []FinishedPipeline{{RunID: "f1", Name: "pipe-a", Status: "completed"}}
+	m.buildNavigableItems()
+
+	for _, item := range m.navigable {
+		assert.NotEqual(t, itemKindArchiveDivider, item.kind, "no divider when no running pipelines")
+	}
+}
+
+func TestPipelineListModel_ArchiveDivider_NavigationSkipsDivider(t *testing.T) {
+	m := NewPipelineListModel(nil)
+	m.showArchiveDivider = true
+	m.focused = true
+	m.SetSize(40, 20)
+
+	m.running = []RunningPipeline{{RunID: "r1", Name: "aaa-pipe"}}
+	m.finished = []FinishedPipeline{{RunID: "f1", Name: "zzz-pipe", Status: "completed"}}
+	m.buildNavigableItems()
+
+	// Find the divider position
+	dividerIdx := -1
+	for i, item := range m.navigable {
+		if item.kind == itemKindArchiveDivider {
+			dividerIdx = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, dividerIdx, "should have a divider")
+
+	// Navigate to just before the divider
+	m.cursor = dividerIdx - 1
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	// Cursor should skip over the divider
+	assert.NotEqual(t, dividerIdx, m.cursor, "cursor should skip archive divider")
+}

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -24,15 +25,20 @@ type HealthSelectedMsg struct {
 	Index int
 }
 
+// healthTimeoutMsg is an internal message for health check timeout.
+type healthTimeoutMsg struct{}
+
 // HealthListModel is the left pane model for the Health view.
 type HealthListModel struct {
 	width        int
 	height       int
 	checks       []HealthCheck
 	cursor       int
-	focused      bool
-	scrollOffset int
-	provider     HealthDataProvider
+	focused        bool
+	scrollOffset   int
+	provider       HealthDataProvider
+	totalChecks    int
+	completedCount int
 }
 
 // NewHealthListModel creates a new health list model.
@@ -47,11 +53,15 @@ func NewHealthListModel(provider HealthDataProvider) HealthListModel {
 	}
 
 	return HealthListModel{
-		checks:   checks,
-		provider: provider,
-		focused:  true,
+		checks:      checks,
+		provider:    provider,
+		focused:     true,
+		totalChecks: len(names),
 	}
 }
+
+// healthCheckTimeout is the maximum duration to wait for health checks.
+const healthCheckTimeout = 30 * time.Second
 
 // Init returns batch commands to run all health checks.
 func (m HealthListModel) Init() tea.Cmd {
@@ -63,6 +73,10 @@ func (m HealthListModel) Init() tea.Cmd {
 			return provider.RunCheck(name)
 		}
 	}
+	// Add a timeout for hung checks
+	cmds = append(cmds, tea.Tick(healthCheckTimeout, func(time.Time) tea.Msg {
+		return healthTimeoutMsg{}
+	}))
 	return tea.Batch(cmds...)
 }
 
@@ -88,6 +102,33 @@ func (m HealthListModel) Update(msg tea.Msg) (HealthListModel, tea.Cmd) {
 				m.checks[i].Details = msg.Details
 				m.checks[i].LastChecked = time.Now()
 				break
+			}
+		}
+		m.completedCount++
+		if m.completedCount >= m.totalChecks {
+			return m, func() tea.Msg {
+				return HealthPhaseCompleteMsg{
+					AllPassed: m.allPassed(),
+					Summary:   m.buildSummary(),
+				}
+			}
+		}
+		return m, nil
+
+	case healthTimeoutMsg:
+		if m.completedCount < m.totalChecks {
+			// Mark remaining checks as warnings
+			for i := range m.checks {
+				if m.checks[i].Status == HealthCheckChecking {
+					m.checks[i].Status = HealthCheckWarn
+					m.checks[i].Message = "Check timed out"
+				}
+			}
+			return m, func() tea.Msg {
+				return HealthPhaseCompleteMsg{
+					AllPassed: m.allPassed(),
+					Summary:   m.buildSummary() + " (timed out)",
+				}
 			}
 		}
 		return m, nil
@@ -117,6 +158,7 @@ func (m HealthListModel) handleKeyMsg(msg tea.KeyMsg) (HealthListModel, tea.Cmd)
 	default:
 		if msg.String() == "r" {
 			// Re-run all checks
+			m.completedCount = 0
 			cmds := make([]tea.Cmd, len(m.checks))
 			for i := range m.checks {
 				m.checks[i].Status = HealthCheckChecking
@@ -126,6 +168,9 @@ func (m HealthListModel) handleKeyMsg(msg tea.KeyMsg) (HealthListModel, tea.Cmd)
 					return provider.RunCheck(name)
 				}
 			}
+			cmds = append(cmds, tea.Tick(healthCheckTimeout, func(time.Time) tea.Msg {
+				return healthTimeoutMsg{}
+			}))
 			return m, tea.Batch(cmds...)
 		}
 	}
@@ -204,6 +249,39 @@ func (m HealthListModel) View() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// allPassed returns true if no check has error status.
+func (m HealthListModel) allPassed() bool {
+	for _, c := range m.checks {
+		if c.Status == HealthCheckErr {
+			return false
+		}
+	}
+	return true
+}
+
+// buildSummary constructs a human-readable completion summary.
+func (m HealthListModel) buildSummary() string {
+	passed, warned, failed := 0, 0, 0
+	for _, c := range m.checks {
+		switch c.Status {
+		case HealthCheckOK:
+			passed++
+		case HealthCheckWarn:
+			warned++
+		case HealthCheckErr:
+			failed++
+		}
+	}
+	total := len(m.checks)
+	if failed == 0 && warned == 0 {
+		return fmt.Sprintf("%d/%d checks passed", passed, total)
+	}
+	if failed == 0 {
+		return fmt.Sprintf("%d/%d passed, %d warning(s)", passed, total, warned)
+	}
+	return fmt.Sprintf("%d/%d passed, %d failed", passed, total, failed)
 }
 
 func (m *HealthListModel) adjustScrollOffset(visibleHeight int) {

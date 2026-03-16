@@ -43,6 +43,16 @@ type ViewChangedMsg struct {
 	View ViewType
 }
 
+// GuidedState represents the current phase in the guided workflow.
+type GuidedState int
+
+const (
+	GuidedStateHealth    GuidedState = iota // Startup health check phase
+	GuidedStateProposals                    // Pipeline proposals view
+	GuidedStateFleet                        // Fleet/pipeline monitoring
+	GuidedStateAttached                     // Fullscreen live output
+)
+
 // PipelineStepRef identifies a pipeline/step pair for cross-references.
 type PipelineStepRef struct {
 	PipelineName string

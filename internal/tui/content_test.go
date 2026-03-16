@@ -776,6 +776,102 @@ func TestContentModel_RunEventsMsg_RoutedToDetail(t *testing.T) {
 	// Just verify it doesn't panic
 }
 
+// ===========================================================================
+// Guided mode Tab toggling tests
+// ===========================================================================
+
+func TestContentModel_GuidedMode_InitStartsOnHealth(t *testing.T) {
+	deps := LaunchDependencies{GuidedMode: true}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps, ContentProviders{
+		HealthProvider: &healthListTestProvider{names: []string{"Git", "Adapter"}},
+	})
+	c.SetSize(120, 40)
+
+	assert.True(t, c.guidedMode)
+	assert.Equal(t, GuidedStateHealth, c.guidedState)
+	assert.Equal(t, ViewHealth, c.currentView)
+	assert.NotNil(t, c.healthList)
+}
+
+func TestContentModel_GuidedMode_TabFromHealthToFleet(t *testing.T) {
+	deps := LaunchDependencies{GuidedMode: true}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps, ContentProviders{
+		HealthProvider: &healthListTestProvider{names: []string{"Git"}},
+	})
+	c.SetSize(120, 40)
+
+	// Tab during health should skip to fleet (Pipelines)
+	tab := tea.KeyMsg{Type: tea.KeyTab}
+	c, _ = c.Update(tab)
+
+	assert.Equal(t, GuidedStateFleet, c.guidedState)
+	assert.Equal(t, ViewPipelines, c.currentView)
+}
+
+func TestContentModel_GuidedMode_TabTogglesBetweenProposalsAndFleet(t *testing.T) {
+	deps := LaunchDependencies{GuidedMode: true}
+	provider := &FuncSuggestDataProvider{
+		Fn: func() (*SuggestProposal, error) {
+			return &SuggestProposal{Pipelines: []SuggestProposedPipeline{{Name: "test", Priority: 1}}}, nil
+		},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps, ContentProviders{
+		HealthProvider:  &healthListTestProvider{names: []string{"Git"}},
+		SuggestProvider: provider,
+	})
+	c.SetSize(120, 40)
+
+	// Start in health, skip to proposals via HealthPhaseCompleteMsg
+	c, _ = c.Update(HealthPhaseCompleteMsg{AllPassed: true, Summary: "1/1 passed"})
+	assert.Equal(t, GuidedStateProposals, c.guidedState)
+	assert.Equal(t, ViewSuggest, c.currentView)
+
+	// Tab from Proposals -> Fleet
+	tab := tea.KeyMsg{Type: tea.KeyTab}
+	c, _ = c.Update(tab)
+	assert.Equal(t, GuidedStateFleet, c.guidedState)
+	assert.Equal(t, ViewPipelines, c.currentView)
+
+	// Tab from Fleet -> Proposals
+	c, _ = c.Update(tab)
+	assert.Equal(t, GuidedStateProposals, c.guidedState)
+	assert.Equal(t, ViewSuggest, c.currentView)
+}
+
+func TestContentModel_GuidedMode_HealthPhaseCompleteTransitions(t *testing.T) {
+	deps := LaunchDependencies{GuidedMode: true}
+	provider := &FuncSuggestDataProvider{
+		Fn: func() (*SuggestProposal, error) {
+			return &SuggestProposal{}, nil
+		},
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps, ContentProviders{
+		HealthProvider:  &healthListTestProvider{names: []string{"Git"}},
+		SuggestProvider: provider,
+	})
+	c.SetSize(120, 40)
+
+	// HealthPhaseCompleteMsg should transition to proposals
+	c, cmd := c.Update(HealthPhaseCompleteMsg{AllPassed: true, Summary: "ok"})
+	assert.Equal(t, GuidedStateProposals, c.guidedState)
+	assert.Equal(t, ViewSuggest, c.currentView)
+	assert.True(t, c.healthDone)
+	assert.NotNil(t, c.suggestList)
+	assert.NotNil(t, cmd)
+}
+
+func TestContentModel_NonGuidedMode_TabCyclesAllViews(t *testing.T) {
+	deps := LaunchDependencies{GuidedMode: false}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	assert.Equal(t, ViewPipelines, c.currentView)
+
+	tab := tea.KeyMsg{Type: tea.KeyTab}
+	c, _ = c.Update(tab)
+	assert.Equal(t, ViewPersonas, c.currentView)
+}
+
 func TestContentModel_EnterOnRunningItem_EmitsLiveOutputActive(t *testing.T) {
 	deps := LaunchDependencies{
 		Manifest: &manifest.Manifest{},

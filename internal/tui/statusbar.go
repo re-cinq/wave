@@ -18,6 +18,8 @@ type StatusBarModel struct {
 	finishedDetailActive bool
 	runningInfoActive    bool
 	currentView          ViewType
+	guidedMode           bool
+	guidedState          GuidedState
 }
 
 // NewStatusBarModel creates a new status bar model with default context.
@@ -86,6 +88,17 @@ func (m StatusBarModel) View() string {
 		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [l] Logs  [Esc] Back"
 	} else if m.focusPane == FocusPaneRight {
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
+	} else if m.guidedMode && m.focusPane == FocusPaneLeft {
+		switch m.currentView {
+		case ViewHealth:
+			hintsText = "Tab: skip to fleet  ↑↓: navigate  r: recheck  q: quit"
+		case ViewSuggest:
+			hintsText = "Enter: launch  Space: select  s: skip  m: modify  Tab: fleet  q: quit"
+		case ViewPipelines:
+			hintsText = "Enter: attach  Tab: proposals  ↑↓: navigate  q: quit"
+		default:
+			hintsText = "Tab: switch view  ↑↓: navigate  q: quit"
+		}
 	} else if m.currentView == ViewHealth {
 		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
 	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneLeft {

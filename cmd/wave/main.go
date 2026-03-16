@@ -58,6 +58,7 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if shouldLaunchTUI(cmd) {
 			deps := tui.LaunchDependencies{}
+			deps.GuidedMode = true
 
 			// Attempt to load manifest for pipeline launching
 			manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")

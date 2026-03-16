@@ -71,6 +71,28 @@ func (m SuggestDetailModel) View() string {
 				sb.WriteString(fmt.Sprintf("     %s\n", mutedStyle.Render(p.Reason)))
 			}
 		}
+
+		// Show execution mode
+		hasSequence := false
+		hasParallel := false
+		for _, p := range m.multiSelected {
+			if p.Type == "sequence" {
+				hasSequence = true
+			} else if p.Type == "parallel" {
+				hasParallel = true
+			}
+		}
+		if hasSequence || hasParallel {
+			sb.WriteString("\n")
+			sb.WriteString(labelStyle.Render("Mode: "))
+			if hasParallel {
+				sb.WriteString("Parallel execution")
+			} else if hasSequence {
+				sb.WriteString("Sequential execution")
+			}
+			sb.WriteString("\n")
+		}
+
 		sb.WriteString("\n")
 		sb.WriteString(mutedStyle.Render("Press Enter to compose sequence"))
 
@@ -108,6 +130,32 @@ func (m SuggestDetailModel) View() string {
 	if p.Input != "" {
 		sb.WriteString(labelStyle.Render("Input: "))
 		sb.WriteString(p.Input)
+		sb.WriteString("\n")
+	}
+
+	// DAG preview for sequence/parallel proposals
+	if p.Type == "sequence" && len(p.Sequence) > 1 {
+		sb.WriteString("\n")
+		sb.WriteString(labelStyle.Render("Execution:"))
+		sb.WriteString("\n")
+		for i, step := range p.Sequence {
+			if i > 0 {
+				sb.WriteString(mutedStyle.Render("    ↓"))
+				sb.WriteString("\n")
+			}
+			sb.WriteString(fmt.Sprintf("  [%d] %s", i+1, step))
+			sb.WriteString("\n")
+		}
+	} else if p.Type == "parallel" && len(p.Sequence) > 1 {
+		sb.WriteString("\n")
+		sb.WriteString(labelStyle.Render("Execution (parallel):"))
+		sb.WriteString("\n")
+		for i, step := range p.Sequence {
+			sb.WriteString(fmt.Sprintf("  ├─ %s", step))
+			if i < len(p.Sequence)-1 {
+				sb.WriteString("\n")
+			}
+		}
 		sb.WriteString("\n")
 	}
 
