@@ -195,3 +195,35 @@ type ResumeRunResponse struct {
 	Status        string    `json:"status"`
 	StartedAt     time.Time `json:"started_at"`
 }
+
+// CompositionPipeline holds details about a pipeline that uses composition primitives.
+type CompositionPipeline struct {
+	Name        string              `json:"name"`
+	Description string              `json:"description,omitempty"`
+	Category    string              `json:"category,omitempty"`
+	StepCount   int                 `json:"step_count"`
+	Steps       []CompositionStep   `json:"steps"`
+	Skills      []string            `json:"skills,omitempty"`
+}
+
+// CompositionStep describes a step in a composition pipeline with its primitive type.
+type CompositionStep struct {
+	ID          string            `json:"id"`
+	Type        string            `json:"type"` // "iterate", "branch", "gate", "loop", "aggregate", "sub_pipeline", "persona"
+	SubPipeline string            `json:"sub_pipeline,omitempty"`
+	Persona     string            `json:"persona,omitempty"`
+	Details     map[string]string `json:"details,omitempty"`
+}
+
+// CompositionListResponse is the JSON response for the composition pipeline list API.
+type CompositionListResponse struct {
+	Pipelines []CompositionPipeline `json:"pipelines"`
+}
+
+// PipelineStartInfo holds pipeline metadata used by the enhanced start form.
+type PipelineStartInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Category    string `json:"category,omitempty"`
+	StepCount   int    `json:"step_count"`
+}

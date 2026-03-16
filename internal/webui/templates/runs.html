@@ -12,16 +12,23 @@
     <form id="pipeline-start-form" onsubmit="return startPipeline(event)">
         <div class="form-group">
             <label for="pipeline-select">Pipeline</label>
-            <select id="pipeline-select" name="pipeline" required>
+            <select id="pipeline-select" name="pipeline" required onchange="onPipelineSelect()">
                 <option value="">Select a pipeline...</option>
                 {{range .Pipelines}}
-                <option value="{{.}}">{{.}}</option>
+                <option value="{{.Name}}" data-description="{{.Description}}" data-steps="{{.StepCount}}" data-category="{{.Category}}">{{.Name}}</option>
                 {{end}}
             </select>
         </div>
+        <div id="pipeline-preview" class="pipeline-preview" style="display:none;">
+            <div id="pipeline-desc" class="pipeline-preview-desc"></div>
+            <div class="pipeline-preview-meta">
+                <span id="pipeline-steps" class="badge"></span>
+                <span id="pipeline-category" class="badge" style="display:none;"></span>
+            </div>
+        </div>
         <div class="form-group">
             <label for="pipeline-input">Input</label>
-            <textarea id="pipeline-input" name="input" rows="3" placeholder="Pipeline input..."></textarea>
+            <textarea id="pipeline-input" name="input" rows="3" placeholder="Pipeline input (e.g. issue URL, feature description)..."></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Start</button>
         <button type="button" class="btn" onclick="toggleStartForm()">Cancel</button>
@@ -73,4 +80,34 @@
 {{end}}
 {{define "scripts"}}
 <script src="/static/sse.js"></script>
+<script>
+function onPipelineSelect() {
+    var sel = document.getElementById('pipeline-select');
+    var opt = sel.options[sel.selectedIndex];
+    var preview = document.getElementById('pipeline-preview');
+    if (!opt || !opt.value) {
+        preview.style.display = 'none';
+        return;
+    }
+    var desc = opt.getAttribute('data-description');
+    var steps = opt.getAttribute('data-steps');
+    var category = opt.getAttribute('data-category');
+
+    var descEl = document.getElementById('pipeline-desc');
+    var stepsEl = document.getElementById('pipeline-steps');
+    var catEl = document.getElementById('pipeline-category');
+
+    descEl.textContent = desc || 'No description available.';
+    stepsEl.textContent = (steps || '0') + ' steps';
+
+    if (category) {
+        catEl.textContent = category;
+        catEl.style.display = '';
+    } else {
+        catEl.style.display = 'none';
+    }
+
+    preview.style.display = '';
+}
+</script>
 {{end}}
