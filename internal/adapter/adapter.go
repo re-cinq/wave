@@ -111,7 +111,7 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 		if err != nil {
 			return nil, fmt.Errorf("failed to create docker sandbox: %w", err)
 		}
-		defer sb.Cleanup(ctx)
+		defer func() { _ = sb.Cleanup(ctx) }()
 
 		sandboxCfg := sandbox.Config{
 			Backend:        sandbox.SandboxBackendDocker,

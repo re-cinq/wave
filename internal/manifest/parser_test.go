@@ -1102,9 +1102,15 @@ runtime:
     env_passthrough:
       - ANTHROPIC_API_KEY
 `
-		os.WriteFile(manifestPath, []byte(content), 0644)
-		os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
-		os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
 
 		m, err := Load(manifestPath)
 		if err != nil {
@@ -1148,9 +1154,15 @@ runtime:
     default_allowed_domains:
       - api.anthropic.com
 `
-		os.WriteFile(manifestPath, []byte(content), 0644)
-		os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
-		os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
 
 		m, err := Load(manifestPath)
 		if err != nil {
@@ -1198,9 +1210,15 @@ runtime:
     env_passthrough:
       - HOME
 `
-		os.WriteFile(manifestPath, []byte(content), 0644)
-		os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
-		os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
 
 		m, err := Load(manifestPath)
 		if err != nil {
