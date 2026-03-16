@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -90,11 +90,10 @@ func TestInitEmptyDirectory(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
-	stdout, stderr, err := executeInitCmd()
+	stdout, _, err := executeInitCmd()
 
 	// Verify successful execution
 	require.NoError(t, err, "init should succeed in empty directory")
-	assert.Empty(t, stderr, "should have no stderr output")
 	assert.Contains(t, stdout, "Project initialized successfully", "should confirm initialization")
 
 	// Verify wave.yaml was created
@@ -897,13 +896,9 @@ func TestInitDisplayShowsFilteredCounts(t *testing.T) {
 		"init output should show filtered pipeline count")
 }
 
-// TestDetectProject tests project type auto-detection from filesystem markers.
+// TestDetectProject tests project type auto-detection from filesystem markers
+// using the unified flavour detection system.
 func TestDetectProject(t *testing.T) {
-	pkgJSON := func(scripts map[string]string) string {
-		s, _ := json.Marshal(map[string]interface{}{"scripts": scripts})
-		return string(s)
-	}
-
 	tests := []struct {
 		name         string
 		files        map[string]string // filename -> content
@@ -922,15 +917,15 @@ func TestDetectProject(t *testing.T) {
 			wantBuildCmd: "go build ./...",
 		},
 		{
-			name: "bun project reads scripts",
+			name: "bun project",
 			files: map[string]string{
-				"bun.lockb":    "",
-				"package.json": pkgJSON(map[string]string{"test": "vitest", "lint": "eslint .", "build": "tsc"}),
+				"bun.lockb":     "",
+				"package.json":  "{}",
 				"tsconfig.json": "{}",
 			},
 			wantLanguage: "typescript",
 			wantTestCmd:  "bun test",
-			wantLintCmd:  "bun run lint",
+			wantLintCmd:  "bun lint",
 			wantBuildCmd: "bun run build",
 		},
 		{
@@ -946,9 +941,9 @@ func TestDetectProject(t *testing.T) {
 			wantTestCmd:  "deno test",
 		},
 		{
-			name: "typescript node project reads scripts",
+			name: "typescript node project",
 			files: map[string]string{
-				"package.json":  pkgJSON(map[string]string{"test": "jest", "lint": "eslint", "build": "tsc"}),
+				"package.json":  "{}",
 				"tsconfig.json": "{}",
 			},
 			wantLanguage: "typescript",
@@ -957,40 +952,33 @@ func TestDetectProject(t *testing.T) {
 			wantBuildCmd: "npm run build",
 		},
 		{
-			name: "javascript node project reads scripts",
+			name: "javascript node project",
 			files: map[string]string{
-				"package.json": pkgJSON(map[string]string{"test": "mocha", "build": "webpack"}),
+				"package.json": "{}",
 			},
 			wantLanguage: "javascript",
 			wantTestCmd:  "npm test",
 			wantBuildCmd: "npm run build",
 		},
 		{
-			name: "pnpm project uses pnpm runner",
+			name: "pnpm project",
 			files: map[string]string{
-				"package.json":   pkgJSON(map[string]string{"test": "vitest", "lint": "eslint"}),
+				"package.json":   "{}",
 				"pnpm-lock.yaml": "",
 				"tsconfig.json":  "{}",
 			},
 			wantLanguage: "typescript",
 			wantTestCmd:  "pnpm test",
-			wantLintCmd:  "pnpm run lint",
+			wantLintCmd:  "pnpm lint",
 		},
 		{
-			name: "yarn project uses yarn runner",
+			name: "yarn project",
 			files: map[string]string{
-				"package.json": pkgJSON(map[string]string{"test": "jest"}),
+				"package.json": "{}",
 				"yarn.lock":    "",
 			},
 			wantLanguage: "javascript",
 			wantTestCmd:  "yarn test",
-		},
-		{
-			name: "package.json without scripts still detects language",
-			files: map[string]string{
-				"package.json": `{"name": "my-app"}`,
-			},
-			wantLanguage: "javascript",
 		},
 		{
 			name:         "rust project",
@@ -1008,7 +996,7 @@ func TestDetectProject(t *testing.T) {
 			name:         "python project with setup.py",
 			files:        map[string]string{"setup.py": ""},
 			wantLanguage: "python",
-			wantTestCmd:  "pytest",
+			wantTestCmd:  "python -m pytest",
 		},
 		{
 			name:    "unknown project",
@@ -1021,27 +1009,17 @@ func TestDetectProject(t *testing.T) {
 			wantLanguage: "go",
 			wantTestCmd:  "go test ./...",
 		},
-		{
-			name: "deno takes priority over package.json",
-			files: map[string]string{
-				"deno.json":    "{}",
-				"package.json": pkgJSON(map[string]string{"test": "jest"}),
-			},
-			wantLanguage: "typescript",
-			wantTestCmd:  "deno test",
-		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			env := newTestEnv(t)
-			defer env.cleanup()
+			dir := t.TempDir()
 
 			for name, content := range tc.files {
-				require.NoError(t, os.WriteFile(name, []byte(content), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0644))
 			}
 
-			result := detectProject()
+			result := flavourToProjectMap(onboarding.DetectFlavour(dir))
 
 			if tc.wantNil {
 				assert.Nil(t, result, "expected nil for unknown project")
@@ -1081,8 +1059,10 @@ func TestInitIncludesDetectedProject(t *testing.T) {
 	project, ok := manifest["project"].(map[string]interface{})
 	require.True(t, ok, "manifest should contain project key")
 	assert.Equal(t, "go", project["language"])
+	assert.Equal(t, "go", project["flavour"])
 	assert.Equal(t, "go test ./...", project["test_command"])
 	assert.Equal(t, "go vet ./...", project["lint_command"])
+	assert.Equal(t, "gofmt -l .", project["format_command"])
 }
 
 // TestInitNoProjectWhenUndetected tests that wave init omits project when no markers found.

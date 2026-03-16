@@ -188,14 +188,14 @@ func (p *Project) ProjectVars() map[string]string {
 	if p.BuildCommand != "" {
 		vars["project.build_command"] = p.BuildCommand
 	}
-	if p.SourceGlob != "" {
-		vars["project.source_glob"] = p.SourceGlob
-	}
 	if p.Flavour != "" {
 		vars["project.flavour"] = p.Flavour
 	}
 	if p.FormatCommand != "" {
 		vars["project.format_command"] = p.FormatCommand
+	}
+	if p.SourceGlob != "" {
+		vars["project.source_glob"] = p.SourceGlob
 	}
 	if p.Skill != "" {
 		vars["project.skill"] = p.Skill
