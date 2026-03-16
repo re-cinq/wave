@@ -204,6 +204,11 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	return result, nil
 }
 
+// agentFilePath is the workspace-relative path used to store the agent .md
+// file when UseAgentFlag mode is active. It lives inside .claude/ so it stays
+// out of the project root and is excluded by the standard .gitignore rule.
+const agentFilePath = ".claude/wave-agent.md"
+
 func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
 	settingsDir := filepath.Join(workspacePath, ".claude")
 	if err := os.MkdirAll(settingsDir, 0755); err != nil {
@@ -251,58 +256,84 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write settings.json: %w", err)
 	}
 
-	// Build CLAUDE.md: base protocol + persona prompt + manifest-derived restrictions
-	claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
-	var claudeMd strings.Builder
-
 	// 0. Base protocol preamble (shared across all personas)
 	baseProtocolPath := filepath.Join(".wave", "personas", "base-protocol.md")
 	baseProtocol, err := os.ReadFile(baseProtocolPath)
 	if err != nil {
 		return fmt.Errorf("failed to read base protocol %s: %w", baseProtocolPath, err)
 	}
-	claudeMd.Write(baseProtocol)
-	claudeMd.WriteString("\n\n---\n\n")
 
 	// 1. Persona system prompt
+	var systemPrompt string
 	if cfg.SystemPrompt != "" {
-		claudeMd.WriteString(cfg.SystemPrompt)
+		systemPrompt = cfg.SystemPrompt
 	} else {
 		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
-			claudeMd.Write(data)
+			systemPrompt = string(data)
 		} else {
-			fmt.Fprintf(&claudeMd, "# %s\n\nYou are operating as the %s persona.\n", cfg.Persona, cfg.Persona)
+			systemPrompt = fmt.Sprintf("# %s\n\nYou are operating as the %s persona.\n", cfg.Persona, cfg.Persona)
 		}
 	}
 
 	// 1.5. Available skills section (resolved from hierarchical config)
 	if skillSection := buildSkillSection(cfg.ResolvedSkills); skillSection != "" {
-		claudeMd.WriteString(skillSection)
+		systemPrompt += skillSection
 	}
 
 	// 2. Contract compliance section (auto-generated from step contract)
+	contractSection := ""
 	if cfg.ContractPrompt != "" {
-		claudeMd.WriteString("\n\n---\n\n")
-		claudeMd.WriteString(cfg.ContractPrompt)
+		contractSection = cfg.ContractPrompt
 	}
 
 	// 2.5. Concurrency hint (when MaxConcurrentAgents > 1)
 	if hint := buildConcurrencyHint(cfg.MaxConcurrentAgents); hint != "" {
-		claudeMd.WriteString(hint)
+		contractSection += hint
 	}
 
 	// 3. Restriction section from manifest
 	restrictions := buildRestrictionSection(cfg)
-	if restrictions != "" {
-		claudeMd.WriteString(restrictions)
+
+	if cfg.UseAgentFlag {
+		// Agent mode: compile persona into a self-contained agent .md file with
+		// YAML frontmatter and pass it via --agent <path>. No CLAUDE.md needed.
+		spec := PersonaSpec{
+			Model:        cfg.Model,
+			AllowedTools: cfg.AllowedTools,
+			DenyTools:    cfg.DenyTools,
+		}
+		agentMd := PersonaToAgentMarkdown(
+			spec,
+			string(baseProtocol),
+			systemPrompt,
+			contractSection,
+			restrictions,
+		)
+		agentMdPath := filepath.Join(workspacePath, agentFilePath)
+		if err := os.WriteFile(agentMdPath, []byte(agentMd), 0644); err != nil {
+			return fmt.Errorf("failed to write agent .md: %w", err)
+		}
+	} else {
+		// Standard mode: assemble CLAUDE.md from layers
+		var claudeMd strings.Builder
+		claudeMd.Write(baseProtocol)
+		claudeMd.WriteString("\n\n---\n\n")
+		claudeMd.WriteString(systemPrompt)
+		if contractSection != "" {
+			claudeMd.WriteString("\n\n---\n\n")
+			claudeMd.WriteString(contractSection)
+		}
+		if restrictions != "" {
+			claudeMd.WriteString(restrictions)
+		}
+		claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
+		if err := os.WriteFile(claudeMdPath, []byte(claudeMd.String()), 0644); err != nil {
+			return fmt.Errorf("failed to write CLAUDE.md: %w", err)
+		}
 	}
 
-	if err := os.WriteFile(claudeMdPath, []byte(claudeMd.String()), 0644); err != nil {
-		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
-	}
-
-	// 3. Copy skill command files into workspace .claude/commands/
+	// Copy skill command files into workspace .claude/commands/
 	if cfg.SkillCommandsDir != "" {
 		if err := a.copySkillCommands(settingsDir, cfg.SkillCommandsDir); err != nil {
 			return fmt.Errorf("failed to copy skill commands: %w", err)
@@ -380,13 +411,19 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	}
 	args = append(args, "--model", model)
 
-	if len(cfg.AllowedTools) > 0 {
-		normalized := normalizeAllowedTools(cfg.AllowedTools)
-		args = append(args, "--allowedTools", strings.Join(normalized, ","))
-	}
+	if cfg.UseAgentFlag {
+		// Agent mode: pass --agent pointing to the compiled persona .md file.
+		// Permissions are embedded in the frontmatter; no separate allowedTools flag.
+		args = append(args, "--agent", agentFilePath)
+	} else {
+		if len(cfg.AllowedTools) > 0 {
+			normalized := normalizeAllowedTools(cfg.AllowedTools)
+			args = append(args, "--allowedTools", strings.Join(normalized, ","))
+		}
 
-	// Prevent personas from wasting turns on TodoWrite
-	args = append(args, "--disallowedTools", "TodoWrite")
+		// Prevent personas from wasting turns on TodoWrite
+		args = append(args, "--disallowedTools", "TodoWrite")
+	}
 
 	args = append(args, "--output-format", "stream-json")
 	args = append(args, "--verbose")
@@ -825,6 +862,93 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 			fmt.Fprintf(&b, "- `%s`\n", domain)
 		}
 		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+// PersonaSpec holds the subset of persona configuration needed by the agent
+// compiler. It is intentionally decoupled from manifest.Persona to avoid an
+// import cycle (adapter → manifest → adapter).
+//
+// Callers that hold a manifest.Persona should map it with PersonaSpecFromManifest
+// (defined in the commands package where the manifest import is already present)
+// or build the struct directly.
+type PersonaSpec struct {
+	// Model is the Claude model identifier (e.g. "opus", "sonnet").
+	// Leave empty to omit the frontmatter field and inherit the CLI default.
+	Model string
+
+	// AllowedTools is the list of tool names the agent may use.
+	AllowedTools []string
+
+	// DenyTools is the list of tool patterns the agent must not use.
+	DenyTools []string
+}
+
+// PersonaToAgentMarkdown compiles a PersonaSpec into a Claude Code agent .md
+// file with YAML frontmatter. The generated file can be passed directly to
+// `claude --agent <path>` to run the persona in agent mode.
+//
+// The frontmatter sets model, tools, disallowedTools, and permissionMode so
+// the agent is fully self-contained — no separate settings.json needed.
+//
+// The body is assembled from four layers (matching the runtime CLAUDE.md):
+//  1. baseProtocol — the shared Wave agent protocol preamble
+//  2. systemPrompt — the persona's role/responsibilities/constraints text
+//  3. contractSection — the auto-generated contract compliance section
+//  4. restrictions — the denied/allowed tools and network domain section
+func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, contractSection, restrictions string) string {
+	var b strings.Builder
+
+	// --- YAML frontmatter ---
+	b.WriteString("---\n")
+
+	if persona.Model != "" {
+		b.WriteString("model: ")
+		b.WriteString(persona.Model)
+		b.WriteString("\n")
+	}
+
+	if len(persona.AllowedTools) > 0 {
+		normalized := normalizeAllowedTools(persona.AllowedTools)
+		b.WriteString("tools:\n")
+		for _, tool := range normalized {
+			b.WriteString("  - ")
+			b.WriteString(tool)
+			b.WriteString("\n")
+		}
+	}
+
+	if len(persona.DenyTools) > 0 {
+		b.WriteString("disallowedTools:\n")
+		for _, tool := range persona.DenyTools {
+			b.WriteString("  - ")
+			b.WriteString(tool)
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString("permissionMode: dontAsk\n")
+	b.WriteString("---\n")
+
+	// --- Body sections ---
+	if baseProtocol != "" {
+		b.WriteString(baseProtocol)
+		b.WriteString("\n\n---\n\n")
+	}
+
+	if systemPrompt != "" {
+		b.WriteString(systemPrompt)
+	}
+
+	if contractSection != "" {
+		b.WriteString("\n\n---\n\n")
+		b.WriteString(contractSection)
+	}
+
+	if restrictions != "" {
+		b.WriteString(restrictions)
 	}
 
 	return b.String()
