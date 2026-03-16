@@ -510,14 +510,6 @@ func FormatTokenCount(tokens int) string {
 	return fmt.Sprintf("%.1fB", float64(tokens)/1_000_000_000.0)
 }
 
-// FormatFileCount formats a file count to human-readable form.
-func FormatFileCount(files int) string {
-	if files == 1 {
-		return "1 file"
-	}
-	return fmt.Sprintf("%d files", files)
-}
-
 // FormatDuration formats a duration in milliseconds to human-readable form.
 func FormatDuration(durationMs int64) string {
 	if durationMs < 0 {

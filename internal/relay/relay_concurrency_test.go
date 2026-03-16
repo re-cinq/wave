@@ -56,12 +56,12 @@ func TestRelayMonitor_ConcurrentGetMethods(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines * 2) // Two methods being tested
 
-	// Test concurrent GetContextWindow calls
+	// Test concurrent getContextWindow calls
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				contextWindow := m.GetContextWindow()
+				contextWindow := m.getContextWindow()
 				if contextWindow != 100000 {
 					t.Errorf("expected 100000, got %d", contextWindow)
 				}
@@ -69,13 +69,13 @@ func TestRelayMonitor_ConcurrentGetMethods(t *testing.T) {
 		}()
 	}
 
-	// Test concurrent GetTokenCount calls
+	// Test concurrent getTokenCount calls
 	testText := "This is a test string with multiple words for token counting."
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				tokenCount := m.GetTokenCount(testText)
+				tokenCount := m.getTokenCount(testText)
 				if tokenCount <= 0 {
 					t.Errorf("expected positive token count, got %d", tokenCount)
 				}
@@ -239,7 +239,7 @@ func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines * 2) // Two validation functions
 
-	// Test concurrent ValidateConfig calls
+	// Test concurrent validateConfig calls
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
@@ -248,9 +248,9 @@ func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
 				MinTokensToCompact: 1000,
 				ContextWindow:      200000,
 			}
-			err := ValidateConfig(cfg)
+			err := validateConfig(cfg)
 			if err != nil {
-				t.Errorf("ValidateConfig failed: %v", err)
+				t.Errorf("validateConfig failed: %v", err)
 			}
 		}()
 	}
@@ -260,11 +260,11 @@ func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			testErr := ErrCompactionFailed
-			if !IsCompactionError(testErr) {
-				t.Error("IsCompactionError should return true")
+			if !isCompactionError(testErr) {
+				t.Error("isCompactionError should return true")
 			}
-			if IsCheckpointError(testErr) {
-				t.Error("IsCheckpointError should return false")
+			if isCheckpointError(testErr) {
+				t.Error("isCheckpointError should return false")
 			}
 		}()
 	}
@@ -298,9 +298,9 @@ func TestRelayMonitor_StressTest(t *testing.T) {
 				case 1:
 					m.ShouldCompactWithWindow(160000+j, 200000, 80)
 				case 2:
-					m.GetContextWindow()
+					m.getContextWindow()
 				case 3:
-					m.GetTokenCount("test string")
+					m.getTokenCount("test string")
 				}
 			}
 		}(i)

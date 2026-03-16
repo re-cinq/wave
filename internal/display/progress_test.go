@@ -242,34 +242,6 @@ func TestSpinner(t *testing.T) {
 	}
 }
 
-func TestProgressAnimation(t *testing.T) {
-	pa := NewProgressAnimation("Loading", 100, 20)
-
-	// Start animation
-	pa.Start()
-	if !pa.spinner.IsRunning() {
-		t.Error("Expected spinner to be running")
-	}
-
-	// Update progress
-	pa.SetProgress(50)
-	if pa.progressBar.current != 50 {
-		t.Errorf("Expected progress to be 50, got %d", pa.progressBar.current)
-	}
-
-	// Render
-	result := pa.Render()
-	if !strings.Contains(result, "Loading") {
-		t.Errorf("Expected animation to contain label, got: %s", result)
-	}
-
-	// Stop animation
-	pa.Stop()
-	if pa.spinner.IsRunning() {
-		t.Error("Expected spinner to not be running after Stop()")
-	}
-}
-
 func TestFormatStepDuration(t *testing.T) {
 	tests := []struct {
 		name     string
