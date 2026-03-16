@@ -132,6 +132,7 @@ Available Commands:
   run         Run a pipeline (use --from-step to resume)
   serve       Start the web operations dashboard
   status      Show pipeline status
+  bench       Run and analyze SWE-bench benchmarks
   validate    Validate Wave configuration
 
 Flags:
@@ -169,6 +170,15 @@ Use "wave [command] --help" for more information about a command.
 | `wave artifacts [run-id]` | List and export pipeline artifacts |
 | `wave list [resource]` | List pipelines, personas, adapters, or runs |
 
+### Benchmarking
+
+| Command | Description |
+|---------|-------------|
+| `wave bench run` | Run a pipeline against SWE-bench tasks |
+| `wave bench compare` | Compare two benchmark result files |
+| `wave bench report` | Generate a summary from results |
+| `wave bench list` | List available benchmark datasets |
+
 ### Maintenance
 
 | Command | Description |
@@ -199,6 +209,19 @@ wave run test-gen "improve coverage for internal/cache"
 wave do "fix typo in README"
 wave do "add input validation to signup form"
 wave do "review for SQL injection" --persona auditor
+```
+
+### Benchmarking
+
+```bash
+# Run Wave pipeline against SWE-bench tasks
+wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve --limit 10
+
+# Run standalone Claude as baseline
+wave bench run --dataset swe-bench-lite.jsonl --mode claude --label baseline
+
+# Compare results
+wave bench compare --base baseline.json --compare wave-run.json
 ```
 
 ### Meta Pipeline Generation
@@ -419,6 +442,12 @@ A selection of the 46 built-in pipelines:
 | `impl-issue` | Implement a GitHub issue end-to-end |
 | `plan-scope` | Decompose epics into child issues |
 | `plan-research` | Research and report on issues |
+
+### Benchmarking
+
+| Pipeline | Description |
+|----------|-------------|
+| `bench-solve` | Solve a single SWE-bench task with minimal code changes |
 
 > **More pipelines:** `ops-hello-world`, `test-smoke`, `doc-explain`, `doc-onboard`, `impl-improve`, `audit-dead-code`, `audit-security`, `doc-changelog`, `plan-adr`, `wave-land`, `impl-recinq`, `ops-supervise`, plus Wave self-evolution (wave-\*) pipelines
 >
