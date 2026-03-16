@@ -20,7 +20,7 @@ chat_context:
     - "Security concerns and vulnerabilities"
 
 skills:
-  - golang
+  - "{{ project.skill }}"
   - gh-cli
   - software-design
 

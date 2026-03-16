@@ -6,7 +6,7 @@ metadata:
 
 skills:
   - wave
-  - golang
+  - "{{ project.skill }}"
 
 requires:
   tools:
