@@ -317,12 +317,22 @@ func skipWithoutBrowser(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Try to launch a browser to see if it works
+	// Try to launch a browser to see if it works.
 	result, err := adapter.Run(ctx, AdapterRunConfig{
 		Prompt: `[{"action": "navigate", "url": "about:blank"}]`,
 	})
 	if err != nil || result.ExitCode != 0 {
 		t.Skip("skipping: no browser binary available")
+	}
+
+	// Run returns ExitCode 0 even when commands fail (errors are in the
+	// result content). Check the actual command results for errors.
+	var results []BrowserResult
+	if err := json.Unmarshal([]byte(result.ResultContent), &results); err != nil {
+		t.Skip("skipping: could not parse browser result")
+	}
+	if len(results) == 0 || results[0].Status != "success" {
+		t.Skip("skipping: browser could not navigate (sandbox or binary issue)")
 	}
 }
 
