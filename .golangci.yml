@@ -7,10 +7,72 @@ linters:
     - wastedassign
     - gocritic
     - nolintlint
+    - depguard
   settings:
     nolintlint:
       require-explanation: true
       require-specific: true
+    depguard:
+      rules:
+        # Rule 1: Domain and Infrastructure packages must not import Presentation packages.
+        # Known violation excluded: doctor → onboarding (ADR-003).
+        no-presentation-reverse:
+          files:
+            - "**/internal/pipeline/**"
+            - "**/internal/adapter/**"
+            - "**/internal/contract/**"
+            - "**/internal/relay/**"
+            - "**/internal/deliverable/**"
+            - "**/internal/preflight/**"
+            - "**/internal/recovery/**"
+            - "**/internal/skill/**"
+            - "**/internal/defaults/**"
+            - "**/internal/suggest/**"
+            - "**/internal/state/**"
+            - "**/internal/workspace/**"
+            - "**/internal/worktree/**"
+            - "**/internal/forge/**"
+            - "**/internal/github/**"
+          deny:
+            - pkg: "github.com/recinq/wave/internal/display"
+              desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/tui"
+              desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/webui"
+              desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/onboarding"
+              desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
+        # Rule 2: Infrastructure packages must not import Domain packages.
+        infrastructure-no-domain:
+          files:
+            - "**/internal/state/**"
+            - "**/internal/workspace/**"
+            - "**/internal/worktree/**"
+            - "**/internal/forge/**"
+            - "**/internal/github/**"
+          deny:
+            - pkg: "github.com/recinq/wave/internal/pipeline"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/adapter"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/contract"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/relay"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/deliverable"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/preflight"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/recovery"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/skill"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/defaults"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/suggest"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
+            - pkg: "github.com/recinq/wave/internal/doctor"
+              desc: "Layer violation: Infrastructure must not import Domain (ADR-003)"
   exclusions:
     presets:
       - comments
