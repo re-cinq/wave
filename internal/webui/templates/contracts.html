@@ -1,0 +1,69 @@
+{{define "title"}} - Contracts{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Contracts</h1>
+</div>
+{{if .Contracts}}
+<div class="personas-grid">
+    {{range .Contracts}}
+    <div class="card persona-card">
+        <h3>{{.Name}}</h3>
+        {{if .Title}}<p class="persona-desc"><strong>{{.Title}}</strong></p>{{end}}
+        {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
+        <div class="persona-meta">
+            <span class="badge">{{.Filename}}</span>
+        </div>
+        <div style="margin-top: 0.5rem;">
+            <a href="#" class="btn" onclick="viewContract({{.Name | printf "%q"}}); return false;" aria-label="View schema for {{.Name}}">View Schema</a>
+        </div>
+        <div class="artifact-inline" id="contract-{{.Name}}" hidden></div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No contracts found. Add JSON schema files to <code>.wave/contracts/</code>.</p>
+</div>
+{{end}}
+{{end}}
+{{define "scripts"}}
+<script>
+function viewContract(name) {
+    var container = document.getElementById('contract-' + name);
+    if (!container) return;
+
+    if (!container.hidden) {
+        container.hidden = true;
+        return;
+    }
+
+    container.hidden = false;
+    container.innerHTML = '<span class="artifact-loading">Loading\u2026</span>';
+
+    fetch('/api/contracts/' + encodeURIComponent(name))
+        .then(function(resp) {
+            if (!resp.ok) {
+                return resp.json().then(function(e) { throw new Error(e.error || resp.statusText); });
+            }
+            return resp.json();
+        })
+        .then(function(data) {
+            container.innerHTML =
+                '<div class="artifact-viewer">' +
+                  '<pre class="artifact-content"><code>' + escapeHTML(data.schema) + '</code></pre>' +
+                '</div>';
+        })
+        .catch(function(err) {
+            container.innerHTML = '<div class="step-error">Failed to load contract: ' + escapeHTML(String(err)) + '</div>';
+        });
+}
+
+function escapeHTML(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+</script>
+{{end}}

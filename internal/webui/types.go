@@ -35,6 +35,7 @@ type RunDetailResponse struct {
 
 // StepDetail holds detail information about a pipeline step.
 type StepDetail struct {
+	RunID       string            `json:"run_id"`
 	StepID      string            `json:"step_id"`
 	Persona     string            `json:"persona"`
 	State       string            `json:"state"`

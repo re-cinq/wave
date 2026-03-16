@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,5 +113,476 @@ func TestGateExecutor_NilConfig(t *testing.T) {
 	err := gate.Execute(ctx, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for nil config")
+	}
+}
+
+// newTestGateExecutor builds a GateExecutor with an injected commandRunner for testing.
+func newTestGateExecutor(emitter event.EventEmitter, runner commandRunner) *GateExecutor {
+	g := NewGateExecutor(emitter, nil)
+	g.runner = runner
+	return g
+}
+
+// -- pr_merge gate tests --
+
+func TestGateExecutor_PRMerge_Auto(t *testing.T) {
+	emitter := &testEmitter{}
+	g := newTestGateExecutor(emitter, nil) // runner never called for Auto
+
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", Auto: true, PRNumber: 42, Repo: "owner/repo",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_PRMerge_MissingPRNumber(t *testing.T) {
+	g := newTestGateExecutor(nil, func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return nil, fmt.Errorf("should not be called")
+	})
+
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", Repo: "owner/repo", Interval: "10ms", Timeout: "50ms",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for missing pr_number")
+	}
+	if !strings.Contains(err.Error(), "pr_number") {
+		t.Errorf("expected error mentioning pr_number, got: %v", err)
+	}
+}
+
+func TestGateExecutor_PRMerge_Merged(t *testing.T) {
+	emitter := &testEmitter{}
+
+	callCount := 0
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		return []byte(`{"merged":true,"state":"closed"}`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 42, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+	if callCount == 0 {
+		t.Error("expected at least one CLI call")
+	}
+}
+
+func TestGateExecutor_PRMerge_ClosedWithoutMerge(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`{"merged":false,"state":"closed"}`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 7, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected failure when PR closed without merge")
+	}
+	if !strings.Contains(err.Error(), "closed without merging") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestGateExecutor_PRMerge_StillOpen_ThenMerged(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 3 {
+			return []byte(`{"merged":false,"state":"open"}`), nil
+		}
+		return []byte(`{"merged":true,"state":"closed"}`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 99, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if callCount < 3 {
+		t.Errorf("expected at least 3 calls, got %d", callCount)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_PRMerge_Timeout(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`{"merged":false,"state":"open"}`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "80ms",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Errorf("expected timeout error, got: %v", err)
+	}
+}
+
+func TestGateExecutor_PRMerge_ContextCancel(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`{"merged":false,"state":"open"}`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(40 * time.Millisecond)
+		cancel()
+	}()
+
+	err := g.Execute(ctx, &GateConfig{
+		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "5s",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected context cancellation")
+	}
+}
+
+func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 3 {
+			return nil, fmt.Errorf("transient CLI error")
+		}
+		return []byte(`{"merged":true,"state":"closed"}`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 5, Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_PRMerge_InvalidInterval(t *testing.T) {
+	g := NewGateExecutor(nil, nil)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
+		Interval: "not-a-duration",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid interval")
+	}
+}
+
+func TestGateExecutor_PRMerge_InvalidTimeout(t *testing.T) {
+	g := NewGateExecutor(nil, nil)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
+		Timeout: "not-a-duration",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid timeout")
+	}
+}
+
+// -- ci_pass gate tests --
+
+func TestGateExecutor_CIPass_Auto(t *testing.T) {
+	emitter := &testEmitter{}
+	g := newTestGateExecutor(emitter, nil)
+
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Auto: true, Repo: "owner/repo", Branch: "main",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_Success(t *testing.T) {
+	emitter := &testEmitter{}
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_Failure(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"completed","conclusion":"failure"}]`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected failure when CI fails")
+	}
+	if !strings.Contains(err.Error(), "failure") {
+		t.Errorf("expected failure message, got: %v", err)
+	}
+}
+
+func TestGateExecutor_CIPass_Cancelled(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"completed","conclusion":"cancelled"}]`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected failure for cancelled CI")
+	}
+}
+
+func TestGateExecutor_CIPass_Skipped_TreatedAsPass(t *testing.T) {
+	emitter := &testEmitter{}
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"completed","conclusion":"skipped"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("skipped conclusion should be treated as pass, got error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_InProgress_ThenSuccess(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 3 {
+			return []byte(`[{"status":"in_progress","conclusion":""}]`), nil
+		}
+		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if callCount < 3 {
+		t.Errorf("expected at least 3 calls, got %d", callCount)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_NoRuns_ThenSuccess(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 2 {
+			return []byte(`[]`), nil
+		}
+		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_Timeout(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"in_progress","conclusion":""}]`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "80ms",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Errorf("expected timeout error, got: %v", err)
+	}
+}
+
+func TestGateExecutor_CIPass_ContextCancel(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(`[{"status":"in_progress","conclusion":""}]`), nil
+	}
+
+	g := newTestGateExecutor(nil, runner)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(40 * time.Millisecond)
+		cancel()
+	}()
+
+	err := g.Execute(ctx, &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "5s",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected context cancellation")
+	}
+}
+
+func TestGateExecutor_CIPass_CLIError_Retries(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 3 {
+			return nil, fmt.Errorf("transient error")
+		}
+		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !emitter.hasState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_CIPass_InvalidJSON_Retries(t *testing.T) {
+	emitter := &testEmitter{}
+	callCount := 0
+
+	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		callCount++
+		if callCount < 2 {
+			return []byte(`not json`), nil
+		}
+		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
+	}
+
+	g := newTestGateExecutor(emitter, runner)
+	err := g.Execute(context.Background(), &GateConfig{
+		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
+		Interval: "10ms", Timeout: "2s",
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// -- parsePollGateTiming tests --
+
+func TestParsePollGateTiming_Defaults(t *testing.T) {
+	interval, timeout, err := parsePollGateTiming(&GateConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if interval != 30*time.Second {
+		t.Errorf("expected 30s interval, got %v", interval)
+	}
+	if timeout != 30*time.Minute {
+		t.Errorf("expected 30m timeout, got %v", timeout)
+	}
+}
+
+func TestParsePollGateTiming_Custom(t *testing.T) {
+	interval, timeout, err := parsePollGateTiming(&GateConfig{
+		Interval: "1m",
+		Timeout:  "2h",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if interval != time.Minute {
+		t.Errorf("expected 1m interval, got %v", interval)
+	}
+	if timeout != 2*time.Hour {
+		t.Errorf("expected 2h timeout, got %v", timeout)
+	}
+}
+
+func TestParsePollGateTiming_InvalidInterval(t *testing.T) {
+	_, _, err := parsePollGateTiming(&GateConfig{Interval: "bad"})
+	if err == nil {
+		t.Fatal("expected error for invalid interval")
+	}
+}
+
+func TestParsePollGateTiming_InvalidTimeout(t *testing.T) {
+	_, _, err := parsePollGateTiming(&GateConfig{Timeout: "bad"})
+	if err == nil {
+		t.Fatal("expected error for invalid timeout")
 	}
 }
