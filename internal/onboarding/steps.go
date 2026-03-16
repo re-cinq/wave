@@ -99,7 +99,7 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 	cwd, _ := os.Getwd()
 	flavour := DetectFlavour(cwd)
 
-	var testCmd, lintCmd, buildCmd, formatCmd, language, sourceGlob, flavourName string
+	var testCmd, lintCmd, buildCmd, formatCmd, language, sourceGlob, flavourName, skill string
 	if flavour != nil {
 		testCmd = flavour.TestCommand
 		lintCmd = flavour.LintCommand
@@ -108,6 +108,7 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		language = flavour.Language
 		sourceGlob = flavour.SourceGlob
 		flavourName = flavour.Flavour
+		skill = flavour.Skill
 	}
 
 	// Pre-fill from existing manifest if reconfiguring
@@ -132,6 +133,9 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}
 		if cfg.Existing.Project.Flavour != "" {
 			flavourName = cfg.Existing.Project.Flavour
+		}
+		if cfg.Existing.Project.Skill != "" {
+			skill = cfg.Existing.Project.Skill
 		}
 	}
 
@@ -171,6 +175,7 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 			"language":       language,
 			"source_glob":    sourceGlob,
 			"flavour":        flavourName,
+			"skill":          skill,
 		},
 	}, nil
 }
