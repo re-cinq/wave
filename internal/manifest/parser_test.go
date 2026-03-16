@@ -918,3 +918,158 @@ func TestLoadWithSkillStore(t *testing.T) {
 		}
 	})
 }
+
+// makeTestPersonaEnv creates a temp directory with a system prompt file and returns
+// the adapters map, personas map, basePath, and filePath suitable for calling
+// validatePersonasListWithFile directly.
+func makeTestPersonaEnv(t *testing.T, tokenScopes []string) (map[string]Persona, map[string]Adapter, string, string) {
+	t.Helper()
+	tmpDir := t.TempDir()
+
+	promptFile := "prompts/persona.md"
+	promptPath := filepath.Join(tmpDir, promptFile)
+	if err := os.MkdirAll(filepath.Dir(promptPath), 0755); err != nil {
+		t.Fatalf("failed to create prompt dir: %v", err)
+	}
+	if err := os.WriteFile(promptPath, []byte("# Persona"), 0644); err != nil {
+		t.Fatalf("failed to write prompt file: %v", err)
+	}
+
+	adapters := map[string]Adapter{
+		"claude": {Binary: "claude", Mode: "headless"},
+	}
+	personas := map[string]Persona{
+		"navigator": {
+			Adapter:          "claude",
+			SystemPromptFile: promptFile,
+			TokenScopes:      tokenScopes,
+		},
+	}
+
+	filePath := filepath.Join(tmpDir, "wave.yaml")
+	return personas, adapters, tmpDir, filePath
+}
+
+func TestValidatePersonaTokenScopes(t *testing.T) {
+	t.Run("valid token_scopes are accepted", func(t *testing.T) {
+		validCases := []struct {
+			name   string
+			scopes []string
+		}{
+			{"single read scope", []string{"issues:read"}},
+			{"single write scope", []string{"pulls:write"}},
+			{"single admin scope", []string{"repos:admin"}},
+			{"multiple valid scopes", []string{"issues:read", "pulls:write", "repos:admin"}},
+			{"all canonical resources", []string{"issues:read", "pulls:read", "repos:read", "actions:read", "packages:read"}},
+			{"scope with env var override", []string{"issues:write@GH_TOKEN"}},
+			{"write and admin scopes", []string{"actions:write", "packages:admin"}},
+		}
+
+		for _, tc := range validCases {
+			t.Run(tc.name, func(t *testing.T) {
+				personas, adapters, basePath, filePath := makeTestPersonaEnv(t, tc.scopes)
+				errs := validatePersonasListWithFile(personas, adapters, basePath, filePath)
+				if len(errs) != 0 {
+					t.Errorf("expected no errors for scopes %v, got: %v", tc.scopes, errs)
+				}
+			})
+		}
+	})
+
+	t.Run("invalid token_scopes are rejected", func(t *testing.T) {
+		invalidCases := []struct {
+			name            string
+			scopes          []string
+			expectedInError string
+		}{
+			{
+				name:            "bare word without colon",
+				scopes:          []string{"invalid"},
+				expectedInError: "invalid",
+			},
+			{
+				name:            "leading colon missing resource",
+				scopes:          []string{":read"},
+				expectedInError: ":read",
+			},
+			{
+				name:            "unknown permission level",
+				scopes:          []string{"issues:unknown"},
+				expectedInError: "issues:unknown",
+			},
+			{
+				name:            "trailing colon missing permission",
+				scopes:          []string{"issues:"},
+				expectedInError: "issues:",
+			},
+			{
+				name:            "empty string scope",
+				scopes:          []string{""},
+				expectedInError: "token_scopes",
+			},
+			{
+				name:            "completely invalid format",
+				scopes:          []string{"no-colon-at-all"},
+				expectedInError: "no-colon-at-all",
+			},
+		}
+
+		for _, tc := range invalidCases {
+			t.Run(tc.name, func(t *testing.T) {
+				personas, adapters, basePath, filePath := makeTestPersonaEnv(t, tc.scopes)
+				errs := validatePersonasListWithFile(personas, adapters, basePath, filePath)
+				if len(errs) == 0 {
+					t.Errorf("expected validation error for scopes %v, got none", tc.scopes)
+					return
+				}
+				errMsg := errs[0].Error()
+				if !strings.Contains(errMsg, tc.expectedInError) {
+					t.Errorf("expected error to contain %q, got: %s", tc.expectedInError, errMsg)
+				}
+			})
+		}
+	})
+
+	t.Run("missing token_scopes field is accepted (backward compat)", func(t *testing.T) {
+		nilScopesCases := []struct {
+			name   string
+			scopes []string
+		}{
+			{"nil scopes", nil},
+			{"empty scopes slice", []string{}},
+		}
+
+		for _, tc := range nilScopesCases {
+			t.Run(tc.name, func(t *testing.T) {
+				personas, adapters, basePath, filePath := makeTestPersonaEnv(t, tc.scopes)
+				errs := validatePersonasListWithFile(personas, adapters, basePath, filePath)
+				if len(errs) != 0 {
+					t.Errorf("expected no errors for absent token_scopes, got: %v", errs)
+				}
+			})
+		}
+	})
+
+	t.Run("error references persona name and field", func(t *testing.T) {
+		personas, adapters, basePath, filePath := makeTestPersonaEnv(t, []string{"bad-scope"})
+		errs := validatePersonasListWithFile(personas, adapters, basePath, filePath)
+		if len(errs) == 0 {
+			t.Fatal("expected at least one validation error")
+		}
+		errMsg := errs[0].Error()
+		if !strings.Contains(errMsg, "token_scopes") {
+			t.Errorf("expected error to reference 'token_scopes' field, got: %s", errMsg)
+		}
+		if !strings.Contains(errMsg, "navigator") {
+			t.Errorf("expected error to reference persona name 'navigator', got: %s", errMsg)
+		}
+	})
+
+	t.Run("multiple invalid scopes produce multiple errors", func(t *testing.T) {
+		personas, adapters, basePath, filePath := makeTestPersonaEnv(t, []string{"bad-one", "also:bad"})
+		errs := validatePersonasListWithFile(personas, adapters, basePath, filePath)
+		if len(errs) < 2 {
+			t.Errorf("expected at least 2 errors for 2 invalid scopes, got %d: %v", len(errs), errs)
+		}
+	})
+}

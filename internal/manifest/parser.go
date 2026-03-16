@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
@@ -271,6 +272,20 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 					Reason:     fmt.Sprintf("file '%s' does not exist", persona.SystemPromptFile),
 					Suggestion: fmt.Sprintf("Create the file at '%s' or update the path", promptPath),
 				})
+			}
+		}
+
+		// Validate token_scopes syntax
+		if len(persona.TokenScopes) > 0 {
+			if scopeErrs := scope.ValidateScopes(persona.TokenScopes); len(scopeErrs) > 0 {
+				for _, scopeErr := range scopeErrs {
+					errs = append(errs, &ValidationError{
+						File:       filePath,
+						Field:      fmt.Sprintf("personas.%s.token_scopes", name),
+						Reason:     scopeErr.Error(),
+						Suggestion: "Use format '<resource>:<permission>' where resource is one of: issues, pulls, repos, actions, packages and permission is: read, write, admin",
+					})
+				}
 			}
 		}
 	}

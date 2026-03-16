@@ -267,3 +267,116 @@ func TestBuildManifest_NoPersonas(t *testing.T) {
 	_, ok := m["personas"]
 	assert.False(t, ok, "should not have personas section when no persona configs")
 }
+
+func TestBuildManifest_TokenScopes_WritePersona(t *testing.T) {
+	cfg := WizardConfig{
+		Workspace: ".wave/workspaces",
+		PersonaConfigs: map[string]manifest.Persona{
+			"craftsman": {
+				Description: "Implementation specialist",
+				Temperature: 0.2,
+				Permissions: manifest.Permissions{
+					AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
+					Deny:         []string{},
+				},
+			},
+		},
+	}
+	result := &WizardResult{
+		Adapter: "claude",
+		Model:   "opus",
+	}
+
+	m := buildManifest(cfg, result)
+
+	personas := m["personas"].(map[string]interface{})
+	craftsman := personas["craftsman"].(map[string]interface{})
+	scopes, ok := craftsman["token_scopes"]
+	require.True(t, ok, "write-capable persona must have token_scopes in generated manifest")
+	assert.Equal(t, []string{"issues:read", "pulls:write", "repos:write"}, scopes)
+}
+
+func TestBuildManifest_TokenScopes_ReadOnlyPersona(t *testing.T) {
+	cfg := WizardConfig{
+		Workspace: ".wave/workspaces",
+		PersonaConfigs: map[string]manifest.Persona{
+			"navigator": {
+				Description: "Strategic planner",
+				Temperature: 0.3,
+				Permissions: manifest.Permissions{
+					AllowedTools: []string{"Read", "Glob", "Grep"},
+					Deny:         []string{"Bash(*)"},
+				},
+			},
+		},
+	}
+	result := &WizardResult{
+		Adapter: "claude",
+		Model:   "opus",
+	}
+
+	m := buildManifest(cfg, result)
+
+	personas := m["personas"].(map[string]interface{})
+	nav := personas["navigator"].(map[string]interface{})
+	scopes, ok := nav["token_scopes"]
+	require.True(t, ok, "read-only persona must have read token_scopes in generated manifest")
+	assert.Equal(t, []string{"issues:read", "pulls:read"}, scopes)
+}
+
+func TestBuildManifest_TokenScopes_NoForgeTools(t *testing.T) {
+	cfg := WizardConfig{
+		Workspace: ".wave/workspaces",
+		PersonaConfigs: map[string]manifest.Persona{
+			"analyst": {
+				Description: "Data analyst with no forge tools",
+				Temperature: 0.1,
+				Permissions: manifest.Permissions{
+					AllowedTools: []string{},
+					Deny:         []string{"Bash(*)", "Write(*)", "Edit(*)"},
+				},
+			},
+		},
+	}
+	result := &WizardResult{
+		Adapter: "claude",
+		Model:   "opus",
+	}
+
+	m := buildManifest(cfg, result)
+
+	personas := m["personas"].(map[string]interface{})
+	analyst := personas["analyst"].(map[string]interface{})
+	_, ok := analyst["token_scopes"]
+	assert.False(t, ok, "persona with no forge-relevant tools must not have token_scopes")
+}
+
+func TestInferTokenScopes_BashTools(t *testing.T) {
+	pcfg := manifest.Persona{
+		Permissions: manifest.Permissions{
+			AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
+		},
+	}
+	scopes := inferTokenScopes(pcfg)
+	assert.Equal(t, []string{"issues:read", "pulls:write", "repos:write"}, scopes)
+}
+
+func TestInferTokenScopes_ReadOnlyTools(t *testing.T) {
+	pcfg := manifest.Persona{
+		Permissions: manifest.Permissions{
+			AllowedTools: []string{"Read", "Glob", "Grep"},
+		},
+	}
+	scopes := inferTokenScopes(pcfg)
+	assert.Equal(t, []string{"issues:read", "pulls:read"}, scopes)
+}
+
+func TestInferTokenScopes_NoRelevantTools(t *testing.T) {
+	pcfg := manifest.Persona{
+		Permissions: manifest.Permissions{
+			AllowedTools: []string{},
+		},
+	}
+	scopes := inferTokenScopes(pcfg)
+	assert.Nil(t, scopes)
+}
