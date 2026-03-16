@@ -100,9 +100,13 @@ func (wm *workspaceManager) Create(cfg WorkspaceConfig, templateVars map[string]
 
 		// Set permissions after copy so readonly mounts don't block the copy
 		if mount.Mode == "readonly" {
-			os.Chmod(target, 0555)
+			if err := os.Chmod(target, 0555); err != nil {
+				return "", fmt.Errorf("failed to set readonly permissions on mount: %w", err)
+			}
 		} else {
-			os.Chmod(target, 0755)
+			if err := os.Chmod(target, 0755); err != nil {
+				return "", fmt.Errorf("failed to set permissions on mount: %w", err)
+			}
 		}
 	}
 
@@ -197,8 +201,7 @@ func copyRecursive(src, dst string) error {
 			if info.Size() > 10*1024*1024 {
 				return nil
 			}
-			copyFile(path, targetPath)
-			return nil
+			return copyFile(path, targetPath)
 		})
 	}
 
