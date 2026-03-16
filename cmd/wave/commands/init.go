@@ -3,15 +3,16 @@ package commands
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/pipeline"
@@ -276,6 +277,11 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		return runWizardInit(cmd, opts)
 	}
 
+	// Cold-start: ensure git repo exists
+	if err := ensureGitRepo(cmd.ErrOrStderr()); err != nil {
+		return err
+	}
+
 	// Get absolute path for clearer error messages
 	absOutputPath, err := filepath.Abs(opts.OutputPath)
 	if err != nil {
@@ -323,14 +329,36 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		}
 	}
 
-	project := detectProject()
+	// Detect project flavour
+	cwd, _ := os.Getwd()
+	flavour := onboarding.DetectFlavour(cwd)
+	project := flavourToProjectMap(flavour)
+
 	// Get filtered assets based on --all flag (needed for persona configs in manifest)
 	assets, err := getFilteredAssets(cmd, opts)
 	if err != nil {
 		return err
 	}
 
+	// Filter personas by detected forge
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	assets.personaConfigs = filterPersonasByForge(assets.personaConfigs, forgeInfo.Type)
+
+	// Extract project metadata for manifest name/description
+	meta := onboarding.ExtractProjectMetadata(cwd)
+
 	manifest := createDefaultManifest(opts.Adapter, opts.Workspace, project, assets.personaConfigs)
+
+	// Override default metadata with extracted values
+	if metaMap, ok := manifest["metadata"].(map[string]interface{}); ok {
+		if meta.Name != "" {
+			metaMap["name"] = meta.Name
+		}
+		if meta.Description != "" {
+			metaMap["description"] = meta.Description
+		}
+	}
+
 	manifestData, err := yaml.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
@@ -365,7 +393,13 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		return fmt.Errorf("failed to create example prompts in .wave/prompts/: %w", err)
 	}
 
+	// Cold-start: create initial commit if no commits exist
+	if err := createInitialCommit(cmd.ErrOrStderr(), opts.OutputPath); err != nil {
+		return err
+	}
+
 	printInitSuccess(cmd, opts.OutputPath, assets)
+	suggestFirstRun(cmd.OutOrStdout(), flavour)
 	return nil
 }
 
@@ -383,7 +417,9 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 	}
 
 	// Get filtered assets
-	project := detectProject()
+	cwd, _ := os.Getwd()
+	flavour := onboarding.DetectFlavour(cwd)
+	project := flavourToProjectMap(flavour)
 	assets, err := getFilteredAssets(cmd, opts)
 	if err != nil {
 		return err
@@ -844,128 +880,6 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "\n")
 }
 
-// detectProject probes the current directory for project type markers and returns
-// a map suitable for inclusion as the "project" key in the manifest YAML.
-// Returns nil if no known project type is detected.
-func detectProject() map[string]interface{} {
-	fileExists := func(name string) bool {
-		_, err := os.Stat(name)
-		return err == nil
-	}
-
-	// Check markers in priority order — first match wins
-	switch {
-	case fileExists("go.mod"):
-		return map[string]interface{}{
-			"language":      "go",
-			"test_command":  "go test ./...",
-			"lint_command":  "go vet ./...",
-			"build_command": "go build ./...",
-			"source_glob":   "*.go",
-		}
-
-	case fileExists("deno.json") || fileExists("deno.jsonc"):
-		return map[string]interface{}{
-			"language":      "typescript",
-			"test_command":  "deno test",
-			"lint_command":  "deno lint",
-			"build_command": "deno compile",
-			"source_glob":   "*.{ts,tsx}",
-		}
-
-	case fileExists("package.json"):
-		return detectNodeProject()
-
-	case fileExists("Cargo.toml"):
-		return map[string]interface{}{
-			"language":      "rust",
-			"test_command":  "cargo test",
-			"lint_command":  "cargo clippy",
-			"build_command": "cargo build",
-			"source_glob":   "*.rs",
-		}
-
-	case fileExists("pyproject.toml") || fileExists("setup.py"):
-		return map[string]interface{}{
-			"language":     "python",
-			"test_command": "pytest",
-			"lint_command": "ruff check .",
-			"source_glob":  "*.py",
-		}
-	}
-
-	return nil
-}
-
-// detectNodeProject reads package.json to determine the package manager and
-// extract actual script commands for test, lint, and build.
-func detectNodeProject() map[string]interface{} {
-	fileExists := func(name string) bool {
-		_, err := os.Stat(name)
-		return err == nil
-	}
-
-	// Determine package manager from lockfiles
-	runner := "npm"
-	switch {
-	case fileExists("bun.lockb") || fileExists("bun.lock"):
-		runner = "bun"
-	case fileExists("pnpm-lock.yaml"):
-		runner = "pnpm"
-	case fileExists("yarn.lock"):
-		runner = "yarn"
-	}
-
-	// Determine language from tsconfig presence
-	language := "javascript"
-	sourceGlob := "*.{js,jsx}"
-	if fileExists("tsconfig.json") {
-		language = "typescript"
-		sourceGlob = "*.{ts,tsx}"
-	}
-
-	result := map[string]interface{}{
-		"language":    language,
-		"source_glob": sourceGlob,
-	}
-
-	// Read package.json scripts to derive actual commands
-	data, err := os.ReadFile("package.json")
-	if err != nil {
-		return result
-	}
-
-	var pkg struct {
-		Scripts map[string]string `json:"scripts"`
-	}
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return result
-	}
-
-	runCmd := func(script string) string {
-		if runner == "npm" {
-			return "npm run " + script
-		}
-		return runner + " run " + script
-	}
-
-	// Map well-known script names to project commands
-	if _, ok := pkg.Scripts["test"]; ok {
-		if runner == "npm" {
-			result["test_command"] = "npm test"
-		} else {
-			result["test_command"] = runner + " test"
-		}
-	}
-	if _, ok := pkg.Scripts["lint"]; ok {
-		result["lint_command"] = runCmd("lint")
-	}
-	if _, ok := pkg.Scripts["build"]; ok {
-		result["build_command"] = runCmd("build")
-	}
-
-	return result
-}
 
 // buildPersonaManifest converts parsed persona configs into the map[string]interface{}
 // structure expected by the manifest YAML. It sets adapter and system_prompt_file
@@ -1161,8 +1075,147 @@ func isInitInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
+// ensureGitRepo checks if the current directory is a git repository and
+// initializes one if not. Returns nil if .git already exists.
+func ensureGitRepo(w io.Writer) error {
+	if _, err := os.Stat(".git"); err == nil {
+		return nil // already a git repo
+	}
+
+	fmt.Fprintf(w, "  Initializing git repository...\n")
+	cmd := exec.Command("git", "init")
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to initialize git repository: %w", err)
+	}
+	return nil
+}
+
+// createInitialCommit creates an initial commit with wave files if no commits
+// exist yet. This ensures worktree operations have at least one commit to work with.
+func createInitialCommit(w io.Writer, outputPath string) error {
+	// Check if any commits exist
+	check := exec.Command("git", "rev-parse", "HEAD")
+	check.Stdout = io.Discard
+	check.Stderr = io.Discard
+	if check.Run() == nil {
+		return nil // commits already exist
+	}
+
+	fmt.Fprintf(w, "  Creating initial commit...\n")
+
+	// Stage wave files specifically (not git add -A)
+	add := exec.Command("git", "add", outputPath, ".wave/")
+	add.Stdout = io.Discard
+	add.Stderr = io.Discard
+	if err := add.Run(); err != nil {
+		return fmt.Errorf("failed to stage wave files: %w", err)
+	}
+
+	commit := exec.Command("git", "commit", "-m", "chore: initialize wave project")
+	commit.Stdout = io.Discard
+	commit.Stderr = io.Discard
+	if err := commit.Run(); err != nil {
+		return fmt.Errorf("failed to create initial commit: %w", err)
+	}
+	return nil
+}
+
+// flavourToProjectMap converts a FlavourInfo into the map[string]interface{}
+// format expected by createDefaultManifest.
+func flavourToProjectMap(fi *onboarding.FlavourInfo) map[string]interface{} {
+	if fi == nil {
+		return nil
+	}
+	m := map[string]interface{}{}
+	if fi.Flavour != "" {
+		m["flavour"] = fi.Flavour
+	}
+	if fi.Language != "" {
+		m["language"] = fi.Language
+	}
+	if fi.TestCommand != "" {
+		m["test_command"] = fi.TestCommand
+	}
+	if fi.LintCommand != "" {
+		m["lint_command"] = fi.LintCommand
+	}
+	if fi.BuildCommand != "" {
+		m["build_command"] = fi.BuildCommand
+	}
+	if fi.FormatCommand != "" {
+		m["format_command"] = fi.FormatCommand
+	}
+	if fi.SourceGlob != "" {
+		m["source_glob"] = fi.SourceGlob
+	}
+	return m
+}
+
+// knownForgePrefixes lists the prefixes used by forge-specific personas/pipelines.
+var knownForgePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
+
+// forgeTypeToPrefix maps forge types to their naming convention prefix.
+var forgeTypeToPrefix = map[forge.ForgeType]string{
+	forge.ForgeGitHub:    "gh",
+	forge.ForgeGitLab:    "gl",
+	forge.ForgeBitbucket: "bb",
+	forge.ForgeGitea:     "gt",
+}
+
+// filterPersonasByForge filters persona configs to only include personas
+// matching the detected forge type. Personas without a forge prefix are always included.
+func filterPersonasByForge(configs map[string]manifest.Persona, ft forge.ForgeType) map[string]manifest.Persona {
+	if ft == forge.ForgeUnknown {
+		return configs // no filtering when forge is unknown
+	}
+
+	prefix, ok := forgeTypeToPrefix[ft]
+	if !ok {
+		return configs
+	}
+
+	result := make(map[string]manifest.Persona)
+	for name, cfg := range configs {
+		hasKnownPrefix := false
+		for _, fp := range knownForgePrefixes {
+			if strings.HasPrefix(name, fp) {
+				hasKnownPrefix = true
+				break
+			}
+		}
+		// Include personas that match the forge prefix or have no forge prefix
+		if strings.HasPrefix(name, prefix+"-") || !hasKnownPrefix {
+			result[name] = cfg
+		}
+	}
+	return result
+}
+
+// suggestFirstRun prints a suggestion for what to run after init.
+func suggestFirstRun(w io.Writer, flavour *onboarding.FlavourInfo) {
+	if flavour == nil || flavour.SourceGlob == "" {
+		fmt.Fprintf(w, "  Suggestion: Run 'wave run ops-bootstrap' to scaffold your project\n")
+		return
+	}
+
+	// Check if source files exist matching the glob
+	matches, _ := filepath.Glob(flavour.SourceGlob)
+	if len(matches) == 0 {
+		fmt.Fprintf(w, "  Suggestion: Run 'wave run ops-bootstrap' to scaffold your project\n")
+	} else {
+		fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-dx' to analyze your codebase\n")
+	}
+}
+
 // runWizardInit runs the interactive onboarding wizard for first-time setup.
 func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
+	// Cold-start: ensure git repo exists
+	if err := ensureGitRepo(cmd.ErrOrStderr()); err != nil {
+		return err
+	}
+
 	// Print Wave logo
 	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
 
@@ -1243,6 +1296,11 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
 			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
 		}
+	}
+
+	// Cold-start: create initial commit if no commits exist
+	if err := createInitialCommit(cmd.ErrOrStderr(), opts.OutputPath); err != nil {
+		return err
 	}
 
 	printWizardSuccess(cmd, opts.OutputPath, result)
