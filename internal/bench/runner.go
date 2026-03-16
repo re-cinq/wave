@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -43,6 +44,8 @@ type RunConfig struct {
 	TaskTimeout time.Duration
 	// KeepWorkspaces preserves task worktrees after completion.
 	KeepWorkspaces bool
+	// Concurrency is the number of tasks to run in parallel. Defaults to 1.
+	Concurrency int
 }
 
 // PipelineRunner is the interface for executing a single pipeline against a task.
@@ -246,43 +249,77 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 		Mode:      mode,
 		RunLabel:  cfg.RunLabel,
 		StartedAt: time.Now(),
-		Results:   make([]BenchResult, 0, len(tasks)),
+		Results:   make([]BenchResult, len(tasks)),
 	}
+
+	concurrency := cfg.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
+
+	// Use a semaphore to limit concurrency.
+	sem := make(chan struct{}, concurrency)
+	var mu sync.Mutex
+	var completed int
+	var wg sync.WaitGroup
 
 	for i, task := range tasks {
 		select {
 		case <-ctx.Done():
-			report.CompletedAt = time.Now()
-			report.DurationMs = time.Since(report.StartedAt).Milliseconds()
-			report.Tally()
-			return report, ctx.Err()
+			break
 		default:
 		}
 
-		taskCtx := ctx
-		var cancel context.CancelFunc
-		if cfg.TaskTimeout > 0 {
-			taskCtx, cancel = context.WithTimeout(ctx, cfg.TaskTimeout)
-		}
+		wg.Add(1)
+		go func(idx int, t BenchTask) {
+			defer wg.Done()
 
-		fmt.Fprintf(os.Stderr, "[%d/%d] Running task %s (%s)...\n", i+1, len(tasks), task.ID, mode)
-		result, err := runner.RunTask(taskCtx, task, cfg)
-		if cancel != nil {
-			cancel()
-		}
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
 
-		if err != nil {
-			// Runner-level error (not task failure)
-			report.Results = append(report.Results, BenchResult{
-				TaskID:   task.ID,
-				Pipeline: cfg.Pipeline,
-				Status:   StatusError,
-				Error:    err.Error(),
-			})
-		} else {
-			report.Results = append(report.Results, *result)
-		}
+			select {
+			case <-ctx.Done():
+				report.Results[idx] = BenchResult{
+					TaskID:   t.ID,
+					Pipeline: cfg.Pipeline,
+					Status:   StatusError,
+					Error:    "cancelled",
+				}
+				return
+			default:
+			}
+
+			mu.Lock()
+			completed++
+			n := completed
+			mu.Unlock()
+			fmt.Fprintf(os.Stderr, "[%d/%d] Running task %s (%s)...\n", n, len(tasks), t.ID, mode)
+
+			taskCtx := ctx
+			var cancel context.CancelFunc
+			if cfg.TaskTimeout > 0 {
+				taskCtx, cancel = context.WithTimeout(ctx, cfg.TaskTimeout)
+			}
+
+			result, err := runner.RunTask(taskCtx, t, cfg)
+			if cancel != nil {
+				cancel()
+			}
+
+			if err != nil {
+				report.Results[idx] = BenchResult{
+					TaskID:   t.ID,
+					Pipeline: cfg.Pipeline,
+					Status:   StatusError,
+					Error:    err.Error(),
+				}
+			} else {
+				report.Results[idx] = *result
+			}
+		}(i, task)
 	}
+
+	wg.Wait()
 
 	report.CompletedAt = time.Now()
 	report.DurationMs = time.Since(report.StartedAt).Milliseconds()
