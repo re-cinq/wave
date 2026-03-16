@@ -26,10 +26,10 @@ An audit of the codebase reveals the following import relationships among intern
 | `event` | (none) |
 | `forge` | (none) |
 | `github` | (none) |
-| `manifest` | (none) |
-| `onboarding` | `manifest`, `tui` |
+| `manifest` | `skill` |
+| `onboarding` | `manifest`, `skill`, `tui` |
 | `pathfmt` | (none) |
-| `pipeline` | `adapter`, `audit`, `contract`, `deliverable`, `event`, `manifest`, `preflight`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` |
+| `pipeline` | `adapter`, `audit`, `contract`, `deliverable`, `event`, `forge`, `manifest`, `preflight`, `recovery`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` |
 | `preflight` | `skill` |
 | `recovery` | `contract`, `pathfmt`, `preflight`, `security` |
 | `relay` | (none) |
@@ -48,9 +48,9 @@ The presentation/backend separation is mostly intact — the event system proper
 - **`doctor` → `onboarding`**: Domain package importing a presentation package
 - **`defaults` → `pipeline`**: Cross-cutting package importing domain, creating a circular-risk dependency
 
-The `pipeline/executor.go` god-object (2,493+ lines, 11+ responsibilities) is the primary structural concern, but that is addressed separately by [ADR-002](002-extract-step-executor.md). This ADR focuses on the inter-package layer boundaries, not intra-package decomposition.
+The `pipeline/executor.go` god-object (3,104 lines, 11+ responsibilities) is the primary structural concern, but that is addressed separately by [ADR-002](002-extract-step-executor.md). This ADR focuses on the inter-package layer boundaries, not intra-package decomposition.
 
-This work builds on the architecture audit from [#298](https://github.com/re-cinq/wave/issues/298).
+This work builds on the [architecture audit](../architecture-audit.md) from [#298](https://github.com/re-cinq/wave/issues/298).
 
 ## Decision
 
@@ -125,6 +125,7 @@ Presentation → Domain → Infrastructure
 | Presentation → Domain (direct adapter/workspace use) | `webui` → `adapter`, `workspace` | Medium | Refactor `webui` to use domain interfaces rather than concrete infrastructure types |
 | Domain → Presentation | `doctor` → `onboarding` | Medium | Extract the shared logic into a domain-level interface or move `onboarding` interaction behind an interface |
 | Cross-cutting → Domain | `defaults` → `pipeline` | Low | `defaults` embeds pipeline definitions — consider moving the pipeline type definitions it needs into `manifest` |
+| Cross-cutting → Domain | `manifest` → `skill` | Low | `manifest` imports `skill` for skill configuration types — consider extracting shared types into `manifest` or a shared types package |
 
 ## Options Considered
 
