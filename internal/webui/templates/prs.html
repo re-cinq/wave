@@ -1,0 +1,50 @@
+{{define "title"}} - Pull Requests{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Pull Requests</h1>
+</div>
+{{if .Message}}
+<div class="empty-state">
+    <p>{{.Message}}</p>
+</div>
+{{else if .PullRequests}}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>State</th>
+                <th>Author</th>
+                <th>Branch</th>
+                <th>Changes</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .PullRequests}}
+            <tr>
+                <td><a href="{{.URL}}" target="_blank" rel="noopener">#{{.Number}}</a></td>
+                <td>{{.Title}}</td>
+                <td>
+                    {{if .Merged}}<span class="badge badge-merged">merged</span>
+                    {{else if .Draft}}<span class="badge badge-draft">draft</span>
+                    {{else if eq .State "open"}}<span class="badge badge-open">open</span>
+                    {{else}}<span class="badge badge-closed">closed</span>
+                    {{end}}
+                </td>
+                <td>{{.Author}}</td>
+                <td><code>{{.HeadBranch}}</code> &rarr; <code>{{.BaseBranch}}</code></td>
+                <td><span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} files)</td>
+                <td>{{.CreatedAt}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No open pull requests found.</p>
+</div>
+{{end}}
+{{end}}
