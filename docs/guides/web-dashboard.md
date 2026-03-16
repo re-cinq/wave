@@ -1,0 +1,86 @@
+# Web Dashboard
+
+Wave includes an embedded web dashboard for real-time pipeline monitoring and control. It provides feature parity with the TUI for teams that prefer a browser-based interface.
+
+## Quick Start
+
+```bash
+# Start the dashboard (local development)
+wave serve
+
+# Open in browser automatically
+wave webui
+```
+
+The dashboard is available at `http://127.0.0.1:8080` by default.
+
+> **Build tag required:** The web UI requires the `webui` build tag. Install with `go install -tags webui` or use a release binary.
+
+## Features
+
+### Pipeline Monitoring
+
+- **Run list** — View all pipeline runs with status, duration, and token usage
+- **Run detail** — Inspect individual runs with step-by-step progress
+- **DAG visualization** — See pipeline step dependencies as a directed graph
+- **Real-time updates** — Live progress via Server-Sent Events (SSE)
+
+### Execution Control
+
+- **Start pipelines** — Launch any configured pipeline with custom input
+- **Cancel runs** — Stop running pipelines gracefully or forcefully
+- **Retry runs** — Re-execute failed pipelines
+- **Resume runs** — Continue from a specific step
+
+### Artifact Browsing
+
+- **Step artifacts** — Browse output artifacts from each pipeline step
+- **Download** — Retrieve artifact content for local inspection
+
+### Configuration Views
+
+- **Personas** — View configured personas and their permissions
+- **Pipelines** — Browse available pipeline definitions
+
+## Authentication
+
+When binding to localhost (default), no authentication is required. When binding to a non-localhost address, a token is required:
+
+```bash
+# Explicit token
+wave serve --bind 0.0.0.0 --token mysecret
+
+# Environment variable
+WAVE_SERVE_TOKEN=mysecret wave serve --bind 0.0.0.0
+
+# Auto-generated (printed to stderr on startup)
+wave serve --bind 0.0.0.0
+```
+
+Clients authenticate via the `Authorization: Bearer <token>` header or the `?token=<token>` query parameter.
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/runs` | List runs (supports `?status=` filter, pagination) |
+| GET | `/api/runs/{id}` | Run detail |
+| GET | `/api/runs/{id}/events` | SSE stream for real-time updates |
+| GET | `/api/runs/{id}/artifacts/{step}/{name}` | Download artifact |
+| POST | `/api/pipelines/{name}/start` | Start a pipeline |
+| POST | `/api/runs/{id}/cancel` | Cancel a run |
+| POST | `/api/runs/{id}/retry` | Retry a failed run |
+| POST | `/api/runs/{id}/resume` | Resume from a step |
+| GET | `/api/personas` | List personas |
+| GET | `/api/pipelines` | List pipelines |
+
+## Configuration
+
+See [`wave serve` CLI flags](/reference/cli#wave-serve) for server configuration options (port, bind address, token, database path).
+
+Key sources: `internal/webui/`, `cmd/wave/commands/serve.go`
+
+## Further Reading
+
+- [CLI Reference — wave serve](/reference/cli#wave-serve) — Server flags and options
+- [CLI Reference — wave webui](/reference/cli#wave-webui) — Browser launch shortcut

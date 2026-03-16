@@ -828,6 +828,41 @@ Rollback complete. Current version: 3
 
 ---
 
+## TUI Guided Workflow
+
+When launched without `--no-tui`, Wave provides an interactive terminal UI with a guided workflow that progresses through four phases:
+
+### Phases
+
+| Phase | View | Description |
+|-------|------|-------------|
+| **Health** | Health checks | Infrastructure health checks run automatically on startup |
+| **Proposals** | Suggest view | Shows recommended pipeline runs based on codebase analysis |
+| **Fleet** | Pipelines view | Monitors active pipeline runs and their step progress |
+| **Attached** | Live output | Shows real-time output from a running pipeline step |
+
+### Phase Progression
+
+1. **Health** — Runs automatically on startup. If all checks pass, transitions to Proposals after a brief delay. If errors are detected, the user can choose to continue or address issues first.
+2. **Proposals** — Displays pipeline suggestions from `wave suggest`. Press Tab to switch to Fleet view.
+3. **Fleet** — Shows active runs. Press Tab to switch back to Proposals. Select a run to attach.
+4. **Attached** — Shows live output from the selected pipeline. Tab is blocked during attachment. Detaching returns to Fleet view.
+
+### Key Bindings
+
+| Key | Action |
+|-----|--------|
+| Tab | Toggle between Proposals and Fleet views |
+| Enter | Select/attach to a pipeline run |
+| Esc | Detach from live output (returns to Fleet) |
+| q | Quit |
+
+To disable the TUI and use plain text output, pass `--no-tui` or `-o text`.
+
+Key source: `internal/tui/guided_flow.go`
+
+---
+
 ## Global Options
 
 All commands support:

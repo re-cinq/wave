@@ -337,7 +337,7 @@ runtime:
     log_all_tool_calls: true
     log_all_file_operations: false
   meta_pipeline:
-    max_depth: 2
+    max_depth: 3
     max_total_steps: 20
     timeout_minutes: 60
 ```
@@ -365,11 +365,22 @@ runtime:
 | `log_all_tool_calls` | `false` | Log every tool call |
 | `log_all_file_operations` | `false` | Log file operations |
 
+### Sandbox Settings
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `backend` | `none` | Sandbox backend (`none`, `docker`, `bubblewrap`) |
+| `docker_image` | `ubuntu:24.04` | Docker image for container sandbox |
+| `default_allowed_domains` | `[]` | Network domains allowed for all personas |
+| `env_passthrough` | `[]` | Environment variables passed to adapter subprocesses |
+
+See the [Sandbox Setup Guide](/guides/sandbox-setup) for detailed configuration.
+
 ### Meta-Pipeline Limits
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `max_depth` | `2` | Recursion limit |
+| `max_depth` | `3` | Recursion limit |
 | `max_total_steps` | `20` | Total steps across levels |
 | `max_total_tokens` | `500000` | Token consumption limit |
 | `timeout_minutes` | `60` | Hard timeout |

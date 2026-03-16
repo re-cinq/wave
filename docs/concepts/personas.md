@@ -293,6 +293,34 @@ workspace:
       mode: readonly
 ```
 
+## Token Scopes
+
+Personas can declare required forge token permissions via the `token_scopes` field. Scopes follow the format `<resource>:<permission>` (e.g., `issues:read`, `pulls:write`) with an optional `@<ENV_VAR>` suffix for custom token routing.
+
+```yaml
+personas:
+  implementer:
+    adapter: claude
+    system_prompt_file: .wave/personas/implementer.md
+    token_scopes:
+      - "repos:write"
+      - "issues:write"
+      - "pulls:write"
+      - "actions:read"
+```
+
+### Purpose
+
+Token scopes enforce **least-privilege API access** per persona. During preflight, Wave validates that the active forge token satisfies each persona's declared scopes before pipeline execution begins. This catches misconfigured credentials early rather than failing mid-pipeline.
+
+### Permission Hierarchy
+
+Permissions are hierarchical: `admin` satisfies `write`, which satisfies `read`. Canonical resources include `issues`, `pulls`, `repos`, `actions`, and `packages`.
+
+For full scope format details, environment variable routing, and preflight validation behavior, see the [Manifest Reference — Token Scopes](/reference/manifest#token-scopes).
+
+Key sources: `internal/scope/scope.go`, `internal/scope/validator.go`, `internal/scope/resolver.go`
+
 ## Using Personas in Pipelines
 
 Reference personas by name in pipeline steps:
