@@ -2,6 +2,25 @@
 
 Meta-pipelines allow a persona to **design a pipeline at runtime**. For novel problems that don't fit existing templates, the philosopher persona generates a custom pipeline definition, which Wave validates and executes.
 
+## The `wave meta` Command
+
+The `wave meta` command is the CLI entry point for meta-pipeline generation. It accepts a natural language task description and dynamically generates a multi-step pipeline using the philosopher persona.
+
+```bash
+# Generate and execute a custom pipeline
+wave meta "implement user authentication"
+
+# Save the generated pipeline for reuse
+wave meta "add caching layer" --save caching-pipeline.yaml
+
+# Preview what would be generated without executing
+wave meta "refactor database layer" --dry-run
+```
+
+The `--save` flag writes the generated pipeline YAML to disk so it can be reused as a standard pipeline in future runs. This is useful for turning one-off meta-generated workflows into repeatable templates.
+
+Key source: `internal/pipeline/meta.go`
+
 ## When to Use Meta-Pipelines
 
 Use meta-pipelines when:
