@@ -870,7 +870,7 @@ func TestWorkspaceIsolation_NoPathTraversal(t *testing.T) {
 	}
 
 	// Verify the workspace is contained within the base directory
-	if !filepath.HasPrefix(ws, tmpDir) {
+	if !strings.HasPrefix(ws, tmpDir) {
 		t.Errorf("Workspace %s escaped base directory %s", ws, tmpDir)
 	}
 
