@@ -22,10 +22,10 @@ func NewDockerSandbox() (*DockerSandbox, error) {
 	return &DockerSandbox{dockerPath: path}, nil
 }
 
-// newDockerSandboxWithPath creates a DockerSandbox with an explicit binary path.
-// Used for testing without requiring docker on the system.
-func newDockerSandboxWithPath(path string) *DockerSandbox {
-	return &DockerSandbox{dockerPath: path}
+// newTestDockerSandbox creates a DockerSandbox with a fixed binary path for testing
+// without requiring docker on the system.
+func newTestDockerSandbox() *DockerSandbox {
+	return &DockerSandbox{dockerPath: "/usr/bin/docker"}
 }
 
 func (d *DockerSandbox) Validate() error {
