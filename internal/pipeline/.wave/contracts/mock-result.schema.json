@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Mock implementation result",
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Implementation status",
+      "enum": [
+        "success",
+        "partial",
+        "failed"
+      ]
+    }
+  }
+}

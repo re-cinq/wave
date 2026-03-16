@@ -41,3 +41,8 @@ type SuggestLaunchMsg struct {
 type SuggestComposeMsg struct {
 	Pipelines []SuggestProposedPipeline
 }
+
+// SuggestLaunchedMsg signals that a proposal was launched, for tracking in the suggest list.
+type SuggestLaunchedMsg struct {
+	Name string
+}
