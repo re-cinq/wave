@@ -100,7 +100,7 @@ When the philosopher generates a pipeline, it creates:
 ```yaml
 runtime:
   meta_pipeline:
-    max_depth: 2              # Max recursion (meta generating meta)
+    max_depth: 3              # Max recursion (meta generating meta)
     max_total_steps: 20       # Max steps across all levels
     max_total_tokens: 500000  # Max total token consumption
     timeout_minutes: 60       # Hard timeout for entire tree
@@ -162,6 +162,26 @@ steps:
 ```
 
 </div>
+
+## Dry Run Mode
+
+The `--dry-run` flag generates the pipeline and schemas without executing:
+
+```bash
+wave meta "refactor database layer" --dry-run
+```
+
+In dry-run mode, `GenerateOnly()` performs these steps:
+
+1. **Pipeline generation** — The philosopher designs the pipeline YAML as normal.
+2. **Schema generation** — JSON schema files are written to `.wave/contracts/` for each step's contract.
+3. **JSON repair** — Malformed JSON from the philosopher is auto-repaired (trailing commas, missing braces) before schema validation.
+4. **Validation** — The generated pipeline is schema-validated and semantically validated.
+5. **No execution** — The pipeline is NOT executed. Output is written to disk for inspection.
+
+This is useful for reviewing what the philosopher would generate before committing to full execution, or for iteratively refining a meta-pipeline prompt.
+
+Key source: `internal/pipeline/meta.go` (`GenerateOnly()`, `attemptJSONFix`)
 
 ## Semantic Validation Rules
 
