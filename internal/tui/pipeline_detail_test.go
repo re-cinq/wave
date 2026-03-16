@@ -1182,6 +1182,17 @@ func TestRenderRunningInfo_WithoutEvents(t *testing.T) {
 	assert.NotContains(t, stripped, "Event Log:")
 }
 
+func TestRenderRunningInfo_ShowsPersistedEventHint(t *testing.T) {
+	view := renderRunningInfo("test-pipeline", "", time.Now(), 80, nil)
+	stripped := detailStripAnsi(view)
+
+	assert.Contains(t, stripped, "Press [Enter] to view live event dashboard from persisted events")
+	assert.Contains(t, stripped, "Use [c] to cancel or dismiss this run")
+	// Should NOT contain old "unavailable" text
+	assert.NotContains(t, stripped, "Live output is only available")
+	assert.NotContains(t, stripped, "appears stale")
+}
+
 func TestRenderFinishedDetail_WithEvents(t *testing.T) {
 	detail := fullFinishedDetail("completed")
 	events := []state.LogRecord{

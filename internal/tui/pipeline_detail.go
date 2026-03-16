@@ -753,7 +753,6 @@ func renderRunningInfo(name string, input string, startedAt time.Time, width int
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("7"))
 
 	var sb strings.Builder
@@ -768,13 +767,9 @@ func renderRunningInfo(name string, input string, startedAt time.Time, width int
 		sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Started:"), startedAt.Format("2006-01-02 15:04:05")))
 	}
 	sb.WriteString("\n")
-	sb.WriteString(labelStyle.Render("Live output is only available for pipelines"))
+	sb.WriteString(labelStyle.Render("Press [Enter] to view live event dashboard from persisted events."))
 	sb.WriteString("\n")
-	sb.WriteString(labelStyle.Render("launched in the current TUI session."))
-	sb.WriteString("\n\n")
-	sb.WriteString(warnStyle.Render("This run appears stale — it may have been started in a"))
-	sb.WriteString("\n")
-	sb.WriteString(warnStyle.Render("previous session. Use [c] to dismiss it."))
+	sb.WriteString(labelStyle.Render("Use [c] to cancel or dismiss this run."))
 
 	if len(events) > 0 {
 		sb.WriteString("\n\n")
