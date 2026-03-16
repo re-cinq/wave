@@ -17,12 +17,16 @@ type BenchTask struct {
 	ID string `json:"instance_id"`
 	// Repo is the repository slug (e.g. "django/django").
 	Repo string `json:"repo"`
-	// Instance is the git ref or version to check out.
-	Instance string `json:"version"`
+	// BaseCommit is the git commit to check out before applying the fix.
+	BaseCommit string `json:"base_commit"`
+	// Version is the version metadata (e.g. "5.0").
+	Version string `json:"version"`
 	// Problem is the natural-language problem statement given to the pipeline.
 	Problem string `json:"problem_statement"`
 	// ExpectedPatch is the gold-standard patch (unified diff) for validation.
 	ExpectedPatch string `json:"patch"`
+	// TestPatch is the test diff to apply for verification.
+	TestPatch string `json:"test_patch"`
 	// TestCommand is the shell command used to verify correctness.
 	TestCommand string `json:"test_cmd"`
 }
@@ -44,6 +48,8 @@ type BenchResult struct {
 type BenchReport struct {
 	Dataset  string        `json:"dataset"`
 	Pipeline string        `json:"pipeline"`
+	Mode     string        `json:"mode,omitempty"`
+	RunLabel string        `json:"run_label,omitempty"`
 	Total    int           `json:"total"`
 	Passed   int           `json:"passed"`
 	Failed   int           `json:"failed"`
@@ -75,4 +81,40 @@ func (r *BenchReport) Tally() {
 	if r.Total > 0 {
 		r.PassRate = float64(r.Passed) / float64(r.Total)
 	}
+}
+
+// CompareReport holds the comparison between two benchmark runs.
+type CompareReport struct {
+	Base    ReportRef      `json:"base"`
+	Compare ReportRef      `json:"compare"`
+	Summary CompareSummary `json:"summary"`
+	Diffs   []TaskDiff     `json:"diffs"`
+}
+
+// ReportRef identifies one side of a comparison.
+type ReportRef struct {
+	Pipeline string  `json:"pipeline"`
+	Mode     string  `json:"mode,omitempty"`
+	RunLabel string  `json:"run_label,omitempty"`
+	Total    int     `json:"total"`
+	Passed   int     `json:"passed"`
+	PassRate float64 `json:"pass_rate"`
+}
+
+// CompareSummary provides aggregate comparison metrics.
+type CompareSummary struct {
+	Improved    int     `json:"improved"`
+	Regressed   int     `json:"regressed"`
+	Unchanged   int     `json:"unchanged"`
+	OnlyInBase  int     `json:"only_in_base"`
+	OnlyInComp  int     `json:"only_in_compare"`
+	DeltaRate   float64 `json:"delta_rate"`
+}
+
+// TaskDiff describes how a single task's result changed between runs.
+type TaskDiff struct {
+	TaskID     string      `json:"task_id"`
+	Change     string      `json:"change"` // "improved", "regressed", "unchanged", "only_base", "only_compare"
+	BaseStatus BenchStatus `json:"base_status,omitempty"`
+	CompStatus BenchStatus `json:"compare_status,omitempty"`
 }
