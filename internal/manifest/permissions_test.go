@@ -719,40 +719,20 @@ func TestLoadWaveYAML_PersonaPermissions(t *testing.T) {
 			t.Error("reviewer in wave.yaml should have Write(.wave/artifact.json) or Write(.wave/artifacts/*) permission")
 		}
 
-		// Verify reviewer denies source file writes and destructive commands
-		expectedDenyPatterns := []string{
-			"Write(*.go)",
-			"Write(*.ts)",
-			"Write(*.py)",
-			"Write(*.rs)",
-			"Edit(*)",
-			"Bash(rm *)",
-			"Bash(git push*)",
-			"Bash(git commit*)",
-		}
-		denySet := make(map[string]bool)
-		for _, deny := range reviewer.Permissions.Deny {
-			denySet[deny] = true
-		}
-		for _, expected := range expectedDenyPatterns {
-			if !denySet[expected] {
-				t.Errorf("reviewer in wave.yaml should deny %s, got deny list: %v", expected, reviewer.Permissions.Deny)
-			}
+		// Deny rules are intentionally empty — security is enforced via bubblewrap
+		// sandbox and CLAUDE.md behavioral restrictions (issue #282).
+		if len(reviewer.Permissions.Deny) != 0 {
+			t.Errorf("reviewer in wave.yaml should have empty deny list (security via sandbox), got: %v", reviewer.Permissions.Deny)
 		}
 	}
 
-	// Verify navigator denies all writes
+	// Verify navigator has empty deny list — security via sandbox, not deny rules
 	navigator := manifest.GetPersona("navigator")
 	if navigator != nil {
-		hasDenyWrite := false
-		for _, deny := range navigator.Permissions.Deny {
-			if deny == "Write(*)" {
-				hasDenyWrite = true
-				break
-			}
-		}
-		if !hasDenyWrite {
-			t.Error("navigator in wave.yaml should deny Write(*)")
+		// Deny rules are intentionally empty — security is enforced via bubblewrap
+		// sandbox and CLAUDE.md behavioral restrictions (issue #282).
+		if len(navigator.Permissions.Deny) != 0 {
+			t.Errorf("navigator in wave.yaml should have empty deny list (security via sandbox), got: %v", navigator.Permissions.Deny)
 		}
 	}
 }
