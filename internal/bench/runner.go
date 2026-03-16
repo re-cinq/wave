@@ -152,13 +152,22 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 }
 
 // runWavePipeline invokes `wave run <pipeline> --quiet -- <problem>`.
+// It first ensures the worktree has a wave project via `wave init`.
 func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
 	waveBin := cfg.WaveBinary
 	if waveBin == "" {
 		waveBin = "wave"
 	}
 
-	args := []string{"run", cfg.Pipeline, "--quiet", "--", task.Problem}
+	// Initialize a wave project in the worktree so the manifest and
+	// pipeline definitions are available.
+	initCmd := exec.CommandContext(ctx, waveBin, "init", "--yes", "--force", "--all")
+	initCmd.Dir = dir
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("wave init: %w\n%s", err, string(out))
+	}
+
+	args := []string{"run", cfg.Pipeline, "--quiet", "--force", "--", task.Problem}
 	cmd := exec.CommandContext(ctx, waveBin, args...)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
