@@ -489,6 +489,11 @@ func buildAllocatorOpts(config BrowserConfig, sandboxEnabled bool) []chromedp.Ex
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("no-first-run", true),
 		chromedp.Flag("no-default-browser-check", true),
+		// Disable Chrome's OS-level namespace sandbox. Wave provides its
+		// own security model (adapter sandbox, workspace isolation, domain
+		// filtering). Without this flag Chrome fails in CI runners and
+		// containers that lack unprivileged user-namespace support.
+		chromedp.NoSandbox,
 	)
 
 	if sandboxEnabled {
