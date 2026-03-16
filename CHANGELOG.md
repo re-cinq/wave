@@ -21,11 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generalized `github-commenter` persona to support multiple GitHub operations
 - Updated all documentation references to use taxonomy-prefixed pipeline names
 
+### Added (continued)
+- `wave meta` dynamic pipeline generation with `--save` flag for persistence (PR #416, #95)
+- Persona token scoping with `token_scopes` manifest field and preflight validation (PR #417, #213)
+- Browser automation adapter via chromedp for web scraping personas (PR #418, #116)
+- Docker sandbox backend as alternative to Nix bubblewrap (PR #420, #175)
+- Embedded web UI dashboard with CLI/TUI feature parity (PR #421, #299)
+- TUI guided workflow orchestrator: health → proposals → fleet mode (PR #422, #248)
+- Security test coverage for path validation and input sanitization (PR #429)
+- Core test coverage for deliverable tracker, state methods, pipeline controller (PR #430)
+
 ### Fixed
+- TUI issues view right pane overwritten by pipeline refresh events (PR #415, #411)
 - Terminal text alignment on mobile devices in documentation
 - Base URL configuration for GitHub Pages subpath hosting
 - Premature StateRunning status during artifact injection in pipeline execution
 - Resume display showing prior steps as completed when using `--from-step` flag (#151)
+
+### Removed
+- Dead code cleanup: unused display animations, relay helpers, sandbox stubs (PR #423)
 
 ## [0.32.0] - 2026-02-24
 
