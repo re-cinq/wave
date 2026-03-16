@@ -48,6 +48,11 @@ type Event struct {
 
 	// Structured outcomes (populated on final completion event only)
 	Outcomes *OutcomesJSON `json:"outcomes,omitempty"`
+
+	// Continuous loop iteration metadata (optional, for --continuous mode)
+	Iteration      int    `json:"iteration,omitempty"`
+	TotalProcessed int    `json:"total_processed,omitempty"`
+	WorkItemID     string `json:"work_item_id,omitempty"`
 }
 
 // RecoveryHintJSON is the JSON-serializable representation of a recovery hint.
@@ -123,6 +128,13 @@ const (
 	StateLoopIteration      = "loop_iteration"       // Loop iteration started
 	StateLoopCompleted      = "loop_completed"       // Loop terminated
 	StateAggregateCompleted = "aggregate_completed"  // Aggregation finished
+
+	// Continuous loop states
+	StateLoopStart             = "loop_start"
+	StateLoopIterationStart    = "loop_iteration_start"
+	StateLoopIterationComplete = "loop_iteration_complete"
+	StateLoopIterationFailed   = "loop_iteration_failed"
+	StateLoopSummary           = "loop_summary"
 )
 
 type EventEmitter interface {

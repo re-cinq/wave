@@ -27,6 +27,7 @@ const (
 	CodeSkillNotFound          = "skill_not_found"
 	CodeSkillSourceError       = "skill_source_error"
 	CodeSkillDependencyMissing = "skill_dependency_missing"
+	CodeInvalidArgs            = "invalid_args"
 )
 
 // CLIError represents a structured error for CLI output.

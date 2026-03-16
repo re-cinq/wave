@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
@@ -41,6 +42,11 @@ type RunOptions struct {
 	PreserveWorkspace bool
 	Steps             string // Comma-separated step names to include (--steps)
 	Exclude           string // Comma-separated step names to exclude (-x/--exclude)
+	Continuous        bool   // --continuous flag
+	Source            string // --source URI for work item discovery
+	MaxIterations     int    // --max-iterations cap
+	Delay             string // --delay between iterations
+	OnFailure         string // --on-failure halt|skip
 }
 
 func NewRunCmd() *cobra.Command {
@@ -120,6 +126,11 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
 	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
+	cmd.Flags().BoolVar(&opts.Continuous, "continuous", false, "Run pipeline in continuous mode, iterating over work items from --source")
+	cmd.Flags().StringVar(&opts.Source, "source", "", "Work item source URI (e.g., github:label=bug, file:queue.txt)")
+	cmd.Flags().IntVar(&opts.MaxIterations, "max-iterations", 0, "Maximum number of iterations (0 = unlimited)")
+	cmd.Flags().StringVar(&opts.Delay, "delay", "0s", "Delay between iterations (e.g., 5s, 1m)")
+	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
 
 	return cmd
 }
@@ -132,6 +143,20 @@ func runRun(opts RunOptions, debug bool) error {
 				"onboarding not complete",
 				"Run 'wave init' to complete setup before running pipelines")
 		}
+	}
+
+	// Validate mutual exclusion: --continuous and --from-step cannot be combined
+	if opts.Continuous && opts.FromStep != "" {
+		return NewCLIError(CodeInvalidArgs,
+			"--continuous and --from-step are mutually exclusive",
+			"Use --continuous for batch processing or --from-step for resuming a single run")
+	}
+
+	// Validate --continuous requires --source
+	if opts.Continuous && opts.Source == "" {
+		return NewCLIError(CodeInvalidArgs,
+			"--continuous requires --source",
+			"Specify a source URI, e.g., --source \"github:label=bug\" or --source \"file:queue.txt\"")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -341,6 +366,81 @@ func runRun(opts RunOptions, debug bool) error {
 	// Connect deliverable tracker to progress display
 	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
 		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+	}
+
+	if opts.Continuous {
+		// Parse source URI
+		srcCfg, err := continuous.ParseSourceURI(opts.Source)
+		if err != nil {
+			return fmt.Errorf("invalid --source: %w", err)
+		}
+		src, err := continuous.NewSourceFromConfig(srcCfg)
+		if err != nil {
+			return fmt.Errorf("failed to create source: %w", err)
+		}
+
+		// Parse delay
+		delay, err := time.ParseDuration(opts.Delay)
+		if err != nil {
+			return fmt.Errorf("invalid --delay %q: %w", opts.Delay, err)
+		}
+
+		contRunner := &continuous.Runner{
+			Source:        src,
+			PipelineName:  p.Metadata.Name,
+			OnFailure:     continuous.ParseFailurePolicy(opts.OnFailure),
+			MaxIterations: opts.MaxIterations,
+			Delay:         delay,
+			Emitter:       emitter,
+			ExecutorFactory: func(input string) continuous.ExecutorFunc {
+				return func(execCtx context.Context, execInput string) (string, error) {
+					// Create a new run ID for each iteration
+					var iterRunID string
+					if store != nil {
+						iterRunID, _ = store.CreateRun(p.Metadata.Name, execInput)
+					}
+					if iterRunID == "" {
+						iterRunID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
+					}
+
+					// Create a fresh executor for this iteration
+					iterOpts := make([]pipeline.ExecutorOption, len(execOpts))
+					copy(iterOpts, execOpts)
+					iterOpts = append(iterOpts, pipeline.WithRunID(iterRunID))
+
+					iterExecutor := pipeline.NewDefaultPipelineExecutor(runner, iterOpts...)
+					execErr := iterExecutor.Execute(execCtx, p, &m, execInput)
+
+					// Update run status
+					if store != nil {
+						tokens := iterExecutor.GetTotalTokens()
+						if execErr != nil {
+							store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens)
+						} else {
+							store.UpdateRunStatus(iterRunID, "completed", "", tokens)
+						}
+					}
+
+					return iterRunID, execErr
+				}
+			},
+		}
+
+		summary, contErr := contRunner.Run(ctx)
+		if contErr != nil {
+			return fmt.Errorf("continuous run failed: %w", contErr)
+		}
+
+		// Print summary
+		if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
+			fmt.Fprintf(os.Stderr, "\n  %s\n", summary.String())
+		}
+
+		// Exit code 1 if any failures
+		if summary.HasFailures() {
+			return fmt.Errorf("continuous run completed with %d failures", summary.Failed)
+		}
+		return nil
 	}
 
 	pipelineStart := time.Now()
