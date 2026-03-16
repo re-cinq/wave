@@ -540,6 +540,31 @@ func (m *LiveOutputModel) updateDashStepFromEvent(evt event.Event) {
 	}
 }
 
+// updateStepTrackingFromRecord updates step tracking fields (stepNumber,
+// currentStep, totalSteps, stepOrder) from a stored LogRecord. This mirrors
+// the step tracking logic in the PipelineEventMsg handler but for SQLite-polled
+// records used with detached/previous-session runs.
+func (m *LiveOutputModel) updateStepTrackingFromRecord(rec state.LogRecord) {
+	if rec.State != event.StateStarted {
+		return
+	}
+	if rec.StepID != "" {
+		m.currentStep = rec.StepID
+		m.stepNumber++
+		// Track step order for handover target resolution
+		found := false
+		for _, sid := range m.stepOrder {
+			if sid == rec.StepID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			m.stepOrder = append(m.stepOrder, rec.StepID)
+		}
+	}
+}
+
 // updateDashStepFromRecord updates dashboard state from a stored LogRecord.
 func (m *LiveOutputModel) updateDashStepFromRecord(rec state.LogRecord) {
 	if rec.StepID == "" {
