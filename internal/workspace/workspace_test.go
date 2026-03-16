@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -873,13 +874,28 @@ func TestWorkspaceIsolation_NoPathTraversal(t *testing.T) {
 		t.Errorf("Workspace %s escaped base directory %s", ws, tmpDir)
 	}
 
-	// Verify we cannot access files outside the workspace
+	// Attempt path traversal from within the workspace
 	traversalPath := filepath.Join(ws, "..", "..", "sensitive", "secret.txt")
-	resolvedPath, _ := filepath.EvalSymlinks(traversalPath)
+	resolvedPath, err := filepath.Abs(traversalPath)
+	if err != nil {
+		t.Fatalf("Failed to resolve traversal path: %v", err)
+	}
 
-	// The resolved path should not point to the actual sensitive file
-	// (though in this test the traversal is within tmpDir)
-	t.Logf("Traversal path resolves to: %s", resolvedPath)
+	// The resolved traversal path must still be within tmpDir (the base
+	// directory), not escaping to the filesystem root. This verifies that
+	// the workspace hierarchy prevents escaping the base directory.
+	if !strings.HasPrefix(resolvedPath, tmpDir) {
+		t.Errorf("Traversal path %q escaped base directory %q (resolved to %q)", traversalPath, tmpDir, resolvedPath)
+	}
+
+	// Verify that reading the sensitive file through the traversal path
+	// from within the workspace's own mount does NOT succeed — the mount
+	// should not contain the sensitive directory.
+	sensitivePath := filepath.Join(ws, "src", "..", "..", "sensitive", "secret.txt")
+	content, readErr := os.ReadFile(sensitivePath)
+	if readErr == nil && string(content) == "top secret" {
+		t.Errorf("Successfully read sensitive file through workspace traversal: %q", sensitivePath)
+	}
 }
 
 // TestWorkspaceIsolation_CleanupOneDoesntAffectOther verifies that cleaning
