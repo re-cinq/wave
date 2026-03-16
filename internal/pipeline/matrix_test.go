@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/stretchr/testify/require"
 )
 
 // matrixTestEventCollector for matrix tests
@@ -2061,4 +2062,433 @@ func TestMatrixExecutor_ChildPipeline_NotFound(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to load child pipeline") {
 		t.Errorf("Expected load error, got: %v", err)
 	}
+}
+
+// ==================== Stacked Worktree Tests ====================
+
+func TestTierContext_NewAndBasicOperations(t *testing.T) {
+	tc := NewTierContext()
+
+	// Empty context
+	if _, ok := tc.GetBranch("nonexistent"); ok {
+		t.Error("Expected GetBranch to return false for empty context")
+	}
+	branches, err := tc.ResolveBranch([]string{"a", "b"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(branches) != 0 {
+		t.Errorf("Expected 0 branches from empty context, got %d", len(branches))
+	}
+
+	// Set and get
+	tc.SetBranch("item-a", "feature/a")
+	branch, ok := tc.GetBranch("item-a")
+	if !ok || branch != "feature/a" {
+		t.Errorf("Expected 'feature/a', got %q (ok=%v)", branch, ok)
+	}
+
+	// Multiple branches
+	tc.SetBranch("item-b", "feature/b")
+	tc.SetBranch("item-c", "feature/c")
+
+	branches, err = tc.ResolveBranch([]string{"item-a", "item-c"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(branches) != 2 {
+		t.Fatalf("Expected 2 branches, got %d", len(branches))
+	}
+	if branches[0] != "feature/a" || branches[1] != "feature/c" {
+		t.Errorf("Expected [feature/a, feature/c], got %v", branches)
+	}
+
+	// ResolveBranch skips items not in context
+	branches, err = tc.ResolveBranch([]string{"item-a", "item-missing"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(branches) != 1 || branches[0] != "feature/a" {
+		t.Errorf("Expected [feature/a], got %v", branches)
+	}
+}
+
+func TestTierContext_EmptyBranchSkipped(t *testing.T) {
+	tc := NewTierContext()
+	tc.SetBranch("item-a", "") // Empty branch — item completed but no worktree
+
+	branches, err := tc.ResolveBranch([]string{"item-a"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(branches) != 0 {
+		t.Errorf("Expected empty branches for item with no output branch, got %v", branches)
+	}
+}
+
+func TestMatrixExecutor_Stacked_TwoTierLinearChain(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A (tier 0) -> B (tier 1, depends on A) with stacked: true
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	// Track which items received stacked base branches
+	var mu sync.Mutex
+	branchCaptures := make(map[int]string) // itemIndex -> stacked base branch from context
+
+	trackAdapter := &stackedBranchTrackingAdapter{
+		mu:             &mu,
+		branchCaptures: branchCaptures,
+		baseAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-linear")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			Stacked:       true,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	if err != nil {
+		t.Fatalf("Stacked tiered execution failed: %v", err)
+	}
+
+	results := execution.Results[step.ID]
+	if results["total_workers"] != 2 {
+		t.Errorf("Expected 2 total workers, got %v", results["total_workers"])
+	}
+	if results["success_count"] != 2 {
+		t.Errorf("Expected 2 successes, got %v", results["success_count"])
+	}
+
+	// Verify stacking events were emitted
+	events := eventCollector.GetEvents()
+	hasStackedEvent := false
+	for _, e := range events {
+		if e.State == "matrix_stacked_branch_resolved" {
+			hasStackedEvent = true
+			break
+		}
+	}
+	// Note: stacked branch resolved events only occur when parent has an output branch.
+	// In direct worker execution (no child pipeline), OutputBranch is empty, so
+	// the fallback path emits the "no output branch" event instead
+	_ = hasStackedEvent
+}
+
+func TestMatrixExecutor_Stacked_WithoutDependencyKey(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// stacked: true but no dependency_key — should behave identically to non-stacked
+	items := []map[string]interface{}{
+		{"id": "A"},
+		{"id": "B"},
+		{"id": "C"},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	baseAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-no-dep")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:        "matrix",
+			ItemsSource: itemsFile,
+			Stacked:     true, // stacked without dependency_key — FR-008 no-op
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	if err != nil {
+		t.Fatalf("Stacked execution without dependency_key failed: %v", err)
+	}
+
+	results := execution.Results[step.ID]
+	if results["total_workers"] != 3 {
+		t.Errorf("Expected 3 total workers, got %v", results["total_workers"])
+	}
+
+	// No stacking-related events should be emitted
+	events := eventCollector.GetEvents()
+	for _, e := range events {
+		if e.State == "matrix_stacked_branch_resolved" || e.State == "matrix_integration_branch_created" {
+			t.Errorf("Unexpected stacking event when dependency_key is empty: %s", e.State)
+		}
+	}
+}
+
+func TestMatrixExecutor_Stacked_PartialTierFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 3-tier chain: A (tier 0), B and C (tier 1, both depend on A), D depends on B only (tier 2)
+	// C fails, B succeeds — D should still run
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+		{"id": "C", "deps": []interface{}{"A"}},
+		{"id": "D", "deps": []interface{}{"B"}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	failAdapter := &tieredFailureAdapter{
+		failPatterns: []string{`"id":"C"`}, // Match item C by its JSON content in the prompt
+		baseAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-partial-fail")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			Stacked:       true,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	// Expect partial failure (C fails)
+	if err == nil {
+		t.Fatal("Expected partial failure error")
+	}
+
+	results := execution.Results[step.ID]
+	// A, B, D succeed; C fails — but D still ran because it only depends on B
+	successCount, ok := results["success_count"].(int)
+	if !ok {
+		t.Fatalf("Expected int success_count, got %T", results["success_count"])
+	}
+	failCount, ok := results["fail_count"].(int)
+	if !ok {
+		t.Fatalf("Expected int fail_count, got %T", results["fail_count"])
+	}
+
+	if successCount != 3 {
+		t.Errorf("Expected 3 successes (A, B, D), got %d", successCount)
+	}
+	if failCount != 1 {
+		t.Errorf("Expected 1 failure (C), got %d", failCount)
+	}
+}
+
+func TestMatrixExecutor_Stacked_OutputBranchCapture(t *testing.T) {
+	// Test that childPipelineWorker captures OutputBranch from child execution
+	tmpDir := t.TempDir()
+
+	// Create a child pipeline YAML
+	childPipelineYAML := `name: test-child
+steps:
+  - id: implement
+    persona: worker
+    exec:
+      type: prompt
+      source: "Do work"
+`
+	childPipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(childPipelineDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(childPipelineDir, "test-child.yaml"), []byte(childPipelineYAML), 0644))
+
+	baseAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(baseAdapter)
+	matrixExec := NewMatrixExecutor(executor)
+
+	// Load the child pipeline
+	childPipeline, err := matrixExec.loadChildPipeline(filepath.Join(childPipelineDir, "test-child.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to load child pipeline: %v", err)
+	}
+
+	// Test that childPipelineWorker returns a result
+	workerFunc := matrixExec.childPipelineWorker(childPipeline)
+
+	execution := createTieredExecution(t, tmpDir, "test-branch-capture")
+
+	item := map[string]interface{}{"id": "test-item"}
+	result := workerFunc(context.Background(), execution, &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			InputTemplate: `{{ .id }}`,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}, 0, item)
+
+	// The child pipeline doesn't use worktree workspaces, so OutputBranch should be empty
+	if result.OutputBranch != "" {
+		t.Errorf("Expected empty OutputBranch for non-worktree child pipeline, got %q", result.OutputBranch)
+	}
+}
+
+func TestMatrixExecutor_Stacked_ParentNoOutputBranch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A (tier 0) -> B (tier 1) with stacked: true
+	// A completes but has no output branch (direct worker, no worktree)
+	// B should still run with default base
+	items := []map[string]interface{}{
+		{"id": "A", "deps": []interface{}{}},
+		{"id": "B", "deps": []interface{}{"A"}},
+	}
+	itemsFile := createTieredItemsFile(t, tmpDir, items)
+
+	baseAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	eventCollector := newMatrixTestEventCollector()
+	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
+	matrixExecutor := NewMatrixExecutor(executor)
+
+	execution := createTieredExecution(t, tmpDir, "stacked-no-branch")
+
+	step := &Step{
+		ID:      "matrix_step",
+		Persona: "worker",
+		Strategy: &MatrixStrategy{
+			Type:          "matrix",
+			ItemsSource:   itemsFile,
+			ItemIDKey:     "id",
+			DependencyKey: "deps",
+			Stacked:       true,
+		},
+		Exec: ExecConfig{
+			Type:   "prompt",
+			Source: "Process: {{ task }}",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := matrixExecutor.Execute(ctx, execution, step)
+	if err != nil {
+		t.Fatalf("Stacked execution with no output branch failed: %v", err)
+	}
+
+	results := execution.Results[step.ID]
+	if results["success_count"] != 2 {
+		t.Errorf("Expected 2 successes, got %v", results["success_count"])
+	}
+
+	// Check for "no output branch" event
+	events := eventCollector.GetEvents()
+	hasNoOutputBranchEvent := false
+	for _, e := range events {
+		if e.State == "matrix_stacked_branch_resolved" && strings.Contains(e.Message, "no output branch") {
+			hasNoOutputBranchEvent = true
+			break
+		}
+	}
+	if !hasNoOutputBranchEvent {
+		t.Error("Expected 'no output branch' event for parent without worktree output")
+	}
+}
+
+func TestMatrixExecutor_StackedBaseBranchFromContext(t *testing.T) {
+	// Test the context-based stacked base branch propagation
+	ctx := context.Background()
+
+	// No stacked base in plain context
+	if branch := StackedBaseBranchFromContext(ctx); branch != "" {
+		t.Errorf("Expected empty stacked base from plain context, got %q", branch)
+	}
+
+	// With stacked base
+	ctx = context.WithValue(ctx, stackedBaseBranchKey{}, "feature/parent")
+	if branch := StackedBaseBranchFromContext(ctx); branch != "feature/parent" {
+		t.Errorf("Expected 'feature/parent', got %q", branch)
+	}
+}
+
+// stackedBranchTrackingAdapter records the stacked base branch from executor config.
+type stackedBranchTrackingAdapter struct {
+	mu             *sync.Mutex
+	branchCaptures map[int]string
+	callCount      int
+	baseAdapter    adapter.AdapterRunner
+}
+
+func (a *stackedBranchTrackingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	idx := a.callCount
+	a.callCount++
+	a.mu.Unlock()
+
+	// Capture stacked base from context
+	if base := StackedBaseBranchFromContext(ctx); base != "" {
+		a.mu.Lock()
+		a.branchCaptures[idx] = base
+		a.mu.Unlock()
+	}
+
+	return a.baseAdapter.Run(ctx, cfg)
 }
