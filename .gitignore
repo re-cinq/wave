@@ -13,6 +13,7 @@
 .wave/chat/
 .wave/logs/
 .wave/wave.db*
+.wave/bench/
 
 # Claude Code local config (persona-generated, not committed)
 .claude/

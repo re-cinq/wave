@@ -8,24 +8,44 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
+)
+
+// RunMode controls whether tasks run through Wave pipelines or standalone Claude.
+const (
+	ModeWave   = "wave"
+	ModeClaude = "claude"
 )
 
 // RunConfig holds the configuration for a benchmark run.
 type RunConfig struct {
 	// Pipeline is the name of the Wave pipeline to execute per task.
 	Pipeline string
+	// Mode selects execution mode: "wave" (default) or "claude".
+	Mode string
+	// RunLabel is a human-readable label for this run (e.g. "baseline-v1").
+	RunLabel string
 	// Limit caps the number of tasks to run (0 = no limit).
 	Limit int
 	// DatasetPath is the path to the JSONL dataset file.
 	DatasetPath string
 	// WaveBinary is the path to the wave binary. Defaults to "wave".
 	WaveBinary string
+	// ClaudeBinary is the path to the claude binary. Defaults to "claude".
+	ClaudeBinary string
 	// WorkDir is the root directory for benchmark workspaces.
 	// Defaults to ".wave/bench".
 	WorkDir string
+	// CacheDir is the root directory for bare-clone repo cache.
+	// Defaults to ".wave/bench/repos".
+	CacheDir string
 	// Timeout per task. Zero means no timeout.
 	TaskTimeout time.Duration
+	// KeepWorkspaces preserves task worktrees after completion.
+	KeepWorkspaces bool
+	// Concurrency is the number of tasks to run in parallel. Defaults to 1.
+	Concurrency int
 }
 
 // PipelineRunner is the interface for executing a single pipeline against a task.
@@ -34,22 +54,19 @@ type PipelineRunner interface {
 	RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error)
 }
 
-// SubprocessRunner executes pipelines by invoking the wave binary.
+// SubprocessRunner executes pipelines by invoking the wave or claude binary.
 type SubprocessRunner struct{}
 
-// RunTask runs a single benchmark task by invoking `wave run` as a subprocess.
+// RunTask runs a single benchmark task. It clones the repo, creates a worktree
+// at the base commit, and then either runs a Wave pipeline or invokes Claude
+// directly depending on the configured mode.
 func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error) {
-	waveBin := cfg.WaveBinary
-	if waveBin == "" {
-		waveBin = "wave"
-	}
-
 	workDir := cfg.WorkDir
 	if workDir == "" {
 		workDir = ".wave/bench"
 	}
 
-	taskDir := filepath.Join(workDir, task.ID)
+	taskDir := filepath.Join(workDir, "workspaces", task.ID)
 	if err := os.MkdirAll(taskDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create task workspace %s: %w", taskDir, err)
 	}
@@ -64,23 +81,63 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 
 	start := time.Now()
 
-	// Build wave run command
-	args := []string{"run", cfg.Pipeline, "--quiet", "--", task.Problem}
-	cmd := exec.CommandContext(ctx, waveBin, args...)
-	cmd.Dir = taskDir
+	// Set up repository worktree if repo info is available.
+	worktreePath := taskDir
+	if task.Repo != "" && task.BaseCommit != "" {
+		cacheDir := cfg.CacheDir
+		if cacheDir == "" {
+			cacheDir = filepath.Join(workDir, "repos")
+		}
+		rc := &RepoCache{CacheDir: cacheDir}
 
-	output, err := cmd.CombinedOutput()
+		if _, err := rc.EnsureCloned(ctx, task.Repo); err != nil {
+			result.DurationMs = time.Since(start).Milliseconds()
+			result.Status = StatusError
+			result.Error = fmt.Sprintf("clone repo %s: %v", task.Repo, err)
+			return result, nil
+		}
+
+		wtPath := filepath.Join(taskDir, "src")
+		if err := rc.PrepareWorktree(ctx, task.Repo, task.BaseCommit, wtPath, task.TestPatch); err != nil {
+			result.DurationMs = time.Since(start).Milliseconds()
+			result.Status = StatusError
+			result.Error = fmt.Sprintf("prepare worktree: %v", err)
+			return result, nil
+		}
+		worktreePath = wtPath
+
+		if !cfg.KeepWorkspaces {
+			defer func() {
+				_ = rc.RemoveWorktree(ctx, task.Repo, wtPath)
+			}()
+		}
+	}
+
+	// Execute based on mode.
+	mode := cfg.Mode
+	if mode == "" {
+		mode = ModeWave
+	}
+
+	var runErr error
+	switch mode {
+	case ModeClaude:
+		runErr = s.runClaudeDirect(ctx, task, cfg, worktreePath)
+	default:
+		runErr = s.runWavePipeline(ctx, task, cfg, worktreePath)
+	}
+
 	result.DurationMs = time.Since(start).Milliseconds()
 
-	if err != nil {
+	if runErr != nil {
 		result.Status = StatusError
-		result.Error = fmt.Sprintf("pipeline execution failed: %v\n%s", err, string(output))
+		result.Error = fmt.Sprintf("execution failed: %v", runErr)
 		return result, nil
 	}
 
-	// If a test command is specified, run it to verify the result
+	// If a test command is specified, run it to verify the result.
 	if task.TestCommand != "" {
-		testResult := s.runTestCommand(ctx, taskDir, task.TestCommand)
+		testResult := s.runTestCommand(ctx, worktreePath, task.TestCommand)
 		if testResult != nil {
 			result.Status = StatusFail
 			result.Error = fmt.Sprintf("test verification failed: %s", string(testResult))
@@ -88,14 +145,61 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 			result.Status = StatusPass
 		}
 	} else {
-		// No test command — mark as pass (pipeline completed without error)
 		result.Status = StatusPass
 	}
 
-	// Try to capture the generated patch
-	result.PatchDiff = captureDiff(taskDir)
+	// Try to capture the generated patch.
+	result.PatchDiff = captureDiff(worktreePath)
 
 	return result, nil
+}
+
+// runWavePipeline invokes `wave run <pipeline> --quiet -- <problem>`.
+// It first ensures the worktree has a wave project via `wave init`.
+func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
+	waveBin := cfg.WaveBinary
+	if waveBin == "" {
+		waveBin = "wave"
+	}
+
+	// Initialize a wave project in the worktree so the manifest and
+	// pipeline definitions are available.
+	initCmd := exec.CommandContext(ctx, waveBin, "init", "--yes", "--force", "--all")
+	initCmd.Dir = dir
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("wave init: %w\n%s", err, string(out))
+	}
+
+	args := []string{"run", cfg.Pipeline, "--quiet", "--force", "--", task.Problem}
+	cmd := exec.CommandContext(ctx, waveBin, args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v\n%s", err, string(output))
+	}
+	return nil
+}
+
+// runClaudeDirect invokes `claude -p` with the problem statement directly.
+func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
+	claudeBin := cfg.ClaudeBinary
+	if claudeBin == "" {
+		claudeBin = "claude"
+	}
+
+	args := []string{
+		"-p",
+		"--dangerously-skip-permissions",
+		"--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
+		task.Problem,
+	}
+	cmd := exec.CommandContext(ctx, claudeBin, args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v\n%s", err, string(output))
+	}
+	return nil
 }
 
 // runTestCommand executes a shell command in the task directory.
@@ -124,8 +228,8 @@ func captureDiff(dir string) string {
 // RunBenchmark executes a benchmark suite: loads tasks, runs them sequentially
 // through the specified pipeline, and returns an aggregated report.
 func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner PipelineRunner) (*BenchReport, error) {
-	if cfg.Pipeline == "" {
-		return nil, fmt.Errorf("pipeline name is required")
+	if cfg.Pipeline == "" && cfg.Mode != ModeClaude {
+		return nil, fmt.Errorf("pipeline name is required (unless mode is %q)", ModeClaude)
 	}
 
 	limit := len(tasks)
@@ -134,47 +238,88 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 	}
 	tasks = tasks[:limit]
 
+	mode := cfg.Mode
+	if mode == "" {
+		mode = ModeWave
+	}
+
 	report := &BenchReport{
 		Dataset:   cfg.DatasetPath,
 		Pipeline:  cfg.Pipeline,
+		Mode:      mode,
+		RunLabel:  cfg.RunLabel,
 		StartedAt: time.Now(),
-		Results:   make([]BenchResult, 0, len(tasks)),
+		Results:   make([]BenchResult, len(tasks)),
 	}
+
+	concurrency := cfg.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
+
+	// Use a semaphore to limit concurrency.
+	sem := make(chan struct{}, concurrency)
+	var mu sync.Mutex
+	var completed int
+	var wg sync.WaitGroup
 
 	for i, task := range tasks {
 		select {
 		case <-ctx.Done():
-			report.CompletedAt = time.Now()
-			report.DurationMs = time.Since(report.StartedAt).Milliseconds()
-			report.Tally()
-			return report, ctx.Err()
+			break
 		default:
 		}
 
-		taskCtx := ctx
-		var cancel context.CancelFunc
-		if cfg.TaskTimeout > 0 {
-			taskCtx, cancel = context.WithTimeout(ctx, cfg.TaskTimeout)
-		}
+		wg.Add(1)
+		go func(idx int, t BenchTask) {
+			defer wg.Done()
 
-		fmt.Fprintf(os.Stderr, "[%d/%d] Running task %s...\n", i+1, len(tasks), task.ID)
-		result, err := runner.RunTask(taskCtx, task, cfg)
-		if cancel != nil {
-			cancel()
-		}
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
 
-		if err != nil {
-			// Runner-level error (not task failure)
-			report.Results = append(report.Results, BenchResult{
-				TaskID:   task.ID,
-				Pipeline: cfg.Pipeline,
-				Status:   StatusError,
-				Error:    err.Error(),
-			})
-		} else {
-			report.Results = append(report.Results, *result)
-		}
+			select {
+			case <-ctx.Done():
+				report.Results[idx] = BenchResult{
+					TaskID:   t.ID,
+					Pipeline: cfg.Pipeline,
+					Status:   StatusError,
+					Error:    "cancelled",
+				}
+				return
+			default:
+			}
+
+			mu.Lock()
+			completed++
+			n := completed
+			mu.Unlock()
+			fmt.Fprintf(os.Stderr, "[%d/%d] Running task %s (%s)...\n", n, len(tasks), t.ID, mode)
+
+			taskCtx := ctx
+			var cancel context.CancelFunc
+			if cfg.TaskTimeout > 0 {
+				taskCtx, cancel = context.WithTimeout(ctx, cfg.TaskTimeout)
+			}
+
+			result, err := runner.RunTask(taskCtx, t, cfg)
+			if cancel != nil {
+				cancel()
+			}
+
+			if err != nil {
+				report.Results[idx] = BenchResult{
+					TaskID:   t.ID,
+					Pipeline: cfg.Pipeline,
+					Status:   StatusError,
+					Error:    err.Error(),
+				}
+			} else {
+				report.Results[idx] = *result
+			}
+		}(i, task)
 	}
+
+	wg.Wait()
 
 	report.CompletedAt = time.Now()
 	report.DurationMs = time.Since(report.StartedAt).Milliseconds()
