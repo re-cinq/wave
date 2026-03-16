@@ -259,5 +259,24 @@ CREATE INDEX IF NOT EXISTS idx_attempt_step ON step_attempt(step_id);
 `,
 			Down: "",
 		},
+		{
+			Version:     10,
+			Description: "Add chat_session table for bidirectional chat persistence",
+			Up: `
+CREATE TABLE IF NOT EXISTS chat_session (
+    session_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    step_filter TEXT DEFAULT '',
+    workspace_path TEXT NOT NULL,
+    model TEXT DEFAULT '',
+    created_at INTEGER NOT NULL,
+    last_resumed_at INTEGER,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_session_run ON chat_session(run_id);
+`,
+			Down: "",
+		},
 	}
 }
