@@ -46,6 +46,7 @@ func newBenchRunCmd() *cobra.Command {
 		label          string
 		limit          int
 		timeout        int
+		concurrency    int
 		outputPath     string
 		datasetsDir    string
 		keepWorkspaces bool
@@ -55,7 +56,7 @@ func newBenchRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Run a pipeline against benchmark tasks",
 		Long: `Execute a Wave pipeline against each task in a JSONL benchmark dataset.
-Tasks are run sequentially. Results are written to a JSON file.
+Results are written to a JSON file. Use --concurrency to run tasks in parallel.
 
 Use --mode to select execution mode:
   wave    Run tasks through a Wave pipeline (default)
@@ -109,6 +110,7 @@ Use --mode to select execution mode:
 				DatasetPath:    datasetPath,
 				WorkDir:        ".wave/bench/workspaces",
 				KeepWorkspaces: keepWorkspaces,
+				Concurrency:    concurrency,
 			}
 			if timeout > 0 {
 				cfg.TaskTimeout = time.Duration(timeout) * time.Second
@@ -164,6 +166,7 @@ Use --mode to select execution mode:
 	cmd.Flags().StringVar(&outputPath, "output", "", "Path to write JSON results file")
 	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
 	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
+	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of tasks to run in parallel")
 
 	return cmd
 }
