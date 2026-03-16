@@ -66,7 +66,7 @@ claude -p "prompt text" \
 
 1. Wave builds the CLI command from persona configuration.
 2. Generates `settings.json` (permissions, deny rules, sandbox, network domains) and `CLAUDE.md` (system prompt + restriction directives) from the manifest.
-3. Spawns the process in the step's ephemeral workspace with a curated environment (only base vars + explicit `env_passthrough`). Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment.
+3. Spawns the process in the step's ephemeral workspace with a curated environment (only base vars + explicit `env_passthrough`). Both the Claude and OpenCode adapters use this curated model; only raw `ProcessGroupRunner`-based adapters inherit the full host environment.
 4. Monitors stdout for JSON output events.
 5. Enforces per-step timeout — kills the entire process group if exceeded.
 6. Collects exit code, output artifacts, and duration.
@@ -99,7 +99,7 @@ adapters:
       deny: ["Bash(rm *)"]
 ```
 
-Personas select their adapter:
+Personas select their adapter. For OpenCode personas, the `model` field uses a `provider/model` identifier format — the string is split on the first `/` to derive the provider and model name:
 
 ```yaml
 personas:
@@ -108,7 +108,10 @@ personas:
 
   implementer:
     adapter: opencode       # Uses OpenCode
+    model: openai/gpt-4o   # provider=openai, model=gpt-4o
 ```
+
+If `model` is omitted for an OpenCode persona, it defaults to `anthropic/claude-sonnet-4-20250514`.
 
 ## Custom Adapters
 
@@ -146,7 +149,7 @@ This ensures Claude Code is informed of restrictions at both the configuration l
 
 ## Credential Handling
 
-Adapters receive credentials via a **curated environment** — only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. Note: this curated model applies to the Claude adapter; other adapters (via `ProcessGroupRunner`) currently inherit the full host environment via `os.Environ()`.
+Adapters receive credentials via a **curated environment** — only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed. Both the Claude and OpenCode adapters enforce this curated model. Only raw `ProcessGroupRunner`-based adapters inherit the full host environment via `os.Environ()`.
 
 ```
 Shell → env_passthrough filter → Wave process → Adapter subprocess → LLM CLI

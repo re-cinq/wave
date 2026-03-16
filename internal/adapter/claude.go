@@ -347,30 +347,19 @@ func (a *ClaudeAdapter) copySkillCommands(settingsDir, sourceDir string) error {
 }
 
 // buildEnvironment constructs a curated environment for the Claude Code subprocess.
-// Instead of passing the full host environment, it provides only the base variables
-// needed for operation plus explicitly allowed passthrough variables from the manifest.
+// It uses the shared BuildCuratedEnvironment for base vars, passthrough, and step env,
+// then appends Claude-specific telemetry suppression variables.
 func (a *ClaudeAdapter) buildEnvironment(cfg AdapterRunConfig) []string {
-	// Base environment (always needed)
-	env := []string{
-		"HOME=" + os.Getenv("HOME"),
-		"PATH=" + os.Getenv("PATH"),
-		"TERM=" + getenvDefault("TERM", "xterm-256color"),
-		"TMPDIR=/tmp",
+	env := BuildCuratedEnvironment(cfg)
+
+	// Claude-specific telemetry suppression
+	env = append(env,
 		"DISABLE_TELEMETRY=1",
 		"DISABLE_ERROR_REPORTING=1",
 		"CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1",
 		"DISABLE_BUG_COMMAND=1",
-	}
+	)
 
-	// Add explicitly allowed env vars from manifest
-	for _, key := range cfg.EnvPassthrough {
-		if val := os.Getenv(key); val != "" {
-			env = append(env, key+"="+val)
-		}
-	}
-
-	// Step-specific env vars (from pipeline config)
-	env = append(env, cfg.Env...)
 	return env
 }
 
