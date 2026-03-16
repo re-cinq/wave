@@ -133,15 +133,21 @@ func TestHandleAPIRuns_StatusFilter(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "completed", "", 100)
-	rwStore.CreateRun("test-pipeline", "input2") // pending
+	if err := rwStore.UpdateRunStatus(runID, "completed", "", 100); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
+	if _, err := rwStore.CreateRun("test-pipeline", "input2"); err != nil { // pending
+		t.Fatalf("failed to create run: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/runs?status=completed", nil)
 	rec := httptest.NewRecorder()
 	srv.handleAPIRuns(rec, req)
 
 	var resp RunListResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	if len(resp.Runs) != 1 {
 		t.Errorf("expected 1 completed run, got %d", len(resp.Runs))
@@ -153,7 +159,9 @@ func TestHandleAPIRuns_Pagination(t *testing.T) {
 
 	// Create 30 runs (more than default page size of 25)
 	for i := 0; i < 30; i++ {
-		rwStore.CreateRun("test-pipeline", "input")
+		if _, err := rwStore.CreateRun("test-pipeline", "input"); err != nil {
+			t.Fatalf("failed to create run: %v", err)
+		}
 	}
 
 	req := httptest.NewRequest("GET", "/api/runs", nil)
@@ -161,7 +169,9 @@ func TestHandleAPIRuns_Pagination(t *testing.T) {
 	srv.handleAPIRuns(rec, req)
 
 	var resp RunListResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	if len(resp.Runs) != 25 {
 		t.Errorf("expected 25 runs (page size), got %d", len(resp.Runs))
@@ -244,13 +254,23 @@ steps:
       prompt: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
-	os.MkdirAll(pipelineDir, 0o755)
-	os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644)
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
 
 	// Change to temp dir so loadPipelineYAML finds the file
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
 
 	body := strings.NewReader(`{"input":"test input"}`)
 	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
@@ -283,7 +303,9 @@ func TestHandleCancelRun(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "running", "step1", 0)
+	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	body := strings.NewReader(`{"force": false}`)
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/cancel", body)
@@ -301,7 +323,9 @@ func TestHandleCancelRun_NotCancellable(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "completed", "", 100)
+	if err := rwStore.UpdateRunStatus(runID, "completed", "", 100); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	body := strings.NewReader(`{}`)
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/cancel", body)
@@ -329,15 +353,27 @@ steps:
       prompt: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
-	os.MkdirAll(pipelineDir, 0o755)
-	os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644)
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
 
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "failed", "", 0)
+	if err := rwStore.UpdateRunStatus(runID, "failed", "", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/retry", nil)
 	req.SetPathValue("id", runID)
@@ -349,7 +385,9 @@ steps:
 	}
 
 	var resp RetryRunResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	if resp.OriginalRunID != runID {
 		t.Errorf("expected original run ID %q, got %q", runID, resp.OriginalRunID)
@@ -366,7 +404,9 @@ func TestHandleRetryRun_NotRetryable(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "running", "step1", 0)
+	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/retry", nil)
 	req.SetPathValue("id", runID)
@@ -398,15 +438,27 @@ steps:
       prompt: "test2"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
-	os.MkdirAll(pipelineDir, 0o755)
-	os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644)
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
 
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "failed", "", 0)
+	if err := rwStore.UpdateRunStatus(runID, "failed", "", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	body := strings.NewReader(`{"from_step":"step2"}`)
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/resume", body)
@@ -420,7 +472,9 @@ steps:
 	}
 
 	var resp ResumeRunResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	if resp.OriginalRunID != runID {
 		t.Errorf("expected original run ID %q, got %q", runID, resp.OriginalRunID)
@@ -447,15 +501,27 @@ steps:
       prompt: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
-	os.MkdirAll(pipelineDir, 0o755)
-	os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644)
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
 
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "failed", "", 0)
+	if err := rwStore.UpdateRunStatus(runID, "failed", "", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	body := strings.NewReader(`{"from_step":"nonexistent"}`)
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/resume", body)
@@ -473,7 +539,9 @@ func TestHandleResumeRun_WrongState(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "running", "step1", 0)
+	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	body := strings.NewReader(`{"from_step":"step1"}`)
 	req := httptest.NewRequest("POST", "/api/runs/"+runID+"/resume", body)
@@ -500,11 +568,17 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	defer srv.broker.Stop()
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
-	rwStore.UpdateRunStatus(runID, "running", "step1", 0)
+	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
 
 	// Log some events to the DB
-	rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0)
-	rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000)
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
 
 	// Get the events to find their IDs
 	events, err := srv.store.GetEvents(runID, state.EventQueryOptions{})
@@ -516,7 +590,9 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Add a third event after the first two
-	rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000)
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
 
 	// Simulate reconnection with Last-Event-ID set to the first event
 	req := httptest.NewRequest("GET", "/api/runs/"+runID+"/events", nil)
@@ -561,10 +637,12 @@ func TestHandleAPIPersonas_NoManifest(t *testing.T) {
 	}
 
 	var resp PersonaListResponse
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	// No manifest means no personas - should return empty list, not error
-	if resp.Personas != nil && len(resp.Personas) > 0 {
+	if len(resp.Personas) > 0 {
 		t.Errorf("expected empty personas, got %d", len(resp.Personas))
 	}
 }
