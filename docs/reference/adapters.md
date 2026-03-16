@@ -123,7 +123,7 @@ claude -p --model opus --allowedTools "Read,Write" --output-format stream-json \
 
 ## OpenCode Adapter
 
-Alternative adapter for the `opencode` CLI.
+Alternative adapter for the `opencode` CLI, supporting multiple model providers.
 
 ```yaml
 adapters:
@@ -136,11 +136,74 @@ adapters:
       deny: ["Bash(rm *)"]
 ```
 
+### Model Configuration
+
+OpenCode uses a `provider/model` format to select which LLM backend to use. Specify the model on the persona:
+
+```yaml
+personas:
+  openai-coder:
+    adapter: opencode
+    model: openai/gpt-4o
+```
+
+The model string is split on the **first `/`** only:
+
+| `model` value | Provider | Model |
+|---------------|----------|-------|
+| `openai/gpt-4o` | `openai` | `gpt-4o` |
+| `anthropic/claude-sonnet-4-20250514` | `anthropic` | `claude-sonnet-4-20250514` |
+| `google/gemini-2.0-flash` | `google` | `gemini-2.0-flash` |
+| `openai/org/gpt-4o` | `openai` | `org/gpt-4o` (multi-slash: splits on first `/` only) |
+| _(not set)_ | `anthropic` | `claude-sonnet-4-20250514` (default) |
+
+If no model is configured, OpenCode defaults to `anthropic/claude-sonnet-4-20250514`.
+
+### Environment Passthrough
+
+OpenCode uses the same **curated environment** as the Claude adapter. Only base variables and those explicitly listed in `runtime.sandbox.env_passthrough` are passed to the subprocess. Configure API keys for your chosen provider:
+
+```yaml
+runtime:
+  sandbox:
+    env_passthrough:
+      - OPENAI_API_KEY
+      - GOOGLE_API_KEY
+      - ANTHROPIC_API_KEY
+```
+
+Variables not listed here are not visible to the OpenCode subprocess, preventing credential leakage from unrelated host environment variables.
+
 ### Workspace Setup
 
-When OpenCode adapter runs:
-1. Creates `.opencode/config.json` with provider and model settings
-2. Projects persona system prompt to `AGENTS.md`
+When the OpenCode adapter runs:
+1. Creates `.opencode/config.json` with provider and model settings derived from the persona's `model` field
+2. Projects the persona system prompt to `AGENTS.md`
+
+### Complete Persona Example
+
+```yaml
+adapters:
+  opencode:
+    binary: opencode
+    mode: headless
+    output_format: json
+    default_permissions:
+      allowed_tools: ["Read", "Write", "Edit", "Bash"]
+      deny: []
+
+personas:
+  openai-coder:
+    adapter: opencode
+    model: openai/gpt-4o
+    system_prompt: |
+      You are a senior software engineer focused on clean implementation.
+
+runtime:
+  sandbox:
+    env_passthrough:
+      - OPENAI_API_KEY
+```
 
 ### CLI Invocation
 
