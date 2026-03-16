@@ -6,11 +6,14 @@ import (
 )
 
 type Project struct {
-	Language     string `yaml:"language,omitempty"`
-	TestCommand  string `yaml:"test_command,omitempty"`
-	LintCommand  string `yaml:"lint_command,omitempty"`
-	BuildCommand string `yaml:"build_command,omitempty"`
-	SourceGlob   string `yaml:"source_glob,omitempty"`
+	Language      string `yaml:"language,omitempty"`
+	Flavour       string `yaml:"flavour,omitempty"`
+	TestCommand   string `yaml:"test_command,omitempty"`
+	LintCommand   string `yaml:"lint_command,omitempty"`
+	BuildCommand  string `yaml:"build_command,omitempty"`
+	FormatCommand string `yaml:"format_command,omitempty"`
+	SourceGlob    string `yaml:"source_glob,omitempty"`
+	Skill         string `yaml:"skill,omitempty"`
 }
 
 type Manifest struct {
@@ -187,6 +190,15 @@ func (p *Project) ProjectVars() map[string]string {
 	}
 	if p.SourceGlob != "" {
 		vars["project.source_glob"] = p.SourceGlob
+	}
+	if p.Flavour != "" {
+		vars["project.flavour"] = p.Flavour
+	}
+	if p.FormatCommand != "" {
+		vars["project.format_command"] = p.FormatCommand
+	}
+	if p.Skill != "" {
+		vars["project.skill"] = p.Skill
 	}
 	return vars
 }
