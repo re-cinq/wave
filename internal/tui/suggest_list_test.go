@@ -197,6 +197,60 @@ func TestSuggestListModel_EmptyProposals_SkipDoesNothing(t *testing.T) {
 	assert.Equal(t, 0, len(m.proposals))
 }
 
+func TestSuggestListModel_LaunchedBadge_ShowsCheckmark(t *testing.T) {
+	proposals := []SuggestProposedPipeline{
+		{Name: "pipeline-a", Priority: 1},
+		{Name: "pipeline-b", Priority: 2},
+	}
+	m := newTestSuggestList(proposals)
+
+	// Mark pipeline-a as launched
+	m.launched = map[string]bool{"pipeline-a": true}
+
+	view := m.View()
+	assert.Contains(t, view, "✓", "launched proposal should show checkmark badge")
+}
+
+func TestSuggestListModel_LaunchedBadge_NotShownForUnlaunched(t *testing.T) {
+	proposals := []SuggestProposedPipeline{
+		{Name: "pipeline-a", Priority: 1},
+	}
+	m := newTestSuggestList(proposals)
+
+	view := m.View()
+	assert.NotContains(t, view, "✓", "unlaunched proposal should not show checkmark badge")
+}
+
+func TestSuggestListModel_SuggestLaunchedMsg_UpdatesTracking(t *testing.T) {
+	proposals := []SuggestProposedPipeline{
+		{Name: "pipeline-a", Priority: 1},
+		{Name: "pipeline-b", Priority: 2},
+	}
+	m := newTestSuggestList(proposals)
+
+	assert.Nil(t, m.launched)
+
+	m, _ = m.Update(SuggestLaunchedMsg{Name: "pipeline-a"})
+
+	require.NotNil(t, m.launched)
+	assert.True(t, m.launched["pipeline-a"])
+	assert.False(t, m.launched["pipeline-b"])
+}
+
+func TestSuggestListModel_SuggestLaunchedMsg_MultipleLaunches(t *testing.T) {
+	proposals := []SuggestProposedPipeline{
+		{Name: "pipeline-a", Priority: 1},
+		{Name: "pipeline-b", Priority: 2},
+	}
+	m := newTestSuggestList(proposals)
+
+	m, _ = m.Update(SuggestLaunchedMsg{Name: "pipeline-a"})
+	m, _ = m.Update(SuggestLaunchedMsg{Name: "pipeline-b"})
+
+	assert.True(t, m.launched["pipeline-a"])
+	assert.True(t, m.launched["pipeline-b"])
+}
+
 func TestSuggestListModel_MultiSelect(t *testing.T) {
 	proposals := []SuggestProposedPipeline{
 		{Name: "pipeline-a", Priority: 1, Reason: "Fix CI"},
