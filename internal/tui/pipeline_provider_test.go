@@ -108,6 +108,11 @@ func (b baseStateStore) RecordStepAttempt(*state.StepAttemptRecord) error {
 func (b baseStateStore) GetStepAttempts(string, string) ([]state.StepAttemptRecord, error) {
 	return nil, nil
 }
+func (b baseStateStore) SaveChatSession(*state.ChatSession) error { return nil }
+func (b baseStateStore) GetChatSession(string) (*state.ChatSession, error) {
+	return nil, errors.New("not found")
+}
+func (b baseStateStore) ListChatSessions(string) ([]state.ChatSession, error) { return nil, nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

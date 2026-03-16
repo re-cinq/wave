@@ -1,9 +1,12 @@
 package adapter
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -20,10 +23,11 @@ type InteractiveOptions struct {
 // LaunchInteractive spawns Claude Code in interactive (non -p) mode.
 // It passes through stdin/stdout/stderr so the user interacts directly with Claude.
 // workspacePath is used as the working directory; it should contain CLAUDE.md and .claude/settings.json.
-func LaunchInteractive(workspacePath string, opts InteractiveOptions) error {
+// Returns the session ID captured from stderr (empty string if not found) and any error.
+func LaunchInteractive(workspacePath string, opts InteractiveOptions) (string, error) {
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
-		return fmt.Errorf("claude CLI not found: %w", err)
+		return "", fmt.Errorf("claude CLI not found: %w", err)
 	}
 
 	args := buildInteractiveArgs(opts)
@@ -32,7 +36,10 @@ func LaunchInteractive(workspacePath string, opts InteractiveOptions) error {
 	cmd.Dir = workspacePath
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	// Tee stderr to both os.Stderr (for user display) and a buffer (for session ID capture)
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 
 	// Set minimal environment
 	cmd.Env = []string{
@@ -47,13 +54,29 @@ func LaunchInteractive(workspacePath string, opts InteractiveOptions) error {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			if exitErr.ExitCode() == 130 {
 				// SIGINT (Ctrl+C) — normal exit
-				return nil
+				sessionID := extractSessionID(stderrBuf.String())
+				return sessionID, nil
 			}
 		}
-		return fmt.Errorf("claude exited with error: %w", err)
+		return "", fmt.Errorf("claude exited with error: %w", err)
 	}
 
-	return nil
+	sessionID := extractSessionID(stderrBuf.String())
+	return sessionID, nil
+}
+
+// sessionIDPattern matches session ID output from Claude Code.
+// Looks for "session" followed by a colon or whitespace, then a hex/UUID string.
+var sessionIDPattern = regexp.MustCompile(`(?i)session[:\s]+([a-f0-9-]{8,})`)
+
+// extractSessionID parses Claude Code output for a session ID.
+// Returns the session ID if found, or an empty string if not.
+func extractSessionID(output string) string {
+	matches := sessionIDPattern.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		return ""
+	}
+	return matches[1]
 }
 
 // buildInteractiveArgs constructs CLI arguments for interactive Claude Code.
