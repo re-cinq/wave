@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/stretchr/testify/require"
 )
 
 // matrixTestEventCollector for matrix tests
@@ -2344,8 +2345,8 @@ steps:
       source: "Do work"
 `
 	childPipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
-	os.MkdirAll(childPipelineDir, 0755)
-	os.WriteFile(filepath.Join(childPipelineDir, "test-child.yaml"), []byte(childPipelineYAML), 0644)
+	require.NoError(t, os.MkdirAll(childPipelineDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(childPipelineDir, "test-child.yaml"), []byte(childPipelineYAML), 0644))
 
 	baseAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
