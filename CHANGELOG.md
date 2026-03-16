@@ -13,15 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
 - Forge-agnostic template variables (`{{ forge.cli_tool }}`, `{{ forge.pr_command }}`) in pipeline prompts
 - Skill management CLI subcommand (`wave skills list|install|remove|search|sync`)
-
-### Changed
-- Renamed all pipelines to use taxonomy prefixes (e.g., `implement` → `impl-issue`, `pr-review` → `ops-pr-review`, `speckit-flow` → `impl-speckit`)
-- Unified forge-specific pipelines (`gh-implement`, `gl-implement`, etc.) into forge-agnostic pipelines
-- Renamed `code-review` → `gh-pr-review` → `ops-pr-review` for clarity and consistency
-- Generalized `github-commenter` persona to support multiple GitHub operations
-- Updated all documentation references to use taxonomy-prefixed pipeline names
-
-### Added (continued)
 - `wave meta` dynamic pipeline generation with `--save` flag for persistence (PR #416, #95)
 - Persona token scoping with `token_scopes` manifest field and preflight validation (PR #417, #213)
 - Browser automation adapter via chromedp for web scraping personas (PR #418, #116)
@@ -30,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI guided workflow orchestrator: health → proposals → fleet mode (PR #422, #248)
 - Security test coverage for path validation and input sanitization (PR #429)
 - Core test coverage for deliverable tracker, state methods, pipeline controller (PR #430)
+- Streaming events to opencode adapter for real-time output capture
+- `ops-issue-quality` pipeline for wiring quality scanner to issue workflow
+- `--dry-run` validation flag for pipeline composition testing
+- Contract views and artifact viewer in web UI
+- `wave postmortem` command for failed run analysis
+- Example composition pipelines for reference workflows
+- Token scopes support to forge-interacting personas
+- Prerequisites section to README
+- `audit-closed` pipeline for analyzing closed issues
+- Compaction blocks in pipelines with forge-agnostic prompts
+
+### Changed
+- Renamed all pipelines to use taxonomy prefixes (e.g., `implement` → `impl-issue`, `pr-review` → `ops-pr-review`, `speckit-flow` → `impl-speckit`)
+- Unified forge-specific pipelines (`gh-implement`, `gl-implement`, etc.) into forge-agnostic pipelines
+- Renamed `code-review` → `gh-pr-review` → `ops-pr-review` for clarity and consistency
+- Generalized `github-commenter` persona to support multiple GitHub operations
+- Updated all documentation references to use taxonomy-prefixed pipeline names
+- Removed deny rules from personas, enforcing security via sandbox instead
+- Security optimizations: pre-compile regexes, optimize allocations, add Unicode normalization
 
 ### Fixed
 - TUI issues view right pane overwritten by pipeline refresh events (PR #415, #411)
@@ -37,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base URL configuration for GitHub Pages subpath hosting
 - Premature StateRunning status during artifact injection in pipeline execution
 - Resume display showing prior steps as completed when using `--from-step` flag (#151)
+- Web UI resume functionality, cursor pagination, and since filter
+- golangci-lint errors in security tests
 
 ### Removed
 - Dead code cleanup: unused display animations, relay helpers, sandbox stubs (PR #423)
