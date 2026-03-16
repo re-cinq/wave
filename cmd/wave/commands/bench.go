@@ -47,6 +47,7 @@ func newBenchRunCmd() *cobra.Command {
 		limit          int
 		timeout        int
 		concurrency    int
+		offset         int
 		outputPath     string
 		datasetsDir    string
 		keepWorkspaces bool
@@ -111,6 +112,7 @@ Use --mode to select execution mode:
 				WorkDir:        ".wave/bench/workspaces",
 				KeepWorkspaces: keepWorkspaces,
 				Concurrency:    concurrency,
+				Offset:         offset,
 			}
 			if timeout > 0 {
 				cfg.TaskTimeout = time.Duration(timeout) * time.Second
@@ -167,6 +169,7 @@ Use --mode to select execution mode:
 	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
 	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of tasks to run in parallel")
+	cmd.Flags().IntVar(&offset, "offset", 0, "Skip the first N tasks in the dataset")
 
 	return cmd
 }

@@ -46,6 +46,8 @@ type RunConfig struct {
 	KeepWorkspaces bool
 	// Concurrency is the number of tasks to run in parallel. Defaults to 1.
 	Concurrency int
+	// Offset skips the first N tasks in the dataset.
+	Offset int
 }
 
 // PipelineRunner is the interface for executing a single pipeline against a task.
@@ -232,6 +234,9 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 		return nil, fmt.Errorf("pipeline name is required (unless mode is %q)", ModeClaude)
 	}
 
+	if cfg.Offset > 0 && cfg.Offset < len(tasks) {
+		tasks = tasks[cfg.Offset:]
+	}
 	limit := len(tasks)
 	if cfg.Limit > 0 && cfg.Limit < limit {
 		limit = cfg.Limit
