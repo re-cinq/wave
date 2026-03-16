@@ -211,7 +211,7 @@ func (is *InputSanitizer) calculateRiskScore(input string, sanitizationRules []s
 		is.logger.LogViolation(
 			string(ViolationInputValidation),
 			string(SourceUserInput),
-			fmt.Sprintf("Input contains shell metacharacters: defense-in-depth warning"),
+			"Input contains shell metacharacters: defense-in-depth warning",
 			SeverityLow,
 			false,
 		)
