@@ -227,3 +227,59 @@ type PipelineStartInfo struct {
 	Category    string `json:"category,omitempty"`
 	StepCount   int    `json:"step_count"`
 }
+
+// IssueSummary is a summary of a GitHub issue for the API.
+type IssueSummary struct {
+	Number    int      `json:"number"`
+	Title     string   `json:"title"`
+	State     string   `json:"state"`
+	Author    string   `json:"author"`
+	Labels    []string `json:"labels"`
+	Comments  int      `json:"comments"`
+	CreatedAt string   `json:"created_at"`
+	URL       string   `json:"url"`
+}
+
+// IssueListResponse is the JSON response for the issue list API.
+type IssueListResponse struct {
+	Issues   []IssueSummary `json:"issues"`
+	RepoSlug string         `json:"repo_slug,omitempty"`
+	Message  string         `json:"message,omitempty"`
+}
+
+// PRSummary is a summary of a GitHub pull request for the API.
+type PRSummary struct {
+	Number       int    `json:"number"`
+	Title        string `json:"title"`
+	State        string `json:"state"`
+	Author       string `json:"author"`
+	Draft        bool   `json:"draft"`
+	Merged       bool   `json:"merged"`
+	HeadBranch   string `json:"head_branch"`
+	BaseBranch   string `json:"base_branch"`
+	Additions    int    `json:"additions"`
+	Deletions    int    `json:"deletions"`
+	ChangedFiles int    `json:"changed_files"`
+	CreatedAt    string `json:"created_at"`
+	URL          string `json:"url"`
+}
+
+// PRListResponse is the JSON response for the PR list API.
+type PRListResponse struct {
+	PullRequests []PRSummary `json:"pull_requests"`
+	RepoSlug     string      `json:"repo_slug,omitempty"`
+	Message      string      `json:"message,omitempty"`
+}
+
+// HealthCheckResult is the result of a single health check for the API.
+type HealthCheckResult struct {
+	Name    string            `json:"name"`
+	Status  string            `json:"status"` // "ok", "warn", "error"
+	Message string            `json:"message"`
+	Details map[string]string `json:"details,omitempty"`
+}
+
+// HealthListResponse is the JSON response for the health check API.
+type HealthListResponse struct {
+	Checks []HealthCheckResult `json:"checks"`
+}
