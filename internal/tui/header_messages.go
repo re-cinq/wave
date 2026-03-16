@@ -41,6 +41,7 @@ type PipelineSelectedMsg struct {
 	BranchDeleted bool      // True if the branch no longer exists
 	Kind          itemKind  // itemKindRunning, itemKindFinished, or itemKindAvailable
 	StartedAt     time.Time // When the run was started (zero for available pipelines)
+	FromIssueList bool      // True when emitted by issue list (not pipeline list refresh)
 }
 
 // FocusPane identifies which pane has keyboard focus.

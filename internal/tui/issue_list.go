@@ -528,12 +528,13 @@ func (m IssueListModel) emitSelectionMsg() tea.Cmd {
 			r := m.running[item.dataIndex]
 			return func() tea.Msg {
 				return PipelineSelectedMsg{
-					RunID:      r.RunID,
-					Name:       r.Name,
-					Input:      r.Input,
-					BranchName: r.BranchName,
-					Kind:       itemKindRunning,
-					StartedAt:  r.StartedAt,
+					RunID:         r.RunID,
+					Name:          r.Name,
+					Input:         r.Input,
+					BranchName:    r.BranchName,
+					Kind:          itemKindRunning,
+					StartedAt:     r.StartedAt,
+					FromIssueList: true,
 				}
 			}
 		}
@@ -542,12 +543,13 @@ func (m IssueListModel) emitSelectionMsg() tea.Cmd {
 			f := m.finished[item.dataIndex]
 			return func() tea.Msg {
 				return PipelineSelectedMsg{
-					RunID:      f.RunID,
-					Name:       f.Name,
-					Input:      f.Input,
-					BranchName: f.BranchName,
-					Kind:       itemKindFinished,
-					StartedAt:  f.StartedAt,
+					RunID:         f.RunID,
+					Name:          f.Name,
+					Input:         f.Input,
+					BranchName:    f.BranchName,
+					Kind:          itemKindFinished,
+					StartedAt:     f.StartedAt,
+					FromIssueList: true,
 				}
 			}
 		}
