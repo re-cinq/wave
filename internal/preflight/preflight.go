@@ -151,6 +151,55 @@ func (c *Checker) CheckBrowserBinary() (string, Result) {
 	}
 }
 
+// CheckDockerDaemon verifies that the Docker daemon is available and running.
+func (c *Checker) CheckDockerDaemon() Result {
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		return Result{
+			Name:    "docker",
+			Kind:    "tool",
+			OK:      false,
+			Message: "docker binary not found on PATH\n  Install Docker: https://docs.docker.com/get-docker/",
+		}
+	}
+
+	if err := c.runCmd("docker", "info"); err != nil {
+		return Result{
+			Name:    "docker",
+			Kind:    "tool",
+			OK:      false,
+			Message: "docker daemon not running\n  Linux: systemctl start docker\n  macOS: Open Docker Desktop\n  WSL2: Start Docker Desktop for Windows",
+		}
+	}
+
+	return Result{
+		Name:    "docker",
+		Kind:    "tool",
+		OK:      true,
+		Message: "docker daemon available",
+	}
+}
+
+// CheckBubblewrap verifies that the bubblewrap binary is available on PATH.
+func (c *Checker) CheckBubblewrap() Result {
+	_, err := exec.LookPath("bwrap")
+	if err != nil {
+		return Result{
+			Name:    "bwrap",
+			Kind:    "tool",
+			OK:      false,
+			Message: "bubblewrap (bwrap) not found on PATH\n  Consider using Docker sandbox instead: runtime.sandbox.backend: docker",
+		}
+	}
+
+	return Result{
+		Name:    "bwrap",
+		Kind:    "tool",
+		OK:      true,
+		Message: "bubblewrap available",
+	}
+}
+
 // CheckSkills verifies that all required skills are installed, attempting auto-install if configured.
 // Note: init commands are NOT run here — they run inside the worktree after creation.
 func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
