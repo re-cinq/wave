@@ -13,7 +13,7 @@ import (
 )
 
 func TestDockerSandbox_Wrap_SecurityFlags(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude", "--version")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -39,7 +39,7 @@ func TestDockerSandbox_Wrap_SecurityFlags(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_TmpfsMounts(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -64,7 +64,7 @@ func TestDockerSandbox_Wrap_TmpfsMounts(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_UIDGIDFromConfig(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -86,7 +86,7 @@ func TestDockerSandbox_Wrap_UIDGIDFromConfig(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_UIDGIDDefaultsToOS(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{})
@@ -109,7 +109,7 @@ func TestDockerSandbox_Wrap_EnvPassthrough(t *testing.T) {
 	// Set a test env var
 	t.Setenv("WAVE_TEST_VAR", "test_value")
 
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -143,7 +143,7 @@ func TestDockerSandbox_Wrap_EnvPassthrough(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_StandardEnv(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -175,7 +175,7 @@ func TestDockerSandbox_Wrap_StandardEnv(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_Mounts(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	cfg := Config{
@@ -222,7 +222,7 @@ func TestDockerSandbox_Wrap_Mounts(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_DefaultImage(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude", "--version")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -246,7 +246,7 @@ func TestDockerSandbox_Wrap_DefaultImage(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_CustomImage(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -267,7 +267,7 @@ func TestDockerSandbox_Wrap_CustomImage(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_PreservesStdio(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	var stdout, stderr bytes.Buffer
@@ -303,7 +303,7 @@ func TestDockerSandbox_Wrap_PreservesStdio(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_OriginalCommandAndArgs(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude", "--model", "opus", "run")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
@@ -334,7 +334,7 @@ func TestDockerSandbox_Wrap_OriginalCommandAndArgs(t *testing.T) {
 }
 
 func TestDockerSandbox_Wrap_ConcurrentInstances(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	const n = 10
 
 	var wg sync.WaitGroup
@@ -378,14 +378,14 @@ func TestDockerSandbox_Wrap_ConcurrentInstances(t *testing.T) {
 }
 
 func TestDockerSandbox_Cleanup(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	if err := d.Cleanup(context.Background()); err != nil {
 		t.Fatalf("Cleanup returned error: %v", err)
 	}
 }
 
 func TestDockerSandbox_Wrap_NoMountsWhenEmpty(t *testing.T) {
-	d := newDockerSandboxWithPath("/usr/bin/docker")
+	d := newTestDockerSandbox()
 	cmd := exec.Command("/usr/bin/claude")
 
 	result, err := d.Wrap(context.Background(), cmd, Config{
