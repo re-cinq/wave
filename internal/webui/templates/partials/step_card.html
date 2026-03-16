@@ -1,5 +1,5 @@
 {{define "templates/partials/step_card.html"}}
-<div class="step-card {{statusClass .State}}">
+<div class="step-card {{statusClass .State}}" id="step-{{.StepID}}" aria-label="Step {{.StepID}}, status: {{.State}}">
     <div class="step-header">
         <span class="step-id">{{.StepID}}</span>
         <span class="badge {{statusClass .State}}">{{.State}}</span>

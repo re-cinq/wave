@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -41,34 +39,10 @@ func isHeartbeat(ev event.Event) bool {
 	return ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0
 }
 
-// handleStartPipeline handles POST /api/pipelines/{name}/start
-func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	if name == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing pipeline name")
-		return
-	}
-
-	var req StartPipelineRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	// Load pipeline definition from .wave/pipelines/
-	p, err := loadPipelineYAML(name)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
-		return
-	}
-
-	// Create the run record in the DB — this ID is used everywhere
-	runID, err := s.rwStore.CreateRun(name, req.Input)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
-		return
-	}
-
+// launchPipelineExecution starts pipeline execution in a background goroutine.
+// It sets up the adapter, emitter, audit logger, and executor, then launches
+// the pipeline. This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
+func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline) {
 	// Resolve adapter from manifest
 	var runner adapter.AdapterRunner
 	if s.manifest != nil {
@@ -137,16 +111,47 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 			m = &manifest.Manifest{}
 		}
 
-		execErr := executor.Execute(ctx, p, m, req.Input)
+		execErr := executor.Execute(ctx, p, m, input)
 
 		tokens := executor.GetTotalTokens()
 		if execErr != nil {
-			log.Printf("Pipeline %s (%s) failed: %v", name, runID, execErr)
+			log.Printf("Pipeline %s (%s) failed: %v", pipelineName, runID, execErr)
 			s.rwStore.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
 		} else {
 			s.rwStore.UpdateRunStatus(runID, "completed", "", tokens)
 		}
 	}()
+}
+
+// handleStartPipeline handles POST /api/pipelines/{name}/start
+func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing pipeline name")
+		return
+	}
+
+	var req StartPipelineRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Load pipeline definition from .wave/pipelines/
+	p, err := loadPipelineYAML(name)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
+		return
+	}
+
+	// Create the run record in the DB — this ID is used everywhere
+	runID, err := s.rwStore.CreateRun(name, req.Input)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
+		return
+	}
+
+	s.launchPipelineExecution(runID, name, req.Input, p)
 
 	resp := StartPipelineResponse{
 		RunID:        runID,
@@ -223,6 +228,13 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Load pipeline definition
+	p, err := loadPipelineYAML(originalRun.PipelineName)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
+		return
+	}
+
 	// Create a new run with the same parameters
 	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
 	if err != nil {
@@ -230,18 +242,88 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newRun, err := s.rwStore.GetRun(newRunID)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to get retry run")
+	// Launch actual pipeline execution
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p)
+
+	resp := RetryRunResponse{
+		RunID:         newRunID,
+		OriginalRunID: runID,
+		PipelineName:  originalRun.PipelineName,
+		Status:        "running",
+		StartedAt:     time.Now(),
+	}
+
+	writeJSON(w, http.StatusCreated, resp)
+}
+
+// handleResumeRun handles POST /api/runs/{id}/resume
+func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing run ID")
 		return
 	}
 
-	resp := RetryRunResponse{
-		RunID:         newRun.RunID,
+	var req ResumeRunRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.FromStep == "" {
+		writeJSONError(w, http.StatusBadRequest, "from_step is required")
+		return
+	}
+
+	// Get original run — must be in a resumable state
+	originalRun, err := s.store.GetRun(runID)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "run not found")
+		return
+	}
+
+	if originalRun.Status != "failed" && originalRun.Status != "cancelled" {
+		writeJSONError(w, http.StatusConflict, "run is not in a resumable state (status: "+originalRun.Status+")")
+		return
+	}
+
+	// Load pipeline definition
+	p, err := loadPipelineYAML(originalRun.PipelineName)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
+		return
+	}
+
+	// Validate that the step exists in the pipeline
+	stepFound := false
+	for _, step := range p.Steps {
+		if step.ID == req.FromStep {
+			stepFound = true
+			break
+		}
+	}
+	if !stepFound {
+		writeJSONError(w, http.StatusBadRequest, "step not found in pipeline: "+req.FromStep)
+		return
+	}
+
+	// Create a new run record for the resumed execution
+	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create resume run")
+		return
+	}
+
+	// Launch execution — the executor handles resume semantics via the from-step
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p)
+
+	resp := ResumeRunResponse{
+		RunID:         newRunID,
 		OriginalRunID: runID,
-		PipelineName:  newRun.PipelineName,
-		Status:        newRun.Status,
-		StartedAt:     newRun.StartedAt,
+		PipelineName:  originalRun.PipelineName,
+		FromStep:      req.FromStep,
+		Status:        "running",
+		StartedAt:     time.Now(),
 	}
 
 	writeJSON(w, http.StatusCreated, resp)

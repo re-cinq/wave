@@ -1,12 +1,13 @@
-//go:build webui
-
 package webui
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/recinq/wave/internal/state"
 )
 
 // handleSSE handles GET /api/runs/{id}/events - SSE stream for real-time updates.
@@ -33,7 +34,29 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "retry: 3000\n\n")
 	flusher.Flush()
 
-	// Subscribe to events
+	// Check for Last-Event-ID header for reconnection backfill
+	var lastEventID int64
+	if idStr := r.Header.Get("Last-Event-ID"); idStr != "" {
+		if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+			lastEventID = id
+		}
+	}
+
+	// Backfill missed events from DB on reconnection
+	if lastEventID > 0 {
+		events, err := s.store.GetEvents(runID, state.EventQueryOptions{
+			AfterID: lastEventID,
+		})
+		if err == nil {
+			for _, ev := range events {
+				data, _ := json.Marshal(ev)
+				fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", ev.ID, ev.State, string(data))
+			}
+			flusher.Flush()
+		}
+	}
+
+	// Subscribe to live events
 	ch := s.broker.Subscribe()
 	defer s.broker.Unsubscribe(ch)
 
@@ -48,7 +71,11 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 			if !matchesRunID(sseEvent.Data, runID) {
 				continue
 			}
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", sseEvent.Event, sseEvent.Data)
+			if sseEvent.ID != "" {
+				fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", sseEvent.ID, sseEvent.Event, sseEvent.Data)
+			} else {
+				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", sseEvent.Event, sseEvent.Data)
+			}
 			flusher.Flush()
 		case <-ctx.Done():
 			return

@@ -667,6 +667,10 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 	          WHERE run_id = ?`
 	args := []any{runID}
 
+	if opts.AfterID > 0 {
+		query += " AND id > ?"
+		args = append(args, opts.AfterID)
+	}
 	if opts.StepID != "" {
 		query += " AND step_id = ?"
 		args = append(args, opts.StepID)

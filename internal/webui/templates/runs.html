@@ -3,7 +3,7 @@
 <div class="page-header">
     <h1>Pipeline Runs</h1>
     <div class="actions">
-        <button id="start-pipeline-btn" class="btn btn-primary" onclick="toggleStartForm()">Start Pipeline</button>
+        <button id="start-pipeline-btn" class="btn btn-primary" onclick="toggleStartForm()" aria-label="Start a new pipeline run">Start Pipeline</button>
     </div>
 </div>
 
@@ -29,7 +29,7 @@
 </div>
 
 <div class="filters">
-    <select id="status-filter" onchange="filterRuns()">
+    <select id="status-filter" onchange="filterRuns()" aria-label="Filter runs by status">
         <option value="">All Statuses</option>
         <option value="pending">Pending</option>
         <option value="running">Running</option>
@@ -60,7 +60,7 @@
     </table>
     {{if .HasMore}}
     <div class="pagination">
-        <a href="/runs?cursor={{.NextCursor}}" class="btn">Load More</a>
+        <a href="/runs?cursor={{.NextCursor}}" class="btn" aria-label="Load more pipeline runs">Load More</a>
     </div>
     {{end}}
     {{else}}
