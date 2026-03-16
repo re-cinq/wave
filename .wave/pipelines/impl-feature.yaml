@@ -5,7 +5,7 @@ metadata:
   release: false
 
 skills:
-  - golang
+  - "{{ project.skill }}"
   - software-design
 
 input:
@@ -128,11 +128,11 @@ steps:
         1. **Implement step by step** following the plan:
            - Follow existing codebase patterns identified in exploration
            - Write tests alongside implementation
-           - After each significant change, verify it compiles: `go build ./...`
+           - After each significant change, verify it compiles: `{{ project.build_command }}`
 
         2. **Run full test suite**:
            ```bash
-           go test ./... -count=1
+           {{ project.test_command }}
            ```
            Fix any failures before proceeding.
 
