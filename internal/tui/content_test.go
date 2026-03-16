@@ -1188,6 +1188,93 @@ func TestContentModel_Guided_SuggestLaunchMsg_TransitionsToFleet(t *testing.T) {
 		"SuggestLaunchMsg should switch to Pipelines view")
 }
 
+func TestContentModel_Guided_SuggestModifyMsg_EmitsConfigureFormMsg(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+	m.currentView = ViewSuggest
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "https://github.com/re-cinq/wave/issues/42",
+	}
+	m, cmd := m.Update(SuggestModifyMsg{Pipeline: pipeline})
+
+	assert.Equal(t, ViewPipelines, m.currentView,
+		"SuggestModifyMsg should switch to ViewPipelines")
+	assert.Equal(t, FocusPaneRight, m.focus,
+		"SuggestModifyMsg should focus the right pane for the form")
+
+	require.NotNil(t, cmd)
+	msg := cmd()
+	cfgMsg, ok := msg.(ConfigureFormMsg)
+	require.True(t, ok, "expected ConfigureFormMsg, got %T", msg)
+	assert.Equal(t, "impl-issue", cfgMsg.PipelineName)
+	assert.Equal(t, "https://github.com/re-cinq/wave/issues/42", cfgMsg.InputExample)
+}
+
+func TestContentModel_Guided_SuggestLaunchMsg_EmitsSuggestLaunchedMsg(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+
+	// Initialize suggest list so SuggestLaunchedMsg can be routed
+	sl := NewSuggestListModel(nil)
+	sl.loaded = true
+	sl.proposals = []SuggestProposedPipeline{
+		{Name: "impl-issue", Priority: 1},
+	}
+	m.suggestList = &sl
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "test input",
+	}
+	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	require.NotNil(t, cmd)
+	msgs := extractMsgFromBatch(cmd)
+
+	foundLaunched := false
+	for _, msg := range msgs {
+		if lm, ok := msg.(SuggestLaunchedMsg); ok {
+			foundLaunched = true
+			assert.Equal(t, "impl-issue", lm.Name)
+		}
+	}
+	assert.True(t, foundLaunched, "SuggestLaunchMsg should emit SuggestLaunchedMsg")
+}
+
+func TestContentModel_Guided_SuggestLaunchMsg_EmitsDelayedRefresh(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "test input",
+	}
+	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	require.NotNil(t, cmd)
+	// The batch should contain 5 commands: launch, view, focus, launched, refresh tick
+	msgs := extractMsgFromBatch(cmd)
+
+	// At least check we have the launch request, view changed, focus changed, and launched msg
+	msgTypes := make(map[string]bool)
+	for _, msg := range msgs {
+		switch msg.(type) {
+		case LaunchRequestMsg:
+			msgTypes["LaunchRequestMsg"] = true
+		case ViewChangedMsg:
+			msgTypes["ViewChangedMsg"] = true
+		case FocusChangedMsg:
+			msgTypes["FocusChangedMsg"] = true
+		case SuggestLaunchedMsg:
+			msgTypes["SuggestLaunchedMsg"] = true
+		}
+	}
+	assert.True(t, msgTypes["LaunchRequestMsg"], "should emit LaunchRequestMsg")
+	assert.True(t, msgTypes["SuggestLaunchedMsg"], "should emit SuggestLaunchedMsg")
+}
+
 // ===========================================================================
 // T027: Guided flow view restriction (phase-view binding)
 // ===========================================================================
