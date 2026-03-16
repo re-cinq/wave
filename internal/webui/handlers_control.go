@@ -44,7 +44,8 @@ func isHeartbeat(ev event.Event) bool {
 // launchPipelineExecution starts pipeline execution in a background goroutine.
 // It sets up the adapter, emitter, audit logger, and executor, then launches
 // the pipeline. This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
-func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline) {
+// When fromStep is non-empty, execution resumes from that step using ResumeWithValidation.
+func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline, fromStep ...string) {
 	// Resolve adapter from manifest
 	var runner adapter.AdapterRunner
 	if s.manifest != nil {
@@ -115,7 +116,12 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 			m = &manifest.Manifest{}
 		}
 
-		execErr := executor.Execute(ctx, p, m, input)
+		var execErr error
+		if len(fromStep) > 0 && fromStep[0] != "" {
+			execErr = executor.ResumeWithValidation(ctx, p, m, input, fromStep[0], false, runID)
+		} else {
+			execErr = executor.Execute(ctx, p, m, input)
+		}
 
 		tokens := executor.GetTotalTokens()
 		if execErr != nil {
@@ -322,8 +328,8 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Launch execution — the executor handles resume semantics via the from-step
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p)
+	// Launch execution with resume from the specified step
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, req.FromStep)
 
 	resp := ResumeRunResponse{
 		RunID:         newRunID,

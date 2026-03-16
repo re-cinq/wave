@@ -33,14 +33,14 @@ func (s *Server) handleAPIRuns(w http.ResponseWriter, r *http.Request) {
 	if sinceStr != "" {
 		t, err := time.Parse(time.RFC3339, sinceStr)
 		if err == nil {
-			opts.OlderThan = time.Since(t) * -1 // This won't work as expected
+			opts.SinceUnix = t.Unix()
 		}
 	}
 
-	// Note: cursor-based filtering needs to be applied at the query level
-	// The existing ListRuns doesn't support cursor directly, so we'll use it
-	// with Limit and filter results
-	_ = cursor // TODO: implement cursor-based DB query extension
+	if cursor != nil {
+		opts.BeforeUnix = cursor.Timestamp
+		opts.BeforeRunID = cursor.RunID
+	}
 
 	runs, err := s.store.ListRuns(opts)
 	if err != nil {
