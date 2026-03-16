@@ -5,10 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1185,6 +1188,93 @@ func TestContentModel_Guided_SuggestLaunchMsg_TransitionsToFleet(t *testing.T) {
 		"SuggestLaunchMsg should switch to Pipelines view")
 }
 
+func TestContentModel_Guided_SuggestModifyMsg_EmitsConfigureFormMsg(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+	m.currentView = ViewSuggest
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "https://github.com/re-cinq/wave/issues/42",
+	}
+	m, cmd := m.Update(SuggestModifyMsg{Pipeline: pipeline})
+
+	assert.Equal(t, ViewPipelines, m.currentView,
+		"SuggestModifyMsg should switch to ViewPipelines")
+	assert.Equal(t, FocusPaneRight, m.focus,
+		"SuggestModifyMsg should focus the right pane for the form")
+
+	require.NotNil(t, cmd)
+	msg := cmd()
+	cfgMsg, ok := msg.(ConfigureFormMsg)
+	require.True(t, ok, "expected ConfigureFormMsg, got %T", msg)
+	assert.Equal(t, "impl-issue", cfgMsg.PipelineName)
+	assert.Equal(t, "https://github.com/re-cinq/wave/issues/42", cfgMsg.InputExample)
+}
+
+func TestContentModel_Guided_SuggestLaunchMsg_EmitsSuggestLaunchedMsg(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+
+	// Initialize suggest list so SuggestLaunchedMsg can be routed
+	sl := NewSuggestListModel(nil)
+	sl.loaded = true
+	sl.proposals = []SuggestProposedPipeline{
+		{Name: "impl-issue", Priority: 1},
+	}
+	m.suggestList = &sl
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "test input",
+	}
+	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	require.NotNil(t, cmd)
+	msgs := extractMsgFromBatch(cmd)
+
+	foundLaunched := false
+	for _, msg := range msgs {
+		if lm, ok := msg.(SuggestLaunchedMsg); ok {
+			foundLaunched = true
+			assert.Equal(t, "impl-issue", lm.Name)
+		}
+	}
+	assert.True(t, foundLaunched, "SuggestLaunchMsg should emit SuggestLaunchedMsg")
+}
+
+func TestContentModel_Guided_SuggestLaunchMsg_EmitsDelayedRefresh(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "test input",
+	}
+	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	require.NotNil(t, cmd)
+	// The batch should contain 5 commands: launch, view, focus, launched, refresh tick
+	msgs := extractMsgFromBatch(cmd)
+
+	// At least check we have the launch request, view changed, focus changed, and launched msg
+	msgTypes := make(map[string]bool)
+	for _, msg := range msgs {
+		switch msg.(type) {
+		case LaunchRequestMsg:
+			msgTypes["LaunchRequestMsg"] = true
+		case ViewChangedMsg:
+			msgTypes["ViewChangedMsg"] = true
+		case FocusChangedMsg:
+			msgTypes["FocusChangedMsg"] = true
+		case SuggestLaunchedMsg:
+			msgTypes["SuggestLaunchedMsg"] = true
+		}
+	}
+	assert.True(t, msgTypes["LaunchRequestMsg"], "should emit LaunchRequestMsg")
+	assert.True(t, msgTypes["SuggestLaunchedMsg"], "should emit SuggestLaunchedMsg")
+}
+
 // ===========================================================================
 // T027: Guided flow view restriction (phase-view binding)
 // ===========================================================================
@@ -1292,4 +1382,161 @@ func TestContentModel_Guided_SuggestDetailGetsPhase(t *testing.T) {
 	require.NotNil(t, m.suggestDetail, "suggest detail should be created after transition")
 	assert.Equal(t, GuidedPhaseProposals, m.suggestDetail.guidedPhase,
 		"suggest detail should receive the guided phase")
+}
+
+// ---------------------------------------------------------------------------
+// contentMockStore — overrides GetEvents and GetRun for content tests.
+// ---------------------------------------------------------------------------
+
+type contentMockStore struct {
+	baseStateStore
+	events       []state.LogRecord
+	run          *state.RunRecord
+	updatedRunID string
+}
+
+func (c *contentMockStore) GetEvents(_ string, opts state.EventQueryOptions) ([]state.LogRecord, error) {
+	if opts.AfterID > 0 {
+		var filtered []state.LogRecord
+		for _, e := range c.events {
+			if e.ID > opts.AfterID {
+				filtered = append(filtered, e)
+			}
+		}
+		return filtered, nil
+	}
+	return c.events, nil
+}
+
+func (c *contentMockStore) GetRun(_ string) (*state.RunRecord, error) {
+	return c.run, nil
+}
+
+func (c *contentMockStore) UpdateRunStatus(runID string, status string, _ string, _ int) error {
+	c.updatedRunID = runID
+	if c.run != nil {
+		c.run.Status = status
+	}
+	return nil
+}
+
+func TestContentModel_DetachedPoll_AfterID_TracksMaxRecordID(t *testing.T) {
+	store := &contentMockStore{
+		events: []state.LogRecord{
+			{ID: 10, StepID: "specify", State: event.StateStarted},
+			{ID: 20, StepID: "specify", State: event.StateCompleted, DurationMs: 5000},
+		},
+		run: &state.RunRecord{RunID: "r1", Status: "running"},
+	}
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+		Store:    store,
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "test-pipe", StartedAt: time.Now()}},
+	})
+
+	// Navigate to the running item and press Enter
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+	c, _ = c.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// After initial load, detachedPollAfterID should be the max ID from events
+	assert.Equal(t, int64(20), c.detachedPollAfterID, "detachedPollAfterID should track max record ID")
+
+	// Add new events to the store for the next poll
+	store.events = append(store.events, state.LogRecord{
+		ID: 30, StepID: "plan", State: event.StateStarted,
+	})
+
+	// Simulate poll tick
+	c, _ = c.Update(DetachedEventPollTickMsg{RunID: "r1"})
+
+	assert.Equal(t, int64(30), c.detachedPollAfterID, "detachedPollAfterID should update to new max ID")
+	require.NotNil(t, c.detail.liveOutput)
+	assert.Equal(t, 3, len(c.detail.liveOutput.storedRecords), "should have accumulated 3 stored records")
+}
+
+func TestContentModel_DetachedPoll_ImmediateCompletionDetection(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	store := &contentMockStore{
+		events: []state.LogRecord{
+			{ID: 1, StepID: "specify", State: event.StateStarted},
+			{ID: 2, StepID: "specify", State: event.StateCompleted, DurationMs: 5000},
+		},
+		run: &state.RunRecord{RunID: "r1", Status: "completed"},
+	}
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+		Store:    store,
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "test-pipe", StartedAt: time.Now()}},
+	})
+
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+	c, cmd := c.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Should detect completion immediately
+	require.NotNil(t, c.detail.liveOutput)
+	assert.True(t, c.detail.liveOutput.completed, "should detect completed run immediately")
+	assert.False(t, c.detail.liveOutput.tailingPersisted, "should not show tailing indicator for completed run")
+
+	// Should NOT emit a poll tick (no DetachedEventPollTickMsg in batch)
+	msgs := extractMsgFromBatch(cmd)
+	for _, m := range msgs {
+		if _, ok := m.(DetachedEventPollTickMsg); ok {
+			t.Fatal("should NOT start polling for an already-completed run")
+		}
+	}
+}
+
+func TestContentModel_DetachedPoll_StepTrackingFromStoredRecords(t *testing.T) {
+	store := &contentMockStore{
+		events: []state.LogRecord{
+			{ID: 1, StepID: "specify", State: event.StateStarted},
+			{ID: 2, StepID: "specify", State: event.StateCompleted, DurationMs: 5000},
+			{ID: 3, StepID: "plan", State: event.StateStarted},
+		},
+		run: &state.RunRecord{RunID: "r1", Status: "running"},
+	}
+	deps := LaunchDependencies{
+		Manifest: &manifest.Manifest{},
+		Store:    store,
+	}
+	c := NewContentModel(&contentTestPipelineProvider{}, nil, deps)
+	c.SetSize(120, 40)
+
+	c.list, _ = c.list.Update(PipelineDataMsg{
+		Running: []RunningPipeline{{RunID: "r1", Name: "test-pipe", StartedAt: time.Now()}},
+	})
+
+	for i := 0; i < len(c.list.navigable); i++ {
+		if c.list.navigable[i].kind == itemKindRunning {
+			c.list.cursor = i
+			break
+		}
+	}
+	c, _ = c.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	require.NotNil(t, c.detail.liveOutput)
+	assert.Equal(t, 2, c.detail.liveOutput.stepNumber, "should track 2 step starts")
+	assert.Equal(t, "plan", c.detail.liveOutput.currentStep, "current step should be plan")
+	assert.Equal(t, []string{"specify", "plan"}, c.detail.liveOutput.stepOrder, "should track step order")
 }

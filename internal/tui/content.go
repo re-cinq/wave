@@ -68,8 +68,8 @@ type ContentModel struct {
 	issueShowPipeline bool
 
 	// Detached pipeline event polling
-	detachedPollRunID  string
-	detachedPollOffset int
+	detachedPollRunID    string
+	detachedPollAfterID int64
 
 	// Guided workflow state machine (nil when not in guided mode)
 	guidedFlow *GuidedFlowState
@@ -714,16 +714,19 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					buf := NewEventBuffer(1000)
 					liveModel := NewLiveOutputModel(r.RunID, r.Name, buf, r.StartedAt, 0)
 					liveModel.input = r.Input
-					var eventCount int
+					var maxID int64
 					if m.launcher != nil && m.launcher.deps.Store != nil {
 						events, err := m.launcher.deps.Store.GetEvents(r.RunID, state.EventQueryOptions{})
 						if err == nil {
-							eventCount = len(events)
 							for _, ev := range events {
 								liveModel.storedRecords = append(liveModel.storedRecords, ev)
 								liveModel.updateDashStepFromRecord(ev)
+								liveModel.updateStepTrackingFromRecord(ev)
 								if shouldFormatRecord(ev, liveModel.flags) {
 									buf.Append(formatStoredEvent(ev))
+								}
+								if ev.ID > maxID {
+									maxID = ev.ID
 								}
 							}
 						}
@@ -733,7 +736,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					m.detail.liveOutput = &liveModel
 					m.detail.paneState = stateRunningLive
 					m.detachedPollRunID = r.RunID
-					m.detachedPollOffset = eventCount
+					m.detachedPollAfterID = maxID
 					capturedRunID := r.RunID
 					if m.guidedFlow != nil {
 						m.guidedFlow.TransitionToAttached()
@@ -741,12 +744,35 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					enterCmds = append(enterCmds, func() tea.Msg {
 						return LiveOutputActiveMsg{Active: true}
 					})
-					enterCmds = append(enterCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
-						return DetachedEventPollTickMsg{RunID: capturedRunID}
-					}))
-					enterCmds = append(enterCmds, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-						return DashboardTickMsg{}
-					}))
+					// Check if already completed before starting poll
+					if m.launcher != nil && m.launcher.deps.Store != nil {
+						if run, runErr := m.launcher.deps.Store.GetRun(r.RunID); runErr == nil && run != nil {
+							if run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled" {
+								liveModel.completed = true
+								liveModel.tailingPersisted = false
+								elapsed := time.Since(liveModel.startedAt)
+								var summaryLine string
+								switch {
+								case noColor():
+									summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+								case run.Status == "completed":
+									summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
+								default:
+									summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+								}
+								buf.Append(summaryLine)
+								liveModel.updateViewportContent()
+							}
+						}
+					}
+					if !liveModel.completed {
+						enterCmds = append(enterCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+							return DetachedEventPollTickMsg{RunID: capturedRunID}
+						}))
+						enterCmds = append(enterCmds, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+							return DashboardTickMsg{}
+						}))
+					}
 				}
 
 				// For finished items, activate finished detail hints
@@ -1114,6 +1140,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		return m, nil
 
+	case SuggestLaunchedMsg:
+		if m.suggestList != nil {
+			var cmd tea.Cmd
+			*m.suggestList, cmd = m.suggestList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
 	case SuggestSelectedMsg:
 		if m.suggestList != nil {
 			var listCmd tea.Cmd
@@ -1143,9 +1177,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.guidedFlow != nil {
 			m.guidedFlow.TransitionToFleet()
 		}
+		pipelineName := msg.Pipeline.Name
 		launchCmd := func() tea.Msg {
 			return LaunchRequestMsg{Config: LaunchConfig{
-				PipelineName: msg.Pipeline.Name,
+				PipelineName: pipelineName,
 				Input:        msg.Pipeline.Input,
 			}}
 		}
@@ -1155,7 +1190,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		focusCmd := func() tea.Msg {
 			return FocusChangedMsg{Pane: FocusPaneLeft}
 		}
-		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
+		launchedCmd := func() tea.Msg {
+			return SuggestLaunchedMsg{Name: pipelineName}
+		}
+		refreshCmd := tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+			return PipelineRefreshTickMsg{}
+		})
+		return m, tea.Batch(launchCmd, viewCmd, focusCmd, launchedCmd, refreshCmd)
 
 	case SuggestComposeMsg:
 		// Bridge suggest multi-select to compose mode: switch to Pipelines view,
@@ -1270,10 +1311,16 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case SuggestModifyMsg:
-		// Show input editor for proposal modification
-		// For now, launch with existing input (input modification can be enhanced later)
+		// Open configure form pre-populated with the proposal's pipeline and input
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneRight
+		m.list.SetFocused(false)
+		m.detail.SetFocused(true)
 		return m, func() tea.Msg {
-			return SuggestLaunchMsg(msg)
+			return ConfigureFormMsg{
+				PipelineName: msg.Pipeline.Name,
+				InputExample: msg.Pipeline.Input,
+			}
 		}
 
 	// Pipeline-specific messages — always route to pipeline models
@@ -1308,16 +1355,19 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				buf := NewEventBuffer(1000)
 				liveModel := NewLiveOutputModel(msg.RunID, msg.Name, buf, startedAt, 0)
 				liveModel.input = msg.Input
-				var eventCount int
+				var maxID int64
 				if m.launcher.deps.Store != nil {
 					events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{})
 					if err == nil {
-						eventCount = len(events)
 						for _, ev := range events {
 							liveModel.storedRecords = append(liveModel.storedRecords, ev)
 							liveModel.updateDashStepFromRecord(ev)
+							liveModel.updateStepTrackingFromRecord(ev)
 							if shouldFormatRecord(ev, liveModel.flags) {
 								buf.Append(formatStoredEvent(ev))
+							}
+							if ev.ID > maxID {
+								maxID = ev.ID
 							}
 						}
 					}
@@ -1327,15 +1377,39 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.detail.liveOutput = &liveModel
 				m.detail.paneState = stateRunningLive
 				m.detachedPollRunID = msg.RunID
-				m.detachedPollOffset = eventCount
-				// Start polling for new events
+				m.detachedPollAfterID = maxID
+				// Check if already completed before starting poll
+				alreadyCompleted := false
+				if m.launcher.deps.Store != nil {
+					if run, runErr := m.launcher.deps.Store.GetRun(msg.RunID); runErr == nil && run != nil {
+						if run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled" {
+							liveModel.completed = true
+							liveModel.tailingPersisted = false
+							elapsed := time.Since(liveModel.startedAt)
+							var summaryLine string
+							switch {
+							case noColor():
+								summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+							case run.Status == "completed":
+								summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
+							default:
+								summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+							}
+							buf.Append(summaryLine)
+							liveModel.updateViewportContent()
+							alreadyCompleted = true
+						}
+					}
+				}
 				capturedRunID := msg.RunID
 				cmds = append(cmds, func() tea.Msg {
 					return LiveOutputActiveMsg{Active: true}
 				})
-				cmds = append(cmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
-					return DetachedEventPollTickMsg{RunID: capturedRunID}
-				}))
+				if !alreadyCompleted {
+					cmds = append(cmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+						return DetachedEventPollTickMsg{RunID: capturedRunID}
+					}))
+				}
 			}
 		}
 		m.detail, detailCmd = m.detail.Update(msg)
@@ -1444,16 +1518,19 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 
 		// Load existing events from SQLite (will be empty for just-launched pipeline)
-		var eventCount int
+		var maxID int64
 		if m.launcher != nil && m.launcher.deps.Store != nil {
 			events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{})
 			if err == nil {
-				eventCount = len(events)
 				for _, ev := range events {
 					live.storedRecords = append(live.storedRecords, ev)
 					live.updateDashStepFromRecord(ev)
+					live.updateStepTrackingFromRecord(ev)
 					if shouldFormatRecord(ev, live.flags) {
 						buf.Append(formatStoredEvent(ev))
+					}
+					if ev.ID > maxID {
+						maxID = ev.ID
 					}
 				}
 			}
@@ -1465,7 +1542,31 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.detail.selectedName = msg.PipelineName
 		m.detail.selectedKind = itemKindRunning
 		m.detachedPollRunID = msg.RunID
-		m.detachedPollOffset = eventCount
+		m.detachedPollAfterID = maxID
+
+		// Check if already completed (guards against race conditions)
+		alreadyCompleted := false
+		if m.launcher != nil && m.launcher.deps.Store != nil {
+			if run, runErr := m.launcher.deps.Store.GetRun(msg.RunID); runErr == nil && run != nil {
+				if run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled" {
+					live.completed = true
+					live.tailingPersisted = false
+					elapsed := time.Since(live.startedAt)
+					var summaryLine string
+					switch {
+					case noColor():
+						summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+					case run.Status == "completed":
+						summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
+					default:
+						summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+					}
+					buf.Append(summaryLine)
+					live.updateViewportContent()
+					alreadyCompleted = true
+				}
+			}
+		}
 
 		// Switch focus to right pane for live output
 		m.focus = FocusPaneRight
@@ -1474,14 +1575,16 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		focusCmd := func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
 		formCmd := func() tea.Msg { return FormActiveMsg{Active: false} }
 		liveCmd := func() tea.Msg { return LiveOutputActiveMsg{Active: true} }
-		capturedRunID := msg.RunID
-		pollCmd := tea.Tick(2*time.Second, func(time.Time) tea.Msg {
-			return DetachedEventPollTickMsg{RunID: capturedRunID}
-		})
-		dashTickCmd := tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-			return DashboardTickMsg{}
-		})
-		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd, pollCmd, dashTickCmd}
+		batchCmds := []tea.Cmd{focusCmd, formCmd, liveCmd}
+		if !alreadyCompleted {
+			capturedRunID := msg.RunID
+			batchCmds = append(batchCmds, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+				return DetachedEventPollTickMsg{RunID: capturedRunID}
+			}))
+			batchCmds = append(batchCmds, tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+				return DashboardTickMsg{}
+			}))
+		}
 		if listCmd != nil {
 			batchCmds = append(batchCmds, listCmd)
 		}
@@ -1546,20 +1649,23 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.detachedPollRunID = ""
 			return m, nil
 		}
-		// Fetch new events since our last offset
+		// Fetch new events since last seen ID
 		if m.launcher != nil && m.launcher.deps.Store != nil {
 			events, err := m.launcher.deps.Store.GetEvents(msg.RunID, state.EventQueryOptions{
-				Limit:  1000,
-				Offset: m.detachedPollOffset,
+				Limit:   1000,
+				AfterID: m.detachedPollAfterID,
 			})
 			if err == nil && len(events) > 0 {
-				m.detachedPollOffset += len(events)
 				if m.detail.liveOutput != nil {
 					for _, ev := range events {
 						m.detail.liveOutput.storedRecords = append(m.detail.liveOutput.storedRecords, ev)
 						m.detail.liveOutput.updateDashStepFromRecord(ev)
+						m.detail.liveOutput.updateStepTrackingFromRecord(ev)
 						if shouldFormatRecord(ev, m.detail.liveOutput.flags) {
 							m.detail.liveOutput.buffer.Append(formatStoredEvent(ev))
+						}
+						if ev.ID > m.detachedPollAfterID {
+							m.detachedPollAfterID = ev.ID
 						}
 					}
 					m.detail.liveOutput.updateViewportContent()
@@ -1576,12 +1682,37 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 						m.detail.liveOutput.tailingPersisted = false
 						elapsed := time.Since(m.detail.liveOutput.startedAt)
 						var summaryLine string
-						if noColor() {
+						switch {
+						case noColor():
 							summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
-						} else if run.Status == "completed" {
+						case run.Status == "completed":
 							summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
-						} else {
+						default:
 							summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
+						}
+						m.detail.liveOutput.buffer.Append(summaryLine)
+						m.detail.liveOutput.updateViewportContent()
+						if m.detail.liveOutput.autoScroll {
+							m.detail.liveOutput.viewport.GotoBottom()
+						}
+					}
+					m.detachedPollRunID = ""
+					return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+						return TransitionTimerMsg(msg)
+					})
+				}
+				// Detect stale process: PID set but process no longer alive
+				if run.PID > 0 && !IsProcessAlive(run.PID) {
+					_ = m.launcher.deps.Store.UpdateRunStatus(msg.RunID, "failed", "executor process no longer running", 0)
+					if m.detail.liveOutput != nil {
+						m.detail.liveOutput.completed = true
+						m.detail.liveOutput.tailingPersisted = false
+						elapsed := time.Since(m.detail.liveOutput.startedAt)
+						var summaryLine string
+						if noColor() {
+							summaryLine = fmt.Sprintf("Pipeline failed in %s (executor process died)", formatElapsed(elapsed))
+						} else {
+							summaryLine = fmt.Sprintf("\u2717 Pipeline failed in %s (executor process died)", formatElapsed(elapsed))
 						}
 						m.detail.liveOutput.buffer.Append(summaryLine)
 						m.detail.liveOutput.updateViewportContent()
