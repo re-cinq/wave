@@ -231,8 +231,7 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if opts.DryRun {
-		performDryRun(p, &m, stepFilter)
-		return nil
+		return performDryRun(p, &m, stepFilter)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -664,7 +663,7 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) {
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
@@ -765,6 +764,16 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 		}
 	}
 
+	// Run composition validation and report findings.
+	validator := pipeline.NewDryRunValidator(pipelinesDir())
+	report := validator.Validate(p, m)
+	fmt.Fprint(os.Stderr, "\n")
+	fmt.Fprint(os.Stderr, report.Format())
+
+	if report.HasErrors() {
+		return fmt.Errorf("dry-run validation found %d error(s) — pipeline is not safe to execute", report.ErrorCount())
+	}
+	return nil
 }
 
 // extractPreflightMetadata extracts missing skills and tools from preflight errors.
