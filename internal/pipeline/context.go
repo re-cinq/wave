@@ -12,6 +12,12 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 )
 
+// unresolvedProjectVarRe matches unresolved {{ project.* }} template placeholders.
+// These are stripped after all known variables have been substituted so that
+// missing project config fields resolve to empty strings instead of leaking
+// literal mustache syntax into prompts and contract commands.
+var unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*project\.\w+\s*\}\}`)
+
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
 	mu              sync.Mutex        `json:"-"` // protects map access during concurrent steps
@@ -105,6 +111,10 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = replaceBoth(result, "pipeline_id", ctx.PipelineID)
 	result = replaceBoth(result, "pipeline_name", ctx.PipelineName)
 	result = replaceBoth(result, "step_id", ctx.StepID)
+
+	// Strip unresolved {{ project.* }} placeholders so they don't leak into
+	// prompts or contract commands when a project field is not configured.
+	result = unresolvedProjectVarRe.ReplaceAllString(result, "")
 
 	return result
 }
