@@ -87,6 +87,8 @@ type DefaultPipelineExecutor struct {
 	lastExecution *PipelineExecution
 	// Base branch override for stacked matrix execution (set by parent matrix executor)
 	stackedBaseBranch string
+	// Debug tracer for structured NDJSON trace file output (enabled by --debug)
+	debugTracer *audit.DebugTracer
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -105,6 +107,10 @@ func WithAuditLogger(l audit.AuditLogger) ExecutorOption {
 
 func WithDebug(debug bool) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.debug = debug }
+}
+
+func WithDebugTracer(t *audit.DebugTracer) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.debugTracer = t }
 }
 
 func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
@@ -1213,9 +1219,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	})
 
 	// Inject artifacts from dependencies
+	artifactInjectStart := time.Now()
 	if err := e.injectArtifacts(execution, step, workspacePath); err != nil {
 		return fmt.Errorf("failed to inject artifacts: %w", err)
 	}
+	e.trace("artifact_injection", step.ID, time.Since(artifactInjectStart).Milliseconds(), map[string]string{
+		"workspace": workspacePath,
+		"count":     fmt.Sprintf("%d", len(step.Memory.InjectArtifacts)),
+	})
 
 	// Audit: log step start with injected artifact names
 	if e.logger != nil {
@@ -1391,8 +1402,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	})
 
 	stepStart := time.Now()
+	e.trace("adapter_start", step.ID, 0, map[string]string{
+		"persona": step.Persona,
+		"adapter": adapterDef.Binary,
+		"model":   e.resolveModel(persona),
+	})
 	result, err := e.runner.Run(ctx, cfg)
+	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
+		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
+			"status": "failed",
+			"error":  err.Error(),
+		})
 		// Let the higher-level executor emit a single failure event; just
 		// propagate the error with context so enriched details (e.g. from
 		// *adapter.StepError) remain available to callers.
@@ -1452,6 +1473,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
 	}
+
+	e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
+		"status":      "success",
+		"exit_code":   fmt.Sprintf("%d", result.ExitCode),
+		"tokens_used": fmt.Sprintf("%d", result.TokensUsed),
+	})
 
 	stepDuration := time.Since(stepStart).Milliseconds()
 
@@ -1570,6 +1597,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			ValidationPhase: contractDisplayName,
 		})
 
+		e.trace("contract_validation_start", step.ID, 0, map[string]string{
+			"type":   step.Handover.Contract.Type,
+			"source": resolvedSource,
+		})
+		contractStart := time.Now()
 		if err := contract.Validate(contractCfg, workspacePath); err != nil {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -1581,6 +1613,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 			// Check if we should fail the step or allow soft failure
 			if contractCfg.MustPass {
+				e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
+					"type":   step.Handover.Contract.Type,
+					"result": "fail",
+					"error":  err.Error(),
+				})
 				if e.logger != nil {
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
 					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
@@ -1602,6 +1639,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				}
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
+			e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
+				"type":   step.Handover.Contract.Type,
+				"result": "soft_fail",
+			})
 			// Soft failure: log the validation error but continue execution
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -1614,6 +1655,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "soft_fail")
 			}
 		} else {
+			e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
+				"type":   step.Handover.Contract.Type,
+				"result": "pass",
+			})
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
@@ -2332,6 +2377,19 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// trace emits a structured NDJSON trace event when debug tracing is enabled.
+func (e *DefaultPipelineExecutor) trace(eventType, stepID string, durationMs int64, metadata map[string]string) {
+	if e.debugTracer == nil {
+		return
+	}
+	e.debugTracer.Emit(audit.TraceEvent{
+		EventType:  eventType,
+		StepID:     stepID,
+		DurationMs: durationMs,
+		Metadata:   metadata,
+	})
 }
 
 // startProgressTicker starts a background ticker to emit periodic progress events
@@ -3117,6 +3175,9 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	}
 	if e.stepTimeoutOverride > 0 {
 		childOpts = append(childOpts, WithStepTimeout(e.stepTimeoutOverride))
+	}
+	if e.debugTracer != nil {
+		childOpts = append(childOpts, WithDebugTracer(e.debugTracer))
 	}
 
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
