@@ -47,6 +47,7 @@ type EventQueryOptions struct {
 	ErrorsOnly bool
 	Limit      int
 	Offset     int
+	AfterID    int64 // Filter events with ID > AfterID (for SSE Last-Event-ID backfill)
 }
 
 // ArtifactRecord holds artifact metadata.

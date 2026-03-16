@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -28,6 +26,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pipelines/{name}/start", s.handleStartPipeline)
 	mux.HandleFunc("POST /api/runs/{id}/cancel", s.handleCancelRun)
 	mux.HandleFunc("POST /api/runs/{id}/retry", s.handleRetryRun)
+	mux.HandleFunc("POST /api/runs/{id}/resume", s.handleResumeRun)
 	mux.HandleFunc("GET /api/personas", s.handleAPIPersonas)
 	mux.HandleFunc("GET /api/runs/{id}/artifacts/{step}/{name}", s.handleArtifact)
 	mux.HandleFunc("GET /api/runs/{id}/events", s.handleSSE)
