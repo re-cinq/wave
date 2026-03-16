@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/recinq/wave/internal/sandbox"
 )
 
 type AdapterRunner interface {
@@ -53,6 +55,8 @@ type AdapterRunConfig struct {
 	SandboxEnabled bool     // Master switch from runtime.sandbox.enabled
 	AllowedDomains []string // Network domain allowlist
 	EnvPassthrough []string // Env var names to pass through from host
+	SandboxBackend string   // Sandbox backend type: "docker", "bubblewrap", "none"
+	DockerImage    string   // Docker image when SandboxBackend == "docker"
 
 	// Skill provisioning
 	SkillCommandsDir string     // Source directory containing skill command files to copy into workspace
@@ -100,6 +104,28 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	args := strings.Fields(cfg.Prompt)
 	cmd := exec.CommandContext(ctx, cfg.Adapter, args...)
 	cmd.Dir = cfg.WorkspacePath
+
+	// Apply sandbox wrapping if configured
+	if cfg.SandboxBackend == "docker" {
+		sb, err := sandbox.NewSandbox(sandbox.SandboxBackendDocker)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create docker sandbox: %w", err)
+		}
+		defer func() { _ = sb.Cleanup(ctx) }()
+
+		sandboxCfg := sandbox.Config{
+			Backend:        sandbox.SandboxBackendDocker,
+			DockerImage:    cfg.DockerImage,
+			AllowedDomains: cfg.AllowedDomains,
+			EnvPassthrough: cfg.EnvPassthrough,
+			WorkspacePath:  cfg.WorkspacePath,
+			Debug:          cfg.Debug,
+		}
+		cmd, err = sb.Wrap(ctx, cmd, sandboxCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to wrap command in docker sandbox: %w", err)
+		}
+	}
 
 	mergedEnv := append(os.Environ(), cfg.Env...)
 	cmd.Env = mergedEnv
