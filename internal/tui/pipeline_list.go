@@ -26,6 +26,7 @@ const (
 	itemKindRunning
 	itemKindFinished
 	itemKindAvailable
+	itemKindDivider // visual separator between active and archived runs
 )
 
 // navigableItem is a single entry in the flat navigation list.
@@ -75,6 +76,9 @@ type PipelineListModel struct {
 
 	// Elapsed ticker state
 	tickerActive bool
+
+	// Guided mode: use archive layout (running first, divider, finished)
+	guided bool
 }
 
 // NewPipelineListModel creates a new pipeline list model with the given data provider.
@@ -360,10 +364,18 @@ func (m PipelineListModel) handleNavigation(msg tea.KeyMsg) (PipelineListModel, 
 	case tea.KeyUp:
 		if m.cursor > 0 {
 			m.cursor--
+			// Skip divider items
+			if m.navigable[m.cursor].kind == itemKindDivider && m.cursor > 0 {
+				m.cursor--
+			}
 		}
 	case tea.KeyDown:
 		if m.cursor < len(m.navigable)-1 {
 			m.cursor++
+			// Skip divider items
+			if m.navigable[m.cursor].kind == itemKindDivider && m.cursor < len(m.navigable)-1 {
+				m.cursor++
+			}
 		}
 	}
 
@@ -428,6 +440,12 @@ func (m PipelineListModel) emitSelectionMsg() tea.Cmd {
 func (m *PipelineListModel) buildNavigableItems() {
 	m.navigable = nil
 	query := strings.ToLower(m.filterQuery)
+
+	// Guided mode: archive layout (running first, divider, finished)
+	if m.guided {
+		m.buildGuidedNavigableItems(query)
+		return
+	}
 
 	// Index running and finished entries by pipeline name.
 	runningByName := make(map[string][]int)
@@ -518,6 +536,64 @@ func (m *PipelineListModel) buildNavigableItems() {
 	}
 }
 
+// buildGuidedNavigableItems creates a flat archive layout: running runs first,
+// then a divider, then finished runs. Sequence-grouped runs are visually linked.
+func (m *PipelineListModel) buildGuidedNavigableItems(query string) {
+	// Running runs first (flat, no tree grouping)
+	for i, r := range m.running {
+		if query != "" && !strings.Contains(strings.ToLower(r.Name), query) {
+			continue
+		}
+		m.navigable = append(m.navigable, navigableItem{
+			kind:         itemKindRunning,
+			pipelineName: r.Name,
+			dataIndex:    i,
+			label:        r.Name,
+		})
+	}
+
+	// Add archive divider if both running and finished exist
+	hasRunning := false
+	hasFinished := false
+	for _, item := range m.navigable {
+		if item.kind == itemKindRunning {
+			hasRunning = true
+			break
+		}
+	}
+	for _, f := range m.finished {
+		if query == "" || strings.Contains(strings.ToLower(f.Name), query) {
+			hasFinished = true
+			break
+		}
+	}
+	if hasRunning && hasFinished {
+		m.navigable = append(m.navigable, navigableItem{
+			kind:      itemKindDivider,
+			dataIndex: -1,
+			label:     "Archive",
+		})
+	}
+
+	// Finished runs
+	limit := finishedPipelineLimit
+	if limit > len(m.finished) {
+		limit = len(m.finished)
+	}
+	for i := 0; i < limit; i++ {
+		f := m.finished[i]
+		if query != "" && !strings.Contains(strings.ToLower(f.Name), query) {
+			continue
+		}
+		m.navigable = append(m.navigable, navigableItem{
+			kind:         itemKindFinished,
+			pipelineName: f.Name,
+			dataIndex:    i,
+			label:        f.Name,
+		})
+	}
+}
+
 // availableIndexForName returns the index into m.available for the given
 // pipeline name, or -1 if not found.
 func (m *PipelineListModel) availableIndexForName(name string) int {
@@ -583,8 +659,24 @@ func (m PipelineListModel) renderItem(item navigableItem, isSelected bool) strin
 		return m.renderRunningItem(item, isSelected, maxWidth)
 	case itemKindFinished:
 		return m.renderFinishedItem(item, isSelected, maxWidth)
+	case itemKindDivider:
+		return m.renderDivider(maxWidth)
 	}
 	return ""
+}
+
+// renderDivider renders a visual separator line.
+func (m PipelineListModel) renderDivider(maxWidth int) string {
+	label := "─── Archive ───"
+	padLen := maxWidth - lipgloss.Width(label)
+	if padLen < 0 {
+		padLen = 0
+	}
+	text := label + strings.Repeat("─", padLen)
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Width(maxWidth).
+		Render(text)
 }
 
 // isLastChildOf returns true if the given navigable item at index i is the last

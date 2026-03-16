@@ -90,6 +90,10 @@ func (m HealthListModel) Update(msg tea.Msg) (HealthListModel, tea.Cmd) {
 				break
 			}
 		}
+		// Check if all health checks have completed
+		if cmd := m.checkAllComplete(); cmd != nil {
+			return m, cmd
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -204,6 +208,25 @@ func (m HealthListModel) View() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// checkAllComplete returns a command emitting HealthAllCompleteMsg if all checks have resolved.
+func (m HealthListModel) checkAllComplete() tea.Cmd {
+	if len(m.checks) == 0 {
+		return nil
+	}
+	hasErrors := false
+	for _, check := range m.checks {
+		if check.Status == HealthCheckChecking {
+			return nil
+		}
+		if check.Status == HealthCheckErr {
+			hasErrors = true
+		}
+	}
+	return func() tea.Msg {
+		return HealthAllCompleteMsg{HasErrors: hasErrors}
+	}
 }
 
 func (m *HealthListModel) adjustScrollOffset(visibleHeight int) {
