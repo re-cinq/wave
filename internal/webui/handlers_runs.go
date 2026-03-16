@@ -115,7 +115,6 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 // handleRunsPage handles GET /runs - serves the HTML run list page.
 func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	cursor, _ := decodeCursor(r.URL.Query().Get("cursor"))
-	_ = cursor // TODO: pass to query
 
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
@@ -123,6 +122,11 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	opts := state.ListRunsOptions{
 		Status: status,
 		Limit:  limit + 1,
+	}
+
+	if cursor != nil {
+		opts.BeforeUnix = cursor.Timestamp
+		opts.BeforeRunID = cursor.RunID
 	}
 
 	runs, err := s.store.ListRuns(opts)
