@@ -1075,11 +1075,14 @@ func isInitInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-// ensureGitRepo checks if the current directory is a git repository and
-// initializes one if not. Returns nil if .git already exists.
+// ensureGitRepo checks if the current directory is inside a git repository and
+// initializes one if not. Uses git rev-parse to correctly detect parent repos.
 func ensureGitRepo(w io.Writer) error {
-	if _, err := os.Stat(".git"); err == nil {
-		return nil // already a git repo
+	check := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	check.Stdout = io.Discard
+	check.Stderr = io.Discard
+	if check.Run() == nil {
+		return nil // already inside a git repo
 	}
 
 	fmt.Fprintf(w, "  Initializing git repository...\n")
@@ -1166,6 +1169,9 @@ func flavourToProjectMap(fi *onboarding.FlavourInfo) map[string]interface{} {
 	if fi.SourceGlob != "" {
 		m["source_glob"] = fi.SourceGlob
 	}
+	if fi.Skill != "" {
+		m["skill"] = fi.Skill
+	}
 	return m
 }
 
@@ -1216,13 +1222,8 @@ func suggestFirstRun(w io.Writer, flavour *onboarding.FlavourInfo) {
 		return
 	}
 
-	// Check if source files exist matching the glob
-	matches, _ := filepath.Glob(flavour.SourceGlob)
-	if len(matches) == 0 {
-		fmt.Fprintf(w, "  Suggestion: Run 'wave run ops-bootstrap' to scaffold your project\n")
-	} else {
-		fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-dx' to analyze your codebase\n")
-	}
+	// Flavour was detected so source files exist — suggest analysis over scaffolding.
+	fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-dx' to analyze your codebase\n")
 }
 
 // runWizardInit runs the interactive onboarding wizard for first-time setup.

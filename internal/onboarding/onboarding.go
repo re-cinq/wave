@@ -32,6 +32,7 @@ type WizardResult struct {
 	FormatCommand string
 	Language      string
 	SourceGlob    string
+	Skill         string   // language skill name for pipeline templates
 	Pipelines     []string // selected pipeline names
 	Skills        []string // installed skill names from onboarding
 	Dependencies  []DependencyStatus
@@ -101,6 +102,9 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 		}
 		if v, ok := testResult.Data["flavour"].(string); ok {
 			result.Flavour = v
+		}
+		if v, ok := testResult.Data["skill"].(string); ok {
+			result.Skill = v
 		}
 	}
 
@@ -261,6 +265,9 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 	}
 	if result.SourceGlob != "" {
 		project["source_glob"] = result.SourceGlob
+	}
+	if result.Skill != "" {
+		project["skill"] = result.Skill
 	}
 	if len(project) > 0 {
 		m["project"] = project

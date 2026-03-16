@@ -14,6 +14,7 @@ type FlavourInfo struct {
 	BuildCommand  string
 	FormatCommand string
 	SourceGlob    string
+	Skill         string
 }
 
 // FlavourRule defines detection criteria for a project flavour.
@@ -40,6 +41,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "gradle build",
 			FormatCommand: "gradle ktlintCheck",
 			SourceGlob:    "*.kt",
+			Skill:         "kotlin",
 		},
 	},
 	// Flutter (pubspec.yaml with .metadata marker)
@@ -53,6 +55,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "flutter build",
 			FormatCommand: "dart format --set-exit-if-changed .",
 			SourceGlob:    "*.dart",
+			Skill:         "dart",
 		},
 	},
 	// Go
@@ -66,6 +69,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "go build ./...",
 			FormatCommand: "gofmt -l .",
 			SourceGlob:    "*.go",
+			Skill:         "golang",
 		},
 	},
 	// Rust
@@ -79,6 +83,35 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "cargo build",
 			FormatCommand: "cargo fmt -- --check",
 			SourceGlob:    "*.rs",
+			Skill:         "rust",
+		},
+	},
+	// Deno (deno.json) — before Node/Bun: Deno projects may also have package.json for npm compat
+	{
+		Markers: []string{"deno.json"},
+		Info: FlavourInfo{
+			Flavour:       "deno",
+			Language:      "typescript",
+			TestCommand:   "deno test",
+			LintCommand:   "deno lint",
+			BuildCommand:  "deno compile",
+			FormatCommand: "deno fmt --check",
+			SourceGlob:    "*.{ts,tsx}",
+			Skill:         "typescript",
+		},
+	},
+	// Deno (deno.jsonc) — before Node/Bun: Deno projects may also have package.json for npm compat
+	{
+		Markers: []string{"deno.jsonc"},
+		Info: FlavourInfo{
+			Flavour:       "deno",
+			Language:      "typescript",
+			TestCommand:   "deno test",
+			LintCommand:   "deno lint",
+			BuildCommand:  "deno compile",
+			FormatCommand: "deno fmt --check",
+			SourceGlob:    "*.{ts,tsx}",
+			Skill:         "typescript",
 		},
 	},
 	// Bun (bun.lock)
@@ -92,6 +125,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "bun run build",
 			FormatCommand: "bun format",
 			SourceGlob:    "*.{js,jsx,ts,tsx}",
+			Skill:         "javascript",
 		},
 	},
 	// Bun (bun.lockb)
@@ -105,6 +139,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "bun run build",
 			FormatCommand: "bun format",
 			SourceGlob:    "*.{js,jsx,ts,tsx}",
+			Skill:         "javascript",
 		},
 	},
 	// Node pnpm
@@ -118,6 +153,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "pnpm build",
 			FormatCommand: "pnpm format",
 			SourceGlob:    "*.{js,jsx,ts,tsx}",
+			Skill:         "javascript",
 		},
 	},
 	// Node yarn
@@ -131,6 +167,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "yarn build",
 			FormatCommand: "yarn format",
 			SourceGlob:    "*.{js,jsx,ts,tsx}",
+			Skill:         "javascript",
 		},
 	},
 	// Node (generic)
@@ -144,32 +181,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "npm run build",
 			FormatCommand: "npm run format",
 			SourceGlob:    "*.{js,jsx,ts,tsx}",
-		},
-	},
-	// Deno (deno.json)
-	{
-		Markers: []string{"deno.json"},
-		Info: FlavourInfo{
-			Flavour:       "deno",
-			Language:      "typescript",
-			TestCommand:   "deno test",
-			LintCommand:   "deno lint",
-			BuildCommand:  "deno compile",
-			FormatCommand: "deno fmt --check",
-			SourceGlob:    "*.{ts,tsx}",
-		},
-	},
-	// Deno (deno.jsonc)
-	{
-		Markers: []string{"deno.jsonc"},
-		Info: FlavourInfo{
-			Flavour:       "deno",
-			Language:      "typescript",
-			TestCommand:   "deno test",
-			LintCommand:   "deno lint",
-			BuildCommand:  "deno compile",
-			FormatCommand: "deno fmt --check",
-			SourceGlob:    "*.{ts,tsx}",
+			Skill:         "javascript",
 		},
 	},
 	// Python (pyproject.toml)
@@ -183,6 +195,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "",
 			FormatCommand: "ruff format --check .",
 			SourceGlob:    "*.py",
+			Skill:         "python",
 		},
 	},
 	// Python legacy (setup.py)
@@ -196,6 +209,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "python setup.py build",
 			FormatCommand: "black --check .",
 			SourceGlob:    "*.py",
+			Skill:         "python",
 		},
 	},
 	// Python legacy (requirements.txt, no setup.py)
@@ -210,6 +224,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "",
 			FormatCommand: "black --check .",
 			SourceGlob:    "*.py",
+			Skill:         "python",
 		},
 	},
 	// C# (.csproj glob)
@@ -223,6 +238,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "dotnet build",
 			FormatCommand: "dotnet format",
 			SourceGlob:    "*.cs",
+			Skill:         "csharp",
 		},
 	},
 	// C# (.sln glob)
@@ -236,6 +252,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "dotnet build",
 			FormatCommand: "dotnet format",
 			SourceGlob:    "*.cs",
+			Skill:         "csharp",
 		},
 	},
 	// Java Maven
@@ -249,6 +266,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "mvn package",
 			FormatCommand: "",
 			SourceGlob:    "*.java",
+			Skill:         "java",
 		},
 	},
 	// Java Gradle (build.gradle)
@@ -262,6 +280,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "gradle build",
 			FormatCommand: "",
 			SourceGlob:    "*.java",
+			Skill:         "java",
 		},
 	},
 	// Java Gradle (build.gradle.kts, fallback after kotlin rule above)
@@ -275,6 +294,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "gradle build",
 			FormatCommand: "",
 			SourceGlob:    "*.java",
+			Skill:         "java",
 		},
 	},
 	// Elixir
@@ -288,6 +308,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "mix compile",
 			FormatCommand: "mix format --check-formatted",
 			SourceGlob:    "*.ex",
+			Skill:         "elixir",
 		},
 	},
 	// Dart (pubspec.yaml, no .metadata — flutter already matched above)
@@ -301,6 +322,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "dart compile exe",
 			FormatCommand: "dart format --set-exit-if-changed .",
 			SourceGlob:    "*.dart",
+			Skill:         "dart",
 		},
 	},
 	// C++ CMake
@@ -314,6 +336,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "cmake --build .",
 			FormatCommand: "clang-format -i",
 			SourceGlob:    "*.{cpp,c,h,hpp}",
+			Skill:         "cpp",
 		},
 	},
 	// PHP
@@ -327,6 +350,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "",
 			FormatCommand: "vendor/bin/php-cs-fixer fix --dry-run",
 			SourceGlob:    "*.php",
+			Skill:         "php",
 		},
 	},
 	// Ruby
@@ -340,6 +364,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "",
 			FormatCommand: "bundle exec rubocop -a",
 			SourceGlob:    "*.rb",
+			Skill:         "ruby",
 		},
 	},
 	// Swift
@@ -353,6 +378,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "swift build",
 			FormatCommand: "swift format",
 			SourceGlob:    "*.swift",
+			Skill:         "swift",
 		},
 	},
 	// Zig (build.zig)
@@ -366,6 +392,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "zig build",
 			FormatCommand: "zig fmt",
 			SourceGlob:    "*.zig",
+			Skill:         "zig",
 		},
 	},
 	// Zig (zig.zon)
@@ -379,6 +406,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "zig build",
 			FormatCommand: "zig fmt",
 			SourceGlob:    "*.zig",
+			Skill:         "zig",
 		},
 	},
 	// Scala
@@ -392,6 +420,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "sbt compile",
 			FormatCommand: "sbt scalafmtCheck",
 			SourceGlob:    "*.scala",
+			Skill:         "scala",
 		},
 	},
 	// Haskell (cabal glob)
@@ -405,6 +434,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "cabal build",
 			FormatCommand: "ormolu --check",
 			SourceGlob:    "*.hs",
+			Skill:         "haskell",
 		},
 	},
 	// Haskell (cabal.project)
@@ -418,6 +448,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "cabal build",
 			FormatCommand: "ormolu --check",
 			SourceGlob:    "*.hs",
+			Skill:         "haskell",
 		},
 	},
 	// Haskell Stack
@@ -431,6 +462,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "stack build",
 			FormatCommand: "ormolu --check",
 			SourceGlob:    "*.hs",
+			Skill:         "haskell",
 		},
 	},
 	// TypeScript standalone (no package.json)
@@ -445,6 +477,7 @@ var flavourRules = []FlavourRule{
 			BuildCommand:  "tsc",
 			FormatCommand: "prettier --check .",
 			SourceGlob:    "*.{ts,tsx}",
+			Skill:         "typescript",
 		},
 	},
 	// Make (fallback, excludes other common build systems)
