@@ -50,10 +50,20 @@ func (rc *RepoCache) EnsureCloned(ctx context.Context, repo string) (string, err
 func (rc *RepoCache) PrepareWorktree(ctx context.Context, repo, baseCommit, worktreePath, testPatch string) error {
 	cloneDir := rc.clonePath(repo)
 
-	// Remove existing worktree entry if present (idempotent).
-	_ = exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreePath).Run()
+	// Resolve to absolute path so git worktree commands work from the bare clone dir.
+	absWorktree, err := filepath.Abs(worktreePath)
+	if err != nil {
+		return fmt.Errorf("resolve worktree path: %w", err)
+	}
 
-	cmd := exec.CommandContext(ctx, "git", "worktree", "add", "--detach", worktreePath, baseCommit)
+	// Remove existing worktree entry if present (idempotent).
+	removeCmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", absWorktree)
+	removeCmd.Dir = cloneDir
+	_ = removeCmd.Run()
+	// Also remove leftover directory if worktree entry was already pruned.
+	_ = os.RemoveAll(absWorktree)
+
+	cmd := exec.CommandContext(ctx, "git", "worktree", "add", "--detach", absWorktree, baseCommit)
 	cmd.Dir = cloneDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git worktree add at %s: %w\n%s", baseCommit, err, out)
@@ -75,7 +85,11 @@ func (rc *RepoCache) PrepareWorktree(ctx context.Context, repo, baseCommit, work
 // RemoveWorktree removes a worktree created by PrepareWorktree.
 func (rc *RepoCache) RemoveWorktree(ctx context.Context, repo, worktreePath string) error {
 	cloneDir := rc.clonePath(repo)
-	cmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreePath)
+	absWorktree, err := filepath.Abs(worktreePath)
+	if err != nil {
+		return fmt.Errorf("resolve worktree path: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", absWorktree)
 	cmd.Dir = cloneDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git worktree remove %s: %w\n%s", worktreePath, err, out)
