@@ -21,6 +21,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
+	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
@@ -324,6 +325,38 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			}
 			if err != nil {
 				return err
+			}
+		}
+	}
+
+	// Token scope validation: check persona token requirements before execution
+	if forgeInfo.Type != forge.ForgeUnknown {
+		resolver := scope.NewResolver(forgeInfo.Type)
+		introspector := scope.NewIntrospector(forgeInfo.Type)
+		scopeValidator := scope.NewValidator(resolver, introspector, forgeInfo, m.Runtime.Sandbox.EnvPassthrough)
+
+		// Build persona scope map from manifest personas used in this pipeline
+		personaScopes := make(map[string][]string)
+		for _, step := range sortedSteps {
+			if persona := m.GetPersona(step.Persona); persona != nil && len(persona.TokenScopes) > 0 {
+				personaScopes[step.Persona] = persona.TokenScopes
+			}
+		}
+
+		if len(personaScopes) > 0 {
+			scopeResult, scopeErr := scopeValidator.ValidatePersonas(personaScopes)
+			if scopeErr != nil {
+				return fmt.Errorf("token scope validation error: %w", scopeErr)
+			}
+			for _, w := range scopeResult.Warnings {
+				e.emit(event.Event{
+					Timestamp: time.Now(),
+					State:     "preflight",
+					Message:   fmt.Sprintf("token scope warning: %s", w),
+				})
+			}
+			if scopeResult.HasViolations() {
+				return fmt.Errorf("%s", scopeResult.Error())
 			}
 		}
 	}
