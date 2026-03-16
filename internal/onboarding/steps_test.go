@@ -274,7 +274,7 @@ steps:
 	assert.Contains(t, pipelines, "test-experimental")
 }
 
-func TestDetectProjectType(t *testing.T) {
+func TestDetectFlavourViaStep(t *testing.T) {
 	tests := []struct {
 		name     string
 		files    map[string]string
@@ -319,15 +319,12 @@ func TestDetectProjectType(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0644))
 			}
 
-			origDir, _ := os.Getwd()
-			require.NoError(t, os.Chdir(dir))
-			defer os.Chdir(origDir)
-
-			result := detectProjectType()
+			result := DetectFlavour(dir)
 			if tt.expected == "" {
-				assert.Empty(t, result["language"])
+				assert.Nil(t, result)
 			} else {
-				assert.Equal(t, tt.expected, result["language"])
+				require.NotNil(t, result)
+				assert.Equal(t, tt.expected, result.Language)
 			}
 		})
 	}
