@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -187,10 +185,12 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	// Get step details from step_state table (what the executor writes to)
 	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
-	// Build step status map for DAG
+	// Build step detail map for DAG
 	stepStatusMap := make(map[string]string)
+	stepDetailMap := make(map[string]StepDetail)
 	for _, sd := range stepDetails {
 		stepStatusMap[sd.StepID] = sd.State
+		stepDetailMap[sd.StepID] = sd
 	}
 
 	// Get events
@@ -209,10 +209,18 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 			if s, ok := stepStatusMap[step.ID]; ok {
 				status = s
 			}
+			var duration string
+			var tokens int
+			if sd, ok := stepDetailMap[step.ID]; ok {
+				duration = sd.Duration
+				tokens = sd.TokensUsed
+			}
 			dagSteps = append(dagSteps, DAGStepInput{
 				ID:           step.ID,
 				Persona:      step.Persona,
 				Status:       status,
+				Duration:     duration,
+				Tokens:       tokens,
 				Dependencies: step.Dependencies,
 			})
 		}

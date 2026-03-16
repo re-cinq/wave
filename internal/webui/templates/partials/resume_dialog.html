@@ -1,0 +1,19 @@
+{{define "templates/partials/resume_dialog.html"}}
+<div class="resume-dialog" id="resume-dialog" style="display:none" role="dialog" aria-label="Resume from step">
+    <div class="resume-dialog-content">
+        <h3>Resume from Step</h3>
+        <p>Select a step to resume execution from:</p>
+        <div class="resume-steps">
+            {{range .Steps}}
+            <button class="resume-step-btn {{statusClass .State}}"
+                    onclick="resumeFromStep('{{$.Run.RunID}}', '{{.StepID}}')"
+                    aria-label="Resume from {{.StepID}} ({{.State}})">
+                <span class="step-id">{{.StepID}}</span>
+                <span class="badge {{statusClass .State}}">{{.State}}</span>
+            </button>
+            {{end}}
+        </div>
+        <button class="btn" onclick="document.getElementById('resume-dialog').style.display='none'" aria-label="Close resume dialog">Cancel</button>
+    </div>
+</div>
+{{end}}
