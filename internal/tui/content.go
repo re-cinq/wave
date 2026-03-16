@@ -968,8 +968,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case PipelineSelectedMsg:
 		var listCmd, detailCmd tea.Cmd
 		m.list, listCmd = m.list.Update(msg)
-		// When in Issues view, show pipeline detail in right pane.
-		if m.currentView == ViewIssues {
+		// When in Issues view, show pipeline detail in right pane — but only
+		// when the selection came from the issue list (user interaction), not
+		// from the pipeline list's periodic data refresh.
+		if m.currentView == ViewIssues && msg.FromIssueList {
 			m.issueShowPipeline = true
 		}
 		// Wire live output from SQLite events for running pipelines on hover
