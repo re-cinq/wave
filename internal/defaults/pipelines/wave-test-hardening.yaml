@@ -6,7 +6,7 @@ metadata:
 
 skills:
   - wave
-  - golang
+  - "{{ project.skill }}"
 
 input:
   source: cli
@@ -32,7 +32,8 @@ steps:
 
         ## Analysis
 
-        1. **Run coverage analysis**:
+        1. **Run coverage analysis** (hardcoded Go commands — this is a Wave self-evolution
+           pipeline that always targets Wave's own Go codebase):
            ```bash
            go test -coverprofile=coverage.out ./... 2>&1 || true
            go tool cover -func=coverage.out | tail -20
@@ -95,19 +96,19 @@ steps:
         3. Use `t.Helper()` for test helpers
         4. Use `t.TempDir()` for filesystem isolation
         5. Check error messages, not just error existence
-        6. Run `go test -race ./...` after adding tests
+        6. Run `{{ project.test_command }}` after adding tests
         7. Do NOT use `t.Skip()` without a linked issue
         8. Focus on the highest-impact gaps first
 
         After each batch of tests:
         ```bash
-        go test -race -count=1 ./...
+        {{ project.test_command }}
         ```
     retry:
       max_attempts: 3
     handover:
       contract:
         type: test_suite
-        command: "go test -race ./..."
+        command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry

@@ -33,7 +33,7 @@ steps:
         1. **Git history**: Recent commits with diffs (`git log --stat`, `git diff`)
         2. **Session transcripts**: Check for claudit git notes (`git notes show <commit>` for each relevant commit). Summarize what happened in each session — tool calls, approach taken, detours, errors
         3. **Pipeline artifacts**: Scan `.wave/workspaces/` for the relevant pipeline run. List all output artifacts and their contents
-        4. **Test state**: Run `go test ./...` to capture current test status
+        4. **Test state**: Run `{{ project.test_command }}` to capture current test status
         5. **Branch/PR context**: Branch name, ahead/behind status, PR state if applicable
 
         ## Output
@@ -140,7 +140,7 @@ steps:
 
         ## Independent Verification
 
-        1. Run the test suite: `go test ./...`
+        1. Run the test suite: `{{ project.test_command }}`
         2. Cross-check evaluation claims against actual code
         3. Verify any specific concerns raised in the evaluation
 

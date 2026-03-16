@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/manifest"
 )
 
 func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
@@ -502,6 +503,100 @@ func TestPipelineContext_ToTemplateVars_IncludesArtifacts(t *testing.T) {
 	// Verify artifact path is included
 	if vars["artifacts.data"] != "/artifacts/data.json" {
 		t.Errorf("Expected artifact path to be included in template vars, got %q", vars["artifacts.data"])
+	}
+}
+
+func TestNewContextWithProject_AllFields(t *testing.T) {
+	m := &manifest.Manifest{
+		Project: &manifest.Project{
+			Language:      "rust",
+			Flavour:       "rust",
+			TestCommand:   "cargo test",
+			LintCommand:   "cargo clippy -- -D warnings",
+			BuildCommand:  "cargo build",
+			FormatCommand: "cargo fmt -- --check",
+			SourceGlob:    "*.rs",
+			Skill:         "rust",
+		},
+	}
+
+	ctx := newContextWithProject("pipe-123", "implement", "build-step", m)
+
+	expectedVars := map[string]string{
+		"project.language":       "rust",
+		"project.flavour":        "rust",
+		"project.test_command":   "cargo test",
+		"project.lint_command":   "cargo clippy -- -D warnings",
+		"project.build_command":  "cargo build",
+		"project.format_command": "cargo fmt -- --check",
+		"project.source_glob":   "*.rs",
+		"project.skill":         "rust",
+	}
+
+	for key, want := range expectedVars {
+		got := ctx.CustomVariables[key]
+		if got != want {
+			t.Errorf("CustomVariables[%q] = %q, want %q", key, got, want)
+		}
+	}
+}
+
+func TestNewContextWithProject_NilProject(t *testing.T) {
+	m := &manifest.Manifest{Project: nil}
+	ctx := newContextWithProject("pipe-123", "implement", "step", m)
+
+	// Should not have any project.* keys
+	for k := range ctx.CustomVariables {
+		if len(k) > 8 && k[:8] == "project." {
+			t.Errorf("unexpected project variable %q with nil project", k)
+		}
+	}
+}
+
+func TestProjectSkillTemplateResolution(t *testing.T) {
+	m := &manifest.Manifest{
+		Project: &manifest.Project{
+			Skill:       "golang",
+			TestCommand: "go test -race ./...",
+		},
+	}
+
+	ctx := newContextWithProject("pipe-123", "implement", "step", m)
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "project.skill spaced",
+			template: "{{ project.skill }}",
+			expected: "golang",
+		},
+		{
+			name:     "project.skill unspaced",
+			template: "{{project.skill}}",
+			expected: "golang",
+		},
+		{
+			name:     "project.test_command in prompt",
+			template: "Run: {{ project.test_command }}",
+			expected: "Run: go test -race ./...",
+		},
+		{
+			name:     "mixed project and pipeline vars",
+			template: "{{ pipeline_name }}: {{ project.skill }}",
+			expected: "implement: golang",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
 	}
 }
 

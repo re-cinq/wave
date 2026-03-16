@@ -98,19 +98,14 @@ steps:
            - Then unused exports
            - Then orphaned files
            - Skip anything with confidence=medium unless trivially safe
-           - After each removal, verify: `go build ./...`
+           - After each removal, verify: `{{ project.build_command }}`
 
-        2. **Run goimports** if available to clean up imports:
+        2. **Run full test suite**:
            ```bash
-           goimports -w <modified-files> 2>/dev/null || true
+           {{ project.test_command }}
            ```
 
-        3. **Run full test suite**:
-           ```bash
-           go test ./... -count=1
-           ```
-
-        4. **Commit**:
+        3. **Commit**:
            ```bash
            git add <specific-files>
            git commit -m "chore: remove dead code
