@@ -1,0 +1,24 @@
+kind: WavePipeline
+metadata:
+  name: bench-solve
+  description: "Solve a single SWE-bench task with minimal code changes"
+  release: false
+
+input:
+  source: cli
+  schema:
+    type: string
+    description: "Problem statement describing the bug or feature to implement"
+
+steps:
+  - id: solve
+    persona: craftsman
+    workspace:
+      type: mount
+      source: ./
+      readonly: false
+    exec:
+      type: prompt
+      source_path: .wave/prompts/bench/solve.md
+    retry:
+      max_attempts: 2

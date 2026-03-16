@@ -67,6 +67,7 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
+├── bench/        # SWE-bench benchmarking and comparison
 ├── continuous/   # Continuous pipeline execution
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
 ├── defaults/     # Embedded default personas, pipelines, and contracts
@@ -173,6 +174,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 | Stale issues | `ops-refresh` | Refresh a stale issue against recent codebase changes |
 | Dead code | `audit-dead-code` | Detect and report unused code |
 | Code simplification | `impl-recinq` | Divergent-convergent code simplification (Double Diamond) |
+| SWE-bench benchmark | `bench-solve` | Solve a single SWE-bench task (used by `wave bench run`) |
 
 ### PR Review-Then-Merge Protocol
 
