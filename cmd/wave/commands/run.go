@@ -415,9 +415,13 @@ func runRun(opts RunOptions, debug bool) error {
 					if store != nil {
 						tokens := iterExecutor.GetTotalTokens()
 						if execErr != nil {
-							store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens)
+							if updateErr := store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens); updateErr != nil {
+								fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
+							}
 						} else {
-							store.UpdateRunStatus(iterRunID, "completed", "", tokens)
+							if updateErr := store.UpdateRunStatus(iterRunID, "completed", "", tokens); updateErr != nil {
+								fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
+							}
 						}
 					}
 

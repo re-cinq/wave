@@ -73,12 +73,7 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 	}
 
 	iteration := 0
-	for {
-		// Check context cancellation between iterations
-		if ctx.Err() != nil {
-			break
-		}
-
+	for ctx.Err() == nil {
 		// Check max iterations
 		if r.MaxIterations > 0 && iteration >= r.MaxIterations {
 			break
