@@ -172,7 +172,7 @@ func TestWaveCommandStep_EmptyWaveDir(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to chdir: %v", err)
 	}
-	t.Cleanup(func() { os.Chdir(origDir) })
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
 	cfg := WizardConfig{
 		WaveDir: "",
