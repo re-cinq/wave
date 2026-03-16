@@ -160,9 +160,9 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 	return compacted, nil
 }
 
-// ValidateConfig validates the relay monitor configuration.
+// validateConfig validates the relay monitor configuration.
 // Returns nil if the configuration is valid, or an error describing the issue.
-func ValidateConfig(cfg RelayMonitorConfig) error {
+func validateConfig(cfg RelayMonitorConfig) error {
 	if cfg.DefaultThreshold < 0 || cfg.DefaultThreshold > 100 {
 		return fmt.Errorf("%w: got %d", ErrInvalidThreshold, cfg.DefaultThreshold)
 	}
@@ -175,12 +175,12 @@ func ValidateConfig(cfg RelayMonitorConfig) error {
 	return nil
 }
 
-// GetContextWindow returns the configured context window.
-func (m *RelayMonitor) GetContextWindow() int {
+// getContextWindow returns the configured context window.
+func (m *RelayMonitor) getContextWindow() int {
 	return m.config.ContextWindow
 }
 
-func (m *RelayMonitor) GetTokenCount(chatHistory string) int {
+func (m *RelayMonitor) getTokenCount(chatHistory string) int {
 	return len(strings.Split(chatHistory, " "))
 }
 
@@ -299,13 +299,13 @@ func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg Compaction
 	return string(buf), nil
 }
 
-// IsCompactionError returns true if the error is related to compaction failure.
-func IsCompactionError(err error) bool {
+// isCompactionError returns true if the error is related to compaction failure.
+func isCompactionError(err error) bool {
 	return errors.Is(err, ErrCompactionFailed) || errors.Is(err, ErrAdapterRunFailed)
 }
 
-// IsCheckpointError returns true if the error is related to checkpoint operations.
-func IsCheckpointError(err error) bool {
+// isCheckpointError returns true if the error is related to checkpoint operations.
+func isCheckpointError(err error) bool {
 	return errors.Is(err, ErrWriteCheckpointFailed) ||
 		errors.Is(err, ErrCheckpointNotFound) ||
 		errors.Is(err, ErrInvalidCheckpoint)

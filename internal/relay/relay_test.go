@@ -117,22 +117,22 @@ func TestRelayMonitor_CompactNoAdapter(t *testing.T) {
 	}
 }
 
-func TestRelayMonitor_GetContextWindow(t *testing.T) {
+func TestRelayMonitor_getContextWindow(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{ContextWindow: 100000}, adapter)
 
-	if m.GetContextWindow() != 100000 {
-		t.Errorf("expected 100000, got %d", m.GetContextWindow())
+	if m.getContextWindow() != 100000 {
+		t.Errorf("expected 100000, got %d", m.getContextWindow())
 	}
 }
 
-func TestRelayMonitor_GetContextWindowDefault(t *testing.T) {
+func TestRelayMonitor_getContextWindowDefault(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 
 	// Should default to 200000
-	if m.GetContextWindow() != 200000 {
-		t.Errorf("expected 200000, got %d", m.GetContextWindow())
+	if m.getContextWindow() != 200000 {
+		t.Errorf("expected 200000, got %d", m.getContextWindow())
 	}
 }
 
@@ -432,8 +432,8 @@ func TestRelayMonitor_ThresholdDetection_DefaultValues(t *testing.T) {
 			t.Error("should use default context window of 200000")
 		}
 
-		if m.GetContextWindow() != 200000 {
-			t.Errorf("expected default context window 200000, got %d", m.GetContextWindow())
+		if m.getContextWindow() != 200000 {
+			t.Errorf("expected default context window 200000, got %d", m.getContextWindow())
 		}
 	})
 
@@ -620,7 +620,7 @@ func TestRelayMonitor_Compact_EmptyCompactionResult(t *testing.T) {
 // Additional Relay Monitor Tests
 // =============================================================================
 
-func TestRelayMonitor_GetTokenCount(t *testing.T) {
+func TestRelayMonitor_getTokenCount(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 
@@ -658,7 +658,7 @@ func TestRelayMonitor_GetTokenCount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := m.GetTokenCount(tc.input)
+			result := m.getTokenCount(tc.input)
 			if result != tc.expected {
 				t.Errorf("expected %d, got %d for input: %q", tc.expected, result, tc.input)
 			}
@@ -784,7 +784,7 @@ func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
 // T071: Improved Error Handling Tests
 // =============================================================================
 
-func TestValidateConfig(t *testing.T) {
+func Test_validateConfig(t *testing.T) {
 	testCases := []struct {
 		name        string
 		config      RelayMonitorConfig
@@ -858,7 +858,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateConfig(tc.config)
+			err := validateConfig(tc.config)
 
 			if tc.expectError {
 				if err == nil {
@@ -876,7 +876,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
-func TestIsCompactionError(t *testing.T) {
+func Test_isCompactionError(t *testing.T) {
 	testCases := []struct {
 		name     string
 		err      error
@@ -921,15 +921,15 @@ func TestIsCompactionError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := IsCompactionError(tc.err)
+			result := isCompactionError(tc.err)
 			if result != tc.expected {
-				t.Errorf("IsCompactionError(%v) = %v, want %v", tc.err, result, tc.expected)
+				t.Errorf("isCompactionError(%v) = %v, want %v", tc.err, result, tc.expected)
 			}
 		})
 	}
 }
 
-func TestIsCheckpointError(t *testing.T) {
+func Test_isCheckpointError(t *testing.T) {
 	testCases := []struct {
 		name     string
 		err      error
@@ -969,9 +969,9 @@ func TestIsCheckpointError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := IsCheckpointError(tc.err)
+			result := isCheckpointError(tc.err)
 			if result != tc.expected {
-				t.Errorf("IsCheckpointError(%v) = %v, want %v", tc.err, result, tc.expected)
+				t.Errorf("isCheckpointError(%v) = %v, want %v", tc.err, result, tc.expected)
 			}
 		})
 	}
