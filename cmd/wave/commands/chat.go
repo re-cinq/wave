@@ -2,10 +2,10 @@ package commands
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
@@ -13,8 +13,6 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-
-	_ "modernc.org/sqlite"
 )
 
 // ChatOptions holds options for the chat command.
@@ -26,6 +24,7 @@ type ChatOptions struct {
 	Model    string
 	Prompt   string
 	List     bool
+	Resume   string // --resume <session-id|"last">: resume a previous chat session
 	// Phase 2: step manipulation
 	Continue string // --continue <step-id>: continue work in step's workspace
 	Rewrite  string // --rewrite <step-id>: re-execute step with new prompt
@@ -54,6 +53,10 @@ Without arguments, opens the most recent completed run.
     wave chat --model opus               # override model
     wave chat --prompt "explain the plan"  # initial question
 
+  Resume:
+    wave chat --resume last              # resume most recent session for a run
+    wave chat --resume <session-id>      # resume a specific session
+
   Manipulate (read-write):
     wave chat --continue <step>          # resume work in step workspace
     wave chat --extend <step>            # add instructions to a step
@@ -73,6 +76,7 @@ Without arguments, opens the most recent completed run.
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Model to use (default: sonnet)")
 	cmd.Flags().StringVar(&opts.Prompt, "prompt", "", "Initial prompt/question to send")
 	cmd.Flags().BoolVar(&opts.List, "list", false, "List recent runs")
+	cmd.Flags().StringVar(&opts.Resume, "resume", "", "Resume a previous chat session (session ID or 'last')")
 
 	// Phase 2: step manipulation flags
 	cmd.Flags().StringVar(&opts.Continue, "continue", "", "Continue work in a step's workspace (read-write)")
@@ -96,6 +100,11 @@ func runChat(opts ChatOptions) error {
 		return fmt.Errorf("failed to open state database: %w", err)
 	}
 	defer store.Close()
+
+	// Handle --resume: load existing session and resume it
+	if opts.Resume != "" {
+		return resumeChatSession(store, opts)
+	}
 
 	// Resolve run ID
 	runID := opts.RunID
@@ -149,7 +158,6 @@ func runChat(opts ChatOptions) error {
 			return controller.ContinueStep(context.Background(), chatCtx, opts.Continue)
 		}
 		if opts.Extend != "" {
-			// For extend, we need additional instructions from stdin or a prompt
 			fmt.Fprintf(os.Stderr, "  Mode:     extend step %q\n\n", opts.Extend)
 			return controller.ExtendStep(context.Background(), chatCtx, opts.Extend, "")
 		}
@@ -231,21 +239,19 @@ func runChat(opts ChatOptions) error {
 
 	// Build interactive options
 	interactiveOpts := adapter.InteractiveOptions{
-		Model:  opts.Model,
-		Prompt: opts.Prompt,
+		Model:   opts.Model,
+		Prompt:  opts.Prompt,
 		AddDirs: []string{projectRoot},
 	}
 
 	// Add step workspace directories
 	if opts.Step != "" {
-		// Only add the focused step's workspace
 		for _, step := range chatCtx.Steps {
 			if step.StepID == opts.Step && step.WorkspacePath != "" {
 				interactiveOpts.AddDirs = append(interactiveOpts.AddDirs, step.WorkspacePath)
 			}
 		}
 	} else {
-		// Add all step workspace directories
 		for _, step := range chatCtx.Steps {
 			if step.WorkspacePath != "" {
 				interactiveOpts.AddDirs = append(interactiveOpts.AddDirs, step.WorkspacePath)
@@ -254,26 +260,103 @@ func runChat(opts ChatOptions) error {
 	}
 
 	// Launch interactive Claude session
-	return adapter.LaunchInteractive(wsPath, interactiveOpts)
+	sessionID, err := adapter.LaunchInteractive(wsPath, interactiveOpts)
+
+	// Save chat session record for future resume
+	if sessionID != "" {
+		session := &state.ChatSession{
+			SessionID:     sessionID,
+			RunID:         runID,
+			StepFilter:    opts.Step,
+			WorkspacePath: wsPath,
+			Model:         opts.Model,
+		}
+		if saveErr := store.SaveChatSession(session); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to save chat session: %v\n", saveErr)
+		}
+	}
+
+	return err
 }
 
-// listRecentRunsForChat lists recent runs using the same DB query as status --all.
+// resumeChatSession loads a previous session and resumes it.
+func resumeChatSession(store state.StateStore, opts ChatOptions) error {
+	var session *state.ChatSession
+
+	if opts.Resume == "last" {
+		// Resolve run ID first
+		runID := opts.RunID
+		if runID == "" {
+			var err error
+			runID, err = pipeline.MostRecentCompletedRunID(store)
+			if err != nil {
+				return fmt.Errorf("no runs found: %w", err)
+			}
+		}
+
+		sessions, err := store.ListChatSessions(runID)
+		if err != nil {
+			return fmt.Errorf("failed to list chat sessions: %w", err)
+		}
+		if len(sessions) == 0 {
+			return fmt.Errorf("no chat sessions found for run %s", runID)
+		}
+		session = &sessions[0] // most recent (ordered by created_at DESC)
+	} else {
+		var err error
+		session, err = store.GetChatSession(opts.Resume)
+		if err != nil {
+			return fmt.Errorf("chat session not found: %w", err)
+		}
+	}
+
+	// Update last_resumed_at
+	now := time.Now()
+	session.LastResumedAt = &now
+	if err := store.SaveChatSession(session); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to update session timestamp: %v\n", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n  Wave Chat — Resuming session\n")
+	fmt.Fprintf(os.Stderr, "  Session:  %s\n", session.SessionID)
+	fmt.Fprintf(os.Stderr, "  Run:      %s\n", session.RunID)
+	if session.StepFilter != "" {
+		fmt.Fprintf(os.Stderr, "  Step:     %s\n", session.StepFilter)
+	}
+	fmt.Fprintf(os.Stderr, "\n")
+
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	interactiveOpts := adapter.InteractiveOptions{
+		Model:   session.Model,
+		Resume:  session.SessionID,
+		Prompt:  opts.Prompt,
+		AddDirs: []string{projectRoot},
+	}
+
+	_, err = adapter.LaunchInteractive(session.WorkspacePath, interactiveOpts)
+	return err
+}
+
+// listRecentRunsForChat lists recent runs and their chat sessions.
 func listRecentRunsForChat(dbPath string) error {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("No pipeline runs found")
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open state database: %w", err)
 	}
-	defer db.Close()
-	db.SetMaxOpenConns(1)
+	defer store.Close()
 
-	runs, err := queryRecentRuns(db, 10)
+	runs, err := store.ListRuns(state.ListRunsOptions{Limit: 10})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list runs: %w", err)
 	}
 
 	if len(runs) == 0 {
@@ -282,5 +365,28 @@ func listRecentRunsForChat(dbPath string) error {
 	}
 
 	fmt.Printf("\nRecent runs (use 'wave chat <run-id>' to open):\n\n")
-	return outputRuns(runs, StatusOptions{Format: "table"})
+	for _, run := range runs {
+		elapsed := ""
+		if run.CompletedAt != nil {
+			elapsed = formatElapsed(run.CompletedAt.Sub(run.StartedAt))
+		}
+		fmt.Printf("  %s%-9s%s  %s  %-20s  %s\n",
+			statusColor(run.Status), run.Status, conditionalColor("\033[0m"),
+			run.RunID, run.PipelineName, elapsed)
+
+		// Show chat sessions for this run
+		sessions, sessErr := store.ListChatSessions(run.RunID)
+		if sessErr == nil && len(sessions) > 0 {
+			for _, s := range sessions {
+				resumed := ""
+				if s.LastResumedAt != nil {
+					resumed = fmt.Sprintf("  (resumed %s)", s.LastResumedAt.Format("15:04:05"))
+				}
+				fmt.Printf("    └─ session %s  %s%s\n",
+					s.SessionID, s.CreatedAt.Format("2006-01-02 15:04:05"), resumed)
+			}
+		}
+	}
+	fmt.Println()
+	return nil
 }

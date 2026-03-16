@@ -60,10 +60,11 @@ func (c *DefaultStepController) ContinueStep(ctx context.Context, chatCtx *ChatC
 	}
 
 	// Launch interactive session with write permissions
-	return adapter.LaunchInteractive(step.WorkspacePath, adapter.InteractiveOptions{
+	_, err = adapter.LaunchInteractive(step.WorkspacePath, adapter.InteractiveOptions{
 		Model:   c.model,
 		AddDirs: []string{chatCtx.ProjectRoot},
 	})
+	return err
 }
 
 // ExtendStep opens an interactive Claude session with the step's workspace,
@@ -88,10 +89,11 @@ func (c *DefaultStepController) ExtendStep(ctx context.Context, chatCtx *ChatCon
 	}
 
 	// Launch interactive session with write permissions
-	return adapter.LaunchInteractive(step.WorkspacePath, adapter.InteractiveOptions{
+	_, err = adapter.LaunchInteractive(step.WorkspacePath, adapter.InteractiveOptions{
 		Model:   c.model,
 		AddDirs: []string{chatCtx.ProjectRoot},
 	})
+	return err
 }
 
 // RevertStep builds a preview of what would be reverted for the given step.
@@ -233,10 +235,11 @@ func (c *DefaultStepController) RewriteStep(ctx context.Context, chatCtx *ChatCo
 	}
 
 	// Launch interactive session with write permissions
-	return adapter.LaunchInteractive(wsPath, adapter.InteractiveOptions{
+	_, err = adapter.LaunchInteractive(wsPath, adapter.InteractiveOptions{
 		Model:   c.model,
 		AddDirs: []string{chatCtx.ProjectRoot},
 	})
+	return err
 }
 
 // ---------------------------------------------------------------------------
