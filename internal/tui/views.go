@@ -10,6 +10,7 @@ const (
 	ViewSkills
 	ViewHealth
 	ViewIssues
+	ViewPullRequests
 	ViewSuggest
 )
 
@@ -28,6 +29,8 @@ func (v ViewType) String() string {
 		return "Health"
 	case ViewIssues:
 		return "Issues"
+	case ViewPullRequests:
+		return "Pull Requests"
 	case ViewSuggest:
 		return "Suggest"
 	default:
