@@ -6,7 +6,7 @@ metadata:
 
 skills:
   - wave
-  - golang
+  - "{{ project.skill }}"
 
 input:
   source: cli
@@ -87,19 +87,19 @@ steps:
         1. Apply the MINIMAL fix — don't refactor surrounding code
         2. Add a regression test that reproduces the original bug
         3. The test must FAIL without the fix and PASS with it
-        4. Run `go test -race ./...` to verify no regressions
+        4. Run `{{ project.test_command }}` to verify no regressions
         5. If the fix touches concurrent code, add race detector coverage
 
         ## Validation
 
         ```bash
-        go test -race -count=1 ./...
+        {{ project.test_command }}
         ```
     retry:
       max_attempts: 3
     handover:
       contract:
         type: test_suite
-        command: "go test -race ./..."
+        command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
