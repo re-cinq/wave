@@ -5005,3 +5005,216 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		assert.Contains(t, err.Error(), "nonexistent-skill")
 	})
 }
+
+// TestTransitiveSkip_DiamondDependency verifies transitive skip propagation
+// through a diamond-shaped dependency graph:
+//
+//	    A (optional, fails)
+//	   / \
+//	  B   C
+//	   \ /
+//	    D
+//
+// All of B, C, D should be skipped. Pipeline should succeed because A is optional.
+func TestTransitiveSkip_DiamondDependency(t *testing.T) {
+	collector := newTestEventCollector()
+	successAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	)
+	failAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("optional failure")),
+	)
+
+	sa := &stepAwareAdapter{
+		defaultAdapter: successAdapter,
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-a": failAdapter,
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "diamond-skip-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Optional: true, Exec: ExecConfig{Source: "optional root"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "left branch"}},
+			{ID: "step-c", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "right branch"}},
+			{ID: "step-d", Persona: "navigator", Dependencies: []string{"step-b", "step-c"}, Exec: ExecConfig{Source: "diamond bottom"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	assert.NoError(t, err, "pipeline should succeed — A is optional")
+
+	// None of B, C, D should have executed
+	order := collector.GetStepExecutionOrder()
+	assert.NotContains(t, order, "step-b", "step-b should not have executed")
+	assert.NotContains(t, order, "step-c", "step-c should not have executed")
+	assert.NotContains(t, order, "step-d", "step-d should not have executed")
+
+	// All of B, C, D should have been skipped
+	events := collector.GetEvents()
+	skippedSteps := make(map[string]bool)
+	for _, evt := range events {
+		if evt.State == "skipped" {
+			skippedSteps[evt.StepID] = true
+		}
+	}
+	assert.True(t, skippedSteps["step-b"], "step-b should have been skipped")
+	assert.True(t, skippedSteps["step-c"], "step-c should have been skipped")
+	assert.True(t, skippedSteps["step-d"], "step-d should have been skipped")
+}
+
+// TestTransitiveSkip_IndependentPathsExecute verifies that steps on independent
+// paths (not through a failed optional dependency) still execute normally.
+//
+//	A (optional, fails)    E (succeeds)
+//	|                       |
+//	B (skipped)            F (should execute)
+func TestTransitiveSkip_IndependentPathsExecute(t *testing.T) {
+	collector := newTestEventCollector()
+	successAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	)
+	failAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("optional failure")),
+	)
+
+	sa := &stepAwareAdapter{
+		defaultAdapter: successAdapter,
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-a": failAdapter,
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "independent-paths-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Optional: true, Exec: ExecConfig{Source: "optional work"}},
+			{ID: "step-b", Persona: "navigator", Dependencies: []string{"step-a"}, Exec: ExecConfig{Source: "depends on A"}},
+			{ID: "step-e", Persona: "navigator", Exec: ExecConfig{Source: "independent root"}},
+			{ID: "step-f", Persona: "navigator", Dependencies: []string{"step-e"}, Exec: ExecConfig{Source: "depends on E"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	assert.NoError(t, err, "pipeline should succeed — failed step is optional")
+
+	// B should be skipped, but E and F should execute
+	order := collector.GetStepExecutionOrder()
+	assert.NotContains(t, order, "step-b", "step-b should not have executed")
+	assert.Contains(t, order, "step-e", "step-e should have executed")
+	assert.Contains(t, order, "step-f", "step-f should have executed")
+
+	// Verify skip event for B
+	events := collector.GetEvents()
+	foundSkip := false
+	for _, evt := range events {
+		if evt.State == "skipped" && evt.StepID == "step-b" {
+			foundSkip = true
+			break
+		}
+	}
+	assert.True(t, foundSkip, "step-b should have been skipped")
+
+	// Verify E and F completed
+	completedSteps := make(map[string]bool)
+	for _, evt := range events {
+		if evt.State == "completed" {
+			completedSteps[evt.StepID] = true
+		}
+	}
+	assert.True(t, completedSteps["step-e"], "step-e should have completed")
+	assert.True(t, completedSteps["step-f"], "step-f should have completed")
+}
+
+// slowAdapter is a test adapter that waits for a delay before returning,
+// respecting context cancellation.
+type slowAdapter struct {
+	delay  time.Duration
+	result *adapter.AdapterResult
+}
+
+func (a *slowAdapter) Run(ctx context.Context, _ adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	select {
+	case <-time.After(a.delay):
+		return a.result, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// TestConcurrentBatchCancellation verifies that when one step in a concurrent
+// batch fails (non-optional, default on_failure: fail), the errgroup cancels
+// remaining sibling steps and the pipeline returns a StepError.
+//
+// Steps A, B, C have no dependencies so they all land in the same ready batch.
+// B fails immediately; A and C are slow and should be cancelled.
+func TestConcurrentBatchCancellation(t *testing.T) {
+	collector := newTestEventCollector()
+
+	slowResult := &adapter.AdapterResult{
+		ExitCode:   0,
+		Stdout:     strings.NewReader(`{"status": "ok"}`),
+		TokensUsed: 100,
+	}
+
+	failAdapter := adapter.NewMockAdapter(
+		adapter.WithFailure(errors.New("step-b exploded")),
+	)
+
+	sa := &stepAwareAdapter{
+		defaultAdapter: &slowAdapter{delay: 5 * time.Second, result: slowResult},
+		stepAdapters: map[string]adapter.AdapterRunner{
+			"step-b": failAdapter,
+		},
+	}
+
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := createTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "concurrent-cancel-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "slow work A"}},
+			{ID: "step-b", Persona: "navigator", Exec: ExecConfig{Source: "fails immediately"}},
+			{ID: "step-c", Persona: "navigator", Exec: ExecConfig{Source: "slow work C"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err := executor.Execute(ctx, p, m, "test")
+	elapsed := time.Since(start)
+
+	// Pipeline should fail
+	require.Error(t, err, "pipeline should fail when a non-optional step fails")
+
+	// The error should be a StepError (could be step-b's failure or a
+	// sibling's context-cancelled error — errgroup returns whichever
+	// goroutine finishes first).
+	var stepErr *StepError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepError, got: %T", err)
+
+	// Pipeline should complete quickly (not wait for slow steps to finish)
+	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
+}
