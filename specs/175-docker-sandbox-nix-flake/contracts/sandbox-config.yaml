@@ -1,0 +1,28 @@
+# Contract: Sandbox Configuration Schema
+# Validates wave.yaml runtime.sandbox section with new Docker fields
+
+type: json_schema
+schema:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+      description: "Legacy sandbox enable switch (retained for backward compatibility)"
+    backend:
+      type: string
+      enum: ["docker", "bubblewrap", "none"]
+      description: "Sandbox backend type. Supersedes 'enabled' when set."
+    docker_image:
+      type: string
+      description: "Docker image for sandbox containers. Default: ubuntu:24.04"
+    default_allowed_domains:
+      type: array
+      items:
+        type: string
+      description: "Default network domain allowlist for all personas"
+    env_passthrough:
+      type: array
+      items:
+        type: string
+      description: "Environment variable names to pass from host to sandbox"
+  additionalProperties: false

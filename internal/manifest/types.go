@@ -120,8 +120,30 @@ func (c *RuntimeArtifactsConfig) GetDefaultArtifactDir() string {
 
 type RuntimeSandbox struct {
 	Enabled               bool     `yaml:"enabled"`
+	Backend               string   `yaml:"backend,omitempty"`
+	DockerImage           string   `yaml:"docker_image,omitempty"`
 	DefaultAllowedDomains []string `yaml:"default_allowed_domains,omitempty"`
 	EnvPassthrough        []string `yaml:"env_passthrough,omitempty"`
+}
+
+// ResolveBackend returns the effective sandbox backend type.
+// The Backend field supersedes the Enabled boolean when set.
+func (s *RuntimeSandbox) ResolveBackend() string {
+	if s.Backend != "" {
+		return s.Backend
+	}
+	if s.Enabled {
+		return "bubblewrap"
+	}
+	return "none"
+}
+
+// GetDockerImage returns the Docker image to use, defaulting to ubuntu:24.04.
+func (s *RuntimeSandbox) GetDockerImage() string {
+	if s.DockerImage != "" {
+		return s.DockerImage
+	}
+	return "ubuntu:24.04"
 }
 
 // RoutingConfig holds pipeline routing configuration.

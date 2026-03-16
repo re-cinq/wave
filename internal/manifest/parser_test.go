@@ -1073,3 +1073,177 @@ func TestValidatePersonaTokenScopes(t *testing.T) {
 		}
 	})
 }
+
+func TestManifestSandboxBackendFields(t *testing.T) {
+	t.Run("parse backend and docker_image fields", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+		content := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-docker-sandbox
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+  sandbox:
+    enabled: true
+    backend: docker
+    docker_image: custom:latest
+    default_allowed_domains:
+      - api.anthropic.com
+    env_passthrough:
+      - ANTHROPIC_API_KEY
+`
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
+
+		m, err := Load(manifestPath)
+		if err != nil {
+			t.Fatalf("Failed to load manifest: %v", err)
+		}
+
+		if m.Runtime.Sandbox.Backend != "docker" {
+			t.Errorf("expected backend 'docker', got %q", m.Runtime.Sandbox.Backend)
+		}
+		if m.Runtime.Sandbox.DockerImage != "custom:latest" {
+			t.Errorf("expected docker_image 'custom:latest', got %q", m.Runtime.Sandbox.DockerImage)
+		}
+		if got := m.Runtime.Sandbox.ResolveBackend(); got != "docker" {
+			t.Errorf("ResolveBackend() = %q, want 'docker'", got)
+		}
+		if got := m.Runtime.Sandbox.GetDockerImage(); got != "custom:latest" {
+			t.Errorf("GetDockerImage() = %q, want 'custom:latest'", got)
+		}
+	})
+
+	t.Run("backward compat without backend field", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+		content := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-legacy-sandbox
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+  sandbox:
+    enabled: true
+    default_allowed_domains:
+      - api.anthropic.com
+`
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
+
+		m, err := Load(manifestPath)
+		if err != nil {
+			t.Fatalf("Failed to load manifest: %v", err)
+		}
+
+		if m.Runtime.Sandbox.Backend != "" {
+			t.Errorf("expected empty backend for legacy manifest, got %q", m.Runtime.Sandbox.Backend)
+		}
+		if m.Runtime.Sandbox.DockerImage != "" {
+			t.Errorf("expected empty docker_image for legacy manifest, got %q", m.Runtime.Sandbox.DockerImage)
+		}
+		if got := m.Runtime.Sandbox.ResolveBackend(); got != "bubblewrap" {
+			t.Errorf("ResolveBackend() = %q, want 'bubblewrap' for legacy enabled=true", got)
+		}
+		if got := m.Runtime.Sandbox.GetDockerImage(); got != "ubuntu:24.04" {
+			t.Errorf("GetDockerImage() = %q, want 'ubuntu:24.04' default", got)
+		}
+	})
+
+	t.Run("fields correctly populated from YAML", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		manifestPath := filepath.Join(tmpDir, "wave.yaml")
+
+		content := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: test-fields
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+personas:
+  navigator:
+    adapter: claude
+    system_prompt_file: prompts/nav.md
+runtime:
+  workspace_root: ./workspace
+  sandbox:
+    enabled: false
+    backend: bubblewrap
+    docker_image: debian:bookworm
+    default_allowed_domains:
+      - example.com
+    env_passthrough:
+      - HOME
+`
+		if err := os.WriteFile(manifestPath, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write manifest: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755); err != nil {
+			t.Fatalf("Failed to create prompts dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644); err != nil {
+			t.Fatalf("Failed to write persona prompt: %v", err)
+		}
+
+		m, err := Load(manifestPath)
+		if err != nil {
+			t.Fatalf("Failed to load manifest: %v", err)
+		}
+
+		s := m.Runtime.Sandbox
+		if s.Enabled != false {
+			t.Error("expected enabled=false")
+		}
+		if s.Backend != "bubblewrap" {
+			t.Errorf("expected backend 'bubblewrap', got %q", s.Backend)
+		}
+		if s.DockerImage != "debian:bookworm" {
+			t.Errorf("expected docker_image 'debian:bookworm', got %q", s.DockerImage)
+		}
+		if len(s.DefaultAllowedDomains) != 1 || s.DefaultAllowedDomains[0] != "example.com" {
+			t.Errorf("unexpected default_allowed_domains: %v", s.DefaultAllowedDomains)
+		}
+		if len(s.EnvPassthrough) != 1 || s.EnvPassthrough[0] != "HOME" {
+			t.Errorf("unexpected env_passthrough: %v", s.EnvPassthrough)
+		}
+		// backend supersedes enabled
+		if got := s.ResolveBackend(); got != "bubblewrap" {
+			t.Errorf("ResolveBackend() = %q, want 'bubblewrap'", got)
+		}
+	})
+}

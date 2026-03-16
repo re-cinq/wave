@@ -1258,8 +1258,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 
-	// Resolve sandbox config — all gated on runtime.sandbox.enabled
-	sandboxEnabled := execution.Manifest.Runtime.Sandbox.Enabled
+	// Resolve sandbox config using the new backend-aware resolution
+	sandboxBackend := execution.Manifest.Runtime.Sandbox.ResolveBackend()
+	sandboxEnabled := sandboxBackend != "none"
 	var sandboxDomains []string
 	var envPassthrough []string
 	if sandboxEnabled {
@@ -1357,6 +1358,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SandboxEnabled:   sandboxEnabled,
 		AllowedDomains:   sandboxDomains,
 		EnvPassthrough:   envPassthrough,
+		SandboxBackend:   sandboxBackend,
+		DockerImage:      execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
 		ContractPrompt:      contractPrompt,
