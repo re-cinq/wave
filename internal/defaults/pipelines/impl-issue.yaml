@@ -18,7 +18,7 @@ chat_context:
     - "PR status and review readiness"
 
 skills:
-  - golang
+  - "{{ project.skill }}"
   - gh-cli
   - software-design
 
