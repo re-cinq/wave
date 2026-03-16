@@ -317,7 +317,7 @@ func TestBuildChatClaudeMd_WithArtifactContent(t *testing.T) {
 		ProjectRoot: "/tmp/test",
 	}
 
-	md := buildChatClaudeMd(ctx, ChatModeAnalysis)
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis, "", "")
 
 	// Check artifact content section
 	if !strings.Contains(md, "## Key Artifact Content") {
@@ -365,7 +365,7 @@ func TestBuildChatClaudeMd_NoChatConfig(t *testing.T) {
 		// No ChatConfig, no ArtifactContents
 	}
 
-	md := buildChatClaudeMd(ctx, ChatModeAnalysis)
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis, "", "")
 
 	// Should NOT have the new sections
 	if strings.Contains(md, "## Key Artifact Content") {
@@ -473,4 +473,222 @@ func TestGeneratePostMortemQuestions_GenericPipeline(t *testing.T) {
 	if !strings.Contains(questions[0], "key outputs") {
 		t.Errorf("expected generic output question, got: %s", questions[0])
 	}
+}
+
+func TestBuildChatClaudeMd_StepFilter(t *testing.T) {
+	now := time.Now()
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "step-filter-test",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		Steps: []ChatStepContext{
+			{StepID: "analyze", Persona: "navigator", State: "completed", Duration: 2 * time.Minute, TokensUsed: 3000},
+			{StepID: "implement", Persona: "craftsman", State: "completed", Duration: 3 * time.Minute, TokensUsed: 2000, WorkspacePath: "/tmp/ws-impl"},
+		},
+		Artifacts: []state.ArtifactRecord{
+			{StepID: "analyze", Name: "plan.json", Path: ".wave/output/plan.json", Type: "json"},
+			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json", Type: "json"},
+		},
+		ProjectRoot: "/tmp/test",
+	}
+
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis, "implement", "")
+
+	// Header should mention the step
+	if !strings.Contains(md, "# Wave Step Analysis: implement") {
+		t.Error("missing step-scoped header")
+	}
+
+	// Should contain implement step data
+	if !strings.Contains(md, "implement") {
+		t.Error("missing implement step in results")
+	}
+	if !strings.Contains(md, "craftsman") {
+		t.Error("missing craftsman persona in results")
+	}
+
+	// Step results table should NOT contain the other step
+	// The "analyze" step should not be in the step results table rows
+	lines := strings.Split(md, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "| 1 |") && strings.Contains(line, "analyze") {
+			t.Error("step results should not contain 'analyze' step when filtered to 'implement'")
+		}
+	}
+
+	// Artifacts should only show implement step's artifacts
+	if !strings.Contains(md, "pr-result.json") {
+		t.Error("missing implement step artifact")
+	}
+	// plan.json from analyze step should not appear in the filtered artifacts table
+	artifactsSection := extractSection(md, "## Artifacts")
+	if artifactsSection != "" && strings.Contains(artifactsSection, "plan.json") {
+		t.Error("artifacts section should not contain analyze step's plan.json when filtered to implement")
+	}
+
+	// Workspaces should only show implement step
+	if !strings.Contains(md, "/tmp/ws-impl") {
+		t.Error("missing implement workspace path")
+	}
+}
+
+func TestBuildChatClaudeMd_ArtifactFocus(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	// Create a test artifact file
+	artDir := filepath.Join(tmpDir, ".wave", "output")
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	artContent := `{"status": "merged", "pr_url": "https://github.com/test/repo/pull/42"}`
+	artPath := filepath.Join(artDir, "pr-result.json")
+	if err := os.WriteFile(artPath, []byte(artContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "art-focus-test",
+			PipelineName: "test-pipeline",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		Steps: []ChatStepContext{
+			{StepID: "implement", Persona: "craftsman", State: "completed"},
+		},
+		Artifacts: []state.ArtifactRecord{
+			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json", Type: "json", SizeBytes: int64(len(artContent))},
+			{StepID: "implement", Name: "log.txt", Path: ".wave/output/log.txt", Type: "text"},
+		},
+		ProjectRoot: tmpDir,
+	}
+
+	md := buildChatClaudeMd(ctx, ChatModeAnalysis, "", "pr-result.json")
+
+	// Header should mention the artifact
+	if !strings.Contains(md, "# Wave Artifact Analysis: pr-result.json") {
+		t.Error("missing artifact-focused header")
+	}
+
+	// Should contain focused artifact content section
+	if !strings.Contains(md, "## Focused Artifact Content") {
+		t.Error("missing Focused Artifact Content section")
+	}
+	if !strings.Contains(md, "pr_url") {
+		t.Error("missing artifact content in focused section")
+	}
+
+	// Artifacts table should only show the focused artifact
+	artifactsSection := extractSection(md, "## Artifacts")
+	if artifactsSection != "" && strings.Contains(artifactsSection, "log.txt") {
+		t.Error("artifacts table should not contain log.txt when focused on pr-result.json")
+	}
+}
+
+func TestPrepareChatWorkspace_StepFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "step-ws-test",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		Steps: []ChatStepContext{
+			{StepID: "analyze", Persona: "navigator", State: "completed"},
+			{StepID: "implement", Persona: "craftsman", State: "completed"},
+		},
+		ProjectRoot: tmpDir,
+	}
+
+	wsPath, err := PrepareChatWorkspace(ctx, ChatWorkspaceOptions{
+		Model:      "sonnet",
+		StepFilter: "implement",
+	})
+	if err != nil {
+		t.Fatalf("PrepareChatWorkspace failed: %v", err)
+	}
+
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	md := string(claudeMd)
+
+	if !strings.Contains(md, "# Wave Step Analysis: implement") {
+		t.Error("CLAUDE.md missing step-scoped header")
+	}
+}
+
+func TestPrepareChatWorkspace_ArtifactFocus(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	// Create artifact file
+	artDir := filepath.Join(tmpDir, ".wave", "output")
+	if err := os.MkdirAll(artDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artDir, "plan.md"), []byte("# Plan\nDo things"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "art-ws-test",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		Steps: []ChatStepContext{
+			{StepID: "plan", Persona: "navigator", State: "completed"},
+		},
+		Artifacts: []state.ArtifactRecord{
+			{StepID: "plan", Name: "plan.md", Path: ".wave/output/plan.md", Type: "markdown"},
+		},
+		ProjectRoot: tmpDir,
+	}
+
+	wsPath, err := PrepareChatWorkspace(ctx, ChatWorkspaceOptions{
+		ArtifactName: "plan.md",
+	})
+	if err != nil {
+		t.Fatalf("PrepareChatWorkspace failed: %v", err)
+	}
+
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	md := string(claudeMd)
+
+	if !strings.Contains(md, "# Wave Artifact Analysis: plan.md") {
+		t.Error("CLAUDE.md missing artifact-focused header")
+	}
+	if !strings.Contains(md, "## Focused Artifact Content") {
+		t.Error("CLAUDE.md missing focused artifact content section")
+	}
+	if !strings.Contains(md, "Do things") {
+		t.Error("CLAUDE.md missing artifact content")
+	}
+}
+
+// extractSection extracts the text between a section header and the next section or end of string.
+func extractSection(md, header string) string {
+	idx := strings.Index(md, header)
+	if idx < 0 {
+		return ""
+	}
+	rest := md[idx+len(header):]
+	nextSection := strings.Index(rest, "\n## ")
+	if nextSection < 0 {
+		return rest
+	}
+	return rest[:nextSection]
 }
