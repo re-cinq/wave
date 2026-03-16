@@ -52,6 +52,7 @@ type Persona struct {
 	Hooks            HookConfig      `yaml:"hooks,omitempty"`
 	Sandbox          *PersonaSandbox `yaml:"sandbox,omitempty"`
 	Skills           []string        `yaml:"skills,omitempty"`
+	TokenScopes      []string        `yaml:"token_scopes,omitempty"`
 }
 
 type PersonaSandbox struct {
