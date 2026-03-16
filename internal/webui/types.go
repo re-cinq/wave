@@ -162,3 +162,19 @@ type RetryRunResponse struct {
 	Status        string    `json:"status"`
 	StartedAt     time.Time `json:"started_at"`
 }
+
+// ResumeRunRequest is the request body for resuming a run from a specific step.
+type ResumeRunRequest struct {
+	FromStep string `json:"from_step"`
+	Force    bool   `json:"force"`
+}
+
+// ResumeRunResponse is the JSON response after resuming a run.
+type ResumeRunResponse struct {
+	RunID         string    `json:"run_id"`
+	OriginalRunID string    `json:"original_run_id"`
+	PipelineName  string    `json:"pipeline_name"`
+	FromStep      string    `json:"from_step"`
+	Status        string    `json:"status"`
+	StartedAt     time.Time `json:"started_at"`
+}
