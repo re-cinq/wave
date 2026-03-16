@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -25,34 +26,44 @@ different pipeline configurations.
 Subcommands:
   run      Execute a pipeline against benchmark tasks
   report   Generate a summary from benchmark results
-  list     List available benchmark datasets`,
+  list     List available benchmark datasets
+  compare  Compare two benchmark result files`,
 	}
 
 	cmd.AddCommand(newBenchRunCmd())
 	cmd.AddCommand(newBenchReportCmd())
 	cmd.AddCommand(newBenchListCmd())
+	cmd.AddCommand(newBenchCompareCmd())
 
 	return cmd
 }
 
 func newBenchRunCmd() *cobra.Command {
 	var (
-		dataset     string
-		pipeline    string
-		limit       int
-		timeout     int
-		outputPath  string
-		datasetsDir string
+		dataset        string
+		pipeline       string
+		mode           string
+		label          string
+		limit          int
+		timeout        int
+		outputPath     string
+		datasetsDir    string
+		keepWorkspaces bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a pipeline against benchmark tasks",
 		Long: `Execute a Wave pipeline against each task in a JSONL benchmark dataset.
-Tasks are run sequentially. Results are written to a JSON file.`,
-		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline impl-issue
-  wave bench run --dataset tasks.jsonl --pipeline impl-issue --limit 10
-  wave bench run --dataset tasks.jsonl --pipeline impl-issue --output results.json`,
+Tasks are run sequentially. Results are written to a JSON file.
+
+Use --mode to select execution mode:
+  wave    Run tasks through a Wave pipeline (default)
+  claude  Run tasks through standalone Claude Code`,
+		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
+  wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
+  wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
+  wave bench run --dataset tasks.jsonl --pipeline bench-solve --output results.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
@@ -60,8 +71,14 @@ Tasks are run sequentially. Results are written to a JSON file.`,
 			if dataset == "" {
 				return fmt.Errorf("--dataset is required")
 			}
-			if pipeline == "" {
-				return fmt.Errorf("--pipeline is required")
+			if mode == "" {
+				mode = bench.ModeWave
+			}
+			if mode != bench.ModeWave && mode != bench.ModeClaude {
+				return fmt.Errorf("--mode must be %q or %q", bench.ModeWave, bench.ModeClaude)
+			}
+			if pipeline == "" && mode != bench.ModeClaude {
+				return fmt.Errorf("--pipeline is required (unless --mode=claude)")
 			}
 
 			// Resolve dataset path
@@ -85,10 +102,13 @@ Tasks are run sequentially. Results are written to a JSON file.`,
 			fmt.Fprintf(os.Stderr, "Loaded %d tasks from %s\n", len(tasks), datasetPath)
 
 			cfg := bench.RunConfig{
-				Pipeline:    pipeline,
-				Limit:       limit,
-				DatasetPath: datasetPath,
-				WorkDir:     ".wave/bench/workspaces",
+				Pipeline:       pipeline,
+				Mode:           mode,
+				RunLabel:       label,
+				Limit:          limit,
+				DatasetPath:    datasetPath,
+				WorkDir:        ".wave/bench/workspaces",
+				KeepWorkspaces: keepWorkspaces,
 			}
 			if timeout > 0 {
 				cfg.TaskTimeout = time.Duration(timeout) * time.Second
@@ -137,10 +157,13 @@ Tasks are run sequentially. Results are written to a JSON file.`,
 
 	cmd.Flags().StringVar(&dataset, "dataset", "", "Path to JSONL dataset file")
 	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Pipeline name to execute per task")
+	cmd.Flags().StringVar(&mode, "mode", "", "Execution mode: wave (default) or claude")
+	cmd.Flags().StringVar(&label, "label", "", "Human-readable label for this run")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of tasks to run (0 = all)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Per-task timeout in seconds (0 = no limit)")
 	cmd.Flags().StringVar(&outputPath, "output", "", "Path to write JSON results file")
 	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
+	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
 
 	return cmd
 }
@@ -216,7 +239,7 @@ func newBenchListCmd() *cobra.Command {
 			datasets, err := bench.ListDatasets(datasetsDir)
 			if err != nil {
 				// Directory doesn't exist — not an error, just empty
-				if os.IsNotExist(err) {
+				if errors.Is(err, os.ErrNotExist) {
 					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .wave/bench/datasets/ and add .jsonl files.")
 					return nil
 				}
@@ -254,6 +277,77 @@ func newBenchListCmd() *cobra.Command {
 	return cmd
 }
 
+func newBenchCompareCmd() *cobra.Command {
+	var (
+		basePath    string
+		comparePath string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "compare",
+		Short: "Compare two benchmark result files",
+		Long: `Load two benchmark result files and show per-task differences.
+Identifies tasks that improved, regressed, or stayed the same.`,
+		Example: `  wave bench compare --base baseline.json --compare wave-run.json
+  wave bench compare --base baseline.json --compare wave-run.json --json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
+
+			if basePath == "" {
+				return fmt.Errorf("--base is required")
+			}
+			if comparePath == "" {
+				return fmt.Errorf("--compare is required")
+			}
+
+			baseReport, err := loadReportFile(basePath)
+			if err != nil {
+				return fmt.Errorf("load base report: %w", err)
+			}
+
+			compReport, err := loadReportFile(comparePath)
+			if err != nil {
+				return fmt.Errorf("load compare report: %w", err)
+			}
+
+			cr := bench.Compare(baseReport, compReport)
+
+			format := ResolveFormat(cmd, "text")
+			outputCfg := GetOutputConfig(cmd)
+			if outputCfg.Format == OutputFormatJSON {
+				format = "json"
+			}
+
+			switch format {
+			case "json":
+				return renderCompareReportJSON(cr)
+			default:
+				renderCompareReportText(cr)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&basePath, "base", "", "Path to base/baseline results JSON")
+	cmd.Flags().StringVar(&comparePath, "compare", "", "Path to comparison results JSON")
+
+	return cmd
+}
+
+func loadReportFile(path string) (*bench.BenchReport, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var report bench.BenchReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	report.Tally()
+	return &report, nil
+}
+
 func writeReportFile(report *bench.BenchReport, path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -275,6 +369,12 @@ func renderBenchReportText(report *bench.BenchReport) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintf(os.Stdout, "Benchmark Report: %s\n", report.Pipeline)
 	fmt.Fprintf(os.Stdout, "Dataset: %s\n", report.Dataset)
+	if report.Mode != "" {
+		fmt.Fprintf(os.Stdout, "Mode:    %s\n", report.Mode)
+	}
+	if report.RunLabel != "" {
+		fmt.Fprintf(os.Stdout, "Label:   %s\n", report.RunLabel)
+	}
 	fmt.Fprintln(os.Stdout, "─────────────────────────────────────")
 	fmt.Fprintf(os.Stdout, "Total:     %d\n", report.Total)
 	fmt.Fprintf(os.Stdout, "Passed:    %d\n", report.Passed)
@@ -296,4 +396,57 @@ func renderBenchReportText(report *bench.BenchReport) {
 			fmt.Fprintf(os.Stdout, "%-40s %-8s %10s\n", r.TaskID, r.Status, dur)
 		}
 	}
+}
+
+func renderCompareReportJSON(cr *bench.CompareReport) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(cr)
+}
+
+func renderCompareReportText(cr *bench.CompareReport) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Comparison: %s vs %s\n", describeRef(cr.Base), describeRef(cr.Compare))
+	fmt.Fprintln(os.Stdout, "─────────────────────────────────────")
+	fmt.Fprintf(os.Stdout, "Base pass rate:    %.1f%% (%d/%d)\n", cr.Base.PassRate*100, cr.Base.Passed, cr.Base.Total)
+	fmt.Fprintf(os.Stdout, "Compare pass rate: %.1f%% (%d/%d)\n", cr.Compare.PassRate*100, cr.Compare.Passed, cr.Compare.Total)
+	sign := "+"
+	if cr.Summary.DeltaRate < 0 {
+		sign = ""
+	}
+	fmt.Fprintf(os.Stdout, "Delta:             %s%.1f%%\n", sign, cr.Summary.DeltaRate*100)
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Improved:   %d\n", cr.Summary.Improved)
+	fmt.Fprintf(os.Stdout, "Regressed:  %d\n", cr.Summary.Regressed)
+	fmt.Fprintf(os.Stdout, "Unchanged:  %d\n", cr.Summary.Unchanged)
+	if cr.Summary.OnlyInBase > 0 {
+		fmt.Fprintf(os.Stdout, "Only base:  %d\n", cr.Summary.OnlyInBase)
+	}
+	if cr.Summary.OnlyInComp > 0 {
+		fmt.Fprintf(os.Stdout, "Only comp:  %d\n", cr.Summary.OnlyInComp)
+	}
+	fmt.Fprintln(os.Stdout)
+
+	// Show per-task changes (only non-unchanged).
+	hasChanges := false
+	for _, d := range cr.Diffs {
+		if d.Change == "unchanged" {
+			continue
+		}
+		if !hasChanges {
+			fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s → %-8s\n", "TASK", "CHANGE", "BASE", "COMPARE")
+			hasChanges = true
+		}
+		fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s → %-8s\n", d.TaskID, d.Change, d.BaseStatus, d.CompStatus)
+	}
+}
+
+func describeRef(ref bench.ReportRef) string {
+	if ref.RunLabel != "" {
+		return ref.RunLabel
+	}
+	if ref.Mode != "" {
+		return ref.Mode + "/" + ref.Pipeline
+	}
+	return ref.Pipeline
 }
