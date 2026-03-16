@@ -214,6 +214,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .status-pending { background: var(--color-pending-bg); color: var(--color-pending); }
 .status-warning { background: var(--color-pending-bg); color: var(--color-pending); }
 .status-unknown { background: var(--color-bg-tertiary); color: var(--color-text-muted); }
+.badge-composition { background: #7c3aed22; color: #a78bfa; }
 
 /* Tables */
 .table {

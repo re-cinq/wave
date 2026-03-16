@@ -43,6 +43,7 @@ func (s *Server) getPersonaSummaries() []PersonaSummary {
 			Temperature:  p.Temperature,
 			AllowedTools: p.Permissions.AllowedTools,
 			DeniedTools:  p.Permissions.Deny,
+			Skills:       p.Skills,
 		})
 	}
 

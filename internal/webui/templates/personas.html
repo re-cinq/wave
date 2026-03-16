@@ -26,6 +26,12 @@
             {{range .DeniedTools}}<code>{{.}}</code> {{end}}
         </div>
         {{end}}
+        {{if .Skills}}
+        <div class="persona-tools">
+            <strong>Skills:</strong>
+            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
+        </div>
+        {{end}}
     </div>
     {{end}}
 </div>
