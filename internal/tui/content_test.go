@@ -1167,3 +1167,129 @@ func TestContentModel_Guided_SuggestLaunchMsg_EmitsLaunchRequest(t *testing.T) {
 	}
 	assert.True(t, foundLaunchRequest, "SuggestLaunchMsg should emit LaunchRequestMsg")
 }
+
+func TestContentModel_Guided_SuggestLaunchMsg_TransitionsToFleet(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+	m.currentView = ViewSuggest
+
+	pipeline := SuggestProposedPipeline{
+		Name:  "impl-issue",
+		Input: "test input",
+	}
+	m, _ = m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	assert.Equal(t, GuidedPhaseFleet, m.guidedFlow.Phase,
+		"SuggestLaunchMsg should transition to fleet phase")
+	assert.Equal(t, ViewPipelines, m.currentView,
+		"SuggestLaunchMsg should switch to Pipelines view")
+}
+
+// ===========================================================================
+// T027: Guided flow view restriction (phase-view binding)
+// ===========================================================================
+
+func TestContentModel_GuidedViewAllowed_HealthPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseHealth
+
+	assert.True(t, m.guidedViewAllowed(ViewHealth),
+		"Health phase should allow ViewHealth")
+	assert.False(t, m.guidedViewAllowed(ViewPersonas),
+		"Health phase should block ViewPersonas")
+	assert.False(t, m.guidedViewAllowed(ViewSuggest),
+		"Health phase should block ViewSuggest")
+}
+
+func TestContentModel_GuidedViewAllowed_ProposalsPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseProposals
+
+	assert.True(t, m.guidedViewAllowed(ViewSuggest),
+		"Proposals phase should allow ViewSuggest")
+	assert.True(t, m.guidedViewAllowed(ViewPipelines),
+		"Proposals phase should allow ViewPipelines")
+	assert.False(t, m.guidedViewAllowed(ViewPersonas),
+		"Proposals phase should block ViewPersonas")
+}
+
+func TestContentModel_GuidedViewAllowed_FleetPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseFleet
+
+	assert.True(t, m.guidedViewAllowed(ViewPipelines),
+		"Fleet phase should allow ViewPipelines")
+	assert.True(t, m.guidedViewAllowed(ViewSuggest),
+		"Fleet phase should allow ViewSuggest")
+	assert.False(t, m.guidedViewAllowed(ViewContracts),
+		"Fleet phase should block ViewContracts")
+}
+
+func TestContentModel_GuidedViewAllowed_AttachedPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseAttached
+
+	assert.True(t, m.guidedViewAllowed(ViewPipelines),
+		"Attached phase should allow ViewPipelines")
+	assert.False(t, m.guidedViewAllowed(ViewSuggest),
+		"Attached phase should block ViewSuggest")
+}
+
+func TestContentModel_GuidedViewAllowed_NonGuided_AllowsAll(t *testing.T) {
+	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+
+	assert.True(t, m.guidedViewAllowed(ViewPipelines))
+	assert.True(t, m.guidedViewAllowed(ViewPersonas))
+	assert.True(t, m.guidedViewAllowed(ViewSuggest))
+	assert.True(t, m.guidedViewAllowed(ViewHealth))
+}
+
+func TestContentModel_Guided_NumberKeyBlocked_InHealthPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseHealth
+	m.currentView = ViewHealth
+
+	// Try to jump to Personas (key '2') — should be blocked
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+
+	assert.Equal(t, ViewHealth, m.currentView,
+		"number key to Personas should be blocked in Health phase")
+}
+
+func TestContentModel_Guided_NumberKeyAllowed_InFleetPhase(t *testing.T) {
+	m := newGuidedContentModel(t)
+	m.guidedFlow.Phase = GuidedPhaseFleet
+	m.currentView = ViewPipelines
+
+	// Try to jump to Suggest (key '8') — should be allowed
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'8'}})
+
+	assert.Equal(t, ViewSuggest, m.currentView,
+		"number key to Suggest should be allowed in Fleet phase")
+}
+
+func TestContentModel_Guided_SuggestDetailGetsPhase(t *testing.T) {
+	provider := newMockHealthProvider("check-a")
+	suggestProvider := &FuncSuggestDataProvider{
+		Fn: func() (*SuggestProposal, error) {
+			return &SuggestProposal{
+				Pipelines: []SuggestProposedPipeline{
+					{Name: "impl-issue", Priority: 1},
+				},
+			}, nil
+		},
+	}
+	deps := LaunchDependencies{Guided: true}
+	m := NewContentModel(nil, nil, deps, ContentProviders{
+		HealthProvider:  provider,
+		SuggestProvider: suggestProvider,
+	})
+	m.SetSize(120, 40)
+
+	// Trigger transition to suggest view (simulates health -> proposals)
+	m, _ = m.Update(HealthTransitionMsg{})
+
+	require.NotNil(t, m.suggestDetail, "suggest detail should be created after transition")
+	assert.Equal(t, GuidedPhaseProposals, m.suggestDetail.guidedPhase,
+		"suggest detail should receive the guided phase")
+}

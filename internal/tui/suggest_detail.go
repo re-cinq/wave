@@ -15,6 +15,7 @@ type SuggestDetailModel struct {
 	focused       bool
 	selected      *SuggestProposedPipeline
 	multiSelected []SuggestProposedPipeline // Set when multi-select is active
+	guidedPhase   GuidedFlowPhase          // Current guided flow phase for contextual hints
 }
 
 // NewSuggestDetailModel creates a new suggest detail model.
@@ -31,6 +32,11 @@ func (m *SuggestDetailModel) SetSize(w, h int) {
 // SetFocused updates the focused state.
 func (m *SuggestDetailModel) SetFocused(focused bool) {
 	m.focused = focused
+}
+
+// SetGuidedPhase updates the guided flow phase for contextual rendering.
+func (m *SuggestDetailModel) SetGuidedPhase(phase GuidedFlowPhase) {
+	m.guidedPhase = phase
 }
 
 // Update handles messages.
@@ -58,6 +64,7 @@ func (m SuggestDetailModel) View() string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	labelStyle := lipgloss.NewStyle().Bold(true)
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 
 	// Multi-select execution plan
 	if len(m.multiSelected) > 1 {
@@ -83,9 +90,18 @@ func (m SuggestDetailModel) View() string {
 
 	// Single proposal detail
 	p := m.selected
-	sb.WriteString(titleStyle.Render(p.Name))
-	sb.WriteString("\n\n")
 
+	// -- Header --
+	sb.WriteString(titleStyle.Render(p.Name))
+	sb.WriteString("\n")
+
+	if p.Description != "" {
+		sb.WriteString(mutedStyle.Render(p.Description))
+		sb.WriteString("\n")
+	}
+	sb.WriteString("\n")
+
+	// -- Metadata --
 	sb.WriteString(labelStyle.Render("Priority: "))
 	sb.WriteString(fmt.Sprintf("%d\n", p.Priority))
 
@@ -95,15 +111,17 @@ func (m SuggestDetailModel) View() string {
 		sb.WriteString("\n")
 	}
 
-	if len(p.Sequence) > 0 {
-		sb.WriteString(labelStyle.Render("Sequence: "))
-		sb.WriteString(strings.Join(p.Sequence, " → "))
+	if p.Complexity != "" {
+		sb.WriteString(labelStyle.Render("Complexity: "))
+		sb.WriteString(renderComplexity(p.Complexity))
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(labelStyle.Render("Reason: "))
-	sb.WriteString(p.Reason)
-	sb.WriteString("\n")
+	if len(p.Sequence) > 0 {
+		sb.WriteString(labelStyle.Render("Sequence: "))
+		sb.WriteString(strings.Join(p.Sequence, " -> "))
+		sb.WriteString("\n")
+	}
 
 	if p.Input != "" {
 		sb.WriteString(labelStyle.Render("Input: "))
@@ -111,10 +129,35 @@ func (m SuggestDetailModel) View() string {
 		sb.WriteString("\n")
 	}
 
-	// DAG preview for sequence/parallel proposals
+	// -- Why Suggested --
+	if p.Reason != "" {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Why Suggested"))
+		sb.WriteString("\n")
+		sb.WriteString(p.Reason)
+		sb.WriteString("\n")
+	}
+
+	// -- Pipeline Steps --
+	if len(p.Steps) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Pipeline Steps"))
+		sb.WriteString("\n")
+		for i, step := range p.Steps {
+			connector := "  "
+			if i < len(p.Steps)-1 {
+				connector = "├─"
+			} else {
+				connector = "└─"
+			}
+			sb.WriteString(fmt.Sprintf("  %s %s\n", connector, step))
+		}
+	}
+
+	// -- DAG preview for sequence/parallel proposals --
 	if dag := RenderDAG(*p); dag != "" {
 		sb.WriteString("\n")
-		sb.WriteString(labelStyle.Render("Execution Flow:"))
+		sb.WriteString(sectionStyle.Render("Execution Flow"))
 		sb.WriteString("\n")
 		sb.WriteString(dag)
 	}
@@ -127,4 +170,18 @@ func (m SuggestDetailModel) View() string {
 		Height(m.height).
 		Padding(0, 1).
 		Render(sb.String())
+}
+
+// renderComplexity returns a styled complexity indicator.
+func renderComplexity(complexity string) string {
+	switch strings.ToLower(complexity) {
+	case "low":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("Low")
+	case "medium":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("Medium")
+	case "high":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("High")
+	default:
+		return complexity
+	}
 }

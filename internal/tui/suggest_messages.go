@@ -8,12 +8,15 @@ type SuggestProposal struct {
 
 // SuggestProposedPipeline is a single pipeline recommendation in the TUI.
 type SuggestProposedPipeline struct {
-	Name     string
-	Reason   string
-	Input    string
-	Priority int
-	Type     string   // "single", "sequence", or "parallel"
-	Sequence []string // Pipeline names for sequence/parallel proposals
+	Name        string
+	Reason      string
+	Input       string
+	Priority    int
+	Type        string   // "single", "sequence", or "parallel"
+	Sequence    []string // Pipeline names for sequence/parallel proposals
+	Description string   // Pipeline description (from metadata)
+	Steps       []string // Step IDs in execution order
+	Complexity  string   // Estimated complexity: "low", "medium", "high"
 }
 
 // SuggestDataMsg carries proposal data from the provider.
