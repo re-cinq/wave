@@ -1,6 +1,8 @@
 package manifest
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestProjectVars(t *testing.T) {
 	tests := []struct {
@@ -103,6 +105,82 @@ func TestProjectVars(t *testing.T) {
 				if _, ok := tt.expected[k]; !ok {
 					t.Errorf("unexpected key %q in vars", k)
 				}
+			}
+		})
+	}
+}
+
+func TestRuntimeSandboxResolveBackend(t *testing.T) {
+	tests := []struct {
+		name    string
+		sandbox RuntimeSandbox
+		want    string
+	}{
+		{
+			name:    "backend set to docker",
+			sandbox: RuntimeSandbox{Backend: "docker"},
+			want:    "docker",
+		},
+		{
+			name:    "backend set to bubblewrap",
+			sandbox: RuntimeSandbox{Backend: "bubblewrap"},
+			want:    "bubblewrap",
+		},
+		{
+			name:    "backend set to none",
+			sandbox: RuntimeSandbox{Backend: "none"},
+			want:    "none",
+		},
+		{
+			name:    "no backend enabled true returns bubblewrap (legacy)",
+			sandbox: RuntimeSandbox{Enabled: true},
+			want:    "bubblewrap",
+		},
+		{
+			name:    "no backend enabled false returns none",
+			sandbox: RuntimeSandbox{Enabled: false},
+			want:    "none",
+		},
+		{
+			name:    "backend wins over enabled",
+			sandbox: RuntimeSandbox{Backend: "docker", Enabled: true},
+			want:    "docker",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.sandbox.ResolveBackend()
+			if got != tt.want {
+				t.Errorf("ResolveBackend() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRuntimeSandboxGetDockerImage(t *testing.T) {
+	tests := []struct {
+		name    string
+		sandbox RuntimeSandbox
+		want    string
+	}{
+		{
+			name:    "custom image set",
+			sandbox: RuntimeSandbox{DockerImage: "myorg/myimage:v2"},
+			want:    "myorg/myimage:v2",
+		},
+		{
+			name:    "empty returns default ubuntu:24.04",
+			sandbox: RuntimeSandbox{},
+			want:    "ubuntu:24.04",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.sandbox.GetDockerImage()
+			if got != tt.want {
+				t.Errorf("GetDockerImage() = %q, want %q", got, tt.want)
 			}
 		})
 	}
