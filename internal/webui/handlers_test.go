@@ -30,6 +30,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/run_detail.html": `<html><body><div>{{.Run.RunID}}</div></body></html>`,
 		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
@@ -658,6 +659,189 @@ func TestHandleRunsPage(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandleAPIContracts_NoDir(t *testing.T) {
+	srv, _ := testServer(t)
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/contracts", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIContracts(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+}
+
+func TestHandleAPIContracts_WithFiles(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	if err := os.MkdirAll(contractDir, 0o755); err != nil {
+		t.Fatalf("failed to create contracts dir: %v", err)
+	}
+	schema := `{"$schema":"http://json-schema.org/draft-07/schema#","title":"Test Contract","description":"A test schema","type":"object"}`
+	if err := os.WriteFile(filepath.Join(contractDir, "test-contract.schema.json"), []byte(schema), 0o644); err != nil {
+		t.Fatalf("failed to write schema: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/contracts", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIContracts(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	contracts, ok := resp["contracts"].([]interface{})
+	if !ok {
+		t.Fatalf("expected contracts array, got %T", resp["contracts"])
+	}
+	if len(contracts) != 1 {
+		t.Errorf("expected 1 contract, got %d", len(contracts))
+	}
+}
+
+func TestHandleAPIContractDetail(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	if err := os.MkdirAll(contractDir, 0o755); err != nil {
+		t.Fatalf("failed to create contracts dir: %v", err)
+	}
+	schema := `{"title":"My Contract","description":"desc","type":"object"}`
+	if err := os.WriteFile(filepath.Join(contractDir, "my-contract.schema.json"), []byte(schema), 0o644); err != nil {
+		t.Fatalf("failed to write schema: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/contracts/my-contract", nil)
+	req.SetPathValue("name", "my-contract")
+	rec := httptest.NewRecorder()
+	srv.handleAPIContractDetail(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp ContractDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if resp.Name != "my-contract" {
+		t.Errorf("expected name 'my-contract', got %q", resp.Name)
+	}
+	if resp.Title != "My Contract" {
+		t.Errorf("expected title 'My Contract', got %q", resp.Title)
+	}
+	if resp.Schema != schema {
+		t.Errorf("expected schema content, got %q", resp.Schema)
+	}
+}
+
+func TestHandleAPIContractDetail_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/contracts/nonexistent", nil)
+	req.SetPathValue("name", "nonexistent")
+	rec := httptest.NewRecorder()
+	srv.handleAPIContractDetail(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleAPIContractDetail_PathTraversal(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/contracts/../../etc/passwd", nil)
+	req.SetPathValue("name", "../../etc/passwd")
+	rec := httptest.NewRecorder()
+	srv.handleAPIContractDetail(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for path traversal, got %d", rec.Code)
+	}
+}
+
+func TestHandleContractsPage(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/contracts", nil)
+	rec := httptest.NewRecorder()
+	srv.handleContractsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
 	contentType := rec.Header().Get("Content-Type")
 	if !strings.Contains(contentType, "text/html") {
 		t.Errorf("expected text/html content type, got %q", contentType)

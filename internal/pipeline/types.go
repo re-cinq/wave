@@ -377,6 +377,12 @@ type GateConfig struct {
 	Timeout   string `yaml:"timeout,omitempty"`     // Duration string (e.g. "30m", "2h")
 	Message   string `yaml:"message,omitempty"`     // Display message while waiting
 	TUIAction string `yaml:"tui_action,omitempty"`  // TUI action identifier
+
+	// Poll gate fields (pr_merge, ci_pass)
+	PRNumber int    `yaml:"pr_number,omitempty"` // PR number for pr_merge gate
+	Repo     string `yaml:"repo,omitempty"`      // "owner/repo" slug; detected from git remotes if empty
+	Branch   string `yaml:"branch,omitempty"`    // Branch name for ci_pass gate; detected from git if empty
+	Interval string `yaml:"interval,omitempty"`  // Poll interval (e.g. "30s"); default 30s
 }
 
 // LoopConfig configures a feedback loop with termination condition.
