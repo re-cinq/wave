@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -219,32 +220,43 @@ func TestSaveMetaPipelinePath(t *testing.T) {
 	defer os.Chdir(oldWd)
 	require.NoError(t, os.Chdir(tmpDir))
 
-	// Test cases for path construction
+	minimalPipeline := &pipeline.Pipeline{
+		Kind:     "WavePipeline",
+		Metadata: pipeline.PipelineMetadata{Name: "test"},
+		Steps: []pipeline.Step{
+			{ID: "nav", Persona: "navigator"},
+		},
+	}
+
 	tests := []struct {
 		name         string
 		savePath     string
-		expectedPath string
+		expectedFile string
 	}{
 		{
-			name:         "simple name adds .wave/pipelines prefix",
+			name:         "bare name gets .wave/pipelines prefix and .yaml extension",
 			savePath:     "my-pipeline",
-			expectedPath: ".wave/pipelines/my-pipeline.yaml",
+			expectedFile: ".wave/pipelines/my-pipeline.yaml",
 		},
 		{
-			name:         "name with yaml extension",
+			name:         "name with .yaml does not get double extension",
 			savePath:     "my-pipeline.yaml",
-			expectedPath: ".wave/pipelines/my-pipeline.yaml",
+			expectedFile: ".wave/pipelines/my-pipeline.yaml",
+		},
+		{
+			name:         "path with / is used as-is",
+			savePath:     "custom/dir/my-pipeline.yaml",
+			expectedFile: "custom/dir/my-pipeline.yaml",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// The saveMetaPipeline function would create these paths
-			// We're testing the path logic implicitly through the function
-			// by checking if simple names get the prefix
-			if tc.savePath != "" && !filepath.IsAbs(tc.savePath) {
-				assert.NotContains(t, tc.savePath, "/")
-			}
+			err := saveMetaPipeline(minimalPipeline, tc.savePath)
+			require.NoError(t, err)
+
+			_, statErr := os.Stat(filepath.Join(tmpDir, tc.expectedFile))
+			assert.NoError(t, statErr, "expected file at %s", tc.expectedFile)
 		})
 	}
 }

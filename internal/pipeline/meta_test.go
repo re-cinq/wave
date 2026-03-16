@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1608,5 +1609,578 @@ func TestBuildPhilosopherPrompt_ExampleSchemaIsComplete(t *testing.T) {
 	// Should not have incomplete/vague schemas
 	if strings.Contains(schemaSection, `"type": "object"}`) && !strings.Contains(schemaSection, `"properties"`) {
 		t.Error("example schema should not be vague - must define properties")
+	}
+}
+
+// =============================================================================
+// T008: Test normalizeGeneratedPipeline
+// =============================================================================
+
+func TestNormalizeGeneratedPipeline(t *testing.T) {
+	tests := []struct {
+		name           string
+		pipeline       *Pipeline
+		expectArtifact map[string]bool // step ID -> should have auto-generated artifacts
+	}{
+		{
+			name: "json_schema step with no artifacts gets auto-generated",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+				},
+			},
+			expectArtifact: map[string]bool{"nav": true},
+		},
+		{
+			name: "step with existing artifacts is untouched",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+						OutputArtifacts: []ArtifactDef{
+							{Name: "existing", Path: ".wave/custom.json", Type: "json"},
+						},
+					},
+				},
+			},
+			expectArtifact: map[string]bool{"nav": false}, // should keep existing, not auto-generate
+		},
+		{
+			name: "non-json_schema contract step is unmodified",
+			pipeline: &Pipeline{
+				Steps: []Step{
+					{
+						ID:       "impl",
+						Persona:  "implementer",
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			expectArtifact: map[string]bool{"impl": false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Make a copy of original artifact counts
+			origCounts := make(map[string]int)
+			for _, step := range tt.pipeline.Steps {
+				origCounts[step.ID] = len(step.OutputArtifacts)
+			}
+
+			normalizeGeneratedPipeline(tt.pipeline)
+
+			for _, step := range tt.pipeline.Steps {
+				shouldAutoGen := tt.expectArtifact[step.ID]
+				if shouldAutoGen {
+					if len(step.OutputArtifacts) == 0 {
+						t.Errorf("step %q should have auto-generated output artifacts", step.ID)
+					} else {
+						artifact := step.OutputArtifacts[0]
+						expectedName := step.ID + "-output"
+						if artifact.Name != expectedName {
+							t.Errorf("auto-generated artifact name = %q, want %q", artifact.Name, expectedName)
+						}
+						if artifact.Path != ".wave/artifact.json" {
+							t.Errorf("auto-generated artifact path = %q, want %q", artifact.Path, ".wave/artifact.json")
+						}
+						if artifact.Type != "json" {
+							t.Errorf("auto-generated artifact type = %q, want %q", artifact.Type, "json")
+						}
+					}
+				} else {
+					if len(step.OutputArtifacts) != origCounts[step.ID] {
+						t.Errorf("step %q artifacts should be unchanged: got %d, had %d",
+							step.ID, len(step.OutputArtifacts), origCounts[step.ID])
+					}
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// T009: Test ValidateGeneratedPipeline with WithManifest
+// =============================================================================
+
+func TestValidateGeneratedPipeline_WithManifest(t *testing.T) {
+	m := createTestMetaManifest()
+
+	tests := []struct {
+		name        string
+		pipeline    *Pipeline
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid personas pass",
+			pipeline: &Pipeline{
+				Kind: "WavePipeline",
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "impl",
+						Persona:      "implementer",
+						Dependencies: []string{"nav"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown persona detected",
+			pipeline: &Pipeline{
+				Kind: "WavePipeline",
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+					{
+						ID:           "impl",
+						Persona:      "nonexistent-persona",
+						Dependencies: []string{"nav"},
+						Memory:       MemoryConfig{Strategy: "fresh"},
+						Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "unknown persona",
+		},
+		{
+			name: "persona with missing adapter detected",
+			pipeline: &Pipeline{
+				Kind: "WavePipeline",
+				Steps: []Step{
+					{
+						ID:       "nav",
+						Persona:  "navigator",
+						Memory:   MemoryConfig{Strategy: "fresh"},
+						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+					},
+				},
+			},
+			wantErr: false, // navigator has adapter "claude" which exists
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateGeneratedPipeline(tt.pipeline, WithManifest(m))
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error but got nil")
+					return
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateGeneratedPipeline_WithManifest_MissingAdapter(t *testing.T) {
+	// Create manifest with persona referencing nonexistent adapter
+	m := &manifest.Manifest{
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude"},
+		},
+		Personas: map[string]manifest.Persona{
+			"navigator": {Adapter: "claude"},
+			"broken":    {Adapter: "nonexistent-adapter"},
+		},
+	}
+
+	p := &Pipeline{
+		Kind: "WavePipeline",
+		Steps: []Step{
+			{
+				ID:       "nav",
+				Persona:  "navigator",
+				Memory:   MemoryConfig{Strategy: "fresh"},
+				Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
+			},
+			{
+				ID:           "bad",
+				Persona:      "broken",
+				Dependencies: []string{"nav"},
+				Memory:       MemoryConfig{Strategy: "fresh"},
+				Handover:     HandoverConfig{Contract: ContractConfig{Type: "test_suite"}},
+			},
+		},
+	}
+
+	err := ValidateGeneratedPipeline(p, WithManifest(m))
+	if err == nil {
+		t.Fatal("expected error for missing adapter")
+	}
+	if !strings.Contains(err.Error(), "unknown adapter") {
+		t.Errorf("error should mention unknown adapter, got: %v", err)
+	}
+}
+
+// =============================================================================
+// T010: Test meta_generate_failed event on semantic validation failure
+// =============================================================================
+
+func TestMetaGenerateFailedEvent_SemanticValidation(t *testing.T) {
+	// Return a valid YAML pipeline that fails semantic validation (first step not navigator)
+	invalidYAML := `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: invalid-pipeline
+steps:
+  - id: impl
+    persona: implementer
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: test_suite
+
+--- SCHEMAS ---
+`
+	runner := &mockMetaRunner{
+		response:   invalidYAML,
+		tokensUsed: 500,
+	}
+
+	collector := newTestMetaEventCollector()
+	executor := NewMetaPipelineExecutor(runner, WithMetaEmitter(collector))
+
+	m := createTestMetaManifest()
+	ctx := context.Background()
+
+	// Test GenerateOnly path
+	_, err := executor.GenerateOnly(ctx, "test task", m)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if !collector.HasEventWithState("meta_generate_failed") {
+		t.Error("expected meta_generate_failed event on semantic validation failure in GenerateOnly")
+	}
+
+	// Reset and test Execute path
+	collector2 := newTestMetaEventCollector()
+	executor2 := NewMetaPipelineExecutor(runner, WithMetaEmitter(collector2))
+	_, err = executor2.Execute(ctx, "test task", m)
+	if err == nil {
+		t.Fatal("expected validation error in Execute path")
+	}
+
+	if !collector2.HasEventWithState("meta_generate_failed") {
+		t.Error("expected meta_generate_failed event on semantic validation failure in Execute")
+	}
+}
+
+// =============================================================================
+// T013: Test internal timeout enforcement in Execute
+// =============================================================================
+
+func TestMetaPipelineExecutor_InternalTimeout(t *testing.T) {
+	// Create a slow mock runner that respects context cancellation
+	slowRunner := &contextAwareMockRunner{
+		delay: 5 * time.Second, // longer than our timeout
+	}
+
+	executor := NewMetaPipelineExecutor(slowRunner)
+
+	// Set a very short timeout via manifest config
+	m := &manifest.Manifest{
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude"},
+		},
+		Personas: map[string]manifest.Persona{
+			"philosopher": {Adapter: "claude"},
+		},
+		Runtime: manifest.Runtime{
+			MetaPipeline: manifest.MetaConfig{
+				MaxDepth:       3,
+				MaxTotalSteps:  20,
+				MaxTotalTokens: 500000,
+				TimeoutMin:     0, // Will use default, but we override below
+			},
+		},
+	}
+
+	// Use a context that's already very tight
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err := executor.Execute(ctx, "test task", m)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	// Should be a context deadline exceeded error (from either our context or internal timeout)
+	if !strings.Contains(err.Error(), "context deadline exceeded") &&
+		!strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("expected context timeout error, got: %v", err)
+	}
+}
+
+// contextAwareMockRunner is a mock runner that respects context cancellation.
+type contextAwareMockRunner struct {
+	delay time.Duration
+}
+
+func (m *contextAwareMockRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(m.delay):
+		return &adapter.AdapterResult{
+			Stdout:     io.NopCloser(strings.NewReader("mock output")),
+			ExitCode:   0,
+			TokensUsed: 100,
+		}, nil
+	}
+}
+
+// =============================================================================
+// T017: Test buildMetaMockResponse
+// =============================================================================
+
+func TestBuildMetaMockResponse(t *testing.T) {
+	response := buildMetaMockResponse()
+
+	// Must contain both delimiters
+	if !strings.Contains(response, "--- PIPELINE ---") {
+		t.Error("mock response must contain --- PIPELINE --- delimiter")
+	}
+	if !strings.Contains(response, "--- SCHEMAS ---") {
+		t.Error("mock response must contain --- SCHEMAS --- delimiter")
+	}
+
+	// Must parse into a valid pipeline generation result
+	genResult, err := extractPipelineAndSchemas(response)
+	if err != nil {
+		t.Fatalf("failed to parse mock response: %v", err)
+	}
+
+	// Pipeline YAML must parse to valid pipeline
+	loader := &YAMLPipelineLoader{}
+	pipeline, err := loader.Unmarshal([]byte(genResult.PipelineYAML))
+	if err != nil {
+		t.Fatalf("failed to unmarshal mock pipeline YAML: %v", err)
+	}
+
+	// First step must be navigator
+	if len(pipeline.Steps) == 0 {
+		t.Fatal("mock pipeline should have at least one step")
+	}
+	if pipeline.Steps[0].Persona != "navigator" {
+		t.Errorf("first step persona = %q, want 'navigator'", pipeline.Steps[0].Persona)
+	}
+
+	// All steps must have fresh memory
+	for _, step := range pipeline.Steps {
+		if step.Memory.Strategy != "fresh" {
+			t.Errorf("step %q memory strategy = %q, want 'fresh'", step.ID, step.Memory.Strategy)
+		}
+	}
+
+	// Schemas section must contain valid JSON
+	if len(genResult.Schemas) == 0 {
+		t.Error("mock response should contain at least one schema")
+	}
+	for path, content := range genResult.Schemas {
+		var js map[string]interface{}
+		if err := json.Unmarshal([]byte(content), &js); err != nil {
+			t.Errorf("schema %q contains invalid JSON: %v", path, err)
+		}
+		if _, hasType := js["type"]; !hasType {
+			t.Errorf("schema %q missing 'type' field", path)
+		}
+	}
+}
+
+// =============================================================================
+// T018: Test depth limit with call stack in error message
+// =============================================================================
+
+func TestDepthLimitWithCallStack(t *testing.T) {
+	runner := &mockMetaRunner{}
+	executor := NewMetaPipelineExecutor(runner,
+		WithMetaDepth(2),
+		WithParentPipeline("root:meta:0:child:meta:1"),
+	)
+
+	m := &manifest.Manifest{
+		Runtime: manifest.Runtime{
+			MetaPipeline: manifest.MetaConfig{
+				MaxDepth: 2,
+			},
+		},
+	}
+
+	config := executor.getMetaConfig(m)
+	err := executor.checkDepthLimit(config)
+
+	if err == nil {
+		t.Fatal("expected depth limit error")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "depth limit reached") {
+		t.Errorf("error should contain 'depth limit reached', got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "call stack") {
+		t.Errorf("error should contain call stack info, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "root:meta:0:child:meta:1") {
+		t.Errorf("error should contain parent pipeline call stack, got: %s", errMsg)
+	}
+}
+
+// =============================================================================
+// T019: Test step limit enforcement
+// =============================================================================
+
+func TestStepLimitEnforcement(t *testing.T) {
+	runner := &mockMetaRunner{}
+	executor := NewMetaPipelineExecutor(runner)
+
+	m := &manifest.Manifest{
+		Runtime: manifest.Runtime{
+			MetaPipeline: manifest.MetaConfig{
+				MaxTotalSteps: 5,
+			},
+		},
+	}
+
+	config := executor.getMetaConfig(m)
+
+	// Under limit
+	executor.totalStepsUsed = 4
+	if err := executor.checkStepLimit(config); err != nil {
+		t.Errorf("4 steps should be allowed with max 5: %v", err)
+	}
+
+	// At limit (equal is allowed)
+	executor.totalStepsUsed = 5
+	if err := executor.checkStepLimit(config); err != nil {
+		t.Errorf("5 steps should be allowed with max 5: %v", err)
+	}
+
+	// Over limit
+	executor.totalStepsUsed = 6
+	err := executor.checkStepLimit(config)
+	if err == nil {
+		t.Fatal("expected step limit error for 6 steps with max 5")
+	}
+	if !strings.Contains(err.Error(), "step limit exceeded") {
+		t.Errorf("error should contain 'step limit exceeded', got: %v", err)
+	}
+}
+
+// =============================================================================
+// T020: Test token limit enforcement
+// =============================================================================
+
+func TestTokenLimitEnforcement(t *testing.T) {
+	runner := &mockMetaRunner{}
+	executor := NewMetaPipelineExecutor(runner)
+
+	m := &manifest.Manifest{
+		Runtime: manifest.Runtime{
+			MetaPipeline: manifest.MetaConfig{
+				MaxTotalTokens: 1000,
+			},
+		},
+	}
+
+	config := executor.getMetaConfig(m)
+
+	// Under limit
+	executor.totalTokensUsed = 500
+	if err := executor.checkTokenLimit(config); err != nil {
+		t.Errorf("500 tokens should be allowed with max 1000: %v", err)
+	}
+
+	// At limit (equal is allowed)
+	executor.totalTokensUsed = 1000
+	if err := executor.checkTokenLimit(config); err != nil {
+		t.Errorf("1000 tokens should be allowed with max 1000: %v", err)
+	}
+
+	// Over limit
+	executor.totalTokensUsed = 1001
+	err := executor.checkTokenLimit(config)
+	if err == nil {
+		t.Fatal("expected token limit error for 1001 tokens with max 1000")
+	}
+	if !strings.Contains(err.Error(), "token limit exceeded") {
+		t.Errorf("error should contain 'token limit exceeded', got: %v", err)
+	}
+}
+
+// =============================================================================
+// Test mock mode integration
+// =============================================================================
+
+func TestMetaPipelineExecutor_MockMode(t *testing.T) {
+	runner := &mockMetaRunner{} // won't actually be called in mock mode
+	collector := newTestMetaEventCollector()
+
+	m := createTestMetaManifest()
+	// Add craftsman persona for mock pipeline
+	m.Personas["craftsman"] = manifest.Persona{Adapter: "claude"}
+
+	executor := NewMetaPipelineExecutor(runner,
+		WithMockMode(),
+		WithMetaEmitter(collector),
+	)
+
+	ctx := context.Background()
+	p, err := executor.GenerateOnly(ctx, "test task", m)
+	if err != nil {
+		t.Fatalf("mock mode GenerateOnly failed: %v", err)
+	}
+
+	if p == nil {
+		t.Fatal("expected non-nil pipeline from mock mode")
+	}
+	if p.Metadata.Name != "mock-generated-pipeline" {
+		t.Errorf("pipeline name = %q, want 'mock-generated-pipeline'", p.Metadata.Name)
+	}
+	if len(p.Steps) < 2 {
+		t.Errorf("expected at least 2 steps, got %d", len(p.Steps))
+	}
+
+	// Verify navigator-first
+	if p.Steps[0].Persona != "navigator" {
+		t.Errorf("first step persona = %q, want 'navigator'", p.Steps[0].Persona)
+	}
+}
+
+func TestMetaPipelineExecutor_MockModeChildPropagation(t *testing.T) {
+	runner := &mockMetaRunner{}
+	parent := NewMetaPipelineExecutor(runner, WithMockMode())
+
+	child := parent.CreateChildMetaExecutor()
+	if !child.mockMode {
+		t.Error("child executor should inherit mockMode from parent")
 	}
 }
