@@ -155,7 +155,12 @@ func findClosestPersona(target string, available []string) string {
 		return ""
 	}
 
-	// Simple fallback - return first available persona
-	// In production, this could use more sophisticated string similarity
+	// Simple prefix match — return the first persona whose name starts with
+	// the same prefix as target, falling back to the first available persona.
+	for _, name := range available {
+		if len(target) > 0 && len(name) > 0 && name[0] == target[0] {
+			return name
+		}
+	}
 	return available[0]
 }

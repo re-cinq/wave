@@ -35,7 +35,7 @@ func (sve *SecurityValidationError) IsRetryable() bool {
 func NewPathTraversalError(path string, approved []string) *SecurityValidationError {
 	return &SecurityValidationError{
 		Type:    string(ViolationPathTraversal),
-		Message: fmt.Sprintf("path traversal detected in path"),
+		Message: "path traversal detected in path",
 		Details: map[string]interface{}{
 			"approved_directories": approved,
 			"path_length":         len(path),
