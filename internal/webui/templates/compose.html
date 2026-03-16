@@ -1,0 +1,60 @@
+{{define "title"}} - Composition{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Composition Pipelines</h1>
+</div>
+{{if .Pipelines}}
+<div class="personas-grid">
+    {{range .Pipelines}}
+    <div class="card persona-card">
+        <h3>{{.Name}}</h3>
+        {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
+        <div class="persona-meta">
+            <span class="badge">{{.StepCount}} steps</span>
+            {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
+        </div>
+        {{if .Steps}}
+        <div class="compose-flow">
+            {{range $i, $step := .Steps}}
+            {{if $i}}<span class="compose-arrow" aria-hidden="true">&#x2192;</span>{{end}}
+            <span class="compose-node compose-type-{{$step.Type}}" title="{{$step.Type}}{{if $step.SubPipeline}}: {{$step.SubPipeline}}{{end}}">
+                <span class="compose-node-label">{{$step.ID}}</span>
+                <span class="compose-node-type">{{$step.Type}}</span>
+                {{if $step.SubPipeline}}<span class="compose-node-sub">&#x2192; {{$step.SubPipeline}}</span>{{end}}
+                {{if $step.Persona}}<span class="compose-node-sub">{{$step.Persona}}</span>{{end}}
+            </span>
+            {{end}}
+        </div>
+        {{end}}
+        {{if .Steps}}
+        <div class="compose-details">
+            {{range .Steps}}
+            {{if .Details}}
+            <div class="compose-step-detail">
+                <code>{{.ID}}</code>
+                {{range $k, $v := .Details}}
+                <span class="compose-detail-item"><strong>{{$k}}:</strong> {{$v}}</span>
+                {{end}}
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+        {{end}}
+        {{if .Skills}}
+        <div class="persona-tools">
+            <strong>Skills:</strong>
+            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
+        </div>
+        {{end}}
+        <div style="margin-top: 0.5rem;">
+            <a href="/pipelines" class="badge">View all pipelines</a>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No composition pipelines found. Composition pipelines use primitives like <code>iterate</code>, <code>branch</code>, <code>gate</code>, <code>loop</code>, and <code>aggregate</code>.</p>
+</div>
+{{end}}
+{{end}}

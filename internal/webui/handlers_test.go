@@ -31,7 +31,8 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/skills.html":    `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/skills.html":     `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/compose.html":    `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
@@ -989,6 +990,358 @@ func TestHandleSkillsPage(t *testing.T) {
 	contentType := rec.Header().Get("Content-Type")
 	if !strings.Contains(contentType, "text/html") {
 		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandleAPICompose_NoComposition(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+
+	// Regular pipeline with no composition primitives
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: simple-pipeline
+  description: A simple pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "simple-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/compose", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPICompose(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp CompositionListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	if len(resp.Pipelines) != 0 {
+		t.Errorf("expected 0 composition pipelines, got %d", len(resp.Pipelines))
+	}
+}
+
+func TestHandleAPICompose_WithComposition(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+
+	// Pipeline with composition primitives
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: batch-impl
+  description: Batch implementation with iteration
+  category: impl
+steps:
+  - id: plan
+    persona: navigator
+    exec:
+      prompt: "plan"
+  - id: iterate-tasks
+    pipeline: impl-issue
+    iterate:
+      over: "{{ plan.output }}"
+      mode: parallel
+      max_concurrent: 3
+  - id: aggregate
+    aggregate:
+      from: "{{ iterate-tasks.output }}"
+      into: .wave/artifacts/results.json
+      strategy: merge_arrays
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "batch-impl.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/compose", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPICompose(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp CompositionListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	if len(resp.Pipelines) != 1 {
+		t.Fatalf("expected 1 composition pipeline, got %d", len(resp.Pipelines))
+	}
+
+	p := resp.Pipelines[0]
+	if p.Name != "batch-impl" {
+		t.Errorf("expected name 'batch-impl', got %q", p.Name)
+	}
+	if p.Description != "Batch implementation with iteration" {
+		t.Errorf("expected description, got %q", p.Description)
+	}
+	if p.StepCount != 3 {
+		t.Errorf("expected 3 steps, got %d", p.StepCount)
+	}
+
+	// Check step types
+	if len(p.Steps) != 3 {
+		t.Fatalf("expected 3 step details, got %d", len(p.Steps))
+	}
+	if p.Steps[0].Type != "persona" {
+		t.Errorf("expected step 0 type 'persona', got %q", p.Steps[0].Type)
+	}
+	if p.Steps[1].Type != "iterate" {
+		t.Errorf("expected step 1 type 'iterate', got %q", p.Steps[1].Type)
+	}
+	if p.Steps[1].SubPipeline != "impl-issue" {
+		t.Errorf("expected step 1 sub-pipeline 'impl-issue', got %q", p.Steps[1].SubPipeline)
+	}
+	if p.Steps[1].Details["mode"] != "parallel" {
+		t.Errorf("expected step 1 mode 'parallel', got %q", p.Steps[1].Details["mode"])
+	}
+	if p.Steps[2].Type != "aggregate" {
+		t.Errorf("expected step 2 type 'aggregate', got %q", p.Steps[2].Type)
+	}
+	if p.Steps[2].Details["strategy"] != "merge_arrays" {
+		t.Errorf("expected step 2 strategy 'merge_arrays', got %q", p.Steps[2].Details["strategy"])
+	}
+}
+
+func TestHandleComposePage(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/compose", nil)
+	rec := httptest.NewRecorder()
+	srv.handleComposePage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandleAPIPipelineInfo(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+  description: A test pipeline
+  category: test
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+  - id: step2
+    persona: craftsman
+    exec:
+      prompt: "build"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/pipelines/info", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIPipelineInfo(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string][]PipelineStartInfo
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	pipelines := resp["pipelines"]
+	if len(pipelines) != 1 {
+		t.Fatalf("expected 1 pipeline, got %d", len(pipelines))
+	}
+
+	if pipelines[0].Name != "test-pipeline" {
+		t.Errorf("expected name 'test-pipeline', got %q", pipelines[0].Name)
+	}
+	if pipelines[0].Description != "A test pipeline" {
+		t.Errorf("expected description 'A test pipeline', got %q", pipelines[0].Description)
+	}
+	if pipelines[0].StepCount != 2 {
+		t.Errorf("expected 2 steps, got %d", pipelines[0].StepCount)
+	}
+	if pipelines[0].Category != "test" {
+		t.Errorf("expected category 'test', got %q", pipelines[0].Category)
+	}
+}
+
+func TestClassifyStep_AllTypes(t *testing.T) {
+	tests := []struct {
+		name         string
+		yamlContent  string
+		expectedType string
+		expectedSub  string
+	}{
+		{
+			name: "branch step",
+			yamlContent: `kind: Pipeline
+metadata:
+  name: branch-test
+steps:
+  - id: branch-step
+    branch:
+      on: "{{ input }}"
+      cases:
+        small: impl-issue
+        large: impl-speckit
+        default: skip
+`,
+			expectedType: "branch",
+		},
+		{
+			name: "gate step",
+			yamlContent: `kind: Pipeline
+metadata:
+  name: gate-test
+steps:
+  - id: gate-step
+    gate:
+      type: approval
+      timeout: 30m
+      message: "Approve?"
+`,
+			expectedType: "gate",
+		},
+		{
+			name: "loop step",
+			yamlContent: `kind: Pipeline
+metadata:
+  name: loop-test
+steps:
+  - id: loop-step
+    pipeline: impl-issue
+    loop:
+      max_iterations: 5
+      until: "{{ loop-step.output }}"
+`,
+			expectedType: "loop",
+			expectedSub:  "impl-issue",
+		},
+		{
+			name: "sub_pipeline step",
+			yamlContent: `kind: Pipeline
+metadata:
+  name: sub-test
+steps:
+  - id: sub-step
+    pipeline: impl-issue
+`,
+			expectedType: "sub_pipeline",
+			expectedSub:  "impl-issue",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+			if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+				t.Fatalf("failed to create pipeline dir: %v", err)
+			}
+
+			pName := strings.ReplaceAll(tt.name, " ", "-")
+			if err := os.WriteFile(filepath.Join(pipelineDir, pName+".yaml"), []byte(tt.yamlContent), 0o644); err != nil {
+				t.Fatalf("failed to write pipeline yaml: %v", err)
+			}
+
+			origDir, _ := os.Getwd()
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to chdir: %v", err)
+			}
+			defer func() {
+				if err := os.Chdir(origDir); err != nil {
+					t.Logf("warning: failed to restore dir: %v", err)
+				}
+			}()
+
+			pipelines := getCompositionPipelines()
+			if len(pipelines) != 1 {
+				t.Fatalf("expected 1 composition pipeline, got %d", len(pipelines))
+			}
+
+			step := pipelines[0].Steps[0]
+			if step.Type != tt.expectedType {
+				t.Errorf("expected type %q, got %q", tt.expectedType, step.Type)
+			}
+			if tt.expectedSub != "" && step.SubPipeline != tt.expectedSub {
+				t.Errorf("expected sub-pipeline %q, got %q", tt.expectedSub, step.SubPipeline)
+			}
+		})
 	}
 }
 
