@@ -2093,3 +2093,529 @@ func TestRecordStepAttempt_NilCompletedAt(t *testing.T) {
 	require.Len(t, attempts, 1)
 	assert.Nil(t, attempts[0].CompletedAt)
 }
+
+// =============================================================================
+// Performance Metrics Tests
+// =============================================================================
+
+// TestRecordPerformanceMetric tests recording and retrieving performance metrics.
+func TestRecordPerformanceMetric(t *testing.T) {
+	t.Run("round-trip record and retrieve", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		startedAt := time.Now().Truncate(time.Second)
+		completedAt := startedAt.Add(5 * time.Second)
+
+		metric := &PerformanceMetricRecord{
+			RunID:              runID,
+			StepID:             "step-1",
+			PipelineName:       "test-pipeline",
+			Persona:            "craftsman",
+			StartedAt:          startedAt,
+			CompletedAt:        &completedAt,
+			DurationMs:         5000,
+			TokensUsed:         1200,
+			FilesModified:      3,
+			ArtifactsGenerated: 2,
+			MemoryBytes:        1024000,
+			Success:            true,
+			ErrorMessage:       "",
+		}
+
+		err = store.RecordPerformanceMetric(metric)
+		require.NoError(t, err)
+		assert.NotZero(t, metric.ID, "ID should be set after insert")
+
+		metrics, err := store.GetPerformanceMetrics(runID, "")
+		require.NoError(t, err)
+		require.Len(t, metrics, 1)
+
+		got := metrics[0]
+		assert.Equal(t, runID, got.RunID)
+		assert.Equal(t, "step-1", got.StepID)
+		assert.Equal(t, "test-pipeline", got.PipelineName)
+		assert.Equal(t, "craftsman", got.Persona)
+		assert.Equal(t, startedAt.Unix(), got.StartedAt.Unix())
+		require.NotNil(t, got.CompletedAt)
+		assert.Equal(t, completedAt.Unix(), got.CompletedAt.Unix())
+		assert.Equal(t, int64(5000), got.DurationMs)
+		assert.Equal(t, 1200, got.TokensUsed)
+		assert.Equal(t, 3, got.FilesModified)
+		assert.Equal(t, 2, got.ArtifactsGenerated)
+		assert.Equal(t, int64(1024000), got.MemoryBytes)
+		assert.True(t, got.Success)
+		assert.Empty(t, got.ErrorMessage)
+	})
+
+	t.Run("filter by stepID", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		now := time.Now().Truncate(time.Second)
+
+		for _, stepID := range []string{"step-a", "step-a", "step-b"} {
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:        runID,
+				StepID:       stepID,
+				PipelineName: "test-pipeline",
+				StartedAt:    now,
+				Success:      true,
+			})
+			require.NoError(t, err)
+		}
+
+		// All metrics for the run
+		all, err := store.GetPerformanceMetrics(runID, "")
+		require.NoError(t, err)
+		assert.Len(t, all, 3)
+
+		// Only step-a
+		stepA, err := store.GetPerformanceMetrics(runID, "step-a")
+		require.NoError(t, err)
+		assert.Len(t, stepA, 2)
+		for _, m := range stepA {
+			assert.Equal(t, "step-a", m.StepID)
+		}
+
+		// Only step-b
+		stepB, err := store.GetPerformanceMetrics(runID, "step-b")
+		require.NoError(t, err)
+		assert.Len(t, stepB, 1)
+		assert.Equal(t, "step-b", stepB[0].StepID)
+	})
+
+	t.Run("nil CompletedAt handling", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		now := time.Now().Truncate(time.Second)
+
+		err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+			RunID:        runID,
+			StepID:       "step-1",
+			PipelineName: "test-pipeline",
+			StartedAt:    now,
+			CompletedAt:  nil,
+			Success:      false,
+			ErrorMessage: "timed out",
+		})
+		require.NoError(t, err)
+
+		metrics, err := store.GetPerformanceMetrics(runID, "step-1")
+		require.NoError(t, err)
+		require.Len(t, metrics, 1)
+		assert.Nil(t, metrics[0].CompletedAt)
+		assert.False(t, metrics[0].Success)
+		assert.Equal(t, "timed out", metrics[0].ErrorMessage)
+	})
+}
+
+// TestGetStepPerformanceStats tests aggregated performance statistics.
+func TestGetStepPerformanceStats(t *testing.T) {
+	t.Run("aggregation across multiple metrics", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		now := time.Now().Truncate(time.Second)
+
+		// Record 3 metrics: 2 successes, 1 failure
+		durations := []int64{1000, 2000, 3000}
+		tokens := []int{100, 200, 300}
+		successes := []bool{true, true, false}
+
+		for i := 0; i < 3; i++ {
+			runID, err := store.CreateRun("my-pipeline", "input")
+			require.NoError(t, err)
+
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:              runID,
+				StepID:             "build",
+				PipelineName:       "my-pipeline",
+				Persona:            "craftsman",
+				StartedAt:          now.Add(time.Duration(i) * time.Second),
+				DurationMs:         durations[i],
+				TokensUsed:         tokens[i],
+				FilesModified:      i + 1,
+				ArtifactsGenerated: 1,
+				Success:            successes[i],
+			})
+			require.NoError(t, err)
+		}
+
+		stats, err := store.GetStepPerformanceStats("my-pipeline", "build", now.Add(-1*time.Hour))
+		require.NoError(t, err)
+		require.NotNil(t, stats)
+
+		assert.Equal(t, "build", stats.StepID)
+		assert.Equal(t, "craftsman", stats.Persona)
+		assert.Equal(t, 3, stats.TotalRuns)
+		assert.Equal(t, 2, stats.SuccessfulRuns)
+		assert.Equal(t, 1, stats.FailedRuns)
+		assert.Equal(t, int64(2000), stats.AvgDurationMs) // (1000+2000+3000)/3 = 2000
+		assert.Equal(t, int64(1000), stats.MinDurationMs)
+		assert.Equal(t, int64(3000), stats.MaxDurationMs)
+		assert.Equal(t, 200, stats.AvgTokensUsed)   // (100+200+300)/3 = 200
+		assert.Equal(t, 600, stats.TotalTokensUsed)  // 100+200+300
+		assert.True(t, stats.TokenBurnRate > 0)
+	})
+
+	t.Run("empty result for non-existent step", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		stats, err := store.GetStepPerformanceStats("no-pipeline", "no-step", time.Now().Add(-1*time.Hour))
+		require.NoError(t, err)
+		require.NotNil(t, stats)
+		assert.Equal(t, 0, stats.TotalRuns)
+		assert.Equal(t, "no-step", stats.StepID)
+	})
+
+	t.Run("since filter excludes old metrics", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		oldTime := time.Now().Add(-2 * time.Hour).Truncate(time.Second)
+		recentTime := time.Now().Truncate(time.Second)
+		cutoff := time.Now().Add(-1 * time.Hour)
+
+		// Old metric
+		runID1, err := store.CreateRun("pipe", "input")
+		require.NoError(t, err)
+		err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+			RunID:        runID1,
+			StepID:       "step-x",
+			PipelineName: "pipe",
+			StartedAt:    oldTime,
+			DurationMs:   9999,
+			TokensUsed:   9999,
+			Success:      true,
+		})
+		require.NoError(t, err)
+
+		// Recent metric
+		runID2, err := store.CreateRun("pipe", "input")
+		require.NoError(t, err)
+		err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+			RunID:        runID2,
+			StepID:       "step-x",
+			PipelineName: "pipe",
+			StartedAt:    recentTime,
+			DurationMs:   500,
+			TokensUsed:   100,
+			Success:      true,
+		})
+		require.NoError(t, err)
+
+		stats, err := store.GetStepPerformanceStats("pipe", "step-x", cutoff)
+		require.NoError(t, err)
+		require.NotNil(t, stats)
+		assert.Equal(t, 1, stats.TotalRuns)
+		assert.Equal(t, int64(500), stats.AvgDurationMs)
+		assert.Equal(t, 100, stats.AvgTokensUsed)
+	})
+}
+
+// TestGetRecentPerformanceHistory tests filtered performance history retrieval.
+func TestGetRecentPerformanceHistory(t *testing.T) {
+	t.Run("limit enforcement", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		now := time.Now().Truncate(time.Second)
+
+		for i := 0; i < 5; i++ {
+			runID, err := store.CreateRun("pipe", "input")
+			require.NoError(t, err)
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:        runID,
+				StepID:       "step-1",
+				PipelineName: "pipe",
+				StartedAt:    now.Add(time.Duration(i) * time.Second),
+				Success:      true,
+			})
+			require.NoError(t, err)
+		}
+
+		metrics, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{
+			Limit: 2,
+		})
+		require.NoError(t, err)
+		assert.Len(t, metrics, 2)
+	})
+
+	t.Run("filter by pipeline name", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		now := time.Now().Truncate(time.Second)
+
+		for _, pname := range []string{"alpha", "alpha", "beta"} {
+			runID, err := store.CreateRun(pname, "input")
+			require.NoError(t, err)
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:        runID,
+				StepID:       "s1",
+				PipelineName: pname,
+				StartedAt:    now,
+				Success:      true,
+			})
+			require.NoError(t, err)
+		}
+
+		metrics, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{
+			PipelineName: "alpha",
+		})
+		require.NoError(t, err)
+		assert.Len(t, metrics, 2)
+		for _, m := range metrics {
+			assert.Equal(t, "alpha", m.PipelineName)
+		}
+	})
+
+	t.Run("filter by step ID", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		now := time.Now().Truncate(time.Second)
+
+		runID, err := store.CreateRun("pipe", "input")
+		require.NoError(t, err)
+
+		for _, sid := range []string{"build", "build", "test"} {
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:        runID,
+				StepID:       sid,
+				PipelineName: "pipe",
+				StartedAt:    now,
+				Success:      true,
+			})
+			require.NoError(t, err)
+		}
+
+		metrics, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{
+			StepID: "build",
+		})
+		require.NoError(t, err)
+		assert.Len(t, metrics, 2)
+	})
+
+	t.Run("filter by persona", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		now := time.Now().Truncate(time.Second)
+
+		runID, err := store.CreateRun("pipe", "input")
+		require.NoError(t, err)
+
+		for _, persona := range []string{"navigator", "craftsman", "navigator"} {
+			err = store.RecordPerformanceMetric(&PerformanceMetricRecord{
+				RunID:        runID,
+				StepID:       "s1",
+				PipelineName: "pipe",
+				Persona:      persona,
+				StartedAt:    now,
+				Success:      true,
+			})
+			require.NoError(t, err)
+		}
+
+		metrics, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{
+			Persona: "navigator",
+		})
+		require.NoError(t, err)
+		assert.Len(t, metrics, 2)
+		for _, m := range metrics {
+			assert.Equal(t, "navigator", m.Persona)
+		}
+	})
+}
+
+// =============================================================================
+// Progress Snapshot Tests
+// =============================================================================
+
+// TestProgressSnapshots tests saving and retrieving progress snapshots.
+func TestProgressSnapshots(t *testing.T) {
+	t.Run("round-trip save and retrieve", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		err = store.SaveProgressSnapshot(runID, "step-1", 50, "compiling", 3000, "validation", `{"rounds":2}`)
+		require.NoError(t, err)
+
+		snapshots, err := store.GetProgressSnapshots(runID, "step-1", 10)
+		require.NoError(t, err)
+		require.Len(t, snapshots, 1)
+
+		s := snapshots[0]
+		assert.NotZero(t, s.ID)
+		assert.Equal(t, runID, s.RunID)
+		assert.Equal(t, "step-1", s.StepID)
+		assert.Equal(t, 50, s.Progress)
+		assert.Equal(t, "compiling", s.CurrentAction)
+		assert.Equal(t, int64(3000), s.EstimatedTimeMs)
+		assert.Equal(t, "validation", s.ValidationPhase)
+		assert.Equal(t, `{"rounds":2}`, s.CompactionStats)
+		assert.False(t, s.Timestamp.IsZero())
+	})
+
+	t.Run("limit enforcement", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			err = store.SaveProgressSnapshot(runID, "step-1", i*20, "action", 1000, "", "")
+			require.NoError(t, err)
+		}
+
+		snapshots, err := store.GetProgressSnapshots(runID, "step-1", 3)
+		require.NoError(t, err)
+		assert.Len(t, snapshots, 3)
+	})
+
+	t.Run("filter by stepID vs all steps", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		err = store.SaveProgressSnapshot(runID, "step-a", 25, "building", 5000, "", "")
+		require.NoError(t, err)
+		err = store.SaveProgressSnapshot(runID, "step-b", 75, "testing", 2000, "", "")
+		require.NoError(t, err)
+
+		// Filter by specific step
+		stepA, err := store.GetProgressSnapshots(runID, "step-a", 10)
+		require.NoError(t, err)
+		assert.Len(t, stepA, 1)
+		assert.Equal(t, "step-a", stepA[0].StepID)
+
+		// Empty stepID returns all
+		all, err := store.GetProgressSnapshots(runID, "", 10)
+		require.NoError(t, err)
+		assert.Len(t, all, 2)
+	})
+
+	t.Run("zero limit returns all", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		for i := 0; i < 4; i++ {
+			err = store.SaveProgressSnapshot(runID, "step-1", i*25, "working", 1000, "", "")
+			require.NoError(t, err)
+		}
+
+		snapshots, err := store.GetProgressSnapshots(runID, "step-1", 0)
+		require.NoError(t, err)
+		assert.Len(t, snapshots, 4)
+	})
+}
+
+// =============================================================================
+// Artifact Metadata Tests
+// =============================================================================
+
+// TestArtifactMetadata tests saving and retrieving artifact metadata.
+func TestArtifactMetadata(t *testing.T) {
+	t.Run("round-trip save and retrieve", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		err = store.RegisterArtifact(runID, "step-1", "output.json", "/tmp/output.json", "file", 2048)
+		require.NoError(t, err)
+
+		artifacts, err := store.GetArtifacts(runID, "step-1")
+		require.NoError(t, err)
+		require.Len(t, artifacts, 1)
+		artifactID := artifacts[0].ID
+
+		err = store.SaveArtifactMetadata(
+			artifactID,
+			runID,
+			"step-1",
+			"preview of content...",
+			"application/json",
+			"utf-8",
+			`{"schema":"v1","fields":["name","value"]}`,
+		)
+		require.NoError(t, err)
+
+		meta, err := store.GetArtifactMetadata(artifactID)
+		require.NoError(t, err)
+		require.NotNil(t, meta)
+
+		assert.Equal(t, artifactID, meta.ArtifactID)
+		assert.Equal(t, runID, meta.RunID)
+		assert.Equal(t, "step-1", meta.StepID)
+		assert.Equal(t, "preview of content...", meta.PreviewText)
+		assert.Equal(t, "application/json", meta.MimeType)
+		assert.Equal(t, "utf-8", meta.Encoding)
+		assert.Equal(t, `{"schema":"v1","fields":["name","value"]}`, meta.MetadataJSON)
+		assert.False(t, meta.IndexedAt.IsZero())
+	})
+
+	t.Run("not found returns error", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		meta, err := store.GetArtifactMetadata(99999)
+		assert.Error(t, err)
+		assert.Nil(t, meta)
+		assert.Contains(t, err.Error(), "artifact metadata not found")
+	})
+
+	t.Run("upsert overwrites existing metadata", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		runID, err := store.CreateRun("test-pipeline", "input")
+		require.NoError(t, err)
+
+		err = store.RegisterArtifact(runID, "step-1", "report.md", "/tmp/report.md", "file", 512)
+		require.NoError(t, err)
+
+		artifacts, err := store.GetArtifacts(runID, "step-1")
+		require.NoError(t, err)
+		require.Len(t, artifacts, 1)
+		artifactID := artifacts[0].ID
+
+		// Save initial metadata
+		err = store.SaveArtifactMetadata(artifactID, runID, "step-1", "old preview", "text/markdown", "utf-8", "{}")
+		require.NoError(t, err)
+
+		// Overwrite with new metadata
+		err = store.SaveArtifactMetadata(artifactID, runID, "step-1", "new preview", "text/html", "ascii", `{"updated":true}`)
+		require.NoError(t, err)
+
+		meta, err := store.GetArtifactMetadata(artifactID)
+		require.NoError(t, err)
+		assert.Equal(t, "new preview", meta.PreviewText)
+		assert.Equal(t, "text/html", meta.MimeType)
+		assert.Equal(t, "ascii", meta.Encoding)
+		assert.Equal(t, `{"updated":true}`, meta.MetadataJSON)
+	})
+}
