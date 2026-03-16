@@ -2059,3 +2059,202 @@ func TestSkillSectionInClaudeMD(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// PersonaToAgentMarkdown tests
+// ---------------------------------------------------------------------------
+
+func TestPersonaToAgentMarkdown(t *testing.T) {
+	baseProtocol := "# Wave Agent Protocol\n\nYou are a Wave pipeline agent."
+	systemPrompt := "# Navigator\n\nYou are a read-only codebase explorer."
+	contractSection := "## Contract\n\nOutput must be valid JSON with key `files`."
+	restrictions := "\n\n---\n\n## Restrictions\n\nDenied tools: Edit(*)"
+
+	t.Run("frontmatter includes model when set", func(t *testing.T) {
+		p := PersonaSpec{Model: "claude-opus-4-5"}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, restrictions)
+		if !strings.HasPrefix(out, "---\n") {
+			t.Error("output should start with YAML frontmatter delimiter ---")
+		}
+		if !strings.Contains(out, "model: claude-opus-4-5\n") {
+			t.Error("frontmatter should contain model field")
+		}
+	})
+
+	t.Run("frontmatter omits model when empty", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if strings.Contains(out, "model:") {
+			t.Error("frontmatter should not contain model field when persona has no model")
+		}
+	})
+
+	t.Run("frontmatter includes tools list", func(t *testing.T) {
+		p := PersonaSpec{AllowedTools: []string{"Read", "Glob", "Grep"}}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if !strings.Contains(out, "tools:\n") {
+			t.Error("frontmatter should contain tools section")
+		}
+		if !strings.Contains(out, "  - Read\n") {
+			t.Error("tools section should list Read")
+		}
+		if !strings.Contains(out, "  - Glob\n") {
+			t.Error("tools section should list Glob")
+		}
+	})
+
+	t.Run("frontmatter includes disallowedTools", func(t *testing.T) {
+		p := PersonaSpec{DenyTools: []string{"Edit(*)", "Bash(git commit*)"}}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if !strings.Contains(out, "disallowedTools:\n") {
+			t.Error("frontmatter should contain disallowedTools section")
+		}
+		if !strings.Contains(out, "  - Edit(*)\n") {
+			t.Error("disallowedTools should list Edit(*)")
+		}
+	})
+
+	t.Run("permissionMode is always dontAsk", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if !strings.Contains(out, "permissionMode: dontAsk\n") {
+			t.Error("frontmatter should always include permissionMode: dontAsk")
+		}
+	})
+
+	t.Run("body contains base protocol", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if !strings.Contains(out, baseProtocol) {
+			t.Error("body should contain base protocol text")
+		}
+	})
+
+	t.Run("body contains system prompt", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if !strings.Contains(out, systemPrompt) {
+			t.Error("body should contain system prompt")
+		}
+	})
+
+	t.Run("body contains contract section when provided", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, "")
+		if !strings.Contains(out, contractSection) {
+			t.Error("body should contain contract section")
+		}
+	})
+
+	t.Run("body omits contract section when empty", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
+		if strings.Contains(out, "## Contract") {
+			t.Error("body should not contain contract section when empty")
+		}
+	})
+
+	t.Run("body contains restrictions when provided", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", restrictions)
+		if !strings.Contains(out, restrictions) {
+			t.Error("body should contain restrictions section")
+		}
+	})
+
+	t.Run("section ordering: base protocol before system prompt before contract", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, "")
+		baseIdx := strings.Index(out, "Wave Agent Protocol")
+		promptIdx := strings.Index(out, "# Navigator")
+		contractIdx := strings.Index(out, "## Contract")
+		if baseIdx == -1 || promptIdx == -1 || contractIdx == -1 {
+			t.Fatalf("missing sections: base=%d prompt=%d contract=%d", baseIdx, promptIdx, contractIdx)
+		}
+		if !(baseIdx < promptIdx && promptIdx < contractIdx) {
+			t.Errorf("wrong section order: base=%d prompt=%d contract=%d", baseIdx, promptIdx, contractIdx)
+		}
+	})
+
+	t.Run("scoped tools are normalized: bare subsumes scoped", func(t *testing.T) {
+		p := PersonaSpec{AllowedTools: []string{"Write", "Write(.wave/output/*)"}}
+		out := PersonaToAgentMarkdown(p, "", "", "", "")
+		// bare Write should appear exactly once
+		count := strings.Count(out, "  - Write\n")
+		if count != 1 {
+			t.Errorf("expected bare Write exactly once in tools, got %d", count)
+		}
+		// scoped Write(.wave/output/*) should be dropped
+		if strings.Contains(out, "Write(.wave/output/*)") {
+			t.Error("scoped Write should be dropped when bare Write is present")
+		}
+	})
+
+	t.Run("empty persona produces minimal valid frontmatter", func(t *testing.T) {
+		p := PersonaSpec{}
+		out := PersonaToAgentMarkdown(p, "", "", "", "")
+		if !strings.HasPrefix(out, "---\n") {
+			t.Error("output must start with ---")
+		}
+		if !strings.Contains(out, "---\npermissionMode: dontAsk\n---\n") {
+			t.Errorf("minimal frontmatter not found in output:\n%s", out)
+		}
+	})
+}
+
+func TestPrepareWorkspaceAgentMode(t *testing.T) {
+	adapter := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	// Setup base protocol in a real .wave/personas directory
+	wavePersonasDir := filepath.Join(".wave", "personas")
+	if err := os.MkdirAll(wavePersonasDir, 0755); err != nil {
+		t.Fatalf("failed to create .wave/personas: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wavePersonasDir, "base-protocol.md"), []byte(testBaseProtocol), 0644); err != nil {
+		t.Fatalf("failed to write base-protocol.md: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(".wave") })
+
+	cfg := AdapterRunConfig{
+		Persona:        "navigator",
+		SystemPrompt:   "# Navigator\n\nYou explore codebases.",
+		ContractPrompt: "## Contract\n\nOutput JSON.",
+		AllowedTools:   []string{"Read", "Glob"},
+		DenyTools:      []string{"Edit(*)"},
+		Model:          "sonnet",
+		UseAgentFlag:   true,
+	}
+
+	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	t.Run("agent md file is written", func(t *testing.T) {
+		agentPath := filepath.Join(tmpDir, agentFilePath)
+		data, err := os.ReadFile(agentPath)
+		if err != nil {
+			t.Fatalf("agent .md file not found: %v", err)
+		}
+		content := string(data)
+		if !strings.HasPrefix(content, "---\n") {
+			t.Error("agent .md should start with YAML frontmatter")
+		}
+		if !strings.Contains(content, "model: sonnet\n") {
+			t.Error("agent .md should contain model")
+		}
+		if !strings.Contains(content, "permissionMode: dontAsk\n") {
+			t.Error("agent .md should contain permissionMode: dontAsk")
+		}
+		if !strings.Contains(content, "# Navigator") {
+			t.Error("agent .md should contain system prompt")
+		}
+	})
+
+	t.Run("CLAUDE.md is not written in agent mode", func(t *testing.T) {
+		claudeMdPath := filepath.Join(tmpDir, "CLAUDE.md")
+		if _, err := os.Stat(claudeMdPath); !os.IsNotExist(err) {
+			t.Error("CLAUDE.md should not be written in agent mode")
+		}
+	})
+}
