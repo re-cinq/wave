@@ -12,7 +12,7 @@ func TestNewChatCmd(t *testing.T) {
 	}
 
 	// Verify flags exist
-	flags := []string{"step", "manifest", "model", "list"}
+	flags := []string{"step", "artifact", "manifest", "model", "prompt", "list"}
 	for _, flag := range flags {
 		if cmd.Flags().Lookup(flag) == nil {
 			t.Errorf("missing flag: %s", flag)
@@ -41,6 +41,16 @@ func TestNewChatCmd_FlagDefaults(t *testing.T) {
 	step, _ := cmd.Flags().GetString("step")
 	if step != "" {
 		t.Errorf("expected default step '', got %q", step)
+	}
+
+	artifact, _ := cmd.Flags().GetString("artifact")
+	if artifact != "" {
+		t.Errorf("expected default artifact '', got %q", artifact)
+	}
+
+	prompt, _ := cmd.Flags().GetString("prompt")
+	if prompt != "" {
+		t.Errorf("expected default prompt '', got %q", prompt)
 	}
 }
 
@@ -72,5 +82,11 @@ func TestChatOptions_Defaults(t *testing.T) {
 	}
 	if opts.Model != "" {
 		t.Errorf("expected empty Model, got %q", opts.Model)
+	}
+	if opts.Artifact != "" {
+		t.Errorf("expected empty Artifact, got %q", opts.Artifact)
+	}
+	if opts.Prompt != "" {
+		t.Errorf("expected empty Prompt, got %q", opts.Prompt)
 	}
 }

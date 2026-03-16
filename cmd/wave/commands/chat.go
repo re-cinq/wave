@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
@@ -20,8 +21,10 @@ import (
 type ChatOptions struct {
 	RunID    string
 	Step     string
+	Artifact string
 	Manifest string
 	Model    string
+	Prompt   string
 	List     bool
 	// Phase 2: step manipulation
 	Continue string // --continue <step-id>: continue work in step's workspace
@@ -47,7 +50,9 @@ Without arguments, opens the most recent completed run.
     wave chat <run-id>                   # specific run
     wave chat --list                     # pick from recent runs
     wave chat --step implement           # focus on one step
+    wave chat --artifact plan.json       # focus on a specific artifact
     wave chat --model opus               # override model
+    wave chat --prompt "explain the plan"  # initial question
 
   Manipulate (read-write):
     wave chat --continue <step>          # resume work in step workspace
@@ -63,8 +68,10 @@ Without arguments, opens the most recent completed run.
 	}
 
 	cmd.Flags().StringVar(&opts.Step, "step", "", "Focus context on a specific step")
+	cmd.Flags().StringVar(&opts.Artifact, "artifact", "", "Focus on a specific artifact by name")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Model to use (default: sonnet)")
+	cmd.Flags().StringVar(&opts.Prompt, "prompt", "", "Initial prompt/question to send")
 	cmd.Flags().BoolVar(&opts.List, "list", false, "List recent runs")
 
 	// Phase 2: step manipulation flags
@@ -152,10 +159,50 @@ func runChat(opts ChatOptions) error {
 		}
 	}
 
+	// Validate --step if provided
+	if opts.Step != "" {
+		found := false
+		for _, step := range chatCtx.Steps {
+			if step.StepID == opts.Step {
+				found = true
+				break
+			}
+		}
+		if !found {
+			availableSteps := make([]string, len(chatCtx.Steps))
+			for i, s := range chatCtx.Steps {
+				availableSteps[i] = s.StepID
+			}
+			return fmt.Errorf("step %q not found in pipeline run (available: %s)",
+				opts.Step, strings.Join(availableSteps, ", "))
+		}
+	}
+
+	// Validate --artifact if provided
+	if opts.Artifact != "" {
+		found := false
+		for _, art := range chatCtx.Artifacts {
+			if art.Name == opts.Artifact {
+				found = true
+				break
+			}
+		}
+		if !found {
+			availableArts := make([]string, len(chatCtx.Artifacts))
+			for i, a := range chatCtx.Artifacts {
+				availableArts[i] = a.Name
+			}
+			return fmt.Errorf("artifact %q not found in pipeline run (available: %s)",
+				opts.Artifact, strings.Join(availableArts, ", "))
+		}
+	}
+
 	// Prepare workspace
 	wsOpts := pipeline.ChatWorkspaceOptions{
-		Model: opts.Model,
-		Mode:  pipeline.ChatModeAnalysis,
+		Model:        opts.Model,
+		Mode:         pipeline.ChatModeAnalysis,
+		StepFilter:   opts.Step,
+		ArtifactName: opts.Artifact,
 	}
 	wsPath, err := pipeline.PrepareChatWorkspace(chatCtx, wsOpts)
 	if err != nil {
@@ -173,18 +220,36 @@ func runChat(opts ChatOptions) error {
 	if elapsed != "" {
 		fmt.Fprintf(os.Stderr, "  Duration: %s  Tokens: %s\n", elapsed, formatTokens(run.TotalTokens))
 	}
-	fmt.Fprintf(os.Stderr, "  Steps:    %d\n\n", len(chatCtx.Steps))
+	fmt.Fprintf(os.Stderr, "  Steps:    %d\n", len(chatCtx.Steps))
+	if opts.Step != "" {
+		fmt.Fprintf(os.Stderr, "  Focus:    step %q\n", opts.Step)
+	}
+	if opts.Artifact != "" {
+		fmt.Fprintf(os.Stderr, "  Artifact: %s\n", opts.Artifact)
+	}
+	fmt.Fprintf(os.Stderr, "\n")
 
 	// Build interactive options
 	interactiveOpts := adapter.InteractiveOptions{
-		Model:   opts.Model,
+		Model:  opts.Model,
+		Prompt: opts.Prompt,
 		AddDirs: []string{projectRoot},
 	}
 
 	// Add step workspace directories
-	for _, step := range chatCtx.Steps {
-		if step.WorkspacePath != "" {
-			interactiveOpts.AddDirs = append(interactiveOpts.AddDirs, step.WorkspacePath)
+	if opts.Step != "" {
+		// Only add the focused step's workspace
+		for _, step := range chatCtx.Steps {
+			if step.StepID == opts.Step && step.WorkspacePath != "" {
+				interactiveOpts.AddDirs = append(interactiveOpts.AddDirs, step.WorkspacePath)
+			}
+		}
+	} else {
+		// Add all step workspace directories
+		for _, step := range chatCtx.Steps {
+			if step.WorkspacePath != "" {
+				interactiveOpts.AddDirs = append(interactiveOpts.AddDirs, step.WorkspacePath)
+			}
 		}
 	}
 

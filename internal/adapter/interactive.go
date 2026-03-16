@@ -13,6 +13,8 @@ type InteractiveOptions struct {
 	AllowedTools []string // Tools to allow (for --allowedTools)
 	AddDirs      []string // Additional directories to include (--add-dir)
 	SystemPrompt string   // Optional system prompt (--system-prompt)
+	Resume       string   // Session ID to resume (--resume)
+	Prompt       string   // Initial prompt to send (first positional arg)
 }
 
 // LaunchInteractive spawns Claude Code in interactive (non -p) mode.
@@ -75,6 +77,14 @@ func buildInteractiveArgs(opts InteractiveOptions) []string {
 
 	if opts.SystemPrompt != "" {
 		args = append(args, "--system-prompt", opts.SystemPrompt)
+	}
+
+	if opts.Resume != "" {
+		args = append(args, "--resume", opts.Resume)
+	}
+
+	if opts.Prompt != "" {
+		args = append(args, opts.Prompt)
 	}
 
 	return args

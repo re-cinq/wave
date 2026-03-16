@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/state"
 )
 
 // ChatMode determines the permission level for a chat workspace.
@@ -20,8 +22,10 @@ const (
 
 // ChatWorkspaceOptions configures the chat workspace preparation.
 type ChatWorkspaceOptions struct {
-	Model string   // Model override (e.g., "sonnet", "opus")
-	Mode  ChatMode // defaults to ChatModeAnalysis if empty
+	Model        string   // Model override (e.g., "sonnet", "opus")
+	Mode         ChatMode // defaults to ChatModeAnalysis if empty
+	StepFilter   string   // If set, scope the chat context to this step ID
+	ArtifactName string   // If set, focus on a specific artifact by name
 }
 
 func (opts ChatWorkspaceOptions) effectiveMode() ChatMode {
@@ -43,7 +47,7 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 	mode := opts.effectiveMode()
 
 	// 2. Build and write CLAUDE.md
-	claudeMd := buildChatClaudeMd(ctx, mode)
+	claudeMd := buildChatClaudeMd(ctx, mode, opts.StepFilter, opts.ArtifactName)
 	claudeMdPath := filepath.Join(wsDir, "CLAUDE.md")
 	if err := os.WriteFile(claudeMdPath, []byte(claudeMd), 0644); err != nil {
 		return "", fmt.Errorf("failed to write CLAUDE.md: %w", err)
@@ -135,11 +139,21 @@ type chatPermissions struct {
 }
 
 // buildChatClaudeMd generates the CLAUDE.md content for a chat session.
-func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
+// stepFilter scopes the context to a single step when non-empty.
+// artifactName focuses the context on a specific artifact when non-empty.
+func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName string) string {
 	var b strings.Builder
 
-	b.WriteString("# Wave Pipeline Analysis\n\n")
-	b.WriteString("You are analyzing a completed Wave pipeline run.\n\n")
+	if stepFilter != "" {
+		fmt.Fprintf(&b, "# Wave Step Analysis: %s\n\n", stepFilter)
+		fmt.Fprintf(&b, "You are analyzing step **%s** from a Wave pipeline run.\n\n", stepFilter)
+	} else if artifactName != "" {
+		fmt.Fprintf(&b, "# Wave Artifact Analysis: %s\n\n", artifactName)
+		fmt.Fprintf(&b, "You are analyzing artifact **%s** from a Wave pipeline run.\n\n", artifactName)
+	} else {
+		b.WriteString("# Wave Pipeline Analysis\n\n")
+		b.WriteString("You are analyzing a completed Wave pipeline run.\n\n")
+	}
 
 	// Run summary table
 	b.WriteString("## Run Summary\n\n")
@@ -167,11 +181,23 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 		fmt.Fprintf(&b, "| Error | %s |\n", ctx.Run.ErrorMessage)
 	}
 
+	// Filter steps based on stepFilter
+	steps := ctx.Steps
+	if stepFilter != "" {
+		var filtered []ChatStepContext
+		for _, step := range ctx.Steps {
+			if step.StepID == stepFilter {
+				filtered = append(filtered, step)
+			}
+		}
+		steps = filtered
+	}
+
 	// Step results table
 	b.WriteString("\n## Step Results\n\n")
 	b.WriteString("| # | Step | Persona | Status | Duration | Tokens |\n")
 	b.WriteString("|---|------|---------|--------|----------|--------|\n")
-	for i, step := range ctx.Steps {
+	for i, step := range steps {
 		state := step.State
 		if state == "" {
 			state = "pending"
@@ -181,12 +207,33 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 			chatFormatDuration(step.Duration), chatFormatTokens(step.TokensUsed))
 	}
 
+	// Filter artifacts based on stepFilter or artifactName
+	artifacts := ctx.Artifacts
+	if stepFilter != "" {
+		var filtered []state.ArtifactRecord
+		for _, art := range ctx.Artifacts {
+			if art.StepID == stepFilter {
+				filtered = append(filtered, art)
+			}
+		}
+		artifacts = filtered
+	}
+	if artifactName != "" {
+		var filtered []state.ArtifactRecord
+		for _, art := range artifacts {
+			if art.Name == artifactName {
+				filtered = append(filtered, art)
+			}
+		}
+		artifacts = filtered
+	}
+
 	// Artifacts inventory
-	if len(ctx.Artifacts) > 0 {
+	if len(artifacts) > 0 {
 		b.WriteString("\n## Artifacts\n\n")
 		b.WriteString("| Step | Name | Type | Path | Size |\n")
 		b.WriteString("|------|------|------|------|------|\n")
-		for _, art := range ctx.Artifacts {
+		for _, art := range artifacts {
 			artType := art.Type
 			if artType == "" {
 				artType = "-"
@@ -196,9 +243,33 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 		}
 	}
 
+	// Inject focused artifact content when --artifact is specified
+	if artifactName != "" {
+		b.WriteString("\n## Focused Artifact Content\n\n")
+		b.WriteString("The following artifact has been pre-loaded for immediate analysis:\n\n")
+		for _, art := range artifacts {
+			if art.Name == artifactName {
+				fullPath := art.Path
+				if !filepath.IsAbs(fullPath) {
+					fullPath = filepath.Join(ctx.ProjectRoot, fullPath)
+				}
+				content, err := SummarizeArtifact(fullPath, 32000) // generous budget for focused artifact
+				if err != nil {
+					fmt.Fprintf(&b, "### %s\n\n*Could not read artifact: %v*\n\n", art.Name, err)
+				} else {
+					fence := "```"
+					if strings.Contains(content, "```") {
+						fence = "``````"
+					}
+					fmt.Fprintf(&b, "### %s\n\n%s\n%s\n%s\n\n", art.Name, fence, content, fence)
+				}
+			}
+		}
+	}
+
 	// Step workspaces
 	hasWorkspaces := false
-	for _, step := range ctx.Steps {
+	for _, step := range steps {
 		if step.WorkspacePath != "" {
 			hasWorkspaces = true
 			break
@@ -207,7 +278,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 	if hasWorkspaces {
 		b.WriteString("\n## Step Workspaces\n\n")
 		b.WriteString("Each step's workspace is preserved. You can read files from these locations:\n\n")
-		for _, step := range ctx.Steps {
+		for _, step := range steps {
 			if step.WorkspacePath != "" {
 				fmt.Fprintf(&b, "- **%s** (%s): `%s`\n", step.StepID, step.Persona, step.WorkspacePath)
 			}
@@ -216,7 +287,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 
 	// Failure details
 	hasFailures := false
-	for _, step := range ctx.Steps {
+	for _, step := range steps {
 		if step.ErrorMessage != "" {
 			hasFailures = true
 			break
@@ -224,7 +295,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode) string {
 	}
 	if hasFailures {
 		b.WriteString("\n## Failures\n\n")
-		for _, step := range ctx.Steps {
+		for _, step := range steps {
 			if step.ErrorMessage != "" {
 				fmt.Fprintf(&b, "### Step: %s\n\n```\n%s\n```\n\n", step.StepID, step.ErrorMessage)
 			}
