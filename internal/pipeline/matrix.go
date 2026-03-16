@@ -768,7 +768,8 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 				itemDeps := deps[id]
 				parentBranches, _ := tierCtx.ResolveBranch(itemDeps)
 
-				if len(parentBranches) == 1 {
+				switch {
+				case len(parentBranches) == 1:
 					stackedBases[id] = parentBranches[0]
 					m.emit(event.Event{
 						Timestamp:  time.Now(),
@@ -777,7 +778,7 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 						State:      "matrix_stacked_branch_resolved",
 						Message:    fmt.Sprintf("Item %q will branch from parent branch %s", id, parentBranches[0]),
 					})
-				} else if len(parentBranches) > 1 {
+				case len(parentBranches) > 1:
 					// Multi-parent: create integration branch
 					repoRoot := "."
 					for _, info := range execution.WorktreePaths {
@@ -808,7 +809,7 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 						State:      "matrix_integration_branch_created",
 						Message:    fmt.Sprintf("Created integration branch %s for item %q from %d parents", integrationBranch, id, len(parentBranches)),
 					})
-				} else if len(parentBranches) == 0 && len(itemDeps) > 0 {
+				case len(parentBranches) == 0 && len(itemDeps) > 0:
 					// Parent had no output branch — use default base (graceful fallback)
 					m.emit(event.Event{
 						Timestamp:  time.Now(),
