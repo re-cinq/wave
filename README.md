@@ -342,6 +342,22 @@ steps:
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
+### Browser Automation
+
+The built-in browser adapter provides headless Chrome automation via CDP for personas that need to scrape web pages, take screenshots, or interact with web UIs. Domain filtering enforces network restrictions at the browser level.
+
+### Docker Sandbox
+
+Alongside the existing Nix + bubblewrap sandbox, Wave supports a Docker-based sandbox backend for isolating adapter subprocesses in containers. Configured via `runtime.sandbox.backend: docker` in the manifest, with automatic Docker daemon detection during preflight.
+
+### Web UI Dashboard
+
+`wave serve` (or `wave webui`) launches an embedded web operations dashboard for real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing.
+
+### Guided TUI Orchestrator
+
+A Bubble Tea terminal UI provides interactive pipeline orchestration with an animated header, step progress tracking, and real-time agent activity display. Activate with default output mode or disable with `--no-tui`.
+
 ### Contracts — Validated Handoffs
 
 Every step boundary validates output against JSON Schema, TypeScript interfaces, or test suites. Malformed artifacts trigger retries or halt the pipeline.

@@ -21,6 +21,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave doctor` | Diagnose project configuration and health |
 | `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
+| `wave webui` | Open the web dashboard in a browser |
 | `wave migrate` | Database migrations |
 
 ---
@@ -163,6 +164,14 @@ wave meta "build API" --save api-pipeline.yaml  # Save generated pipeline
 wave meta "refactor code" --dry-run             # Preview without executing
 wave meta "add tests" --mock                    # Use mock adapter for testing
 wave meta "refactor" --model opus               # Override adapter model for this run
+```
+
+The `--save` flag is particularly useful for turning dynamically generated pipelines into reusable templates:
+
+```bash
+# Generate, save, and later re-run the same pipeline
+wave meta "implement OAuth2 flow" --save .wave/pipelines/oauth2.yaml
+wave run oauth2 "add Google provider"
 ```
 
 ---
@@ -496,6 +505,25 @@ wave clean --keep-last 5             # Keep 5 most recent
 wave clean --force                   # Skip confirmation
 wave clean --dry-run                 # Preview what would be deleted
 wave clean --quiet                   # Suppress output for scripting
+```
+
+---
+
+## wave webui
+
+Open the embedded web operations dashboard in a browser. This is a convenience alias that starts the dashboard server and opens it in the default browser.
+
+```bash
+wave webui
+```
+
+This is equivalent to running `wave serve` and manually opening the URL.
+
+### Options
+
+```bash
+wave webui --port 9090             # Custom port
+wave webui --no-open               # Start server without opening browser
 ```
 
 ---

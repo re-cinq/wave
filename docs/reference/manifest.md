@@ -190,6 +190,68 @@ personas:
 | `model` | no | adapter default | Model override (e.g. `opus`, `sonnet`, `haiku`) |
 | `permissions` | no | inherit adapter | Tool access control |
 | `hooks` | no | `{}` | Pre/post tool hooks |
+| `token_scopes` | no | `[]` | Required forge token scopes (validated during preflight) |
+
+### Token Scopes
+
+The `token_scopes` field declares what forge token permissions a persona requires. Scopes are validated during preflight against the active token to catch misconfigured credentials before pipeline execution begins.
+
+```yaml
+personas:
+  implementer:
+    adapter: claude
+    system_prompt_file: .wave/personas/implementer.md
+    token_scopes:
+      - "repos:write"
+      - "issues:write"
+      - "pulls:write"
+      - "actions:read"
+```
+
+#### Scope Format
+
+Scopes use the format `<resource>:<permission>` with an optional `@<ENV_VAR>` suffix to specify which token environment variable to check:
+
+```
+issues:read              # Read access to issues, uses default forge token
+pulls:write@GH_TOKEN    # Write access to PRs, explicitly checks GH_TOKEN
+repos:admin              # Admin access to repositories
+```
+
+#### Canonical Resources
+
+| Resource | Description |
+|----------|-------------|
+| `issues` | Issue read/write/admin |
+| `pulls` | Pull request / merge request access |
+| `repos` | Repository access |
+| `actions` | CI/CD actions and workflows |
+| `packages` | Package registry access |
+
+#### Permission Hierarchy
+
+Permissions follow a hierarchical model: `admin` satisfies `write`, which satisfies `read`.
+
+| Permission | Satisfies |
+|------------|-----------|
+| `read` | `read` |
+| `write` | `read`, `write` |
+| `admin` | `read`, `write`, `admin` |
+
+#### Preflight Validation
+
+During preflight, Wave:
+
+1. Parses each scope string and validates syntax.
+2. Resolves abstract scopes to platform-specific scopes (e.g., `issues:write` maps to GitHub's `repo` scope).
+3. Introspects the active token to check its actual permissions.
+4. Reports violations with remediation hints.
+
+If `token_scopes` is omitted for a persona, scope validation is skipped for that persona (opt-in enforcement).
+
+Unknown resources produce warnings (not errors) to allow forward-compatible scope declarations.
+
+Key sources: `internal/scope/scope.go`, `internal/scope/validator.go`, `internal/scope/resolver.go`
 
 ### Temperature Guidelines
 
