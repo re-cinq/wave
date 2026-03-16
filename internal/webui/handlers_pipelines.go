@@ -7,10 +7,13 @@ import (
 
 // PipelineSummary holds summary info about an available pipeline.
 type PipelineSummary struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	StepCount   int      `json:"step_count"`
-	Steps       []string `json:"steps,omitempty"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description,omitempty"`
+	Category      string   `json:"category,omitempty"`
+	StepCount     int      `json:"step_count"`
+	Steps         []string `json:"steps,omitempty"`
+	IsComposition bool     `json:"is_composition,omitempty"`
+	Skills        []string `json:"skills,omitempty"`
 }
 
 // handlePipelinesPage handles GET /pipelines - serves the HTML pipelines page.
@@ -46,15 +49,21 @@ func (s *Server) getPipelineSummaries() []PipelineSummary {
 			continue
 		}
 		var stepIDs []string
+		hasComposition := false
 		for _, step := range p.Steps {
 			stepIDs = append(stepIDs, step.ID)
+			if step.IsCompositionStep() {
+				hasComposition = true
+			}
 		}
-		desc := p.Metadata.Description
 		summaries = append(summaries, PipelineSummary{
-			Name:        name,
-			Description: desc,
-			StepCount:   len(p.Steps),
-			Steps:       stepIDs,
+			Name:          name,
+			Description:   p.Metadata.Description,
+			Category:      p.Metadata.Category,
+			StepCount:     len(p.Steps),
+			Steps:         stepIDs,
+			IsComposition: hasComposition,
+			Skills:        p.Skills,
 		})
 	}
 

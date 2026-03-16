@@ -31,6 +31,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/skills.html":    `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
@@ -845,5 +846,213 @@ func TestHandleContractsPage(t *testing.T) {
 	contentType := rec.Header().Get("Content-Type")
 	if !strings.Contains(contentType, "text/html") {
 		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandleAPISkills_NoDir(t *testing.T) {
+	srv, _ := testServer(t)
+
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/skills", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPISkills(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp SkillListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// No pipelines dir means no skills
+	if len(resp.Skills) != 0 {
+		t.Errorf("expected 0 skills, got %d", len(resp.Skills))
+	}
+}
+
+func TestHandleAPISkills_WithPipelines(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+requires:
+  skills:
+    golang:
+      check: "go version"
+    speckit:
+      install: "wave skill install speckit"
+      commands_glob: ".claude/commands/speckit.*.md"
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/skills", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPISkills(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp SkillListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	if len(resp.Skills) != 2 {
+		t.Fatalf("expected 2 skills, got %d", len(resp.Skills))
+	}
+
+	// Skills should be sorted alphabetically
+	if resp.Skills[0].Name != "golang" {
+		t.Errorf("expected first skill 'golang', got %q", resp.Skills[0].Name)
+	}
+	if resp.Skills[1].Name != "speckit" {
+		t.Errorf("expected second skill 'speckit', got %q", resp.Skills[1].Name)
+	}
+
+	// Verify golang details
+	if resp.Skills[0].CheckCmd != "go version" {
+		t.Errorf("expected golang check cmd 'go version', got %q", resp.Skills[0].CheckCmd)
+	}
+
+	// Verify speckit details
+	if resp.Skills[1].InstallCmd != "wave skill install speckit" {
+		t.Errorf("expected speckit install cmd, got %q", resp.Skills[1].InstallCmd)
+	}
+	if resp.Skills[1].CommandsGlob != ".claude/commands/speckit.*.md" {
+		t.Errorf("expected speckit commands glob, got %q", resp.Skills[1].CommandsGlob)
+	}
+
+	// Both should reference test-pipeline
+	if len(resp.Skills[0].PipelineUsage) != 1 || resp.Skills[0].PipelineUsage[0] != "test-pipeline" {
+		t.Errorf("expected golang to be used by test-pipeline, got %v", resp.Skills[0].PipelineUsage)
+	}
+}
+
+func TestHandleSkillsPage(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/skills", nil)
+	rec := httptest.NewRecorder()
+	srv.handleSkillsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandleAPIPipelines_WithCategory(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: impl-issue
+  description: Implement an issue
+  category: impl
+steps:
+  - id: fetch
+    persona: navigator
+    exec:
+      prompt: "fetch"
+  - id: implement
+    persona: craftsman
+    exec:
+      prompt: "implement"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "impl-issue.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/api/pipelines", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIPipelines(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	pipelines, ok := resp["pipelines"].([]interface{})
+	if !ok || len(pipelines) != 1 {
+		t.Fatalf("expected 1 pipeline, got %v", resp["pipelines"])
+	}
+
+	pl := pipelines[0].(map[string]interface{})
+	if pl["category"] != "impl" {
+		t.Errorf("expected category 'impl', got %v", pl["category"])
+	}
+	if pl["name"] != "impl-issue" {
+		t.Errorf("expected name 'impl-issue', got %v", pl["name"])
 	}
 }

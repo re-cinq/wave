@@ -11,11 +11,19 @@
         {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
         <div class="persona-meta">
             <span class="badge">{{.StepCount}} steps</span>
+            {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
+            {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
         </div>
         {{if .Steps}}
         <div class="persona-tools">
             <strong>Steps:</strong>
             {{range .Steps}}<code>{{.}}</code> {{end}}
+        </div>
+        {{end}}
+        {{if .Skills}}
+        <div class="persona-tools">
+            <strong>Skills:</strong>
+            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
         </div>
         {{end}}
         <div style="margin-top: 0.5rem;">

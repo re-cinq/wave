@@ -1,0 +1,46 @@
+{{define "title"}} - Skills{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Skills</h1>
+</div>
+{{if .Skills}}
+<div class="personas-grid">
+    {{range .Skills}}
+    <div class="card persona-card">
+        <h3>{{.Name}}</h3>
+        {{if .CommandsGlob}}
+        <div class="persona-meta">
+            <span class="badge">glob: {{.CommandsGlob}}</span>
+        </div>
+        {{end}}
+        {{if .InstallCmd}}
+        <div class="persona-tools">
+            <strong>Install:</strong> <code>{{.InstallCmd}}</code>
+        </div>
+        {{end}}
+        {{if .CheckCmd}}
+        <div class="persona-tools">
+            <strong>Check:</strong> <code>{{.CheckCmd}}</code>
+        </div>
+        {{end}}
+        {{if .CommandFiles}}
+        <div class="persona-tools">
+            <strong>Commands:</strong>
+            {{range .CommandFiles}}<code>{{.}}</code> {{end}}
+        </div>
+        {{end}}
+        {{if .PipelineUsage}}
+        <div class="persona-tools">
+            <strong>Used by:</strong>
+            {{range .PipelineUsage}}<a href="/runs?pipeline={{.}}" class="badge">{{.}}</a> {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No skills found. Skills are declared in pipeline YAML files under <code>requires.skills</code>.</p>
+</div>
+{{end}}
+{{end}}
