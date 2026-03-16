@@ -9,25 +9,27 @@ import (
 
 // RunningPipeline is a TUI-specific projection of a running pipeline run.
 type RunningPipeline struct {
-	RunID      string
-	Name       string
-	Input      string
-	BranchName string
-	StartedAt  time.Time
-	PID        int  // OS process ID of detached executor (0 = unknown)
-	Detached   bool // True when running as a detached subprocess
+	RunID         string
+	Name          string
+	Input         string
+	BranchName    string
+	StartedAt     time.Time
+	PID           int    // OS process ID of detached executor (0 = unknown)
+	Detached      bool   // True when running as a detached subprocess
+	SequenceGroup string // Compose group run ID, empty for standalone runs
 }
 
 // FinishedPipeline is a TUI-specific projection of a completed pipeline run.
 type FinishedPipeline struct {
-	RunID       string
-	Name        string
-	Input       string
-	BranchName  string
-	Status      string
-	StartedAt   time.Time
-	CompletedAt time.Time
-	Duration    time.Duration
+	RunID         string
+	Name          string
+	Input         string
+	BranchName    string
+	Status        string
+	StartedAt     time.Time
+	CompletedAt   time.Time
+	Duration      time.Duration
+	SequenceGroup string // Compose group run ID, empty for standalone runs
 }
 
 // PipelineDataProvider fetches pipeline data for the list component.
