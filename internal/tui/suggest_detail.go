@@ -163,13 +163,25 @@ func (m SuggestDetailModel) View() string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle.Render("Press Enter to launch  Space to select  m: modify  s: skip"))
+	sb.WriteString(mutedStyle.Render(m.footerHints()))
 
 	return lipgloss.NewStyle().
 		Width(m.width).
 		Height(m.height).
 		Padding(0, 1).
 		Render(sb.String())
+}
+
+// footerHints returns phase-contextual key hints for the detail pane.
+func (m SuggestDetailModel) footerHints() string {
+	switch m.guidedPhase {
+	case GuidedPhaseFleet:
+		return "Viewing fleet  Tab: back to proposals"
+	case GuidedPhaseAttached:
+		return "Attached to live output"
+	default:
+		return "Press Enter to launch  Space to select  m: modify  s: skip"
+	}
 }
 
 // renderComplexity returns a styled complexity indicator.

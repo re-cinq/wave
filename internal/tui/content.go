@@ -1140,6 +1140,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		return m, nil
 
+	case SuggestLaunchedMsg:
+		if m.suggestList != nil {
+			var cmd tea.Cmd
+			*m.suggestList, cmd = m.suggestList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
 	case SuggestSelectedMsg:
 		if m.suggestList != nil {
 			var listCmd tea.Cmd
@@ -1169,9 +1177,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.guidedFlow != nil {
 			m.guidedFlow.TransitionToFleet()
 		}
+		pipelineName := msg.Pipeline.Name
 		launchCmd := func() tea.Msg {
 			return LaunchRequestMsg{Config: LaunchConfig{
-				PipelineName: msg.Pipeline.Name,
+				PipelineName: pipelineName,
 				Input:        msg.Pipeline.Input,
 			}}
 		}
@@ -1181,7 +1190,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		focusCmd := func() tea.Msg {
 			return FocusChangedMsg{Pane: FocusPaneLeft}
 		}
-		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
+		launchedCmd := func() tea.Msg {
+			return SuggestLaunchedMsg{Name: pipelineName}
+		}
+		refreshCmd := tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+			return PipelineRefreshTickMsg{}
+		})
+		return m, tea.Batch(launchCmd, viewCmd, focusCmd, launchedCmd, refreshCmd)
 
 	case SuggestComposeMsg:
 		// Bridge suggest multi-select to compose mode: switch to Pipelines view,
@@ -1296,10 +1311,16 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case SuggestModifyMsg:
-		// Show input editor for proposal modification
-		// For now, launch with existing input (input modification can be enhanced later)
+		// Open configure form pre-populated with the proposal's pipeline and input
+		m.currentView = ViewPipelines
+		m.focus = FocusPaneRight
+		m.list.SetFocused(false)
+		m.detail.SetFocused(true)
 		return m, func() tea.Msg {
-			return SuggestLaunchMsg(msg)
+			return ConfigureFormMsg{
+				PipelineName: msg.Pipeline.Name,
+				InputExample: msg.Pipeline.Input,
+			}
 		}
 
 	// Pipeline-specific messages — always route to pipeline models
