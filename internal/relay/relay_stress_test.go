@@ -44,7 +44,7 @@ func TestRelayMonitor_LargeTokenCounts(t *testing.T) {
 	}
 }
 
-func TestRelayMonitor_GetTokenCount_LargeTexts(t *testing.T) {
+func TestRelayMonitor_getTokenCount_LargeTexts(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 
@@ -71,7 +71,7 @@ func TestRelayMonitor_GetTokenCount_LargeTexts(t *testing.T) {
 			text := strings.Repeat(baseText, repetitions)
 
 			start := time.Now()
-			tokenCount := m.GetTokenCount(text)
+			tokenCount := m.getTokenCount(text)
 			duration := time.Since(start)
 
 			if tokenCount <= 0 {

@@ -8,7 +8,7 @@ func NewSandbox(backend SandboxBackendType) (Sandbox, error) {
 	case SandboxBackendNone, "":
 		return &NoneSandbox{}, nil
 	case SandboxBackendDocker:
-		return NewDockerSandbox()
+		return newDockerSandbox()
 	case SandboxBackendBubblewrap:
 		// Bubblewrap is handled by the Nix flake dev shell, not this package.
 		return &NoneSandbox{}, nil
