@@ -39,6 +39,7 @@ type MetaPipelineExecutor struct {
 	totalStepsUsed   int
 	totalTokensUsed  int
 	parentPipelineID string
+	mockMode         bool
 }
 
 // MetaExecutorOption configures the MetaPipelineExecutor.
@@ -62,6 +63,11 @@ func WithMetaEmitter(em event.EventEmitter) MetaExecutorOption {
 // WithChildExecutor sets the pipeline executor for running child pipelines.
 func WithChildExecutor(ex PipelineExecutor) MetaExecutorOption {
 	return func(e *MetaPipelineExecutor) { e.executor = ex }
+}
+
+// WithMockMode enables mock mode for meta-pipeline testing without live API calls.
+func WithMockMode() MetaExecutorOption {
+	return func(e *MetaPipelineExecutor) { e.mockMode = true }
 }
 
 // NewMetaPipelineExecutor creates a new meta-pipeline executor.
@@ -127,8 +133,17 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
+	// Normalize: auto-generate output artifacts for json_schema steps
+	normalizeGeneratedPipeline(pipeline)
+
 	// Validate the generated pipeline structure
-	if err := ValidateGeneratedPipeline(pipeline); err != nil {
+	if err := ValidateGeneratedPipeline(pipeline, WithManifest(m)); err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "meta_generate_failed",
+			Message:    fmt.Sprintf("semantic validation error: %v", err),
+		})
 		return nil, fmt.Errorf("generated pipeline validation failed: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
@@ -146,6 +161,11 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 // and then executes the generated pipeline.
 func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *manifest.Manifest) (*MetaExecutionResult, error) {
 	config := e.getMetaConfig(m)
+
+	// Enforce timeout internally so callers other than CLI also get timeout enforcement
+	timeout := e.getTimeout(m)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	// Check depth limit
 	if err := e.checkDepthLimit(config); err != nil {
@@ -182,8 +202,17 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 		return nil, fmt.Errorf("failed to parse generated pipeline YAML: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
+	// Normalize: auto-generate output artifacts for json_schema steps
+	normalizeGeneratedPipeline(pipeline)
+
 	// Validate the generated pipeline structure
-	if err := ValidateGeneratedPipeline(pipeline); err != nil {
+	if err := ValidateGeneratedPipeline(pipeline, WithManifest(m)); err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: e.getPipelineID(),
+			State:      "meta_generate_failed",
+			Message:    fmt.Sprintf("semantic validation error: %v", err),
+		})
 		return nil, fmt.Errorf("generated pipeline validation failed: %w\n\n--- Generated YAML ---\n%s\n--- End YAML ---", err, generatedYAML)
 	}
 
@@ -244,6 +273,19 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	adapterDef := m.GetAdapter(persona.Adapter)
 	if adapterDef == nil {
 		return nil, 0, fmt.Errorf("adapter %q for philosopher not found", persona.Adapter)
+	}
+
+	// In mock mode, return a deterministic well-formed response after persona validation
+	if e.mockMode {
+		output := buildMetaMockResponse()
+		genResult, err := extractPipelineAndSchemas(output)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to parse mock response: %w", err)
+		}
+		if err := e.saveSchemaFiles(genResult.Schemas); err != nil {
+			return nil, 0, fmt.Errorf("failed to save mock schema files: %w", err)
+		}
+		return genResult, 0, nil
 	}
 
 	prompt := buildPhilosopherPrompt(task, e.currentDepth)
@@ -555,6 +597,90 @@ SCHEMA: .wave/contracts/navigation-analysis.schema.json
 `, task, depth)
 }
 
+// buildMetaMockResponse returns a well-formed philosopher response for mock adapter testing.
+// It produces a minimal valid pipeline with navigator and craftsman steps.
+func buildMetaMockResponse() string {
+	return `--- PIPELINE ---
+kind: WavePipeline
+metadata:
+  name: mock-generated-pipeline
+  description: Mock pipeline generated for testing
+input:
+  source: meta
+steps:
+  - id: navigate
+    persona: navigator
+    memory:
+      strategy: fresh
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Analyze the codebase for: {{ input }}"
+    output_artifacts:
+      - name: analysis
+        path: .wave/artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/mock-analysis.schema.json"
+
+  - id: implement
+    persona: craftsman
+    dependencies: [navigate]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: navigate
+          artifact: analysis
+          as: analysis
+    workspace:
+      root: "./"
+    exec:
+      type: prompt
+      source: "Read .wave/artifacts/analysis. Implement: {{ input }}"
+    output_artifacts:
+      - name: result
+        path: .wave/artifact.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        schema_path: ".wave/contracts/mock-result.schema.json"
+
+--- SCHEMAS ---
+SCHEMA: .wave/contracts/mock-analysis.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Mock navigation analysis",
+  "required": ["summary"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Analysis summary"
+    }
+  }
+}
+
+SCHEMA: .wave/contracts/mock-result.schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Mock implementation result",
+  "required": ["status"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Implementation status",
+      "enum": ["success", "partial", "failed"]
+    }
+  }
+}
+`
+}
+
 // PipelineGenerationResult holds both pipeline YAML and schema definitions.
 type PipelineGenerationResult struct {
 	PipelineYAML string
@@ -684,12 +810,44 @@ func extractSchemaDefinitions(content string, schemas map[string]string) error {
 	return nil
 }
 
+// ValidationOption configures optional validation behavior for ValidateGeneratedPipeline.
+type ValidationOption func(*validationConfig)
+
+type validationConfig struct {
+	manifest *manifest.Manifest
+}
+
+// WithManifest enables manifest-aware validation (e.g., persona existence checks).
+func WithManifest(m *manifest.Manifest) ValidationOption {
+	return func(c *validationConfig) { c.manifest = m }
+}
+
+// normalizeGeneratedPipeline ensures steps with json_schema contracts have output_artifacts.
+func normalizeGeneratedPipeline(p *Pipeline) {
+	for i := range p.Steps {
+		step := &p.Steps[i]
+		if step.Handover.Contract.Type == "json_schema" && len(step.OutputArtifacts) == 0 {
+			step.OutputArtifacts = []ArtifactDef{{
+				Name: step.ID + "-output",
+				Path: ".wave/artifact.json",
+				Type: "json",
+			}}
+		}
+	}
+}
+
 // ValidateGeneratedPipeline performs semantic validation on a generated pipeline.
 // It checks that:
 // 1. First step uses navigator persona
 // 2. All steps have handover.contract configured
 // 3. All steps use "fresh" memory strategy
-func ValidateGeneratedPipeline(p *Pipeline) error {
+// 4. (With manifest) All step personas exist and have valid adapters
+func ValidateGeneratedPipeline(p *Pipeline, opts ...ValidationOption) error {
+	var cfg validationConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	if p == nil {
 		return fmt.Errorf("pipeline is nil")
 	}
@@ -719,7 +877,7 @@ func ValidateGeneratedPipeline(p *Pipeline) error {
 		return fmt.Errorf("first step must use %q persona, got %q", NavigatorPersona, sortedSteps[0].Persona)
 	}
 
-	// Semantic checks 2, 3 & 4: All steps must have contract, fresh memory, and valid schemas
+	// Semantic checks: contract, fresh memory, schemas, and manifest-aware persona validation
 	var errors []string
 	for _, step := range p.Steps {
 		// Check for handover contract
@@ -736,6 +894,16 @@ func ValidateGeneratedPipeline(p *Pipeline) error {
 		if step.Handover.Contract.Type == "json_schema" && step.Handover.Contract.SchemaPath != "" {
 			if err := validateSchemaFile(step.Handover.Contract.SchemaPath); err != nil {
 				errors = append(errors, fmt.Sprintf("step %q schema validation failed: %v", step.ID, err))
+			}
+		}
+
+		// Manifest-aware: check persona exists and has a valid adapter
+		if cfg.manifest != nil && step.Persona != "" {
+			persona := cfg.manifest.GetPersona(step.Persona)
+			if persona == nil {
+				errors = append(errors, fmt.Sprintf("step %q references unknown persona %q", step.ID, step.Persona))
+			} else if cfg.manifest.GetAdapter(persona.Adapter) == nil {
+				errors = append(errors, fmt.Sprintf("step %q persona %q references unknown adapter %q", step.ID, step.Persona, persona.Adapter))
 			}
 		}
 	}
@@ -870,6 +1038,7 @@ func (e *MetaPipelineExecutor) CreateChildMetaExecutor() *MetaPipelineExecutor {
 		totalStepsUsed:   e.totalStepsUsed,
 		totalTokensUsed:  e.totalTokensUsed,
 		parentPipelineID: e.getPipelineID(),
+		mockMode:         e.mockMode,
 	}
 	return child
 }

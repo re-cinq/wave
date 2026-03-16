@@ -813,3 +813,44 @@ func TestContentModel_EnterOnRunningItem_EmitsLiveOutputActive(t *testing.T) {
 	assert.Equal(t, stateRunningLive, c.detail.paneState, "detail pane should be in live output state")
 	assert.Equal(t, "r1", c.detachedPollRunID, "should start detached polling for the run")
 }
+
+func TestContentModel_PipelineRefreshDoesNotOverwriteIssueView(t *testing.T) {
+	// Regression test: periodic pipeline data refresh was re-emitting
+	// PipelineSelectedMsg which flipped issueShowPipeline to true,
+	// overwriting the issue detail pane with pipeline output.
+	m := newTestContentModel(t)
+	m.currentView = ViewIssues
+	m.issueShowPipeline = false
+
+	// Simulate a PipelineSelectedMsg from the pipeline list's periodic
+	// data refresh (FromIssueList is false).
+	refreshMsg := PipelineSelectedMsg{
+		RunID: "run-refresh",
+		Name:  "some-pipeline",
+		Kind:  itemKindFinished,
+	}
+	m, _ = m.Update(refreshMsg)
+
+	assert.False(t, m.issueShowPipeline,
+		"pipeline list refresh must not flip issueShowPipeline to true")
+}
+
+func TestContentModel_IssueListPipelineSelectionShowsPipelineDetail(t *testing.T) {
+	// When the user selects a pipeline child in the issue list,
+	// issueShowPipeline should be set to true.
+	m := newTestContentModel(t)
+	m.currentView = ViewIssues
+	m.issueShowPipeline = false
+
+	// Simulate a PipelineSelectedMsg from the issue list (FromIssueList is true).
+	issueMsg := PipelineSelectedMsg{
+		RunID:         "run-issue",
+		Name:          "child-pipeline",
+		Kind:          itemKindRunning,
+		FromIssueList: true,
+	}
+	m, _ = m.Update(issueMsg)
+
+	assert.True(t, m.issueShowPipeline,
+		"issue list pipeline selection should show pipeline detail")
+}
