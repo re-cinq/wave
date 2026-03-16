@@ -10,8 +10,8 @@ func TestLoadDataset(t *testing.T) {
 	t.Run("valid JSONL", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "tasks.jsonl")
-		content := `{"instance_id":"task-1","repo":"foo/bar","version":"v1","problem_statement":"Fix the bug","patch":"diff","test_cmd":"go test"}
-{"instance_id":"task-2","repo":"baz/qux","version":"v2","problem_statement":"Add feature","patch":"diff2","test_cmd":"npm test"}
+		content := `{"instance_id":"task-1","repo":"foo/bar","base_commit":"abc123","version":"v1","problem_statement":"Fix the bug","patch":"diff","test_cmd":"go test"}
+{"instance_id":"task-2","repo":"baz/qux","base_commit":"def456","version":"v2","problem_statement":"Add feature","patch":"diff2","test_cmd":"npm test"}
 `
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
@@ -99,7 +99,7 @@ func TestLoadDataset(t *testing.T) {
 func TestLoadSWEBenchLite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "swe-bench-lite.jsonl")
-	content := `{"instance_id":"django__django-16379","repo":"django/django","version":"5.0","problem_statement":"QuerySet.only() after select_related() crash","patch":"--- a/file.py\n+++ b/file.py","test_cmd":"python -m pytest tests/"}
+	content := `{"instance_id":"django__django-16379","repo":"django/django","base_commit":"a1b2c3","version":"5.0","problem_statement":"QuerySet.only() after select_related() crash","patch":"--- a/file.py\n+++ b/file.py","test_cmd":"python -m pytest tests/"}
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)

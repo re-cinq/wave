@@ -27,6 +27,72 @@
           uv         # Python package manager for skill installation
         ];
 
+        # SWE-bench dataset fetcher — downloads from HuggingFace datasets viewer API.
+        # Pure curl+jq, no Python/numpy needed — works inside bwrap sandbox.
+        benchFetchScript = pkgs.writeShellScriptBin "wave-bench-fetch" ''
+          set -euo pipefail
+          DATASET="''${1:-princeton-nlp/SWE-bench_Lite}"
+          SPLIT="''${2:-test}"
+          OUTDIR=".wave/bench/datasets"
+          mkdir -p "$OUTDIR"
+
+          SLUG="$(echo "$DATASET" | tr '/' '_')"
+          OUTFILE="$OUTDIR/$SLUG.jsonl"
+
+          if [ -f "$OUTFILE" ]; then
+            LINES=$(wc -l < "$OUTFILE")
+            echo "Dataset already exists: $OUTFILE ($LINES tasks)"
+            echo "Delete it first to re-download."
+            exit 0
+          fi
+
+          echo "Fetching $DATASET (split=$SPLIT) via HuggingFace API..."
+
+          # The datasets viewer API returns paginated JSON. Fetch all rows.
+          API="https://datasets-server.huggingface.co"
+          OFFSET=0
+          LENGTH=100
+          TOTAL=""
+          TMPFILE=$(mktemp)
+          trap 'rm -f "$TMPFILE"' EXIT
+
+          while true; do
+            RESPONSE=$(${pkgs.curl}/bin/curl -sS \
+              "$API/rows?dataset=$DATASET&config=default&split=$SPLIT&offset=$OFFSET&length=$LENGTH")
+
+            # Check for error
+            ERROR=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.error // empty')
+            if [ -n "$ERROR" ]; then
+              echo "API error: $ERROR" >&2
+              rm -f "$TMPFILE"
+              exit 1
+            fi
+
+            # Extract rows and append as JSONL
+            echo "$RESPONSE" | ${pkgs.jq}/bin/jq -c '.rows[].row' >> "$TMPFILE"
+
+            # Get total on first request
+            if [ -z "$TOTAL" ]; then
+              TOTAL=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.num_rows_total')
+              echo "Total rows: $TOTAL"
+            fi
+
+            # Count rows returned in this batch
+            BATCH=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq '.rows | length')
+            OFFSET=$((OFFSET + BATCH))
+
+            echo "  fetched $OFFSET / $TOTAL"
+
+            if [ "$BATCH" -lt "$LENGTH" ] || [ "$OFFSET" -ge "$TOTAL" ]; then
+              break
+            fi
+          done
+
+          mv "$TMPFILE" "$OUTFILE"
+          LINES=$(wc -l < "$OUTFILE")
+          echo "Wrote $LINES tasks to $OUTFILE"
+        '';
+
         # Bubblewrap sandbox wrapper — isolates the entire dev session
         sandboxScript = pkgs.writeShellScriptBin "wave-sandbox" ''
           PROJECT_DIR="''${WAVE_PROJECT_DIR:-$PWD}"
@@ -132,7 +198,7 @@
         devShells = {
           # Default: sandboxed on Linux, unsandboxed on macOS (bwrap needs namespaces)
           default = pkgs.mkShell {
-            buildInputs = commonPackages ++ [ sandboxScript ];
+            buildInputs = commonPackages ++ [ sandboxScript benchFetchScript ];
             shellHook = ''
               echo ""
               echo "  ╦ ╦╔═╗╦  ╦╔═╗"
@@ -191,7 +257,7 @@ WAVE_BASHRC
 
           # Escape hatch: no sandbox (also used on macOS)
           yolo = pkgs.mkShell {
-            buildInputs = commonPackages;
+            buildInputs = commonPackages ++ [ benchFetchScript ];
             shellHook = ''
               echo ""
               echo "  ╦ ╦╔═╗╦  ╦╔═╗"
