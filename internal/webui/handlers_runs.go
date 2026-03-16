@@ -271,26 +271,6 @@ func runToSummary(r state.RunRecord) RunSummary {
 	return summary
 }
 
-func stepProgressToDetail(sp state.StepProgressRecord, artifacts []ArtifactSummary) StepDetail {
-	d := StepDetail{
-		StepID:     sp.StepID,
-		Persona:    sp.Persona,
-		State:      sp.State,
-		Progress:   sp.Progress,
-		Action:     sp.CurrentAction,
-		StartedAt:  sp.StartedAt,
-		TokensUsed: sp.TokensUsed,
-		Artifacts:  artifacts,
-	}
-
-	if sp.StartedAt != nil {
-		dur := time.Since(*sp.StartedAt)
-		d.Duration = formatDurationValue(dur)
-	}
-
-	return d
-}
-
 // buildStepDetails derives step details from the event_log table combined with
 // the pipeline definition. We use events rather than step_state because the
 // step_state table has a unique constraint on step_id alone (not per-pipeline),
@@ -467,11 +447,11 @@ func listPipelineNames() []string {
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }

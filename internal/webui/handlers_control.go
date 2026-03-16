@@ -30,7 +30,9 @@ func (l *loggingEmitter) Emit(ev event.Event) {
 
 	// Only log meaningful events to the database — skip empty heartbeat ticks
 	if l.store != nil && !isHeartbeat(ev) {
-		l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs)
+		if err := l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs); err != nil {
+			log.Printf("Warning: failed to log event for run %s: %v", l.runID, err)
+		}
 	}
 }
 
@@ -104,7 +106,9 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 		}()
 
 		// Update to running
-		s.rwStore.UpdateRunStatus(runID, "running", "", 0)
+		if err := s.rwStore.UpdateRunStatus(runID, "running", "", 0); err != nil {
+			log.Printf("Warning: failed to update run %s to running: %v", runID, err)
+		}
 
 		m := s.manifest
 		if m == nil {
@@ -116,9 +120,13 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 		tokens := executor.GetTotalTokens()
 		if execErr != nil {
 			log.Printf("Pipeline %s (%s) failed: %v", pipelineName, runID, execErr)
-			s.rwStore.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
+			if err := s.rwStore.UpdateRunStatus(runID, "failed", execErr.Error(), tokens); err != nil {
+				log.Printf("Warning: failed to update run %s to failed: %v", runID, err)
+			}
 		} else {
-			s.rwStore.UpdateRunStatus(runID, "completed", "", tokens)
+			if err := s.rwStore.UpdateRunStatus(runID, "completed", "", tokens); err != nil {
+				log.Printf("Warning: failed to update run %s to completed: %v", runID, err)
+			}
 		}
 	}()
 }
@@ -173,7 +181,7 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 
 	var req CancelRunRequest
 	if r.Body != nil {
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req) // best-effort; defaults are fine
 	}
 
 	// Check run exists and is cancellable
