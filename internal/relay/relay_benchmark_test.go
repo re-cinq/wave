@@ -39,18 +39,18 @@ func BenchmarkRelayMonitor_ShouldCompactWithWindow(b *testing.B) {
 	}
 }
 
-func BenchmarkRelayMonitor_GetTokenCount_Small(b *testing.B) {
+func BenchmarkRelayMonitor_getTokenCount_Small(b *testing.B) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 	text := "This is a small text with just a few words."
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.GetTokenCount(text)
+		m.getTokenCount(text)
 	}
 }
 
-func BenchmarkRelayMonitor_GetTokenCount_Large(b *testing.B) {
+func BenchmarkRelayMonitor_getTokenCount_Large(b *testing.B) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 	// Generate a large text (10KB)
@@ -58,11 +58,11 @@ func BenchmarkRelayMonitor_GetTokenCount_Large(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.GetTokenCount(text)
+		m.getTokenCount(text)
 	}
 }
 
-func BenchmarkRelayMonitor_GetTokenCount_Huge(b *testing.B) {
+func BenchmarkRelayMonitor_getTokenCount_Huge(b *testing.B) {
 	adapter := &mockCompactionAdapter{}
 	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 	// Generate a huge text (1MB)
@@ -70,7 +70,7 @@ func BenchmarkRelayMonitor_GetTokenCount_Huge(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.GetTokenCount(text)
+		m.getTokenCount(text)
 	}
 }
 
@@ -146,7 +146,7 @@ Decision about deployment
 	}
 }
 
-func BenchmarkValidateConfig(b *testing.B) {
+func Benchmark_validateConfig(b *testing.B) {
 	cfg := RelayMonitorConfig{
 		DefaultThreshold:   80,
 		MinTokensToCompact: 1000,
@@ -155,7 +155,7 @@ func BenchmarkValidateConfig(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ValidateConfig(cfg)
+		validateConfig(cfg)
 	}
 }
 

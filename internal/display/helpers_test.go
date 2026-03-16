@@ -35,28 +35,6 @@ func TestFormatTokenCount(t *testing.T) {
 	}
 }
 
-func TestFormatFileCount(t *testing.T) {
-	tests := []struct {
-		name  string
-		files int
-		want  string
-	}{
-		{"zero", 0, "0 files"},
-		{"one", 1, "1 file"},
-		{"two", 2, "2 files"},
-		{"many", 100, "100 files"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := FormatFileCount(tt.files)
-			if got != tt.want {
-				t.Errorf("FormatFileCount(%d) = %q, want %q", tt.files, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestFormatDuration_PackageLevel(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -97,12 +75,6 @@ func BenchmarkFormatTokenCount_Small(b *testing.B) {
 func BenchmarkFormatTokenCount_Large(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		FormatTokenCount(150000)
-	}
-}
-
-func BenchmarkFormatFileCount(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		FormatFileCount(42)
 	}
 }
 
@@ -277,38 +249,6 @@ func BenchmarkDisplayConfig_Validate(b *testing.B) {
 			AnimationEnabled: true,
 		}
 		config.Validate()
-	}
-}
-
-func BenchmarkProgressAnimation_Render(b *testing.B) {
-	pa := NewProgressAnimation("Loading", 100, 40)
-	pa.Start()
-	defer pa.Stop()
-	pa.SetProgress(50)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		pa.Render()
-	}
-}
-
-func BenchmarkMultiSpinner_Current(b *testing.B) {
-	ms := NewMultiSpinner()
-	ms.Add("test", AnimationSpinner)
-	ms.Start("test")
-	defer ms.Stop("test")
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ms.Current("test")
-	}
-}
-
-func BenchmarkLoadingIndicator_Render(b *testing.B) {
-	li := NewLoadingIndicator("Loading...")
-	li.Start()
-	defer li.Stop()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		li.Render()
 	}
 }
 

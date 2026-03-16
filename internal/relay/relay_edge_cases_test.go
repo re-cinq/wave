@@ -455,7 +455,7 @@ But no proper ## sections.
 	}
 }
 
-func TestValidateConfig_ExtendedEdgeCases(t *testing.T) {
+func Test_validateConfig_ExtendedEdgeCases(t *testing.T) {
 	testCases := []struct {
 		name        string
 		config      RelayMonitorConfig
@@ -508,7 +508,7 @@ func TestValidateConfig_ExtendedEdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateConfig(tc.config)
+			err := validateConfig(tc.config)
 
 			if tc.expectError && err == nil {
 				t.Errorf("%s: expected error but got none", tc.description)
@@ -526,27 +526,27 @@ func TestErrorClassification_ComplexCases(t *testing.T) {
 	wrappedTwice := fmt.Errorf("level 2: %w", wrappedOnce)
 	wrappedThrice := fmt.Errorf("level 3: %w", wrappedTwice)
 
-	if !IsCompactionError(wrappedThrice) {
+	if !isCompactionError(wrappedThrice) {
 		t.Error("should detect deeply wrapped compaction error")
 	}
 
 	// Test error types that are both compaction and checkpoint errors
 	mixedError := fmt.Errorf("mixed: %w and %w", ErrCompactionFailed, ErrWriteCheckpointFailed)
 
-	if !IsCompactionError(mixedError) {
+	if !isCompactionError(mixedError) {
 		t.Error("should detect compaction error in mixed error")
 	}
 
-	if !IsCheckpointError(mixedError) {
+	if !isCheckpointError(mixedError) {
 		t.Error("should detect checkpoint error in mixed error")
 	}
 
 	// Test nil cases
-	if IsCompactionError(nil) {
+	if isCompactionError(nil) {
 		t.Error("nil should not be a compaction error")
 	}
 
-	if IsCheckpointError(nil) {
+	if isCheckpointError(nil) {
 		t.Error("nil should not be a checkpoint error")
 	}
 }
