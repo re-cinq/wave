@@ -95,14 +95,21 @@ type TestConfigStep struct{}
 func (s *TestConfigStep) Name() string { return "Test Command Configuration" }
 
 func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
-	// Detect project type
-	detected := detectProjectType()
+	// Detect project flavour
+	cwd, _ := os.Getwd()
+	flavour := DetectFlavour(cwd)
 
-	testCmd := getStringDefault(detected, "test_command", "")
-	lintCmd := getStringDefault(detected, "lint_command", "")
-	buildCmd := getStringDefault(detected, "build_command", "")
-	language := getStringDefault(detected, "language", "")
-	sourceGlob := getStringDefault(detected, "source_glob", "")
+	var testCmd, lintCmd, buildCmd, formatCmd, language, sourceGlob, flavourName, skill string
+	if flavour != nil {
+		testCmd = flavour.TestCommand
+		lintCmd = flavour.LintCommand
+		buildCmd = flavour.BuildCommand
+		formatCmd = flavour.FormatCommand
+		language = flavour.Language
+		sourceGlob = flavour.SourceGlob
+		flavourName = flavour.Flavour
+		skill = flavour.Skill
+	}
 
 	// Pre-fill from existing manifest if reconfiguring
 	if cfg.Reconfigure && cfg.Existing != nil && cfg.Existing.Project != nil {
@@ -115,11 +122,20 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		if cfg.Existing.Project.BuildCommand != "" {
 			buildCmd = cfg.Existing.Project.BuildCommand
 		}
+		if cfg.Existing.Project.FormatCommand != "" {
+			formatCmd = cfg.Existing.Project.FormatCommand
+		}
 		if cfg.Existing.Project.Language != "" {
 			language = cfg.Existing.Project.Language
 		}
 		if cfg.Existing.Project.SourceGlob != "" {
 			sourceGlob = cfg.Existing.Project.SourceGlob
+		}
+		if cfg.Existing.Project.Flavour != "" {
+			flavourName = cfg.Existing.Project.Flavour
+		}
+		if cfg.Existing.Project.Skill != "" {
+			skill = cfg.Existing.Project.Skill
 		}
 	}
 
@@ -152,71 +168,16 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 
 	return &StepResult{
 		Data: map[string]interface{}{
-			"test_command":  testCmd,
-			"lint_command":  lintCmd,
-			"build_command": buildCmd,
-			"language":      language,
-			"source_glob":   sourceGlob,
+			"test_command":   testCmd,
+			"lint_command":   lintCmd,
+			"build_command":  buildCmd,
+			"format_command": formatCmd,
+			"language":       language,
+			"source_glob":    sourceGlob,
+			"flavour":        flavourName,
+			"skill":          skill,
 		},
 	}, nil
-}
-
-// detectProjectType probes the current directory for project type markers.
-func detectProjectType() map[string]string {
-	fileExists := func(name string) bool {
-		_, err := os.Stat(name)
-		return err == nil
-	}
-
-	switch {
-	case fileExists("go.mod"):
-		return map[string]string{
-			"language":      "go",
-			"test_command":  "go test ./...",
-			"lint_command":  "go vet ./...",
-			"build_command": "go build ./...",
-			"source_glob":   "*.go",
-		}
-	case fileExists("deno.json") || fileExists("deno.jsonc"):
-		return map[string]string{
-			"language":      "typescript",
-			"test_command":  "deno test",
-			"lint_command":  "deno lint",
-			"build_command": "deno compile",
-			"source_glob":   "*.{ts,tsx}",
-		}
-	case fileExists("package.json"):
-		return map[string]string{
-			"language":     "javascript",
-			"test_command": "npm test",
-			"lint_command": "npm run lint",
-			"source_glob":  "*.{js,jsx}",
-		}
-	case fileExists("Cargo.toml"):
-		return map[string]string{
-			"language":      "rust",
-			"test_command":  "cargo test",
-			"lint_command":  "cargo clippy",
-			"build_command": "cargo build",
-			"source_glob":   "*.rs",
-		}
-	case fileExists("pyproject.toml") || fileExists("setup.py"):
-		return map[string]string{
-			"language":     "python",
-			"test_command": "pytest",
-			"lint_command": "ruff check .",
-			"source_glob":  "*.py",
-		}
-	}
-
-	return map[string]string{}
-}
-
-func getStringDefault(m map[string]string, key, fallback string) string {
-	if v, ok := m[key]; ok && v != "" {
-		return v
-	}
-	return fallback
 }
 
 // --- PipelineSelectionStep ---

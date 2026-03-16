@@ -5,7 +5,7 @@ metadata:
   release: true
 
 skills:
-  - golang
+  - "{{ project.skill }}"
 
 input:
   source: cli
