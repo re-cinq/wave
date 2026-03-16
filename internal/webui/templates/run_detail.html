@@ -93,5 +93,69 @@ var runStatus = '{{.Run.Status}}';
 if (runStatus === 'running' || runStatus === 'pending') {
     connectSSE('{{.Run.RunID}}');
 }
+
+// toggleArtifact fetches and displays artifact content inline below its link.
+function toggleArtifact(link) {
+    var container = link.nextElementSibling;
+    while (container && !container.classList.contains('artifact-inline')) {
+        container = container.nextElementSibling;
+    }
+    if (!container) return;
+
+    var expanded = link.getAttribute('aria-expanded') === 'true';
+    if (expanded) {
+        container.hidden = true;
+        link.setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    var runID   = link.dataset.runId;
+    var stepID  = link.dataset.stepId;
+    var name    = link.dataset.artifactName;
+    var url     = '/api/runs/' + encodeURIComponent(runID) +
+                  '/artifacts/' + encodeURIComponent(stepID) +
+                  '/' + encodeURIComponent(name);
+
+    link.setAttribute('aria-expanded', 'true');
+    container.hidden = false;
+    container.innerHTML = '<span class="artifact-loading">Loading\u2026</span>';
+
+    fetch(url)
+        .then(function(resp) {
+            if (!resp.ok) {
+                return resp.json().then(function(e) { throw new Error(e.error || resp.statusText); });
+            }
+            return resp.json();
+        })
+        .then(function(data) {
+            var meta = data.metadata;
+            var badges = '';
+            if (meta.truncated) badges += '<span class="badge status-warning">Truncated</span> ';
+            var html =
+                '<div class="artifact-viewer">' +
+                  '<div class="artifact-header">' +
+                    '<strong>' + escapeHTML(meta.name) + '</strong>' +
+                    '<span class="artifact-meta"> ' + escapeHTML(meta.mime_type) + ' | ' + meta.size_bytes + ' bytes</span>' +
+                    ' ' + badges +
+                  '</div>' +
+                  (meta.truncated
+                    ? '<div class="alert alert-truncation"><strong>Notice:</strong> This artifact exceeds 100\u202fKB and has been truncated. <a href="' + url + '?raw=true">Download full artifact</a>.</div>'
+                    : '') +
+                  '<pre class="artifact-content"><code>' + data.content + '</code></pre>' +
+                '</div>';
+            container.innerHTML = html;
+        })
+        .catch(function(err) {
+            container.innerHTML = '<div class="step-error">Failed to load artifact: ' + escapeHTML(String(err)) + '</div>';
+        });
+}
+
+function escapeHTML(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 </script>
 {{end}}

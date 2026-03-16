@@ -343,6 +343,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 	details := make([]StepDetail, 0, len(p.Steps))
 	for _, step := range p.Steps {
 		sd := StepDetail{
+			RunID:   runID,
 			StepID:  step.ID,
 			Persona: step.Persona,
 			State:   "pending",

@@ -22,7 +22,16 @@
             <strong>Artifacts:</strong>
             <ul>
                 {{range .Artifacts}}
-                <li>{{.Name}} <span class="artifact-size">({{.SizeBytes}} bytes)</span></li>
+                <li>
+                    <a href="#" class="artifact-link"
+                       data-run-id="{{$.RunID}}"
+                       data-step-id="{{$.StepID}}"
+                       data-artifact-name="{{.Name}}"
+                       onclick="toggleArtifact(this); return false;"
+                       aria-expanded="false">{{.Name}}</a>
+                    <span class="artifact-size">({{.SizeBytes}} bytes)</span>
+                    <div class="artifact-inline" hidden></div>
+                </li>
                 {{end}}
             </ul>
         </div>
