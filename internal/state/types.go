@@ -26,6 +26,9 @@ type ListRunsOptions struct {
 	OlderThan    time.Duration
 	Limit        int
 	Tags         []string // Filter runs that have any of these tags
+	BeforeUnix   int64    // Cursor: only return runs started before this unix timestamp
+	BeforeRunID  string   // Cursor: tie-break for runs at the same timestamp
+	SinceUnix    int64    // Only return runs started after this unix timestamp
 }
 
 // LogRecord holds an event log entry.
