@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -27,7 +28,47 @@ type MatrixResult struct {
 	Error         error
 	Skipped    bool
 	SkipReason string
-	ItemID     string
+	ItemID       string
+	OutputBranch string
+}
+
+// TierContext tracks accumulated branch state during stacked tier execution.
+// Maps item IDs to their output branch names for downstream tier resolution.
+type TierContext struct {
+	outputBranches map[string]string // itemID -> output branch name
+}
+
+// NewTierContext creates a new TierContext.
+func NewTierContext() *TierContext {
+	return &TierContext{
+		outputBranches: make(map[string]string),
+	}
+}
+
+// SetBranch records the output branch for a completed item.
+func (tc *TierContext) SetBranch(itemID, branch string) {
+	tc.outputBranches[itemID] = branch
+}
+
+// GetBranch returns the output branch for an item, if available.
+func (tc *TierContext) GetBranch(itemID string) (string, bool) {
+	branch, ok := tc.outputBranches[itemID]
+	return branch, ok
+}
+
+// ResolveBranch returns the parent branches for a given list of dependency item IDs.
+func (tc *TierContext) ResolveBranch(deps []string) ([]string, error) {
+	var branches []string
+	for _, dep := range deps {
+		branch, ok := tc.outputBranches[dep]
+		if !ok {
+			continue // Parent has no output branch — will use default base
+		}
+		if branch != "" {
+			branches = append(branches, branch)
+		}
+	}
+	return branches, nil
 }
 
 // MatrixExecutor handles fan-out execution for matrix strategy steps.
@@ -656,6 +697,31 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 	failed := make(map[string]bool)     // IDs of items that failed
 	succeeded := make(map[string]bool)   // IDs of items that succeeded
 
+	// Initialize stacking context when stacked mode is active with dependency tiers
+	var tierCtx *TierContext
+	var cleanupBranches []string
+	stacked := strategy.Stacked && strategy.DependencyKey != ""
+	if stacked {
+		tierCtx = NewTierContext()
+	}
+
+	// Schedule cleanup of integration branches on exit
+	if stacked {
+		defer func() {
+			if len(cleanupBranches) > 0 {
+				// Find repo root from execution context
+				repoRoot := "."
+				for _, info := range execution.WorktreePaths {
+					if info.RepoRoot != "" {
+						repoRoot = info.RepoRoot
+						break
+					}
+				}
+				m.cleanupIntegrationBranches(repoRoot, cleanupBranches)
+			}
+		}()
+	}
+
 	for tierIdx, tier := range tiers {
 		m.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -695,6 +761,79 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 			continue
 		}
 
+		// Resolve stacked base branches for this tier's items
+		stackedBases := make(map[string]string) // itemID -> resolved base branch
+		if stacked && tierIdx > 0 {
+			for _, id := range runnable {
+				itemDeps := deps[id]
+				parentBranches, _ := tierCtx.ResolveBranch(itemDeps)
+
+				if len(parentBranches) == 1 {
+					stackedBases[id] = parentBranches[0]
+					m.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "matrix_stacked_branch_resolved",
+						Message:    fmt.Sprintf("Item %q will branch from parent branch %s", id, parentBranches[0]),
+					})
+				} else if len(parentBranches) > 1 {
+					// Multi-parent: create integration branch
+					repoRoot := "."
+					for _, info := range execution.WorktreePaths {
+						if info.RepoRoot != "" {
+							repoRoot = info.RepoRoot
+							break
+						}
+					}
+					integrationBranch, err := m.createIntegrationBranch(repoRoot, pipelineID, id, parentBranches)
+					if err != nil {
+						// Mark this item as failed due to merge conflict
+						idx := idToIndex[id]
+						allResults = append(allResults, MatrixResult{
+							ItemIndex: idx,
+							Item:      items[idx],
+							ItemID:    id,
+							Error:     fmt.Errorf("failed to create integration branch for item %q: %w", id, err),
+						})
+						failed[id] = true
+						continue
+					}
+					stackedBases[id] = integrationBranch
+					cleanupBranches = append(cleanupBranches, integrationBranch)
+					m.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "matrix_integration_branch_created",
+						Message:    fmt.Sprintf("Created integration branch %s for item %q from %d parents", integrationBranch, id, len(parentBranches)),
+					})
+				} else if len(parentBranches) == 0 && len(itemDeps) > 0 {
+					// Parent had no output branch — use default base (graceful fallback)
+					m.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "matrix_stacked_branch_resolved",
+						Message:    fmt.Sprintf("Item %q: parent(s) have no output branch, using default base", id),
+					})
+				}
+			}
+
+			// Remove items that failed integration branch creation from runnable
+			var stillRunnable []string
+			for _, id := range runnable {
+				if !failed[id] {
+					stillRunnable = append(stillRunnable, id)
+				}
+			}
+			runnable = stillRunnable
+
+			if len(runnable) == 0 {
+				continue
+			}
+		}
+
 		// Execute runnable items in parallel with concurrency limit
 		g, gctx := errgroup.WithContext(ctx)
 		concurrency := maxConcurrency
@@ -711,8 +850,14 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 			itemIndex := idToIndex[itemID]
 			itemValue := items[itemIndex]
 
+			// Wrap worker to inject stacked base branch if available
+			effectiveWorker := worker
+			if baseBranch, ok := stackedBases[itemID]; ok && baseBranch != "" {
+				effectiveWorker = m.wrapWorkerWithBaseBranch(worker, baseBranch)
+			}
+
 			g.Go(func() error {
-				result := worker(gctx, execution, step, itemIndex, itemValue)
+				result := effectiveWorker(gctx, execution, step, itemIndex, itemValue)
 				result.ItemID = itemID
 
 				mu.Lock()
@@ -726,13 +871,16 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 
 		_ = g.Wait()
 
-		// Record results and track failures
+		// Record results and track failures; update tier context with output branches
 		for _, result := range tierResults {
 			allResults = append(allResults, result)
 			if result.Error != nil {
 				failed[result.ItemID] = true
 			} else {
 				succeeded[result.ItemID] = true
+				if stacked && result.OutputBranch != "" {
+					tierCtx.SetBranch(result.ItemID, result.OutputBranch)
+				}
 			}
 		}
 	}
@@ -956,6 +1104,11 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 		// Create child executor with independent state
 		childExecutor := m.executor.NewChildExecutor()
 
+		// Apply stacked base branch override from context (set by wrapWorkerWithBaseBranch)
+		if baseBranch := StackedBaseBranchFromContext(ctx); baseBranch != "" {
+			childExecutor.stackedBaseBranch = baseBranch
+		}
+
 		// Execute the child pipeline
 		if err := childExecutor.Execute(ctx, childPipeline, execution.Manifest, input); err != nil {
 			result.Error = err
@@ -969,6 +1122,16 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 			return result
 		}
 
+		// Capture output branch from child executor's worktree paths (FR-007)
+		if exec := childExecutor.LastExecution(); exec != nil {
+			exec.mu.Lock()
+			for branch := range exec.WorktreePaths {
+				result.OutputBranch = branch
+				break // Use the first worktree branch found
+			}
+			exec.mu.Unlock()
+		}
+
 		m.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
@@ -978,6 +1141,88 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 		})
 
 		return result
+	}
+}
+
+// stackedBaseBranchKey is the context key for stacked matrix base branch override.
+type stackedBaseBranchKey struct{}
+
+// wrapWorkerWithBaseBranch wraps a matrixWorkerFunc to inject the stacked base branch
+// into the context. The child executor reads this via context.Value during worktree setup.
+func (m *MatrixExecutor) wrapWorkerWithBaseBranch(worker matrixWorkerFunc, baseBranch string) matrixWorkerFunc {
+	return func(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int, item interface{}) MatrixResult {
+		ctx = context.WithValue(ctx, stackedBaseBranchKey{}, baseBranch)
+		return worker(ctx, execution, step, itemIndex, item)
+	}
+}
+
+// StackedBaseBranchFromContext extracts the stacked base branch override from context.
+func StackedBaseBranchFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(stackedBaseBranchKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// createIntegrationBranch creates a temporary branch that merges multiple parent branches.
+// Returns the integration branch name and an error if any merge conflicts occur.
+func (m *MatrixExecutor) createIntegrationBranch(repoRoot, pipelineID, itemID string, parentBranches []string) (string, error) {
+	if len(parentBranches) == 0 {
+		return "", fmt.Errorf("no parent branches to merge")
+	}
+
+	branchName := fmt.Sprintf("integration/%s/%s", pipelineID, itemID)
+
+	// Create branch from first parent
+	cmd := exec.Command("git", "checkout", "-b", branchName, parentBranches[0])
+	cmd.Dir = repoRoot
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to create integration branch from %s: %s: %w", parentBranches[0], string(output), err)
+	}
+
+	// Merge each additional parent
+	for i := 1; i < len(parentBranches); i++ {
+		cmd := exec.Command("git", "merge", parentBranches[i], "--no-edit")
+		cmd.Dir = repoRoot
+		if output, err := cmd.CombinedOutput(); err != nil {
+			// Abort the failed merge
+			abortCmd := exec.Command("git", "merge", "--abort")
+			abortCmd.Dir = repoRoot
+			_ = abortCmd.Run()
+
+			// Clean up the integration branch
+			checkoutCmd := exec.Command("git", "checkout", parentBranches[0])
+			checkoutCmd.Dir = repoRoot
+			_ = checkoutCmd.Run()
+
+			deleteCmd := exec.Command("git", "branch", "-D", branchName)
+			deleteCmd.Dir = repoRoot
+			_ = deleteCmd.Run()
+
+			return "", fmt.Errorf("merge conflict between %s and %s: %s: %w", parentBranches[i-1], parentBranches[i], string(output), err)
+		}
+	}
+
+	// Switch back to original branch so we don't leave the repo on the integration branch
+	cmd = exec.Command("git", "checkout", "-")
+	cmd.Dir = repoRoot
+	_ = cmd.Run()
+
+	return branchName, nil
+}
+
+// cleanupIntegrationBranches removes temporary integration branches.
+func (m *MatrixExecutor) cleanupIntegrationBranches(repoRoot string, branches []string) {
+	for _, branch := range branches {
+		cmd := exec.Command("git", "branch", "-D", branch)
+		cmd.Dir = repoRoot
+		if output, err := cmd.CombinedOutput(); err != nil {
+			m.emit(event.Event{
+				Timestamp: time.Now(),
+				State:     "matrix_cleanup_warning",
+				Message:   fmt.Sprintf("Failed to cleanup integration branch %s: %s: %v", branch, string(output), err),
+			})
+		}
 	}
 }
 

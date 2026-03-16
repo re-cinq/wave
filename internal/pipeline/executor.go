@@ -82,6 +82,10 @@ type DefaultPipelineExecutor struct {
 	stepFilter *StepFilter
 	// Skill store for DirectoryStore-based skill provisioning
 	skillStore skill.Store
+	// Most recent execution for child state access
+	lastExecution *PipelineExecution
+	// Base branch override for stacked matrix execution (set by parent matrix executor)
+	stackedBaseBranch string
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -226,6 +230,13 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	}
 }
 
+// LastExecution returns the most recently executed pipeline's execution state.
+func (e *DefaultPipelineExecutor) LastExecution() *PipelineExecution {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.lastExecution
+}
+
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
@@ -362,6 +373,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	e.mu.Lock()
 	e.pipelines[pipelineID] = execution
+	e.lastExecution = execution
 	e.mu.Unlock()
 
 	if e.store != nil {
@@ -1672,6 +1684,10 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		base := step.Workspace.Base
 		if execution.Context != nil && base != "" {
 			base = execution.Context.ResolvePlaceholders(base)
+		}
+		// Stacked matrix execution: override base branch from parent tier
+		if e.stackedBaseBranch != "" && base == "" {
+			base = e.stackedBaseBranch
 		}
 
 		if branch == "" && base == "" {

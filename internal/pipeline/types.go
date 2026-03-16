@@ -308,6 +308,7 @@ type MatrixStrategy struct {
 	DependencyKey  string `yaml:"dependency_key,omitempty"`
 	ChildPipeline  string `yaml:"child_pipeline,omitempty"`
 	InputTemplate  string `yaml:"input_template,omitempty"`
+	Stacked        bool   `yaml:"stacked,omitempty"`
 }
 
 type ValidationRule struct {
