@@ -1105,6 +1105,22 @@ func createInitialCommit(w io.Writer, outputPath string) error {
 
 	fmt.Fprintf(w, "  Creating initial commit...\n")
 
+	// Ensure git user is configured (may not exist in fresh repos / CI).
+	for _, kv := range [][2]string{
+		{"user.name", "wave"},
+		{"user.email", "wave@localhost"},
+	} {
+		check := exec.Command("git", "config", kv[0])
+		check.Stdout = io.Discard
+		check.Stderr = io.Discard
+		if check.Run() != nil {
+			cfg := exec.Command("git", "config", kv[0], kv[1])
+			cfg.Stdout = io.Discard
+			cfg.Stderr = io.Discard
+			_ = cfg.Run()
+		}
+	}
+
 	// Stage wave files specifically (not git add -A)
 	add := exec.Command("git", "add", outputPath, ".wave/")
 	add.Stdout = io.Discard
