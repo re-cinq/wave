@@ -115,6 +115,21 @@ type PaginationCursor struct {
 	RunID     string `json:"id"`
 }
 
+// SkillSummary is a summary of a skill for the API.
+type SkillSummary struct {
+	Name          string   `json:"name"`
+	CommandsGlob  string   `json:"commands_glob,omitempty"`
+	CommandFiles  []string `json:"command_files,omitempty"`
+	InstallCmd    string   `json:"install_cmd,omitempty"`
+	CheckCmd      string   `json:"check_cmd,omitempty"`
+	PipelineUsage []string `json:"pipeline_usage,omitempty"`
+}
+
+// SkillListResponse is the JSON response for the skill list API.
+type SkillListResponse struct {
+	Skills []SkillSummary `json:"skills"`
+}
+
 // PersonaSummary is a summary of a persona for the API.
 type PersonaSummary struct {
 	Name         string   `json:"name"`
@@ -124,6 +139,7 @@ type PersonaSummary struct {
 	Temperature  float64  `json:"temperature"`
 	AllowedTools []string `json:"allowed_tools,omitempty"`
 	DeniedTools  []string `json:"denied_tools,omitempty"`
+	Skills       []string `json:"skills,omitempty"`
 }
 
 // PersonaListResponse is the JSON response for the persona list API.

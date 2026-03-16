@@ -27,6 +27,7 @@ var pageTemplates = []string{
 	"templates/personas.html",
 	"templates/pipelines.html",
 	"templates/contracts.html",
+	"templates/skills.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page
