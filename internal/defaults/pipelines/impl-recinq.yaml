@@ -438,6 +438,9 @@ steps:
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
+      compaction:
+        trigger: "token_limit_80%"
+        persona: summarizer
     output_artifacts:
       - name: result
         path: .wave/output/result.md
