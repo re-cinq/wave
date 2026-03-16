@@ -114,9 +114,11 @@ steps:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
-
         must_pass: false
         on_failure: retry
+      compaction:
+        trigger: "token_limit_80%"
+        persona: summarizer
 
   - id: verify
     persona: reviewer
