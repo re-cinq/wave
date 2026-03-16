@@ -183,6 +183,30 @@ func writeManifest(cfg WizardConfig, result *WizardResult) error {
 }
 
 
+// inferTokenScopes returns recommended token_scopes for a persona based on its permission profile.
+// Personas with Bash in their allowed tools are considered forge-interacting with write access.
+// Personas with only read-type tools get read-only scopes.
+// Returns nil if the persona has no forge-relevant tools.
+func inferTokenScopes(pcfg manifest.Persona) []string {
+	hasBash := false
+	hasReadTool := false
+	for _, tool := range pcfg.Permissions.AllowedTools {
+		switch tool {
+		case "Bash":
+			hasBash = true
+		case "Read", "Glob", "Grep":
+			hasReadTool = true
+		}
+	}
+	if hasBash {
+		return []string{"issues:read", "pulls:write", "repos:write"}
+	}
+	if hasReadTool {
+		return []string{"issues:read", "pulls:read"}
+	}
+	return nil
+}
+
 // buildManifest constructs a manifest map from wizard results.
 func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{} {
 	adapter := result.Adapter
@@ -291,6 +315,9 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 				entry["model"] = result.Model
 			} else if pcfg.Model != "" {
 				entry["model"] = pcfg.Model
+			}
+			if scopes := inferTokenScopes(pcfg); len(scopes) > 0 {
+				entry["token_scopes"] = scopes
 			}
 			personas[name] = entry
 		}
