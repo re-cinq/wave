@@ -160,6 +160,7 @@ func RunTUI(deps LaunchDependencies) error {
 		if token != "" {
 			ghClient = github.NewClient(github.ClientConfig{Token: token})
 			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, repoSlug)
+			cp.PRProvider = NewDefaultPRDataProvider(ghClient, repoSlug)
 		}
 	}
 

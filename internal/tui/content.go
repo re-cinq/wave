@@ -18,6 +18,7 @@ type ContentProviders struct {
 	SkillProvider    SkillDataProvider
 	HealthProvider   HealthDataProvider
 	IssueProvider    IssueDataProvider
+	PRProvider       PRDataProvider
 	SuggestProvider  SuggestDataProvider
 }
 
@@ -44,6 +45,8 @@ type ContentModel struct {
 	healthDetail   *HealthDetailModel
 	issueList      *IssueListModel
 	issueDetail    *IssueDetailModel
+	prList         *PRListModel
+	prDetail       *PRDetailModel
 	suggestList    *SuggestListModel
 	suggestDetail  *SuggestDetailModel
 
@@ -53,6 +56,7 @@ type ContentModel struct {
 	skillProvider    SkillDataProvider
 	healthProvider   HealthDataProvider
 	issueProvider    IssueDataProvider
+	prProvider       PRDataProvider
 	suggestProvider  SuggestDataProvider
 
 	// Compose mode (nil when inactive)
@@ -90,6 +94,7 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.skillProvider = p.SkillProvider
 		m.healthProvider = p.HealthProvider
 		m.issueProvider = p.IssueProvider
+		m.prProvider = p.PRProvider
 		m.suggestProvider = p.SuggestProvider
 	}
 
@@ -124,6 +129,8 @@ func (m ContentModel) IsFiltering() bool {
 		return m.skillList != nil && m.skillList.filtering
 	case ViewIssues:
 		return m.issueList != nil && m.issueList.filtering
+	case ViewPullRequests:
+		return m.prList != nil && m.prList.filtering
 	case ViewSuggest:
 		return m.suggestList != nil && m.suggestList.filtering
 	}
@@ -192,6 +199,12 @@ func (m *ContentModel) SetSize(w, h int) {
 	if m.issueDetail != nil {
 		m.issueDetail.SetSize(rightWidth, m.childHeight())
 	}
+	if m.prList != nil {
+		m.prList.SetSize(leftWidth, m.childHeight())
+	}
+	if m.prDetail != nil {
+		m.prDetail.SetSize(rightWidth, m.childHeight())
+	}
 	if m.suggestList != nil {
 		m.suggestList.SetSize(leftWidth, m.childHeight())
 	}
@@ -208,7 +221,7 @@ func (m *ContentModel) SetSize(w, h int) {
 
 // cycleView moves to the next view and returns init commands if the view was just created.
 func (m *ContentModel) cycleView() tea.Cmd {
-	m.currentView = (m.currentView + 1) % 7
+	m.currentView = (m.currentView + 1) % 8
 	m.focus = FocusPaneLeft
 
 	var initCmd tea.Cmd
@@ -310,6 +323,23 @@ func (m *ContentModel) cycleView() tea.Cmd {
 			m.issueDetail.SetFocused(false)
 		}
 
+	case ViewPullRequests:
+		if m.prList == nil && m.prProvider != nil {
+			pl := NewPRListModel(m.prProvider)
+			pl.SetSize(leftWidth, m.childHeight())
+			m.prList = &pl
+			pd := NewPRDetailModel()
+			pd.SetSize(rightWidth, m.childHeight())
+			m.prDetail = &pd
+			initCmd = m.prList.Init()
+		}
+		if m.prList != nil {
+			m.prList.SetFocused(true)
+		}
+		if m.prDetail != nil {
+			m.prDetail.SetFocused(false)
+		}
+
 	case ViewSuggest:
 		if m.suggestList == nil && m.suggestProvider != nil {
 			sl := NewSuggestListModel(m.suggestProvider)
@@ -351,7 +381,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, nil
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
-			m.currentView = (m.currentView + 5) % 7 // net effect: -1 after cycleView adds +1
+			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
 			cmd := m.cycleView()
 			return m, cmd
 		}
@@ -786,6 +816,30 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return FocusChangedMsg{Pane: FocusPaneLeft}
 		}
 		return m, tea.Batch(launchCmd, viewCmd, focusCmd)
+
+	case PRDataMsg:
+		if m.prList != nil {
+			var cmd tea.Cmd
+			*m.prList, cmd = m.prList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case PRSelectedMsg:
+		if m.prList != nil {
+			var listCmd tea.Cmd
+			*m.prList, listCmd = m.prList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.prDetail != nil && m.prList != nil {
+			if msg.Index >= 0 && msg.Index < len(m.prList.navigable) {
+				prIdx := m.prList.navigable[msg.Index]
+				m.prDetail.SetPR(&m.prList.prs[prIdx])
+			}
+		}
+		return m, tea.Batch(cmds...)
 
 	case SuggestDataMsg:
 		if m.suggestList != nil {
@@ -1280,6 +1334,13 @@ func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
 		} else if m.issueDetail != nil {
 			m.issueDetail.SetFocused(true)
 		}
+	case ViewPullRequests:
+		if m.prList != nil {
+			m.prList.SetFocused(false)
+		}
+		if m.prDetail != nil {
+			m.prDetail.SetFocused(true)
+		}
 	case ViewSuggest:
 		if m.suggestList != nil {
 			m.suggestList.SetFocused(false)
@@ -1334,6 +1395,13 @@ func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
 		} else if m.issueDetail != nil {
 			m.issueDetail.SetFocused(false)
 		}
+	case ViewPullRequests:
+		if m.prList != nil {
+			m.prList.SetFocused(true)
+		}
+		if m.prDetail != nil {
+			m.prDetail.SetFocused(false)
+		}
 	case ViewSuggest:
 		if m.suggestList != nil {
 			m.suggestList.SetFocused(true)
@@ -1381,6 +1449,12 @@ func (m ContentModel) routeToActiveList(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.issueList != nil {
 			var cmd tea.Cmd
 			*m.issueList, cmd = m.issueList.Update(msg)
+			return m, cmd
+		}
+	case ViewPullRequests:
+		if m.prList != nil {
+			var cmd tea.Cmd
+			*m.prList, cmd = m.prList.Update(msg)
 			return m, cmd
 		}
 	case ViewSuggest:
@@ -1433,6 +1507,12 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.issueDetail != nil {
 			var cmd tea.Cmd
 			*m.issueDetail, cmd = m.issueDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewPullRequests:
+		if m.prDetail != nil {
+			var cmd tea.Cmd
+			*m.prDetail, cmd = m.prDetail.Update(msg)
 			return m, cmd
 		}
 	case ViewSuggest:
@@ -1533,6 +1613,18 @@ func (m ContentModel) View() string {
 			rightView = m.issueDetail.View()
 		} else {
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select an issue to view details")
+		}
+
+	case ViewPullRequests:
+		if m.prList != nil {
+			leftView = m.prList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "No repository configured")
+		}
+		if m.prDetail != nil {
+			rightView = m.prDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a pull request to view details")
 		}
 
 	case ViewSuggest:
