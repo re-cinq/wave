@@ -1,0 +1,115 @@
+{{define "title"}} - Issues{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Issues</h1>
+</div>
+{{if .Message}}
+<div class="empty-state">
+    <p>{{.Message}}</p>
+</div>
+{{else if .Issues}}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Labels</th>
+                <th>Comments</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Issues}}
+            <tr>
+                <td><a href="{{.URL}}" target="_blank" rel="noopener">#{{.Number}}</a></td>
+                <td>{{.Title}}</td>
+                <td>{{.Author}}</td>
+                <td>{{range .Labels}}<span class="badge">{{.}}</span> {{end}}</td>
+                <td>{{.Comments}}</td>
+                <td>{{.CreatedAt}}</td>
+                <td>
+                    <button class="btn btn-sm launch-pipeline-btn" data-issue-url="{{.URL}}" data-issue-number="{{.Number}}">Launch Pipeline</button>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="empty-state">
+    <p>No open issues found.</p>
+</div>
+{{end}}
+
+<dialog id="pipeline-dialog" class="modal">
+    <form method="dialog">
+        <h3>Launch Pipeline for Issue <span id="dialog-issue-number"></span></h3>
+        <div class="form-group">
+            <label for="pipeline-select">Pipeline:</label>
+            <select id="pipeline-select" class="form-control">
+                <option value="">Loading pipelines...</option>
+            </select>
+        </div>
+        <div class="dialog-actions">
+            <button type="button" class="btn" onclick="document.getElementById('pipeline-dialog').close()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="launch-btn">Launch</button>
+        </div>
+    </form>
+</dialog>
+{{end}}
+{{define "scripts"}}
+<script>
+(function() {
+    const dialog = document.getElementById('pipeline-dialog');
+    const pipelineSelect = document.getElementById('pipeline-select');
+    const launchBtn = document.getElementById('launch-btn');
+    const issueNumSpan = document.getElementById('dialog-issue-number');
+    let currentIssueURL = '';
+
+    // Load pipelines for the selector
+    fetch('/api/pipelines/info')
+        .then(r => r.json())
+        .then(data => {
+            pipelineSelect.innerHTML = '';
+            (data.pipelines || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.textContent = p.name + (p.description ? ' — ' + p.description : '');
+                pipelineSelect.appendChild(opt);
+            });
+        })
+        .catch(() => {
+            pipelineSelect.innerHTML = '<option value="">Failed to load pipelines</option>';
+        });
+
+    document.querySelectorAll('.launch-pipeline-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentIssueURL = btn.dataset.issueUrl;
+            issueNumSpan.textContent = '#' + btn.dataset.issueNumber;
+            dialog.showModal();
+        });
+    });
+
+    launchBtn.addEventListener('click', () => {
+        const pipeline = pipelineSelect.value;
+        if (!pipeline) return;
+        fetch('/api/issues/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({issue_url: currentIssueURL, pipeline_name: pipeline})
+        })
+        .then(r => r.json())
+        .then(data => {
+            dialog.close();
+            if (data.run_id) {
+                window.location.href = '/runs/' + data.run_id;
+            }
+        })
+        .catch(err => alert('Failed to start pipeline: ' + err.message));
+    });
+})();
+</script>
+{{end}}
