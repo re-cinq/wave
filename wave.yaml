@@ -34,9 +34,7 @@ personas:
                 - Grep
                 - Bash(go vet*)
                 - Bash(npm audit*)
-            deny:
-                - Write(*)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/auditor.md
     craftsman:
         adapter: claude
@@ -49,8 +47,7 @@ personas:
                 - Write
                 - Edit
                 - Bash
-            deny:
-                - Bash(rm -rf /*)
+            deny: []
         system_prompt_file: .wave/personas/craftsman.md
     debugger:
         adapter: claude
@@ -66,9 +63,7 @@ personas:
                 - Bash(git log*)
                 - Bash(git diff*)
                 - Bash(git bisect*)
-            deny:
-                - Write(*)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/debugger.md
     navigator:
         adapter: claude
@@ -82,11 +77,7 @@ personas:
                 - Grep
                 - Bash(git log*)
                 - Bash(git status*)
-            deny:
-                - Write(*)
-                - Edit(*)
-                - Bash(git commit*)
-                - Bash(git push*)
+            deny: []
         system_prompt_file: .wave/personas/navigator.md
     philosopher:
         adapter: claude
@@ -155,13 +146,7 @@ personas:
                 - Bash(git status*)
                 - Bash(ls *)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(gh issue edit*)
-                - Bash(gh issue create*)
-                - Bash(gh issue close*)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/github-analyst.md
     github-enhancer:
         adapter: claude
@@ -178,12 +163,7 @@ personas:
                 - Bash(gh --version)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
-            deny:
-                - Bash(gh issue create*)
-                - Bash(gh issue close*)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/github-enhancer.md
     github-scoper:
         adapter: claude
@@ -200,12 +180,7 @@ personas:
                 - Bash(gh issue list*)
                 - Bash(gh --version)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(gh issue edit*)
-                - Bash(gh issue close*)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/github-scoper.md
     implementer:
         adapter: claude
@@ -220,9 +195,7 @@ personas:
                 - Bash
                 - Glob
                 - Grep
-            deny:
-                - Bash(rm -rf /*)
-                - Bash(sudo *)
+            deny: []
         system_prompt_file: .wave/personas/implementer.md
     reviewer:
         adapter: claude
@@ -238,15 +211,7 @@ personas:
                 - Write(.wave/artifacts/*)
                 - Bash(go test*)
                 - Bash(npm test*)
-            deny:
-                - Write(*.go)
-                - Write(*.ts)
-                - Write(*.py)
-                - Write(*.rs)
-                - Edit(*)
-                - Bash(rm *)
-                - Bash(git push*)
-                - Bash(git commit*)
+            deny: []
         system_prompt_file: .wave/personas/reviewer.md
     researcher:
         adapter: claude
@@ -287,12 +252,7 @@ personas:
                 - Bash(gh --version)
                 - Bash(git push*)
                 - Bash(git status*)
-            deny:
-                - Bash(gh issue edit*)
-                - Bash(gh issue close*)
-                - Bash(gh pr merge*)
-                - Bash(gh pr close*)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/github-commenter.md
     gitlab-analyst:
         adapter: claude
@@ -316,13 +276,7 @@ personas:
                 - Bash(git status*)
                 - Bash(ls *)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(glab issue edit*)
-                - Bash(glab issue create*)
-                - Bash(glab issue close*)
-                - Bash(gh *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitlab-analyst.md
     gitlab-enhancer:
         adapter: claude
@@ -339,12 +293,7 @@ personas:
                 - Bash(glab --version)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
-            deny:
-                - Bash(glab issue create*)
-                - Bash(glab issue close*)
-                - Bash(gh *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitlab-enhancer.md
     gitlab-scoper:
         adapter: claude
@@ -361,12 +310,7 @@ personas:
                 - Bash(glab issue list*)
                 - Bash(glab --version)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(glab issue edit*)
-                - Bash(glab issue close*)
-                - Bash(gh *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitlab-scoper.md
     gitlab-commenter:
         adapter: claude
@@ -388,14 +332,7 @@ personas:
                 - Bash(glab --version)
                 - Bash(git push*)
                 - Bash(git status*)
-            deny:
-                - Bash(glab issue update*)
-                - Bash(glab issue close*)
-                - Bash(glab mr merge*)
-                - Bash(glab mr close*)
-                - Bash(gh *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitlab-commenter.md
     gitea-analyst:
         adapter: claude
@@ -419,13 +356,7 @@ personas:
                 - Bash(git status*)
                 - Bash(ls *)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(tea issues edit*)
-                - Bash(tea issues create*)
-                - Bash(tea issues close*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitea-analyst.md
     gitea-enhancer:
         adapter: claude
@@ -442,12 +373,7 @@ personas:
                 - Bash(tea --version)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
-            deny:
-                - Bash(tea issues create*)
-                - Bash(tea issues close*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitea-enhancer.md
     gitea-scoper:
         adapter: claude
@@ -464,12 +390,7 @@ personas:
                 - Bash(tea issues list*)
                 - Bash(tea --version)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(tea issues edit*)
-                - Bash(tea issues close*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitea-scoper.md
     gitea-commenter:
         adapter: claude
@@ -489,14 +410,7 @@ personas:
                 - Bash(tea --version)
                 - Bash(git push*)
                 - Bash(git status*)
-            deny:
-                - Bash(tea issues edit*)
-                - Bash(tea issues close*)
-                - Bash(tea pulls merge*)
-                - Bash(tea pulls close*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/gitea-commenter.md
 
     bitbucket-analyst:
@@ -517,15 +431,7 @@ personas:
                 - Bash(git status*)
                 - Bash(ls *)
                 - Write(.wave/artifact.json)
-            deny:
-                - Bash(curl *-X PUT*)
-                - Bash(curl *-X POST*)
-                - Bash(curl *-X DELETE*)
-                - Bash(curl *-X PATCH*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/bitbucket-analyst.md
     bitbucket-enhancer:
         adapter: claude
@@ -541,13 +447,7 @@ personas:
                 - Bash(jq *)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
-            deny:
-                - Bash(curl *-X POST*)
-                - Bash(curl *-X DELETE*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/bitbucket-enhancer.md
     bitbucket-scoper:
         adapter: claude
@@ -563,12 +463,7 @@ personas:
                 - Bash(jq *)
                 - Write(.wave/artifact.json)
                 - Write(/tmp/*)
-            deny:
-                - Bash(curl *-X DELETE*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/bitbucket-scoper.md
     bitbucket-commenter:
         adapter: claude
@@ -588,12 +483,7 @@ personas:
                 - Bash(jq *)
                 - Bash(git push*)
                 - Bash(git status*)
-            deny:
-                - Bash(curl *-X DELETE*)
-                - Bash(gh *)
-                - Bash(glab *)
-                - Bash(tea *)
-                - Edit(*)
+            deny: []
         system_prompt_file: .wave/personas/bitbucket-commenter.md
     supervisor:
         adapter: claude
@@ -611,12 +501,7 @@ personas:
                 - Bash(go test*)
                 - Bash(cat *)
                 - Bash(wc *)
-            deny:
-                - Write(*)
-                - Edit(*)
-                - Bash(git push*)
-                - Bash(git commit*)
-                - Bash(rm*)
+            deny: []
         system_prompt_file: .wave/personas/supervisor.md
     validator:
         adapter: claude
@@ -631,12 +516,7 @@ personas:
                 - Bash(wc *)
                 - Bash(git log*)
                 - Bash(git diff*)
-            deny:
-                - Write(*)
-                - Edit(*)
-                - Bash(git commit*)
-                - Bash(git push*)
-                - Bash(rm*)
+            deny: []
         system_prompt_file: .wave/personas/validator.md
     synthesizer:
         adapter: claude
@@ -668,12 +548,7 @@ personas:
                 - Bash(git diff*)
                 - Bash(find*)
                 - Bash(ls*)
-            deny:
-                - Write(*)
-                - Edit(*)
-                - Bash(git commit*)
-                - Bash(git push*)
-                - Bash(rm*)
+            deny: []
         system_prompt_file: .wave/personas/provocateur.md
 runtime:
     audit:
