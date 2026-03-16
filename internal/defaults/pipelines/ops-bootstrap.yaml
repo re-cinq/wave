@@ -164,28 +164,39 @@ steps:
       source: |
         You are creating the initial commit for a newly scaffolded project.
 
-        Read the assessment artifact to get the project flavour.
+        Read the assessment artifact to get the project flavour and the list of
+        recommended files from `scaffold_recommendations.files_to_create`.
 
         ## Instructions
 
-        1. Stage all new and modified files:
+        1. Identify which files were actually created by the scaffold step:
            ```bash
-           git add -A
-           git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/ CLAUDE.md 2>/dev/null || true
+           git status --porcelain
            ```
 
-        2. Create the initial commit with a conventional commit message:
+        2. Stage ONLY the project files explicitly — NEVER use `git add -A` or `git add .`:
+           ```bash
+           git add <file1> <file2> <file3> ...
+           ```
+           Stage every new or modified project file shown by `git status`, but
+           NEVER stage any of these paths:
+           - `.wave/artifacts/`
+           - `.wave/output/`
+           - `.claude/`
+           - `CLAUDE.md`
+
+        3. Create the initial commit with a conventional commit message:
            ```bash
            git commit -m "feat: scaffold <flavour> project"
            ```
            Replace `<flavour>` with the actual detected flavour from the assessment (e.g. "go", "rust", "node").
 
-        3. Check if a remote is configured:
+        4. Check if a remote is configured:
            ```bash
            git remote -v
            ```
 
-        4. If a remote exists, push the branch:
+        5. If a remote exists, push the branch:
            ```bash
            git push -u origin HEAD
            ```
@@ -193,5 +204,6 @@ steps:
         ## Important
 
         - Do NOT include Co-Authored-By or AI attribution in the commit message
+        - NEVER use `git add -A`, `git add .`, or `git add --all` — always stage files by explicit path
         - Do NOT commit .wave/artifacts/, .wave/output/, .claude/, or CLAUDE.md
         - If git push fails (no remote, auth issues), that's OK — just report the commit was created locally
