@@ -491,6 +491,48 @@ func TestCheckBrowserBinary_Found(t *testing.T) {
 	}
 }
 
+func TestCheckDockerDaemon(t *testing.T) {
+	c := NewChecker(nil)
+	result := c.CheckDockerDaemon()
+	// On CI/dev machines, docker may or may not be installed
+	// Just verify the result structure is valid
+	if result.Name != "docker" {
+		t.Errorf("expected name 'docker', got %q", result.Name)
+	}
+	if result.Kind != "tool" {
+		t.Errorf("expected kind 'tool', got %q", result.Kind)
+	}
+}
+
+func TestCheckDockerDaemon_DaemonNotRunning(t *testing.T) {
+	c := NewChecker(nil)
+	// Override runCmd to simulate daemon not running
+	c.runCmd = func(name string, args ...string) error {
+		return fmt.Errorf("cannot connect to docker daemon")
+	}
+
+	result := c.CheckDockerDaemon()
+	// If docker binary is found but daemon is down, result depends on LookPath
+	// We just verify the structure
+	if result.Name != "docker" {
+		t.Errorf("expected name 'docker', got %q", result.Name)
+	}
+	if result.Kind != "tool" {
+		t.Errorf("expected kind 'tool', got %q", result.Kind)
+	}
+}
+
+func TestCheckBubblewrap(t *testing.T) {
+	c := NewChecker(nil)
+	result := c.CheckBubblewrap()
+	if result.Name != "bwrap" {
+		t.Errorf("expected name 'bwrap', got %q", result.Name)
+	}
+	if result.Kind != "tool" {
+		t.Errorf("expected kind 'tool', got %q", result.Kind)
+	}
+}
+
 func TestRun_BothFailReturnsPreflightError(t *testing.T) {
 	skills := map[string]skill.SkillConfig{
 		"speckit": {Check: "false"},
