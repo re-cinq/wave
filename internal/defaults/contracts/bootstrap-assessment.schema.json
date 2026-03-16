@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bootstrap Project Assessment",
+  "type": "object",
+  "required": ["flavour", "project_intent", "existing_files", "scaffold_recommendations"],
+  "properties": {
+    "flavour": {
+      "type": "string",
+      "description": "Detected or configured project language/framework (e.g. go, rust, node, bun, python, csharp)"
+    },
+    "project_intent": {
+      "type": "string",
+      "description": "Description of the project's purpose derived from user input, README, or design docs"
+    },
+    "existing_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of files already present in the project directory"
+    },
+    "scaffold_recommendations": {
+      "type": "object",
+      "required": ["files_to_create", "build_system", "ci_provider"],
+      "properties": {
+        "files_to_create": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Recommended files to scaffold for this flavour"
+        },
+        "build_system": {
+          "type": "string",
+          "description": "Recommended build system (e.g. cargo, go, npm, bun, pip, dotnet)"
+        },
+        "ci_provider": {
+          "type": "string",
+          "description": "CI provider to generate config for (e.g. github-actions)"
+        },
+        "gitignore_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Patterns to include in .gitignore"
+        }
+      }
+    },
+    "wave_config": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "Value of project.language from wave.yaml if set"
+        },
+        "build_command": {
+          "type": "string",
+          "description": "Value of project.build_command from wave.yaml if set"
+        },
+        "test_command": {
+          "type": "string",
+          "description": "Value of project.test_command from wave.yaml if set"
+        }
+      },
+      "description": "Relevant configuration from wave.yaml"
+    }
+  }
+}

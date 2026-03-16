@@ -1,0 +1,197 @@
+kind: WavePipeline
+metadata:
+  name: ops-bootstrap
+  description: "Scaffold a greenfield project with language-appropriate structure, CI config, and initial files"
+
+input:
+  source: cli
+  schema:
+    type: string
+    description: "Project description and intent (e.g. 'Rust CLI tool for processing CSV files')"
+  example: "Rust CLI tool for processing CSV files"
+
+steps:
+  - id: assess
+    persona: navigator
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        You are assessing a greenfield project for scaffolding.
+
+        The user described this project as: {{ input }}
+
+        ## Instructions
+
+        1. Read `wave.yaml` to find `project.language`, `project.build_command`, and `project.test_command`
+        2. List all existing files in the project directory to understand what already exists
+        3. Read any README, ADR, or design docs for additional project intent
+        4. Determine the project flavour (language/framework):
+           - If `project.language` is set in wave.yaml, use that
+           - Otherwise infer from existing files (package.json → node, Cargo.toml → rust, go.mod → go, etc.)
+           - If nothing exists, infer from the user's description
+        5. Recommend the appropriate project scaffold
+
+        ## Output
+
+        Write a JSON file to `.wave/output/bootstrap-assessment.json` with this structure:
+        ```json
+        {
+          "flavour": "go|rust|node|bun|python|csharp|...",
+          "project_intent": "description of what the project does",
+          "existing_files": ["list", "of", "existing", "files"],
+          "scaffold_recommendations": {
+            "files_to_create": ["list of files to scaffold"],
+            "build_system": "cargo|go|npm|bun|pip|dotnet",
+            "ci_provider": "github-actions",
+            "gitignore_patterns": ["patterns for .gitignore"]
+          },
+          "wave_config": {
+            "language": "from wave.yaml if set",
+            "build_command": "from wave.yaml if set",
+            "test_command": "from wave.yaml if set"
+          }
+        }
+        ```
+    output_artifacts:
+      - name: assessment
+        path: .wave/output/bootstrap-assessment.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/bootstrap-assessment.json
+        schema_path: .wave/contracts/bootstrap-assessment.schema.json
+        must_pass: true
+        on_failure: retry
+
+  - id: scaffold
+    persona: craftsman
+    dependencies: [assess]
+    memory:
+      inject_artifacts:
+        - step: assess
+          artifact: assessment
+          as: bootstrap_assessment
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        You are scaffolding a new project based on the assessment.
+
+        Read the assessment artifact to understand the project flavour, intent, and recommendations.
+
+        ## Instructions
+
+        Based on the detected flavour, create the appropriate project structure:
+
+        ### Go
+        - `go.mod` with appropriate module path
+        - `main.go` or `cmd/<name>/main.go` for CLI tools
+        - `internal/` directory structure
+        - Basic test file
+        - `.github/workflows/ci.yml` with go build and test
+
+        ### Rust
+        - `Cargo.toml` with project metadata
+        - `src/main.rs` (binary) or `src/lib.rs` (library)
+        - `tests/` directory with integration test stub
+        - `.github/workflows/ci.yml` with cargo build and test
+
+        ### Node / Bun
+        - `package.json` with project metadata and scripts
+        - `src/index.ts` entry point
+        - `tsconfig.json` with strict mode
+        - `.github/workflows/ci.yml` with install and test
+
+        ### Python
+        - `pyproject.toml` with project metadata
+        - `src/<package_name>/__init__.py`
+        - `tests/test_placeholder.py`
+        - `.github/workflows/ci.yml` with pip install and pytest
+
+        ### C#
+        - `<ProjectName>.sln` solution file
+        - `src/<ProjectName>/<ProjectName>.csproj` and `Program.cs`
+        - `tests/<ProjectName>.Tests/` with test project
+        - `.github/workflows/ci.yml` with dotnet build and test
+
+        ### For ALL flavours
+        - Create `.gitignore` appropriate for the language
+        - Create `README.md` with project description, build instructions, and usage
+
+        ## Verification
+
+        After creating all files:
+        1. If a build command is available, run it to verify the project compiles
+        2. If a test command is available, run it to verify tests pass
+
+        ## Important
+
+        - Do NOT create files that already exist (check the assessment's existing_files list)
+        - Use the project intent from the assessment to make README content meaningful
+        - Follow standard conventions for the language ecosystem
+    retry:
+      max_attempts: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.test_command }}"
+        must_pass: false
+        on_failure: retry
+
+  - id: commit
+    persona: craftsman
+    dependencies: [scaffold]
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    memory:
+      inject_artifacts:
+        - step: assess
+          artifact: assessment
+          as: bootstrap_assessment
+    exec:
+      type: prompt
+      source: |
+        You are creating the initial commit for a newly scaffolded project.
+
+        Read the assessment artifact to get the project flavour.
+
+        ## Instructions
+
+        1. Stage all new and modified files:
+           ```bash
+           git add -A
+           git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/ CLAUDE.md 2>/dev/null || true
+           ```
+
+        2. Create the initial commit with a conventional commit message:
+           ```bash
+           git commit -m "feat: scaffold <flavour> project"
+           ```
+           Replace `<flavour>` with the actual detected flavour from the assessment (e.g. "go", "rust", "node").
+
+        3. Check if a remote is configured:
+           ```bash
+           git remote -v
+           ```
+
+        4. If a remote exists, push the branch:
+           ```bash
+           git push -u origin HEAD
+           ```
+
+        ## Important
+
+        - Do NOT include Co-Authored-By or AI attribution in the commit message
+        - Do NOT commit .wave/artifacts/, .wave/output/, .claude/, or CLAUDE.md
+        - If git push fails (no remote, auth issues), that's OK — just report the commit was created locally
