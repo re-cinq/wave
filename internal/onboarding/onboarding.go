@@ -34,8 +34,9 @@ type WizardResult struct {
 	SourceGlob    string
 	Skill         string   // language skill name for pipeline templates
 	Pipelines     []string // selected pipeline names
-	Skills        []string // installed skill names from onboarding
-	Dependencies  []DependencyStatus
+	Skills               []string // installed skill names from onboarding
+	WaveCommandGenerated bool     // true if .claude/commands/wave.md was created
+	Dependencies         []DependencyStatus
 }
 
 // DependencyStatus reports the status of a required dependency.
@@ -154,6 +155,18 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 	if skillResult != nil && skillResult.Data != nil {
 		if skills, ok := skillResult.Data["skills"].([]string); ok {
 			result.Skills = skills
+		}
+	}
+
+	// Step 7: Wave command registration
+	waveCommandStep := &WaveCommandStep{}
+	waveCommandResult, err := waveCommandStep.Run(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("wave command registration failed: %w", err)
+	}
+	if waveCommandResult != nil && waveCommandResult.Data != nil {
+		if v, ok := waveCommandResult.Data["wave_command_generated"].(bool); ok {
+			result.WaveCommandGenerated = v
 		}
 	}
 
