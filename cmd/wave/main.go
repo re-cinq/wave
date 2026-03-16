@@ -117,6 +117,7 @@ var rootCmd = &cobra.Command{
 				},
 			}
 
+			deps.Guided = true
 			return tui.RunTUI(deps)
 		}
 		return cmd.Help()
