@@ -1239,7 +1239,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		// Show input editor for proposal modification
 		// For now, launch with existing input (input modification can be enhanced later)
 		return m, func() tea.Msg {
-			return SuggestLaunchMsg{Pipeline: msg.Pipeline}
+			return SuggestLaunchMsg(msg)
 		}
 
 	// Pipeline-specific messages — always route to pipeline models
