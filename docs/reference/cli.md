@@ -23,6 +23,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave serve` | Start the web dashboard server |
 | `wave webui` | Open the web dashboard in a browser |
 | `wave migrate` | Database migrations |
+| `wave bench` | Run and analyze SWE-bench benchmarks |
 
 ---
 
@@ -860,6 +861,67 @@ When launched without `--no-tui`, Wave provides an interactive terminal UI with 
 To disable the TUI and use plain text output, pass `--no-tui` or `-o text`.
 
 Key source: `internal/tui/guided_flow.go`
+
+---
+
+## wave bench
+
+Run and analyze SWE-bench benchmarks. Compare Wave pipeline performance against standalone Claude Code.
+
+### bench run
+
+Execute a pipeline against each task in a JSONL benchmark dataset.
+
+```bash
+wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
+wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
+wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
+wave bench run --dataset tasks.jsonl --pipeline bench-solve --output results.json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dataset` | | Path to JSONL dataset file (required) |
+| `--pipeline` | | Pipeline name to execute per task (required unless `--mode=claude`) |
+| `--mode` | `wave` | Execution mode: `wave` or `claude` |
+| `--label` | | Human-readable label for this run |
+| `--limit` | `0` | Maximum number of tasks to run (0 = all) |
+| `--timeout` | `0` | Per-task timeout in seconds (0 = no limit) |
+| `--output` | | Path to write JSON results file |
+| `--datasets-dir` | `.wave/bench/datasets` | Directory to search for dataset files |
+| `--keep-workspaces` | `false` | Preserve task worktrees after completion |
+
+### bench report
+
+Generate a summary from a previous benchmark run's results file.
+
+```bash
+wave bench report --results results.json
+wave bench report --results results.json --json
+```
+
+### bench compare
+
+Compare two benchmark result files to show per-task differences.
+
+```bash
+wave bench compare --base baseline.json --compare wave-run.json
+wave bench compare --base baseline.json --compare wave-run.json --json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--base` | | Path to base/baseline results JSON (required) |
+| `--compare` | | Path to comparison results JSON (required) |
+
+### bench list
+
+List available benchmark datasets in the datasets directory.
+
+```bash
+wave bench list
+wave bench list --datasets-dir ./my-datasets
+```
 
 ---
 
