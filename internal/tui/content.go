@@ -71,8 +71,6 @@ type ContentModel struct {
 	detachedPollRunID    string
 	detachedPollAfterID int64
 
-	// Guided workflow state machine (nil when not in guided mode)
-	guidedFlow *GuidedFlowState
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.
@@ -99,20 +97,6 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.issueProvider = p.IssueProvider
 		m.prProvider = p.PRProvider
 		m.suggestProvider = p.SuggestProvider
-	}
-
-	// Activate guided workflow mode: start at health view
-	if deps.Guided {
-		m.guidedFlow = &GuidedFlowState{Phase: GuidedPhaseHealth}
-		m.list.guided = true
-		m.currentView = ViewHealth
-		// Pre-create health models so Init() can start health checks
-		if m.healthProvider != nil {
-			hl := NewHealthListModel(m.healthProvider)
-			m.healthList = &hl
-			hd := NewHealthDetailModel()
-			m.healthDetail = &hd
-		}
 	}
 
 	return m
@@ -161,37 +145,9 @@ func (m *ContentModel) CancelAll() {
 	}
 }
 
-// guidedViewAllowed returns true if the given view is allowed in the current
-// guided flow phase. In guided mode, only specific views are reachable per phase.
-func (m *ContentModel) guidedViewAllowed(v ViewType) bool {
-	if m.guidedFlow == nil {
-		return true
-	}
-	switch m.guidedFlow.Phase {
-	case GuidedPhaseHealth:
-		return v == ViewHealth
-	case GuidedPhaseProposals:
-		return v == ViewSuggest || v == ViewPipelines
-	case GuidedPhaseFleet:
-		return v == ViewPipelines || v == ViewSuggest
-	case GuidedPhaseAttached:
-		return v == ViewPipelines
-	default:
-		return true
-	}
-}
-
 // Init returns commands from child components.
 func (m ContentModel) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.list.Init(), m.detail.Init()}
-	if m.guidedFlow != nil && m.healthList != nil {
-		// Guided mode: start health checks immediately
-		cmds = append(cmds, m.healthList.Init())
-		cmds = append(cmds, func() tea.Msg {
-			return ViewChangedMsg{View: ViewHealth}
-		})
-	}
-	return tea.Batch(cmds...)
+	return tea.Batch(m.list.Init(), m.detail.Init())
 }
 
 // SetSize updates the content area dimensions and propagates to children.
@@ -400,9 +356,6 @@ func (m *ContentModel) cycleView() tea.Cmd {
 		}
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
-			if m.guidedFlow != nil {
-				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
-			}
 		}
 	}
 
@@ -551,9 +504,6 @@ func (m *ContentModel) setView(v ViewType) tea.Cmd {
 		}
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
-			if m.guidedFlow != nil {
-				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
-			}
 		}
 	}
 
@@ -602,21 +552,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			if m.composing {
 				return m, nil
 			}
-			if m.guidedFlow != nil {
-				// Guided mode: reverse toggle between Suggest and Pipelines
-				target := m.guidedFlow.TabTarget()
-				if target == ViewType(-1) {
-					return m, nil // blocked during attachment
-				}
-				// Reverse: if target is Pipelines, go to Suggest and vice versa
-				if target == ViewPipelines {
-					target = ViewSuggest
-				} else {
-					target = ViewPipelines
-				}
-				cmd := m.setView(target)
-				return m, cmd
-			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
 			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
 			cmd := m.cycleView()
@@ -635,27 +570,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.detail, cmd = m.detail.Update(msg)
 				return m, cmd
 			}
-			if m.guidedFlow != nil {
-				// Guided mode: toggle between Suggest and Pipelines
-				target := m.guidedFlow.TabTarget()
-				if target == ViewType(-1) {
-					return m, nil // blocked during attachment
-				}
-				cmd := m.setView(target)
-				return m, cmd
-			}
-			// Otherwise, cycle view
+			// Cycle view
 			cmd := m.cycleView()
 			return m, cmd
 		}
 
 		// Number key direct-jump navigation (1-8) when in left pane and no input active
-		// In guided mode, restrict to views allowed by the current phase.
 		if m.focus == FocusPaneLeft && !m.IsInputActive() {
 			if v, ok := numberKeyToView(msg.String()); ok {
-				if m.guidedFlow != nil && !m.guidedViewAllowed(v) {
-					return m, nil
-				}
 				cmd := m.setView(v)
 				return m, cmd
 			}
@@ -738,9 +660,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					m.detachedPollRunID = r.RunID
 					m.detachedPollAfterID = maxID
 					capturedRunID := r.RunID
-					if m.guidedFlow != nil {
-						m.guidedFlow.TransitionToAttached()
-					}
 					enterCmds = append(enterCmds, func() tea.Msg {
 						return LiveOutputActiveMsg{Active: true}
 					})
@@ -803,9 +722,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.focus = FocusPaneLeft
 			m.list.SetFocused(true)
 			m.detail.SetFocused(false)
-			if m.guidedFlow != nil {
-				m.guidedFlow.DetachToFleet()
-			}
 			return m, tea.Batch(
 				func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} },
 				func() tea.Msg { return FormActiveMsg{Active: false} },
@@ -1157,9 +1073,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			}
 		}
 		if m.suggestDetail != nil {
-			if m.guidedFlow != nil {
-				m.suggestDetail.SetGuidedPhase(m.guidedFlow.Phase)
-			}
 			var detailCmd tea.Cmd
 			*m.suggestDetail, detailCmd = m.suggestDetail.Update(msg)
 			if detailCmd != nil {
@@ -1174,9 +1087,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.focus = FocusPaneLeft
 		m.list.SetFocused(true)
 		m.detail.SetFocused(false)
-		if m.guidedFlow != nil {
-			m.guidedFlow.TransitionToFleet()
-		}
 		pipelineName := msg.Pipeline.Name
 		launchCmd := func() tea.Msg {
 			return LaunchRequestMsg{Config: LaunchConfig{
@@ -1277,37 +1187,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case HealthAllCompleteMsg:
-		if m.guidedFlow != nil {
-			m.guidedFlow.HealthComplete = true
-			if msg.HasErrors {
-				m.guidedFlow.HasErrors = true
-				// Stay on health view — user must confirm to continue
-				return m, nil
-			}
-			// No errors — start auto-transition timer
-			m.guidedFlow.TransitionTimer = true
-			return m, tea.Tick(1*time.Second, func(time.Time) tea.Msg {
-				return HealthTransitionMsg{}
-			})
-		}
 		return m, nil
 
 	case HealthTransitionMsg:
-		if m.guidedFlow != nil {
-			m.guidedFlow.TransitionToProposals()
-			cmd := m.setView(ViewSuggest)
-			return m, cmd
-		}
 		return m, nil
 
 	case HealthContinueMsg:
-		if m.guidedFlow != nil {
-			m.guidedFlow.UserConfirmed = true
-			m.guidedFlow.TransitionTimer = true
-			return m, tea.Tick(1*time.Second, func(time.Time) tea.Msg {
-				return HealthTransitionMsg{}
-			})
-		}
 		return m, nil
 
 	case SuggestModifyMsg:

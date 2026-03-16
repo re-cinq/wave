@@ -859,127 +859,17 @@ func TestContentModel_IssueListPipelineSelectionShowsPipelineDetail(t *testing.T
 }
 
 // ===========================================================================
-// T018: wave run regression — Guided field defaults to false
+// T017: Regression tests — start view and Tab cycling
 // ===========================================================================
 
-func TestLaunchDependencies_GuidedDefaultsFalse(t *testing.T) {
-	deps := LaunchDependencies{}
-	assert.False(t, deps.Guided, "LaunchDependencies.Guided should default to false")
-}
-
-func TestLaunchDependencies_GuidedCanBeSetTrue(t *testing.T) {
-	deps := LaunchDependencies{Guided: true}
-	assert.True(t, deps.Guided)
-}
-
-// ===========================================================================
-// T012: Guided startup tests
-// ===========================================================================
-
-// newGuidedContentModel creates a ContentModel in guided mode with a health provider.
-func newGuidedContentModel(t *testing.T) ContentModel {
-	t.Helper()
-	provider := newMockHealthProvider("check-a", "check-b")
-	deps := LaunchDependencies{Guided: true}
-	m := NewContentModel(nil, nil, deps, ContentProviders{
-		HealthProvider: provider,
-	})
-	m.SetSize(120, 40)
-	return m
-}
-
-func TestContentModel_Guided_StartsAtViewHealth(t *testing.T) {
-	m := newGuidedContentModel(t)
-	assert.Equal(t, ViewHealth, m.currentView,
-		"guided mode should start at ViewHealth")
-}
-
-func TestContentModel_Guided_GuidedFlowNotNil(t *testing.T) {
-	m := newGuidedContentModel(t)
-	assert.NotNil(t, m.guidedFlow, "guidedFlow should be non-nil in guided mode")
-}
-
-func TestContentModel_Guided_HealthModelsPreCreated(t *testing.T) {
-	m := newGuidedContentModel(t)
-	assert.NotNil(t, m.healthList, "healthList should be pre-created in guided mode")
-	assert.NotNil(t, m.healthDetail, "healthDetail should be pre-created in guided mode")
-}
-
-func TestContentModel_NonGuided_StartsAtViewPipelines(t *testing.T) {
+func TestContentModel_StartsAtViewPipelines(t *testing.T) {
 	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 	assert.Equal(t, ViewPipelines, m.currentView,
-		"non-guided mode should start at ViewPipelines")
-	assert.Nil(t, m.guidedFlow, "guidedFlow should be nil in non-guided mode")
+		"should start at ViewPipelines")
 }
 
-func TestContentModel_Guided_HealthAllCompleteNoErrors_TriggersTransitionTimer(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// Send HealthAllCompleteMsg with no errors
-	m, cmd := m.Update(HealthAllCompleteMsg{HasErrors: false})
-
-	assert.NotNil(t, m.guidedFlow, "guidedFlow should still be active")
-	assert.True(t, m.guidedFlow.HealthComplete, "HealthComplete should be true")
-	assert.True(t, m.guidedFlow.TransitionTimer, "TransitionTimer should be set")
-	assert.NotNil(t, cmd, "should return a timer command for auto-transition")
-	// Should still be on ViewHealth — transition happens after timer fires
-	assert.Equal(t, ViewHealth, m.currentView,
-		"should stay on ViewHealth until timer fires")
-}
-
-func TestContentModel_Guided_HealthTransitionMsg_SwitchesToViewSuggest(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// First complete health with no errors to set the state
-	m, _ = m.Update(HealthAllCompleteMsg{HasErrors: false})
-
-	// Now fire the transition message
-	m, cmd := m.Update(HealthTransitionMsg{})
-
-	assert.Equal(t, ViewSuggest, m.currentView,
-		"HealthTransitionMsg should switch to ViewSuggest")
-	assert.Equal(t, GuidedPhaseProposals, m.guidedFlow.Phase,
-		"guidedFlow phase should be GuidedPhaseProposals after transition")
-	assert.True(t, m.guidedFlow.HealthComplete)
-	assert.NotNil(t, cmd)
-}
-
-func TestContentModel_Guided_HealthAllCompleteHasErrors_DoesNotAutoTransition(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// Send HealthAllCompleteMsg with errors
-	m, cmd := m.Update(HealthAllCompleteMsg{HasErrors: true})
-
-	assert.True(t, m.guidedFlow.HasErrors, "HasErrors should be set")
-	assert.False(t, m.guidedFlow.TransitionTimer, "TransitionTimer should NOT be set on errors")
-	assert.Nil(t, cmd, "should not return a timer command when there are errors")
-	// Should remain on ViewHealth — user must confirm
-	assert.Equal(t, ViewHealth, m.currentView,
-		"should stay on ViewHealth when there are errors")
-}
-
-func TestContentModel_Guided_HealthContinueMsg_AfterErrors_TriggersTransitionTimer(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// First set error state
-	m, _ = m.Update(HealthAllCompleteMsg{HasErrors: true})
-	require.False(t, m.guidedFlow.TransitionTimer, "precondition: timer not set yet")
-
-	// Now user confirms to continue
-	m, cmd := m.Update(HealthContinueMsg{})
-
-	assert.True(t, m.guidedFlow.UserConfirmed, "UserConfirmed should be set")
-	assert.True(t, m.guidedFlow.TransitionTimer, "TransitionTimer should be set after continue")
-	assert.NotNil(t, cmd, "should return a timer command after user confirms")
-}
-
-// ===========================================================================
-// T017: Regression tests — non-guided cycling and start view
-// ===========================================================================
-
-func TestContentModel_NonGuided_TabCyclesAllEightViews(t *testing.T) {
+func TestContentModel_TabCyclesAllEightViews(t *testing.T) {
 	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
-	assert.Nil(t, m.guidedFlow, "guidedFlow must be nil for this regression test")
 
 	visited := make(map[ViewType]bool)
 	visited[m.currentView] = true
@@ -991,104 +881,7 @@ func TestContentModel_NonGuided_TabCyclesAllEightViews(t *testing.T) {
 	}
 
 	// All 8 views should have been visited
-	assert.Equal(t, 8, len(visited), "Tab should cycle through all 8 views in non-guided mode")
-}
-
-func TestContentModel_NonGuided_StartsAtViewPipelines_Regression(t *testing.T) {
-	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
-	assert.Equal(t, ViewPipelines, m.currentView,
-		"regression: non-guided mode must start at ViewPipelines")
-}
-
-// ===========================================================================
-// T021: Tab navigation tests
-// ===========================================================================
-
-func TestContentModel_Guided_TabFromSuggest_GoesToPipelines(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// Move to GuidedPhaseFleet so Tab target is ViewSuggest, then be on Suggest view
-	m.guidedFlow.Phase = GuidedPhaseFleet
-	m.currentView = ViewSuggest
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-
-	assert.Equal(t, ViewSuggest, m.guidedFlow.TabTarget(),
-		"after going to Pipelines, TabTarget should now return Suggest (Fleet phase → Suggest)")
-	// After Tab from Suggest (Fleet phase), we navigate to ViewSuggest per TabTarget
-	// Wait — in Fleet phase, TabTarget returns ViewSuggest. So Tab navigates to ViewSuggest.
-	// Actually re-reading the code: in Fleet phase, TabTarget = ViewSuggest.
-	// So Tab goes to setView(ViewSuggest). Then phase stays Fleet.
-	assert.Equal(t, ViewSuggest, m.currentView,
-		"from Pipelines in fleet phase, Tab goes to Suggest")
-	assert.NotNil(t, cmd)
-}
-
-func TestContentModel_Guided_TabFromPipelines_InProposalsPhase_GoesToPipelines(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// GuidedPhaseProposals: TabTarget returns ViewPipelines
-	m.guidedFlow.Phase = GuidedPhaseProposals
-	m.currentView = ViewSuggest
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-
-	assert.Equal(t, ViewPipelines, m.currentView,
-		"in Proposals phase, Tab goes to ViewPipelines")
-	assert.NotNil(t, cmd)
-}
-
-func TestContentModel_Guided_TabFromFleetPhaseOnPipelines_GoesToSuggest(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// GuidedPhaseFleet: TabTarget returns ViewSuggest
-	m.guidedFlow.Phase = GuidedPhaseFleet
-	m.currentView = ViewPipelines
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-
-	assert.Equal(t, ViewSuggest, m.currentView,
-		"in Fleet phase, Tab from Pipelines goes to ViewSuggest")
-	assert.NotNil(t, cmd)
-}
-
-func TestContentModel_Guided_TabDuringAttached_IsNoOp(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseAttached
-	viewBefore := m.currentView
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-
-	assert.Equal(t, viewBefore, m.currentView,
-		"Tab during attached phase should be a no-op")
-	assert.Nil(t, cmd, "Tab during attached phase should return nil cmd")
-}
-
-func TestContentModel_Guided_ShiftTabReverses_FleetPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// In Fleet phase on Pipelines: TabTarget = ViewSuggest, so ShiftTab reverses to ViewPipelines
-	m.guidedFlow.Phase = GuidedPhaseFleet
-	m.currentView = ViewPipelines
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-
-	// Shift+Tab reverses: target was Suggest, so go to Pipelines instead
-	assert.Equal(t, ViewPipelines, m.currentView,
-		"Shift+Tab in Fleet phase from Pipelines should toggle to Pipelines (reverse of Suggest)")
-	assert.NotNil(t, cmd)
-}
-
-func TestContentModel_Guided_ShiftTabDuringAttached_IsNoOp(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseAttached
-	viewBefore := m.currentView
-
-	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-
-	assert.Equal(t, viewBefore, m.currentView,
-		"Shift+Tab during attached phase should be a no-op")
-	assert.Nil(t, cmd)
+	assert.Equal(t, 8, len(visited), "Tab should cycle through all 8 views")
 }
 
 func TestContentModel_NumberKey3_GoesToViewContracts(t *testing.T) {
@@ -1102,9 +895,8 @@ func TestContentModel_NumberKey3_GoesToViewContracts(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-func TestContentModel_NonGuided_TabStillCyclesAll8Views(t *testing.T) {
+func TestContentModel_TabCyclesAndReturns(t *testing.T) {
 	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
-	require.Nil(t, m.guidedFlow)
 
 	startView := m.currentView
 	// Tab once and verify it moved
@@ -1112,50 +904,32 @@ func TestContentModel_NonGuided_TabStillCyclesAll8Views(t *testing.T) {
 	nextView := m.currentView
 
 	assert.NotEqual(t, startView, nextView,
-		"non-guided Tab should cycle to next view")
+		"Tab should cycle to next view")
 
 	// Tab 7 more times should return to original
 	for i := 0; i < 7; i++ {
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	}
 	assert.Equal(t, startView, m.currentView,
-		"8 Tabs in non-guided mode should complete the cycle")
+		"8 Tabs should complete the cycle")
 }
 
 // ===========================================================================
-// T033: Sequence launch tests — SuggestLaunchMsg sets guided phase to Fleet
+// T033: Suggest launch and modify tests
 // ===========================================================================
 
-func TestContentModel_Guided_SuggestLaunchMsg_SetsPhaseToFleet(t *testing.T) {
-	m := newGuidedContentModel(t)
-
-	// Start in Proposals phase (after health completes)
-	m.guidedFlow.Phase = GuidedPhaseProposals
-	m.currentView = ViewSuggest
-
-	// Launch a suggested pipeline
-	pipeline := SuggestProposedPipeline{
-		Name:  "impl-issue",
-		Input: "https://github.com/re-cinq/wave/issues/123",
-	}
-	m, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
-
-	assert.Equal(t, GuidedPhaseFleet, m.guidedFlow.Phase,
-		"SuggestLaunchMsg should transition guidedFlow to GuidedPhaseFleet")
-	assert.Equal(t, ViewPipelines, m.currentView,
-		"SuggestLaunchMsg should switch to ViewPipelines")
-	assert.NotNil(t, cmd, "should return commands to launch the pipeline")
-}
-
-func TestContentModel_Guided_SuggestLaunchMsg_EmitsLaunchRequest(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
+func TestContentModel_SuggestLaunchMsg_EmitsLaunchRequest(t *testing.T) {
+	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	m.SetSize(120, 40)
 
 	pipeline := SuggestProposedPipeline{
 		Name:  "impl-issue",
 		Input: "test input",
 	}
-	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+	m, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
+
+	assert.Equal(t, ViewPipelines, m.currentView,
+		"SuggestLaunchMsg should switch to ViewPipelines")
 
 	require.NotNil(t, cmd)
 	msgs := extractMsgFromBatch(cmd)
@@ -1171,26 +945,9 @@ func TestContentModel_Guided_SuggestLaunchMsg_EmitsLaunchRequest(t *testing.T) {
 	assert.True(t, foundLaunchRequest, "SuggestLaunchMsg should emit LaunchRequestMsg")
 }
 
-func TestContentModel_Guided_SuggestLaunchMsg_TransitionsToFleet(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
-	m.currentView = ViewSuggest
-
-	pipeline := SuggestProposedPipeline{
-		Name:  "impl-issue",
-		Input: "test input",
-	}
-	m, _ = m.Update(SuggestLaunchMsg{Pipeline: pipeline})
-
-	assert.Equal(t, GuidedPhaseFleet, m.guidedFlow.Phase,
-		"SuggestLaunchMsg should transition to fleet phase")
-	assert.Equal(t, ViewPipelines, m.currentView,
-		"SuggestLaunchMsg should switch to Pipelines view")
-}
-
-func TestContentModel_Guided_SuggestModifyMsg_EmitsConfigureFormMsg(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
+func TestContentModel_SuggestModifyMsg_EmitsConfigureFormMsg(t *testing.T) {
+	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	m.SetSize(120, 40)
 	m.currentView = ViewSuggest
 
 	pipeline := SuggestProposedPipeline{
@@ -1212,9 +969,9 @@ func TestContentModel_Guided_SuggestModifyMsg_EmitsConfigureFormMsg(t *testing.T
 	assert.Equal(t, "https://github.com/re-cinq/wave/issues/42", cfgMsg.InputExample)
 }
 
-func TestContentModel_Guided_SuggestLaunchMsg_EmitsSuggestLaunchedMsg(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
+func TestContentModel_SuggestLaunchMsg_EmitsSuggestLaunchedMsg(t *testing.T) {
+	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
+	m.SetSize(120, 40)
 
 	// Initialize suggest list so SuggestLaunchedMsg can be routed
 	sl := NewSuggestListModel(nil)
@@ -1241,147 +998,6 @@ func TestContentModel_Guided_SuggestLaunchMsg_EmitsSuggestLaunchedMsg(t *testing
 		}
 	}
 	assert.True(t, foundLaunched, "SuggestLaunchMsg should emit SuggestLaunchedMsg")
-}
-
-func TestContentModel_Guided_SuggestLaunchMsg_EmitsDelayedRefresh(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
-
-	pipeline := SuggestProposedPipeline{
-		Name:  "impl-issue",
-		Input: "test input",
-	}
-	_, cmd := m.Update(SuggestLaunchMsg{Pipeline: pipeline})
-
-	require.NotNil(t, cmd)
-	// The batch should contain 5 commands: launch, view, focus, launched, refresh tick
-	msgs := extractMsgFromBatch(cmd)
-
-	// At least check we have the launch request, view changed, focus changed, and launched msg
-	msgTypes := make(map[string]bool)
-	for _, msg := range msgs {
-		switch msg.(type) {
-		case LaunchRequestMsg:
-			msgTypes["LaunchRequestMsg"] = true
-		case ViewChangedMsg:
-			msgTypes["ViewChangedMsg"] = true
-		case FocusChangedMsg:
-			msgTypes["FocusChangedMsg"] = true
-		case SuggestLaunchedMsg:
-			msgTypes["SuggestLaunchedMsg"] = true
-		}
-	}
-	assert.True(t, msgTypes["LaunchRequestMsg"], "should emit LaunchRequestMsg")
-	assert.True(t, msgTypes["SuggestLaunchedMsg"], "should emit SuggestLaunchedMsg")
-}
-
-// ===========================================================================
-// T027: Guided flow view restriction (phase-view binding)
-// ===========================================================================
-
-func TestContentModel_GuidedViewAllowed_HealthPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseHealth
-
-	assert.True(t, m.guidedViewAllowed(ViewHealth),
-		"Health phase should allow ViewHealth")
-	assert.False(t, m.guidedViewAllowed(ViewPersonas),
-		"Health phase should block ViewPersonas")
-	assert.False(t, m.guidedViewAllowed(ViewSuggest),
-		"Health phase should block ViewSuggest")
-}
-
-func TestContentModel_GuidedViewAllowed_ProposalsPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseProposals
-
-	assert.True(t, m.guidedViewAllowed(ViewSuggest),
-		"Proposals phase should allow ViewSuggest")
-	assert.True(t, m.guidedViewAllowed(ViewPipelines),
-		"Proposals phase should allow ViewPipelines")
-	assert.False(t, m.guidedViewAllowed(ViewPersonas),
-		"Proposals phase should block ViewPersonas")
-}
-
-func TestContentModel_GuidedViewAllowed_FleetPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseFleet
-
-	assert.True(t, m.guidedViewAllowed(ViewPipelines),
-		"Fleet phase should allow ViewPipelines")
-	assert.True(t, m.guidedViewAllowed(ViewSuggest),
-		"Fleet phase should allow ViewSuggest")
-	assert.False(t, m.guidedViewAllowed(ViewContracts),
-		"Fleet phase should block ViewContracts")
-}
-
-func TestContentModel_GuidedViewAllowed_AttachedPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseAttached
-
-	assert.True(t, m.guidedViewAllowed(ViewPipelines),
-		"Attached phase should allow ViewPipelines")
-	assert.False(t, m.guidedViewAllowed(ViewSuggest),
-		"Attached phase should block ViewSuggest")
-}
-
-func TestContentModel_GuidedViewAllowed_NonGuided_AllowsAll(t *testing.T) {
-	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
-
-	assert.True(t, m.guidedViewAllowed(ViewPipelines))
-	assert.True(t, m.guidedViewAllowed(ViewPersonas))
-	assert.True(t, m.guidedViewAllowed(ViewSuggest))
-	assert.True(t, m.guidedViewAllowed(ViewHealth))
-}
-
-func TestContentModel_Guided_NumberKeyBlocked_InHealthPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseHealth
-	m.currentView = ViewHealth
-
-	// Try to jump to Personas (key '2') — should be blocked
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
-
-	assert.Equal(t, ViewHealth, m.currentView,
-		"number key to Personas should be blocked in Health phase")
-}
-
-func TestContentModel_Guided_NumberKeyAllowed_InFleetPhase(t *testing.T) {
-	m := newGuidedContentModel(t)
-	m.guidedFlow.Phase = GuidedPhaseFleet
-	m.currentView = ViewPipelines
-
-	// Try to jump to Suggest (key '8') — should be allowed
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'8'}})
-
-	assert.Equal(t, ViewSuggest, m.currentView,
-		"number key to Suggest should be allowed in Fleet phase")
-}
-
-func TestContentModel_Guided_SuggestDetailGetsPhase(t *testing.T) {
-	provider := newMockHealthProvider("check-a")
-	suggestProvider := &FuncSuggestDataProvider{
-		Fn: func() (*SuggestProposal, error) {
-			return &SuggestProposal{
-				Pipelines: []SuggestProposedPipeline{
-					{Name: "impl-issue", Priority: 1},
-				},
-			}, nil
-		},
-	}
-	deps := LaunchDependencies{Guided: true}
-	m := NewContentModel(nil, nil, deps, ContentProviders{
-		HealthProvider:  provider,
-		SuggestProvider: suggestProvider,
-	})
-	m.SetSize(120, 40)
-
-	// Trigger transition to suggest view (simulates health -> proposals)
-	m, _ = m.Update(HealthTransitionMsg{})
-
-	require.NotNil(t, m.suggestDetail, "suggest detail should be created after transition")
-	assert.Equal(t, GuidedPhaseProposals, m.suggestDetail.guidedPhase,
-		"suggest detail should receive the guided phase")
 }
 
 // ---------------------------------------------------------------------------

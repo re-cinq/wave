@@ -267,15 +267,6 @@ func TestSuggestDetailModel_Update_SuggestSelectedMsg(t *testing.T) {
 	assert.Equal(t, 2, m.selected.Priority)
 }
 
-func TestSuggestDetailModel_SetGuidedPhase(t *testing.T) {
-	m := NewSuggestDetailModel()
-	m.SetGuidedPhase(GuidedPhaseProposals)
-	assert.Equal(t, GuidedPhaseProposals, m.guidedPhase)
-
-	m.SetGuidedPhase(GuidedPhaseFleet)
-	assert.Equal(t, GuidedPhaseFleet, m.guidedPhase)
-}
-
 func TestSuggestDetailModel_ShowsKeyHints(t *testing.T) {
 	m := NewSuggestDetailModel()
 	m.SetSize(80, 30)
@@ -287,49 +278,6 @@ func TestSuggestDetailModel_ShowsKeyHints(t *testing.T) {
 	view := m.View()
 	assert.Contains(t, view, "Enter to launch")
 	assert.Contains(t, view, "Space to select")
-}
-
-func TestSuggestDetailModel_PhaseContextualHints_Proposals(t *testing.T) {
-	m := NewSuggestDetailModel()
-	m.SetSize(80, 30)
-	m.SetGuidedPhase(GuidedPhaseProposals)
-	m.selected = &SuggestProposedPipeline{
-		Name:     "impl-issue",
-		Priority: 1,
-	}
-
-	view := m.View()
-	assert.Contains(t, view, "Enter to launch")
-	assert.Contains(t, view, "modify")
-}
-
-func TestSuggestDetailModel_PhaseContextualHints_Fleet(t *testing.T) {
-	m := NewSuggestDetailModel()
-	m.SetSize(80, 30)
-	m.SetGuidedPhase(GuidedPhaseFleet)
-	m.selected = &SuggestProposedPipeline{
-		Name:     "impl-issue",
-		Priority: 1,
-	}
-
-	view := m.View()
-	assert.Contains(t, view, "Viewing fleet")
-	assert.Contains(t, view, "back to proposals")
-	assert.NotContains(t, view, "Enter to launch")
-}
-
-func TestSuggestDetailModel_PhaseContextualHints_Attached(t *testing.T) {
-	m := NewSuggestDetailModel()
-	m.SetSize(80, 30)
-	m.SetGuidedPhase(GuidedPhaseAttached)
-	m.selected = &SuggestProposedPipeline{
-		Name:     "impl-issue",
-		Priority: 1,
-	}
-
-	view := m.View()
-	assert.Contains(t, view, "Attached to live output")
-	assert.NotContains(t, view, "Enter to launch")
 }
 
 // ===========================================================================
