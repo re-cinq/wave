@@ -5,7 +5,7 @@ metadata:
 
 skills:
   - wave
-  - golang
+  - "{{ project.skill }}"
 
 input:
   source: cli

@@ -232,15 +232,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
 	}
 
-	// Validate skill references at manifest and pipeline scopes
-	if errs := e.validateSkillRefs(p, m); len(errs) > 0 {
-		msgs := make([]string, len(errs))
-		for i, err := range errs {
-			msgs[i] = err.Error()
-		}
-		return fmt.Errorf("skill validation failed:\n  %s", strings.Join(msgs, "\n  "))
-	}
-
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
@@ -275,6 +266,28 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	// Inject forge variables for unified pipeline template resolution
 	forgeInfo, _ := forge.DetectFromGitRemotes()
 	InjectForgeVariables(pipelineContext, forgeInfo)
+
+	// Resolve template placeholders in pipeline skills before validation.
+	// Skills like "{{ project.skill }}" must be resolved to their actual values
+	// (or empty string) before ValidateSkillRefs checks them against the store.
+	// Build a new slice (do NOT mutate p.Skills — the Pipeline may be shared
+	// across concurrent matrix child executors).
+	resolvedPipelineSkills := make([]string, 0, len(p.Skills))
+	for _, s := range p.Skills {
+		r := pipelineContext.ResolvePlaceholders(s)
+		if r != "" {
+			resolvedPipelineSkills = append(resolvedPipelineSkills, r)
+		}
+	}
+
+	// Validate skill references at manifest and pipeline scopes (after template resolution)
+	if errs := e.validateSkillRefs(resolvedPipelineSkills, p.Metadata.Name, m); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return fmt.Errorf("skill validation failed:\n  %s", strings.Join(msgs, "\n  "))
+	}
 
 	// Preflight validation: check required tools and skills before execution
 	if p.Requires != nil {
@@ -1214,9 +1227,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Resolve skills from all three scopes: global, persona, pipeline
-	// Pipeline scope includes both pipeline.Skills and requires.skills keys
+	// Pipeline scope includes both pipeline.Skills and requires.skills keys.
+	// Template-resolve pipeline skills (e.g. "{{ project.skill }}") before merging.
 	var pipelineSkills []string
-	pipelineSkills = append(pipelineSkills, execution.Pipeline.Skills...)
+	for _, s := range execution.Pipeline.Skills {
+		r := execution.Context.ResolvePlaceholders(s)
+		if r != "" {
+			pipelineSkills = append(pipelineSkills, r)
+		}
+	}
 	if execution.Pipeline.Requires != nil {
 		pipelineSkills = append(pipelineSkills, execution.Pipeline.Requires.SkillNames()...)
 	}
@@ -2233,7 +2252,9 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 
 // validateSkillRefs validates skill references at manifest (global + persona)
 // and pipeline scopes against the skill store. Returns nil if no store is set.
-func (e *DefaultPipelineExecutor) validateSkillRefs(p *Pipeline, m *manifest.Manifest) []error {
+// pipelineSkills should be the already-resolved (template-expanded) skill list
+// so that callers never need to mutate the shared Pipeline struct.
+func (e *DefaultPipelineExecutor) validateSkillRefs(pipelineSkills []string, pipelineName string, m *manifest.Manifest) []error {
 	if e.skillStore == nil {
 		return nil
 	}
@@ -2247,9 +2268,9 @@ func (e *DefaultPipelineExecutor) validateSkillRefs(p *Pipeline, m *manifest.Man
 	}
 	errs := skill.ValidateManifestSkills(m.Skills, personas, e.skillStore)
 
-	// Validate pipeline-level skills
-	if len(p.Skills) > 0 {
-		errs = append(errs, skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, e.skillStore)...)
+	// Validate pipeline-level skills (already template-resolved by caller)
+	if len(pipelineSkills) > 0 {
+		errs = append(errs, skill.ValidateSkillRefs(pipelineSkills, "pipeline:"+pipelineName, e.skillStore)...)
 	}
 
 	return errs
