@@ -113,6 +113,44 @@ func (c *Checker) CheckTools(tools []string) ([]Result, error) {
 	return results, nil
 }
 
+// BrowserBinaries is the search order for browser binaries on PATH.
+var BrowserBinaries = []string{
+	"chromium",
+	"chromium-browser",
+	"google-chrome",
+	"google-chrome-stable",
+}
+
+// CheckBrowserBinary verifies that a Chromium/Chrome binary is available on PATH.
+// Returns the found binary path and a Result. If not found, includes platform-specific
+// install instructions in the error message.
+func (c *Checker) CheckBrowserBinary() (string, Result) {
+	for _, name := range BrowserBinaries {
+		if path, err := exec.LookPath(name); err == nil {
+			return path, Result{
+				Name:    name,
+				Kind:    "tool",
+				OK:      true,
+				Message: fmt.Sprintf("browser binary %q found at %s", name, path),
+			}
+		}
+	}
+
+	installHint := "Install a Chromium-based browser:\n" +
+		"  Ubuntu/Debian: sudo apt install chromium-browser\n" +
+		"  Fedora/RHEL:   sudo dnf install chromium\n" +
+		"  macOS:         brew install --cask chromium\n" +
+		"  Arch:          sudo pacman -S chromium\n" +
+		"  Nix:           nix-env -iA nixpkgs.chromium"
+
+	return "", Result{
+		Name:    "chromium",
+		Kind:    "tool",
+		OK:      false,
+		Message: fmt.Sprintf("no browser binary found on PATH (searched: %s)\n%s", strings.Join(BrowserBinaries, ", "), installHint),
+	}
+}
+
 // CheckSkills verifies that all required skills are installed, attempting auto-install if configured.
 // Note: init commands are NOT run here — they run inside the worktree after creation.
 func (c *Checker) CheckSkills(skills []string) ([]Result, error) {

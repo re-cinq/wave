@@ -456,6 +456,41 @@ func TestRun_PreservesToolError(t *testing.T) {
 	}
 }
 
+func TestCheckBrowserBinary_NotFound(t *testing.T) {
+	c := NewChecker(nil)
+	// Override PATH to be empty so no browser is found
+	origLookPath := BrowserBinaries
+	BrowserBinaries = []string{"nonexistent-browser-xyz-999"}
+	defer func() { BrowserBinaries = origLookPath }()
+
+	path, result := c.CheckBrowserBinary()
+	if path != "" {
+		t.Errorf("expected empty path, got %q", path)
+	}
+	if result.OK {
+		t.Error("expected browser check to fail")
+	}
+	if result.Kind != "tool" {
+		t.Errorf("expected kind 'tool', got %q", result.Kind)
+	}
+}
+
+func TestCheckBrowserBinary_Found(t *testing.T) {
+	c := NewChecker(nil)
+	// "sh" is guaranteed to exist — use it as a stand-in for a browser binary
+	origBinaries := BrowserBinaries
+	BrowserBinaries = []string{"sh"}
+	defer func() { BrowserBinaries = origBinaries }()
+
+	path, result := c.CheckBrowserBinary()
+	if path == "" {
+		t.Error("expected non-empty path")
+	}
+	if !result.OK {
+		t.Errorf("expected browser check to pass, got: %s", result.Message)
+	}
+}
+
 func TestRun_BothFailReturnsPreflightError(t *testing.T) {
 	skills := map[string]skill.SkillConfig{
 		"speckit": {Check: "false"},
