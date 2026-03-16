@@ -752,11 +752,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 								liveModel.tailingPersisted = false
 								elapsed := time.Since(liveModel.startedAt)
 								var summaryLine string
-								if noColor() {
+								switch {
+								case noColor():
 									summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
-								} else if run.Status == "completed" {
+								case run.Status == "completed":
 									summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
-								} else {
+								default:
 									summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
 								}
 								buf.Append(summaryLine)
@@ -1365,11 +1366,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 							liveModel.tailingPersisted = false
 							elapsed := time.Since(liveModel.startedAt)
 							var summaryLine string
-							if noColor() {
+							switch {
+							case noColor():
 								summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
-							} else if run.Status == "completed" {
+							case run.Status == "completed":
 								summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
-							} else {
+							default:
 								summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
 							}
 							buf.Append(summaryLine)
@@ -1530,11 +1532,12 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					live.tailingPersisted = false
 					elapsed := time.Since(live.startedAt)
 					var summaryLine string
-					if noColor() {
+					switch {
+					case noColor():
 						summaryLine = fmt.Sprintf("Pipeline %s in %s", run.Status, formatElapsed(elapsed))
-					} else if run.Status == "completed" {
+					case run.Status == "completed":
 						summaryLine = fmt.Sprintf("\u2713 Pipeline completed in %s", formatElapsed(elapsed))
-					} else {
+					default:
 						summaryLine = fmt.Sprintf("\u2717 Pipeline %s in %s", run.Status, formatElapsed(elapsed))
 					}
 					buf.Append(summaryLine)
