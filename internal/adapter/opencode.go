@@ -160,6 +160,8 @@ func ResolveAdapter(adapterName string) AdapterRunner {
 		return NewClaudeAdapter()
 	case "opencode":
 		return NewOpenCodeAdapter()
+	case "browser":
+		return NewBrowserAdapter()
 	default:
 		return NewProcessGroupRunner()
 	}
