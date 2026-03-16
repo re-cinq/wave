@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: ops-hello-world
   description: "Simple test pipeline to verify Wave is working"
+  release: true
 
 input:
   source: cli

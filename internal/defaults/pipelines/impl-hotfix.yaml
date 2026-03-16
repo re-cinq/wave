@@ -2,6 +2,7 @@ kind: WavePipeline
 metadata:
   name: impl-hotfix
   description: "Quick investigation and fix for production issues"
+  release: true
 
 skills:
   - "{{ project.skill }}"
