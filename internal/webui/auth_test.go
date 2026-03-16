@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 import (
@@ -128,6 +126,52 @@ func TestAuthMiddleware_StaticBypass(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200 for static assets without token, got %d", rec.Code)
+	}
+}
+
+func TestApplyMiddleware_NonLocalhostEnforcesAuth(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	s := &Server{token: "secret-token", bind: "0.0.0.0"}
+	handler := s.applyMiddleware(inner)
+
+	// Request without token should be rejected
+	req := httptest.NewRequest("GET", "/api/runs", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("non-localhost without token: expected 401, got %d", rec.Code)
+	}
+
+	// Request with valid token should succeed
+	req2 := httptest.NewRequest("GET", "/api/runs", nil)
+	req2.Header.Set("Authorization", "Bearer secret-token")
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusOK {
+		t.Errorf("non-localhost with valid token: expected 200, got %d", rec2.Code)
+	}
+}
+
+func TestApplyMiddleware_LocalhostSkipsAuth(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	s := &Server{token: "secret-token", bind: "127.0.0.1"}
+	handler := s.applyMiddleware(inner)
+
+	// Request without token should succeed on localhost
+	req := httptest.NewRequest("GET", "/api/runs", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("localhost without token: expected 200, got %d", rec.Code)
 	}
 }
 

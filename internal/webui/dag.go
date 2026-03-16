@@ -1,5 +1,3 @@
-//go:build webui
-
 package webui
 
 // DAGLayout holds the computed layout for SVG rendering.
@@ -12,12 +10,14 @@ type DAGLayout struct {
 
 // DAGLayoutNode is a node with computed position for SVG rendering.
 type DAGLayoutNode struct {
-	ID      string
-	Label   string
-	Persona string
-	Status  string
-	X       int
-	Y       int
+	ID       string
+	Label    string
+	Persona  string
+	Status   string
+	Duration string
+	Tokens   int
+	X        int
+	Y        int
 }
 
 // DAGLayoutEdge is an edge with computed bezier curve points for SVG.
@@ -90,12 +90,14 @@ func ComputeDAGLayout(steps []DAGStepInput) *DAGLayout {
 			y := paddingY + layerIdx*layerGapY
 
 			layout.Nodes = append(layout.Nodes, DAGLayoutNode{
-				ID:      s.ID,
-				Label:   s.ID,
-				Persona: s.Persona,
-				Status:  s.Status,
-				X:       x,
-				Y:       y,
+				ID:       s.ID,
+				Label:    s.ID,
+				Persona:  s.Persona,
+				Status:   s.Status,
+				Duration: s.Duration,
+				Tokens:   s.Tokens,
+				X:        x,
+				Y:        y,
 			})
 		}
 	}
@@ -153,6 +155,8 @@ type DAGStepInput struct {
 	ID           string
 	Persona      string
 	Status       string
+	Duration     string
+	Tokens       int
 	Dependencies []string
 }
 

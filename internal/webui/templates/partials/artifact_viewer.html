@@ -4,7 +4,13 @@
         <h3>{{.Metadata.Name}}</h3>
         <span class="artifact-meta">{{.Metadata.MimeType}} | {{.Metadata.SizeBytes}} bytes</span>
         {{if .Metadata.Truncated}}<span class="badge status-warning">Truncated</span>{{end}}
+        {{if .Metadata.Redacted}}<span class="badge status-warning" title="Credentials have been redacted from this artifact">Redacted</span>{{end}}
     </div>
+    {{if .Metadata.Truncated}}
+    <div class="alert alert-truncation">
+        <strong>Notice:</strong> This artifact exceeds 100KB and has been truncated for display. Download the full artifact to view complete contents.
+    </div>
+    {{end}}
     <pre class="artifact-content"><code>{{.Content}}</code></pre>
 </div>
 {{end}}
