@@ -253,6 +253,7 @@ From innermost to outermost:
 | `CLAUDE.md` restrictions | Model is told what it can/cannot do | Prompt-level (advisory) |
 | `settings.json` permissions | Allow/deny rules enforced by Claude Code | Claude Code runtime |
 | Claude Code sandbox | Bubblewrap/Seatbelt restricts Bash commands | OS-level (Bash only) |
+| Docker container sandbox | Read-only container, cap-drop=ALL, network=none, no-new-privileges | Container-level (alternative to Nix bwrap) |
 | Nix dev shell sandbox | Bubblewrap restricts the entire session | OS-level (everything) |
 | Manifest | Single source of truth for all above | Wave configuration |
 
