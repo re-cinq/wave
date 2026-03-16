@@ -155,7 +155,7 @@ func Benchmark_validateConfig(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validateConfig(cfg)
+		_ = validateConfig(cfg)
 	}
 }
 
