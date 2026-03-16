@@ -1,0 +1,273 @@
+kind: WavePipeline
+metadata:
+  name: audit-closed
+  description: "Audit closed GitHub issues and merged PRs for implementation fidelity"
+  release: true
+
+skills:
+  - "{{ project.skill }}"
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  example: "last 30 days -- audit recent closed work"
+  schema:
+    type: string
+    description: "Audit scope: empty for full audit, time range ('last 30 days', 'since 2026-01-01'), or label filter ('label:enhancement')"
+
+steps:
+  - id: inventory
+    persona: analyst
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Fetch all closed issues and merged PRs for audit inventory.
+
+        ## Detect Repository
+
+        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
+
+        ## Parse Scope
+
+        Input: {{ input }}
+
+        Determine the scope mode from the input:
+
+        - **Empty or blank input**: Full audit — fetch ALL closed issues and merged PRs
+        - **Time range** (e.g., "last 30 days", "last 7 days", "since 2026-01-01"):
+          - For "last N days": calculate the date N days ago, use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
+          - For "since YYYY-MM-DD": use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
+        - **Label filter** (e.g., "label:enhancement", "label:bug"):
+          - Extract the label name after "label:"
+          - Add `--label <name>` to both issue and PR queries
+
+        ## Fetch Closed Issues
+
+        ```bash
+        {{ forge.cli_tool }} issue list --state closed --json number,title,body,labels,closedAt,stateReason,url \
+          --limit 500 [--search "closed:>YYYY-MM-DD"] [--label <name>]
+        ```
+
+        Filter out issues where `stateReason` is `NOT_PLANNED` — these represent intentional non-implementation and should be excluded.
+
+        If the result count equals the limit (500), make additional paginated calls to fetch remaining items.
+
+        ## Fetch Merged PRs
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} list --state merged --json number,title,body,files,mergeCommit,closedAt,url \
+          --limit 500 [--search "merged:>YYYY-MM-DD"] [--label <name>]
+        ```
+
+        If the result count equals the limit, paginate for more.
+
+        ## Build Inventory
+
+        For each closed issue:
+        - `number`, `type` ("issue"), `title`, `url`, `body`, `labels` (array)
+        - `closed_at`: ISO 8601 timestamp
+        - `linked_prs`: Search body for "Fixes #N", "Closes #N", or PR cross-references
+        - `acceptance_criteria`: Extract from issue body by looking for checklist patterns (`- [ ]`, `- [x]`) or sections titled "Acceptance Criteria", "Requirements", or similar headers
+
+        For each merged PR:
+        - `number`, `type` ("pr"), `title`, `url`, `body`, `labels` (array)
+        - `merged_at`: ISO 8601 timestamp (from `closedAt`)
+        - `merge_commit`: the mergeCommit SHA
+        - `files_changed`: count of modified files from the PR
+
+        ## Output
+
+        Write the inventory as structured JSON to `.wave/artifacts/inventory.json`.
+
+        The JSON must include:
+        - `scope`: object with `mode` ("full", "time_range", or "label"), `filter` (the raw scope expression), `repository` (owner/repo)
+        - `items`: array of inventory items (issues and PRs combined)
+        - `summary`: object with `total_issues`, `total_prs`, `excluded_not_planned` counts
+        - `timestamp`: current ISO 8601 timestamp
+
+    output_artifacts:
+      - name: inventory
+        path: .wave/artifacts/inventory.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/artifacts/inventory.json
+        schema_path: .wave/contracts/audit-inventory.schema.json
+        on_failure: retry
+
+  - id: audit
+    persona: analyst
+    dependencies: [inventory]
+    memory:
+      inject_artifacts:
+        - step: inventory
+          artifact: inventory
+          as: inventory
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Audit each closed issue and merged PR against the current codebase to verify implementation fidelity.
+
+        ## Read Inventory
+
+        Read the injected inventory artifact to get the list of items to audit.
+
+        ## Verification Methodology
+
+        For each inventory item, perform static analysis verification:
+
+        1. **Read the item description** — identify what should exist in the codebase: specific functions, types, handlers, configuration options, CLI flags, test files, documentation
+        2. **Check file existence** — use Glob to verify that referenced files still exist at HEAD
+        3. **Search for key artifacts** — use Grep to find function names, type definitions, handler registrations, and other code artifacts mentioned in the issue/PR
+        4. **Read relevant code** — use Read to verify logic matches the described behavior
+        5. **Check test coverage** — verify related test files exist and contain assertions matching the acceptance criteria
+        6. **Detect regressions** — run `git log --oneline --all -- <file>` to check if key files were modified after implementation. Run `git log --grep="Revert" --oneline` to find revert commits that may have undone the work
+
+        ## Classification Rules
+
+        Assign exactly ONE fidelity category per item:
+
+        - **fully_implemented**: All referenced files exist, key functions/types are present via Grep, logic reads match the described behavior, related tests exist
+        - **partial**: Some but not all acceptance criteria have matching code evidence. For each partial finding, list WHICH criteria passed and WHICH did not
+        - **regressed**: Was implemented but later broken or reverted. Include the revert commit SHAs and affected file paths as evidence
+        - **obsolete**: Referenced files have been deleted at HEAD, or the codebase has diverged significantly enough that the item no longer applies
+        - **not_implemented**: No evidence of implementation; issue or PR describes work that does not appear in the codebase
+
+        ## Evidence Requirements
+
+        Every finding MUST include evidence:
+        - For **fully_implemented**: file paths confirming existence, Grep matches for key code artifacts
+        - For **partial**: which criteria passed (with file:line references) and which did not (what was searched for but not found)
+        - For **regressed**: revert commit SHAs, `git log` output showing modification/deletion after the implementing PR
+        - For **obsolete**: evidence that files no longer exist or architecture has changed
+        - For **not_implemented**: description of what was expected to exist but does not
+
+        ## Edge Cases
+
+        - **Issues with no traceable code changes**: Mark as "not_implemented" with a note explaining the lack of implementation evidence
+        - **Issues referencing deleted files**: Mark as "obsolete" with evidence that the referenced code no longer exists at HEAD
+        - **Large inventories**: Focus on the most impactful items first — non-trivial issues with acceptance criteria. If context limits approach, prioritize quality of analysis over quantity
+
+        ## Output
+
+        Write the findings as structured JSON to `.wave/artifacts/audit-report.json`.
+
+        The JSON must include:
+        - `findings`: array of finding objects, each with:
+          - `item_number`: issue or PR number
+          - `item_type`: "issue" or "pr"
+          - `item_url`: GitHub URL
+          - `title`: item title
+          - `status`: one of (fully_implemented, partial, regressed, obsolete, not_implemented)
+          - `evidence`: array of strings describing evidence found
+          - `unmet_criteria`: array of strings describing criteria not met (for partial/regressed)
+          - `remediation`: string describing remediation needed (empty for fully_implemented/obsolete)
+        - `summary`: object with counts by status (fully_implemented, partial, regressed, obsolete, not_implemented)
+        - `timestamp`: current ISO 8601 timestamp
+
+    output_artifacts:
+      - name: audit-report
+        path: .wave/artifacts/audit-report.json
+        type: json
+    retry:
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/artifacts/audit-report.json
+        schema_path: .wave/contracts/audit-findings.schema.json
+        on_failure: retry
+
+  - id: triage
+    persona: navigator
+    dependencies: [audit]
+    memory:
+      inject_artifacts:
+        - step: inventory
+          artifact: inventory
+          as: inventory
+        - step: audit
+          artifact: audit-report
+          as: audit_report
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Compose a triage summary from the audit findings with prioritized remediation recommendations.
+
+        ## Read Inputs
+
+        Read the injected inventory artifact to get scope and repository metadata.
+        Read the injected audit report artifact to get the per-item verification results.
+
+        ## Group Findings by Status
+
+        Organize all findings into groups by implementation status, in this order:
+        1. **regressed** — highest priority, was working but now broken
+        2. **partial** — some criteria unmet
+        3. **not_implemented** — no implementation found
+        4. **obsolete** — no longer applicable
+        5. **fully_implemented** — fully intact (included for reference)
+
+        ## Summary Statistics
+
+        Calculate counts for each status:
+        - `fully_implemented`: number of fully verified items
+        - `partial`: number with some criteria unmet
+        - `regressed`: number that were broken or reverted
+        - `obsolete`: number no longer applicable
+        - `not_implemented`: number with no implementation evidence
+
+        ## Prioritized Remediation Actions
+
+        Generate an ordered list of remediation actions for non-fully-implemented items. Priority ranking:
+
+        1. **regressed** items (highest priority — was working, now broken)
+        2. **partial** items with many unmet criteria (sort by unmet count descending)
+        3. **partial** items with fewer unmet criteria
+        4. **not_implemented** items (moderate priority — work was never done)
+        5. **obsolete** items are EXCLUDED from actions — they are intentionally non-applicable
+
+        ## Output Format
+
+        Write a markdown summary to `.wave/artifacts/triage-report.md` with:
+
+        1. **Audit Scope** — Description of what was audited (time range, labels, etc.)
+        2. **Summary Statistics** — Counts by status as a table or list
+        3. **Regressed Items** (if any) — Bulleted list with issue numbers, titles, revert commit SHAs, and remediation steps
+        4. **Partial Implementation Items** (if any) — Bulleted list with issue numbers, titles, which criteria failed, and remediation steps
+        5. **Not Implemented Items** (if any) — Bulleted list with issue numbers, titles, and what would need to be done
+        6. **Obsolete Items** — Count only, explanation that these are no longer applicable
+        7. **Fully Implemented Items** — Count only, confirmation of fidelity
+        8. **Recommended Next Steps** — Actionable recommendations for the team
+
+        All issue/PR references should be clickable links to their GitHub URLs.
+
+    output_artifacts:
+      - name: triage-report
+        path: .wave/artifacts/triage-report.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/artifacts/triage-report.md

@@ -59,6 +59,24 @@ See [Installation Guide](docs/guide/installation.md) for more options including 
 
 ---
 
+## Prerequisites
+
+Before using Wave, ensure you have the following installed:
+
+- **Go 1.25+** — required for building from source (optional if using pre-built binaries)
+- **Claude Code CLI** (`claude`) — or any supported adapter binary (required for pipeline execution)
+- **Git 2.x+** — for version control and worktree isolation
+- **SQLite** — bundled with Wave, no external dependency needed
+- **Optional:**
+  - `gh` CLI — for GitHub issue and PR automation pipelines
+  - `glab` CLI — for GitLab integration
+  - Docker — for container-based sandbox isolation
+  - Nix — for bubblewrap sandbox environment
+
+Run `wave doctor` after installation to verify your environment is correctly configured.
+
+---
+
 ## Quick Start
 
 ```bash
