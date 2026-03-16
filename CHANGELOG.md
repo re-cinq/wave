@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- SWE-bench benchmarking with `wave bench run`, `wave bench compare`, repo checkout, baseline mode, and `bench-solve` pipeline (#288)
 - Mobile responsiveness improvements for documentation landing page terminal
 - Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
 - Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
