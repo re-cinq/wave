@@ -954,3 +954,63 @@ func TestWorkspaceIsolation_CleanupOneDoesntAffectOther(t *testing.T) {
 		t.Errorf("Kept file content changed: %s", string(content))
 	}
 }
+
+// TestCopyRecursive_SymlinkToDirectory verifies that copyRecursive handles
+// symlinks to directories without failing with "copy_file_range: is a directory".
+func TestCopyRecursive_SymlinkToDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a target directory with a file inside
+	targetDir := filepath.Join(tmpDir, "target-dir")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		t.Fatalf("Failed to create target dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "inner.txt"), []byte("inside symlinked dir"), 0644); err != nil {
+		t.Fatalf("Failed to create inner file: %v", err)
+	}
+
+	// Create a source directory that contains a symlink to the target directory
+	srcDir := filepath.Join(tmpDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatalf("Failed to create src dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "regular.txt"), []byte("regular file"), 0644); err != nil {
+		t.Fatalf("Failed to create regular file: %v", err)
+	}
+	if err := os.Symlink(targetDir, filepath.Join(srcDir, "linked-dir")); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	// Copy the source directory
+	dstDir := filepath.Join(tmpDir, "dst")
+	if err := copyRecursive(srcDir, dstDir); err != nil {
+		t.Fatalf("copyRecursive failed: %v", err)
+	}
+
+	// Verify regular file was copied
+	content, err := os.ReadFile(filepath.Join(dstDir, "regular.txt"))
+	if err != nil {
+		t.Fatalf("Failed to read regular file: %v", err)
+	}
+	if string(content) != "regular file" {
+		t.Errorf("Expected 'regular file', got %q", string(content))
+	}
+
+	// Verify the symlinked directory's contents were copied (as a real directory, not a symlink)
+	innerContent, err := os.ReadFile(filepath.Join(dstDir, "linked-dir", "inner.txt"))
+	if err != nil {
+		t.Fatalf("Failed to read file from symlinked dir: %v", err)
+	}
+	if string(innerContent) != "inside symlinked dir" {
+		t.Errorf("Expected 'inside symlinked dir', got %q", string(innerContent))
+	}
+
+	// Verify it's a real directory, not a symlink
+	info, err := os.Lstat(filepath.Join(dstDir, "linked-dir"))
+	if err != nil {
+		t.Fatalf("Failed to lstat linked-dir: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("Expected real directory, got symlink")
+	}
+}
