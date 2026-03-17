@@ -13,7 +13,7 @@
         <div class="persona-meta">
             <span class="badge">{{.Filename}}</span>
         </div>
-        <div style="margin-top: 0.5rem;">
+        <div class="card-actions">
             <a href="#" class="btn" onclick="viewContract({{.Name | printf "%q"}}); return false;" aria-label="View schema for {{.Name}}">View Schema</a>
         </div>
         <div class="artifact-inline" id="contract-{{.Name}}" hidden></div>
