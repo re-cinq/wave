@@ -41,8 +41,10 @@ var pageTemplates = []string{
 func parseTemplates() (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
+		"statusIcon":     statusIcon,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
 		"contains":       strings.Contains,
 	}
@@ -100,6 +102,24 @@ func parseTemplates() (map[string]*template.Template, error) {
 func staticHandler() http.Handler {
 	sub, _ := fs.Sub(staticFS, "static")
 	return http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
+}
+
+// statusIcon returns a Unicode icon for a pipeline status.
+func statusIcon(status string) string {
+	switch status {
+	case "completed":
+		return "✓"
+	case "running":
+		return "●"
+	case "failed":
+		return "✕"
+	case "cancelled":
+		return "○"
+	case "pending":
+		return "◌"
+	default:
+		return "·"
+	}
 }
 
 // statusClass returns a CSS class name for a pipeline status.
@@ -169,5 +189,24 @@ func formatTokensFunc(v interface{}) string {
 		return display.FormatTokenCount(int(n))
 	default:
 		return "0"
+	}
+}
+
+// formatTimeISO formats a time.Time as an ISO 8601 string for use in HTML
+// datetime attributes and JavaScript relative time calculation.
+func formatTimeISO(t interface{}) string {
+	switch v := t.(type) {
+	case time.Time:
+		if v.IsZero() {
+			return ""
+		}
+		return v.Format(time.RFC3339)
+	case *time.Time:
+		if v == nil || v.IsZero() {
+			return ""
+		}
+		return v.Format(time.RFC3339)
+	default:
+		return ""
 	}
 }

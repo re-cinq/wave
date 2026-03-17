@@ -131,16 +131,21 @@ async function retryRun(runID) {
     }
 }
 
-// Filter runs by status
+// Filter runs by status, pipeline, and date
 function filterRuns() {
-    const status = document.getElementById('status-filter').value;
-    const params = new URLSearchParams(window.location.search);
-    if (status) {
-        params.set('status', status);
-    } else {
-        params.delete('status');
-    }
+    var params = new URLSearchParams();
+    var status = document.getElementById('status-filter');
+    var pipeline = document.getElementById('pipeline-filter');
+    var since = document.getElementById('since-filter');
+    if (status && status.value) params.set('status', status.value);
+    if (pipeline && pipeline.value) params.set('pipeline', pipeline.value);
+    if (since && since.value) params.set('since', since.value);
     window.location.search = params.toString();
+}
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '/runs';
 }
 
 // Resume from a specific step
@@ -186,10 +191,155 @@ document.addEventListener('keydown', function(e) {
 
 // Auto-refresh run list every 10 seconds if there are running pipelines
 (function() {
-    const rows = document.querySelectorAll('.run-row[data-status="running"]');
+    var rows = document.querySelectorAll('.run-row[data-status="running"]');
     if (rows.length > 0) {
         setTimeout(function() {
             window.location.reload();
         }, 10000);
+    }
+})();
+
+// Relative time formatting
+function relativeTime(isoString) {
+    if (!isoString) return '-';
+    var date = new Date(isoString);
+    var now = new Date();
+    var diffMs = now - date;
+    var diffS = Math.floor(diffMs / 1000);
+    if (diffS < 60) return diffS + 's ago';
+    var diffM = Math.floor(diffS / 60);
+    if (diffM < 60) return diffM + 'm ago';
+    var diffH = Math.floor(diffM / 60);
+    if (diffH < 24) return diffH + 'h ago';
+    var diffD = Math.floor(diffH / 24);
+    return diffD + 'd ago';
+}
+
+// Update all <time> elements with relative timestamps
+(function() {
+    var times = document.querySelectorAll('.run-row time[datetime]');
+    for (var i = 0; i < times.length; i++) {
+        var dt = times[i].getAttribute('datetime');
+        if (dt) {
+            times[i].textContent = relativeTime(dt);
+        }
+    }
+})();
+
+// Client-side table sorting
+function sortTable(column) {
+    var table = document.getElementById('runs-table');
+    if (!table) return;
+    var thead = table.querySelector('thead');
+    var tbody = table.querySelector('tbody');
+    if (!thead || !tbody) return;
+
+    var th = thead.querySelector('[data-sort="' + column + '"]');
+    if (!th) return;
+
+    // Determine sort direction
+    var currentDir = th.getAttribute('data-dir');
+    var dir = currentDir === 'asc' ? 'desc' : 'asc';
+
+    // Reset all headers
+    var allThs = thead.querySelectorAll('.sortable');
+    for (var i = 0; i < allThs.length; i++) {
+        allThs[i].classList.remove('sort-active');
+        allThs[i].removeAttribute('data-dir');
+        var ind = allThs[i].querySelector('.sort-indicator');
+        if (ind) ind.textContent = '';
+    }
+
+    // Set active header
+    th.classList.add('sort-active');
+    th.setAttribute('data-dir', dir);
+    var indicator = th.querySelector('.sort-indicator');
+    if (indicator) indicator.textContent = dir === 'asc' ? '▲' : '▼';
+
+    // Get column index
+    var colIndex = 0;
+    var cols = thead.querySelectorAll('th');
+    for (var j = 0; j < cols.length; j++) {
+        if (cols[j] === th) { colIndex = j; break; }
+    }
+
+    // Sort rows
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    rows.sort(function(a, b) {
+        var aVal, bVal;
+        var aCells = a.querySelectorAll('td');
+        var bCells = b.querySelectorAll('td');
+        if (colIndex >= aCells.length || colIndex >= bCells.length) return 0;
+
+        if (column === 'started') {
+            var aTime = aCells[colIndex].querySelector('time');
+            var bTime = bCells[colIndex].querySelector('time');
+            aVal = aTime ? aTime.getAttribute('datetime') || '' : '';
+            bVal = bTime ? bTime.getAttribute('datetime') || '' : '';
+        } else if (column === 'duration') {
+            aVal = parseDuration(aCells[colIndex].getAttribute('data-duration') || aCells[colIndex].textContent.trim());
+            bVal = parseDuration(bCells[colIndex].getAttribute('data-duration') || bCells[colIndex].textContent.trim());
+            var cmp = aVal - bVal;
+            return dir === 'asc' ? cmp : -cmp;
+        } else {
+            aVal = aCells[colIndex].textContent.trim().toLowerCase();
+            bVal = bCells[colIndex].textContent.trim().toLowerCase();
+        }
+
+        if (aVal < bVal) return dir === 'asc' ? -1 : 1;
+        if (aVal > bVal) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    for (var k = 0; k < rows.length; k++) {
+        tbody.appendChild(rows[k]);
+    }
+
+    // Persist sort state in URL
+    var params = new URLSearchParams(window.location.search);
+    params.set('sort', column);
+    params.set('dir', dir);
+    history.replaceState(null, '', '?' + params.toString());
+}
+
+// Parse duration string like "2m30s", "45s" into seconds
+function parseDuration(s) {
+    if (!s || s === '-') return 0;
+    var total = 0;
+    var m = s.match(/(\d+)m/);
+    if (m) total += parseInt(m[1], 10) * 60;
+    var sec = s.match(/(\d+)s/);
+    if (sec) total += parseInt(sec[1], 10);
+    return total;
+}
+
+// Restore sort state from URL on page load
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var sort = params.get('sort');
+    var dir = params.get('dir');
+    if (sort) {
+        // Set direction to opposite so sortTable toggles to desired direction
+        var table = document.getElementById('runs-table');
+        if (table) {
+            var th = table.querySelector('[data-sort="' + sort + '"]');
+            if (th) {
+                th.setAttribute('data-dir', dir === 'asc' ? 'desc' : 'asc');
+                sortTable(sort);
+            }
+        }
+    }
+})();
+
+// Row click handler — navigate to run detail on row click
+(function() {
+    var rows = document.querySelectorAll('.run-row[data-href]');
+    for (var i = 0; i < rows.length; i++) {
+        rows[i].addEventListener('click', function(e) {
+            // Don't navigate if clicking a link within the row
+            if (e.target.tagName === 'A' || e.target.closest('a')) return;
+            var href = this.getAttribute('data-href');
+            if (href) window.location.href = href;
+        });
     }
 })();
