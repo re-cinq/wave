@@ -204,13 +204,17 @@ func copyRecursive(src, dst string) error {
 				if err != nil {
 					return nil // skip broken symlinks
 				}
+				// Boundary check: only follow symlinks that resolve within
+				// the source tree to prevent path traversal attacks.
+				srcAbs, _ := filepath.Abs(src)
+				if srcAbs != "" && !strings.HasPrefix(realPath, srcAbs+string(filepath.Separator)) {
+					return nil // skip symlinks pointing outside source
+				}
 				resolved, err := os.Stat(realPath)
 				if err != nil {
 					return nil
 				}
 				if resolved.IsDir() {
-					// Symlink to directory — recurse into the resolved real path
-					// (not the symlink itself, to avoid infinite loops)
 					return copyRecursive(realPath, targetPath)
 				}
 				// Symlink to file — fall through to copyFile which follows symlinks
