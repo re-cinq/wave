@@ -80,6 +80,14 @@ function initStepCollapseStates() {
 var sseConnection = null;
 var pollTimer = null;
 var currentRunID = null;
+var sseHasConnected = false;
+
+function showConnectionBanner(visible) {
+    var banner = document.getElementById('connection-banner');
+    if (!banner) return;
+    banner.hidden = !visible;
+    banner.textContent = visible ? 'Connection lost. Reconnecting\u2026' : '';
+}
 
 function connectSSE(runID) {
     currentRunID = runID;
@@ -93,6 +101,8 @@ function connectSSE(runID) {
 
     sseConnection.onopen = function() {
         console.log('SSE connected for run:', runID);
+        sseHasConnected = true;
+        showConnectionBanner(false);
         if (window.logViewer) {
             window.logViewer.onReconnect();
         }
@@ -100,6 +110,9 @@ function connectSSE(runID) {
 
     sseConnection.onerror = function() {
         console.log('SSE error, falling back to polling...');
+        if (sseHasConnected) {
+            showConnectionBanner(true);
+        }
         if (window.logViewer) {
             window.logViewer.onDisconnect();
         }

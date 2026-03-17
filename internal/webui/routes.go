@@ -45,4 +45,16 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/issues/start", s.handleAPIStartFromIssue)
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
+
+	// Catch-all 404 for unmatched routes
+	mux.HandleFunc("/", s.handleNotFound)
+}
+
+// handleNotFound renders the 404 page for unmatched routes.
+func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	tmpl := s.templates["templates/notfound.html"]
+	if tmpl != nil {
+		tmpl.ExecuteTemplate(w, "templates/layout.html", nil)
+	}
 }
