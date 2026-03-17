@@ -382,6 +382,9 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 				sd.Persona = si.persona
 			}
 			sd.StartedAt = si.startedAt
+			if si.startedAt != nil {
+				sd.FormattedStartedAt = si.startedAt.Format("15:04:05")
+			}
 			sd.CompletedAt = si.completedAt
 			sd.TokensUsed = si.tokens
 			sd.Error = si.errMsg
@@ -444,9 +447,20 @@ func formatDurationValue(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%.0fs", d.Seconds())
 	}
-	m := int(d.Minutes())
-	s := int(d.Seconds()) % 60
-	return fmt.Sprintf("%dm%ds", m, s)
+	if d < time.Hour {
+		m := int(d.Minutes())
+		s := int(d.Seconds()) % 60
+		if s == 0 {
+			return fmt.Sprintf("%dm", m)
+		}
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	if m == 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dh %dm", h, m)
 }
 
 func listPipelineNames() []string {

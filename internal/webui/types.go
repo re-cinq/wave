@@ -41,7 +41,8 @@ type StepDetail struct {
 	State       string            `json:"state"`
 	Progress    int               `json:"progress"`
 	Action      string            `json:"current_action,omitempty"`
-	StartedAt   *time.Time        `json:"started_at,omitempty"`
+	StartedAt          *time.Time        `json:"started_at,omitempty"`
+	FormattedStartedAt string             `json:"formatted_started_at,omitempty"`
 	CompletedAt *time.Time        `json:"completed_at,omitempty"`
 	Duration    string            `json:"duration,omitempty"`
 	TokensUsed  int               `json:"tokens_used"`
