@@ -1,0 +1,545 @@
+package webui
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/recinq/wave/internal/state"
+)
+
+// TestEventToSummary verifies that all fields of state.LogRecord are mapped
+// correctly to EventSummary.
+func TestEventToSummary(t *testing.T) {
+	ts := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+	record := state.LogRecord{
+		ID:         42,
+		RunID:      "run-abc",
+		Timestamp:  ts,
+		StepID:     "step-1",
+		State:      "running",
+		Persona:    "craftsman",
+		Message:    "working on it",
+		TokensUsed: 512,
+		DurationMs: 3200,
+	}
+
+	got := eventToSummary(record)
+
+	if got.ID != 42 {
+		t.Errorf("ID: expected 42, got %d", got.ID)
+	}
+	if !got.Timestamp.Equal(ts) {
+		t.Errorf("Timestamp: expected %v, got %v", ts, got.Timestamp)
+	}
+	if got.StepID != "step-1" {
+		t.Errorf("StepID: expected %q, got %q", "step-1", got.StepID)
+	}
+	if got.State != "running" {
+		t.Errorf("State: expected %q, got %q", "running", got.State)
+	}
+	if got.Persona != "craftsman" {
+		t.Errorf("Persona: expected %q, got %q", "craftsman", got.Persona)
+	}
+	if got.Message != "working on it" {
+		t.Errorf("Message: expected %q, got %q", "working on it", got.Message)
+	}
+	if got.TokensUsed != 512 {
+		t.Errorf("TokensUsed: expected 512, got %d", got.TokensUsed)
+	}
+	if got.DurationMs != 3200 {
+		t.Errorf("DurationMs: expected 3200, got %d", got.DurationMs)
+	}
+}
+
+// TestEventToSummary_ZeroValues ensures zero-value fields are passed through without error.
+func TestEventToSummary_ZeroValues(t *testing.T) {
+	got := eventToSummary(state.LogRecord{})
+
+	if got.ID != 0 {
+		t.Errorf("ID: expected 0, got %d", got.ID)
+	}
+	if got.StepID != "" {
+		t.Errorf("StepID: expected empty, got %q", got.StepID)
+	}
+	if got.TokensUsed != 0 {
+		t.Errorf("TokensUsed: expected 0, got %d", got.TokensUsed)
+	}
+	if got.DurationMs != 0 {
+		t.Errorf("DurationMs: expected 0, got %d", got.DurationMs)
+	}
+}
+
+// TestArtifactToSummary verifies that ID, Name, Path, Type, and SizeBytes are
+// mapped correctly from state.ArtifactRecord to ArtifactSummary.
+func TestArtifactToSummary(t *testing.T) {
+	record := state.ArtifactRecord{
+		ID:        99,
+		RunID:     "run-xyz",
+		StepID:    "step-2",
+		Name:      "impl_plan",
+		Path:      ".wave/artifacts/impl_plan",
+		Type:      "markdown",
+		SizeBytes: 4096,
+	}
+
+	got := artifactToSummary(record)
+
+	if got.ID != 99 {
+		t.Errorf("ID: expected 99, got %d", got.ID)
+	}
+	if got.Name != "impl_plan" {
+		t.Errorf("Name: expected %q, got %q", "impl_plan", got.Name)
+	}
+	if got.Path != ".wave/artifacts/impl_plan" {
+		t.Errorf("Path: expected %q, got %q", ".wave/artifacts/impl_plan", got.Path)
+	}
+	if got.Type != "markdown" {
+		t.Errorf("Type: expected %q, got %q", "markdown", got.Type)
+	}
+	if got.SizeBytes != 4096 {
+		t.Errorf("SizeBytes: expected 4096, got %d", got.SizeBytes)
+	}
+}
+
+// TestArtifactToSummary_ZeroValues ensures zero-value ArtifactRecord maps cleanly.
+func TestArtifactToSummary_ZeroValues(t *testing.T) {
+	got := artifactToSummary(state.ArtifactRecord{})
+
+	if got.ID != 0 {
+		t.Errorf("ID: expected 0, got %d", got.ID)
+	}
+	if got.Name != "" {
+		t.Errorf("Name: expected empty, got %q", got.Name)
+	}
+	if got.SizeBytes != 0 {
+		t.Errorf("SizeBytes: expected 0, got %d", got.SizeBytes)
+	}
+}
+
+// TestFormatDurationValue covers the two branches: under one minute and over.
+func TestFormatDurationValue(t *testing.T) {
+	cases := []struct {
+		name     string
+		duration time.Duration
+		want     string
+	}{
+		{
+			name:     "zero",
+			duration: 0,
+			want:     "0s",
+		},
+		{
+			name:     "one second",
+			duration: time.Second,
+			want:     "1s",
+		},
+		{
+			name:     "thirty seconds",
+			duration: 30 * time.Second,
+			want:     "30s",
+		},
+		{
+			name:     "fifty-nine seconds",
+			duration: 59 * time.Second,
+			want:     "59s",
+		},
+		{
+			name:     "exactly one minute",
+			duration: time.Minute,
+			want:     "1m0s",
+		},
+		{
+			name:     "one minute thirty seconds",
+			duration: 90 * time.Second,
+			want:     "1m30s",
+		},
+		{
+			name:     "two minutes",
+			duration: 2 * time.Minute,
+			want:     "2m0s",
+		},
+		{
+			name:     "ten minutes five seconds",
+			duration: 10*time.Minute + 5*time.Second,
+			want:     "10m5s",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatDurationValue(tc.duration)
+			if got != tc.want {
+				t.Errorf("formatDurationValue(%v) = %q, want %q", tc.duration, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestHandleRunDetailPage_MissingID verifies that a request without a run ID
+// path value returns HTTP 400.
+func TestHandleRunDetailPage_MissingID(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/runs/", nil)
+	// Deliberately do NOT call req.SetPathValue("id", ...) to simulate missing ID.
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing run ID, got %d", rec.Code)
+	}
+}
+
+// TestHandleRunDetailPage_NotFound verifies that requesting an unknown run ID
+// returns HTTP 404.
+func TestHandleRunDetailPage_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/runs/does-not-exist", nil)
+	req.SetPathValue("id", "does-not-exist")
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown run, got %d", rec.Code)
+	}
+}
+
+// TestHandleRunDetailPage_ValidRun verifies that a request for a known run
+// returns HTTP 200 with HTML content that includes the run ID.
+func TestHandleRunDetailPage_ValidRun(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, err := rwStore.CreateRun("test-pipeline", "test input")
+	if err != nil {
+		t.Fatalf("failed to create run: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs/"+runID, nil)
+	req.SetPathValue("id", runID)
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for valid run, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if contentType != "text/html; charset=utf-8" {
+		t.Errorf("Content-Type: expected %q, got %q", "text/html; charset=utf-8", contentType)
+	}
+
+	body := rec.Body.String()
+	if body == "" {
+		t.Error("expected non-empty HTML body")
+	}
+	// The stub template renders the run ID inside a div.
+	if !strings.Contains(body, runID) {
+		t.Errorf("expected body to contain run ID %q, got: %s", runID, body)
+	}
+}
+
+// TestHandleRunDetailPage_WithPipelineAndEvents exercises the full path through
+// handleRunDetailPage including buildStepDetails and DAG layout computation.
+func TestHandleRunDetailPage_WithPipelineAndEvents(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "plan"
+  - id: step2
+    persona: craftsman
+    depends_on: [step1]
+    exec:
+      prompt: "implement"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	runID, err := rwStore.CreateRun("test-pipeline", "test input")
+	if err != nil {
+		t.Fatalf("failed to create run: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
+
+	// Log events to exercise buildStepDetails state machine
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step2", "failed", "craftsman", "Error occurred", 200, 2000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs/"+runID, nil)
+	req.SetPathValue("id", runID)
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestHandleAPIRunDetail_WithEvents tests the API endpoint with events.
+func TestHandleAPIRunDetail_WithEvents(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, err := rwStore.CreateRun("test-pipeline", "test input")
+	if err != nil {
+		t.Fatalf("failed to create run: %v", err)
+	}
+
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Working", 100, 500); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 1000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/runs/"+runID, nil)
+	req.SetPathValue("id", runID)
+	rec := httptest.NewRecorder()
+	srv.handleAPIRunDetail(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp RunDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	if len(resp.Events) != 2 {
+		t.Errorf("expected 2 events, got %d", len(resp.Events))
+	}
+}
+
+// TestRunToSummary_CompletedRun tests duration calculation for completed runs.
+func TestRunToSummary_CompletedRun(t *testing.T) {
+	start := time.Now().Add(-5 * time.Minute)
+	end := time.Now()
+	run := state.RunRecord{
+		RunID:        "run-123",
+		PipelineName: "my-pipeline",
+		Status:       "completed",
+		TotalTokens:  1000,
+		StartedAt:    start,
+		CompletedAt:  &end,
+	}
+
+	summary := runToSummary(run)
+
+	if summary.RunID != "run-123" {
+		t.Errorf("expected run ID 'run-123', got %q", summary.RunID)
+	}
+	if summary.Duration == "" {
+		t.Error("expected non-empty duration for completed run")
+	}
+	if summary.TotalTokens != 1000 {
+		t.Errorf("expected 1000 tokens, got %d", summary.TotalTokens)
+	}
+}
+
+// TestRunToSummary_RunningRun tests duration calculation for running runs.
+func TestRunToSummary_RunningRun(t *testing.T) {
+	start := time.Now().Add(-30 * time.Second)
+	run := state.RunRecord{
+		RunID:        "run-456",
+		PipelineName: "my-pipeline",
+		Status:       "running",
+		StartedAt:    start,
+	}
+
+	summary := runToSummary(run)
+
+	if summary.Duration == "" {
+		t.Error("expected non-empty duration for running run")
+	}
+}
+
+// TestHandleRunsPage_WithData tests the HTML runs page with pagination data.
+func TestHandleRunsPage_WithData(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	for i := 0; i < 3; i++ {
+		if _, err := rwStore.CreateRun("test-pipeline", "input"); err != nil {
+			t.Fatalf("failed to create run: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/runs", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "<html>") {
+		t.Error("expected HTML content in response")
+	}
+}
+
+// TestHandleRunsPage_StatusFilter tests the HTML runs page with status filter.
+func TestHandleRunsPage_StatusFilter(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, _ := rwStore.CreateRun("test-pipeline", "input")
+	if err := rwStore.UpdateRunStatus(runID, "completed", "", 100); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs?status=completed", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBuildStepDetails_WithPipeline exercises buildStepDetails directly.
+func TestBuildStepDetails_WithPipeline(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "plan"
+  - id: step2
+    persona: craftsman
+    depends_on: [step1]
+    exec:
+      prompt: "implement"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	runID, _ := rwStore.CreateRun("test-pipeline", "input")
+
+	// Log events covering all state transitions
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	details := srv.buildStepDetails(runID, "test-pipeline")
+
+	if len(details) != 2 {
+		t.Fatalf("expected 2 step details, got %d", len(details))
+	}
+
+	// step1 should be completed
+	if details[0].StepID != "step1" {
+		t.Errorf("expected step1, got %q", details[0].StepID)
+	}
+	if details[0].State != "completed" {
+		t.Errorf("expected step1 state 'completed', got %q", details[0].State)
+	}
+	if details[0].Persona != "navigator" {
+		t.Errorf("expected step1 persona 'navigator', got %q", details[0].Persona)
+	}
+	if details[0].TokensUsed != 500 {
+		t.Errorf("expected step1 tokens 500, got %d", details[0].TokensUsed)
+	}
+	if details[0].Progress != 100 {
+		t.Errorf("expected step1 progress 100, got %d", details[0].Progress)
+	}
+
+	// step2 should be running
+	if details[1].StepID != "step2" {
+		t.Errorf("expected step2, got %q", details[1].StepID)
+	}
+	if details[1].State != "running" {
+		t.Errorf("expected step2 state 'running', got %q", details[1].State)
+	}
+	if details[1].Progress != 50 {
+		t.Errorf("expected step2 progress 50, got %d", details[1].Progress)
+	}
+}
+
+// TestBuildStepDetails_NoPipeline tests that buildStepDetails returns nil when
+// the pipeline YAML doesn't exist.
+func TestBuildStepDetails_NoPipeline(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	runID, _ := rwStore.CreateRun("nonexistent-pipeline", "input")
+	details := srv.buildStepDetails(runID, "nonexistent-pipeline")
+
+	if details != nil {
+		t.Errorf("expected nil details for missing pipeline, got %d", len(details))
+	}
+}
