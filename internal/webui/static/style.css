@@ -539,3 +539,135 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 /* Animations */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 .badge.status-running { animation: pulse 2s ease-in-out infinite; }
+
+/* Log Viewer — collapsible step log sections */
+.step-header { cursor: pointer; user-select: none; }
+.step-log-chevron { display: inline-block; width: 1.2em; text-align: center; font-size: 0.8rem; color: var(--color-text-muted); transition: transform 0.15s ease; }
+.step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; }
+.step-collapsed .step-log { max-height: 0; overflow: hidden; }
+.step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 13px; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
+.step-log-sentinel { height: 1px; }
+.log-empty { padding: 0.75rem 1rem; color: var(--color-text-muted); font-style: italic; font-size: 0.85rem; }
+
+/* Log Viewer — log line layout */
+.log-line { display: flex; contain: content; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; padding: 0 0.5rem; border-bottom: 1px solid transparent; }
+.log-line:hover { background: var(--color-bg-tertiary); }
+.log-gutter { min-width: 5ch; text-align: right; padding-right: 0.75rem; color: var(--color-text-muted); user-select: none; flex-shrink: 0; }
+.log-time { min-width: 13ch; color: var(--color-text-muted); flex-shrink: 0; padding-right: 0.5rem; }
+.log-tool { display: inline-block; min-width: 5ch; padding: 0 0.4em; margin-right: 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.5; border-radius: 2em; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-secondary); flex-shrink: 0; }
+.log-content { flex: 1; white-space: pre-wrap; word-break: break-all; min-width: 0; }
+
+/* Log Viewer — ANSI color rendering */
+.ansi-bold { font-weight: bold; }
+.ansi-italic { font-style: italic; }
+.ansi-underline { text-decoration: underline; }
+.ansi-strikethrough { text-decoration: line-through; }
+
+/* Standard 16 colors — dark mode defaults */
+.ansi-fg-0 { color: #282c34; } .ansi-bg-0 { background-color: #282c34; }
+.ansi-fg-1 { color: #e06c75; } .ansi-bg-1 { background-color: #e06c75; }
+.ansi-fg-2 { color: #98c379; } .ansi-bg-2 { background-color: #98c379; }
+.ansi-fg-3 { color: #e5c07b; } .ansi-bg-3 { background-color: #e5c07b; }
+.ansi-fg-4 { color: #61afef; } .ansi-bg-4 { background-color: #61afef; }
+.ansi-fg-5 { color: #c678dd; } .ansi-bg-5 { background-color: #c678dd; }
+.ansi-fg-6 { color: #56b6c2; } .ansi-bg-6 { background-color: #56b6c2; }
+.ansi-fg-7 { color: #abb2bf; } .ansi-bg-7 { background-color: #abb2bf; }
+.ansi-fg-8 { color: #5c6370; } .ansi-bg-8 { background-color: #5c6370; }
+.ansi-fg-9 { color: #e06c75; } .ansi-bg-9 { background-color: #e06c75; }
+.ansi-fg-10 { color: #98c379; } .ansi-bg-10 { background-color: #98c379; }
+.ansi-fg-11 { color: #e5c07b; } .ansi-bg-11 { background-color: #e5c07b; }
+.ansi-fg-12 { color: #61afef; } .ansi-bg-12 { background-color: #61afef; }
+.ansi-fg-13 { color: #c678dd; } .ansi-bg-13 { background-color: #c678dd; }
+.ansi-fg-14 { color: #56b6c2; } .ansi-bg-14 { background-color: #56b6c2; }
+.ansi-fg-15 { color: #ffffff; } .ansi-bg-15 { background-color: #ffffff; }
+
+/* Light mode ANSI overrides */
+[data-theme="light"] .ansi-fg-0 { color: #383a42; }
+[data-theme="light"] .ansi-fg-1 { color: #e45649; }
+[data-theme="light"] .ansi-fg-2 { color: #50a14f; }
+[data-theme="light"] .ansi-fg-3 { color: #c18401; }
+[data-theme="light"] .ansi-fg-4 { color: #4078f2; }
+[data-theme="light"] .ansi-fg-5 { color: #a626a4; }
+[data-theme="light"] .ansi-fg-6 { color: #0184bc; }
+[data-theme="light"] .ansi-fg-7 { color: #383a42; }
+[data-theme="light"] .ansi-fg-8 { color: #a0a1a7; }
+[data-theme="light"] .ansi-fg-15 { color: #fafafa; }
+
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .ansi-fg-0 { color: #383a42; }
+    :root:not([data-theme]) .ansi-fg-1 { color: #e45649; }
+    :root:not([data-theme]) .ansi-fg-2 { color: #50a14f; }
+    :root:not([data-theme]) .ansi-fg-3 { color: #c18401; }
+    :root:not([data-theme]) .ansi-fg-4 { color: #4078f2; }
+    :root:not([data-theme]) .ansi-fg-5 { color: #a626a4; }
+    :root:not([data-theme]) .ansi-fg-6 { color: #0184bc; }
+    :root:not([data-theme]) .ansi-fg-7 { color: #383a42; }
+    :root:not([data-theme]) .ansi-fg-8 { color: #a0a1a7; }
+    :root:not([data-theme]) .ansi-fg-15 { color: #fafafa; }
+}
+
+/* Log Viewer — search bar */
+.log-search { display: flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0; }
+.log-search input {
+    flex: 1; padding: 0.35rem 0.6rem; font-size: 0.85rem;
+    font-family: var(--font-sans); background: var(--color-bg); color: var(--color-text);
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    outline: none; min-width: 150px;
+}
+.log-search input:focus { border-color: var(--wave-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+.log-search-count { font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; min-width: 6ch; }
+.log-search button {
+    padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary); border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); cursor: pointer; line-height: 1;
+}
+.log-search button:hover { background: var(--color-border); color: var(--color-text); }
+
+/* Log Viewer — search match highlighting */
+mark.search-match { background: rgba(229, 192, 123, 0.3); color: inherit; border-radius: 2px; padding: 0 1px; }
+mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid var(--wave-warning); }
+[data-theme="light"] mark.search-match { background: rgba(202, 138, 4, 0.2); }
+[data-theme="light"] mark.search-current { background: rgba(202, 138, 4, 0.5); }
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) mark.search-match { background: rgba(202, 138, 4, 0.2); }
+    :root:not([data-theme]) mark.search-current { background: rgba(202, 138, 4, 0.5); }
+}
+
+/* Log Viewer — jump to bottom button */
+.jump-to-bottom {
+    position: sticky; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
+    display: none; padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 500;
+    background: var(--color-bg-secondary); color: var(--color-text-secondary);
+    border: 1px solid var(--color-border); border-radius: 2em;
+    cursor: pointer; z-index: 10; opacity: 0.9;
+    box-shadow: 0 2px 8px var(--color-shadow);
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.jump-to-bottom:hover { opacity: 1; background: var(--color-bg-tertiary); color: var(--color-text); }
+.jump-to-bottom.visible { display: inline-block; }
+
+/* Log Viewer — SSE reconnection banner */
+.reconnect-banner {
+    padding: 0.5rem 1rem; margin-bottom: 0.75rem; border-radius: var(--radius-md);
+    background: var(--color-pending-bg); border: 1px solid var(--color-pending);
+    color: var(--color-pending); font-size: 0.85rem; text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.reconnect-banner.disconnected { background: var(--color-failed-bg); border-color: var(--color-failed); color: var(--color-failed); }
+.reconnect-banner button {
+    padding: 0.25rem 0.6rem; font-size: 0.8rem; background: transparent;
+    border: 1px solid currentColor; border-radius: var(--radius-md);
+    color: inherit; cursor: pointer;
+}
+.reconnect-banner button:hover { background: rgba(255,255,255,0.1); }
+
+/* Log Viewer — icon buttons */
+.btn-icon {
+    padding: 0.2rem 0.4rem; font-size: 0.85rem; background: none;
+    border: none; color: var(--color-text-muted); cursor: pointer;
+    border-radius: var(--radius-sm); line-height: 1;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+.btn-icon:hover { color: var(--color-text); background: var(--color-bg-tertiary); }
+.btn-icon-feedback { font-size: 0.7rem; color: var(--color-completed); margin-left: 0.25rem; }

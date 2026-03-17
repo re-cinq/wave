@@ -54,8 +54,21 @@
     {{end}}
 
     <div class="run-detail-main">
+        <div id="sse-reconnect-banner" class="reconnect-banner" hidden>
+            <span class="reconnect-message">Reconnecting...</span>
+            <button id="reconnect-retry" hidden onclick="if(window.logViewer) window.logViewer.reconnect()">Retry</button>
+        </div>
         <div class="card">
-            <h2>Steps</h2>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                <h2 style="margin-bottom: 0;">Steps</h2>
+                <div class="log-search">
+                    <input type="text" id="log-search-input" placeholder="Search logs..." aria-label="Search log output">
+                    <span id="log-search-count" class="log-search-count"></span>
+                    <button id="log-search-prev" title="Previous match (Shift+Ctrl+G)">&#x25B2;</button>
+                    <button id="log-search-next" title="Next match (Ctrl+G)">&#x25BC;</button>
+                    <button id="log-search-clear" title="Clear search">&#x2715;</button>
+                </div>
+            </div>
             <div class="steps-list">
                 {{range .Steps}}
                 {{template "templates/partials/step_card.html" .}}
@@ -86,12 +99,17 @@
 {{end}}
 {{end}}
 {{define "scripts"}}
+<script src="/static/log-viewer.js"></script>
 <script src="/static/sse.js"></script>
 <script>
 // Connect SSE for any non-terminal run
 var runStatus = '{{.Run.Status}}';
 if (runStatus === 'running' || runStatus === 'pending') {
     connectSSE('{{.Run.RunID}}');
+}
+// Initialize log viewer
+if (window.logViewer) {
+    window.logViewer.init(runStatus);
 }
 
 // toggleArtifact fetches and displays artifact content inline below its link.
