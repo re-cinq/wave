@@ -27,8 +27,8 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"formatTime":     formatTime,
 	}
 	pages := map[string]string{
-		"templates/runs.html":       `<html><body>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
-		"templates/run_detail.html": `<html><body><div>{{.Run.RunID}}</div></body></html>`,
+		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
+		"templates/run_detail.html": `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div>{{.Run.RunID}}</div></body></html>`,
 		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
