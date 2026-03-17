@@ -4,6 +4,7 @@
     <h1>Health Checks</h1>
     <button class="btn" onclick="location.reload()">Re-run Checks</button>
 </div>
+{{if .Checks}}
 <div class="health-checks">
     {{range .Checks}}
     <div class="card health-card health-{{.Status}}">
@@ -31,4 +32,11 @@
     </div>
     {{end}}
 </div>
+{{else}}
+<div class="empty-state">
+    <div class="empty-state-icon">&#9825;</div>
+    <p>No health checks available.</p>
+    <p>Run <code>wave doctor</code> to check project health.</p>
+</div>
+{{end}}
 {{end}}
