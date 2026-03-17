@@ -26,10 +26,16 @@ function connectSSE(runID) {
 
     sseConnection.onopen = function() {
         console.log('SSE connected for run:', runID);
+        if (window.logViewer) {
+            window.logViewer.onReconnect();
+        }
     };
 
     sseConnection.onerror = function() {
         console.log('SSE error, falling back to polling...');
+        if (window.logViewer) {
+            window.logViewer.onDisconnect();
+        }
         // If SSE fails, start polling as fallback
         startPolling(runID);
     };
@@ -89,6 +95,7 @@ function updatePageFromAPI(data) {
         data.steps.forEach(function(step) {
             stepsList.appendChild(createStepCard(step));
         });
+        if (window.logViewer) window.logViewer.reattach();
     }
 
     // Update DAG nodes from step data
@@ -128,12 +135,17 @@ function updatePageFromAPI(data) {
 function createStepCard(step) {
     var card = document.createElement('div');
     card.className = 'step-card status-' + step.state;
+    card.id = 'step-' + step.step_id;
 
+    var chevron = (step.state === 'running' || step.state === 'failed') ? '\u25BC' : '\u25B6';
     var headerHtml =
         '<div class="step-header">' +
+        '<span class="step-log-chevron">' + chevron + '</span>' +
         '<span class="step-id">' + step.step_id + '</span>' +
         '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
         '<span class="step-persona">' + (step.persona || '') + '</span>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(\'' + step.step_id + '\')" title="Download log">\u2B07</button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(\'' + step.step_id + '\')" title="Copy log">\uD83D\uDCCB</button>' +
         '</div>';
 
     var bodyParts = [];
@@ -159,11 +171,24 @@ function createStepCard(step) {
         bodyParts.push('<div class="step-error">' + step.error + '</div>');
     }
 
-    card.innerHTML = headerHtml + '<div class="step-body">' + bodyParts.join('') + '</div>';
+    var logHtml = '<div class="step-log" id="log-' + step.step_id + '" data-step-id="' + step.step_id + '">' +
+        '<div class="step-log-content"></div>' +
+        '<div class="step-log-sentinel"></div>' +
+        '</div>';
+    card.innerHTML = headerHtml + '<div class="step-body">' + bodyParts.join('') + logHtml + '</div>';
+    // Apply collapsed class for non-running/non-failed steps
+    if (step.state !== 'running' && step.state !== 'failed') {
+        card.classList.add('step-collapsed');
+    }
     return card;
 }
 
 function handleSSEEvent(type, data) {
+    // Route stream_activity events to the log viewer
+    if (type === 'stream_activity' && window.logViewer) {
+        window.logViewer.addLine(data.step_id, data);
+    }
+
     // Update status badge if run status changed
     if (type === 'completed' || type === 'failed') {
         var badges = document.querySelectorAll('.badge.status-running');
@@ -187,12 +212,15 @@ function handleSSEEvent(type, data) {
     // Update step card status
     if (data.step_id && (type === 'started' || type === 'running')) {
         updateStepCardState(data.step_id, 'running');
+        if (window.logViewer) window.logViewer.onStepStateChange(data.step_id, 'running');
     }
     if (data.step_id && type === 'completed') {
         updateStepCardState(data.step_id, 'completed');
+        if (window.logViewer) window.logViewer.onStepStateChange(data.step_id, 'completed');
     }
     if (data.step_id && type === 'failed') {
         updateStepCardState(data.step_id, 'failed');
+        if (window.logViewer) window.logViewer.onStepStateChange(data.step_id, 'failed');
     }
 
     // Update step card tokens in real-time
