@@ -59,7 +59,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^PAT-[0-9]{3}$",
+            "pattern": "^PAT-[0-9]{1,4}$",
             "description": "Pattern identifier"
           },
           "name": {
