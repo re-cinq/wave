@@ -138,7 +138,10 @@ func formatDurationShort(seconds float64) string {
 }
 
 func formatMinSec(m, s int) string {
-	return fmt.Sprintf("%dm%ds", m, s)
+	if s == 0 {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%dm %ds", m, s)
 }
 
 // formatTime formats a time.Time for display.

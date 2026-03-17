@@ -4,7 +4,7 @@
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
         <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
-        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}</p>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}{{$t}}{{end}}{{end}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
@@ -131,6 +131,7 @@ function toggleArtifact(link) {
             var meta = data.metadata;
             var badges = '';
             if (meta.truncated) badges += '<span class="badge status-warning">Truncated</span> ';
+            var contentHtml = formatArtifactContent(data.content);
             var html =
                 '<div class="artifact-viewer">' +
                   '<div class="artifact-header">' +
@@ -141,7 +142,7 @@ function toggleArtifact(link) {
                   (meta.truncated
                     ? '<div class="alert alert-truncation"><strong>Notice:</strong> This artifact exceeds 100\u202fKB and has been truncated. <a href="' + url + '?raw=true">Download full artifact</a>.</div>'
                     : '') +
-                  '<pre class="artifact-content"><code>' + data.content + '</code></pre>' +
+                  '<pre class="artifact-content"><code>' + contentHtml + '</code></pre>' +
                 '</div>';
             container.innerHTML = html;
         })
@@ -157,5 +158,48 @@ function escapeHTML(s) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+
+// formatArtifactContent adds line numbers and keyword highlighting to artifact text.
+function formatArtifactContent(raw) {
+    var lines = String(raw).split('\n');
+    var padWidth = String(lines.length).length;
+    var result = [];
+    for (var i = 0; i < lines.length; i++) {
+        var num = String(i + 1);
+        while (num.length < padWidth) num = ' ' + num;
+        var line = escapeHTML(lines[i]);
+        // Highlight error/warning/fatal patterns
+        line = line.replace(/\b(ERROR|FATAL|FAIL|panic)\b/gi, '<span class="log-error">$1</span>');
+        line = line.replace(/\b(WARN|WARNING)\b/gi, '<span class="log-warning">$1</span>');
+        line = line.replace(/\b(INFO)\b/gi, '<span class="log-info">$1</span>');
+        result.push('<span class="line-number">' + num + '</span>  ' + line);
+    }
+    return result.join('\n');
+}
+
+// toggleStepCard collapses/expands a step card body.
+function toggleStepCard(stepID) {
+    var card = document.getElementById('step-' + stepID);
+    if (!card) return;
+    card.classList.toggle('step-collapsed');
+    var header = card.querySelector('.step-header');
+    if (header) {
+        var expanded = !card.classList.contains('step-collapsed');
+        header.setAttribute('aria-expanded', String(expanded));
+        if (expanded) {
+            expandedSteps.add(stepID);
+        } else {
+            expandedSteps.delete(stepID);
+        }
+    }
+}
+
+// Track expanded step IDs across SSE updates
+var expandedSteps = new Set();
+// Initialize from server-rendered state
+document.querySelectorAll('.step-card:not(.step-collapsed)').forEach(function(card) {
+    var id = card.dataset.stepId;
+    if (id) expandedSteps.add(id);
+});
 </script>
 {{end}}

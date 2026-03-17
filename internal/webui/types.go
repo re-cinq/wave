@@ -35,18 +35,19 @@ type RunDetailResponse struct {
 
 // StepDetail holds detail information about a pipeline step.
 type StepDetail struct {
-	RunID       string            `json:"run_id"`
-	StepID      string            `json:"step_id"`
-	Persona     string            `json:"persona"`
-	State       string            `json:"state"`
-	Progress    int               `json:"progress"`
-	Action      string            `json:"current_action,omitempty"`
-	StartedAt   *time.Time        `json:"started_at,omitempty"`
-	CompletedAt *time.Time        `json:"completed_at,omitempty"`
-	Duration    string            `json:"duration,omitempty"`
-	TokensUsed  int               `json:"tokens_used"`
-	Error       string            `json:"error,omitempty"`
-	Artifacts   []ArtifactSummary `json:"artifacts,omitempty"`
+	RunID              string            `json:"run_id"`
+	StepID             string            `json:"step_id"`
+	Persona            string            `json:"persona"`
+	State              string            `json:"state"`
+	Progress           int               `json:"progress"`
+	Action             string            `json:"current_action,omitempty"`
+	StartedAt          *time.Time        `json:"started_at,omitempty"`
+	CompletedAt        *time.Time        `json:"completed_at,omitempty"`
+	Duration           string            `json:"duration,omitempty"`
+	FormattedStartedAt string            `json:"formatted_started_at,omitempty"`
+	TokensUsed         int               `json:"tokens_used"`
+	Error              string            `json:"error,omitempty"`
+	Artifacts          []ArtifactSummary `json:"artifacts,omitempty"`
 }
 
 // EventSummary holds summary information about a pipeline event.

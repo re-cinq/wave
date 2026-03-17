@@ -1,9 +1,14 @@
 {{define "templates/partials/step_card.html"}}
-<div class="step-card {{statusClass .State}}" id="step-{{.StepID}}" aria-label="Step {{.StepID}}, status: {{.State}}">
-    <div class="step-header">
+<div class="step-card {{statusClass .State}}{{if or (eq .State "completed") (eq .State "pending")}} step-collapsed{{end}}" id="step-{{.StepID}}" data-step-id="{{.StepID}}" data-step-state="{{.State}}" aria-label="Step {{.StepID}}, status: {{.State}}">
+    <div class="step-header" onclick="toggleStepCard('{{.StepID}}')" role="button" aria-expanded="{{if or (eq .State "running") (eq .State "failed")}}true{{else}}false{{end}}" tabindex="0">
+        <span class="step-toggle" aria-hidden="true">&#9656;</span>
         <span class="step-id">{{.StepID}}</span>
-        <span class="badge {{statusClass .State}}">{{.State}}</span>
+        <span class="badge {{statusClass .State}}">{{if eq .State "running"}}<span class="step-running-spinner" aria-hidden="true"></span>{{end}}{{.State}}</span>
         <span class="step-persona">{{.Persona}}</span>
+        <span class="step-header-meta">
+            {{if .FormattedStartedAt}}<span class="step-start-time" title="Started at {{.FormattedStartedAt}}">{{.FormattedStartedAt}}</span>{{end}}
+            {{if .Duration}}<span class="step-duration">{{.Duration}}</span>{{end}}
+        </span>
     </div>
     <div class="step-body">
         {{if .Action}}<div class="step-action">{{.Action}}</div>{{end}}
@@ -13,10 +18,17 @@
         </div>
         {{end}}
         <div class="step-meta">
-            {{if .Duration}}<span>Duration: {{.Duration}}</span>{{end}}
             {{if or (eq .State "completed") (eq .State "failed") (eq .State "running")}}<span class="token-count">Tokens: {{formatTokens .TokensUsed}}</span>{{end}}
         </div>
-        {{if .Error}}<div class="step-error">{{.Error}}</div>{{end}}
+        {{if .Error}}
+        <div class="step-error-banner">
+            <div class="step-error-header" onclick="event.stopPropagation(); this.parentElement.classList.toggle('expanded')">
+                <strong>Error</strong>
+                <span class="step-error-toggle">&#9656;</span>
+            </div>
+            <div class="step-error-content">{{.Error}}</div>
+        </div>
+        {{end}}
         {{if .Artifacts}}
         <div class="step-artifacts">
             <strong>Artifacts:</strong>

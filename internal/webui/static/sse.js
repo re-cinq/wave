@@ -10,6 +10,33 @@ function formatTokens(n) {
     return (n / 1000000000).toFixed(1) + 'B';
 }
 
+// formatDuration formats milliseconds to human-readable duration,
+// mirroring Go's formatDurationValue output format.
+function formatDuration(ms) {
+    if (ms == null || ms === undefined || ms < 0) return '';
+    var totalSec = Math.round(ms / 1000);
+    if (totalSec < 1) return '<1s';
+    if (totalSec < 60) return totalSec + 's';
+    if (totalSec < 3600) {
+        var m = Math.floor(totalSec / 60);
+        var s = totalSec % 60;
+        return s === 0 ? m + 'm' : m + 'm ' + s + 's';
+    }
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    return m === 0 ? h + 'h' : h + 'h ' + m + 'm';
+}
+
+// formatStartTime formats an ISO timestamp string to a localized display string.
+function formatStartTime(isoString) {
+    if (!isoString) return '';
+    var d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+           ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
 var sseConnection = null;
 var pollTimer = null;
 var currentRunID = null;
@@ -82,7 +109,7 @@ function updatePageFromAPI(data) {
         headerBadge.textContent = data.run.status;
     }
 
-    // Update step cards from API data
+    // Update step cards from API data, preserving collapse state
     var stepsList = document.querySelector('.steps-list');
     if (stepsList && data.steps && data.steps.length > 0) {
         stepsList.innerHTML = '';
@@ -127,13 +154,37 @@ function updatePageFromAPI(data) {
 
 function createStepCard(step) {
     var card = document.createElement('div');
-    card.className = 'step-card status-' + step.state;
+    // Determine collapse state: preserve user's choice via expandedSteps set,
+    // otherwise default running/failed to expanded and completed/pending to collapsed
+    var isExpanded;
+    if (typeof expandedSteps !== 'undefined' && expandedSteps.has(step.step_id)) {
+        isExpanded = true;
+    } else if (typeof expandedSteps !== 'undefined' && expandedSteps.size > 0) {
+        // User has interacted — respect their choices, keep others collapsed
+        isExpanded = false;
+    } else {
+        // Default: expand running/failed, collapse others
+        isExpanded = (step.state === 'running' || step.state === 'failed');
+    }
+    var collapsedClass = isExpanded ? '' : ' step-collapsed';
+    card.className = 'step-card status-' + step.state + collapsedClass;
+    card.id = 'step-' + step.step_id;
+    card.setAttribute('data-step-id', step.step_id);
+    card.setAttribute('data-step-state', step.state);
+
+    var spinnerHtml = step.state === 'running' ? '<span class="step-running-spinner" aria-hidden="true"></span>' : '';
+    var startTimeHtml = step.formatted_started_at
+        ? '<span class="step-start-time" title="Started at ' + step.formatted_started_at + '">' + step.formatted_started_at + '</span>'
+        : (step.started_at ? '<span class="step-start-time">' + formatStartTime(step.started_at) + '</span>' : '');
+    var durationHtml = step.duration ? '<span class="step-duration">' + step.duration + '</span>' : '';
 
     var headerHtml =
-        '<div class="step-header">' +
+        '<div class="step-header" onclick="toggleStepCard(\'' + step.step_id + '\')" role="button" aria-expanded="' + isExpanded + '" tabindex="0">' +
+        '<span class="step-toggle" aria-hidden="true">&#9656;</span>' +
         '<span class="step-id">' + step.step_id + '</span>' +
-        '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
+        '<span class="badge status-' + step.state + '">' + spinnerHtml + step.state + '</span>' +
         '<span class="step-persona">' + (step.persona || '') + '</span>' +
+        '<span class="step-header-meta">' + startTimeHtml + durationHtml + '</span>' +
         '</div>';
 
     var bodyParts = [];
@@ -148,7 +199,6 @@ function createStepCard(step) {
         );
     }
     var metaParts = [];
-    if (step.duration) metaParts.push('<span>Duration: ' + step.duration + '</span>');
     if (step.state === 'completed' || step.state === 'failed' || step.state === 'running') {
         metaParts.push('<span class="token-count" data-step-id="' + step.step_id + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
     }
@@ -156,7 +206,13 @@ function createStepCard(step) {
         bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
     }
     if (step.error) {
-        bodyParts.push('<div class="step-error">' + step.error + '</div>');
+        bodyParts.push(
+            '<div class="step-error-banner">' +
+            '<div class="step-error-header" onclick="event.stopPropagation(); this.parentElement.classList.toggle(\'expanded\')">' +
+            '<strong>Error</strong><span class="step-error-toggle">&#9656;</span></div>' +
+            '<div class="step-error-content">' + step.error + '</div>' +
+            '</div>'
+        );
     }
 
     card.innerHTML = headerHtml + '<div class="step-body">' + bodyParts.join('') + '</div>';
@@ -261,13 +317,22 @@ function updateStepCardState(stepID, newState) {
     cards.forEach(function(card) {
         var idEl = card.querySelector('.step-id');
         if (idEl && idEl.textContent === stepID) {
-            // Update card border color
+            // Preserve collapse state class
+            var wasCollapsed = card.classList.contains('step-collapsed');
             card.className = 'step-card status-' + newState;
+            if (wasCollapsed) card.classList.add('step-collapsed');
+            card.setAttribute('data-step-state', newState);
             // Update badge
             var badge = card.querySelector('.badge');
             if (badge) {
                 badge.className = 'badge status-' + newState;
-                badge.textContent = newState;
+                var spinnerHtml = newState === 'running' ? '<span class="step-running-spinner" aria-hidden="true"></span>' : '';
+                badge.innerHTML = spinnerHtml + newState;
+            }
+            // Auto-expand running/failed steps when they transition
+            if (newState === 'running' || newState === 'failed') {
+                card.classList.remove('step-collapsed');
+                if (typeof expandedSteps !== 'undefined') expandedSteps.add(stepID);
             }
         }
     });

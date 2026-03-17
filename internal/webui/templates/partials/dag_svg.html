@@ -12,8 +12,9 @@
   {{range .Nodes}}
   <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, status: {{.Status}}" tabindex="0">
     <rect width="140" height="50" rx="8" ry="8" class="dag-node-rect {{.Status}}"/>
-    <text x="70" y="20" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
-    <text x="70" y="38" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text>
+    <text x="70" y="{{if .Duration}}16{{else}}20{{end}}" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
+    <text x="70" y="{{if .Duration}}30{{else}}38{{end}}" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text>
+    {{if .Duration}}<text x="70" y="44" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
   </g>
   {{end}}
 </svg>

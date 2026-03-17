@@ -365,6 +365,11 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			sd.TokensUsed = si.tokens
 			sd.Error = si.errMsg
 
+			// Format start time for template display
+			if si.startedAt != nil {
+				sd.FormattedStartedAt = si.startedAt.Format("2006-01-02 15:04:05")
+			}
+
 			// Calculate progress
 			switch sd.State {
 			case "completed":
@@ -420,12 +425,27 @@ func artifactToSummary(a state.ArtifactRecord) ArtifactSummary {
 }
 
 func formatDurationValue(d time.Duration) string {
+	if d < time.Second {
+		return "<1s"
+	}
 	if d < time.Minute {
 		return fmt.Sprintf("%.0fs", d.Seconds())
 	}
-	m := int(d.Minutes())
-	s := int(d.Seconds()) % 60
-	return fmt.Sprintf("%dm%ds", m, s)
+	totalSec := int(d.Seconds())
+	if d < time.Hour {
+		m := totalSec / 60
+		s := totalSec % 60
+		if s == 0 {
+			return fmt.Sprintf("%dm", m)
+		}
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	h := totalSec / 3600
+	m := (totalSec % 3600) / 60
+	if m == 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dh %dm", h, m)
 }
 
 func listPipelineNames() []string {
