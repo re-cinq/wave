@@ -101,7 +101,24 @@ wave run review -o text -v                     # Plain text with real-time tool 
 wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
 wave run ops-debug --preserve-workspace        # Preserve workspace from previous run (for debugging)
+wave run --detach impl-issue "fix login bug"    # Detach: run in background, survive shell exit
 ```
+
+### Detached Mode
+
+The `--detach` flag spawns the pipeline as a background process that survives shell exit.
+The command prints the run ID and returns immediately. Use `wave logs` and `wave cancel` to manage it.
+
+```bash
+wave run --detach impl-issue -- "https://github.com/org/repo/issues/42"
+# → Pipeline 'impl-issue' launched (detached)
+# → Run ID:  impl-issue-20260317-...
+# → Logs:    wave logs impl-issue-20260317-...
+# → Cancel:  wave cancel impl-issue-20260317-...
+```
+
+This is the same mechanism the TUI uses internally — the subprocess runs in its own session group
+(`setsid`), so killing the parent terminal has no effect on the pipeline.
 
 ---
 

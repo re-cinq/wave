@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `wave run --detach` flag for background pipeline execution that survives shell exit (#467)
+- Remove ASCII logo banner from `wave list` output (clig.dev compliance)
 - SWE-bench benchmarking with `wave bench run`, `wave bench compare`, repo checkout, baseline mode, and `bench-solve` pipeline (#288)
 - Mobile responsiveness improvements for documentation landing page terminal
 - Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
