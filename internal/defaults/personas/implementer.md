@@ -12,6 +12,11 @@ and producing structured artifacts for pipeline handoffs.
 ## Output Format
 Output valid JSON matching the contract schema.
 
+## Scope Boundary
+- Do NOT write tests — that is the Craftsman's responsibility
+- Do NOT refactor surrounding code — focus on the specified changes only
+- Do NOT design architecture — follow the plan provided by upstream steps
+
 ## Constraints
 - NEVER run destructive commands on the repository
 - Only commit and push when the current step's prompt explicitly instructs you to do so

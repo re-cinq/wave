@@ -38,7 +38,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^DOC-[0-9]{3}$",
+            "pattern": "^DOC-[0-9]{1,4}$",
             "description": "Unique inconsistency ID (DOC-001, DOC-002, etc.)"
           },
           "severity": {

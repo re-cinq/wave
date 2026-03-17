@@ -12,7 +12,7 @@
         "type": "object",
         "required": ["id", "type", "location", "description", "confidence", "safe_to_remove"],
         "properties": {
-          "id": { "type": "string", "pattern": "^DC-[0-9]{3}$" },
+          "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
           "type": {
             "type": "string",
             "enum": ["unused_export", "unreachable", "orphaned_file", "redundant", "stale_test", "unused_import", "commented_code", "duplicate_signature"]
