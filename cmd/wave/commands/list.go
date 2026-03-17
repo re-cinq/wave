@@ -104,10 +104,10 @@ var listRunsLimit int
 var listRunsPipeline string
 var listRunsStatus string
 
-// printLogo prints the Wave ASCII logo header using the shared TUI styling.
-func printLogo() {
-	fmt.Println(tui.WaveLogo())
-}
+// printLogo is intentionally a no-op. The ASCII banner added noise without value
+// and broke machine readability (clig.dev). Kept as a function to avoid churn
+// at call sites.
+func printLogo() {}
 
 func NewListCmd() *cobra.Command {
 	var opts ListOptions
