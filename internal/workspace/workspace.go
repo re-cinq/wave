@@ -197,6 +197,24 @@ func copyRecursive(src, dst string) error {
 				}
 				return nil
 			}
+			// Handle symlinks: Walk uses Lstat, so symlinks appear as non-dirs.
+			// Resolve through the symlink to check if the target is a directory.
+			if info.Mode()&os.ModeSymlink != 0 {
+				realPath, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return nil // skip broken symlinks
+				}
+				resolved, err := os.Stat(realPath)
+				if err != nil {
+					return nil
+				}
+				if resolved.IsDir() {
+					// Symlink to directory — recurse into the resolved real path
+					// (not the symlink itself, to avoid infinite loops)
+					return copyRecursive(realPath, targetPath)
+				}
+				// Symlink to file — fall through to copyFile which follows symlinks
+			}
 			// Skip large files (>10MB) and errors
 			if info.Size() > 10*1024*1024 {
 				return nil
