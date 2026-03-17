@@ -877,7 +877,7 @@ When launched without `--no-tui`, Wave provides an interactive terminal UI with 
 
 To disable the TUI and use plain text output, pass `--no-tui` or `-o text`.
 
-Key source: `internal/tui/guided_flow.go`
+Key source: `internal/tui/content.go`
 
 ---
 

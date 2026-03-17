@@ -40,7 +40,6 @@ type LaunchDependencies struct {
 	Store           state.StateStore
 	PipelinesDir    string
 	SuggestProvider SuggestDataProvider
-	Guided          bool // When true, TUI starts in guided workflow mode (health → proposals → fleet)
 }
 
 // LaunchConfig holds the user's pipeline launch configuration from the argument form.
