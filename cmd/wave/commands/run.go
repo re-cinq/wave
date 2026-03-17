@@ -5,14 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
@@ -47,6 +50,7 @@ type RunOptions struct {
 	MaxIterations     int    // --max-iterations cap
 	Delay             string // --delay between iterations
 	OnFailure         string // --on-failure halt|skip
+	Detach            bool   // --detach flag for background execution
 }
 
 func NewRunCmd() *cobra.Command {
@@ -56,7 +60,8 @@ func NewRunCmd() *cobra.Command {
 		Use:   "run [pipeline] [input]",
 		Short: "Run a pipeline",
 		Long: `Execute a pipeline from the wave manifest.
-Supports dry-run mode, step resumption, custom timeouts, and model override.
+Supports dry-run mode, step resumption, custom timeouts, model override,
+and detached execution (--detach) for background runs that survive shell exit.
 
 The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
@@ -73,7 +78,8 @@ Arguments can be provided as positional args or flags:
   wave run my-pipeline --preserve-workspace
   wave run --steps clarify,plan impl-speckit
   wave run -x implement,create-pr impl-speckit
-  wave run --from-step clarify -x create-pr impl-speckit`,
+  wave run --from-step clarify -x create-pr impl-speckit
+  wave run --detach impl-issue "fix login bug"         # detach: run in background`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle positional arguments
@@ -131,6 +137,7 @@ Arguments can be provided as positional args or flags:
 	cmd.Flags().IntVar(&opts.MaxIterations, "max-iterations", 0, "Maximum number of iterations (0 = unlimited)")
 	cmd.Flags().StringVar(&opts.Delay, "delay", "0s", "Delay between iterations (e.g., 5s, 1m)")
 	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
+	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run pipeline as a detached background process")
 
 	return cmd
 }
@@ -232,6 +239,12 @@ func runRun(opts RunOptions, debug bool) error {
 
 	if opts.DryRun {
 		return performDryRun(p, &m, stepFilter)
+	}
+
+	// Detached mode: re-exec ourselves as a detached subprocess and return immediately.
+	// This reuses the same pattern as the TUI's pipeline_launcher.go.
+	if opts.Detach {
+		return runDetached(opts, p, &m)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
@@ -611,6 +624,115 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	return nil
+}
+
+// runDetached spawns a new `wave run` subprocess that is fully detached from
+// the current process session. The subprocess inherits all flags except --detach,
+// so it runs the pipeline in-process in its own session group. This mirrors the
+// TUI's pipeline_launcher.go pattern (Setsid + Process.Release).
+func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
+	// Initialize state store to create a run ID visible to wave status / wave logs.
+	stateDB := ".wave/state.db"
+	store, err := state.NewStateStore(stateDB)
+	if err != nil {
+		return fmt.Errorf("detach requires state store: %w", err)
+	}
+	defer store.Close()
+
+	runID, err := store.CreateRun(p.Metadata.Name, opts.Input)
+	if err != nil {
+		return fmt.Errorf("failed to create run record: %w", err)
+	}
+
+	// Mark as running so wave status picks it up immediately.
+	_ = store.UpdateRunStatus(runID, "running", "", 0)
+
+	// Build subprocess args: same flags minus --detach/-d, plus --run <runID>.
+	args := []string{"run", "--pipeline", opts.Pipeline, "--run", runID}
+	if opts.Input != "" {
+		args = append(args, "--input", opts.Input)
+	}
+	if opts.FromStep != "" {
+		args = append(args, "--from-step", opts.FromStep)
+	}
+	if opts.Force {
+		args = append(args, "--force")
+	}
+	if opts.Timeout > 0 {
+		args = append(args, "--timeout", fmt.Sprintf("%d", opts.Timeout))
+	}
+	if opts.Manifest != "wave.yaml" {
+		args = append(args, "--manifest", opts.Manifest)
+	}
+	if opts.Mock {
+		args = append(args, "--mock")
+	}
+	if opts.Model != "" {
+		args = append(args, "--model", opts.Model)
+	}
+	if opts.PreserveWorkspace {
+		args = append(args, "--preserve-workspace")
+	}
+	if opts.Steps != "" {
+		args = append(args, "--steps", opts.Steps)
+	}
+	if opts.Exclude != "" {
+		args = append(args, "--exclude", opts.Exclude)
+	}
+	if opts.Output.Verbose {
+		args = append(args, "--verbose")
+	}
+
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = buildDetachEnv()
+
+	// Redirect output to .wave/logs/<runID>.log
+	logsDir := filepath.Join(".wave", "logs")
+	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
+		return fmt.Errorf("failed to create logs directory: %w", mkErr)
+	}
+	logPath := filepath.Join(logsDir, runID+".log")
+	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if logErr != nil {
+		return fmt.Errorf("failed to create log file: %w", logErr)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if startErr := cmd.Start(); startErr != nil {
+		logFile.Close()
+		return fmt.Errorf("failed to start detached pipeline: %w", startErr)
+	}
+
+	// Close the log file — the subprocess inherited the fd.
+	logFile.Close()
+
+	// Record PID and fully detach the subprocess.
+	_ = store.UpdateRunPID(runID, cmd.Process.Pid)
+	_ = cmd.Process.Release()
+
+	fmt.Fprintf(os.Stderr, "  Pipeline '%s' launched (detached)\n", p.Metadata.Name)
+	fmt.Fprintf(os.Stderr, "  Run ID:  %s\n", runID)
+	fmt.Fprintf(os.Stderr, "  Logs:    wave logs %s\n", runID)
+	fmt.Fprintf(os.Stderr, "  Cancel:  wave cancel %s\n", runID)
+
+	return nil
+}
+
+// buildDetachEnv constructs a minimal environment for detached subprocesses.
+func buildDetachEnv() []string {
+	env := []string{
+		"HOME=" + os.Getenv("HOME"),
+		"PATH=" + os.Getenv("PATH"),
+	}
+	// Pass through common env vars needed by adapters.
+	for _, key := range []string{"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION", "TERM", "USER", "SHELL"} {
+		if val, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+val)
+		}
+	}
+	return env
 }
 
 func loadPipeline(name string, m *manifest.Manifest) (*pipeline.Pipeline, error) {

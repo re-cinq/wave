@@ -189,7 +189,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 - **Maximum 6 concurrent pipelines** — beyond this, API rate limits and CPU contention degrade quality
 - **Optimal: 3-5 concurrent pipelines** — best throughput-to-quality ratio
-- Launch pipelines via `wave run -v <pipeline> -- "<input>" &` in background shell
+- Launch pipelines via `wave run --detach -v <pipeline> -- "<input>"` (detached — survives shell exit)
 - Monitor with `wave list runs --limit N` and `wave logs <run-id>`
 
 ### Issue Triage
