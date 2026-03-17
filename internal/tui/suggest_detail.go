@@ -15,7 +15,6 @@ type SuggestDetailModel struct {
 	focused       bool
 	selected      *SuggestProposedPipeline
 	multiSelected []SuggestProposedPipeline // Set when multi-select is active
-	guidedPhase   GuidedFlowPhase          // Current guided flow phase for contextual hints
 }
 
 // NewSuggestDetailModel creates a new suggest detail model.
@@ -32,11 +31,6 @@ func (m *SuggestDetailModel) SetSize(w, h int) {
 // SetFocused updates the focused state.
 func (m *SuggestDetailModel) SetFocused(focused bool) {
 	m.focused = focused
-}
-
-// SetGuidedPhase updates the guided flow phase for contextual rendering.
-func (m *SuggestDetailModel) SetGuidedPhase(phase GuidedFlowPhase) {
-	m.guidedPhase = phase
 }
 
 // Update handles messages.
@@ -172,16 +166,9 @@ func (m SuggestDetailModel) View() string {
 		Render(sb.String())
 }
 
-// footerHints returns phase-contextual key hints for the detail pane.
+// footerHints returns key hints for the detail pane.
 func (m SuggestDetailModel) footerHints() string {
-	switch m.guidedPhase {
-	case GuidedPhaseFleet:
-		return "Viewing fleet  Tab: back to proposals"
-	case GuidedPhaseAttached:
-		return "Attached to live output"
-	default:
-		return "Press Enter to launch  Space to select  m: modify  s: skip"
-	}
+	return "Press Enter to launch  Space to select  m: modify  s: skip"
 }
 
 // renderComplexity returns a styled complexity indicator.
