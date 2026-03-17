@@ -13,15 +13,15 @@
             <a href="/runs"><svg class="nav-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" rx="24" fill="#4f46e5"/><g stroke="white" stroke-width="10" stroke-linecap="round" fill="none"><path d="M 20 130 C 50 130, 130 50, 130 20"/><line x1="20" y1="80" x2="80" y2="20"/><line x1="20" y1="30" x2="30" y2="20"/></g><g stroke="white" stroke-width="10" stroke-linecap="round" opacity="0.2" fill="none"><path d="M 70 180 C 70 150, 150 70, 180 70"/><line x1="120" y1="180" x2="180" y2="120"/><line x1="170" y1="180" x2="180" y2="170"/></g></svg>Wave</a>
         </div>
         <div class="nav-links">
-            <a href="/runs" class="nav-link">Runs</a>
-            <a href="/pipelines" class="nav-link">Pipelines</a>
-            <a href="/personas" class="nav-link">Personas</a>
-            <a href="/contracts" class="nav-link">Contracts</a>
-            <a href="/skills" class="nav-link">Skills</a>
-            <a href="/compose" class="nav-link">Compose</a>
-            <a href="/issues" class="nav-link">Issues</a>
-            <a href="/prs" class="nav-link">PRs</a>
-            <a href="/health" class="nav-link">Health</a>
+            <a href="/runs" class="nav-link{{if eq .ActivePage "runs"}} nav-link-active{{end}}">Runs</a>
+            <a href="/pipelines" class="nav-link{{if eq .ActivePage "pipelines"}} nav-link-active{{end}}">Pipelines</a>
+            <a href="/personas" class="nav-link{{if eq .ActivePage "personas"}} nav-link-active{{end}}">Personas</a>
+            <a href="/contracts" class="nav-link{{if eq .ActivePage "contracts"}} nav-link-active{{end}}">Contracts</a>
+            <a href="/skills" class="nav-link{{if eq .ActivePage "skills"}} nav-link-active{{end}}">Skills</a>
+            <a href="/compose" class="nav-link{{if eq .ActivePage "compose"}} nav-link-active{{end}}">Compose</a>
+            <a href="/issues" class="nav-link{{if eq .ActivePage "issues"}} nav-link-active{{end}}">Issues</a>
+            <a href="/prs" class="nav-link{{if eq .ActivePage "prs"}} nav-link-active{{end}}">PRs</a>
+            <a href="/health" class="nav-link{{if eq .ActivePage "health"}} nav-link-active{{end}}">Health</a>
             <button id="theme-toggle" class="theme-toggle" title="Toggle theme">&#9790;</button>
         </div>
     </nav>
