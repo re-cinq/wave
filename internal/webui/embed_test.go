@@ -70,12 +70,12 @@ func TestFormatMinSec(t *testing.T) {
 		s    int
 		want string
 	}{
-		{"1 minute 0 seconds", 1, 0, "1m0s"},
-		{"1 minute 30 seconds", 1, 30, "1m30s"},
-		{"2 minutes 5 seconds", 2, 5, "2m5s"},
-		{"0 minutes 45 seconds", 0, 45, "0m45s"},
-		{"60 minutes 0 seconds", 60, 0, "60m0s"},
-		{"10 minutes 59 seconds", 10, 59, "10m59s"},
+		{"1 minute 0 seconds", 1, 0, "1m 0s"},
+		{"1 minute 30 seconds", 1, 30, "1m 30s"},
+		{"2 minutes 5 seconds", 2, 5, "2m 5s"},
+		{"0 minutes 45 seconds", 0, 45, "0m 45s"},
+		{"60 minutes 0 seconds", 60, 0, "60m 0s"},
+		{"10 minutes 59 seconds", 10, 59, "10m 59s"},
 	}
 
 	for _, tt := range tests {
@@ -103,12 +103,12 @@ func TestFormatDuration(t *testing.T) {
 		{"fifty nine seconds", 59, "59s"},
 		{"just below sixty", 59.9, "60s"},
 		// At and above 60: delegates to formatMinSec
-		{"exactly sixty", 60, "1m0s"},
-		{"ninety seconds", 90, "1m30s"},
-		{"two minutes", 120, "2m0s"},
-		{"two minutes five seconds", 125, "2m5s"},
-		{"one hour", 3600, "60m0s"},
-		{"one hour thirty minutes", 5400, "90m0s"},
+		{"exactly sixty", 60, "1m 0s"},
+		{"ninety seconds", 90, "1m 30s"},
+		{"two minutes", 120, "2m 0s"},
+		{"two minutes five seconds", 125, "2m 5s"},
+		{"one hour", 3600, "60m 0s"},
+		{"one hour thirty minutes", 5400, "90m 0s"},
 	}
 
 	for _, tt := range tests {
@@ -130,8 +130,8 @@ func TestFormatDuration_HTMLEscaping(t *testing.T) {
 
 	// Values >= 60 produce no HTML special chars, so escaping is a no-op.
 	got = formatDuration(65)
-	if got != "1m5s" {
-		t.Errorf("formatDuration(65) = %q, want %q", got, "1m5s")
+	if got != "1m 5s" {
+		t.Errorf("formatDuration(65) = %q, want %q", got, "1m 5s")
 	}
 }
 
