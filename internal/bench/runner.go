@@ -275,10 +275,8 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 	var wg sync.WaitGroup
 
 	for i, task := range tasks {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			break
-		default:
 		}
 
 		wg.Add(1)
@@ -335,6 +333,9 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 	report.CompletedAt = time.Now()
 	report.DurationMs = time.Since(report.StartedAt).Milliseconds()
 	report.Tally()
+	if ctx.Err() != nil {
+		return report, ctx.Err()
+	}
 	return report, nil
 }
 
