@@ -152,22 +152,22 @@ func TestFormatDurationValue(t *testing.T) {
 		{
 			name:     "exactly one minute",
 			duration: time.Minute,
-			want:     "1m0s",
+			want:     "1m",
 		},
 		{
 			name:     "one minute thirty seconds",
 			duration: 90 * time.Second,
-			want:     "1m30s",
+			want:     "1m 30s",
 		},
 		{
 			name:     "two minutes",
 			duration: 2 * time.Minute,
-			want:     "2m0s",
+			want:     "2m",
 		},
 		{
 			name:     "ten minutes five seconds",
 			duration: 10*time.Minute + 5*time.Second,
-			want:     "10m5s",
+			want:     "10m 5s",
 		},
 	}
 
