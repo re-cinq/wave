@@ -94,19 +94,21 @@
     launchBtn.addEventListener('click', () => {
         const pipeline = pipelineSelect.value;
         if (!pipeline) return;
-        fetch('/api/issues/start', {
+        setButtonLoading(launchBtn, true);
+        fetchJSON('/api/issues/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({issue_url: currentIssueURL, pipeline_name: pipeline})
         })
-        .then(r => r.json())
         .then(data => {
             dialog.close();
             if (data.run_id) {
                 window.location.href = '/runs/' + data.run_id;
             }
         })
-        .catch(err => alert('Failed to start pipeline: ' + err.message));
+        .catch(() => {
+            setButtonLoading(launchBtn, false);
+        });
     });
 })();
 </script>

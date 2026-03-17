@@ -25,9 +25,11 @@
             <button id="theme-toggle" class="theme-toggle" title="Toggle theme">&#9790;</button>
         </div>
     </nav>
+    <div id="connection-banner" class="connection-banner" hidden></div>
     <main class="container" role="main" aria-label="Page content">
         {{block "content" .}}{{end}}
     </main>
+    <div id="toast-container" class="toast-container"></div>
     <script src="/static/app.js"></script>
     {{block "scripts" .}}{{end}}
 </body>

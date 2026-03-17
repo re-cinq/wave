@@ -1,5 +1,61 @@
 // Wave Dashboard - Main Application JS
 
+// --- Toast Notification System ---
+function showToast(message, type, duration) {
+    type = type || 'error';
+    duration = duration || 5000;
+    var container = document.getElementById('toast-container');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = message;
+    toast.addEventListener('click', function() { dismissToast(toast); });
+    container.appendChild(toast);
+    setTimeout(function() { dismissToast(toast); }, duration);
+}
+
+function dismissToast(toast) {
+    if (toast.classList.contains('toast-dismiss')) return;
+    toast.classList.add('toast-dismiss');
+    setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+}
+
+// --- Button Loading Helper ---
+function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    if (loading) {
+        btn.dataset.originalText = btn.textContent;
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+    } else {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        if (btn.dataset.originalText) {
+            btn.textContent = btn.dataset.originalText;
+        }
+    }
+}
+
+// --- Fetch JSON Wrapper ---
+async function fetchJSON(url, opts) {
+    try {
+        var resp = await fetch(url, opts);
+        if (!resp.ok) {
+            var err;
+            try { err = await resp.json(); } catch(e) { err = {}; }
+            var msg = err.error || resp.statusText || 'Request failed';
+            showToast(msg, 'error');
+            throw new Error(msg);
+        }
+        return await resp.json();
+    } catch (e) {
+        if (e.message && !e.message.match(/Request failed|Failed/)) {
+            showToast('Network error: ' + e.message, 'error');
+        }
+        throw e;
+    }
+}
+
 // Theme: init from localStorage or system preference, default dark
 function initTheme() {
     var saved = localStorage.getItem('wave-theme');
@@ -62,72 +118,62 @@ async function startPipeline(e) {
     e.preventDefault();
     const pipeline = document.getElementById('pipeline-select').value;
     const input = document.getElementById('pipeline-input').value;
+    const btn = e.submitter || e.target.querySelector('[type="submit"]');
 
     if (!pipeline) {
-        alert('Please select a pipeline');
+        showToast('Please select a pipeline', 'error');
         return false;
     }
 
+    setButtonLoading(btn, true);
     try {
-        const resp = await fetch('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
+        await fetchJSON('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({input: input})
         });
-
-        if (!resp.ok) {
-            const err = await resp.json();
-            alert('Failed to start pipeline: ' + (err.error || resp.statusText));
-            return false;
-        }
-
         toggleStartForm();
         window.location.reload();
     } catch (err) {
-        alert('Error: ' + err.message);
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
     }
     return false;
 }
 
 // Cancel a running pipeline
-async function cancelRun(runID) {
+async function cancelRun(runID, btn) {
     if (!confirm('Cancel this pipeline run?')) return;
 
+    setButtonLoading(btn, true);
     try {
-        const resp = await fetch('/api/runs/' + encodeURIComponent(runID) + '/cancel', {
+        await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/cancel', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({force: false})
         });
-
-        if (resp.ok) {
-            window.location.reload();
-        } else {
-            const err = await resp.json();
-            alert('Failed to cancel: ' + (err.error || resp.statusText));
-        }
+        window.location.reload();
     } catch (err) {
-        alert('Error: ' + err.message);
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
 // Retry a failed pipeline
-async function retryRun(runID) {
+async function retryRun(runID, btn) {
+    setButtonLoading(btn, true);
     try {
-        const resp = await fetch('/api/runs/' + encodeURIComponent(runID) + '/retry', {
+        const data = await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/retry', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'}
         });
-
-        if (resp.ok) {
-            const data = await resp.json();
-            window.location.href = '/runs/' + data.run_id;
-        } else {
-            const err = await resp.json();
-            alert('Failed to retry: ' + (err.error || resp.statusText));
-        }
+        window.location.href = '/runs/' + data.run_id;
     } catch (err) {
-        alert('Error: ' + err.message);
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
@@ -149,23 +195,19 @@ function clearFilters() {
 }
 
 // Resume from a specific step
-async function resumeFromStep(runID, stepID) {
+async function resumeFromStep(runID, stepID, btn) {
+    setButtonLoading(btn, true);
     try {
-        const resp = await fetch('/api/runs/' + encodeURIComponent(runID) + '/resume', {
+        const data = await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/resume', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({from_step: stepID})
         });
-
-        if (resp.ok) {
-            const data = await resp.json();
-            window.location.href = '/runs/' + data.run_id;
-        } else {
-            const err = await resp.json();
-            alert('Failed to resume: ' + (err.error || resp.statusText));
-        }
+        window.location.href = '/runs/' + data.run_id;
     } catch (err) {
-        alert('Error: ' + err.message);
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
