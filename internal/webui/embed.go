@@ -32,6 +32,7 @@ var pageTemplates = []string{
 	"templates/issues.html",
 	"templates/prs.html",
 	"templates/health.html",
+	"templates/notfound.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

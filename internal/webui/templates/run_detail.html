@@ -8,10 +8,10 @@
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
-        <button class="btn btn-danger" onclick="cancelRun('{{.Run.RunID}}')" aria-label="Stop pipeline run">Stop</button>
+        <button class="btn btn-danger" onclick="cancelRun('{{.Run.RunID}}', this)" aria-label="Stop pipeline run">Stop</button>
         {{end}}
         {{if eq .Run.Status "failed"}}
-        <button class="btn btn-primary" onclick="retryRun('{{.Run.RunID}}')" aria-label="Retry failed pipeline run">Retry</button>
+        <button class="btn btn-primary" onclick="retryRun('{{.Run.RunID}}', this)" aria-label="Retry failed pipeline run">Retry</button>
         <button class="btn" onclick="showResumeDialog()" aria-label="Resume from a specific step">Resume from...</button>
         {{end}}
         {{if eq .Run.Status "cancelled"}}
