@@ -8,8 +8,7 @@
     <p>{{.Message}}</p>
 </div>
 {{else if .PullRequests}}
-<div class="table-container">
-    <table class="data-table">
+<table class="table">
         <thead>
             <tr>
                 <th>#</th>
@@ -41,7 +40,6 @@
             {{end}}
         </tbody>
     </table>
-</div>
 {{else}}
 <div class="empty-state">
     <p>No open pull requests found.</p>

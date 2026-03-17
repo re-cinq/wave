@@ -80,9 +80,11 @@ func (s *Server) handleContractsPage(w http.ResponseWriter, r *http.Request) {
 	contracts := listContractSummaries()
 
 	data := struct {
-		Contracts []ContractSummary
+		ActivePage string
+		Contracts  []ContractSummary
 	}{
-		Contracts: contracts,
+		ActivePage: "contracts",
+		Contracts:  contracts,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
