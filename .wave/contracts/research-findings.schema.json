@@ -28,7 +28,7 @@
         "properties": {
           "topic_id": {
             "type": "string",
-            "pattern": "^TOPIC-[0-9]{3}$",
+            "pattern": "^TOPIC-[0-9]{1,4}$",
             "description": "Reference to topic ID from research-topics"
           },
           "topic_title": {
@@ -43,7 +43,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^FINDING-[0-9]{3}$",
+                  "pattern": "^FINDING-[0-9]{1,4}$",
                   "description": "Unique finding identifier"
                 },
                 "summary": {

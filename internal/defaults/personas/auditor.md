@@ -17,6 +17,11 @@ Structured security audit report with severity ratings:
 - MEDIUM: Insufficient logging, missing rate limiting, broad permissions
 - LOW: Security hardening opportunities, minor configuration gaps
 
+## Scope Boundary
+- Do NOT fix vulnerabilities — report them for others to fix
+- Do NOT review code quality or style — focus exclusively on security
+- Do NOT run tests — your job is analysis, not execution
+
 ## Constraints
 - NEVER modify any source files — audit only
 - NEVER run destructive commands

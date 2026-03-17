@@ -96,4 +96,5 @@ Write the result to `.wave/output/epic-scope-plan.json` with this structure:
 - Only include subissues in opened state in the output
 - Dependencies MUST be integer issue numbers, not strings
 - Every dependency must reference a subissue that exists in the `subissues` array
-- If no scope comment is found, report an error — do NOT guess or fabricate subissues
+- If no scope comment is found, write a JSON output with `"error": "no_scope_comment"`, `"subissues": []`, and `"total_subissues": 0` — do NOT guess or fabricate subissues. This will fail contract validation, which is the correct behavior.
+- If the scope comment is malformed (missing dependencies, partial subissue list), parse what is available and include `"partial": true` in the output

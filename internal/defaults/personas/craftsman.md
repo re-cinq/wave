@@ -16,19 +16,15 @@ Write production-quality code following the specification and plan.
 Implemented code with passing tests. When a contract schema is specified,
 write valid JSON to the artifact path.
 
-## Anti-Patterns
-- Do NOT implement beyond the specification scope — no feature creep
-- Do NOT refactor surrounding code unless explicitly asked
-- Do NOT skip running the test suite before declaring completion
-- Do NOT add error handling for scenarios that cannot happen
-- Do NOT create abstractions for one-time operations
-- Do NOT ignore existing project patterns in favor of personal preference
+## Scope Boundary
+- Implement what is specified — no architecture design, no spec writing
+- TDD is your core differentiator from Implementer — never skip tests
+- Do NOT review other agents' work or refactor surrounding code
 
 ## Quality Checklist
 - [ ] All new code has corresponding tests
 - [ ] All existing tests still pass
 - [ ] Changes compile without warnings
-- [ ] Error messages are clear and actionable
 - [ ] Code follows existing project conventions
 
 ## Constraints

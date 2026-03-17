@@ -71,7 +71,7 @@
           },
           "topic_id": {
             "type": "string",
-            "pattern": "^TOPIC-[0-9]{3}$",
+            "pattern": "^TOPIC-[0-9]{1,4}$",
             "description": "Reference to original topic if applicable"
           },
           "content": {
@@ -110,7 +110,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^SRC-[0-9]{3}$"
+              "pattern": "^SRC-[0-9]{1,4}$"
             },
             "description": "References to sources list"
           }
@@ -128,7 +128,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^REC-[0-9]{3}$",
+            "pattern": "^REC-[0-9]{1,4}$",
             "description": "Recommendation identifier"
           },
           "title": {
@@ -165,7 +165,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^SRC-[0-9]{3}$",
+            "pattern": "^SRC-[0-9]{1,4}$",
             "description": "Source identifier for cross-referencing"
           },
           "url": {

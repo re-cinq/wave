@@ -35,7 +35,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^TOPIC-[0-9]{3}$",
+            "pattern": "^TOPIC-[0-9]{1,4}$",
             "description": "Unique topic identifier (e.g., TOPIC-001)"
           },
           "title": {
