@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -1410,5 +1411,169 @@ steps:
 	}
 	if pl["name"] != "impl-issue" {
 		t.Errorf("expected name 'impl-issue', got %v", pl["name"])
+	}
+}
+
+func TestHandlePersonasPage_NilManifest(t *testing.T) {
+	srv, _ := testServer(t)
+	// srv.manifest is nil by default from testServer
+
+	req := httptest.NewRequest("GET", "/personas", nil)
+	rec := httptest.NewRecorder()
+	srv.handlePersonasPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandlePersonasPage_WithManifest(t *testing.T) {
+	srv, _ := testServer(t)
+
+	srv.manifest = &manifest.Manifest{
+		Personas: map[string]manifest.Persona{
+			"navigator": {
+				Description: "Guides the process",
+				Adapter:     "claude-code",
+				Model:       "opus",
+			},
+			"craftsman": {
+				Description: "Writes code",
+				Adapter:     "claude-code",
+				Model:       "sonnet",
+			},
+		},
+	}
+
+	req := httptest.NewRequest("GET", "/personas", nil)
+	rec := httptest.NewRecorder()
+	srv.handlePersonasPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "craftsman") {
+		t.Errorf("expected body to contain 'craftsman', got: %s", body)
+	}
+	if !strings.Contains(body, "navigator") {
+		t.Errorf("expected body to contain 'navigator', got: %s", body)
+	}
+}
+
+func TestHandlePipelinesPage_NoPipelines(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/pipelines", nil)
+	rec := httptest.NewRecorder()
+	srv.handlePipelinesPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") {
+		t.Errorf("expected text/html content type, got %q", contentType)
+	}
+}
+
+func TestHandlePipelinesPage_WithPipelines(t *testing.T) {
+	srv, _ := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: my-pipeline
+  description: My test pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "my-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	req := httptest.NewRequest("GET", "/pipelines", nil)
+	rec := httptest.NewRecorder()
+	srv.handlePipelinesPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "my-pipeline") {
+		t.Errorf("expected body to contain 'my-pipeline', got: %s", body)
+	}
+}
+
+func TestHandleAPIPersonas_WithManifest(t *testing.T) {
+	srv, _ := testServer(t)
+
+	srv.manifest = &manifest.Manifest{
+		Personas: map[string]manifest.Persona{
+			"reviewer": {
+				Description: "Reviews code",
+				Adapter:     "claude-code",
+				Model:       "opus",
+				Temperature: 0.3,
+				Skills:      []string{"golang"},
+			},
+		},
+	}
+
+	req := httptest.NewRequest("GET", "/api/personas", nil)
+	rec := httptest.NewRecorder()
+	srv.handleAPIPersonas(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp PersonaListResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Personas) != 1 {
+		t.Fatalf("expected 1 persona, got %d", len(resp.Personas))
+	}
+	if resp.Personas[0].Name != "reviewer" {
+		t.Errorf("expected name 'reviewer', got %q", resp.Personas[0].Name)
+	}
+	if resp.Personas[0].Model != "opus" {
+		t.Errorf("expected model 'opus', got %q", resp.Personas[0].Model)
 	}
 }
