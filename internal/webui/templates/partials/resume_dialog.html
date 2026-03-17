@@ -6,7 +6,7 @@
         <div class="resume-steps">
             {{range .Steps}}
             <button class="resume-step-btn {{statusClass .State}}"
-                    onclick="resumeFromStep('{{$.Run.RunID}}', '{{.StepID}}')"
+                    onclick="resumeFromStep('{{$.Run.RunID}}', '{{.StepID}}', this)"
                     aria-label="Resume from {{.StepID}} ({{.State}})">
                 <span class="step-id">{{.StepID}}</span>
                 <span class="badge {{statusClass .State}}">{{.State}}</span>
