@@ -1,9 +1,12 @@
 {{define "templates/partials/step_card.html"}}
-<div class="step-card {{statusClass .State}}{{if and (ne .State "running") (ne .State "failed")}} step-collapsed{{end}}" id="step-{{.StepID}}" aria-label="Step {{.StepID}}, status: {{.State}}">
-    <div class="step-header">
-        <span class="step-log-chevron">{{if or (eq .State "running") (eq .State "failed")}}▼{{else}}▶{{end}}</span>
+<div class="step-card {{statusClass .State}}{{if and (ne .State "running") (ne .State "failed")}} step-collapsed{{end}}" id="step-{{.StepID}}" data-expanded="{{if or (eq .State "running") (eq .State "failed")}}true{{else}}false{{end}}" aria-label="Step {{.StepID}}, status: {{.State}}">
+    <div class="step-header" onclick="toggleStepCard('{{.StepID}}')">
+        <span class="step-toggle" aria-hidden="true">{{if or (eq .State "running") (eq .State "failed")}}&#9660;{{else}}&#9654;{{end}}</span>
         <span class="step-id">{{.StepID}}</span>
+        {{if eq .State "running"}}<span class="step-running-spinner" aria-label="Running"></span>{{end}}
         <span class="badge {{statusClass .State}}">{{.State}}</span>
+        {{if .FormattedStartedAt}}<span class="step-start-time">{{.FormattedStartedAt}}</span>{{end}}
+        {{if .Duration}}<span class="step-duration">{{.Duration}}</span>{{end}}
         <span class="step-persona">{{.Persona}}</span>
         <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">⬇</button>
         <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">📋</button>
@@ -19,7 +22,10 @@
             {{if .Duration}}<span>Duration: {{.Duration}}</span>{{end}}
             {{if or (eq .State "completed") (eq .State "failed") (eq .State "running")}}<span class="token-count">Tokens: {{formatTokens .TokensUsed}}</span>{{end}}
         </div>
-        {{if .Error}}<div class="step-error">{{.Error}}</div>{{end}}
+        {{if .Error}}
+        <div class="step-error-banner{{if gt (len .Error) 200}} collapsed{{end}}" id="error-{{.StepID}}">{{.Error}}</div>
+        {{if gt (len .Error) 200}}<span class="step-error-toggle" onclick="toggleErrorExpand('{{.StepID}}')">Show more</span>{{end}}
+        {{end}}
         {{if .Artifacts}}
         <div class="step-artifacts">
             <strong>Artifacts:</strong>
