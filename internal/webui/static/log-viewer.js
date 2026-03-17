@@ -735,17 +735,15 @@ LogViewer.prototype.onDisconnect = function() {
     this.connection.retryCount++;
     this.connection.status = 'reconnecting';
 
-    var banner = document.getElementById('sse-reconnect-banner');
+    var banner = document.getElementById('connection-banner');
     if (banner) {
         banner.hidden = false;
         banner.classList.remove('disconnected');
     }
 
-    if (this.connection.retryCount >= 5) {
+    if (this.connection.retryCount >= 3) {
         this.connection.status = 'disconnected';
         if (banner) banner.classList.add('disconnected');
-        var retryBtn = document.getElementById('reconnect-retry');
-        if (retryBtn) retryBtn.hidden = false;
     }
 };
 
@@ -753,14 +751,11 @@ LogViewer.prototype.onReconnect = function() {
     this.connection.status = 'connected';
     this.connection.retryCount = 0;
 
-    var banner = document.getElementById('sse-reconnect-banner');
+    var banner = document.getElementById('connection-banner');
     if (banner) {
         banner.hidden = true;
         banner.classList.remove('disconnected');
     }
-
-    var retryBtn = document.getElementById('reconnect-retry');
-    if (retryBtn) retryBtn.hidden = true;
 };
 
 LogViewer.prototype.reconnect = function() {

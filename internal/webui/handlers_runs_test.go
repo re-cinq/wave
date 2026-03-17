@@ -520,6 +520,50 @@ steps:
 	}
 }
 
+// TestHandleRunsPage_ActivePage verifies that the runs page includes
+// nav-link-active on the Runs nav link.
+func TestHandleRunsPage_ActivePage(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/runs", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "nav-link-active") {
+		t.Error("expected nav-link-active class in runs page HTML")
+	}
+}
+
+// TestHandleRunDetailPage_ActivePage verifies that the run detail page includes
+// nav-link-active on the Runs nav link.
+func TestHandleRunDetailPage_ActivePage(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, err := rwStore.CreateRun("test-pipeline", "test input")
+	if err != nil {
+		t.Fatalf("failed to create run: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs/"+runID, nil)
+	req.SetPathValue("id", runID)
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "nav-link-active") {
+		t.Error("expected nav-link-active class in run detail page HTML")
+	}
+}
+
 // TestBuildStepDetails_NoPipeline tests that buildStepDetails returns nil when
 // the pipeline YAML doesn't exist.
 func TestBuildStepDetails_NoPipeline(t *testing.T) {
