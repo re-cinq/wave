@@ -33,7 +33,6 @@ type AppModel struct {
 // NewAppModel creates a new root app model with default child components.
 func NewAppModel(metaProvider MetadataProvider, pipelineProvider PipelineDataProvider, detailProvider DetailDataProvider, deps LaunchDependencies, providers ...ContentProviders) AppModel {
 	sb := NewStatusBarModel()
-	sb.guidedMode = deps.Guided
 	return AppModel{
 		header:    NewHeaderModel(metaProvider),
 		content:   NewContentModel(pipelineProvider, detailProvider, deps, providers...),
