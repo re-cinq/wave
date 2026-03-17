@@ -43,20 +43,16 @@
 function quickStart(name) {
     var input = prompt('Pipeline input (optional):');
     if (input === null) return;
-    fetch('/api/pipelines/' + encodeURIComponent(name) + '/start', {
+    var btn = event.target;
+    setButtonLoading(btn, true);
+    fetchJSON('/api/pipelines/' + encodeURIComponent(name) + '/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({input: input || ''})
-    }).then(function(resp) {
-        if (resp.ok) {
-            return resp.json().then(function(data) {
-                window.location.href = '/runs/' + data.run_id;
-            });
-        } else {
-            return resp.json().then(function(err) {
-                alert('Failed: ' + (err.error || resp.statusText));
-            });
-        }
+    }).then(function(data) {
+        window.location.href = '/runs/' + data.run_id;
+    }).catch(function() {
+        setButtonLoading(btn, false);
     });
 }
 </script>
