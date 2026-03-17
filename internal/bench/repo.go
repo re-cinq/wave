@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // RepoCache manages bare-clone caching and worktree creation for benchmark
@@ -15,12 +16,37 @@ import (
 type RepoCache struct {
 	// CacheDir is the root directory for cached bare clones.
 	CacheDir string
+
+	// mu protects repoLocks.
+	mu sync.Mutex
+	// repoLocks holds a per-repo mutex to serialize clone/fetch operations.
+	repoLocks map[string]*sync.Mutex
+}
+
+// repoMu returns a per-repo mutex, creating one if needed.
+func (rc *RepoCache) repoMu(repo string) *sync.Mutex {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if rc.repoLocks == nil {
+		rc.repoLocks = make(map[string]*sync.Mutex)
+	}
+	m, ok := rc.repoLocks[repo]
+	if !ok {
+		m = &sync.Mutex{}
+		rc.repoLocks[repo] = m
+	}
+	return m
 }
 
 // EnsureCloned fetches a bare clone of the given repo into the cache directory.
 // If the clone already exists it runs git fetch instead.
 // repo is a GitHub slug like "django/django".
 func (rc *RepoCache) EnsureCloned(ctx context.Context, repo string) (string, error) {
+	// Serialize clone/fetch per repo to avoid concurrent clone races.
+	mu := rc.repoMu(repo)
+	mu.Lock()
+	defer mu.Unlock()
+
 	cloneDir := rc.clonePath(repo)
 
 	if _, err := os.Stat(filepath.Join(cloneDir, "HEAD")); err == nil {
