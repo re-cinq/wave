@@ -37,25 +37,43 @@
 
 <div class="filters">
     <select id="status-filter" onchange="filterRuns()" aria-label="Filter runs by status">
-        <option value="">All Statuses</option>
-        <option value="pending">Pending</option>
-        <option value="running">Running</option>
-        <option value="completed">Completed</option>
-        <option value="failed">Failed</option>
-        <option value="cancelled">Cancelled</option>
+        <option value=""{{if eq .FilterStatus ""}} selected{{end}}>All Statuses</option>
+        <option value="pending"{{if eq .FilterStatus "pending"}} selected{{end}}>Pending</option>
+        <option value="running"{{if eq .FilterStatus "running"}} selected{{end}}>Running</option>
+        <option value="completed"{{if eq .FilterStatus "completed"}} selected{{end}}>Completed</option>
+        <option value="failed"{{if eq .FilterStatus "failed"}} selected{{end}}>Failed</option>
+        <option value="cancelled"{{if eq .FilterStatus "cancelled"}} selected{{end}}>Cancelled</option>
     </select>
+    <select id="pipeline-filter" onchange="filterRuns()" aria-label="Filter runs by pipeline">
+        <option value=""{{if eq .FilterPipeline ""}} selected{{end}}>All Pipelines</option>
+        {{range .Pipelines}}
+        <option value="{{.Name}}"{{if eq $.FilterPipeline .Name}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+    </select>
+    <input type="date" id="since-filter" onchange="filterRuns()" aria-label="Filter runs since date" value="{{.FilterSince}}" title="Show runs since this date" />
 </div>
+
+{{if .HasFilters}}
+<div class="filters-active">
+    <span class="filters-active-text">Filters active:
+        {{if .FilterStatus}}<strong>status={{.FilterStatus}}</strong>{{end}}
+        {{if .FilterPipeline}}<strong>pipeline={{.FilterPipeline}}</strong>{{end}}
+        {{if .FilterSince}}<strong>since={{.FilterSince}}</strong>{{end}}
+    </span>
+    <a href="/runs" class="filters-clear">Clear Filters</a>
+</div>
+{{end}}
 
 <div id="runs-list" class="runs-list">
     {{if .Runs}}
-    <table class="table">
+    <table class="table" id="runs-table">
         <thead>
             <tr>
-                <th>Status</th>
-                <th>Pipeline</th>
+                <th class="sortable" data-sort="status" onclick="sortTable('status')">Status <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="pipeline" onclick="sortTable('pipeline')">Pipeline <span class="sort-indicator"></span></th>
                 <th>Run ID</th>
-                <th>Started</th>
-                <th>Duration</th>
+                <th class="sortable sort-active sort-desc" data-sort="started" onclick="sortTable('started')">Started <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="duration" onclick="sortTable('duration')">Duration <span class="sort-indicator"></span></th>
                 <th>Tokens</th>
             </tr>
         </thead>
@@ -67,13 +85,18 @@
     </table>
     {{if .HasMore}}
     <div class="pagination">
-        <a href="/runs?cursor={{.NextCursor}}" class="btn" aria-label="Load more pipeline runs">Load More</a>
+        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}{{if .FilterSince}}&since={{.FilterSince}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load More Runs</a>
     </div>
     {{end}}
     {{else}}
     <div class="empty-state">
+        {{if .HasFilters}}
+        <p>No runs found matching your filters.</p>
+        <p><a href="/runs">Clear filters</a> to see all runs.</p>
+        {{else}}
         <p>No pipeline runs found.</p>
         <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
+        {{end}}
     </div>
     {{end}}
 </div>

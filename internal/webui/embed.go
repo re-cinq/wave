@@ -41,9 +41,12 @@ var pageTemplates = []string{
 func parseTemplates() (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
+		"statusIcon":     statusIcon,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
+		"durationSeconds": durationSeconds,
 		"contains":       strings.Contains,
 	}
 
@@ -157,6 +160,54 @@ func formatTime(t interface{}) string {
 	default:
 		return "-"
 	}
+}
+
+// statusIcon returns a Unicode icon for a pipeline status.
+func statusIcon(status string) string {
+	switch status {
+	case "completed":
+		return "\u2713" // ✓
+	case "running":
+		return "\u25cf" // ●
+	case "failed":
+		return "\u2715" // ✕
+	case "cancelled":
+		return "\u25cb" // ○
+	case "pending":
+		return "\u25cc" // ◌
+	default:
+		return "\u25cb" // ○
+	}
+}
+
+// formatTimeISO formats a time value as an ISO 8601 string for <time> elements.
+func formatTimeISO(t interface{}) string {
+	switch v := t.(type) {
+	case time.Time:
+		if v.IsZero() {
+			return ""
+		}
+		return v.Format(time.RFC3339)
+	case *time.Time:
+		if v == nil || v.IsZero() {
+			return ""
+		}
+		return v.Format(time.RFC3339)
+	default:
+		return ""
+	}
+}
+
+// durationSeconds returns the duration in seconds between start and end times.
+// Used as a sort value for the duration column.
+func durationSeconds(start time.Time, end *time.Time) int64 {
+	if end != nil {
+		return int64(end.Sub(start).Seconds())
+	}
+	if start.IsZero() {
+		return 0
+	}
+	return int64(time.Since(start).Seconds())
 }
 
 // formatTokensFunc formats a token count for display in templates.

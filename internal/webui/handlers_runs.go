@@ -118,10 +118,20 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
+	pipeline := r.URL.Query().Get("pipeline")
+	sinceStr := r.URL.Query().Get("since")
 
 	opts := state.ListRunsOptions{
-		Status: status,
-		Limit:  limit + 1,
+		Status:       status,
+		PipelineName: pipeline,
+		Limit:        limit + 1,
+	}
+
+	if sinceStr != "" {
+		t, err := time.Parse(time.RFC3339, sinceStr)
+		if err == nil {
+			opts.SinceUnix = t.Unix()
+		}
 	}
 
 	if cursor != nil {
@@ -151,19 +161,30 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		nextCursor = encodeCursor(lastRun.StartedAt, lastRun.RunID)
 	}
 
-	// Get pipeline info for the enhanced start form
+	// Get pipeline info for the enhanced start form and filter dropdown
 	pipelineInfos := getPipelineStartInfos()
 
+	// Determine if any filters are active
+	hasFilters := status != "" || pipeline != "" || sinceStr != ""
+
 	data := struct {
-		Runs       []RunSummary
-		HasMore    bool
-		NextCursor string
-		Pipelines  []PipelineStartInfo
+		Runs          []RunSummary
+		HasMore       bool
+		NextCursor    string
+		Pipelines     []PipelineStartInfo
+		FilterStatus  string
+		FilterPipeline string
+		FilterSince   string
+		HasFilters    bool
 	}{
-		Runs:       summaries,
-		HasMore:    hasMore,
-		NextCursor: nextCursor,
-		Pipelines:  pipelineInfos,
+		Runs:           summaries,
+		HasMore:        hasMore,
+		NextCursor:     nextCursor,
+		Pipelines:      pipelineInfos,
+		FilterStatus:   status,
+		FilterPipeline: pipeline,
+		FilterSince:    sinceStr,
+		HasFilters:     hasFilters,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

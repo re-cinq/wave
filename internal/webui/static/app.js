@@ -131,17 +131,113 @@ async function retryRun(runID) {
     }
 }
 
-// Filter runs by status
+// Filter runs by status, pipeline, and since date
 function filterRuns() {
-    const status = document.getElementById('status-filter').value;
-    const params = new URLSearchParams(window.location.search);
-    if (status) {
-        params.set('status', status);
-    } else {
-        params.delete('status');
-    }
+    var status = document.getElementById('status-filter');
+    var pipeline = document.getElementById('pipeline-filter');
+    var since = document.getElementById('since-filter');
+    var params = new URLSearchParams();
+
+    if (status && status.value) params.set('status', status.value);
+    if (pipeline && pipeline.value) params.set('pipeline', pipeline.value);
+    if (since && since.value) params.set('since', since.value);
+
+    // Remove cursor when filters change
     window.location.search = params.toString();
 }
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '/runs';
+}
+
+// Client-side column sorting
+function sortTable(column) {
+    var table = document.getElementById('runs-table');
+    if (!table) return;
+
+    var headers = table.querySelectorAll('th.sortable');
+    var clickedHeader = table.querySelector('th[data-sort="' + column + '"]');
+    if (!clickedHeader) return;
+
+    // Determine sort direction
+    var isActive = clickedHeader.classList.contains('sort-active');
+    var isAsc = clickedHeader.classList.contains('sort-asc');
+    var direction = isActive && isAsc ? 'desc' : isActive && !isAsc ? 'asc' : 'asc';
+
+    // Update header classes
+    headers.forEach(function(h) {
+        h.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+    });
+    clickedHeader.classList.add('sort-active', 'sort-' + direction);
+
+    // Sort rows
+    var tbody = table.querySelector('tbody');
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+
+    var colIndex;
+    switch (column) {
+        case 'status': colIndex = 0; break;
+        case 'pipeline': colIndex = 1; break;
+        case 'started': colIndex = 3; break;
+        case 'duration': colIndex = 4; break;
+        default: return;
+    }
+
+    rows.sort(function(a, b) {
+        var aVal, bVal;
+        if (column === 'duration') {
+            aVal = parseInt(a.cells[colIndex].getAttribute('data-sort-value') || '0', 10);
+            bVal = parseInt(b.cells[colIndex].getAttribute('data-sort-value') || '0', 10);
+        } else if (column === 'started') {
+            var aTime = a.cells[colIndex].querySelector('time');
+            var bTime = b.cells[colIndex].querySelector('time');
+            aVal = aTime ? aTime.getAttribute('datetime') : '';
+            bVal = bTime ? bTime.getAttribute('datetime') : '';
+        } else {
+            aVal = (a.cells[colIndex].textContent || '').trim().toLowerCase();
+            bVal = (b.cells[colIndex].textContent || '').trim().toLowerCase();
+        }
+
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    rows.forEach(function(row) {
+        tbody.appendChild(row);
+    });
+}
+
+// Relative time formatting
+function relativeTime(isoString) {
+    if (!isoString) return '';
+    var date = new Date(isoString);
+    var now = new Date();
+    var diff = Math.floor((now - date) / 1000);
+
+    if (diff < 5) return 'just now';
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return date.toLocaleDateString();
+}
+
+// Update all <time> elements with relative timestamps
+function updateRelativeTimes() {
+    var times = document.querySelectorAll('time[datetime]');
+    times.forEach(function(el) {
+        var iso = el.getAttribute('datetime');
+        if (iso) {
+            el.textContent = relativeTime(iso);
+        }
+    });
+}
+
+// Run on load and periodically
+updateRelativeTimes();
+setInterval(updateRelativeTimes, 30000);
 
 // Resume from a specific step
 async function resumeFromStep(runID, stepID) {
@@ -184,9 +280,18 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// Row click handler — navigate to run detail on row click, except on links
+document.addEventListener('click', function(e) {
+    var row = e.target.closest('.run-row[data-href]');
+    if (!row) return;
+    // Don't navigate if clicking on a link
+    if (e.target.closest('a')) return;
+    window.location.href = row.getAttribute('data-href');
+});
+
 // Auto-refresh run list every 10 seconds if there are running pipelines
 (function() {
-    const rows = document.querySelectorAll('.run-row[data-status="running"]');
+    var rows = document.querySelectorAll('.run-row[data-status="running"]');
     if (rows.length > 0) {
         setTimeout(function() {
             window.location.reload();

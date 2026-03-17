@@ -22,8 +22,12 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 	t.Helper()
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
+		"statusIcon":     statusIcon,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"formatTimeISO":  formatTimeISO,
+		"formatTokens":   formatTokensFunc,
+		"durationSeconds": durationSeconds,
 	}
 	pages := map[string]string{
 		"templates/runs.html":       `<html><body>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
@@ -1410,5 +1414,17 @@ steps:
 	}
 	if pl["name"] != "impl-issue" {
 		t.Errorf("expected name 'impl-issue', got %v", pl["name"])
+	}
+}
+
+func TestParseEmbeddedTemplates(t *testing.T) {
+	tmpl, err := parseTemplates()
+	if err != nil {
+		t.Fatalf("parseTemplates() failed: %v", err)
+	}
+	for _, page := range pageTemplates {
+		if _, ok := tmpl[page]; !ok {
+			t.Errorf("missing template for page %q", page)
+		}
 	}
 }
