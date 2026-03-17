@@ -15,9 +15,11 @@ func (s *Server) handleSkillsPage(w http.ResponseWriter, r *http.Request) {
 	skills := getSkillSummaries()
 
 	data := struct {
-		Skills []SkillSummary
+		ActivePage string
+		Skills     []SkillSummary
 	}{
-		Skills: skills,
+		ActivePage: "skills",
+		Skills:     skills,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
