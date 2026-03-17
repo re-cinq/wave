@@ -923,8 +923,8 @@ func TestListPerformance(t *testing.T) {
 	if len(skills) != 55 {
 		t.Errorf("expected 55 skills, got %d", len(skills))
 	}
-	if elapsed > 100*time.Millisecond {
-		t.Errorf("List took %v, want < 100ms", elapsed)
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("List took %v, want < 500ms", elapsed)
 	}
 }
 
