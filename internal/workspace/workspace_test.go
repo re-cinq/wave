@@ -960,23 +960,20 @@ func TestWorkspaceIsolation_CleanupOneDoesntAffectOther(t *testing.T) {
 func TestCopyRecursive_SymlinkToDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a target directory with a file inside
-	targetDir := filepath.Join(tmpDir, "target-dir")
+	// Create source directory with a subdirectory and a symlink to that subdirectory.
+	// The symlink target must be within the source tree to pass the boundary check.
+	srcDir := filepath.Join(tmpDir, "src")
+	targetDir := filepath.Join(srcDir, "real-dir")
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		t.Fatalf("Failed to create target dir: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(targetDir, "inner.txt"), []byte("inside symlinked dir"), 0644); err != nil {
 		t.Fatalf("Failed to create inner file: %v", err)
 	}
-
-	// Create a source directory that contains a symlink to the target directory
-	srcDir := filepath.Join(tmpDir, "src")
-	if err := os.MkdirAll(srcDir, 0755); err != nil {
-		t.Fatalf("Failed to create src dir: %v", err)
-	}
 	if err := os.WriteFile(filepath.Join(srcDir, "regular.txt"), []byte("regular file"), 0644); err != nil {
 		t.Fatalf("Failed to create regular file: %v", err)
 	}
+	// Symlink within the source tree (mirrors specs/ cross-references)
 	if err := os.Symlink(targetDir, filepath.Join(srcDir, "linked-dir")); err != nil {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
@@ -996,7 +993,7 @@ func TestCopyRecursive_SymlinkToDirectory(t *testing.T) {
 		t.Errorf("Expected 'regular file', got %q", string(content))
 	}
 
-	// Verify the symlinked directory's contents were copied (as a real directory, not a symlink)
+	// Verify the symlinked directory's contents were copied
 	innerContent, err := os.ReadFile(filepath.Join(dstDir, "linked-dir", "inner.txt"))
 	if err != nil {
 		t.Fatalf("Failed to read file from symlinked dir: %v", err)
@@ -1012,5 +1009,39 @@ func TestCopyRecursive_SymlinkToDirectory(t *testing.T) {
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		t.Error("Expected real directory, got symlink")
+	}
+}
+
+// TestCopyRecursive_SymlinkOutsideSourceSkipped verifies that symlinks pointing
+// outside the source tree are skipped to prevent path traversal.
+func TestCopyRecursive_SymlinkOutsideSourceSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create an external directory (outside source tree)
+	externalDir := filepath.Join(tmpDir, "external")
+	if err := os.MkdirAll(externalDir, 0755); err != nil {
+		t.Fatalf("Failed to create external dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(externalDir, "secret.txt"), []byte("secret"), 0644); err != nil {
+		t.Fatalf("Failed to create secret file: %v", err)
+	}
+
+	// Create source directory with a symlink pointing outside
+	srcDir := filepath.Join(tmpDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatalf("Failed to create src dir: %v", err)
+	}
+	if err := os.Symlink(externalDir, filepath.Join(srcDir, "escape")); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	dstDir := filepath.Join(tmpDir, "dst")
+	if err := copyRecursive(srcDir, dstDir); err != nil {
+		t.Fatalf("copyRecursive failed: %v", err)
+	}
+
+	// The external directory's contents should NOT be copied
+	if _, err := os.Stat(filepath.Join(dstDir, "escape", "secret.txt")); !os.IsNotExist(err) {
+		t.Error("Symlink outside source tree was followed — path traversal vulnerability")
 	}
 }

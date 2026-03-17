@@ -335,7 +335,7 @@ func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner 
 	report.CompletedAt = time.Now()
 	report.DurationMs = time.Since(report.StartedAt).Milliseconds()
 	report.Tally()
-	return report, nil
+	return report, ctx.Err()
 }
 
 func generateRunID() string {
