@@ -8,7 +8,14 @@ import (
 
 // handleHealthPage handles GET /health - serves the HTML health checks page.
 func (s *Server) handleHealthPage(w http.ResponseWriter, r *http.Request) {
-	data := s.getHealthListData()
+	healthData := s.getHealthListData()
+	data := struct {
+		HealthListResponse
+		ActivePage string
+	}{
+		HealthListResponse: healthData,
+		ActivePage:         "health",
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/health.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {

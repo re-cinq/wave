@@ -16,9 +16,11 @@ func (s *Server) handlePersonasPage(w http.ResponseWriter, r *http.Request) {
 	personas := s.getPersonaSummaries()
 
 	data := struct {
-		Personas []PersonaSummary
+		Personas   []PersonaSummary
+		ActivePage string
 	}{
-		Personas: personas,
+		Personas:   personas,
+		ActivePage: "personas",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -159,11 +159,13 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		HasMore    bool
 		NextCursor string
 		Pipelines  []PipelineStartInfo
+		ActivePage string
 	}{
 		Runs:       summaries,
 		HasMore:    hasMore,
 		NextCursor: nextCursor,
 		Pipelines:  pipelineInfos,
+		ActivePage: "runs",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -232,15 +234,17 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Run    RunSummary
-		Steps  []StepDetail
-		Events []EventSummary
-		DAG    *DAGLayout
+		Run        RunSummary
+		Steps      []StepDetail
+		Events     []EventSummary
+		DAG        *DAGLayout
+		ActivePage string
 	}{
-		Run:    runToSummary(*run),
-		Steps:  stepDetails,
-		Events: eventSummaries,
-		DAG:    dagLayout,
+		Run:        runToSummary(*run),
+		Steps:      stepDetails,
+		Events:     eventSummaries,
+		DAG:        dagLayout,
+		ActivePage: "runs",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

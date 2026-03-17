@@ -10,7 +10,14 @@ import (
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
 func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
-	data := s.getPRListData()
+	prData := s.getPRListData()
+	data := struct {
+		PRListResponse
+		ActivePage string
+	}{
+		PRListResponse: prData,
+		ActivePage:     "prs",
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/prs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {

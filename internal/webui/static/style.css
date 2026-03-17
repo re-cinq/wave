@@ -153,6 +153,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 .nav-link:hover { background: var(--color-bg-tertiary); color: var(--color-text); text-decoration: none; }
+.nav-link-active { background: var(--color-bg-tertiary); color: var(--color-text); }
 
 /* Theme Toggle */
 .theme-toggle {
@@ -215,6 +216,27 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .status-warning { background: var(--color-pending-bg); color: var(--color-pending); }
 .status-unknown { background: var(--color-bg-tertiary); color: var(--color-text-muted); }
 .badge-composition { background: #7c3aed22; color: #a78bfa; }
+
+/* PR State Badges */
+.badge-merged { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.badge-open { background: var(--color-completed-bg); color: var(--color-completed); }
+.badge-closed { background: var(--color-failed-bg); color: var(--color-failed); }
+.badge-draft { background: var(--color-cancelled-bg); color: var(--color-cancelled); }
+
+/* Health Status Badges */
+.badge-ok { background: var(--color-completed-bg); color: var(--color-completed); }
+.badge-warn { background: var(--color-pending-bg); color: var(--color-pending); }
+.badge-error { background: var(--color-failed-bg); color: var(--color-failed); }
+
+/* Diff Coloring */
+.additions { color: var(--color-completed); font-weight: 500; }
+.deletions { color: var(--color-failed); font-weight: 500; }
+
+/* Small Button Variant */
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+/* Card Actions Utility */
+.card-actions { margin-top: 0.5rem; }
 
 /* Tables */
 .table {
@@ -356,6 +378,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 @media (max-width: 1024px) {
     .container { padding: 1rem; }
     .personas-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    .health-checks { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    .run-detail-layout { flex-direction: column; }
+    .run-detail-sidebar { position: static; width: 100%; order: 1; }
+    .run-detail-main { order: 0; }
 }
 @media (max-width: 768px) {
     html { font-size: 13px; }
@@ -366,9 +392,11 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     .event-time { min-width: auto; }
     .event-item { flex-wrap: wrap; }
     .personas-grid { grid-template-columns: 1fr; }
+    .health-checks { grid-template-columns: 1fr; }
     .step-header { flex-wrap: wrap; }
     .step-persona { margin-left: 0; }
     .persona-card:hover { transform: none; }
+    .modal { width: 95%; max-width: none; margin: 1rem; }
 }
 
 @media (min-width: 1920px) {
@@ -463,6 +491,35 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .compose-step-detail code { font-size: 0.7rem; }
 .compose-detail-item { white-space: nowrap; }
+
+/* Health Cards */
+.health-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.health-card { position: relative; }
+.health-card.health-ok { border-left: 3px solid var(--color-completed); }
+.health-card.health-warn { border-left: 3px solid var(--color-pending); }
+.health-card.health-error { border-left: 3px solid var(--color-failed); }
+.health-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.health-icon { font-size: 1.1rem; flex-shrink: 0; }
+.health-ok .health-icon { color: var(--color-completed); }
+.health-warn .health-icon { color: var(--color-pending); }
+.health-error .health-icon { color: var(--color-failed); }
+.health-header h3 { margin: 0; font-size: 1rem; flex: 1; }
+.health-message { color: var(--color-text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; line-height: 1.5; }
+.health-details { margin-top: 0.5rem; }
+.health-details summary { font-size: 0.85rem; color: var(--color-text-secondary); cursor: pointer; }
+.details-table { width: 100%; font-size: 0.8rem; margin-top: 0.5rem; }
+.details-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--color-border); }
+.details-table tr:last-child td { border-bottom: none; }
+.details-table td:first-child { white-space: nowrap; color: var(--color-text-secondary); width: 30%; }
+
+/* Modal / Dialog */
+.modal { border: none; border-radius: var(--radius-lg); background: var(--color-bg-secondary); color: var(--color-text); padding: 1.5rem; max-width: 500px; width: 90%; box-shadow: 0 8px 32px var(--color-shadow); }
+.modal::backdrop { background: rgba(0, 0, 0, 0.5); }
+.modal h3 { margin-bottom: 1rem; }
+.modal .form-group { margin-bottom: 1rem; }
+.form-control { width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: var(--font-sans); background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-md); outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.form-control:focus { border-color: var(--wave-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+.dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 
 /* Pipeline Preview (enhanced start form) */
 .pipeline-preview {

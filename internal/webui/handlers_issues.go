@@ -12,7 +12,14 @@ import (
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
 func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
-	data := s.getIssueListData()
+	issueData := s.getIssueListData()
+	data := struct {
+		IssueListResponse
+		ActivePage string
+	}{
+		IssueListResponse: issueData,
+		ActivePage:        "issues",
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/issues.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {

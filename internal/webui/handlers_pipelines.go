@@ -21,9 +21,11 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	pipelines := s.getPipelineSummaries()
 
 	data := struct {
-		Pipelines []PipelineSummary
+		Pipelines  []PipelineSummary
+		ActivePage string
 	}{
-		Pipelines: pipelines,
+		Pipelines:  pipelines,
+		ActivePage: "pipelines",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

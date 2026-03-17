@@ -14,9 +14,11 @@ func (s *Server) handleComposePage(w http.ResponseWriter, r *http.Request) {
 	pipelines := getCompositionPipelines()
 
 	data := struct {
-		Pipelines []CompositionPipeline
+		Pipelines  []CompositionPipeline
+		ActivePage string
 	}{
-		Pipelines: pipelines,
+		Pipelines:  pipelines,
+		ActivePage: "compose",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
