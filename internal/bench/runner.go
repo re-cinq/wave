@@ -57,7 +57,17 @@ type PipelineRunner interface {
 }
 
 // SubprocessRunner executes pipelines by invoking the wave or claude binary.
-type SubprocessRunner struct{}
+type SubprocessRunner struct {
+	// repoCache is shared across concurrent tasks to avoid clone races.
+	repoCache *RepoCache
+}
+
+// NewSubprocessRunner creates a runner with a shared repo cache.
+func NewSubprocessRunner(cacheDir string) *SubprocessRunner {
+	return &SubprocessRunner{
+		repoCache: &RepoCache{CacheDir: cacheDir},
+	}
+}
 
 // RunTask runs a single benchmark task. It clones the repo, creates a worktree
 // at the base commit, and then either runs a Wave pipeline or invokes Claude
@@ -86,11 +96,7 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 	// Set up repository worktree if repo info is available.
 	worktreePath := taskDir
 	if task.Repo != "" && task.BaseCommit != "" {
-		cacheDir := cfg.CacheDir
-		if cacheDir == "" {
-			cacheDir = filepath.Join(workDir, "repos")
-		}
-		rc := &RepoCache{CacheDir: cacheDir}
+		rc := s.repoCache
 
 		if _, err := rc.EnsureCloned(ctx, task.Repo); err != nil {
 			result.DurationMs = time.Since(start).Milliseconds()
