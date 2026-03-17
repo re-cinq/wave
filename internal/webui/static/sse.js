@@ -10,6 +10,73 @@ function formatTokens(n) {
     return (n / 1000000000).toFixed(1) + 'B';
 }
 
+// formatDuration formats milliseconds into human-friendly duration strings
+// matching the Go formatDurationValue output (Xs, Xm Ys, Xh Ym).
+function formatDuration(ms) {
+    if (ms == null || ms === undefined) return '';
+    var totalSec = Math.round(ms / 1000);
+    if (totalSec < 60) return totalSec + 's';
+    var totalMin = Math.floor(totalSec / 60);
+    var sec = totalSec % 60;
+    if (totalMin < 60) {
+        return sec === 0 ? totalMin + 'm' : totalMin + 'm ' + sec + 's';
+    }
+    var hours = Math.floor(totalMin / 60);
+    var min = totalMin % 60;
+    return min === 0 ? hours + 'h' : hours + 'h ' + min + 'm';
+}
+
+// formatStartTime formats an ISO timestamp to a short time string (HH:MM:SS).
+function formatStartTime(isoString) {
+    if (!isoString) return '';
+    try {
+        var d = new Date(isoString);
+        return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+    } catch (e) {
+        return '';
+    }
+}
+
+// Track expanded step IDs for persistence across SSE updates
+var expandedSteps = new Set();
+
+function toggleStepCard(stepID) {
+    var card = document.getElementById('step-' + stepID);
+    if (!card) return;
+    var isExpanded = card.getAttribute('data-expanded') === 'true';
+    card.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+    if (isExpanded) {
+        expandedSteps.delete(stepID);
+    } else {
+        expandedSteps.add(stepID);
+    }
+}
+
+function toggleErrorExpand(stepID) {
+    var banner = document.getElementById('error-' + stepID);
+    if (!banner) return;
+    var toggle = banner.nextElementSibling;
+    if (banner.classList.contains('collapsed')) {
+        banner.classList.remove('collapsed');
+        if (toggle) toggle.textContent = 'Show less';
+    } else {
+        banner.classList.add('collapsed');
+        if (toggle) toggle.textContent = 'Show more';
+    }
+}
+
+// Initialize collapse states on page load
+function initStepCollapseStates() {
+    var cards = document.querySelectorAll('.step-card');
+    cards.forEach(function(card) {
+        var expanded = card.getAttribute('data-expanded') === 'true';
+        var stepID = card.id.replace('step-', '');
+        if (expanded) {
+            expandedSteps.add(stepID);
+        }
+    });
+}
+
 var sseConnection = null;
 var pollTimer = null;
 var currentRunID = null;
@@ -137,12 +204,25 @@ function createStepCard(step) {
     card.className = 'step-card status-' + step.state;
     card.id = 'step-' + step.step_id;
 
+    // Preserve expand state or default based on status
+    var isExpanded = expandedSteps.has(step.step_id) ||
+        step.state === 'running' || step.state === 'failed';
+    card.setAttribute('data-expanded', isExpanded ? 'true' : 'false');
+    if (isExpanded) expandedSteps.add(step.step_id);
+
+    var spinnerHtml = step.state === 'running' ? '<span class="step-running-spinner" aria-label="Running"></span>' : '';
+    var startTimeHtml = step.started_at ? '<span class="step-start-time">' + formatStartTime(step.started_at) + '</span>' : '';
+    var durationHtml = step.duration ? '<span class="step-duration">' + step.duration + '</span>' : '';
+
     var chevron = (step.state === 'running' || step.state === 'failed') ? '\u25BC' : '\u25B6';
     var headerHtml =
-        '<div class="step-header">' +
-        '<span class="step-log-chevron">' + chevron + '</span>' +
+        '<div class="step-header" onclick="toggleStepCard(\'' + step.step_id + '\')">' +
+        '<span class="step-toggle" aria-hidden="true">' + chevron + '</span>' +
         '<span class="step-id">' + step.step_id + '</span>' +
+        spinnerHtml +
         '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
+        startTimeHtml +
+        durationHtml +
         '<span class="step-persona">' + (step.persona || '') + '</span>' +
         '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(\'' + step.step_id + '\')" title="Download log">\u2B07</button>' +
         '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(\'' + step.step_id + '\')" title="Copy log">\uD83D\uDCCB</button>' +
@@ -168,7 +248,11 @@ function createStepCard(step) {
         bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
     }
     if (step.error) {
-        bodyParts.push('<div class="step-error">' + step.error + '</div>');
+        var isLong = step.error.length > 200;
+        bodyParts.push('<div class="step-error-banner' + (isLong ? ' collapsed' : '') + '" id="error-' + step.step_id + '">' + step.error + '</div>');
+        if (isLong) {
+            bodyParts.push('<span class="step-error-toggle" onclick="toggleErrorExpand(\'' + step.step_id + '\')">Show more</span>');
+        }
     }
 
     var logHtml = '<div class="step-log" id="log-' + step.step_id + '" data-step-id="' + step.step_id + '">' +

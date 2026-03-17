@@ -36,7 +36,7 @@ type DAGLayoutEdge struct {
 
 const (
 	nodeWidth  = 140
-	nodeHeight = 50
+	nodeHeight = 60
 	layerGapY  = 80  // vertical gap between layers (top→bottom)
 	nodeGapX   = 170 // horizontal gap between nodes in the same layer
 	paddingX   = 20
