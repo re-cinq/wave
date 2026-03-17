@@ -121,7 +121,8 @@ Use --mode to select execution mode:
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
-			runner := &bench.SubprocessRunner{}
+			cacheDir := filepath.Join(".wave/bench/workspaces", "repos")
+			runner := bench.NewSubprocessRunner(cacheDir)
 			report, err := bench.RunBenchmark(ctx, tasks, cfg, runner)
 			if err != nil && report == nil {
 				return fmt.Errorf("benchmark failed: %w", err)
