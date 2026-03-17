@@ -13,7 +13,9 @@
 .wave/chat/
 .wave/logs/
 .wave/wave.db*
-.wave/bench/
+.wave/bench/datasets/
+.wave/bench/workspaces/
+# .wave/bench/results/   — committed
 
 # Claude Code local config (persona-generated, not committed)
 .claude/
