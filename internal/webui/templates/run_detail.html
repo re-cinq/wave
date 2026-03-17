@@ -4,7 +4,7 @@
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
         <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
-        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}</p>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
@@ -111,6 +111,23 @@ if (runStatus === 'running' || runStatus === 'pending') {
 if (window.logViewer) {
     window.logViewer.init(runStatus);
 }
+initStepCollapseStates();
+
+// formatArtifactContent adds line numbers and highlights error/warning patterns.
+function formatArtifactContent(content) {
+    if (!content) return '';
+    var lines = String(content).split('\n');
+    var padLen = String(lines.length).length;
+    return lines.map(function(line, i) {
+        var num = String(i + 1);
+        while (num.length < padLen) num = ' ' + num;
+        var cls = '';
+        if (/\b(error|fatal|panic|FAIL)\b/i.test(line)) cls = ' log-error';
+        else if (/\b(warn|warning|WARN)\b/i.test(line)) cls = ' log-warning';
+        else if (/\b(info|INFO|note|NOTE)\b/i.test(line)) cls = ' log-info';
+        return '<span class="log-line"><span class="log-line-number">' + num + '</span><span class="log-line-content' + cls + '">' + line + '</span></span>';
+    }).join('\n');
+}
 
 // toggleArtifact fetches and displays artifact content inline below its link.
 function toggleArtifact(link) {
@@ -159,7 +176,7 @@ function toggleArtifact(link) {
                   (meta.truncated
                     ? '<div class="alert alert-truncation"><strong>Notice:</strong> This artifact exceeds 100\u202fKB and has been truncated. <a href="' + url + '?raw=true">Download full artifact</a>.</div>'
                     : '') +
-                  '<pre class="artifact-content"><code>' + data.content + '</code></pre>' +
+                  '<pre class="artifact-content"><code>' + formatArtifactContent(data.content) + '</code></pre>' +
                 '</div>';
             container.innerHTML = html;
         })
