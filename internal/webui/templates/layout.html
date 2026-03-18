@@ -26,10 +26,6 @@
             <button id="theme-toggle" class="theme-toggle" title="Toggle theme">&#9790;</button>
         </div>
     </nav>
-    <div id="connection-banner" class="connection-banner" hidden>
-        <span class="connection-message">Connection lost. Reconnecting&hellip;</span>
-        <button class="btn btn-sm" onclick="if(window.logViewer) window.logViewer.reconnect(); else location.reload();">Retry</button>
-    </div>
     <main class="container" role="main" aria-label="Page content">
         {{block "content" .}}{{end}}
     </main>

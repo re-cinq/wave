@@ -9,13 +9,13 @@
     </div>
     <div class="step-card-content">
         <div class="step-header" role="button" tabindex="0" aria-expanded="{{if or (eq .State "running") (eq .State "failed")}}true{{else}}false{{end}}" onclick="toggleStepCard('{{.StepID}}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleStepCard('{{.StepID}}');}">
-            <span class="step-toggle" aria-hidden="true">{{if or (eq .State "running") (eq .State "failed")}}&#9660;{{else}}&#9654;{{end}}</span>
+            <span class="step-toggle" aria-hidden="true">&#9654;</span>
             <span class="step-id">{{.StepID}}</span>
             <span class="badge {{statusClass .State}}">{{.State}}</span>
             {{if .FormattedStartedAt}}<span class="step-start-time">{{.FormattedStartedAt}}</span>{{end}}
             <span class="step-duration" {{if eq .State "running"}}data-live-timer="true"{{end}}>{{if .Duration}}{{.Duration}}{{end}}</span>
             <span class="step-persona">{{.Persona}}</span>
-            <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">&#11015;</button>
+            <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">Save</button>
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">Copy</button>
         </div>
         <div class="step-body">

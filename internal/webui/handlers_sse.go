@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/recinq/wave/internal/state"
 )
@@ -60,6 +61,12 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	ch := s.broker.Subscribe()
 	defer s.broker.Unsubscribe(ch)
 
+	// Keepalive ticker prevents idle connection timeouts.
+	// SSE comments (lines starting with ':') are ignored by EventSource
+	// but keep the TCP connection alive through proxies and browsers.
+	keepalive := time.NewTicker(15 * time.Second)
+	defer keepalive.Stop()
+
 	ctx := r.Context()
 	for {
 		select {
@@ -76,6 +83,10 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 			} else {
 				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", sseEvent.Event, sseEvent.Data)
 			}
+			flusher.Flush()
+		case <-keepalive.C:
+			// SSE comment keeps connection alive
+			fmt.Fprintf(w, ": keepalive\n\n")
 			flusher.Flush()
 		case <-ctx.Done():
 			return

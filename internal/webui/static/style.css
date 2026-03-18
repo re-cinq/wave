@@ -341,8 +341,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     padding: 0.7rem 1rem; background: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border);
 }
-.step-id { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--color-text); }
-.step-persona { font-size: 0.8rem; color: var(--color-text-secondary); margin-left: auto; }
+.step-id { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 600; color: var(--color-text); }
+.step-persona { font-size: 0.75rem; color: var(--color-text-secondary); margin-left: auto; }
 .step-start-time { font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono); }
 .step-duration { font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono); font-weight: 600; }
 
@@ -355,15 +355,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    font-size: 0.7rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.6rem;
     color: var(--color-text-muted);
     transition: transform 0.2s ease;
     flex-shrink: 0;
 }
-.step-card[data-expanded="true"] .step-toggle {
+.step-card[data-expanded="true"] .step-toggle,
+.step-card:not(.step-collapsed) .step-toggle {
     transform: rotate(90deg);
+}
+.step-card.step-collapsed .step-toggle {
+    transform: rotate(0deg);
 }
 .step-body {
     transition: max-height 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
@@ -381,8 +385,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 
 .step-body { padding: 0.85rem 1rem; }
-.step-action { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
-.step-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.5rem; }
+.step-action { font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
+.step-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem; }
 .step-error {
     margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--color-failed-bg);
     border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--color-failed);
@@ -782,16 +786,16 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-log-chevron { display: inline-block; width: 1.2em; text-align: center; font-size: 0.8rem; color: var(--color-text-muted); transition: transform 0.15s ease; }
 .step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; }
 .step-collapsed .step-log { max-height: 0; overflow: hidden; }
-.step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 13px; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
+.step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 0.75rem; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
 .step-log-sentinel { height: 1px; }
 .log-empty { padding: 0.75rem 1rem; color: var(--color-text-muted); font-style: italic; font-size: 0.85rem; }
 
 /* Log Viewer — log line layout */
-.log-line { display: flex; contain: content; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; padding: 0 0.5rem; border-bottom: 1px solid transparent; }
+.log-line { display: flex; align-items: baseline; contain: content; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.6; padding: 1px 0.5rem; border-bottom: 1px solid transparent; }
 .log-line:hover { background: var(--color-bg-tertiary); }
-.log-gutter { min-width: 5ch; text-align: right; padding-right: 0.75rem; color: var(--color-text-muted); user-select: none; flex-shrink: 0; }
-.log-time { min-width: 13ch; color: var(--color-text-muted); flex-shrink: 0; padding-right: 0.5rem; }
-.log-tool { display: inline-block; min-width: 5ch; padding: 0 0.4em; margin-right: 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.5; border-radius: 2em; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-secondary); flex-shrink: 0; }
+.log-gutter { min-width: 5ch; text-align: right; padding-right: 0.75rem; color: var(--color-text-muted); user-select: none; flex-shrink: 0; font-size: inherit; }
+.log-time { min-width: 13ch; color: var(--color-text-muted); flex-shrink: 0; padding-right: 0.5rem; font-size: inherit; }
+.log-tool { display: inline-block; min-width: 7ch; padding: 0 0.5em; margin-right: 0.5rem; font-size: 0.6875rem; font-weight: 600; line-height: 1.5; border-radius: var(--radius-sm); text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-secondary); flex-shrink: 0; }
 .log-content { flex: 1; white-space: pre-wrap; word-break: break-all; min-width: 0; }
 
 /* Log Viewer — ANSI color rendering */
@@ -970,11 +974,11 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 }
 .run-summary-item { display: flex; flex-direction: column; gap: 0.1rem; }
 .run-summary-label {
-    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--color-text-muted);
 }
 .run-summary-value {
-    font-size: 0.95rem; font-weight: 600; font-family: var(--font-mono);
+    font-size: 0.875rem; font-weight: 600; font-family: var(--font-mono);
     color: var(--color-text);
 }
 .run-summary-progress { flex: 1; min-width: 100px; display: flex; align-items: flex-end; }
