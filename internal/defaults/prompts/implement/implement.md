@@ -66,6 +66,7 @@ After all tasks are complete:
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 
+   CRITICAL: Never use `Closes #N`, `Fixes #N`, or `Resolves #N` in commit messages — these auto-close issues on merge. Use the issue number without closing keywords as shown above.
    CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.wave/artifacts/`, or `.wave/output/`.
    These are Wave-managed files. The `specs/` directory IS allowed.
 
