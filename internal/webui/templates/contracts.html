@@ -21,12 +21,12 @@
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">--</div>
+    <div class="empty-state-icon">&#128220;</div>
     <p><strong>No contracts found</strong></p>
     <p>Add JSON schema files to <code>.wave/contracts/</code> to define output validation.</p>
 </div>
 {{end}}
-<dialog id="schema-dialog" class="detail-dialog">
+<dialog id="schema-dialog" class="detail-dialog" aria-labelledby="schema-dialog-title">
     <div class="detail-dialog-header">
         <h3 id="schema-dialog-title"></h3>
         <button class="btn-icon" onclick="document.getElementById('schema-dialog').close()" title="Close">&times;</button>
@@ -60,12 +60,5 @@ function viewContract(name) {
         });
 }
 
-function escapeHTML(s) {
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
 </script>
 {{end}}
