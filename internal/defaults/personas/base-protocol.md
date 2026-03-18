@@ -41,6 +41,13 @@ Path conventions:
 
 These rules apply to both the main context AND any Task subagents you spawn.
 
+## Test Hygiene
+
+- Tests MUST be hermetic — never read from the repo working tree (`.claude/`, `.wave/`, project root files)
+- Do NOT use `runtime.Caller()` to locate the repo root in tests
+- Use inline fixtures, `testdata/` directories, or embedded defaults — not whatever happens to be on disk
+- Do NOT hardcode file counts (`len(matches) != 14`) — these break when files are added or removed
+
 ## Inter-Step Communication
 
 - Each step receives only the artifacts explicitly injected via `inject_artifacts`
