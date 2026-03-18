@@ -62,6 +62,7 @@ steps:
         type: json_schema
         schema_path: .wave/contracts/spec-phase.schema.json
         must_pass: true
+        on_failure: retry
 
   # Phase 2: Docs - Generate runnable documentation from specification
   - id: docs
@@ -117,6 +118,7 @@ steps:
         type: json_schema
         schema_path: .wave/contracts/docs-phase.schema.json
         must_pass: true
+        on_failure: retry
 
   # Phase 3: Dummy - Build authentic functional prototype
   - id: dummy
@@ -176,6 +178,7 @@ steps:
         type: json_schema
         schema_path: .wave/contracts/dummy-phase.schema.json
         must_pass: true
+        on_failure: retry
 
   # Phase 4: Implement - Transition to full implementation
   - id: implement
@@ -236,6 +239,7 @@ steps:
         type: json_schema
         schema_path: .wave/contracts/implement-phase.schema.json
         must_pass: true
+        on_failure: retry
 
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create

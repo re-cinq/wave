@@ -59,6 +59,7 @@ steps:
         schema_path: .wave/contracts/epic-assessment.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false
@@ -118,6 +119,7 @@ steps:
         schema_path: .wave/contracts/scope-plan.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false
@@ -175,6 +177,7 @@ steps:
         schema_path: .wave/contracts/scope-report.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false
