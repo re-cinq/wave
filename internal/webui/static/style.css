@@ -245,6 +245,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     border: 1px solid var(--color-border); border-radius: var(--radius-lg);
     padding: 1.5rem; max-width: 500px; width: 90%;
     box-shadow: 0 8px 32px var(--color-shadow);
+    margin: auto;
+    position: fixed;
+    inset: 0;
+    height: fit-content;
+}
+.start-dialog[open] {
+    overscroll-behavior: contain;
 }
 .start-dialog::backdrop {
     background: rgba(0, 0, 0, 0.5);
