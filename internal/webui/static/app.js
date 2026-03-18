@@ -1,5 +1,10 @@
 // Wave Dashboard - Main Application JS
 
+// --- HTML Escaping (shared utility) ---
+function escapeHTML(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // --- Toast Notification System ---
 function showToast(message, type, duration) {
     type = type || 'error';
@@ -338,10 +343,12 @@ function sortTable(column) {
     history.replaceState(null, '', '?' + params.toString());
 }
 
-// Parse duration string like "2m30s", "45s" into seconds
+// Parse duration string like "2m30s", "45s", "1h 30m" into seconds
 function parseDuration(s) {
     if (!s || s === '-') return 0;
     var total = 0;
+    var h = s.match(/(\d+)h/);
+    if (h) total += parseInt(h[1], 10) * 3600;
     var m = s.match(/(\d+)m/);
     if (m) total += parseInt(m[1], 10) * 60;
     var sec = s.match(/(\d+)s/);
