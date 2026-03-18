@@ -7,9 +7,9 @@
     </div>
 </div>
 
-<dialog id="start-dialog" class="start-dialog">
+<dialog id="start-dialog" class="start-dialog" aria-labelledby="start-dialog-title">
     <form id="pipeline-start-form" method="dialog" onsubmit="return startPipeline(event)">
-        <h3>Start Pipeline</h3>
+        <h3 id="start-dialog-title">Start Pipeline</h3>
         <div class="form-group">
             <label for="pipeline-select">Pipeline</label>
             <select id="pipeline-select" name="pipeline" required onchange="onPipelineSelect()">
@@ -69,11 +69,11 @@
     <table class="table" id="runs-table">
         <thead>
             <tr>
-                <th class="sortable" data-sort="status" onclick="sortTable('status')">Status <span class="sort-indicator"></span></th>
-                <th class="sortable" data-sort="pipeline" onclick="sortTable('pipeline')">Pipeline <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="status" onclick="sortTable('status')" aria-sort="none">Status <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="pipeline" onclick="sortTable('pipeline')" aria-sort="none">Pipeline <span class="sort-indicator"></span></th>
                 <th>Run ID</th>
-                <th class="sortable" data-sort="started" onclick="sortTable('started')">Started <span class="sort-indicator"></span></th>
-                <th class="sortable" data-sort="duration" onclick="sortTable('duration')">Duration <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="started" onclick="sortTable('started')" aria-sort="none">Started <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="duration" onclick="sortTable('duration')" aria-sort="none">Duration <span class="sort-indicator"></span></th>
                 <th>Progress</th>
                 <th>Tokens</th>
             </tr>
@@ -92,14 +92,14 @@
     {{else}}
     <div class="empty-state">
         {{if .HasFilters}}
-        <div class="empty-state-icon">--</div>
+        <div class="empty-state-icon">&#128269;</div>
         <p><strong>No matching runs</strong></p>
         <p>No runs found matching your filters.</p>
         <div class="empty-state-action">
             <a href="/runs" class="btn btn-primary">Clear filters</a>
         </div>
         {{else}}
-        <div class="empty-state-icon">--</div>
+        <div class="empty-state-icon">&#9654;</div>
         <p><strong>No pipeline runs yet</strong></p>
         <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
         <div class="empty-state-action">

@@ -34,13 +34,13 @@
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">--</div>
+    <div class="empty-state-icon">&#9881;</div>
     <p><strong>No pipelines found</strong></p>
     <p>Add pipeline YAML files to <code>.wave/pipelines/</code> to get started.</p>
 </div>
 {{end}}
 
-<dialog id="quickstart-dialog" class="start-dialog">
+<dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
     <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
     <div class="form-group">
         <label for="quickstart-input">Input (optional)</label>
