@@ -40,19 +40,17 @@
 </div>
 {{end}}
 
-<div id="quickstart-dialog" class="dialog-overlay" style="display:none;" onclick="if(event.target===this)hideQuickStart()">
-    <div class="modal" role="dialog" aria-labelledby="quickstart-title">
-        <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
-        <div class="form-group">
-            <label for="quickstart-input">Input (optional)</label>
-            <textarea id="quickstart-input" rows="3" placeholder="Pipeline input (e.g. issue URL, feature description)..."></textarea>
-        </div>
-        <div class="dialog-actions">
-            <button class="btn" onclick="hideQuickStart()">Cancel</button>
-            <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
-        </div>
+<dialog id="quickstart-dialog" class="start-dialog">
+    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
+    <div class="form-group">
+        <label for="quickstart-input">Input (optional)</label>
+        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
     </div>
-</div>
+    <div class="dialog-actions">
+        <button class="btn" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+    </div>
+</dialog>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -62,12 +60,12 @@ function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
-    document.getElementById('quickstart-dialog').style.display = 'flex';
+    document.getElementById('quickstart-dialog').showModal();
     document.getElementById('quickstart-input').focus();
 }
 
 function hideQuickStart() {
-    document.getElementById('quickstart-dialog').style.display = 'none';
+    document.getElementById('quickstart-dialog').close();
     quickStartPipeline = '';
 }
 
