@@ -385,3 +385,48 @@ function parseDuration(s) {
         });
     }
 })();
+
+// Mobile navigation toggle
+function toggleNav() {
+    var links = document.getElementById('nav-links');
+    var btn = document.querySelector('.nav-toggle');
+    if (links) {
+        var open = links.classList.toggle('nav-open');
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+}
+
+// Live elapsed timer for running steps
+(function() {
+    function formatElapsed(ms) {
+        var s = Math.floor(ms / 1000);
+        if (s < 60) return s + 's';
+        var m = Math.floor(s / 60);
+        s = s % 60;
+        if (m < 60) return s === 0 ? m + 'm' : m + 'm ' + s + 's';
+        var h = Math.floor(m / 60);
+        m = m % 60;
+        return m === 0 ? h + 'h' : h + 'h ' + m + 'm';
+    }
+
+    function updateTimers() {
+        var timers = document.querySelectorAll('[data-live-timer="true"]');
+        var now = Date.now();
+        for (var i = 0; i < timers.length; i++) {
+            var card = timers[i].closest('.step-card');
+            if (!card) continue;
+            var startedAt = card.getAttribute('data-started-at');
+            if (!startedAt) continue;
+            var elapsed = now - new Date(startedAt).getTime();
+            if (elapsed >= 0) {
+                timers[i].textContent = formatElapsed(elapsed);
+            }
+        }
+    }
+
+    // Update every second
+    if (document.querySelectorAll('[data-live-timer="true"]').length > 0) {
+        setInterval(updateTimers, 1000);
+        updateTimers();
+    }
+})();
