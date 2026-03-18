@@ -37,6 +37,7 @@ Path conventions:
 - Use the Grep tool for searching. Do NOT use grep or rg via Bash
 - Do NOT push to remote — that happens in the create-pr step
 - Do NOT include Co-Authored-By or AI attribution in commits
+- Do NOT use GitHub closing keywords (`Closes #N`, `Fixes #N`, `Resolves #N`) in commit messages or PR bodies — use `Related to #N` instead. Closing keywords auto-close issues on merge, which causes false-positive closures when PRs only partially address an issue
 
 These rules apply to both the main context AND any Task subagents you spawn.
 
