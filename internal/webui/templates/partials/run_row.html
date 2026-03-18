@@ -13,6 +13,7 @@
     </td>
     <td>
         <div class="run-pipeline-name">{{.PipelineName}}</div>
+        {{if .BranchName}}<div class="run-branch"><span class="branch-icon">&#9741;</span> {{.BranchName}}</div>{{end}}
         {{if .InputPreview}}<div class="run-input-preview" title="{{.InputPreview}}">{{.InputPreview}}</div>{{end}}
     </td>
     <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>

@@ -6,7 +6,7 @@
 {{if .Pipelines}}
 <div class="personas-grid">
     {{range .Pipelines}}
-    <div class="card persona-card">
+    <article class="card persona-card" aria-label="Pipeline: {{.Name}}">
         <h3>{{.Name}}</h3>
         {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
         <div class="persona-meta">
@@ -27,35 +27,67 @@
         </div>
         {{end}}
         <div class="card-actions">
-            <button class="btn btn-primary" onclick="quickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
+            <button class="btn btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
         </div>
-    </div>
+    </article>
     {{end}}
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">&#128295;</div>
+    <div class="empty-state-icon">--</div>
     <p><strong>No pipelines found</strong></p>
     <p>Add pipeline YAML files to <code>.wave/pipelines/</code> to get started.</p>
 </div>
 {{end}}
+
+<dialog id="quickstart-dialog" class="start-dialog">
+    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
+    <div class="form-group">
+        <label for="quickstart-input">Input (optional)</label>
+        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+    </div>
+    <div class="dialog-actions">
+        <button class="btn" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+    </div>
+</dialog>
 {{end}}
 {{define "scripts"}}
 <script>
-function quickStart(name) {
-    var input = prompt('Pipeline input (optional):');
-    if (input === null) return;
-    var btn = event.target;
+var quickStartPipeline = '';
+
+function showQuickStart(name) {
+    quickStartPipeline = name;
+    document.getElementById('quickstart-name').textContent = name;
+    document.getElementById('quickstart-input').value = '';
+    document.getElementById('quickstart-dialog').showModal();
+    document.getElementById('quickstart-input').focus();
+}
+
+function hideQuickStart() {
+    document.getElementById('quickstart-dialog').close();
+    quickStartPipeline = '';
+}
+
+function submitQuickStart() {
+    if (!quickStartPipeline) return;
+    var input = document.getElementById('quickstart-input').value;
+    var btn = document.getElementById('quickstart-submit');
     setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(name) + '/start', {
+    fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({input: input || ''})
     }).then(function(data) {
-        window.location.href = '/runs/' + data.run_id;
+        showToast('Pipeline started: ' + data.run_id, 'success', 3000);
+        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     }).catch(function() {
         setButtonLoading(btn, false);
     });
 }
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') hideQuickStart();
+});
 </script>
 {{end}}
