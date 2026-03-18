@@ -311,6 +311,8 @@ func runToSummary(r state.RunRecord) RunSummary {
 		summary.Duration = formatDurationValue(dur)
 	}
 
+	summary.BranchName = r.BranchName
+
 	// Truncated input preview for list views
 	if r.Input != "" {
 		preview := r.Input

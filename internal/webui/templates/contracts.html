@@ -14,33 +14,36 @@
             <span class="badge">{{.Filename}}</span>
         </div>
         <div class="card-actions">
-            <a href="#" class="btn" onclick="viewContract({{.Name | printf "%q"}}); return false;" aria-label="View schema for {{.Name}}">View Schema</a>
+            <button class="btn" onclick="viewContract('{{.Name}}')" aria-label="View schema for {{.Name}}">View Schema</button>
         </div>
-        <div class="artifact-inline" id="contract-{{.Name}}" hidden></div>
     </div>
     {{end}}
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">&#128220;</div>
+    <div class="empty-state-icon">--</div>
     <p><strong>No contracts found</strong></p>
     <p>Add JSON schema files to <code>.wave/contracts/</code> to define output validation.</p>
 </div>
 {{end}}
+<dialog id="schema-dialog" class="detail-dialog">
+    <div class="detail-dialog-header">
+        <h3 id="schema-dialog-title"></h3>
+        <button class="btn-icon" onclick="document.getElementById('schema-dialog').close()" title="Close">&times;</button>
+    </div>
+    <div id="schema-dialog-body" class="detail-dialog-body"></div>
+</dialog>
 {{end}}
 {{define "scripts"}}
 <script>
 function viewContract(name) {
-    var container = document.getElementById('contract-' + name);
-    if (!container) return;
+    var dialog = document.getElementById('schema-dialog');
+    var title = document.getElementById('schema-dialog-title');
+    var body = document.getElementById('schema-dialog-body');
 
-    if (!container.hidden) {
-        container.hidden = true;
-        return;
-    }
-
-    container.hidden = false;
-    container.innerHTML = '<span class="artifact-loading">Loading\u2026</span>';
+    title.textContent = name;
+    body.innerHTML = '<span class="artifact-loading">Loading\u2026</span>';
+    dialog.showModal();
 
     fetch('/api/contracts/' + encodeURIComponent(name))
         .then(function(resp) {
@@ -50,13 +53,10 @@ function viewContract(name) {
             return resp.json();
         })
         .then(function(data) {
-            container.innerHTML =
-                '<div class="artifact-viewer">' +
-                  '<pre class="artifact-content"><code>' + escapeHTML(data.schema) + '</code></pre>' +
-                '</div>';
+            body.innerHTML = '<pre class="detail-code"><code>' + escapeHTML(data.schema) + '</code></pre>';
         })
         .catch(function(err) {
-            container.innerHTML = '<div class="step-error">Failed to load contract: ' + escapeHTML(String(err)) + '</div>';
+            body.innerHTML = '<div class="step-error">Failed to load: ' + escapeHTML(String(err)) + '</div>';
         });
 }
 

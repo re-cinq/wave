@@ -708,13 +708,22 @@ LogViewer.prototype.copyLog = function(stepId) {
     var section = this.sections.get(stepId);
     if (!section) return;
 
+    var card = section.element;
+    var btn = card ? card.querySelector('.btn-icon[title="Copy log"]') : null;
+
+    if (section.lines.length === 0) {
+        if (btn) {
+            var orig = btn.textContent;
+            btn.textContent = 'No logs';
+            setTimeout(function() { btn.textContent = orig; }, 1500);
+        }
+        return;
+    }
+
     var text = '';
     for (var i = 0; i < section.lines.length; i++) {
         text += section.lines[i].rawContent + '\n';
     }
-
-    var card = section.element;
-    var btn = card ? card.querySelector('.btn-icon[title="Copy log"]') : null;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {

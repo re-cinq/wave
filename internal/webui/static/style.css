@@ -239,7 +239,68 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .run-row a { font-family: var(--font-mono); font-size: 0.8rem; }
 
 /* Forms */
-.start-form { margin-bottom: 1.5rem; }
+/* Start Pipeline Dialog */
+.start-dialog {
+    background: var(--color-bg-secondary); color: var(--color-text);
+    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+    padding: 1.5rem; max-width: 500px; width: 90%;
+    box-shadow: 0 8px 32px var(--color-shadow);
+    margin: auto;
+    position: fixed;
+    inset: 0;
+    height: fit-content;
+}
+.start-dialog[open] {
+    overscroll-behavior: contain;
+}
+.start-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+.start-dialog h3 { margin-bottom: 1rem; }
+
+/* Detail Dialog (contracts, personas) */
+.detail-dialog {
+    background: var(--color-bg-secondary); color: var(--color-text);
+    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+    padding: 0; max-width: 640px; width: 90%;
+    box-shadow: 0 8px 32px var(--color-shadow);
+    margin: auto; position: fixed; inset: 0; height: fit-content;
+    max-height: 80vh; display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.detail-dialog[open] { overscroll-behavior: contain; }
+.detail-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+.detail-dialog-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border);
+}
+.detail-dialog-header h3 { margin: 0; font-size: 1rem; }
+.detail-dialog-body {
+    padding: 1.25rem; overflow-y: auto; flex: 1;
+}
+.detail-code {
+    margin: 0; padding: 1rem; background: var(--color-bg);
+    border-radius: var(--radius-sm); font-size: 0.75rem;
+    line-height: 1.5; overflow-x: auto;
+}
+.detail-list { margin: 0; }
+.detail-list dt {
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--color-text-muted);
+    margin-top: 0.75rem;
+}
+.detail-list dt:first-child { margin-top: 0; }
+.detail-list dd {
+    margin: 0.25rem 0 0 0; font-size: 0.8125rem;
+}
+.detail-list dd code {
+    font-size: 0.75rem; word-break: break-all;
+}
+.dialog-actions {
+    display: flex; justify-content: flex-end; gap: 0.5rem;
+    margin-top: 1rem; padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 0.3rem; }
 .form-group select, .form-group input, .form-group textarea {
@@ -341,8 +402,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     padding: 0.7rem 1rem; background: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border);
 }
-.step-id { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--color-text); }
-.step-persona { font-size: 0.8rem; color: var(--color-text-secondary); margin-left: auto; }
+.step-id { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 600; color: var(--color-text); }
+.step-persona { font-size: 0.75rem; color: var(--color-text-secondary); margin-left: auto; }
 .step-start-time { font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono); }
 .step-duration { font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono); font-weight: 600; }
 
@@ -355,15 +416,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    font-size: 0.7rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.6rem;
     color: var(--color-text-muted);
     transition: transform 0.2s ease;
     flex-shrink: 0;
 }
-.step-card[data-expanded="true"] .step-toggle {
+.step-card[data-expanded="true"] .step-toggle,
+.step-card:not(.step-collapsed) .step-toggle {
     transform: rotate(90deg);
+}
+.step-card.step-collapsed .step-toggle {
+    transform: rotate(0deg);
 }
 .step-body {
     transition: max-height 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
@@ -381,15 +446,15 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 
 .step-body { padding: 0.85rem 1rem; }
-.step-action { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
-.step-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.5rem; }
+.step-action { font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
+.step-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem; }
 .step-error {
     margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--color-failed-bg);
     border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--color-failed);
     font-family: var(--font-mono); border-left: 3px solid var(--color-failed);
 }
 .step-error-banner {
-    margin-top: 0.5rem;
+    margin: 0.5rem 0;
     padding: 0.75rem 1rem;
     background: var(--color-failed-bg);
     border: 1px solid var(--color-failed);
@@ -399,6 +464,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     color: var(--color-failed);
     white-space: pre-wrap;
     word-break: break-word;
+    position: relative;
+    z-index: 2;
 }
 .step-error-banner.collapsed {
     max-height: 4.5em;
@@ -442,18 +509,18 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .run-detail-main { flex: 1; min-width: 0; }
 
 /* DAG Visualization */
-.dag-container { overflow: auto; padding: 0.5rem 0; max-height: 70vh; }
-.dag-svg { display: block; margin: 0 auto; }
-.dag-edge { stroke: var(--color-border-light); stroke-width: 2; fill: none; }
-.dag-node-rect { fill: var(--color-bg-tertiary); stroke: var(--color-border); stroke-width: 1.5; rx: 8; ry: 8; }
+.dag-container { overflow: hidden; padding: 0.25rem 0; }
+.dag-svg { display: block; width: 100%; height: auto; }
+.dag-edge { stroke: var(--color-border-light); stroke-width: 1.5; fill: none; }
+.dag-node-rect { fill: var(--color-bg-tertiary); stroke: var(--color-border); stroke-width: 1; rx: 6; ry: 6; }
 .dag-node-rect.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }
 .dag-node-rect.running { fill: var(--color-running-bg); stroke: var(--color-running); }
 .dag-node-rect.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); }
 .dag-node-rect.pending { fill: var(--color-pending-bg); stroke: var(--color-pending); }
 .dag-node-rect.cancelled { fill: var(--color-cancelled-bg); stroke: var(--color-cancelled); }
-.dag-node-label { fill: var(--color-text); font-size: 12px; font-weight: 600; font-family: var(--font-sans); }
-.dag-node-persona { fill: var(--color-text-secondary); font-size: 10px; font-family: var(--font-sans); }
-.dag-node-duration { fill: var(--color-text-muted); font-size: 9px; font-family: var(--font-mono); }
+.dag-node-label { fill: var(--color-text); font-size: 11px; font-weight: 600; font-family: var(--font-sans); }
+.dag-node-persona { fill: var(--color-text-secondary); font-size: 9px; font-family: var(--font-sans); }
+.dag-node-duration { fill: var(--color-text-muted); font-size: 8px; font-family: var(--font-mono); }
 
 /* Personas Grid — card hover lift matches docs */
 .personas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
@@ -524,6 +591,20 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     .btn-icon { flex-shrink: 0; }
     .persona-card:hover { transform: none; }
     .modal { width: 95%; max-width: none; padding: 1rem; }
+}
+
+@media (max-width: 480px) {
+    html { font-size: 12px; }
+    .btn, .btn-primary, .btn-danger { min-height: 44px; padding: 0.6rem 1rem; font-size: 0.85rem; }
+    .log-toolbar { flex-direction: column; gap: 0.5rem; }
+    .log-search { width: 100%; }
+    .log-search input { width: 100%; }
+    .log-level-filter { width: 100%; justify-content: flex-start; }
+    .run-detail-layout { gap: 0.5rem; }
+    .run-summary-bar { flex-wrap: wrap; gap: 0.5rem; }
+    .filters { flex-direction: column; gap: 0.5rem; }
+    .filters select, .filters input { width: 100%; }
+    .step-log-content .log-line .log-line-number { display: none; }
 }
 
 @media (min-width: 1920px) {
@@ -694,6 +775,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     pointer-events: none;
     opacity: 0.65;
     position: relative;
+    cursor: not-allowed;
+    user-select: none;
 }
 .btn-loading::before {
     content: '';
@@ -764,18 +847,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 /* Log Viewer — collapsible step log sections */
 .step-header { cursor: pointer; user-select: none; }
 .step-log-chevron { display: inline-block; width: 1.2em; text-align: center; font-size: 0.8rem; color: var(--color-text-muted); transition: transform 0.15s ease; }
-.step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; }
+.step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; z-index: 0; }
 .step-collapsed .step-log { max-height: 0; overflow: hidden; }
-.step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 13px; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
+.step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 0.75rem; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
 .step-log-sentinel { height: 1px; }
 .log-empty { padding: 0.75rem 1rem; color: var(--color-text-muted); font-style: italic; font-size: 0.85rem; }
 
 /* Log Viewer — log line layout */
-.log-line { display: flex; contain: content; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; padding: 0 0.5rem; border-bottom: 1px solid transparent; }
+.log-line { display: flex; align-items: baseline; contain: content; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.6; padding: 1px 0.5rem; border-bottom: 1px solid transparent; }
 .log-line:hover { background: var(--color-bg-tertiary); }
-.log-gutter { min-width: 5ch; text-align: right; padding-right: 0.75rem; color: var(--color-text-muted); user-select: none; flex-shrink: 0; }
-.log-time { min-width: 13ch; color: var(--color-text-muted); flex-shrink: 0; padding-right: 0.5rem; }
-.log-tool { display: inline-block; min-width: 5ch; padding: 0 0.4em; margin-right: 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1.5; border-radius: 2em; text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-secondary); flex-shrink: 0; }
+.log-gutter { min-width: 5ch; text-align: right; padding-right: 0.75rem; color: var(--color-text-muted); user-select: none; flex-shrink: 0; font-size: inherit; }
+.log-time { min-width: 13ch; color: var(--color-text-muted); flex-shrink: 0; padding-right: 0.5rem; font-size: inherit; }
+.log-tool { display: inline-block; min-width: 7ch; padding: 0 0.5em; margin-right: 0.5rem; font-size: 0.6875rem; font-weight: 600; line-height: 1.5; border-radius: var(--radius-sm); text-align: center; background: var(--color-bg-tertiary); color: var(--color-text-secondary); flex-shrink: 0; }
+.log-tool:empty { display: none; }
 .log-content { flex: 1; white-space: pre-wrap; word-break: break-all; min-width: 0; }
 
 /* Log Viewer — ANSI color rendering */
@@ -907,6 +991,11 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 
 /* Run List — input preview and progress */
 .run-pipeline-name { font-weight: 500; }
+.run-branch {
+    font-size: 0.75rem; color: var(--color-text-muted);
+    font-family: var(--font-mono); margin-top: 0.1rem;
+}
+.run-branch .branch-icon { font-size: 0.65rem; margin-right: 0.15rem; }
 .run-input-preview {
     font-size: 0.75rem; color: var(--color-text-muted);
     max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -949,51 +1038,26 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 }
 .run-summary-item { display: flex; flex-direction: column; gap: 0.1rem; }
 .run-summary-label {
-    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--color-text-muted);
 }
 .run-summary-value {
-    font-size: 0.95rem; font-weight: 600; font-family: var(--font-mono);
+    font-size: 0.875rem; font-weight: 600; font-family: var(--font-mono);
     color: var(--color-text);
 }
 .run-summary-progress { flex: 1; min-width: 100px; display: flex; align-items: flex-end; }
 .progress-bar-sm { height: 0.5rem; }
 .progress-bar-sm .progress-fill { font-size: 0; min-width: 0; }
 
-/* Steps Timeline (vertical line) */
+/* Steps Timeline */
 .steps-timeline {
-    display: flex; flex-direction: column; gap: 0;
-    position: relative;
-}
-.steps-timeline::before {
-    content: '';
-    position: absolute;
-    left: 0.75rem;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--color-border);
-    z-index: 0;
+    display: flex; flex-direction: column; gap: 0.5rem;
 }
 .step-card {
     display: flex; gap: 0; position: relative;
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); overflow: hidden;
-    margin-left: 1.5rem;
 }
-.step-timeline-dot {
-    position: absolute; left: -1.5rem; top: 0.75rem;
-    width: 1.5rem; height: 1.5rem;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%;
-    background: var(--color-bg); border: 2px solid var(--color-border);
-    font-size: 0.65rem; font-weight: 700; z-index: 1;
-}
-.step-timeline-dot.status-completed { border-color: var(--color-completed); color: var(--color-completed); }
-.step-timeline-dot.status-running { border-color: var(--color-running); color: var(--color-running); }
-.step-timeline-dot.status-failed { border-color: var(--color-failed); color: var(--color-failed); }
-.step-timeline-dot.status-pending { border-color: var(--color-pending); color: var(--color-pending); }
-.step-timeline-dot.status-cancelled { border-color: var(--color-cancelled); color: var(--color-cancelled); }
 .step-card-content { flex: 1; min-width: 0; }
 
 /* Step progress bar */
@@ -1074,9 +1138,6 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
     .run-summary-bar { flex-direction: column; gap: 0.75rem; }
     .run-summary-progress { width: 100%; }
     .log-toolbar { flex-direction: column; align-items: flex-start; }
-    .steps-timeline::before { display: none; }
-    .step-card { margin-left: 0; }
-    .step-timeline-dot { display: none; }
     .filter-chips { gap: 0.35rem; }
 }
 
