@@ -107,9 +107,12 @@ initTheme();
 
 // Toggle start pipeline form
 function toggleStartForm() {
-    const form = document.getElementById('start-form');
-    if (form) {
-        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    var dialog = document.getElementById('start-dialog');
+    if (!dialog) return;
+    if (dialog.open) {
+        dialog.close();
+    } else {
+        dialog.showModal();
     }
 }
 
@@ -127,13 +130,15 @@ async function startPipeline(e) {
 
     setButtonLoading(btn, true);
     try {
-        await fetchJSON('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
+        var data = await fetchJSON('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({input: input})
         });
-        toggleStartForm();
-        window.location.reload();
+        showToast('Pipeline started: ' + (data.run_id || pipeline), 'success', 3000);
+        var dialog = document.getElementById('start-dialog');
+        if (dialog) dialog.close();
+        setTimeout(function() { window.location.reload(); }, 500);
     } catch (err) {
         // fetchJSON already showed toast
     } finally {
@@ -169,7 +174,8 @@ async function retryRun(runID, btn) {
             method: 'POST',
             headers: {'Content-Type': 'application/json'}
         });
-        window.location.href = '/runs/' + data.run_id;
+        showToast('Retry started, redirecting...', 'success', 3000);
+        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     } catch (err) {
         // fetchJSON already showed toast
     } finally {
@@ -203,7 +209,8 @@ async function resumeFromStep(runID, stepID, btn) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({from_step: stepID})
         });
-        window.location.href = '/runs/' + data.run_id;
+        showToast('Resuming from ' + stepID + '...', 'success', 3000);
+        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     } catch (err) {
         // fetchJSON already showed toast
     } finally {

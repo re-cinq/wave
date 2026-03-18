@@ -23,6 +23,7 @@ type RunSummary struct {
 	Progress       int        `json:"progress,omitempty"`
 	ErrorMessage   string     `json:"error_message,omitempty"`
 	InputPreview   string     `json:"input_preview,omitempty"`
+	BranchName     string     `json:"branch_name,omitempty"`
 	StepsCompleted int        `json:"steps_completed,omitempty"`
 	StepsTotal     int        `json:"steps_total,omitempty"`
 }

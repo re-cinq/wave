@@ -4,7 +4,7 @@
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
         <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
-        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code>{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code>{{if .Run.BranchName}} | Branch: <code>{{.Run.BranchName}}</code>{{end}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
@@ -75,6 +75,13 @@
 </div>
 {{end}}
 
+{{if eq .Run.Status "running"}}
+<div id="connection-banner" class="connection-banner" hidden>
+    <span class="connection-message">Connection lost. Reconnecting&hellip;</span>
+    <button class="btn btn-sm" onclick="if(window.logViewer) window.logViewer.reconnect(); else location.reload();">Retry</button>
+</div>
+{{end}}
+
 <div class="run-detail-layout">
     {{if .DAG}}
     <div class="run-detail-sidebar">
@@ -107,7 +114,7 @@
                     <button class="btn-icon log-wrap-toggle" onclick="toggleLogWrap(this)" title="Toggle line wrap" aria-label="Toggle line wrap">&#8617;</button>
                 </div>
             </div>
-            <div class="steps-timeline">
+            <div class="steps-timeline" role="region" aria-label="Pipeline steps" aria-live="polite">
                 {{if .Steps}}
                 {{range .Steps}}
                 {{template "templates/partials/step_card.html" .}}
@@ -150,9 +157,9 @@
 <script src="/static/log-viewer.js"></script>
 <script src="/static/sse.js"></script>
 <script>
-// Connect SSE for any non-terminal run
+// Connect SSE only for actively running pipelines
 var runStatus = '{{.Run.Status}}';
-if (runStatus === 'running' || runStatus === 'pending') {
+if (runStatus === 'running') {
     connectSSE('{{.Run.RunID}}');
 }
 // Initialize log viewer
