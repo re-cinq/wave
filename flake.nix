@@ -102,6 +102,7 @@
           mkdir -p "$HOME/.local/bin"
           mkdir -p "$HOME/go"
           mkdir -p "$HOME/.local/share/uv"
+          mkdir -p "$HOME/notes"
           touch -a "$HOME/.local/bin/wave"
           touch -a "$HOME/.claude.json"
 
@@ -130,6 +131,9 @@
 
             # Writable: Go module cache (avoids re-downloading on every step)
             --bind "$HOME/go" "$HOME/go"
+
+            # Writable: notesium notes directory
+            --bind "$HOME/notes" "$HOME/notes"
 
             # Shared /tmp — Nix store and tooling needs it; still process-isolated via namespaces
             --bind /tmp /tmp
@@ -238,7 +242,7 @@
                 echo "  Writable:   $PWD"
                 echo "              ~/.claude, ~/.claude.json"
                 echo "              ~/.local/bin/wave, ~/go"
-                echo "              /tmp"
+                echo "              ~/notes, /tmp"
                 echo ""
                 echo "  Read-only:  / (entire root)"
                 echo "              ~/.ssh, ~/.gitconfig, ~/.config/git"

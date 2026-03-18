@@ -168,15 +168,17 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	hasFilters := status != "" || pipeline != "" || sinceStr != ""
 
 	data := struct {
-		Runs          []RunSummary
-		HasMore       bool
-		NextCursor    string
-		Pipelines     []PipelineStartInfo
-		FilterStatus  string
+		ActivePage     string
+		Runs           []RunSummary
+		HasMore        bool
+		NextCursor     string
+		Pipelines      []PipelineStartInfo
+		FilterStatus   string
 		FilterPipeline string
-		FilterSince   string
-		HasFilters    bool
+		FilterSince    string
+		HasFilters     bool
 	}{
+		ActivePage:     "runs",
 		Runs:           summaries,
 		HasMore:        hasMore,
 		NextCursor:     nextCursor,
@@ -253,15 +255,17 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Run    RunSummary
-		Steps  []StepDetail
-		Events []EventSummary
-		DAG    *DAGLayout
+		ActivePage string
+		Run        RunSummary
+		Steps      []StepDetail
+		Events     []EventSummary
+		DAG        *DAGLayout
 	}{
-		Run:    runToSummary(*run),
-		Steps:  stepDetails,
-		Events: eventSummaries,
-		DAG:    dagLayout,
+		ActivePage: "runs",
+		Run:        runToSummary(*run),
+		Steps:      stepDetails,
+		Events:     eventSummaries,
+		DAG:        dagLayout,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
