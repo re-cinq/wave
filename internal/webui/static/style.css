@@ -526,6 +526,20 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     .modal { width: 95%; max-width: none; padding: 1rem; }
 }
 
+@media (max-width: 480px) {
+    html { font-size: 12px; }
+    .btn, .btn-primary, .btn-danger { min-height: 44px; padding: 0.6rem 1rem; font-size: 0.85rem; }
+    .log-toolbar { flex-direction: column; gap: 0.5rem; }
+    .log-search { width: 100%; }
+    .log-search input { width: 100%; }
+    .log-level-filter { width: 100%; justify-content: flex-start; }
+    .run-detail-layout { gap: 0.5rem; }
+    .run-summary-bar { flex-wrap: wrap; gap: 0.5rem; }
+    .filters { flex-direction: column; gap: 0.5rem; }
+    .filters select, .filters input { width: 100%; }
+    .step-log-content .log-line .log-line-number { display: none; }
+}
+
 @media (min-width: 1920px) {
     .container { max-width: 1600px; }
     .personas-grid { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
@@ -694,6 +708,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     pointer-events: none;
     opacity: 0.65;
     position: relative;
+    cursor: not-allowed;
+    user-select: none;
 }
 .btn-loading::before {
     content: '';
@@ -907,6 +923,11 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 
 /* Run List — input preview and progress */
 .run-pipeline-name { font-weight: 500; }
+.run-branch {
+    font-size: 0.75rem; color: var(--color-text-muted);
+    font-family: var(--font-mono); margin-top: 0.1rem;
+}
+.run-branch .branch-icon { font-size: 0.65rem; margin-right: 0.15rem; }
 .run-input-preview {
     font-size: 0.75rem; color: var(--color-text-muted);
     max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

@@ -44,7 +44,11 @@ function toggleStepCard(stepID) {
     var card = document.getElementById('step-' + stepID);
     if (!card) return;
     var isExpanded = card.getAttribute('data-expanded') === 'true';
-    card.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+    var nowExpanded = !isExpanded;
+    card.setAttribute('data-expanded', nowExpanded ? 'true' : 'false');
+    // Update aria-expanded on the header button
+    var header = card.querySelector('.step-header');
+    if (header) header.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
     if (isExpanded) {
         expandedSteps.delete(stepID);
     } else {

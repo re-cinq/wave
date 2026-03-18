@@ -6,7 +6,7 @@
 {{if .Personas}}
 <div class="personas-grid">
     {{range .Personas}}
-    <div class="card persona-card">
+    <article class="card persona-card" aria-label="Persona: {{.Name}}">
         <h3>{{.Name}}</h3>
         <p class="persona-desc">{{.Description}}</p>
         <div class="persona-meta">
@@ -32,7 +32,7 @@
             {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
         </div>
         {{end}}
-    </div>
+    </article>
     {{end}}
 </div>
 {{else}}
