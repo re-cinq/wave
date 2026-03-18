@@ -265,10 +265,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     padding: 0; max-width: 640px; width: 90%;
     box-shadow: 0 8px 32px var(--color-shadow);
     margin: auto; position: fixed; inset: 0; height: fit-content;
-    max-height: 80vh; display: flex; flex-direction: column;
+    max-height: 80vh;
     overflow: hidden;
 }
-.detail-dialog[open] { overscroll-behavior: contain; }
+.detail-dialog[open] { display: flex; flex-direction: column; overscroll-behavior: contain; }
 .detail-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 .detail-dialog-header {
     display: flex; align-items: center; justify-content: space-between;
