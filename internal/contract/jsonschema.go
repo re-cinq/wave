@@ -200,8 +200,10 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 
 	if allowRecovery {
 		recoveryLevel := determineRecoveryLevel(cfg)
-		// Default to progressive recovery for better AI compatibility
-		if recoveryLevel == ConservativeRecovery && cfg.RecoveryLevel == "" {
+		// Default to progressive recovery for better AI compatibility,
+		// but keep conservative for must_pass contracts to avoid
+		// aggressive inference corrupting data.
+		if recoveryLevel == ConservativeRecovery && cfg.RecoveryLevel == "" && !cfg.MustPass {
 			recoveryLevel = ProgressiveRecovery
 		}
 
@@ -226,6 +228,25 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			return &ValidationError{
 				ContractType: "json_schema",
 				Message:      "failed to parse artifact JSON after recovery attempts",
+				Details:      details,
+				Retryable:    true,
+			}
+		}
+
+		// Verify recovered JSON is structurally complete before using it.
+		// This catches cases where markdown extraction or truncation
+		// produced parseable but incomplete JSON.
+		if !isStructurallyComplete(recoveryResult.RecoveredJSON) {
+			details := []string{
+				fmt.Sprintf("file: %s", pathfmt.FileURI(artifactPath)),
+				"recovered JSON has unbalanced braces/brackets (likely truncated)",
+			}
+			if len(recoveryResult.AppliedFixes) > 0 {
+				details = append(details, fmt.Sprintf("JSON Recovery Applied: %v", recoveryResult.AppliedFixes))
+			}
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "recovered JSON is structurally incomplete",
 				Details:      details,
 				Retryable:    true,
 			}
