@@ -54,14 +54,11 @@
 </div>
 
 {{if .HasFilters}}
-<div class="filters-active">
-    <span class="filters-active-text">
-        Filtering by:
-        {{if .FilterStatus}} status={{.FilterStatus}}{{end}}
-        {{if .FilterPipeline}} pipeline={{.FilterPipeline}}{{end}}
-        {{if .FilterSince}} since={{.FilterSince}}{{end}}
-    </span>
-    <a href="/runs" class="filters-clear">Clear filters</a>
+<div class="filter-chips">
+    {{if .FilterStatus}}<span class="filter-chip">Status: {{.FilterStatus}} <button class="filter-chip-clear" onclick="clearFilter('status')" title="Remove filter">&times;</button></span>{{end}}
+    {{if .FilterPipeline}}<span class="filter-chip">Pipeline: {{.FilterPipeline}} <button class="filter-chip-clear" onclick="clearFilter('pipeline')" title="Remove filter">&times;</button></span>{{end}}
+    {{if .FilterSince}}<span class="filter-chip">Since: {{.FilterSince}} <button class="filter-chip-clear" onclick="clearFilter('since')" title="Remove filter">&times;</button></span>{{end}}
+    <a href="/runs" class="filter-chip-clear-all">Clear all</a>
 </div>
 {{end}}
 
@@ -75,6 +72,7 @@
                 <th>Run ID</th>
                 <th class="sortable" data-sort="started" onclick="sortTable('started')">Started <span class="sort-indicator"></span></th>
                 <th class="sortable" data-sort="duration" onclick="sortTable('duration')">Duration <span class="sort-indicator"></span></th>
+                <th>Progress</th>
                 <th>Tokens</th>
             </tr>
         </thead>
@@ -92,11 +90,19 @@
     {{else}}
     <div class="empty-state">
         {{if .HasFilters}}
+        <div class="empty-state-icon">&#128269;</div>
+        <p><strong>No matching runs</strong></p>
         <p>No runs found matching your filters.</p>
-        <p><a href="/runs">Clear filters</a> to see all runs.</p>
+        <div class="empty-state-action">
+            <a href="/runs" class="btn btn-primary">Clear filters</a>
+        </div>
         {{else}}
-        <p>No pipeline runs found.</p>
+        <div class="empty-state-icon">&#9654;</div>
+        <p><strong>No pipeline runs yet</strong></p>
         <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
+        <div class="empty-state-action">
+            <button class="btn btn-primary" onclick="toggleStartForm()">Start Pipeline</button>
+        </div>
         {{end}}
     </div>
     {{end}}
@@ -132,6 +138,12 @@ function onPipelineSelect() {
     }
 
     preview.style.display = '';
+}
+
+function clearFilter(name) {
+    var params = new URLSearchParams(window.location.search);
+    params.delete(name);
+    window.location.search = params.toString();
 }
 </script>
 {{end}}
