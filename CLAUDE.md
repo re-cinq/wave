@@ -178,12 +178,14 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### PR Review-Then-Merge Protocol
 
-**MANDATORY**: Never merge a PR without running the `ops-pr-review` pipeline first.
+**MANDATORY**: Never merge a PR without a review. Before launching any pipeline, check existing state first to avoid redundant work.
 
-1. Launch review: `wave run -v ops-pr-review -- "<PR-URL>" &`
-2. Wait for review completion and check results
-3. Only merge after review pipeline passes
-4. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+1. **Check PR state first**: `gh pr view <N> --json reviews,comments` — if a completed `ops-pr-review` already posted a review, do NOT re-run the review pipeline
+2. **Check for existing pipeline runs**: `wave list runs --limit 20` — if a review run already completed for this PR, skip re-running
+3. Only launch review if no prior review exists: `wave run -v ops-pr-review -- "<PR-URL>" &`
+4. Wait for review completion and check results
+5. Only merge after review passes
+6. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
 
 ### Concurrency Rules
 
@@ -217,9 +219,10 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 ### Post-Pipeline PR Validation
 
-1. Run `ops-pr-review`: `wave run -v ops-pr-review -- "<PR-URL>" &`
-2. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
-3. After review passes: `gh pr merge <N> --merge`
+1. **Check if review already exists**: `gh pr view <N> --json reviews,comments` — skip `ops-pr-review` if one already completed
+2. If no review exists, run `ops-pr-review`: `wave run -v ops-pr-review -- "<PR-URL>" &`
+3. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+4. After review passes: `gh pr merge <N> --merge`
 
 ### Failure Recovery
 
