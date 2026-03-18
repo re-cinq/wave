@@ -4,22 +4,59 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
-// repoRoot returns the project root by walking up from the test file location.
-func repoRoot(t *testing.T) string {
-	t.Helper()
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot determine test file location")
-	}
-	// internal/skill/store_test.go -> project root is two levels up
-	return filepath.Join(filepath.Dir(filename), "..", "..")
+// testSkillFixtures provides inline SKILL.md content for hermetic testing.
+// These replace the old repoRoot()-based tests that read from the working tree.
+var testSkillFixtures = map[string]string{
+	"minimal": `---
+name: minimal-skill
+description: A minimal test skill
+---
+
+# Minimal Skill
+
+Does nothing.
+`,
+	"full": `---
+name: full-skill
+description: A comprehensive test skill with all fields
+license: MIT
+version: "1.0"
+compatibility: ">=2.0"
+allowed_tools:
+  - Bash(go test)
+  - Read
+  - Grep
+---
+
+# Full Skill
+
+This skill has all metadata fields populated.
+
+## Instructions
+
+Do the thing.
+`,
+	"multi-tool": `---
+name: multi-tool-skill
+description: Skill with multiple allowed tools
+allowed_tools:
+  - Bash(npm test)
+  - Bash(npm run build)
+  - Write
+  - Edit
+  - Glob
+---
+
+# Multi-Tool Skill
+
+Has several allowed tools for testing serialization round-trips.
+`,
 }
 
 // --- T006: Parser Unit Tests ---
@@ -808,30 +845,12 @@ func TestMultiSourceResolution(t *testing.T) {
 	})
 }
 
-// --- T013: Integration Test for Existing Skills ---
+// --- T013: Parse Fixture Skills ---
 
-func TestParseExistingSkills(t *testing.T) {
-	root := repoRoot(t)
-	skillsDir := filepath.Join(root, ".claude", "skills")
-
-	matches, err := filepath.Glob(filepath.Join(skillsDir, "*", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("failed to glob skills: %v", err)
-	}
-
-	if len(matches) == 0 {
-		t.Fatal("expected at least one skill in .claude/skills/")
-	}
-
-	for _, path := range matches {
-		name := filepath.Base(filepath.Dir(path))
+func TestParseSkillFixtures(t *testing.T) {
+	for name, content := range testSkillFixtures {
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("failed to read %s: %v", path, err)
-			}
-
-			skill, err := Parse(data)
+			skill, err := Parse([]byte(content))
 			if err != nil {
 				t.Fatalf("Parse failed for %s: %v", name, err)
 			}
@@ -849,23 +868,9 @@ func TestParseExistingSkills(t *testing.T) {
 // --- T014: Round-Trip and Performance Tests ---
 
 func TestSerializeRoundTrip(t *testing.T) {
-	root := repoRoot(t)
-	skillsDir := filepath.Join(root, ".claude", "skills")
-
-	matches, err := filepath.Glob(filepath.Join(skillsDir, "*", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("failed to glob skills: %v", err)
-	}
-
-	for _, path := range matches {
-		name := filepath.Base(filepath.Dir(path))
+	for name, content := range testSkillFixtures {
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("failed to read: %v", err)
-			}
-
-			original, err := Parse(data)
+			original, err := Parse([]byte(content))
 			if err != nil {
 				t.Fatalf("Parse failed: %v", err)
 			}
