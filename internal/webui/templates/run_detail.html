@@ -54,10 +54,6 @@
     {{end}}
 
     <div class="run-detail-main">
-        <div id="sse-reconnect-banner" class="reconnect-banner" hidden>
-            <span class="reconnect-message">Reconnecting...</span>
-            <button id="reconnect-retry" hidden onclick="if(window.logViewer) window.logViewer.reconnect()">Retry</button>
-        </div>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                 <h2 style="margin-bottom: 0;">Steps</h2>
@@ -70,8 +66,17 @@
                 </div>
             </div>
             <div class="steps-list">
+                {{if .Steps}}
                 {{range .Steps}}
                 {{template "templates/partials/step_card.html" .}}
+                {{end}}
+                {{else}}
+                <div class="empty-state">
+                    <p>No steps have been executed yet.</p>
+                    {{if eq .Run.Status "pending"}}
+                    <p class="empty-hint">Pipeline is pending — steps will appear when execution begins.</p>
+                    {{end}}
+                </div>
                 {{end}}
             </div>
         </div>
