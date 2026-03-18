@@ -4,8 +4,7 @@
     <h1>Issues</h1>
 </div>
 {{if .Message}}
-<div class="empty-state">
-    <div class="empty-state-icon">--</div>
+<div class="alert alert-error">
     <p>{{.Message}}</p>
 </div>
 {{else if .Issues}}
@@ -39,15 +38,15 @@
     </table>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">--</div>
+    <div class="empty-state-icon">&#9998;</div>
     <p><strong>No open issues</strong></p>
     <p>No open issues found in this repository.</p>
 </div>
 {{end}}
 
-<dialog id="pipeline-dialog" class="modal">
+<dialog id="pipeline-dialog" class="modal" aria-labelledby="pipeline-dialog-title">
     <form method="dialog">
-        <h3>Launch Pipeline for Issue <span id="dialog-issue-number"></span></h3>
+        <h3 id="pipeline-dialog-title">Launch Pipeline for Issue <span id="dialog-issue-number"></span></h3>
         <div class="form-group">
             <label for="pipeline-select">Pipeline:</label>
             <select id="pipeline-select" class="form-control">

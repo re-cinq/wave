@@ -220,23 +220,8 @@ async function resumeFromStep(runID, stepID, btn) {
 
 function showResumeDialog() {
     var dialog = document.getElementById('resume-dialog');
-    if (dialog) dialog.style.display = 'flex';
+    if (dialog) dialog.showModal();
 }
-
-// Keyboard handlers for interactive elements
-document.addEventListener('keydown', function(e) {
-    // Escape closes the start form or resume dialog if open
-    if (e.key === 'Escape') {
-        var form = document.getElementById('start-form');
-        if (form && form.style.display !== 'none') {
-            toggleStartForm();
-        }
-        var dialog = document.getElementById('resume-dialog');
-        if (dialog && dialog.style.display !== 'none') {
-            dialog.style.display = 'none';
-        }
-    }
-});
 
 // Auto-refresh run list every 10 seconds if there are running pipelines
 (function() {
@@ -295,6 +280,7 @@ function sortTable(column) {
     for (var i = 0; i < allThs.length; i++) {
         allThs[i].classList.remove('sort-active');
         allThs[i].removeAttribute('data-dir');
+        allThs[i].setAttribute('aria-sort', 'none');
         var ind = allThs[i].querySelector('.sort-indicator');
         if (ind) ind.textContent = '';
     }
@@ -302,6 +288,7 @@ function sortTable(column) {
     // Set active header
     th.classList.add('sort-active');
     th.setAttribute('data-dir', dir);
+    th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
     var indicator = th.querySelector('.sort-indicator');
     if (indicator) indicator.textContent = dir === 'asc' ? '▲' : '▼';
 

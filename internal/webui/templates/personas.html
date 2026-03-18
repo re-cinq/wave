@@ -49,13 +49,13 @@
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">--</div>
+    <div class="empty-state-icon">&#128100;</div>
     <p><strong>No personas configured</strong></p>
     <p>Add personas to your <code>wave.yaml</code> manifest to define AI agent roles.</p>
 </div>
 {{end}}
 
-<dialog id="persona-dialog" class="detail-dialog">
+<dialog id="persona-dialog" class="detail-dialog" aria-labelledby="persona-dialog-title">
     <div class="detail-dialog-header">
         <h3 id="persona-dialog-title"></h3>
         <button class="btn-icon" onclick="document.getElementById('persona-dialog').close()" title="Close">&times;</button>
@@ -76,7 +76,7 @@ function viewPersona(btn) {
     html += '<dt>Description</dt><dd>' + escapeHTML(btn.dataset.description || 'None') + '</dd>';
     html += '<dt>Adapter</dt><dd><code>' + escapeHTML(btn.dataset.adapter) + '</code></dd>';
     if (btn.dataset.model) html += '<dt>Model</dt><dd><code>' + escapeHTML(btn.dataset.model) + '</code></dd>';
-    if (btn.dataset.temperature && btn.dataset.temperature !== '0') html += '<dt>Temperature</dt><dd>' + btn.dataset.temperature + '</dd>';
+    if (btn.dataset.temperature !== undefined && btn.dataset.temperature !== '') html += '<dt>Temperature</dt><dd>' + btn.dataset.temperature + '</dd>';
     if (btn.dataset.allowed) html += '<dt>Allowed tools</dt><dd><code>' + escapeHTML(btn.dataset.allowed) + '</code></dd>';
     if (btn.dataset.denied) html += '<dt>Denied tools</dt><dd><code>' + escapeHTML(btn.dataset.denied) + '</code></dd>';
     if (btn.dataset.skills) html += '<dt>Skills</dt><dd>' + escapeHTML(btn.dataset.skills) + '</dd>';

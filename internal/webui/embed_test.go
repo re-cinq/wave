@@ -212,6 +212,86 @@ func TestFormatTime_Format(t *testing.T) {
 	}
 }
 
+func TestStatusIcon(t *testing.T) {
+	tests := []struct {
+		status string
+		want   string
+	}{
+		{"completed", "✓"},
+		{"running", "●"},
+		{"failed", "✕"},
+		{"cancelled", "○"},
+		{"pending", "◌"},
+		{"unknown", "·"},
+		{"", "·"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			got := statusIcon(tt.status)
+			if got != tt.want {
+				t.Errorf("statusIcon(%q) = %q, want %q", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatTimeISO(t *testing.T) {
+	fixedTime := time.Date(2024, 6, 15, 10, 30, 45, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		arg  interface{}
+		want string
+	}{
+		{"valid time.Time", fixedTime, "2024-06-15T10:30:45Z"},
+		{"zero time.Time", time.Time{}, ""},
+		{"valid *time.Time", &fixedTime, "2024-06-15T10:30:45Z"},
+		{"nil *time.Time", (*time.Time)(nil), ""},
+		{"zero *time.Time", func() *time.Time { z := time.Time{}; return &z }(), ""},
+		{"string type", "2024-01-01", ""},
+		{"nil", nil, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatTimeISO(tt.arg)
+			if got != tt.want {
+				t.Errorf("formatTimeISO(%v) = %q, want %q", tt.arg, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseTemplates(t *testing.T) {
+	tmpl, err := parseTemplates()
+	if err != nil {
+		t.Fatalf("parseTemplates() error: %v", err)
+	}
+	if tmpl == nil {
+		t.Fatal("parseTemplates() returned nil")
+	}
+	// Verify all expected page templates are present
+	expected := []string{
+		"templates/runs.html",
+		"templates/run_detail.html",
+		"templates/personas.html",
+		"templates/pipelines.html",
+		"templates/contracts.html",
+		"templates/skills.html",
+		"templates/compose.html",
+		"templates/issues.html",
+		"templates/prs.html",
+		"templates/health.html",
+		"templates/notfound.html",
+	}
+	for _, page := range expected {
+		if tmpl[page] == nil {
+			t.Errorf("missing template for %q", page)
+		}
+	}
+}
+
 func TestFormatTokensFunc(t *testing.T) {
 	tests := []struct {
 		name string
