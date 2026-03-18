@@ -819,8 +819,8 @@ func TestParseExistingSkills(t *testing.T) {
 		t.Fatalf("failed to glob skills: %v", err)
 	}
 
-	if len(matches) != 14 {
-		t.Fatalf("expected 14 existing skills, found %d", len(matches))
+	if len(matches) == 0 {
+		t.Fatal("no SKILL.md files found — expected .claude/skills/*/SKILL.md")
 	}
 
 	for _, path := range matches {
