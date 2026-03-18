@@ -32,6 +32,18 @@
             {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
         </div>
         {{end}}
+        <div class="card-actions">
+            <button class="btn" onclick="viewPersona(this)" aria-label="View details for {{.Name}}"
+                data-name="{{.Name}}"
+                data-description="{{.Description}}"
+                data-adapter="{{.Adapter}}"
+                data-model="{{.Model}}"
+                data-temperature="{{.Temperature}}"
+                data-allowed="{{range $i, $t := .AllowedTools}}{{if $i}}, {{end}}{{$t}}{{end}}"
+                data-denied="{{range $i, $t := .DeniedTools}}{{if $i}}, {{end}}{{$t}}{{end}}"
+                data-skills="{{range $i, $s := .Skills}}{{if $i}}, {{end}}{{$s}}{{end}}"
+            >Details</button>
+        </div>
     </article>
     {{end}}
 </div>
@@ -41,5 +53,39 @@
     <p><strong>No personas configured</strong></p>
     <p>Add personas to your <code>wave.yaml</code> manifest to define AI agent roles.</p>
 </div>
+<dialog id="persona-dialog" class="detail-dialog">
+    <div class="detail-dialog-header">
+        <h3 id="persona-dialog-title"></h3>
+        <button class="btn-icon" onclick="document.getElementById('persona-dialog').close()" title="Close">&times;</button>
+    </div>
+    <div id="persona-dialog-body" class="detail-dialog-body"></div>
+</dialog>
 {{end}}
+{{define "scripts"}}
+<script>
+function viewPersona(btn) {
+    var dialog = document.getElementById('persona-dialog');
+    var title = document.getElementById('persona-dialog-title');
+    var body = document.getElementById('persona-dialog-body');
+
+    title.textContent = btn.dataset.name;
+
+    var html = '<dl class="detail-list">';
+    html += '<dt>Description</dt><dd>' + escapeHTML(btn.dataset.description || 'None') + '</dd>';
+    html += '<dt>Adapter</dt><dd><code>' + escapeHTML(btn.dataset.adapter) + '</code></dd>';
+    if (btn.dataset.model) html += '<dt>Model</dt><dd><code>' + escapeHTML(btn.dataset.model) + '</code></dd>';
+    if (btn.dataset.temperature && btn.dataset.temperature !== '0') html += '<dt>Temperature</dt><dd>' + btn.dataset.temperature + '</dd>';
+    if (btn.dataset.allowed) html += '<dt>Allowed tools</dt><dd><code>' + escapeHTML(btn.dataset.allowed) + '</code></dd>';
+    if (btn.dataset.denied) html += '<dt>Denied tools</dt><dd><code>' + escapeHTML(btn.dataset.denied) + '</code></dd>';
+    if (btn.dataset.skills) html += '<dt>Skills</dt><dd>' + escapeHTML(btn.dataset.skills) + '</dd>';
+    html += '</dl>';
+
+    body.innerHTML = html;
+    dialog.showModal();
+}
+
+function escapeHTML(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
 {{end}}
