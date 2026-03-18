@@ -90,14 +90,14 @@
     {{else}}
     <div class="empty-state">
         {{if .HasFilters}}
-        <div class="empty-state-icon">&#128269;</div>
+        <div class="empty-state-icon">--</div>
         <p><strong>No matching runs</strong></p>
         <p>No runs found matching your filters.</p>
         <div class="empty-state-action">
             <a href="/runs" class="btn btn-primary">Clear filters</a>
         </div>
         {{else}}
-        <div class="empty-state-icon">&#9654;</div>
+        <div class="empty-state-icon">--</div>
         <p><strong>No pipeline runs yet</strong></p>
         <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
         <div class="empty-state-action">

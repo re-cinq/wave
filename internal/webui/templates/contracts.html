@@ -14,7 +14,7 @@
             <span class="badge">{{.Filename}}</span>
         </div>
         <div class="card-actions">
-            <a href="#" class="btn" onclick="viewContract({{.Name | printf "%q"}}); return false;" aria-label="View schema for {{.Name}}">View Schema</a>
+            <a href="#" class="btn" onclick="viewContract('{{.Name}}'); return false;" aria-label="View schema for {{.Name}}">View Schema</a>
         </div>
         <div class="artifact-inline" id="contract-{{.Name}}" hidden></div>
     </div>
@@ -22,7 +22,7 @@
 </div>
 {{else}}
 <div class="empty-state">
-    <div class="empty-state-icon">&#128220;</div>
+    <div class="empty-state-icon">--</div>
     <p><strong>No contracts found</strong></p>
     <p>Add JSON schema files to <code>.wave/contracts/</code> to define output validation.</p>
 </div>
