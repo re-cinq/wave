@@ -168,7 +168,7 @@ function updatePageFromAPI(data) {
     }
 
     // Update step cards from API data
-    var stepsList = document.querySelector('.steps-list');
+    var stepsList = document.querySelector('.steps-timeline, .steps-list');
     if (stepsList && data.steps && data.steps.length > 0) {
         stepsList.innerHTML = '';
         data.steps.forEach(function(step) {
