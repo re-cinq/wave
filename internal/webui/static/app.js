@@ -107,9 +107,12 @@ initTheme();
 
 // Toggle start pipeline form
 function toggleStartForm() {
-    const form = document.getElementById('start-form');
-    if (form) {
-        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    var dialog = document.getElementById('start-dialog');
+    if (!dialog) return;
+    if (dialog.open) {
+        dialog.close();
+    } else {
+        dialog.showModal();
     }
 }
 
@@ -133,7 +136,8 @@ async function startPipeline(e) {
             body: JSON.stringify({input: input})
         });
         showToast('Pipeline started: ' + (data.run_id || pipeline), 'success', 3000);
-        toggleStartForm();
+        var dialog = document.getElementById('start-dialog');
+        if (dialog) dialog.close();
         setTimeout(function() { window.location.reload(); }, 500);
     } catch (err) {
         // fetchJSON already showed toast

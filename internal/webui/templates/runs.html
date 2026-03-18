@@ -7,9 +7,9 @@
     </div>
 </div>
 
-<div id="start-form" class="card start-form" style="display:none;">
-    <h3>Start Pipeline</h3>
-    <form id="pipeline-start-form" onsubmit="return startPipeline(event)">
+<dialog id="start-dialog" class="start-dialog">
+    <form id="pipeline-start-form" method="dialog" onsubmit="return startPipeline(event)">
+        <h3>Start Pipeline</h3>
         <div class="form-group">
             <label for="pipeline-select">Pipeline</label>
             <select id="pipeline-select" name="pipeline" required onchange="onPipelineSelect()">
@@ -27,13 +27,15 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="pipeline-input">Input</label>
-            <textarea id="pipeline-input" name="input" rows="3" placeholder="Pipeline input (e.g. issue URL, feature description)..."></textarea>
+            <label for="pipeline-input">Input (optional)</label>
+            <textarea id="pipeline-input" name="input" rows="3" placeholder="Issue URL, feature description..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Start</button>
-        <button type="button" class="btn" onclick="toggleStartForm()">Cancel</button>
+        <div class="dialog-actions">
+            <button type="button" class="btn" onclick="toggleStartForm()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Start</button>
+        </div>
     </form>
-</div>
+</dialog>
 
 <div class="filters">
     <select id="status-filter" onchange="filterRuns()" aria-label="Filter runs by status">

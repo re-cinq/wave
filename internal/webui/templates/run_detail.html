@@ -75,7 +75,7 @@
 </div>
 {{end}}
 
-{{if or (eq .Run.Status "running") (eq .Run.Status "pending")}}
+{{if eq .Run.Status "running"}}
 <div id="connection-banner" class="connection-banner" hidden>
     <span class="connection-message">Connection lost. Reconnecting&hellip;</span>
     <button class="btn btn-sm" onclick="if(window.logViewer) window.logViewer.reconnect(); else location.reload();">Retry</button>
@@ -157,9 +157,9 @@
 <script src="/static/log-viewer.js"></script>
 <script src="/static/sse.js"></script>
 <script>
-// Connect SSE for any non-terminal run
+// Connect SSE only for actively running pipelines
 var runStatus = '{{.Run.Status}}';
-if (runStatus === 'running' || runStatus === 'pending') {
+if (runStatus === 'running') {
     connectSSE('{{.Run.RunID}}');
 }
 // Initialize log viewer
