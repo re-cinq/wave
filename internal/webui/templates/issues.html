@@ -5,6 +5,7 @@
 </div>
 {{if .Message}}
 <div class="empty-state">
+    <div class="empty-state-icon">&#128268;</div>
     <p>{{.Message}}</p>
 </div>
 {{else if .Issues}}
@@ -38,7 +39,9 @@
     </table>
 {{else}}
 <div class="empty-state">
-    <p>No open issues found.</p>
+    <div class="empty-state-icon">&#128196;</div>
+    <p><strong>No open issues</strong></p>
+    <p>No open issues found in this repository.</p>
 </div>
 {{end}}
 

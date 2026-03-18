@@ -4,7 +4,7 @@
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
         <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
-        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code> | Started: {{formatTime .Run.StartedAt}}{{if .Run.Duration}} | Duration: {{.Run.Duration}}{{end}} | Tokens: {{formatTokens .Run.TotalTokens}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
+        <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code>{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}
@@ -20,23 +20,57 @@
     </div>
 </div>
 
+<div class="run-summary-bar">
+    <div class="run-summary-item">
+        <span class="run-summary-label">Duration</span>
+        <span class="run-summary-value">{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</span>
+    </div>
+    <div class="run-summary-item">
+        <span class="run-summary-label">Steps</span>
+        <span class="run-summary-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span>
+    </div>
+    <div class="run-summary-item">
+        <span class="run-summary-label">Tokens</span>
+        <span class="run-summary-value">{{formatTokens .Run.TotalTokens}}</span>
+    </div>
+    <div class="run-summary-item">
+        <span class="run-summary-label">Started</span>
+        <span class="run-summary-value">{{formatTime .Run.StartedAt}}</span>
+    </div>
+    {{if gt .Run.StepsTotal 0}}
+    <div class="run-summary-progress">
+        <div class="progress-bar progress-bar-sm">
+            <div class="progress-fill" style="width: {{.Run.Progress}}%"></div>
+        </div>
+    </div>
+    {{end}}
+</div>
+
 {{if .Run.ErrorMessage}}
 <div class="alert alert-error">
-    <strong>Error:</strong> {{.Run.ErrorMessage}}
-    <div class="error-recovery-hint">
+    <div class="alert-error-header">
+        <strong>Error:</strong> {{.Run.ErrorMessage}}
+    </div>
+    <div class="error-recovery-section">
         {{if contains .Run.ErrorMessage "contract validation"}}
         <p class="recovery-hint">Recovery: Check the step's output artifact against its contract schema. The output may be malformed or missing required fields.</p>
         {{else if contains .Run.ErrorMessage "timeout"}}
-        <p class="recovery-hint">Recovery: The step exceeded its time limit. Consider increasing the timeout or simplifying the step's workload. Resume from the failed step to retry.</p>
+        <p class="recovery-hint">Recovery: The step exceeded its time limit. Consider increasing the timeout or simplifying the step's workload.</p>
         {{else if contains .Run.ErrorMessage "adapter"}}
-        <p class="recovery-hint">Recovery: The adapter process failed. Check that the required CLI tool is installed and accessible. Review adapter logs for details.</p>
+        <p class="recovery-hint">Recovery: The adapter process failed. Check that the required CLI tool is installed and accessible.</p>
         {{else if contains .Run.ErrorMessage "workspace"}}
         <p class="recovery-hint">Recovery: Workspace creation or access failed. Ensure disk space is available and file permissions are correct.</p>
         {{else if contains .Run.ErrorMessage "dependency"}}
-        <p class="recovery-hint">Recovery: A required dependency step did not complete successfully. Review upstream steps for errors before retrying.</p>
+        <p class="recovery-hint">Recovery: A required dependency step did not complete successfully. Review upstream steps for errors.</p>
         {{else}}
         <p class="recovery-hint">Recovery: Review the step logs for details. Use "Resume from..." to retry from the failed step, or "Retry" to restart the entire pipeline.</p>
         {{end}}
+        <div class="error-recovery-actions">
+            {{if eq .Run.Status "failed"}}
+            <button class="btn btn-sm btn-primary" onclick="retryRun('{{.Run.RunID}}', this)">Retry</button>
+            <button class="btn btn-sm" onclick="showResumeDialog()">Resume from...</button>
+            {{end}}
+        </div>
     </div>
 </div>
 {{end}}
@@ -57,22 +91,31 @@
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                 <h2 style="margin-bottom: 0;">Steps</h2>
-                <div class="log-search">
-                    <input type="text" id="log-search-input" placeholder="Search logs..." aria-label="Search log output">
-                    <span id="log-search-count" class="log-search-count"></span>
-                    <button id="log-search-prev" title="Previous match (Shift+Ctrl+G)">&#x25B2;</button>
-                    <button id="log-search-next" title="Next match (Ctrl+G)">&#x25BC;</button>
-                    <button id="log-search-clear" title="Clear search">&#x2715;</button>
+                <div class="log-toolbar">
+                    <div class="log-search">
+                        <input type="text" id="log-search-input" placeholder="Search logs..." aria-label="Search log output">
+                        <span id="log-search-count" class="log-search-count"></span>
+                        <button id="log-search-prev" title="Previous match (Shift+Ctrl+G)">&#x25B2;</button>
+                        <button id="log-search-next" title="Next match (Ctrl+G)">&#x25BC;</button>
+                        <button id="log-search-clear" title="Clear search">&#x2715;</button>
+                    </div>
+                    <div class="log-level-filter">
+                        <button class="log-level-btn log-level-active" data-level="all" onclick="filterLogLevel('all', this)" title="Show all logs">All</button>
+                        <button class="log-level-btn" data-level="error" onclick="filterLogLevel('error', this)" title="Errors only">Errors</button>
+                        <button class="log-level-btn" data-level="warning" onclick="filterLogLevel('warning', this)" title="Warnings only">Warnings</button>
+                    </div>
+                    <button class="btn-icon log-wrap-toggle" onclick="toggleLogWrap(this)" title="Toggle line wrap" aria-label="Toggle line wrap">&#8617;</button>
                 </div>
             </div>
-            <div class="steps-list">
+            <div class="steps-timeline">
                 {{if .Steps}}
                 {{range .Steps}}
                 {{template "templates/partials/step_card.html" .}}
                 {{end}}
                 {{else}}
                 <div class="empty-state">
-                    <p>No steps have been executed yet.</p>
+                    <div class="empty-state-icon">&#9881;</div>
+                    <p><strong>No steps executed</strong></p>
                     {{if eq .Run.Status "pending"}}
                     <p class="empty-hint">Pipeline is pending — steps will appear when execution begins.</p>
                     {{end}}
@@ -117,6 +160,41 @@ if (window.logViewer) {
     window.logViewer.init(runStatus);
 }
 initStepCollapseStates();
+
+// Log level filter
+function filterLogLevel(level, btn) {
+    document.querySelectorAll('.log-level-btn').forEach(function(b) { b.classList.remove('log-level-active'); });
+    btn.classList.add('log-level-active');
+    document.querySelectorAll('.step-log-content .log-line').forEach(function(line) {
+        if (level === 'all') {
+            line.style.display = '';
+        } else {
+            var content = line.querySelector('.log-content');
+            if (!content) { line.style.display = 'none'; return; }
+            var text = content.textContent || '';
+            if (level === 'error' && /\b(error|fatal|panic|FAIL)\b/i.test(text)) {
+                line.style.display = '';
+            } else if (level === 'warning' && /\b(warn|warning|WARN)\b/i.test(text)) {
+                line.style.display = '';
+            } else {
+                line.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Line wrap toggle
+function toggleLogWrap(btn) {
+    var logs = document.querySelectorAll('.step-log-content');
+    var wrapped = btn.classList.toggle('log-wrap-active');
+    logs.forEach(function(el) {
+        if (wrapped) {
+            el.classList.add('log-wrapped');
+        } else {
+            el.classList.remove('log-wrapped');
+        }
+    });
+}
 
 // formatArtifactContent adds line numbers and highlights error/warning patterns.
 function formatArtifactContent(content) {

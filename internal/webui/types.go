@@ -11,17 +11,20 @@ type RunListResponse struct {
 
 // RunSummary is a summary of a pipeline run for list views.
 type RunSummary struct {
-	RunID        string     `json:"run_id"`
-	PipelineName string     `json:"pipeline_name"`
-	Status       string     `json:"status"`
-	CurrentStep  string     `json:"current_step,omitempty"`
-	TotalTokens  int        `json:"total_tokens"`
-	StartedAt    time.Time  `json:"started_at"`
-	CompletedAt  *time.Time `json:"completed_at,omitempty"`
-	Duration     string     `json:"duration,omitempty"`
-	Tags         []string   `json:"tags,omitempty"`
-	Progress     int        `json:"progress,omitempty"`
-	ErrorMessage string     `json:"error_message,omitempty"`
+	RunID          string     `json:"run_id"`
+	PipelineName   string     `json:"pipeline_name"`
+	Status         string     `json:"status"`
+	CurrentStep    string     `json:"current_step,omitempty"`
+	TotalTokens    int        `json:"total_tokens"`
+	StartedAt      time.Time  `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+	Duration       string     `json:"duration,omitempty"`
+	Tags           []string   `json:"tags,omitempty"`
+	Progress       int        `json:"progress,omitempty"`
+	ErrorMessage   string     `json:"error_message,omitempty"`
+	InputPreview   string     `json:"input_preview,omitempty"`
+	StepsCompleted int        `json:"steps_completed,omitempty"`
+	StepsTotal     int        `json:"steps_total,omitempty"`
 }
 
 // RunDetailResponse is the JSON response for the run detail API.
