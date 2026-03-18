@@ -117,7 +117,8 @@ func (p *JSONRecoveryParser) ParseWithRecovery(input string) (*RecoveryResult, e
 // getRecoveryStrategies returns the list of recovery strategies based on recovery level
 func (p *JSONRecoveryParser) getRecoveryStrategies() []func(string) (string, []string, []string) {
 	strategies := []func(string) (string, []string, []string){
-		p.extractFromAIExplanation,  // New: Handle AI explanatory text first
+		p.extractFromAIExplanation,  // Handle AI explanatory text first
+		p.extractJSONFromText,       // Depth-based extraction (most robust) before markdown
 		p.extractFromMarkdown,
 		p.removeComments,
 		p.fixTrailingCommas,
@@ -128,7 +129,6 @@ func (p *JSONRecoveryParser) getRecoveryStrategies() []func(string) (string, []s
 		strategies = append(strategies,
 			p.quoteUnquotedKeys,
 			p.fixSingleQuotes,
-			p.extractJSONFromText,
 			p.fixMissingCommas,
 		)
 	}
@@ -150,150 +150,69 @@ func (p *JSONRecoveryParser) extractFromAIExplanation(input string) (string, []s
 	fixes := []string{}
 	warnings := []string{}
 
-	// Handle AI-generated explanatory text before JSON
-	// Common patterns where AI explains what it's doing before outputting JSON
-
-	aiExplanationPatterns := [][]string{
-		// Pattern: explanation text followed by colon and newlines, then JSON
-		{"Based on the analysis", "I can provide", ":", "\n"},
-		{"Let me extract", "JSON", ":", "\n"},
-		{"Here", "JSON", ":", "\n"},
-		{"The current file has invalid JSON", "provide", ":", "\n"},
-		{"Since I need Write permission", "directly:", "\n"},
+	// Keywords that indicate AI explanatory text before JSON output.
+	// Uses keyword scanning instead of exact phrase matching for robustness.
+	aiKeywords := []string{
+		"analysis", "provide", "output", "result", "extract",
+		"json", "schema", "data", "here", "based on", "let me",
+		"corrected", "clean", "following", "below",
 	}
 
-	for _, patterns := range aiExplanationPatterns {
-		// Check if all pattern elements exist in the input
-		allFound := true
-		for _, pattern := range patterns {
-			if !strings.Contains(input, pattern) {
-				allFound = false
-				break
-			}
-		}
-
-		if allFound {
-			// Find the last colon followed by whitespace, then JSON
-			colonIndex := strings.LastIndex(input, ":")
-			if colonIndex != -1 && colonIndex < len(input)-1 {
-				remaining := input[colonIndex+1:]
-				remaining = strings.TrimSpace(remaining)
-
-				// Check if what follows looks like JSON
-				if strings.HasPrefix(remaining, "{") || strings.HasPrefix(remaining, "[") {
-					fixes = append(fixes, "removed_ai_explanation_text")
-					return remaining, fixes, warnings
-				}
-			}
-		}
-	}
-
-	// Pattern: Look for phrases that indicate AI is providing data/output
-	aiIndicatorPhrases := []string{
-		"The enhanced data is:",
-		"The results are:",
-		"The data is:",
-		"Here's the data:",
-		"Output:",
-		"Result:",
-		"Data:",
-		"Analysis:",
-	}
-
-	for _, phrase := range aiIndicatorPhrases {
-		if strings.Contains(input, phrase) {
-			// Find this phrase and extract JSON after it
-			phraseIndex := strings.Index(input, phrase)
-			if phraseIndex != -1 {
-				remaining := input[phraseIndex+len(phrase):]
-				remaining = strings.TrimSpace(remaining)
-
-				// Look for JSON start
-				firstBrace := strings.IndexAny(remaining, "{[")
-				if firstBrace != -1 {
-					jsonStart := remaining[firstBrace:]
-					fixes = append(fixes, "removed_ai_explanation_text")
-					return jsonStart, fixes, warnings
-				}
-			}
-		}
-	}
-
-	// Additional pattern: Look for phrases that contain indicators followed by colons
-	colonBasedPhrases := []string{
-		"clean JSON output",
-		"provide clean JSON",
-		"matches the schema",
-		"required schema",
-		"JSON format",
-		"JSON structure",
-	}
-
-	for _, phrase := range colonBasedPhrases {
-		if strings.Contains(input, phrase) {
-			// Find the phrase and look for a colon after it, then JSON
-			phraseIndex := strings.Index(input, phrase)
-			if phraseIndex != -1 {
-				afterPhrase := input[phraseIndex+len(phrase):]
-				// Look for a colon in the text after this phrase
-				colonIndex := strings.Index(afterPhrase, ":")
-				if colonIndex != -1 {
-					afterColon := afterPhrase[colonIndex+1:]
-					afterColon = strings.TrimSpace(afterColon)
-
-					// Look for JSON start
-					firstBrace := strings.IndexAny(afterColon, "{[")
-					if firstBrace != -1 {
-						jsonStart := afterColon[firstBrace:]
-						fixes = append(fixes, "removed_ai_explanation_text")
-						return jsonStart, fixes, warnings
-					}
-				}
-			}
-		}
-	}
-
-	// Pattern: Look for any explanatory paragraph followed by JSON
+	// Split into lines and find the first line starting with { or [
 	lines := strings.Split(input, "\n")
-	var jsonStart int = -1
-
+	jsonStart := -1
 	for i, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "{") || strings.HasPrefix(line, "[") {
-			// This might be the start of JSON
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
 			jsonStart = i
 			break
 		}
 	}
 
-	if jsonStart > 0 && jsonStart < len(lines) {
-		// Check if there's explanatory text before the JSON
-		hasExplanation := false
-		for i := 0; i < jsonStart; i++ {
-			line := strings.TrimSpace(lines[i])
-			if len(line) > 15 && (strings.Contains(line, "analysis") ||
-			   strings.Contains(line, "provide") ||
-			   strings.Contains(line, "output") ||
-			   strings.Contains(line, "JSON") ||
-			   strings.Contains(line, "extract") ||
-			   strings.Contains(line, "data") ||
-			   strings.Contains(line, "result") ||
-			   strings.Contains(line, "schema")) {
-				hasExplanation = true
-				break
+	if jsonStart > 0 {
+		// Check if preceding lines contain AI explanation keywords
+		preamble := strings.ToLower(strings.Join(lines[:jsonStart], " "))
+		keywordHits := 0
+		for _, kw := range aiKeywords {
+			if strings.Contains(preamble, kw) {
+				keywordHits++
 			}
 		}
 
-		if hasExplanation {
-			// Extract everything from the JSON start
+		// Two or more keyword hits strongly indicate AI preamble
+		if keywordHits >= 2 {
 			jsonPart := strings.Join(lines[jsonStart:], "\n")
 			jsonPart = strings.TrimSpace(jsonPart)
-
-			// Verify this looks like JSON
 			if strings.HasPrefix(jsonPart, "{") || strings.HasPrefix(jsonPart, "[") {
-				fixes = append(fixes, "extracted_json_after_explanation")
+				fixes = append(fixes, "removed_ai_explanation_text")
 				return jsonPart, fixes, warnings
 			}
+		}
+	}
+
+	// Fallback: look for a colon-terminated indicator phrase then JSON
+	colonIdx := -1
+	lowerInput := strings.ToLower(input)
+	for _, kw := range aiKeywords {
+		pos := strings.Index(lowerInput, kw)
+		if pos != -1 {
+			// Find the next colon after the keyword
+			afterKW := pos + len(kw)
+			ci := strings.Index(input[afterKW:], ":")
+			if ci != -1 {
+				candidate := afterKW + ci
+				if candidate > colonIdx {
+					colonIdx = candidate
+				}
+			}
+		}
+	}
+
+	if colonIdx != -1 && colonIdx < len(input)-1 {
+		remaining := strings.TrimSpace(input[colonIdx+1:])
+		if strings.HasPrefix(remaining, "{") || strings.HasPrefix(remaining, "[") {
+			fixes = append(fixes, "removed_ai_explanation_text")
+			return remaining, fixes, warnings
 		}
 	}
 
@@ -361,10 +280,13 @@ func (p *JSONRecoveryParser) extractFromMarkdown(input string) (string, []string
 		extracted := input[startPos:endPos]
 		extracted = strings.TrimSpace(extracted)
 
-		// Verify this looks like JSON
-		if strings.HasPrefix(extracted, "{") || strings.HasPrefix(extracted, "[") {
+		// Verify this looks like JSON and has balanced structure
+		if (strings.HasPrefix(extracted, "{") || strings.HasPrefix(extracted, "[")) && isStructurallyComplete(extracted) {
 			fixes = append(fixes, "extracted_from_markdown_code_block")
 			return extracted, fixes, warnings
+		}
+		if strings.HasPrefix(extracted, "{") || strings.HasPrefix(extracted, "[") {
+			warnings = append(warnings, "markdown_extraction_structurally_incomplete")
 		}
 	}
 
@@ -798,6 +720,38 @@ func (r *RecoveryResult) FormatRecoveryReport() string {
 	}
 
 	return sb.String()
+}
+
+// isStructurallyComplete checks that JSON has balanced braces/brackets
+// accounting for strings. Returns false if the structure is truncated.
+func isStructurallyComplete(s string) bool {
+	depth := 0
+	inString := false
+	escaped := false
+	for _, ch := range s {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch ch {
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+		}
+	}
+	return depth == 0 && !inString
 }
 
 func max(a, b int) int {
