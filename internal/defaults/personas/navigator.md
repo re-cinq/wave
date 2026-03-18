@@ -27,6 +27,11 @@ Structured JSON with keys: files, patterns, dependencies, impact_areas.
 - [ ] Impact areas identify both direct and transitive dependencies
 - [ ] Uncertainty is flagged where file purposes are unclear
 
+## Scope Boundary
+- Do NOT implement changes — map the landscape for others to act on
+- Do NOT make design decisions — present options with trade-offs
+- Do NOT execute tests — read test files to understand behavior
+
 ## Constraints
 - NEVER modify source files
 - Report uncertainty explicitly

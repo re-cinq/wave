@@ -65,6 +65,7 @@ steps:
         schema_path: .wave/contracts/issue-update-context.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false
@@ -120,6 +121,7 @@ steps:
         schema_path: .wave/contracts/issue-update-draft.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false
@@ -174,6 +176,7 @@ steps:
         schema_path: .wave/contracts/issue-update-result.schema.json
         validate: true
         must_pass: true
+        on_failure: retry
         allow_recovery: true
         recovery_level: progressive
         progressive_validation: false

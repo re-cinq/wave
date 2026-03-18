@@ -96,7 +96,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^REV-[0-9]{3}$",
+                  "pattern": "^REV-[0-9]{1,4}$",
                   "description": "Issue identifier"
                 },
                 "severity": {
@@ -128,7 +128,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^CC-[0-9]{3}$",
+            "pattern": "^CC-[0-9]{1,4}$",
             "description": "Concern identifier"
           },
           "category": {
@@ -163,7 +163,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^REC-[0-9]{3}$",
+            "pattern": "^REC-[0-9]{1,4}$",
             "description": "Recommendation identifier"
           },
           "priority": {

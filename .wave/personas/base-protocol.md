@@ -25,6 +25,21 @@ When writing output artifacts:
 - Markdown artifacts should be well-structured with clear sections
 - Always write output before the step completes — missing artifacts fail the contract
 
+Path conventions:
+- `.wave/artifacts/` — injected artifacts from prior steps (read-only input)
+- `.wave/output/` or the path from `output_artifacts` — your step's output files that contract validation checks
+
+## Tool Usage
+
+- Use the Edit tool for file modifications. Do NOT use perl, sed, or awk
+- Use the Write tool for new files. Do NOT use cat heredocs or echo redirection
+- Use the Read tool for reading files. Do NOT use cat, head, or tail
+- Use the Grep tool for searching. Do NOT use grep or rg via Bash
+- Do NOT push to remote — that happens in the create-pr step
+- Do NOT include Co-Authored-By or AI attribution in commits
+
+These rules apply to both the main context AND any Task subagents you spawn.
+
 ## Inter-Step Communication
 
 - Each step receives only the artifacts explicitly injected via `inject_artifacts`
