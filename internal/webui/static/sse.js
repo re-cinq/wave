@@ -86,7 +86,6 @@ function showConnectionBanner(visible) {
     var banner = document.getElementById('connection-banner');
     if (!banner) return;
     banner.hidden = !visible;
-    banner.textContent = visible ? 'Connection lost. Reconnecting\u2026' : '';
 }
 
 function connectSSE(runID) {
@@ -266,6 +265,21 @@ function createStepCard(step) {
         if (isLong) {
             bodyParts.push('<span class="step-error-toggle" onclick="toggleErrorExpand(\'' + step.step_id + '\')">Show more</span>');
         }
+    }
+    if (step.artifacts && step.artifacts.length > 0) {
+        var artItems = step.artifacts.map(function(art) {
+            return '<li>' +
+                '<a href="#" class="artifact-link"' +
+                ' data-run-id="' + step.run_id + '"' +
+                ' data-step-id="' + step.step_id + '"' +
+                ' data-artifact-name="' + art.name + '"' +
+                ' onclick="toggleArtifact(this); return false;"' +
+                ' aria-expanded="false">' + art.name + '</a>' +
+                '<span class="artifact-size">(' + (art.size_bytes || 0) + ' bytes)</span>' +
+                '<div class="artifact-inline" hidden></div>' +
+                '</li>';
+        }).join('');
+        bodyParts.push('<div class="step-artifacts"><strong>Artifacts:</strong><ul>' + artItems + '</ul></div>');
     }
 
     var logHtml = '<div class="step-log" id="log-' + step.step_id + '" data-step-id="' + step.step_id + '">' +
