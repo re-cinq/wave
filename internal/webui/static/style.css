@@ -257,6 +257,45 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     background: rgba(0, 0, 0, 0.5);
 }
 .start-dialog h3 { margin-bottom: 1rem; }
+
+/* Detail Dialog (contracts, personas) */
+.detail-dialog {
+    background: var(--color-bg-secondary); color: var(--color-text);
+    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+    padding: 0; max-width: 640px; width: 90%;
+    box-shadow: 0 8px 32px var(--color-shadow);
+    margin: auto; position: fixed; inset: 0; height: fit-content;
+    max-height: 80vh; display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.detail-dialog[open] { overscroll-behavior: contain; }
+.detail-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+.detail-dialog-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border);
+}
+.detail-dialog-header h3 { margin: 0; font-size: 1rem; }
+.detail-dialog-body {
+    padding: 1.25rem; overflow-y: auto; flex: 1;
+}
+.detail-code {
+    margin: 0; padding: 1rem; background: var(--color-bg);
+    border-radius: var(--radius-sm); font-size: 0.75rem;
+    line-height: 1.5; overflow-x: auto;
+}
+.detail-list { margin: 0; }
+.detail-list dt {
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--color-text-muted);
+    margin-top: 0.75rem;
+}
+.detail-list dt:first-child { margin-top: 0; }
+.detail-list dd {
+    margin: 0.25rem 0 0 0; font-size: 0.8125rem;
+}
+.detail-list dd code {
+    font-size: 0.75rem; word-break: break-all;
+}
 .dialog-actions {
     display: flex; justify-content: flex-end; gap: 0.5rem;
     margin-top: 1rem; padding-top: 1rem;
