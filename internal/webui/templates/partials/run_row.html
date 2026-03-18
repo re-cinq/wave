@@ -2,7 +2,7 @@
 <tr class="run-row" data-status="{{.Status}}" data-href="/runs/{{.RunID}}">
     <td>
         <span class="status-indicator status-indicator-{{.Status}}">
-            {{if eq .Status "running"}}<span class="spinner spinner-sm"></span>
+            {{if eq .Status "running"}}<span class="spinner spinner-sm" aria-label="Running" role="status"></span>
             {{else if eq .Status "completed"}}<span class="status-check">&#10003;</span>
             {{else if eq .Status "failed"}}<span class="status-cross">&#10007;</span>
             {{else if eq .Status "cancelled"}}<span class="status-dash">&#9644;</span>

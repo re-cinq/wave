@@ -169,6 +169,26 @@ func TestFormatDurationValue(t *testing.T) {
 			duration: 10*time.Minute + 5*time.Second,
 			want:     "10m 5s",
 		},
+		{
+			name:     "exactly one hour",
+			duration: time.Hour,
+			want:     "1h",
+		},
+		{
+			name:     "one hour thirty minutes",
+			duration: time.Hour + 30*time.Minute,
+			want:     "1h 30m",
+		},
+		{
+			name:     "two hours",
+			duration: 2 * time.Hour,
+			want:     "2h",
+		},
+		{
+			name:     "three hours fifteen minutes",
+			duration: 3*time.Hour + 15*time.Minute,
+			want:     "3h 15m",
+		},
 	}
 
 	for _, tc := range cases {
