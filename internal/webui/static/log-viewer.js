@@ -48,8 +48,12 @@ LogViewer.prototype.init = function(runStatus) {
         self._applyCollapsed(section);
     });
 
-    // If run is terminal, fetch historical events
+    // If run is terminal, fetch historical events with auto-scroll disabled
     if (runStatus === 'completed' || runStatus === 'failed' || runStatus === 'cancelled') {
+        // Disable auto-scroll so loading history doesn't jump the page
+        self.sections.forEach(function(section) {
+            section.autoScroll = false;
+        });
         var runID = self._getRunIDFromURL();
         if (runID) {
             fetch('/api/runs/' + encodeURIComponent(runID))
