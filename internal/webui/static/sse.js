@@ -287,7 +287,6 @@ function createStepCard(step) {
 
     var logHtml = '<div class="step-log" id="log-' + step.step_id + '" data-step-id="' + step.step_id + '">' +
         '<div class="step-log-content"></div>' +
-        '<div class="step-log-sentinel"></div>' +
         '</div>';
     card.innerHTML = headerHtml + '<div class="step-body">' + bodyParts.join('') + logHtml + '</div>';
     // Apply collapsed class for non-running/non-failed steps

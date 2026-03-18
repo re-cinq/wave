@@ -48,12 +48,8 @@ LogViewer.prototype.init = function(runStatus) {
         self._applyCollapsed(section);
     });
 
-    // If run is terminal, fetch historical events with auto-scroll disabled
+    // If run is terminal, fetch historical events
     if (runStatus === 'completed' || runStatus === 'failed' || runStatus === 'cancelled') {
-        // Disable auto-scroll so loading history doesn't jump the page
-        self.sections.forEach(function(section) {
-            section.autoScroll = false;
-        });
         var runID = self._getRunIDFromURL();
         if (runID) {
             fetch('/api/runs/' + encodeURIComponent(runID))
@@ -80,11 +76,6 @@ LogViewer.prototype.init = function(runStatus) {
             var sid = (card.getAttribute('id') || '').replace(/^step-/, '');
             if (sid) self.toggleSection(sid);
         });
-    });
-
-    // Set up IntersectionObservers for auto-scroll
-    self.sections.forEach(function(section) {
-        self._setupAutoScroll(section);
     });
 
     // Keyboard shortcuts for search
@@ -132,8 +123,7 @@ LogViewer.prototype.createSection = function(stepId, stepName, status, element) 
         expanded: false,
         lines: [],
         lineCount: 0,
-        element: element,
-        autoScroll: true
+        element: element
     };
 };
 
@@ -256,15 +246,6 @@ LogViewer.prototype.flushBatch = function() {
 
         logBody.appendChild(frag);
 
-        // Auto-scroll if enabled
-        if (section.autoScroll) {
-            var logContainer = logBody.parentElement;
-            var sentinel = logContainer ? logContainer.querySelector('.step-log-sentinel') : null;
-            if (sentinel) {
-                sentinel.scrollIntoView({ behavior: 'auto', block: 'end' });
-            }
-        }
-
         // Apply search highlights to new lines if search is active
         if (self.search.query) {
             for (var k = 0; k < lines.length; k++) {
@@ -310,59 +291,6 @@ LogViewer.prototype._applyCollapsed = function(section) {
     }
 };
 
-// ---------------------------------------------------------------------------
-// Auto-scroll via IntersectionObserver
-// ---------------------------------------------------------------------------
-
-LogViewer.prototype._setupAutoScroll = function(section) {
-    var self = this;
-    var logBody = self._getLogBody(section);
-    if (!logBody) return;
-
-    var logContainer = logBody.parentElement;
-    if (!logContainer) return;
-
-    var sentinel = logContainer.querySelector('.step-log-sentinel');
-    if (!sentinel) {
-        sentinel = document.createElement('div');
-        sentinel.className = 'step-log-sentinel';
-        logContainer.appendChild(sentinel);
-    }
-
-    var jumpBtn = logContainer.querySelector('.jump-to-bottom');
-    if (!jumpBtn) {
-        jumpBtn = document.createElement('button');
-        jumpBtn.className = 'jump-to-bottom';
-        jumpBtn.textContent = 'Jump to bottom';
-        jumpBtn.addEventListener('click', function() {
-            sentinel.scrollIntoView({ behavior: 'smooth' });
-            section.autoScroll = true;
-            jumpBtn.classList.remove('visible');
-        });
-        logContainer.appendChild(jumpBtn);
-    }
-
-    if (typeof IntersectionObserver !== 'undefined') {
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    section.autoScroll = true;
-                    jumpBtn.classList.remove('visible');
-                } else {
-                    section.autoScroll = false;
-                    if (section.lines.length > 0) {
-                        jumpBtn.classList.add('visible');
-                    }
-                }
-            });
-        }, { threshold: 0.1 });
-
-        observer.observe(sentinel);
-        section._observer = observer;
-        section._sentinel = sentinel;
-        section._jumpBtn = jumpBtn;
-    }
-};
 
 // ---------------------------------------------------------------------------
 // ANSI to HTML parser
@@ -825,11 +753,6 @@ LogViewer.prototype.reattach = function() {
             // Re-bind element
             section.element = card;
 
-            // Clean up old observer
-            if (section._observer) {
-                section._observer.disconnect();
-            }
-
             // Re-apply collapsed state
             self._applyCollapsed(section);
 
@@ -877,8 +800,6 @@ LogViewer.prototype.reattach = function() {
                 logBody.appendChild(frag);
             }
 
-            // Re-setup auto-scroll
-            self._setupAutoScroll(section);
         } else {
             // New section not seen before
             var badgeEl = card.querySelector('.badge');
@@ -888,7 +809,6 @@ LogViewer.prototype.reattach = function() {
             var newSection = self.createSection(stepId, stepName, status, card);
             self.sections.set(stepId, newSection);
             self._applyCollapsed(newSection);
-            self._setupAutoScroll(newSection);
         }
     });
 
@@ -922,10 +842,7 @@ LogViewer.prototype._getLogBody = function(section) {
         logContainer.setAttribute('data-step-id', section.stepId);
         logBody = document.createElement('div');
         logBody.className = 'step-log-content';
-        var sentinel = document.createElement('div');
-        sentinel.className = 'step-log-sentinel';
         logContainer.appendChild(logBody);
-        logContainer.appendChild(sentinel);
         var stepBody = section.element.querySelector('.step-body');
         if (stepBody) {
             stepBody.appendChild(logContainer);

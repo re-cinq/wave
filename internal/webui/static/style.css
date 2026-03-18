@@ -850,7 +850,6 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; z-index: 0; }
 .step-collapsed .step-log { max-height: 0; overflow: hidden; }
 .step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 0.75rem; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
-.step-log-sentinel { height: 1px; }
 .log-empty { padding: 0.75rem 1rem; color: var(--color-text-muted); font-style: italic; font-size: 0.85rem; }
 
 /* Log Viewer — log line layout */
@@ -939,17 +938,6 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 }
 
 /* Log Viewer — jump to bottom button */
-.jump-to-bottom {
-    position: sticky; bottom: 0.5rem; left: 50%; transform: translateX(-50%);
-    display: none; padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 500;
-    background: var(--color-bg-secondary); color: var(--color-text-secondary);
-    border: 1px solid var(--color-border); border-radius: 2em;
-    cursor: pointer; z-index: 10; opacity: 0.9;
-    box-shadow: 0 2px 8px var(--color-shadow);
-    transition: opacity 0.15s ease, background-color 0.15s ease;
-}
-.jump-to-bottom:hover { opacity: 1; background: var(--color-bg-tertiary); color: var(--color-text); }
-.jump-to-bottom.visible { display: inline-block; }
 
 /* Log Viewer — SSE reconnection banner */
 .reconnect-banner {
