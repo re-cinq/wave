@@ -5,6 +5,7 @@
 </div>
 {{if .Message}}
 <div class="empty-state">
+    <div class="empty-state-icon">&#128268;</div>
     <p>{{.Message}}</p>
 </div>
 {{else if .PullRequests}}
@@ -42,7 +43,9 @@
     </table>
 {{else}}
 <div class="empty-state">
-    <p>No open pull requests found.</p>
+    <div class="empty-state-icon">&#128203;</div>
+    <p><strong>No open pull requests</strong></p>
+    <p>No open pull requests found in this repository.</p>
 </div>
 {{end}}
 {{end}}
