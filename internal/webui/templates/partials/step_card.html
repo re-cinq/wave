@@ -16,7 +16,7 @@
             <span class="step-duration" {{if eq .State "running"}}data-live-timer="true"{{end}}>{{if .Duration}}{{.Duration}}{{end}}</span>
             <span class="step-persona">{{.Persona}}</span>
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">&#11015;</button>
-            <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">&#128203;</button>
+            <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">Copy</button>
         </div>
         <div class="step-body">
             {{if .Action}}<div class="step-action">{{.Action}}</div>{{end}}
