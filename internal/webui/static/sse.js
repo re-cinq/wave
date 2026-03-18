@@ -230,18 +230,17 @@ function createStepCard(step) {
     var startTimeHtml = step.started_at ? '<span class="step-start-time">' + formatStartTime(step.started_at) + '</span>' : '';
     var durationHtml = step.duration ? '<span class="step-duration">' + step.duration + '</span>' : '';
 
-    var chevron = (step.state === 'running' || step.state === 'failed') ? '\u25BC' : '\u25B6';
     var headerHtml =
         '<div class="step-header" onclick="toggleStepCard(\'' + step.step_id + '\')">' +
-        '<span class="step-toggle" aria-hidden="true">' + chevron + '</span>' +
+        '<span class="step-toggle" aria-hidden="true">\u25B6</span>' +
         '<span class="step-id">' + step.step_id + '</span>' +
         spinnerHtml +
         '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
         startTimeHtml +
         durationHtml +
         '<span class="step-persona">' + (step.persona || '') + '</span>' +
-        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(\'' + step.step_id + '\')" title="Download log">\u2B07</button>' +
-        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(\'' + step.step_id + '\')" title="Copy log">\uD83D\uDCCB</button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(\'' + step.step_id + '\')" title="Download log">Save</button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(\'' + step.step_id + '\')" title="Copy log">Copy</button>' +
         '</div>';
 
     var bodyParts = [];
