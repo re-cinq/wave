@@ -254,6 +254,20 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		dagLayout = ComputeDAGLayout(dagSteps)
 	}
 
+	// Build run summary with step progress
+	runSummary := runToSummary(*run)
+	runSummary.StepsTotal = len(stepDetails)
+	completed := 0
+	for _, sd := range stepDetails {
+		if sd.State == "completed" {
+			completed++
+		}
+	}
+	runSummary.StepsCompleted = completed
+	if runSummary.StepsTotal > 0 {
+		runSummary.Progress = (completed * 100) / runSummary.StepsTotal
+	}
+
 	data := struct {
 		ActivePage string
 		Run        RunSummary
@@ -262,7 +276,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		DAG        *DAGLayout
 	}{
 		ActivePage: "runs",
-		Run:        runToSummary(*run),
+		Run:        runSummary,
 		Steps:      stepDetails,
 		Events:     eventSummaries,
 		DAG:        dagLayout,
@@ -295,6 +309,20 @@ func runToSummary(r state.RunRecord) RunSummary {
 	} else if r.Status == "running" {
 		dur := time.Since(r.StartedAt)
 		summary.Duration = formatDurationValue(dur)
+	}
+
+	// Truncated input preview for list views
+	if r.Input != "" {
+		preview := r.Input
+		if len(preview) > 80 {
+			preview = preview[:80] + "..."
+		}
+		summary.InputPreview = preview
+	}
+
+	// Compute step progress from pipeline definition
+	if p, err := loadPipelineYAML(r.PipelineName); err == nil {
+		summary.StepsTotal = len(p.Steps)
 	}
 
 	return summary
