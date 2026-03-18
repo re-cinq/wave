@@ -76,7 +76,7 @@ function viewPersona(btn) {
     html += '<dt>Description</dt><dd>' + escapeHTML(btn.dataset.description || 'None') + '</dd>';
     html += '<dt>Adapter</dt><dd><code>' + escapeHTML(btn.dataset.adapter) + '</code></dd>';
     if (btn.dataset.model) html += '<dt>Model</dt><dd><code>' + escapeHTML(btn.dataset.model) + '</code></dd>';
-    if (btn.dataset.temperature !== undefined && btn.dataset.temperature !== '') html += '<dt>Temperature</dt><dd>' + btn.dataset.temperature + '</dd>';
+    if (btn.dataset.temperature !== undefined && btn.dataset.temperature !== '') html += '<dt>Temperature</dt><dd>' + escapeHTML(btn.dataset.temperature) + '</dd>';
     if (btn.dataset.allowed) html += '<dt>Allowed tools</dt><dd><code>' + escapeHTML(btn.dataset.allowed) + '</code></dd>';
     if (btn.dataset.denied) html += '<dt>Denied tools</dt><dd><code>' + escapeHTML(btn.dataset.denied) + '</code></dd>';
     if (btn.dataset.skills) html += '<dt>Skills</dt><dd>' + escapeHTML(btn.dataset.skills) + '</dd>';
@@ -86,8 +86,5 @@ function viewPersona(btn) {
     dialog.showModal();
 }
 
-function escapeHTML(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 </script>
 {{end}}
