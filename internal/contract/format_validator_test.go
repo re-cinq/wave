@@ -186,6 +186,28 @@ Related to #123
 			errorMsg:  "too short",
 		},
 		{
+			name: "closing keyword violation",
+			output: map[string]interface{}{
+				"title": "feat: Add feature",
+				"body": `## Summary
+This PR adds a feature.
+
+## Changes
+- Change 1
+
+## Testing
+- Test 1
+
+Closes #455
+
+- [x] Done`,
+				"head": "feature/test",
+				"base": "main",
+			},
+			wantError: true,
+			errorMsg:  "closing keywords",
+		},
+		{
 			name: "missing issue reference",
 			output: map[string]interface{}{
 				"title": "feat: Add feature",
