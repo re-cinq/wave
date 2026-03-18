@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// testSkillFixtures returns SKILL.md content for testing Parse and Serialize.
-// Uses inline fixtures instead of reading from the repo working tree.
+// testSkillFixtures provides inline SKILL.md content for hermetic testing.
+// These replace the old repoRoot()-based tests that read from the working tree.
 var testSkillFixtures = map[string]string{
 	"minimal": `---
 name: minimal-skill
