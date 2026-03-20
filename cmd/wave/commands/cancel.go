@@ -49,10 +49,8 @@ Graceful cancellation (default):
 Force cancellation (--force):
   - Immediately sends SIGTERM to the adapter process group
   - Waits 5 seconds, then sends SIGKILL if still running
-  - The current step may be incomplete
-
-Examples:
-  wave cancel                    # Cancel most recent running pipeline
+  - The current step may be incomplete`,
+		Example: `  wave cancel                    # Cancel most recent running pipeline
   wave cancel abc123             # Cancel specific run
   wave cancel --force            # Forcibly terminate immediately
   wave cancel --format json      # Output result as JSON`,
