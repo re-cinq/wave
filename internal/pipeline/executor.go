@@ -1411,14 +1411,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
-			"status": "failed",
+			"status": StateFailed,
 			"error":  err.Error(),
 		})
 		// Let the higher-level executor emit a single failure event; just
 		// propagate the error with context so enriched details (e.g. from
 		// *adapter.StepError) remain available to callers.
 		if e.logger != nil {
-			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), 0, 0, 0, err.Error())
+			e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), 0, 0, 0, err.Error())
 		}
 		if e.store != nil {
 			completedAt := time.Now()
@@ -1454,7 +1454,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// not useful work product. Proceeding would write the error as an artifact.
 	if result.FailureReason == adapter.FailureReasonRateLimit {
 		if e.logger != nil {
-			e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+			e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
 		}
 		if e.store != nil {
 			completedAt := time.Now()
@@ -1620,7 +1620,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				})
 				if e.logger != nil {
 					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
-					e.logger.LogStepEnd(pipelineID, step.ID, "failed", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
+					e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
 				}
 				if e.store != nil {
 					completedAt := time.Now()
