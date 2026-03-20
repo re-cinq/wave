@@ -4,7 +4,7 @@ Pipelines are DAGs (Directed Acyclic Graphs) that orchestrate multi-step agent w
 
 ## Built-in Pipelines
 
-Wave ships with 46 pipelines organized by use case:
+Wave ships with 51 pipelines organized by use case:
 
 ### Development
 
