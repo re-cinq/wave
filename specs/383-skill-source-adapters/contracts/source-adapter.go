@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Package contract defines the API contracts for skill source adapters.
 // This file is a design artifact — it documents the interfaces and types
 // that the implementation must satisfy.

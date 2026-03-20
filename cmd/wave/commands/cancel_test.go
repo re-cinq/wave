@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -92,24 +93,8 @@ func (e *cancelTestEnv) createPidFile(runID string, pid int) {
 	e.t.Helper()
 
 	pidFile := filepath.Join(".wave", "pids", runID+".pid")
-	err := os.WriteFile(pidFile, []byte(string(rune('0'+pid%10))+string(rune('0'+pid/10%10))+string(rune('0'+pid/100%10))), 0644)
-	if pid > 999 {
-		// For larger PIDs, use proper formatting
-		err = os.WriteFile(pidFile, []byte(intToString(pid)), 0644)
-	}
+	err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
 	require.NoError(e.t, err, "failed to create pid file")
-}
-
-func intToString(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var result []byte
-	for n > 0 {
-		result = append([]byte{byte('0' + n%10)}, result...)
-		n /= 10
-	}
-	return string(result)
 }
 
 // executeCancelCmd runs the cancel command with given arguments and returns output/error

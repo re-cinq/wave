@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-
-	"github.com/recinq/wave/internal/recovery"
 )
 
 // Error code constants for machine-parseable error classification.
@@ -17,8 +15,6 @@ const (
 	CodeFlagConflict           = "flag_conflict"
 	CodeOnboardingRequired     = "onboarding_required"
 	CodePreflightFailed        = "preflight_failed"
-	CodeTimeout                = "timeout"
-	CodeCancelled              = "cancelled"
 	CodeInternalError          = "internal_error"
 	CodeSecurityViolation      = "security_violation"
 	CodeSkillNotFound          = "skill_not_found"
@@ -99,21 +95,5 @@ func RenderTextError(w io.Writer, err error, debug bool) {
 		}
 	default:
 		fmt.Fprintf(w, "Error: %s\n", err.Error())
-	}
-}
-
-// ErrorClassToCode maps a recovery.ErrorClass to a CLIError code string.
-func ErrorClassToCode(class recovery.ErrorClass) string {
-	switch class {
-	case recovery.ClassContractValidation:
-		return CodeContractViolation
-	case recovery.ClassPreflight:
-		return CodePreflightFailed
-	case recovery.ClassSecurityViolation:
-		return CodeSecurityViolation
-	case recovery.ClassRuntimeError:
-		return CodeInternalError
-	default:
-		return CodeInternalError
 	}
 }

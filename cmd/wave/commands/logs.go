@@ -269,7 +269,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 	}
 
 	if opts.Since != "" {
-		duration, err := parseSinceDuration(opts.Since)
+		duration, err := parseDuration(opts.Since)
 		if err != nil {
 			return nil, fmt.Errorf("invalid --since duration: %w", err)
 		}
@@ -299,7 +299,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 		}
 
 		if opts.Since != "" {
-			duration, _ := parseSinceDuration(opts.Since)
+			duration, _ := parseDuration(opts.Since)
 			cutoff := time.Now().Add(-duration).Unix()
 			query += " AND timestamp >= ?"
 			args = append(args, cutoff)
@@ -544,8 +544,6 @@ func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
 	return id
 }
 
-// parseSinceDuration is an alias for parseDuration to maintain semantic clarity in logs context.
-var parseSinceDuration = parseDuration
 
 // runLogsTrace reads and displays structured NDJSON trace events from a debug trace file.
 func runLogsTrace(opts LogsOptions) error {
