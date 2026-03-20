@@ -18,6 +18,9 @@ When reading artifacts from previous steps:
 - Artifacts are injected into `.wave/artifacts/` with the name specified in the pipeline
 - Read the artifact content to understand what the previous step produced
 - Do not assume artifact structure — read and verify
+- **Error handling**: If a required artifact is missing or empty, fail immediately with
+  a clear error message (e.g., "Required artifact 'findings' not found at .wave/artifacts/findings").
+  If a JSON artifact fails to parse, report the parse error and do not proceed with stale assumptions
 
 When writing output artifacts:
 - Write to the path specified in the step's `output_artifacts` configuration
@@ -40,6 +43,24 @@ Path conventions:
 - Do NOT use GitHub closing keywords (`Closes #N`, `Fixes #N`, `Resolves #N`) in commit messages or PR bodies — use `Related to #N` instead. Closing keywords auto-close issues on merge, which causes false-positive closures when PRs only partially address an issue
 
 These rules apply to both the main context AND any Task subagents you spawn.
+
+## Template Variables Reference
+
+Pipeline prompts may contain template variables that are resolved at runtime.
+These are the available variables:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `{{ input }}` | string | CLI input passed to the pipeline via `wave run <pipeline> -- "<input>"` |
+| `{{ pipeline_id }}` | string | Unique identifier for the current pipeline run |
+| `{{ forge.cli_tool }}` | string | Git forge CLI tool name (`gh`, `glab`, `tea`, `bb`) |
+| `{{ forge.pr_command }}` | string | Forge-specific PR subcommand (`pr`, `mr`, `pulls`) |
+| `{{ project.test_command }}` | string | Project's test command (e.g., `go test ./...`) |
+| `{{ project.build_command }}` | string | Project's build command (e.g., `go build ./...`) |
+| `{{ project.skill }}` | string | Project's primary skill identifier |
+
+Variables are resolved before the prompt is passed to the persona. Unresolved
+variables (e.g., typos) are detected by contract validation and cause step failure.
 
 ## Inter-Step Communication
 
