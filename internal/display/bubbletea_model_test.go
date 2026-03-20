@@ -549,6 +549,47 @@ func TestShimmerPosition_RangeAndPingPong(t *testing.T) {
 	}
 }
 
+func TestProgressModel_View_ETAShownWhenNonZero(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    1,
+		OverallProgress:   50,
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses:      map[string]ProgressState{},
+		EstimatedTimeMs:   90000, // 1m 30s
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	if !strings.Contains(view, "ETA:") {
+		t.Errorf("View should contain 'ETA:' when EstimatedTimeMs > 0, got:\n%s", view)
+	}
+	if !strings.Contains(view, "1m 30s") {
+		t.Errorf("View should contain formatted ETA '1m 30s', got:\n%s", view)
+	}
+}
+
+func TestProgressModel_View_ETAHiddenWhenZero(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineName:      "test-pipeline",
+		TotalSteps:        2,
+		CurrentStepNum:    1,
+		OverallProgress:   50,
+		PipelineStartTime: time.Now().UnixNano(),
+		CurrentStepStart:  time.Now().UnixNano(),
+		StepStatuses:      map[string]ProgressState{},
+		EstimatedTimeMs:   0,
+	}
+	model := NewProgressModel(ctx)
+	view := model.View()
+
+	if strings.Contains(view, "ETA:") {
+		t.Errorf("View should NOT contain 'ETA:' when EstimatedTimeMs == 0, got:\n%s", view)
+	}
+}
+
 func TestShimmerColorForChar_DistanceBands(t *testing.T) {
 	// shimmerColorForChar should not panic for any reasonable inputs
 	for i := 0; i < 20; i++ {
