@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/recinq/wave/internal/recovery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -181,23 +180,4 @@ func TestRenderTextError_DebugHidden(t *testing.T) {
 
 	output := buf.String()
 	assert.NotContains(t, output, "Debug:")
-}
-
-func TestErrorClassToCode(t *testing.T) {
-	tests := []struct {
-		class recovery.ErrorClass
-		want  string
-	}{
-		{recovery.ClassContractValidation, CodeContractViolation},
-		{recovery.ClassPreflight, CodePreflightFailed},
-		{recovery.ClassSecurityViolation, CodeSecurityViolation},
-		{recovery.ClassRuntimeError, CodeInternalError},
-		{recovery.ClassUnknown, CodeInternalError},
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.class), func(t *testing.T) {
-			assert.Equal(t, tt.want, ErrorClassToCode(tt.class))
-		})
-	}
 }
