@@ -197,6 +197,9 @@ func (m *ProgressModel) renderHeader() string {
 		fmt.Sprintf("Elapsed:  %s", m.formatElapsedWithTokens(elapsed)),
 		progressLine,
 	}
+	if m.ctx.EstimatedTimeMs > 0 {
+		projectLines = append(projectLines, fmt.Sprintf("ETA:      %s", FormatDuration(m.ctx.EstimatedTimeMs)))
+	}
 
 	// Render logo with per-character shimmer animation
 	shimmerCenter := shimmerPosition(15, 2500)
