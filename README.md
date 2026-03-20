@@ -117,22 +117,29 @@ Usage:
   wave [command]
 
 Available Commands:
+  agent       Persona-to-agent compiler utilities
   artifacts   List and export pipeline artifacts
+  bench       Run and analyze SWE-bench benchmarks
   cancel      Cancel a running pipeline
-  chat        Interactive analysis of pipeline runs
+  chat        Open interactive analysis of a pipeline run
   clean       Clean up project artifacts
   completion  Generate the autocompletion script for the specified shell
+  compose     Validate and execute a pipeline sequence
   do          Execute an ad-hoc task
+  doctor      Check project health and environment setup
   help        Help about any command
   init        Initialize a new Wave project
-  list        List pipelines and personas
+  list        List Wave configuration and resources
   logs        Show pipeline logs
-  meta        Generate a custom pipeline
-  migrate     Database migration commands
-  run         Run a pipeline (use --from-step to resume)
-  serve       Start the web operations dashboard
+  meta        Generate and run a custom pipeline dynamically
+  migrate     Database migration management
+  postmortem  Analyse a failed pipeline run and suggest recovery steps
+  resume      Resume a failed pipeline run
+  run         Run a pipeline
+  serve       Start the web dashboard server
+  skills      Skill lifecycle management
   status      Show pipeline status
-  bench       Run and analyze SWE-bench benchmarks
+  suggest     Propose pipeline runs based on codebase state
   validate    Validate Wave configuration
 
 Flags:
@@ -157,8 +164,10 @@ Use "wave [command] --help" for more information about a command.
 |---------|-------------|
 | `wave init` | Initialize project with personas and pipelines |
 | `wave run <pipeline>` | Execute a pipeline |
+| `wave resume <run-id>` | Resume a failed pipeline run |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
-| `wave meta "<task>"` | Generate custom multi-step pipeline with schemas |
+| `wave meta "<task>"` | Generate and run a custom pipeline dynamically |
+| `wave compose <file>` | Validate and execute a pipeline sequence |
 | `wave cancel [run-id]` | Cancel running pipeline (graceful or `--force`) |
 
 ### Monitoring & Inspection
@@ -168,7 +177,9 @@ Use "wave [command] --help" for more information about a command.
 | `wave status [run-id]` | Show pipeline status (running, recent, details) |
 | `wave logs [run-id]` | View event logs (`--follow`, `--tail`, `--errors`) |
 | `wave artifacts [run-id]` | List and export pipeline artifacts |
-| `wave list [resource]` | List pipelines, personas, adapters, or runs |
+| `wave list [resource]` | List Wave configuration and resources |
+| `wave chat [run-id]` | Open interactive analysis of a pipeline run |
+| `wave postmortem [run-id]` | Analyse a failed pipeline run and suggest recovery steps |
 
 ### Benchmarking
 
@@ -183,8 +194,14 @@ Use "wave [command] --help" for more information about a command.
 
 | Command | Description |
 |---------|-------------|
-| `wave validate` | Check manifest and pipeline configuration |
-| `wave clean` | Remove workspaces and state (`--older-than`, `--status`) |
+| `wave validate` | Validate Wave configuration |
+| `wave clean` | Clean up project artifacts (`--older-than`, `--status`) |
+| `wave doctor` | Check project health and environment setup |
+| `wave suggest` | Propose pipeline runs based on codebase state |
+| `wave serve` | Start the web dashboard server |
+| `wave migrate` | Database migration management |
+| `wave skills` | Skill lifecycle management |
+| `wave agent` | Persona-to-agent compiler utilities |
 
 ---
 
