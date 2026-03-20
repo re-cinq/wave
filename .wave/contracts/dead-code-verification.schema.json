@@ -5,8 +5,8 @@
   "properties": {
     "verdict": {
       "type": "string",
-      "enum": ["CLEAN", "NEEDS_REVIEW"],
-      "description": "CLEAN if all removals are safe; NEEDS_REVIEW if issues were found"
+      "const": "CLEAN",
+      "description": "Must be CLEAN for the pipeline to proceed. Output NEEDS_REVIEW to intentionally fail contract validation and halt the pipeline."
     },
     "items_removed": {
       "type": "array",
