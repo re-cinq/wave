@@ -45,7 +45,7 @@ Use this command to manually upgrade your database schema.`,
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to create migration runner: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions")
 			}
 			defer migrationRunner.Close()
 
@@ -53,13 +53,13 @@ Use this command to manually upgrade your database schema.`,
 			if len(args) > 0 {
 				targetVersion, err = strconv.Atoi(args[0])
 				if err != nil {
-					return fmt.Errorf("invalid target version: %s", args[0])
+					return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid target version: %s", args[0]), "Provide a numeric version number")
 				}
 			}
 
 			err = migrationRunner.MigrateUp(targetVersion)
 			if err != nil {
-				return fmt.Errorf("migration failed: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("migration failed: %s", err), "Check database integrity with 'wave migrate validate'")
 			}
 
 			fmt.Println("Migrations applied successfully")
@@ -82,14 +82,14 @@ rolling back migrations.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetVersion, err := strconv.Atoi(args[0])
 			if err != nil {
-				return fmt.Errorf("invalid target version: %s", args[0])
+				return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid target version: %s", args[0]), "Provide a numeric version number")
 			}
 
 			dbPath := getDbPath()
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to create migration runner: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions")
 			}
 			defer migrationRunner.Close()
 
@@ -105,7 +105,7 @@ rolling back migrations.`,
 
 			err = migrationRunner.MigrateDown(targetVersion)
 			if err != nil {
-				return fmt.Errorf("rollback failed: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("rollback failed: %s", err), "Check database integrity with 'wave migrate validate'")
 			}
 
 			fmt.Printf("Successfully rolled back to version %d\n", targetVersion)
@@ -125,13 +125,13 @@ func newMigrateStatusCmd() *cobra.Command {
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to create migration runner: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions")
 			}
 			defer migrationRunner.Close()
 
 			status, err := migrationRunner.GetStatus()
 			if err != nil {
-				return fmt.Errorf("failed to get migration status: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to get migration status: %s", err), "The state database may be corrupted")
 			}
 
 			fmt.Printf("Current schema version: %d\n\n", status.CurrentVersion)
@@ -172,13 +172,13 @@ func newMigrateValidateCmd() *cobra.Command {
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to create migration runner: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions")
 			}
 			defer migrationRunner.Close()
 
 			err = migrationRunner.ValidateIntegrity()
 			if err != nil {
-				return fmt.Errorf("migration validation failed: %w", err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("migration validation failed: %s", err), "Applied migrations may have been modified -- consider re-running 'wave migrate up'")
 			}
 
 			fmt.Println("Migration integrity check passed")

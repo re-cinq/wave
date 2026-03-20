@@ -76,35 +76,35 @@ func runPostmortem(opts PostmortemOptions) error {
 	dbPath := ".wave/state.db"
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		return fmt.Errorf("state database not found — run 'wave run' first")
+		return NewCLIError(CodeStateDBError, "state database not found", "Run 'wave run' to create the state database")
 	}
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return fmt.Errorf("failed to open state database: %w", err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions")
 	}
 	defer store.Close()
 
 	run, err := store.GetRun(opts.RunID)
 	if err != nil {
-		return fmt.Errorf("run not found: %w", err)
+		return NewCLIError(CodeRunNotFound, fmt.Sprintf("run not found: %s", err), "Use 'wave status --all' to list available runs")
 	}
 
 	// Only operate on failed runs.
 	switch run.Status {
 	case "completed":
-		return fmt.Errorf("run %s completed successfully — no post-mortem needed", opts.RunID)
+		return NewCLIError(CodeInvalidArgs, fmt.Sprintf("run %s completed successfully -- no post-mortem needed", opts.RunID), "Post-mortem analysis is only for failed or cancelled runs")
 	case "running":
-		return fmt.Errorf("run %s is still running — wait for it to finish before analysing", opts.RunID)
+		return NewCLIError(CodeInvalidArgs, fmt.Sprintf("run %s is still running -- wait for it to finish before analysing", opts.RunID), "Wait for the run to complete or use 'wave cancel' first")
 	case "pending":
-		return fmt.Errorf("run %s has not started yet", opts.RunID)
+		return NewCLIError(CodeInvalidArgs, fmt.Sprintf("run %s has not started yet", opts.RunID), "The run has not started -- check 'wave status' for details")
 	}
 	// "failed", "cancelled" — proceed.
 
 	// Fetch step states to find the failed step.
 	stepStates, err := store.GetStepStates(opts.RunID)
 	if err != nil {
-		return fmt.Errorf("failed to get step states: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get step states: %s", err), "State database query failed")
 	}
 
 	// Identify the failed step.
