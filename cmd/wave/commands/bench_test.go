@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/recinq/wave/internal/bench"
@@ -60,7 +61,7 @@ func TestBenchRunCmd_Validation(t *testing.T) {
 				t.Fatal("expected error")
 			}
 			if tt.wantErr != "" {
-				if got := err.Error(); !contains(got, tt.wantErr) {
+				if got := err.Error(); !strings.Contains(got, tt.wantErr) {
 					t.Errorf("error = %q, want to contain %q", got, tt.wantErr)
 				}
 			}
@@ -77,7 +78,7 @@ func TestBenchRunCmd_ClaudeModeNoRequirePipeline(t *testing.T) {
 		t.Fatal("expected error (dataset not found)")
 	}
 	// The error should be about loading the dataset, not missing pipeline
-	if contains(err.Error(), "--pipeline is required") {
+	if strings.Contains(err.Error(), "--pipeline is required") {
 		t.Errorf("claude mode should not require --pipeline, got: %v", err)
 	}
 }
@@ -114,7 +115,7 @@ func TestBenchCompareCmd_Validation(t *testing.T) {
 				t.Fatal("expected error")
 			}
 			if tt.wantErr != "" {
-				if got := err.Error(); !contains(got, tt.wantErr) {
+				if got := err.Error(); !strings.Contains(got, tt.wantErr) {
 					t.Errorf("error = %q, want to contain %q", got, tt.wantErr)
 				}
 			}
@@ -198,15 +199,3 @@ func writeJSON(t *testing.T, path string, v any) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}

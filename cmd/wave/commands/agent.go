@@ -31,12 +31,6 @@ type AgentListOutput struct {
 	Personas []AgentListItem `json:"personas"`
 }
 
-// AgentInspectOutput is the output for wave agent inspect.
-type AgentInspectOutput struct {
-	Name    string `json:"name"`
-	AgentMd string `json:"agent_md"`
-}
-
 // NewAgentCmd creates the top-level wave agent command.
 func NewAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
