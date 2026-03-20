@@ -50,13 +50,13 @@ Exit codes:
 			// Validate flag dependencies: --dry-run, --skip-ai, --yes require --optimize
 			if !optimizeFlag {
 				if dryRunFlag {
-					return fmt.Errorf("--dry-run requires --optimize")
+					return NewCLIError(CodeFlagConflict, "--dry-run requires --optimize", "Add --optimize to use --dry-run")
 				}
 				if skipAIFlag {
-					return fmt.Errorf("--skip-ai requires --optimize")
+					return NewCLIError(CodeFlagConflict, "--skip-ai requires --optimize", "Add --optimize to use --skip-ai")
 				}
 				if yesFlag {
-					return fmt.Errorf("--yes requires --optimize")
+					return NewCLIError(CodeFlagConflict, "--yes requires --optimize", "Add --optimize to use --yes")
 				}
 			}
 			return nil
@@ -82,7 +82,7 @@ Exit codes:
 				SkipCodebase: skipCodebase,
 			})
 			if err != nil {
-				return fmt.Errorf("doctor check failed: %w", err)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("doctor check failed: %s", err), "A health check encountered an unexpected error")
 			}
 
 			format := ResolveFormat(cmd, "text")
@@ -145,7 +145,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	profile, err := doctor.ScanProject(".", scanOpts...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr)
-		return fmt.Errorf("project scan failed: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("project scan failed: %s", err), "Project scanning encountered an error")
 	}
 
 	fmt.Fprintf(os.Stderr, " done (%s)\n\n", formatScanSummary(profile))
@@ -158,7 +158,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 
 	m, err := manifest.Load(manifestPath)
 	if err != nil {
-		return fmt.Errorf("failed to load manifest: %w", err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to load manifest: %s", err), "Check wave.yaml syntax -- run 'wave validate' to diagnose")
 	}
 
 	// 3. Detect forge info
@@ -197,7 +197,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	if !opts.yes {
 		accepted, err := promptConfirm(os.Stdin, os.Stdout, "Accept changes? [Y/n] ")
 		if err != nil {
-			return fmt.Errorf("confirmation failed: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("confirmation failed: %s", err), "Interactive confirmation failed")
 		}
 		if !accepted {
 			fmt.Fprintln(os.Stdout, "Aborted.")
@@ -207,7 +207,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 
 	// 10. Apply changes
 	if err := applyOptimizeChanges(manifestPath, m, result, profile); err != nil {
-		return fmt.Errorf("failed to apply changes: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to apply changes: %s", err), "Check file permissions for wave.yaml")
 	}
 
 	fmt.Fprintln(os.Stdout, "Changes applied.")
@@ -282,23 +282,23 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	// Read existing wave.yaml as a generic map to preserve non-project sections
 	rawData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("failed to read %s: %w", manifestPath, err)
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read %s: %s", manifestPath, err), "Check that wave.yaml exists and is readable")
 	}
 
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(rawData, &raw); err != nil {
-		return fmt.Errorf("failed to parse %s: %w", manifestPath, err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse %s: %s", manifestPath, err), "Check wave.yaml YAML syntax")
 	}
 
 	// Marshal the new project block and unmarshal into a generic map
 	projectBytes, err := yaml.Marshal(newProject)
 	if err != nil {
-		return fmt.Errorf("failed to marshal project config: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project config: %s", err), "Internal serialization error")
 	}
 
 	var projectMap map[string]interface{}
 	if err := yaml.Unmarshal(projectBytes, &projectMap); err != nil {
-		return fmt.Errorf("failed to unmarshal project config: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to unmarshal project config: %s", err), "Internal deserialization error")
 	}
 
 	raw["project"] = projectMap
@@ -306,26 +306,26 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	// Write back wave.yaml
 	outData, err := yaml.Marshal(raw)
 	if err != nil {
-		return fmt.Errorf("failed to marshal wave.yaml: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal wave.yaml: %s", err), "Internal serialization error")
 	}
 
 	if err := os.WriteFile(manifestPath, outData, 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", manifestPath, err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", manifestPath, err), "Check write permissions for wave.yaml")
 	}
 
 	// Write project profile
 	profilePath := filepath.Join(".wave", "project-profile.json")
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
-		return fmt.Errorf("failed to create directory for %s: %w", profilePath, err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to create directory for %s: %s", profilePath, err), "Check write permissions for .wave/ directory")
 	}
 
 	profileData, err := json.MarshalIndent(profile, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal project profile: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project profile: %s", err), "Internal serialization error")
 	}
 
 	if err := os.WriteFile(profilePath, profileData, 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", profilePath, err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", profilePath, err), "Check write permissions for .wave/ directory")
 	}
 
 	return nil

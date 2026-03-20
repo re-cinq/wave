@@ -169,7 +169,7 @@ func outputCancelResult(format string, result CancelResult) error {
 	if format == "json" {
 		data, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
-			return fmt.Errorf("failed to marshal result: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal result: %s", err), "This is an internal serialization error")
 		}
 		fmt.Println(string(data))
 		return nil
@@ -179,7 +179,7 @@ func outputCancelResult(format string, result CancelResult) error {
 	if result.Success {
 		fmt.Println(result.Message)
 	} else {
-		return fmt.Errorf("%s", result.Message)
+		return NewCLIError(CodeInternalError, result.Message, "")
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func outputCancelResult(format string, result CancelResult) error {
 func forceKillRun(runID string) error {
 	// Validate runID to prevent path traversal
 	if strings.Contains(runID, "..") || strings.ContainsAny(runID, `/\`) || filepath.IsAbs(runID) {
-		return fmt.Errorf("invalid run ID: %s", runID)
+		return NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid run ID: %s", runID), "Run IDs must not contain path separators or '..' sequences")
 	}
 
 	// Try to read PID from pidfile
@@ -203,7 +203,7 @@ func forceKillRun(runID string) error {
 
 	var pid int
 	if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err != nil {
-		return fmt.Errorf("invalid pid in %s: %w", pidFile, err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("invalid pid in %s: %s", pidFile, err), "The PID file may be corrupted")
 	}
 
 	// Send SIGTERM to the process group
@@ -213,7 +213,7 @@ func forceKillRun(runID string) error {
 			os.Remove(pidFile)
 			return nil
 		}
-		return fmt.Errorf("failed to send SIGTERM: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGTERM: %s", err), "The process may have already exited")
 	}
 
 	// Wait up to 5 seconds for graceful termination
@@ -229,7 +229,7 @@ func forceKillRun(runID string) error {
 	// Process still running after 5 seconds - send SIGKILL
 	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
 		if err != syscall.ESRCH {
-			return fmt.Errorf("failed to send SIGKILL: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGKILL: %s", err), "The process may require manual termination")
 		}
 	}
 

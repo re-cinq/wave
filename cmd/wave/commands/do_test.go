@@ -228,7 +228,10 @@ metadata:
 	err = runDo("test task", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse manifest")
-	assert.Contains(t, err.Error(), "valid YAML")
+	var cliErr *CLIError
+	require.ErrorAs(t, err, &cliErr)
+	assert.Equal(t, CodeManifestInvalid, cliErr.Code)
+	assert.Contains(t, cliErr.Suggestion, "valid YAML")
 }
 
 // TestDoCommand_MissingPersonaError verifies that referencing a missing

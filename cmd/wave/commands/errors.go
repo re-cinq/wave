@@ -21,6 +21,11 @@ const (
 	CodeSkillSourceError       = "skill_source_error"
 	CodeSkillDependencyMissing = "skill_dependency_missing"
 	CodeInvalidArgs            = "invalid_args"
+	CodeStateDBError           = "state_db_error"
+	CodeRunNotFound            = "run_not_found"
+	CodeMigrationFailed        = "migration_failed"
+	CodeDatasetError           = "dataset_error"
+	CodeValidationFailed       = "validation_failed"
 )
 
 // CLIError represents a structured error for CLI output.
