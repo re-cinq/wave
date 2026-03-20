@@ -16,6 +16,17 @@ Write production-quality code following the specification and plan.
 Implemented code with passing tests. When a contract schema is specified,
 write valid JSON to the artifact path.
 
+## When to Use (vs Implementer)
+
+| Scenario | Use Craftsman | Use Implementer |
+|----------|--------------|-----------------|
+| Greenfield feature needing TDD | ✓ | |
+| Single-step implementation with no downstream test step | ✓ | |
+| Bug fix requiring regression tests | ✓ | |
+| Code generation with separate test step downstream | | ✓ |
+| Pipeline step followed by a verify/test step | | ✓ |
+| Scaffolding or boilerplate generation | | ✓ |
+
 ## Scope Boundary
 - Implement what is specified — no architecture design, no spec writing
 - TDD is your core differentiator from Implementer — never skip tests
