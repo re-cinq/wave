@@ -564,7 +564,7 @@ func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
 		return "", fmt.Errorf("pipeline has no steps")
 	}
 
-	// Prototype-specific logic (backward compatible)
+	// Prototype-specific logic
 	if p.Metadata.Name == "prototype" || p.Metadata.Name == "impl-prototype" {
 		return r.getPrototypeResumePoint(p)
 	}
