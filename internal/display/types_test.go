@@ -280,25 +280,6 @@ func TestPipelineContext_Structure(t *testing.T) {
 	}
 }
 
-func TestProgressRenderer_Interface(t *testing.T) {
-	// This test verifies the interface can be implemented
-	var _ ProgressRenderer = (*mockProgressRenderer)(nil)
-}
-
-type mockProgressRenderer struct{}
-
-func (m *mockProgressRenderer) Render(progress *PipelineProgress) error {
-	return nil
-}
-
-func (m *mockProgressRenderer) Clear() error {
-	return nil
-}
-
-func (m *mockProgressRenderer) Close() error {
-	return nil
-}
-
 func TestPipelineContext_StepPersonas(t *testing.T) {
 	ctx := PipelineContext{
 		StepOrder: []string{"step-1", "step-2", "step-3"},
