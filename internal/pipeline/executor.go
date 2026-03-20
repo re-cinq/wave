@@ -511,7 +511,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     failedStepID,
-				State:      "failed",
+				State:      StateFailed,
 				Message:    err.Error(),
 			})
 			e.cleanupCompletedPipeline(pipelineID)
@@ -553,7 +553,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		e.emit(event.Event{
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
-			State:          "running",
+			State:          StateRunning,
 			TotalSteps:     schedulableSteps,
 			CompletedSteps: completedCount,
 			Progress:       (completedCount * 100) / schedulableSteps,
@@ -581,7 +581,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
-		State:      "completed",
+		State:      StateCompleted,
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
@@ -751,7 +751,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
-				State:      "retrying",
+				State:      StateRetrying,
 				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
 			time.Sleep(step.Retry.ComputeDelay(attempt))
@@ -764,7 +764,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				RunID:     pipelineID,
 				StepID:    step.ID,
 				Attempt:   attempt,
-				State:     "running",
+				State:     StateRunning,
 				StartedAt: attemptStart,
 			})
 		}
@@ -789,7 +789,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					RunID:        pipelineID,
 					StepID:       step.ID,
 					Attempt:      attempt,
-					State:        "failed",
+					State:        StateFailed,
 					ErrorMessage: err.Error(),
 					FailureClass: string(recovery.ClassifyError(err)),
 					DurationMs:   attemptDuration.Milliseconds(),
@@ -1209,7 +1209,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timestamp:     time.Now(),
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
-		State:         "running",
+		State:         StateRunning,
 		Persona:       step.Persona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
 		CurrentAction: "Initializing",
@@ -1688,7 +1688,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		StepID:     step.ID,
-		State:      "completed",
+		State:      StateCompleted,
 		Persona:    step.Persona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
@@ -2863,7 +2863,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      "running",
+			State:      StateRunning,
 			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
 		})
 	}
@@ -2922,7 +2922,7 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      "running",
+			State:      StateRunning,
 			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
 		})
 	}
@@ -3065,11 +3065,11 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 		if stepErr == nil {
 			for _, stepState := range stepStates {
 				switch stepState.State {
-				case StateCompleted:
+				case state.StateCompleted:
 					status.CompletedSteps = append(status.CompletedSteps, stepState.StepID)
-				case StateFailed:
+				case state.StateFailed:
 					status.FailedSteps = append(status.FailedSteps, stepState.StepID)
-				case StateRunning, StateRetrying:
+				case state.StateRunning, state.StateRetrying:
 					status.CurrentStep = stepState.StepID
 				}
 			}
