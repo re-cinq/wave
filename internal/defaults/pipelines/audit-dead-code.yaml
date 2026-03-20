@@ -28,6 +28,15 @@ steps:
       source: |
         Scan for dead or redundant code: {{ input }}
 
+        ## Pre-Scan: Ensure Code is Up-to-Date
+
+        Before scanning, verify the local code matches the remote to avoid analyzing stale code:
+        ```bash
+        git fetch origin
+        ```
+        If the local HEAD is behind origin/main, warn in your output that findings may
+        need re-verification against the latest main branch.
+
         ## What to Look For
 
         1. **Unused exports**: Exported functions, types, constants, or variables
@@ -83,6 +92,7 @@ steps:
     workspace:
       type: worktree
       branch: "chore/{{ pipeline_id }}"
+      base: "origin/main"
     exec:
       type: prompt
       source: |
@@ -149,20 +159,27 @@ steps:
         4. Were any false positives accidentally removed?
         5. Is the commit focused (no unrelated changes)?
 
-        Produce a verification report covering:
-        - Items removed (with justification)
-        - Items skipped (with reason)
-        - Lines of code removed
-        - Test status
-        - Overall assessment: CLEAN / NEEDS_REVIEW
+        Produce a structured JSON verification report matching the contract schema.
+
+        The `verdict` field MUST be either:
+        - `"CLEAN"` — all removals are safe, tests pass, no false positives detected
+        - `"NEEDS_REVIEW"` — potential issues found that require human review
+
+        **Important**: The contract schema only accepts `"CLEAN"`. If you set verdict
+        to `"NEEDS_REVIEW"`, contract validation will intentionally fail and the
+        pipeline will halt before creating a PR. This is the desired safety behavior.
     output_artifacts:
       - name: verification
-        path: .wave/output/verification.md
-        type: markdown
+        path: .wave/output/verification.json
+        type: json
+    retry:
+      max_attempts: 2
     handover:
       contract:
-        type: non_empty_file
-        source: .wave/output/verification.md
+        type: json_schema
+        source: .wave/output/verification.json
+        schema_path: .wave/contracts/dead-code-verification.schema.json
+        on_failure: retry
 
   - id: create-pr
     persona: craftsman

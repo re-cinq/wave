@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["verdict", "items_removed", "items_skipped", "lines_removed", "test_status", "summary"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "const": "CLEAN",
+      "description": "Must be CLEAN for the pipeline to proceed. Output NEEDS_REVIEW to intentionally fail contract validation and halt the pipeline."
+    },
+    "items_removed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "justification"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "justification": { "type": "string" }
+        }
+      }
+    },
+    "items_skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "reason"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "lines_removed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "test_status": {
+      "type": "string",
+      "enum": ["passing", "failing", "not_run"]
+    },
+    "summary": {
+      "type": "string",
+      "description": "Human-readable summary of the verification"
+    }
+  }
+}

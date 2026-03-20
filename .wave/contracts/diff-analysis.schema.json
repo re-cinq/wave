@@ -1,8 +1,18 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["files_changed", "modules_affected", "related_tests", "breaking_changes"],
+  "required": ["pr_metadata", "files_changed", "modules_affected", "related_tests", "breaking_changes"],
   "properties": {
+    "pr_metadata": {
+      "type": "object",
+      "required": ["number", "url", "head_branch", "base_branch"],
+      "properties": {
+        "number": { "type": "integer", "description": "PR number" },
+        "url": { "type": "string", "description": "Full PR URL" },
+        "head_branch": { "type": "string", "description": "Source branch name" },
+        "base_branch": { "type": "string", "description": "Target branch name" }
+      }
+    },
     "files_changed": {
       "type": "array",
       "items": {

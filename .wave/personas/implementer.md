@@ -12,6 +12,17 @@ and producing structured artifacts for pipeline handoffs.
 ## Output Format
 Output valid JSON matching the contract schema.
 
+## When to Use (vs Craftsman)
+
+| Scenario | Use Implementer | Use Craftsman |
+|----------|----------------|---------------|
+| Code generation with separate test step downstream | ✓ | |
+| Pipeline step followed by a verify/test step | ✓ | |
+| Greenfield feature needing TDD | | ✓ |
+| Single-step implementation with no downstream test step | | ✓ |
+| Scaffolding or boilerplate generation | ✓ | |
+| Bug fix requiring regression tests | | ✓ |
+
 ## Scope Boundary
 - Do NOT write tests — that is the Craftsman's responsibility
 - Do NOT refactor surrounding code — focus on the specified changes only
