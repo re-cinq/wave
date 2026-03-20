@@ -29,7 +29,7 @@ func (v *PhaseSkipValidator) ValidatePhaseSequence(p *Pipeline, fromStep string)
 		return nil // Starting from beginning, no validation needed
 	}
 
-	// Prototype-specific validation (backward compatible)
+	// Prototype-specific validation
 	if p.Metadata.Name == "impl-prototype" || p.Metadata.Name == "prototype" {
 		return v.validatePrototypePhaseSequence(p, fromStep)
 	}
