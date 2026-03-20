@@ -165,7 +165,9 @@ steps:
         - `"CLEAN"` — all removals are safe, tests pass, no false positives detected
         - `"NEEDS_REVIEW"` — potential issues found that require human review
 
-        If the verdict is `NEEDS_REVIEW`, the pipeline will NOT create a PR.
+        **Important**: The contract schema only accepts `"CLEAN"`. If you set verdict
+        to `"NEEDS_REVIEW"`, contract validation will intentionally fail and the
+        pipeline will halt before creating a PR. This is the desired safety behavior.
     output_artifacts:
       - name: verification
         path: .wave/output/verification.json
@@ -182,10 +184,6 @@ steps:
   - id: create-pr
     persona: craftsman
     dependencies: [verify]
-    condition:
-      artifact: verify/verification
-      json_path: .verdict
-      equals: "CLEAN"
     memory:
       inject_artifacts:
         - step: scan
