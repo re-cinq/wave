@@ -17,8 +17,6 @@ const (
 	CodeFlagConflict           = "flag_conflict"
 	CodeOnboardingRequired     = "onboarding_required"
 	CodePreflightFailed        = "preflight_failed"
-	CodeTimeout                = "timeout"
-	CodeCancelled              = "cancelled"
 	CodeInternalError          = "internal_error"
 	CodeSecurityViolation      = "security_violation"
 	CodeSkillNotFound          = "skill_not_found"
