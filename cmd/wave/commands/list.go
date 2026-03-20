@@ -132,6 +132,12 @@ For 'list runs', additional flags are available:
   --limit N           Maximum number of runs to show (default 10)
   --run-pipeline P    Filter to specific pipeline
   --run-status S      Filter by status (running, completed, failed, cancelled)`,
+		Example: `  wave list pipelines
+  wave list runs
+  wave list runs --limit 5 --run-status failed
+  wave list personas --format json
+  wave list contracts
+  wave list skills`,
 		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts", "skills", "compositions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filter := ""
