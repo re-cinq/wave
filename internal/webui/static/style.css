@@ -942,6 +942,17 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 }
 
 /* Log Viewer — jump to bottom button */
+.step-log { position: relative; }
+.jump-to-bottom {
+    display: none; position: absolute; bottom: 0.75rem; right: 0.75rem;
+    z-index: 10; padding: 0.35rem 0.75rem; font-size: 0.8rem;
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary);
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background-color 0.15s ease;
+    line-height: 1;
+}
+.jump-to-bottom.visible { display: block; opacity: 1; }
+.jump-to-bottom:hover { background: var(--color-border); color: var(--color-text); }
 
 /* Log Viewer — SSE reconnection banner */
 .reconnect-banner {
