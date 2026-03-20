@@ -192,7 +192,7 @@ const features = [
   {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
-    description: '47 built-in pipelines for code review, security scanning, documentation, and issue implementation — ready to plug into your agent factory.',
+    description: '51 built-in pipelines for code review, security scanning, documentation, and issue implementation — ready to plug into your agent factory.',
     link: '/use-cases/'
   }
 ]
