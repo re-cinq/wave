@@ -157,7 +157,7 @@ func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.
 		if evt.Persona != "" {
 			info.persona = evt.Persona
 		}
-		if evt.State == "failed" && evt.Message != "" {
+		if evt.State == StateFailed && evt.Message != "" {
 			info.errMsg = evt.Message
 		}
 	}
@@ -211,7 +211,7 @@ func MostRecentCompletedRunID(store state.StateStore) (string, error) {
 
 	// Find most recent completed or failed run (either is valid for analysis)
 	for _, run := range runs {
-		if run.Status == "completed" || run.Status == "failed" {
+		if run.Status == StateCompleted || run.Status == StateFailed {
 			return run.RunID, nil
 		}
 	}
