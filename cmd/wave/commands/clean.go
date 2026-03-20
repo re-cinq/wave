@@ -138,7 +138,7 @@ func runClean(opts CleanOptions) error {
 		var err error
 		olderThanDuration, err = parseDuration(opts.OlderThan)
 		if err != nil {
-			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --older-than duration: %s", err), "Use a duration like '7d', '24h', or '1h30m'")
+			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --older-than duration: %s", err), "Use a duration like '7d', '24h', or '1h30m'").WithCause(err)
 		}
 	}
 
@@ -151,7 +151,7 @@ func runClean(opts CleanOptions) error {
 		var err error
 		statusWorkspaces, err = getWorkspacesWithStatus(opts.Status)
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get workspaces by status: %s", err), "Check .wave/state.db is readable")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get workspaces by status: %s", err), "Check .wave/state.db is readable").WithCause(err)
 		}
 	}
 
@@ -161,7 +161,7 @@ func runClean(opts CleanOptions) error {
 			// Get workspaces sorted by modification time using workspace package
 			workspaces, err := workspace.ListWorkspacesSortedByTime(wsDir)
 			if err != nil {
-				return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .wave/workspaces directory permissions")
+				return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .wave/workspaces directory permissions").WithCause(err)
 			}
 
 			cutoffTime := time.Now().Add(-olderThanDuration)
