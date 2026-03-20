@@ -58,18 +58,16 @@ func NewLogsCmd() *cobra.Command {
 		Long: `Show logs from pipeline runs.
 
 Without arguments, shows logs from the most recent run.
-With a run-id argument, shows logs for that specific run.
-
-Examples:
-  wave logs                      # Show logs from most recent run
+With a run-id argument, shows logs for that specific run.`,
+		Example: `  wave logs                        # Show logs from most recent run
   wave logs debug-20260202-143022  # Show logs for specific run
-  wave logs --step investigate   # Filter by step ID
-  wave logs --errors             # Show only errors
-  wave logs --tail 20            # Show last 20 log entries
-  wave logs --since 10m          # Show logs from last 10 minutes
-  wave logs --follow             # Stream logs in real-time
-  wave logs --format json        # Output as JSON for scripting
-  wave logs --trace              # Show debug trace events (requires --debug run)`,
+  wave logs --step investigate     # Filter by step ID
+  wave logs --errors               # Show only errors
+  wave logs --tail 20              # Show last 20 log entries
+  wave logs --since 10m            # Show logs from last 10 minutes
+  wave logs --follow               # Stream logs in real-time
+  wave logs --format json          # Output as JSON for scripting
+  wave logs --trace                # Show debug trace events (requires --debug run)`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {

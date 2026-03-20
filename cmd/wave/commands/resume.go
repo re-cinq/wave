@@ -48,10 +48,8 @@ With --from-step, execution resumes from the specified step regardless
 of which step failed.
 
 The --force flag skips phase-sequence and stale-artifact validation,
-matching the behaviour of 'wave run --force'.
-
-Examples:
-  wave resume impl-speckit-20240315-abc123
+matching the behaviour of 'wave run --force'.`,
+		Example: `  wave resume impl-speckit-20240315-abc123
   wave resume impl-speckit-20240315-abc123 --from-step implement
   wave resume impl-speckit-20240315-abc123 --from-step plan --force
   wave resume impl-speckit-20240315-abc123 --model opus`,
