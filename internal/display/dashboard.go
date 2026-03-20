@@ -27,16 +27,6 @@ func NewDashboard() *Dashboard {
 	}
 }
 
-// NewDashboardWithConfig creates a dashboard with specific configuration.
-func NewDashboardWithConfig(colorMode string, asciiOnly bool) *Dashboard {
-	return &Dashboard{
-		codec:     NewANSICodecWithConfig(colorMode, asciiOnly),
-		charSet:   GetUnicodeCharSet(),
-		termInfo:  NewTerminalInfo(),
-		lastLines: 0,
-	}
-}
-
 // Render displays the compact dashboard with no clearing.
 func (d *Dashboard) Render(ctx *PipelineContext) error {
 	// No clearing at all - just output content
@@ -65,18 +55,6 @@ func (d *Dashboard) Render(ctx *PipelineContext) error {
 // Clear removes the dashboard display (no-op since we don't clear).
 func (d *Dashboard) Clear() {
 	// No clearing needed
-}
-
-// clearPreviousRender clears the previously rendered dashboard.
-func (d *Dashboard) clearPreviousRender() {
-	if !d.termInfo.SupportsANSI() {
-		return
-	}
-
-	for i := 0; i < d.lastLines; i++ {
-		fmt.Print(d.codec.CursorUp(1))
-		fmt.Print(d.codec.ClearLine())
-	}
 }
 
 // renderHeader displays the Wave ASCII logo with project info on the right.
@@ -344,24 +322,5 @@ func (d *Dashboard) renderPulsatingStep(stepLabel string) string {
 	default:
 		return d.codec.Primary(stepLabel)
 	}
-}
-
-// formatDashboardDuration converts milliseconds to a human-readable duration string.
-func formatDashboardDuration(ms int64) string {
-	duration := time.Duration(ms) * time.Millisecond
-
-	if duration < time.Minute {
-		return fmt.Sprintf("%ds", int(duration.Seconds()))
-	}
-
-	if duration < time.Hour {
-		minutes := int(duration.Minutes())
-		seconds := int(duration.Seconds()) % 60
-		return fmt.Sprintf("%dm %ds", minutes, seconds)
-	}
-
-	hours := int(duration.Hours())
-	minutes := int(duration.Minutes()) % 60
-	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 
