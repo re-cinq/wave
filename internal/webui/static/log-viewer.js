@@ -46,6 +46,7 @@ LogViewer.prototype.init = function(runStatus) {
             section.expanded = false;
         }
         self._applyCollapsed(section);
+        self._attachScrollListener(section);
     });
 
     // If run is terminal, fetch historical events
@@ -121,6 +122,7 @@ LogViewer.prototype.createSection = function(stepId, stepName, status, element) 
         stepName: stepName,
         status: status,
         expanded: false,
+        autoScroll: true,
         lines: [],
         lineCount: 0,
         element: element
@@ -246,6 +248,11 @@ LogViewer.prototype.flushBatch = function() {
 
         logBody.appendChild(frag);
 
+        // Auto-scroll to bottom if enabled for this section
+        if (section.autoScroll) {
+            logBody.scrollTop = logBody.scrollHeight;
+        }
+
         // Apply search highlights to new lines if search is active
         if (self.search.query) {
             for (var k = 0; k < lines.length; k++) {
@@ -289,8 +296,52 @@ LogViewer.prototype._applyCollapsed = function(section) {
     if (chevron) {
         chevron.textContent = section.expanded ? '\u25BC' : '\u25B6';
     }
+
+    // Auto-scroll to bottom when expanding if autoScroll is enabled
+    if (section.expanded && section.autoScroll) {
+        var logBody = card.querySelector('.step-log-content');
+        if (logBody) {
+            logBody.scrollTop = logBody.scrollHeight;
+        }
+    }
 };
 
+
+// ---------------------------------------------------------------------------
+// Auto-scroll helpers
+// ---------------------------------------------------------------------------
+
+LogViewer.prototype._isNearBottom = function(element) {
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - 50;
+};
+
+LogViewer.prototype._attachScrollListener = function(section) {
+    var self = this;
+    var logBody = section.element ? section.element.querySelector('.step-log-content') : null;
+    if (!logBody) return;
+
+    var jumpBtn = section.element.querySelector('.jump-to-bottom');
+
+    logBody.addEventListener('scroll', function() {
+        var nearBottom = self._isNearBottom(logBody);
+        section.autoScroll = nearBottom;
+        if (jumpBtn) {
+            if (nearBottom) {
+                jumpBtn.classList.remove('visible');
+            } else {
+                jumpBtn.classList.add('visible');
+            }
+        }
+    }, { passive: true });
+
+    if (jumpBtn) {
+        jumpBtn.addEventListener('click', function() {
+            logBody.scrollTop = logBody.scrollHeight;
+            section.autoScroll = true;
+            jumpBtn.classList.remove('visible');
+        });
+    }
+};
 
 // ---------------------------------------------------------------------------
 // ANSI to HTML parser
@@ -581,6 +632,9 @@ LogViewer.prototype._scrollToCurrentMatch = function() {
         this._applyCollapsed(section);
     }
 
+    // Disable auto-scroll to prevent fighting with search navigation
+    section.autoScroll = false;
+
     var line = section.lines[match.lineIndex];
     if (line && line.element) {
         line.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -798,7 +852,15 @@ LogViewer.prototype.reattach = function() {
                     frag.appendChild(div);
                 }
                 logBody.appendChild(frag);
+
+                // Auto-scroll to bottom if enabled
+                if (section.autoScroll) {
+                    logBody.scrollTop = logBody.scrollHeight;
+                }
             }
+
+            // Re-bind scroll listener for rebuilt DOM
+            self._attachScrollListener(section);
 
         } else {
             // New section not seen before
@@ -809,6 +871,7 @@ LogViewer.prototype.reattach = function() {
             var newSection = self.createSection(stepId, stepName, status, card);
             self.sections.set(stepId, newSection);
             self._applyCollapsed(newSection);
+            self._attachScrollListener(newSection);
         }
     });
 
@@ -843,12 +906,23 @@ LogViewer.prototype._getLogBody = function(section) {
         logBody = document.createElement('div');
         logBody.className = 'step-log-content';
         logContainer.appendChild(logBody);
+
+        // Add Jump to Bottom button
+        var jumpBtn = document.createElement('button');
+        jumpBtn.className = 'jump-to-bottom';
+        jumpBtn.setAttribute('aria-label', 'Jump to bottom');
+        jumpBtn.innerHTML = '&#8595; Bottom';
+        logContainer.appendChild(jumpBtn);
+
         var stepBody = section.element.querySelector('.step-body');
         if (stepBody) {
             stepBody.appendChild(logContainer);
         } else {
             section.element.appendChild(logContainer);
         }
+
+        // Attach scroll listener for the new container
+        this._attachScrollListener(section);
     }
     return logBody;
 };
