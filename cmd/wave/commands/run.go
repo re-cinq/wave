@@ -64,12 +64,7 @@ Supports dry-run mode, step resumption, custom timeouts, model override,
 and detached execution (--detach) for background runs that survive shell exit.
 
 The --model flag overrides the adapter model for all steps in the run,
-including any per-persona model pinning in wave.yaml.
-
-Arguments can be provided as positional args or flags:
-  wave run ops-pr-review "Review auth module"
-  wave run --pipeline ops-pr-review --input "Review auth module"
-  wave run ops-pr-review --input "Review auth module"`,
+including any per-persona model pinning in wave.yaml.`,
 		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
   wave run impl-hotfix --dry-run
