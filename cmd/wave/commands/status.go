@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,9 +8,8 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-
-	_ "modernc.org/sqlite"
 )
 
 // StatusOptions holds options for the status command.
@@ -100,29 +98,52 @@ func runStatus(opts StatusOptions) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open state database: %w", err)
 	}
-	defer db.Close()
-
-	// Configure SQLite for read-only access
-	db.SetMaxOpenConns(1)
+	defer store.Close()
 
 	if opts.RunID != "" {
-		return showRunDetails(db, opts)
+		return showRunDetails(store, opts)
 	}
 
 	if opts.All {
-		return showAllRuns(db, opts, 10)
+		return showAllRuns(store, opts, 10)
 	}
 
-	return showRunningRuns(db, opts)
+	return showRunningRuns(store, opts)
+}
+
+// runRecordToStatusInfo converts a state.RunRecord to a StatusRunInfo for display.
+func runRecordToStatusInfo(r *state.RunRecord) StatusRunInfo {
+	info := StatusRunInfo{
+		RunID:       r.RunID,
+		Pipeline:    r.PipelineName,
+		Status:      r.Status,
+		CurrentStep: r.CurrentStep,
+		Tokens:      r.TotalTokens,
+		TokensStr:   formatTokens(r.TotalTokens),
+		StartedAt:   r.StartedAt.Format("2006-01-02 15:04:05"),
+		Input:       r.Input,
+		Error:       r.ErrorMessage,
+	}
+
+	if r.CompletedAt != nil {
+		info.CompletedAt = r.CompletedAt.Format("2006-01-02 15:04:05")
+		info.Elapsed = formatElapsed(r.CompletedAt.Sub(r.StartedAt))
+		info.ElapsedMs = r.CompletedAt.Sub(r.StartedAt).Milliseconds()
+	} else {
+		info.Elapsed = formatElapsed(time.Since(r.StartedAt))
+		info.ElapsedMs = time.Since(r.StartedAt).Milliseconds()
+	}
+
+	return info
 }
 
 // showRunDetails shows detailed status for a specific run.
-func showRunDetails(db *sql.DB, opts StatusOptions) error {
-	run, err := queryRun(db, opts.RunID)
+func showRunDetails(store state.StateStore, opts StatusOptions) error {
+	record, err := store.GetRun(opts.RunID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			if opts.Format == "json" {
@@ -134,6 +155,8 @@ func showRunDetails(db *sql.DB, opts StatusOptions) error {
 		}
 		return err
 	}
+
+	run := runRecordToStatusInfo(record)
 
 	if opts.Format == "json" {
 		output := StatusOutput{Runs: []StatusRunInfo{run}}
@@ -174,13 +197,13 @@ func showRunDetails(db *sql.DB, opts StatusOptions) error {
 }
 
 // showRunningRuns shows currently running pipelines.
-func showRunningRuns(db *sql.DB, opts StatusOptions) error {
-	runs, err := queryRunningRuns(db)
+func showRunningRuns(store state.StateStore, opts StatusOptions) error {
+	records, err := store.GetRunningRuns()
 	if err != nil {
 		return err
 	}
 
-	if len(runs) == 0 {
+	if len(records) == 0 {
 		if opts.Format == "json" {
 			fmt.Println(`{"runs":[]}`)
 			return nil
@@ -189,23 +212,33 @@ func showRunningRuns(db *sql.DB, opts StatusOptions) error {
 		return nil
 	}
 
+	runs := make([]StatusRunInfo, len(records))
+	for i := range records {
+		runs[i] = runRecordToStatusInfo(&records[i])
+	}
+
 	return outputRuns(runs, opts)
 }
 
 // showAllRuns shows recent pipelines.
-func showAllRuns(db *sql.DB, opts StatusOptions, limit int) error {
-	runs, err := queryRecentRuns(db, limit)
+func showAllRuns(store state.StateStore, opts StatusOptions, limit int) error {
+	records, err := store.ListRuns(state.ListRunsOptions{Limit: limit})
 	if err != nil {
 		return err
 	}
 
-	if len(runs) == 0 {
+	if len(records) == 0 {
 		if opts.Format == "json" {
 			fmt.Println(`{"runs":[]}`)
 			return nil
 		}
 		fmt.Fprintln(os.Stderr, "No pipelines found")
 		return nil
+	}
+
+	runs := make([]StatusRunInfo, len(records))
+	for i := range records {
+		runs[i] = runRecordToStatusInfo(&records[i])
 	}
 
 	return outputRuns(runs, opts)
@@ -285,164 +318,6 @@ func outputRuns(runs []StatusRunInfo, opts StatusOptions) error {
 	}
 
 	return nil
-}
-
-// queryRun queries a specific run by ID.
-func queryRun(db *sql.DB, runID string) (StatusRunInfo, error) {
-	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, error_message
-	          FROM pipeline_run
-	          WHERE run_id = ?`
-
-	var run StatusRunInfo
-	var startedAt int64
-	var completedAt sql.NullInt64
-	var input, currentStep, errorMessage sql.NullString
-	var tokens int
-
-	err := db.QueryRow(query, runID).Scan(
-		&run.RunID,
-		&run.Pipeline,
-		&run.Status,
-		&input,
-		&currentStep,
-		&tokens,
-		&startedAt,
-		&completedAt,
-		&errorMessage,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return run, fmt.Errorf("run not found: %s", runID)
-		}
-		return run, fmt.Errorf("failed to query run: %w", err)
-	}
-
-	run.Tokens = tokens
-	run.TokensStr = formatTokens(tokens)
-	run.StartedAt = time.Unix(startedAt, 0).Format("2006-01-02 15:04:05")
-
-	if input.Valid {
-		run.Input = input.String
-	}
-	if currentStep.Valid {
-		run.CurrentStep = currentStep.String
-	}
-	if completedAt.Valid {
-		run.CompletedAt = time.Unix(completedAt.Int64, 0).Format("2006-01-02 15:04:05")
-		run.Elapsed = formatElapsed(time.Unix(completedAt.Int64, 0).Sub(time.Unix(startedAt, 0)))
-		run.ElapsedMs = completedAt.Int64*1000 - startedAt*1000
-	} else {
-		run.Elapsed = formatElapsed(time.Since(time.Unix(startedAt, 0)))
-		run.ElapsedMs = time.Since(time.Unix(startedAt, 0)).Milliseconds()
-	}
-	if errorMessage.Valid {
-		run.Error = errorMessage.String
-	}
-
-	return run, nil
-}
-
-// queryRunningRuns queries currently running pipelines.
-func queryRunningRuns(db *sql.DB) ([]StatusRunInfo, error) {
-	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, error_message
-	          FROM pipeline_run
-	          WHERE status = 'running'
-	          ORDER BY started_at DESC`
-
-	return queryRunsInternal(db, query)
-}
-
-// queryRecentRuns queries recent pipelines.
-func queryRecentRuns(db *sql.DB, limit int) ([]StatusRunInfo, error) {
-	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, error_message
-	          FROM pipeline_run
-	          ORDER BY started_at DESC
-	          LIMIT ?`
-
-	return queryRunsInternalWithArgs(db, query, limit)
-}
-
-// queryRunsInternal executes a query and returns StatusRunInfo slice.
-func queryRunsInternal(db *sql.DB, query string) ([]StatusRunInfo, error) {
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query runs: %w", err)
-	}
-	defer rows.Close()
-
-	return scanRuns(rows)
-}
-
-// queryRunsInternalWithArgs executes a query with arguments.
-func queryRunsInternalWithArgs(db *sql.DB, query string, args ...any) ([]StatusRunInfo, error) {
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query runs: %w", err)
-	}
-	defer rows.Close()
-
-	return scanRuns(rows)
-}
-
-// scanRuns scans rows into StatusRunInfo slice.
-func scanRuns(rows *sql.Rows) ([]StatusRunInfo, error) {
-	var runs []StatusRunInfo
-
-	for rows.Next() {
-		var run StatusRunInfo
-		var startedAt int64
-		var completedAt sql.NullInt64
-		var input, currentStep, errorMessage sql.NullString
-		var tokens int
-
-		err := rows.Scan(
-			&run.RunID,
-			&run.Pipeline,
-			&run.Status,
-			&input,
-			&currentStep,
-			&tokens,
-			&startedAt,
-			&completedAt,
-			&errorMessage,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan run: %w", err)
-		}
-
-		run.Tokens = tokens
-		run.TokensStr = formatTokens(tokens)
-		run.StartedAt = time.Unix(startedAt, 0).Format("2006-01-02 15:04:05")
-
-		if input.Valid {
-			run.Input = input.String
-		}
-		if currentStep.Valid {
-			run.CurrentStep = currentStep.String
-		}
-		if completedAt.Valid {
-			run.CompletedAt = time.Unix(completedAt.Int64, 0).Format("2006-01-02 15:04:05")
-			run.Elapsed = formatElapsed(time.Unix(completedAt.Int64, 0).Sub(time.Unix(startedAt, 0)))
-			run.ElapsedMs = completedAt.Int64*1000 - startedAt*1000
-		} else {
-			run.Elapsed = formatElapsed(time.Since(time.Unix(startedAt, 0)))
-			run.ElapsedMs = time.Since(time.Unix(startedAt, 0)).Milliseconds()
-		}
-		if errorMessage.Valid {
-			run.Error = errorMessage.String
-		}
-
-		runs = append(runs, run)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating runs: %w", err)
-	}
-
-	return runs, nil
 }
 
 // statusColor returns the ANSI color code for a status.
