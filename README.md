@@ -379,7 +379,7 @@ steps:
     dependencies: [security, quality]  # runs after both complete
 ```
 
-**46 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**51 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -407,7 +407,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 46 built-in pipelines:
+A selection of the 51 built-in pipelines:
 
 ### Development
 
