@@ -10,3 +10,4 @@
 
 ## Additional Fixes (discovered during validation)
 - [X] Task 3.1: Update docs/guide/pipelines.md pipeline count from "46" to "51"
+- [X] Task 3.2: Update docs/index.md pipeline count from "47" to "51"
