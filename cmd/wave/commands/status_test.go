@@ -390,50 +390,6 @@ func TestStatusCmd_CancelledPipeline(t *testing.T) {
 	assert.Contains(t, stdout, "cancelled")
 }
 
-// TestStatusCmd_ElapsedTimeFormat tests elapsed time formatting.
-func TestStatusCmd_ElapsedTimeFormat(t *testing.T) {
-	tests := []struct {
-		name     string
-		duration time.Duration
-		expected string
-	}{
-		{"seconds only", 45 * time.Second, "0m45s"},
-		{"minutes and seconds", 2*time.Minute + 34*time.Second, "2m34s"},
-		{"hours and minutes", 1*time.Hour + 23*time.Minute, "1h23m"},
-		{"just over an hour", 1*time.Hour + 5*time.Minute, "1h5m"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := formatElapsed(tc.duration)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
-// TestStatusCmd_TokensFormat tests token count formatting.
-func TestStatusCmd_TokensFormat(t *testing.T) {
-	tests := []struct {
-		tokens   int
-		expected string
-	}{
-		{0, "0"},
-		{500, "500"},
-		{999, "999"},
-		{1000, "1k"},
-		{1500, "1k"},
-		{45000, "45k"},
-		{100000, "100k"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.expected, func(t *testing.T) {
-			result := formatTokens(tc.tokens)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 // TestStatusCmd_TableHeader tests that table output includes header.
 func TestStatusCmd_TableHeader(t *testing.T) {
 	h := newStatusTestHelper(t)

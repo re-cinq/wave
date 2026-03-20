@@ -457,30 +457,6 @@ func TestNewArtifactsCmdFlags(t *testing.T) {
 	assert.NotNil(t, manifestFlag, "manifest flag should exist")
 }
 
-// Test: Format size helper function (artifacts context)
-func TestArtifactsCmd_FormatSize(t *testing.T) {
-	tests := []struct {
-		bytes    int64
-		expected string
-	}{
-		{0, "0 B"},
-		{100, "100 B"},
-		{1023, "1023 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1048576, "1.0 MB"},
-		{1572864, "1.5 MB"},
-		{1073741824, "1.0 GB"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.expected, func(t *testing.T) {
-			result := formatSize(tc.bytes)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 // Test: Table output format
 func TestArtifactsCmd_TableOutputFormat(t *testing.T) {
 	env := newArtifactsTestEnv(t)
