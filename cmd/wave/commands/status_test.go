@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,7 +22,8 @@ type statusTestHelper struct {
 	t       *testing.T
 	tmpDir  string
 	origDir string
-	db      *sql.DB
+	store   state.StateStore
+	db      *sql.DB // direct connection for test data insertion with specific IDs
 }
 
 // newStatusTestHelper creates a new test helper with a temporary directory and database.
@@ -36,44 +38,20 @@ func newStatusTestHelper(t *testing.T) *statusTestHelper {
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
-	// Create and initialize database
+	// Create state store (applies all migrations, ensuring full schema)
 	dbPath := filepath.Join(waveDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err, "failed to open database")
+	store, err := state.NewStateStore(dbPath)
+	require.NoError(t, err, "failed to create state store")
 
-	// Initialize schema
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
-			input TEXT,
-			current_step TEXT,
-			total_tokens INTEGER DEFAULT 0,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER,
-			cancelled_at INTEGER,
-			error_message TEXT
-		);
-		CREATE TABLE IF NOT EXISTS event_log (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			run_id TEXT NOT NULL,
-			timestamp INTEGER NOT NULL,
-			step_id TEXT,
-			state TEXT NOT NULL,
-			persona TEXT,
-			message TEXT,
-			tokens_used INTEGER,
-			duration_ms INTEGER,
-			FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
-		);
-	`)
-	require.NoError(t, err, "failed to initialize schema")
+	// Open a direct SQL connection for inserting test data with specific run IDs
+	db, err := sql.Open("sqlite", dbPath)
+	require.NoError(t, err, "failed to open direct db connection")
 
 	return &statusTestHelper{
 		t:       t,
 		tmpDir:  tmpDir,
 		origDir: origDir,
+		store:   store,
 		db:      db,
 	}
 }
@@ -85,12 +63,15 @@ func (h *statusTestHelper) chdir() {
 	require.NoError(h.t, err, "failed to change to temp directory")
 }
 
-// restore returns to the original directory and closes the database.
+// restore returns to the original directory and closes the store.
 func (h *statusTestHelper) restore() {
 	h.t.Helper()
 	_ = os.Chdir(h.origDir)
 	if h.db != nil {
 		h.db.Close()
+	}
+	if h.store != nil {
+		h.store.Close()
 	}
 }
 
@@ -104,10 +85,17 @@ func (h *statusTestHelper) createRun(runID, pipelineName, status, currentStep st
 		completedAtUnix = &unix
 	}
 
+	var step any
+	if currentStep == "" {
+		step = nil
+	} else {
+		step = currentStep
+	}
+
 	_, err := h.db.Exec(`
 		INSERT INTO pipeline_run (run_id, pipeline_name, status, current_step, total_tokens, started_at, completed_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, runID, pipelineName, status, currentStep, tokens, startedAt.Unix(), completedAtUnix)
+	`, runID, pipelineName, status, step, tokens, startedAt.Unix(), completedAtUnix)
 	require.NoError(h.t, err, "failed to create run")
 }
 
@@ -115,10 +103,17 @@ func (h *statusTestHelper) createRun(runID, pipelineName, status, currentStep st
 func (h *statusTestHelper) createRunWithInput(runID, pipelineName, status, input string, startedAt time.Time, errorMsg string) {
 	h.t.Helper()
 
+	var errVal any
+	if errorMsg == "" {
+		errVal = nil
+	} else {
+		errVal = errorMsg
+	}
+
 	_, err := h.db.Exec(`
 		INSERT INTO pipeline_run (run_id, pipeline_name, status, input, total_tokens, started_at, error_message)
 		VALUES (?, ?, ?, ?, 0, ?, ?)
-	`, runID, pipelineName, status, input, startedAt.Unix(), errorMsg)
+	`, runID, pipelineName, status, input, startedAt.Unix(), errVal)
 	require.NoError(h.t, err, "failed to create run")
 }
 
