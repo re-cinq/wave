@@ -82,7 +82,7 @@ Exit codes:
 				SkipCodebase: skipCodebase,
 			})
 			if err != nil {
-				return NewCLIError(CodeInternalError, fmt.Sprintf("doctor check failed: %s", err), "A health check encountered an unexpected error")
+				return NewCLIError(CodeInternalError, fmt.Sprintf("doctor check failed: %s", err), "A health check encountered an unexpected error").WithCause(err)
 			}
 
 			format := ResolveFormat(cmd, "text")
@@ -145,7 +145,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	profile, err := doctor.ScanProject(".", scanOpts...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr)
-		return NewCLIError(CodeInternalError, fmt.Sprintf("project scan failed: %s", err), "Project scanning encountered an error")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("project scan failed: %s", err), "Project scanning encountered an error").WithCause(err)
 	}
 
 	fmt.Fprintf(os.Stderr, " done (%s)\n\n", formatScanSummary(profile))
@@ -158,7 +158,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 
 	m, err := manifest.Load(manifestPath)
 	if err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to load manifest: %s", err), "Check wave.yaml syntax -- run 'wave validate' to diagnose")
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to load manifest: %s", err), "Check wave.yaml syntax -- run 'wave validate' to diagnose").WithCause(err)
 	}
 
 	// 3. Detect forge info
@@ -197,7 +197,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	if !opts.yes {
 		accepted, err := promptConfirm(os.Stdin, os.Stdout, "Accept changes? [Y/n] ")
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("confirmation failed: %s", err), "Interactive confirmation failed")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("confirmation failed: %s", err), "Interactive confirmation failed").WithCause(err)
 		}
 		if !accepted {
 			fmt.Fprintln(os.Stdout, "Aborted.")
@@ -207,7 +207,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 
 	// 10. Apply changes
 	if err := applyOptimizeChanges(manifestPath, m, result, profile); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to apply changes: %s", err), "Check file permissions for wave.yaml")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to apply changes: %s", err), "Check file permissions for wave.yaml").WithCause(err)
 	}
 
 	fmt.Fprintln(os.Stdout, "Changes applied.")
@@ -282,23 +282,23 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	// Read existing wave.yaml as a generic map to preserve non-project sections
 	rawData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read %s: %s", manifestPath, err), "Check that wave.yaml exists and is readable")
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read %s: %s", manifestPath, err), "Check that wave.yaml exists and is readable").WithCause(err)
 	}
 
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(rawData, &raw); err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse %s: %s", manifestPath, err), "Check wave.yaml YAML syntax")
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse %s: %s", manifestPath, err), "Check wave.yaml YAML syntax").WithCause(err)
 	}
 
 	// Marshal the new project block and unmarshal into a generic map
 	projectBytes, err := yaml.Marshal(newProject)
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project config: %s", err), "Internal serialization error")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project config: %s", err), "Internal serialization error").WithCause(err)
 	}
 
 	var projectMap map[string]interface{}
 	if err := yaml.Unmarshal(projectBytes, &projectMap); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to unmarshal project config: %s", err), "Internal deserialization error")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to unmarshal project config: %s", err), "Internal deserialization error").WithCause(err)
 	}
 
 	raw["project"] = projectMap
@@ -306,26 +306,26 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	// Write back wave.yaml
 	outData, err := yaml.Marshal(raw)
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal wave.yaml: %s", err), "Internal serialization error")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal wave.yaml: %s", err), "Internal serialization error").WithCause(err)
 	}
 
 	if err := os.WriteFile(manifestPath, outData, 0o644); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", manifestPath, err), "Check write permissions for wave.yaml")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", manifestPath, err), "Check write permissions for wave.yaml").WithCause(err)
 	}
 
 	// Write project profile
 	profilePath := filepath.Join(".wave", "project-profile.json")
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to create directory for %s: %s", profilePath, err), "Check write permissions for .wave/ directory")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to create directory for %s: %s", profilePath, err), "Check write permissions for .wave/ directory").WithCause(err)
 	}
 
 	profileData, err := json.MarshalIndent(profile, "", "  ")
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project profile: %s", err), "Internal serialization error")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal project profile: %s", err), "Internal serialization error").WithCause(err)
 	}
 
 	if err := os.WriteFile(profilePath, profileData, 0o644); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", profilePath, err), "Check write permissions for .wave/ directory")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", profilePath, err), "Check write permissions for .wave/ directory").WithCause(err)
 	}
 
 	return nil

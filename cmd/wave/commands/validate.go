@@ -45,14 +45,14 @@ func runValidate(opts ValidateOptions) error {
 	manifestData, err := os.ReadFile(opts.ManifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Run 'wave init' to create a new Wave project")
+			return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Run 'wave init' to create a new Wave project").WithCause(err)
 		}
-		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path")
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path").WithCause(err)
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest YAML: %s", err), "Check for syntax errors like incorrect indentation or invalid characters")
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest YAML: %s", err), "Check for syntax errors like incorrect indentation or invalid characters").WithCause(err)
 	}
 
 	if opts.Verbose {
@@ -116,7 +116,7 @@ func runValidate(opts ValidateOptions) error {
 
 	if opts.Pipeline != "" {
 		if err := validatePipeline(opts.Pipeline, &m); err != nil {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline validation failed: %s", err), "Fix the pipeline definition and re-run validation")
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline validation failed: %s", err), "Fix the pipeline definition and re-run validation").WithCause(err)
 		}
 		if opts.Verbose {
 			fmt.Printf("✓ Pipeline '%s' is valid\n", opts.Pipeline)
@@ -204,12 +204,12 @@ func validatePipeline(pipelineName string, m *manifest.Manifest) error {
 
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline file: %s", err), "Check file permissions")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline file: %s", err), "Check file permissions").WithCause(err)
 	}
 
 	var pipeline map[string]interface{}
 	if err := yaml.Unmarshal(pipelineData, &pipeline); err != nil {
-		return NewCLIError(CodeValidationFailed, fmt.Sprintf("failed to parse pipeline: %s", err), "Check pipeline YAML syntax")
+		return NewCLIError(CodeValidationFailed, fmt.Sprintf("failed to parse pipeline: %s", err), "Check pipeline YAML syntax").WithCause(err)
 	}
 
 	if pipeline["kind"] != "WavePipeline" {

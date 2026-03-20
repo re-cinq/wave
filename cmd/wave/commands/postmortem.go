@@ -81,13 +81,13 @@ func runPostmortem(opts PostmortemOptions) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions")
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions").WithCause(err)
 	}
 	defer store.Close()
 
 	run, err := store.GetRun(opts.RunID)
 	if err != nil {
-		return NewCLIError(CodeRunNotFound, fmt.Sprintf("run not found: %s", err), "Use 'wave status --all' to list available runs")
+		return NewCLIError(CodeRunNotFound, fmt.Sprintf("run not found: %s", err), "Use 'wave status --all' to list available runs").WithCause(err)
 	}
 
 	// Only operate on failed runs.
@@ -104,7 +104,7 @@ func runPostmortem(opts PostmortemOptions) error {
 	// Fetch step states to find the failed step.
 	stepStates, err := store.GetStepStates(opts.RunID)
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get step states: %s", err), "State database query failed")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get step states: %s", err), "State database query failed").WithCause(err)
 	}
 
 	// Identify the failed step.
