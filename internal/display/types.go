@@ -96,18 +96,6 @@ type DisplayConfig struct {
 	AnimationEnabled bool   // Enable/disable animations
 }
 
-// ProgressRenderer defines the interface for rendering progress information.
-type ProgressRenderer interface {
-	// Render updates the display with current progress state
-	Render(progress *PipelineProgress) error
-
-	// Clear removes the current display
-	Clear() error
-
-	// Close cleans up resources
-	Close() error
-}
-
 // ColorScheme provides color mappings for different terminal types.
 var DefaultColorScheme = ColorPalette{
 	Primary:    "\033[36m", // Standard cyan
