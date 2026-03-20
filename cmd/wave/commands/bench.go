@@ -28,6 +28,10 @@ Subcommands:
   report   Generate a summary from benchmark results
   list     List available benchmark datasets
   compare  Compare two benchmark result files`,
+		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
+  wave bench report --results results.json
+  wave bench compare --base baseline.json --compare wave-run.json
+  wave bench list`,
 	}
 
 	cmd.AddCommand(newBenchRunCmd())
