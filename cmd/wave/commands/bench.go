@@ -75,16 +75,16 @@ Use --mode to select execution mode:
 			cmd.SilenceErrors = true
 
 			if dataset == "" {
-				return fmt.Errorf("--dataset is required")
+				return NewCLIError(CodeInvalidArgs, "--dataset is required", "Specify a dataset file with --dataset <path>")
 			}
 			if mode == "" {
 				mode = bench.ModeWave
 			}
 			if mode != bench.ModeWave && mode != bench.ModeClaude {
-				return fmt.Errorf("--mode must be %q or %q", bench.ModeWave, bench.ModeClaude)
+				return NewCLIError(CodeInvalidArgs, fmt.Sprintf("--mode must be %q or %q", bench.ModeWave, bench.ModeClaude), "Use --mode wave or --mode claude")
 			}
 			if pipeline == "" && mode != bench.ModeClaude {
-				return fmt.Errorf("--pipeline is required (unless --mode=claude)")
+				return NewCLIError(CodeInvalidArgs, "--pipeline is required (unless --mode=claude)", "Specify a pipeline with --pipeline <name>")
 			}
 
 			// Resolve dataset path
@@ -102,7 +102,7 @@ Use --mode to select execution mode:
 
 			tasks, err := bench.LoadDataset(datasetPath)
 			if err != nil {
-				return fmt.Errorf("load dataset: %w", err)
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load dataset: %s", err), "Check that the dataset file exists and is valid JSONL")
 			}
 
 			fmt.Fprintf(os.Stderr, "Loaded %d tasks from %s\n", len(tasks), datasetPath)
@@ -129,7 +129,7 @@ Use --mode to select execution mode:
 			runner := bench.NewSubprocessRunner(cacheDir)
 			report, err := bench.RunBenchmark(ctx, tasks, cfg, runner)
 			if err != nil && report == nil {
-				return fmt.Errorf("benchmark failed: %w", err)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("benchmark failed: %s", err), "Check adapter availability and task configuration")
 			}
 
 			// Determine output format
@@ -142,7 +142,7 @@ Use --mode to select execution mode:
 			// Write results file if requested
 			if outputPath != "" {
 				if err := writeReportFile(report, outputPath); err != nil {
-					return fmt.Errorf("write results: %w", err)
+					return NewCLIError(CodeInternalError, fmt.Sprintf("write results: %s", err), "Check write permissions for the output path")
 				}
 				fmt.Fprintf(os.Stderr, "Results written to %s\n", outputPath)
 			}
@@ -193,17 +193,17 @@ func newBenchReportCmd() *cobra.Command {
 			cmd.SilenceErrors = true
 
 			if resultsPath == "" {
-				return fmt.Errorf("--results is required")
+				return NewCLIError(CodeInvalidArgs, "--results is required", "Specify a results file with --results <path>")
 			}
 
 			data, err := os.ReadFile(resultsPath)
 			if err != nil {
-				return fmt.Errorf("read results file: %w", err)
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("read results file: %s", err), "Check that the results file exists and is readable")
 			}
 
 			var report bench.BenchReport
 			if err := json.Unmarshal(data, &report); err != nil {
-				return fmt.Errorf("parse results file: %w", err)
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("parse results file: %s", err), "The results file is not valid JSON")
 			}
 
 			// Recalculate in case the file was hand-edited
@@ -254,7 +254,7 @@ func newBenchListCmd() *cobra.Command {
 					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .wave/bench/datasets/ and add .jsonl files.")
 					return nil
 				}
-				return fmt.Errorf("list datasets: %w", err)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("list datasets: %s", err), "Check datasets directory permissions")
 			}
 
 			if len(datasets) == 0 {
@@ -306,20 +306,20 @@ Identifies tasks that improved, regressed, or stayed the same.`,
 			cmd.SilenceErrors = true
 
 			if basePath == "" {
-				return fmt.Errorf("--base is required")
+				return NewCLIError(CodeInvalidArgs, "--base is required", "Specify a base results file with --base <path>")
 			}
 			if comparePath == "" {
-				return fmt.Errorf("--compare is required")
+				return NewCLIError(CodeInvalidArgs, "--compare is required", "Specify a comparison results file with --compare <path>")
 			}
 
 			baseReport, err := loadReportFile(basePath)
 			if err != nil {
-				return fmt.Errorf("load base report: %w", err)
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load base report: %s", err), "Check that the base results file exists and is valid JSON")
 			}
 
 			compReport, err := loadReportFile(comparePath)
 			if err != nil {
-				return fmt.Errorf("load compare report: %w", err)
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load compare report: %s", err), "Check that the comparison results file exists and is valid JSON")
 			}
 
 			cr := bench.Compare(baseReport, compReport)

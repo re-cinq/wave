@@ -111,7 +111,7 @@ func runLogs(opts LogsOptions) error {
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return fmt.Errorf("failed to open state database: %w", err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it")
 	}
 	defer db.Close()
 
@@ -269,7 +269,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 	if opts.Since != "" {
 		duration, err := parseDuration(opts.Since)
 		if err != nil {
-			return nil, fmt.Errorf("invalid --since duration: %w", err)
+			return nil, NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --since duration: %s", err), "Use a duration like '10m', '1h', or '30s'")
 		}
 		cutoff := time.Now().Add(-duration).Unix()
 		query += " AND timestamp >= ?"
@@ -310,7 +310,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query logs: %w", err)
+		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to query logs: %s", err), "The state database may be corrupted -- try 'wave migrate validate'")
 	}
 	defer rows.Close()
 
@@ -331,7 +331,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 			&durationMs,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan log: %w", err)
+			return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to scan log: %s", err), "The state database may have schema issues -- try 'wave migrate up'")
 		}
 
 		log.Timestamp = time.Unix(timestamp, 0).Format("15:04:05")
@@ -355,7 +355,7 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating logs: %w", err)
+		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("error iterating logs: %s", err), "The state database may have schema issues -- try 'wave migrate up'")
 	}
 
 	// Reverse if we used tail with DESC order
@@ -388,7 +388,7 @@ func queryNewLogs(db *sql.DB, runID string, lastID int64, opts LogsOptions) ([]L
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		return nil, lastID, fmt.Errorf("failed to query new logs: %w", err)
+		return nil, lastID, NewCLIError(CodeInternalError, fmt.Sprintf("failed to query new logs: %s", err), "Database query error during follow mode")
 	}
 	defer rows.Close()
 
@@ -412,7 +412,7 @@ func queryNewLogs(db *sql.DB, runID string, lastID int64, opts LogsOptions) ([]L
 			&durationMs,
 		)
 		if err != nil {
-			return nil, lastID, fmt.Errorf("failed to scan log: %w", err)
+			return nil, lastID, NewCLIError(CodeInternalError, fmt.Sprintf("failed to scan log: %s", err), "Database schema mismatch -- try 'wave migrate up'")
 		}
 
 		if id > newLastID {
@@ -448,7 +448,7 @@ func outputLogs(runID string, logs []LogsEntry, opts LogsOptions) error {
 		output := LogsOutput{RunID: runID, Logs: logs}
 		jsonBytes, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return fmt.Errorf("failed to marshal JSON: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal JSON: %s", err), "This is an internal serialization error")
 		}
 		fmt.Println(string(jsonBytes))
 		return nil
@@ -557,7 +557,7 @@ func runLogsTrace(opts LogsOptions) error {
 		}
 		db, err := sql.Open("sqlite", dbPath)
 		if err != nil {
-			return fmt.Errorf("failed to open state database: %w", err)
+			return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions")
 		}
 		defer db.Close()
 		db.SetMaxOpenConns(1)
@@ -582,7 +582,7 @@ func runLogsTrace(opts LogsOptions) error {
 
 	events, err := audit.ReadTraceFile(tracePath)
 	if err != nil {
-		return fmt.Errorf("failed to read trace file: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read trace file: %s", err), "The trace file may be corrupted or incomplete")
 	}
 
 	// Filter by step if requested.

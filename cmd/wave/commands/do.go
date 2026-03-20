@@ -69,14 +69,14 @@ func runDo(input string, opts DoOptions) error {
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("manifest file not found: %s\nRun 'wave init' to create a new Wave project or specify --manifest path", opts.Manifest)
+			return NewCLIError(CodeManifestMissing, fmt.Sprintf("manifest file not found: %s", opts.Manifest), "Run 'wave init' to create a new Wave project or specify --manifest path")
 		}
-		return fmt.Errorf("failed to read manifest: %w", err)
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path")
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest %s: %w\nEnsure the file is valid YAML with correct indentation", opts.Manifest, err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest %s: %s", opts.Manifest, err), "Ensure the file is valid YAML with correct indentation")
 	}
 
 	executePersona := opts.Persona
@@ -92,7 +92,7 @@ func runDo(input string, opts DoOptions) error {
 
 	p, err := pipeline.GenerateAdHocPipeline(adHocOpts)
 	if err != nil {
-		return fmt.Errorf("failed to generate pipeline: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to generate pipeline: %s", err), "Check manifest personas and adapter configuration")
 	}
 
 	if opts.DryRun {
@@ -157,7 +157,7 @@ func runDo(input string, opts DoOptions) error {
 	pipelineStart := time.Now()
 
 	if err := executor.Execute(execCtx, p, &m, input); err != nil {
-		return fmt.Errorf("ad-hoc execution failed: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("ad-hoc execution failed: %s", err), "Run 'wave logs' to inspect execution details")
 	}
 
 	elapsed := time.Since(pipelineStart)

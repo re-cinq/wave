@@ -45,14 +45,14 @@ func runValidate(opts ValidateOptions) error {
 	manifestData, err := os.ReadFile(opts.ManifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("failed to read manifest: %w\n\nHint: Run 'wave init' to create a new Wave project", err)
+			return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Run 'wave init' to create a new Wave project")
 		}
-		return fmt.Errorf("failed to read manifest: %w", err)
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path")
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest YAML: %w\n\nHint: Check for syntax errors like incorrect indentation or invalid characters", err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest YAML: %s", err), "Check for syntax errors like incorrect indentation or invalid characters")
 	}
 
 	if opts.Verbose {
@@ -70,7 +70,7 @@ func runValidate(opts ValidateOptions) error {
 			if len(availableAdapters) > 0 {
 				fmt.Printf("  Available adapters: %v\n", availableAdapters)
 			}
-			return fmt.Errorf("manifest validation failed: persona '%s' references unknown adapter '%s'", name, persona.Adapter)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("manifest validation failed: persona '%s' references unknown adapter '%s'", name, persona.Adapter), "Update the persona's adapter field to reference a defined adapter")
 		}
 	}
 
@@ -79,7 +79,7 @@ func runValidate(opts ValidateOptions) error {
 		for _, err := range errs {
 			fmt.Printf("  - %s\n", err)
 		}
-		return fmt.Errorf("manifest validation failed")
+		return NewCLIError(CodeValidationFailed, "manifest validation failed", "Fix the issues listed above and re-run 'wave validate'")
 	}
 
 	if opts.Verbose {
@@ -91,7 +91,7 @@ func runValidate(opts ValidateOptions) error {
 		for _, err := range errs {
 			fmt.Printf("  - %s\n", err)
 		}
-		return fmt.Errorf("system reference validation failed")
+		return NewCLIError(CodeValidationFailed, "system reference validation failed", "Create missing files or update references in wave.yaml")
 	}
 
 	if opts.Verbose {
@@ -116,7 +116,7 @@ func runValidate(opts ValidateOptions) error {
 
 	if opts.Pipeline != "" {
 		if err := validatePipeline(opts.Pipeline, &m); err != nil {
-			return fmt.Errorf("pipeline validation failed: %w", err)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline validation failed: %s", err), "Fix the pipeline definition and re-run validation")
 		}
 		if opts.Verbose {
 			fmt.Printf("✓ Pipeline '%s' is valid\n", opts.Pipeline)
@@ -199,42 +199,42 @@ func validateAdapterBinaries(m *manifest.Manifest, verbose bool) []string {
 func validatePipeline(pipelineName string, m *manifest.Manifest) error {
 	pipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
 	if _, err := os.Stat(pipelinePath); os.IsNotExist(err) {
-		return fmt.Errorf("pipeline file '%s' does not exist", pipelinePath)
+		return NewCLIError(CodePipelineNotFound, fmt.Sprintf("pipeline file '%s' does not exist", pipelinePath), "Create the pipeline file or check the pipeline name")
 	}
 
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
-		return fmt.Errorf("failed to read pipeline file: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline file: %s", err), "Check file permissions")
 	}
 
 	var pipeline map[string]interface{}
 	if err := yaml.Unmarshal(pipelineData, &pipeline); err != nil {
-		return fmt.Errorf("failed to parse pipeline: %w", err)
+		return NewCLIError(CodeValidationFailed, fmt.Sprintf("failed to parse pipeline: %s", err), "Check pipeline YAML syntax")
 	}
 
 	if pipeline["kind"] != "WavePipeline" {
-		return fmt.Errorf("invalid pipeline kind, expected 'WavePipeline'")
+		return NewCLIError(CodeValidationFailed, "invalid pipeline kind, expected 'WavePipeline'", "Set kind: WavePipeline in the pipeline file")
 	}
 
 	steps, ok := pipeline["steps"].([]interface{})
 	if !ok {
-		return fmt.Errorf("pipeline must have steps")
+		return NewCLIError(CodeValidationFailed, "pipeline must have steps", "Add at least one step to the pipeline")
 	}
 
 	stepIDs := make(map[string]bool)
 	for i, stepInterface := range steps {
 		step, ok := stepInterface.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("step[%d] must be an object", i)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] must be an object", i), "Ensure each step is a YAML mapping with id, persona, etc.")
 		}
 
 		stepID, ok := step["id"].(string)
 		if !ok || stepID == "" {
-			return fmt.Errorf("step[%d].id is required", i)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].id is required", i), "Add an id field to each step")
 		}
 
 		if stepIDs[stepID] {
-			return fmt.Errorf("duplicate step id: %s", stepID)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("duplicate step id: %s", stepID), "Rename one of the duplicate steps")
 		}
 		stepIDs[stepID] = true
 
@@ -243,21 +243,21 @@ func validatePipeline(pipelineName string, m *manifest.Manifest) error {
 
 		persona, hasPersona := step["persona"].(string)
 		if !hasSubPipeline && (!hasPersona || persona == "") {
-			return fmt.Errorf("step[%d].persona is required (or use pipeline: for composition steps)", i)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].persona is required (or use pipeline: for composition steps)", i), "Add a persona field or pipeline field to the step")
 		}
 
 		if hasPersona && persona != "" && m.GetPersona(persona) == nil {
-			return fmt.Errorf("step[%d].persona '%s' not found in manifest", i, persona)
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].persona '%s' not found in manifest", i, persona), "Add the persona to wave.yaml or use an existing persona")
 		}
 
 		if deps, ok := step["dependencies"].([]interface{}); ok {
 			for _, depInterface := range deps {
 				dep, ok := depInterface.(string)
 				if !ok || dep == "" {
-					return fmt.Errorf("step[%d] has invalid dependency", i)
+					return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] has invalid dependency", i), "Ensure all dependency values are valid step ID strings")
 				}
 				if !stepIDs[dep] {
-					return fmt.Errorf("step[%d] depends on non-existent step '%s'", i, dep)
+					return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] depends on non-existent step '%s'", i, dep), "Check that the dependency step ID matches an earlier step")
 				}
 			}
 		}
