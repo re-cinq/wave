@@ -471,7 +471,7 @@ func TestLogsCmd_SinceDaysParsing(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
-			result, err := parseSinceDuration(tc.input)
+			result, err := parseDuration(tc.input)
 			if tc.hasError {
 				assert.Error(t, err)
 			} else {

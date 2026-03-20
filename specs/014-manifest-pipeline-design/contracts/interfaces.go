@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Package contracts defines the core interfaces for the Wave
 // orchestrator. These are the contracts between internal packages.
 // Implementation details belong in internal/; these interfaces
