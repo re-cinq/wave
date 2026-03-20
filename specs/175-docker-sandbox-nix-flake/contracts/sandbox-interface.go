@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Package sandbox defines the contract interface for sandbox backends.
 // This file serves as the API contract — implementations must satisfy this interface.
 package sandbox
