@@ -169,7 +169,7 @@ func outputCancelResult(format string, result CancelResult) error {
 	if format == "json" {
 		data, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal result: %s", err), "This is an internal serialization error")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal result: %s", err), "This is an internal serialization error").WithCause(err)
 		}
 		fmt.Println(string(data))
 		return nil
@@ -203,7 +203,7 @@ func forceKillRun(runID string) error {
 
 	var pid int
 	if _, err := fmt.Sscanf(string(pidData), "%d", &pid); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("invalid pid in %s: %s", pidFile, err), "The PID file may be corrupted")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("invalid pid in %s: %s", pidFile, err), "The PID file may be corrupted").WithCause(err)
 	}
 
 	// Send SIGTERM to the process group
@@ -213,7 +213,7 @@ func forceKillRun(runID string) error {
 			os.Remove(pidFile)
 			return nil
 		}
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGTERM: %s", err), "The process may have already exited")
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGTERM: %s", err), "The process may have already exited").WithCause(err)
 	}
 
 	// Wait up to 5 seconds for graceful termination
@@ -229,7 +229,7 @@ func forceKillRun(runID string) error {
 	// Process still running after 5 seconds - send SIGKILL
 	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
 		if err != syscall.ESRCH {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGKILL: %s", err), "The process may require manual termination")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGKILL: %s", err), "The process may require manual termination").WithCause(err)
 		}
 	}
 

@@ -100,7 +100,7 @@ func runStatus(opts StatusOptions) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it")
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer store.Close()
 
@@ -162,7 +162,7 @@ func showRunDetails(store state.StateStore, opts StatusOptions) error {
 		output := StatusOutput{Runs: []StatusRunInfo{run}}
 		jsonBytes, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal JSON: %s", err), "This is an internal serialization error")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal JSON: %s", err), "This is an internal serialization error").WithCause(err)
 		}
 		fmt.Println(string(jsonBytes))
 		return nil
@@ -250,7 +250,7 @@ func outputRuns(runs []StatusRunInfo, opts StatusOptions) error {
 		output := StatusOutput{Runs: runs}
 		jsonBytes, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal JSON: %s", err), "This is an internal serialization error")
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal JSON: %s", err), "This is an internal serialization error").WithCause(err)
 		}
 		fmt.Println(string(jsonBytes))
 		return nil

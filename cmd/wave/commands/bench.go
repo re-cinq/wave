@@ -102,7 +102,7 @@ Use --mode to select execution mode:
 
 			tasks, err := bench.LoadDataset(datasetPath)
 			if err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("load dataset: %s", err), "Check that the dataset file exists and is valid JSONL")
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load dataset: %s", err), "Check that the dataset file exists and is valid JSONL").WithCause(err)
 			}
 
 			fmt.Fprintf(os.Stderr, "Loaded %d tasks from %s\n", len(tasks), datasetPath)
@@ -129,7 +129,7 @@ Use --mode to select execution mode:
 			runner := bench.NewSubprocessRunner(cacheDir)
 			report, err := bench.RunBenchmark(ctx, tasks, cfg, runner)
 			if err != nil && report == nil {
-				return NewCLIError(CodeInternalError, fmt.Sprintf("benchmark failed: %s", err), "Check adapter availability and task configuration")
+				return NewCLIError(CodeInternalError, fmt.Sprintf("benchmark failed: %s", err), "Check adapter availability and task configuration").WithCause(err)
 			}
 
 			// Determine output format
@@ -142,7 +142,7 @@ Use --mode to select execution mode:
 			// Write results file if requested
 			if outputPath != "" {
 				if err := writeReportFile(report, outputPath); err != nil {
-					return NewCLIError(CodeInternalError, fmt.Sprintf("write results: %s", err), "Check write permissions for the output path")
+					return NewCLIError(CodeInternalError, fmt.Sprintf("write results: %s", err), "Check write permissions for the output path").WithCause(err)
 				}
 				fmt.Fprintf(os.Stderr, "Results written to %s\n", outputPath)
 			}
@@ -198,12 +198,12 @@ func newBenchReportCmd() *cobra.Command {
 
 			data, err := os.ReadFile(resultsPath)
 			if err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("read results file: %s", err), "Check that the results file exists and is readable")
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("read results file: %s", err), "Check that the results file exists and is readable").WithCause(err)
 			}
 
 			var report bench.BenchReport
 			if err := json.Unmarshal(data, &report); err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("parse results file: %s", err), "The results file is not valid JSON")
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("parse results file: %s", err), "The results file is not valid JSON").WithCause(err)
 			}
 
 			// Recalculate in case the file was hand-edited
@@ -254,7 +254,7 @@ func newBenchListCmd() *cobra.Command {
 					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .wave/bench/datasets/ and add .jsonl files.")
 					return nil
 				}
-				return NewCLIError(CodeInternalError, fmt.Sprintf("list datasets: %s", err), "Check datasets directory permissions")
+				return NewCLIError(CodeInternalError, fmt.Sprintf("list datasets: %s", err), "Check datasets directory permissions").WithCause(err)
 			}
 
 			if len(datasets) == 0 {
@@ -314,12 +314,12 @@ Identifies tasks that improved, regressed, or stayed the same.`,
 
 			baseReport, err := loadReportFile(basePath)
 			if err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("load base report: %s", err), "Check that the base results file exists and is valid JSON")
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load base report: %s", err), "Check that the base results file exists and is valid JSON").WithCause(err)
 			}
 
 			compReport, err := loadReportFile(comparePath)
 			if err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("load compare report: %s", err), "Check that the comparison results file exists and is valid JSON")
+				return NewCLIError(CodeDatasetError, fmt.Sprintf("load compare report: %s", err), "Check that the comparison results file exists and is valid JSON").WithCause(err)
 			}
 
 			cr := bench.Compare(baseReport, compReport)
