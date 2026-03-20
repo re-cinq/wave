@@ -269,6 +269,61 @@ wave logs --format json          # Output as JSON for scripting
 
 ---
 
+## Logs vs Progress Output
+
+Wave has two distinct observability mechanisms that serve different purposes:
+
+- **`wave logs`** reads the event history from the state database *after* events have been recorded. It works on both running and completed pipelines and is the primary tool for post-hoc debugging.
+- **`--output` modes** (`text`, `json`, `quiet`) control how real-time progress is rendered to the terminal *during* execution. They determine what you see while a pipeline runs.
+
+### Comparison
+
+| | `wave logs` | `--output` modes |
+|---|---|---|
+| **Mechanism** | Reads recorded events from SQLite state DB | Renders progress events to terminal in real-time |
+| **Data source** | `.wave/state.db` (persisted) | Live event stream (ephemeral) |
+| **Timing** | During or after execution | Only during execution |
+| **Typical use** | Post-hoc debugging, audit trail, scripting | Watching progress, CI output formatting |
+
+### Use-Case Examples
+
+**1. Debugging a failed step**
+
+After a pipeline fails, use `wave logs` to inspect what happened:
+
+```bash
+wave logs impl-issue-20260320-abc123 --errors
+wave logs impl-issue-20260320-abc123 --step implement --format json
+```
+
+The logs are persisted in the state database, so you can inspect them long after the run finishes.
+
+**2. Watching a pipeline run live**
+
+To see real-time progress with tool activity while a pipeline executes:
+
+```bash
+wave run impl-issue -o text -v -- "https://github.com/org/repo/issues/42"
+```
+
+The `-o text` flag renders plain-text progress to stderr, and `-v` adds real-time tool activity lines. This output is ephemeral — once the terminal is closed, it is gone.
+
+**3. Scripting and CI integration**
+
+For machine-readable output, combine both mechanisms:
+
+```bash
+# Real-time: stream structured JSON events during execution
+wave run impl-issue -o json -- "https://github.com/org/repo/issues/42"
+
+# Post-hoc: query the state DB after completion
+wave logs impl-issue-20260320-abc123 --format json
+```
+
+Use `-o json` when you need to process events as they happen (e.g., updating a CI dashboard). Use `wave logs --format json` when you need to analyze a completed run (e.g., extracting step durations for metrics).
+
+---
+
 ## wave cancel
 
 Cancel a running pipeline.
