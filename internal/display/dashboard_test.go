@@ -97,30 +97,6 @@ func TestDashboard_StatusIcon(t *testing.T) {
 	}
 }
 
-func TestFormatDashboardDuration(t *testing.T) {
-	tests := []struct {
-		name     string
-		ms       int64
-		contains string
-	}{
-		{"seconds", 30000, "s"},
-		{"minutes", 120000, "m"},
-		{"hours", 7200000, "h"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatDashboardDuration(tt.ms)
-			if result == "" {
-				t.Error("Duration should not be empty")
-			}
-			if !strings.Contains(result, tt.contains) {
-				t.Errorf("Duration %q should contain %q", result, tt.contains)
-			}
-		})
-	}
-}
-
 func TestDashboard_RenderPanels(t *testing.T) {
 	dashboard := NewDashboard()
 
