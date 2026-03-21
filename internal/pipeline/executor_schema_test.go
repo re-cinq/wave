@@ -574,11 +574,6 @@ func TestContractPrompt_UnicodeInSchema(t *testing.T) {
 	assert.Contains(t, prompt, "Schema with Unicode", "Schema description should be present")
 }
 
-// TestContractPrompt_SymlinkBlocking tests that symlinks are blocked when disabled.
-func TestContractPrompt_SymlinkBlocking(t *testing.T) {
-	t.Skip("Symlink blocking feature not yet fully implemented in path validator")
-}
-
 // TestContractPrompt_SecurityLogging tests that security events are properly logged.
 func TestContractPrompt_SecurityLogging(t *testing.T) {
 	tmpDir := t.TempDir()
