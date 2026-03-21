@@ -362,14 +362,14 @@ func TestInitCreatesContractFiles(t *testing.T) {
 		"--all should create all contract files")
 }
 
-// TestInitOutputPath tests the --output flag for custom manifest path.
+// TestInitOutputPath tests the --manifest-path flag for custom manifest path.
 func TestInitOutputPath(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
 	customPath := "config/my-wave.yaml"
 
-	stdout, _, err := executeInitCmd("--output", customPath)
+	stdout, _, err := executeInitCmd("--manifest-path", customPath)
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout, customPath)
