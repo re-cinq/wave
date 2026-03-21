@@ -6,16 +6,18 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/state"
 )
 
+// Step lifecycle state constants — canonical source: state.StepState.
 const (
-	StatePending   = "pending"
-	StateRunning   = "running"
-	StateCompleted = "completed"
-	StateFailed    = "failed"
-	StateRetrying  = "retrying"
-	StateSkipped   = "skipped"
-	StateReworking = "reworking"
+	StatePending   = string(state.StatePending)
+	StateRunning   = string(state.StateRunning)
+	StateCompleted = string(state.StateCompleted)
+	StateFailed    = string(state.StateFailed)
+	StateRetrying  = string(state.StateRetrying)
+	StateSkipped   = string(state.StateSkipped)
+	StateReworking = string(state.StateReworking)
 )
 
 type Pipeline struct {

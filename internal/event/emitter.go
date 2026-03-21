@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/recinq/wave/internal/state"
 )
 
 type Event struct {
@@ -91,21 +93,23 @@ type DeliverableJSON struct {
 
 // Event state constants for pipeline and step lifecycle
 const (
-	// Existing states
-	StateStarted   = "started"
-	StateRunning   = "running"
-	StateCompleted = "completed"
-	StateFailed    = "failed"
-	StateRetrying  = "retrying"
+	// Event-specific states
+	StateStarted = "started"
 
-	// New progress tracking states
+	// Step lifecycle states — canonical source: state.StepState
+	StateRunning   = string(state.StateRunning)
+	StateCompleted = string(state.StateCompleted)
+	StateFailed    = string(state.StateFailed)
+	StateRetrying  = string(state.StateRetrying)
+	StateSkipped   = string(state.StateSkipped)
+	StateReworking = string(state.StateReworking)
+
+	// Progress tracking states
 	StateStepProgress       = "step_progress"       // Step is making progress (with percentage)
 	StateETAUpdated         = "eta_updated"         // Estimated time remaining updated
 	StateContractValidating = "contract_validating" // Contract validation in progress
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
-	StateSkipped            = "skipped"             // Step was skipped (on_failure: "skip")
-	StateReworking          = "reworking"           // Step rework triggered (on_failure: "rework")
 
 	// Sequence lifecycle states (pipeline composition)
 	StateSequenceStarted   = "sequence_started"   // Sequence execution begun
