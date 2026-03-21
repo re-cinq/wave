@@ -70,14 +70,14 @@ func runMeta(input string, opts MetaOptions) error {
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("manifest file not found: %s\nRun 'wave init' to create a new Wave project or specify --manifest path", opts.Manifest)
+			return NewCLIError(CodeManifestMissing, fmt.Sprintf("manifest file not found: %s", opts.Manifest), "Run 'wave init' to create a new Wave project or specify --manifest path")
 		}
-		return fmt.Errorf("failed to read manifest: %w", err)
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path").WithCause(err)
 	}
 
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest %s: %w\nEnsure the file is valid YAML with correct indentation", opts.Manifest, err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest %s: %s", opts.Manifest, err), "Ensure the file is valid YAML with correct indentation").WithCause(err)
 	}
 
 	// Set up context with signal handling
@@ -143,7 +143,7 @@ func runMeta(input string, opts MetaOptions) error {
 		fmt.Printf("This may take a moment while the AI designs your pipeline.\n\n")
 		p, err := metaExecutor.GenerateOnly(ctx, input, &m)
 		if err != nil {
-			return fmt.Errorf("meta pipeline generation failed: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("meta pipeline generation failed: %s", err), "Check that the philosopher persona is configured in wave.yaml").WithCause(err)
 		}
 
 		// Save if requested
@@ -180,7 +180,7 @@ func runMeta(input string, opts MetaOptions) error {
 	// Execute meta-pipeline
 	result, err := metaExecutor.Execute(execCtx, input, &m)
 	if err != nil {
-		return fmt.Errorf("meta pipeline execution failed: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("meta pipeline execution failed: %s", err), "Run 'wave logs' to inspect execution details").WithCause(err)
 	}
 
 	// Save generated pipeline if requested
@@ -211,10 +211,10 @@ func saveMetaPipeline(p *pipeline.Pipeline, savePath string) error {
 	}
 	data, err := yaml.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("failed to marshal pipeline: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to marshal pipeline: %s", err), "This is an internal serialization error -- please report a bug").WithCause(err)
 	}
 	if err := os.WriteFile(savePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to save pipeline: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to save pipeline: %s", err), "Check write permissions for the target directory").WithCause(err)
 	}
 	fmt.Printf("Pipeline saved to %s\n", savePath)
 	return nil

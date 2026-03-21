@@ -15,6 +15,34 @@ func TestCLIError_Error(t *testing.T) {
 	assert.Equal(t, "pipeline 'foo' not found", err.Error())
 }
 
+func TestCLIError_Unwrap(t *testing.T) {
+	cause := errors.New("underlying failure")
+	cliErr := NewCLIError(CodeInternalError, "operation failed: underlying failure", "retry").WithCause(cause)
+
+	// Unwrap returns the cause
+	assert.Equal(t, cause, cliErr.Unwrap())
+
+	// errors.Is works through the chain
+	assert.True(t, errors.Is(cliErr, cause))
+
+	// errors.As works through the chain
+	var target *CLIError
+	assert.True(t, errors.As(cliErr, &target))
+	assert.Equal(t, CodeInternalError, target.Code)
+}
+
+func TestCLIError_UnwrapNil(t *testing.T) {
+	cliErr := NewCLIError(CodeInvalidArgs, "bad input", "fix it")
+	assert.Nil(t, cliErr.Unwrap())
+}
+
+func TestCLIError_WithCause(t *testing.T) {
+	cause := errors.New("root cause")
+	cliErr := NewCLIError(CodeStateDBError, "db failed: root cause", "check permissions").WithCause(cause)
+	assert.Equal(t, cause, cliErr.Cause)
+	assert.Equal(t, "db failed: root cause", cliErr.Error())
+}
+
 func TestCLIError_JSONMarshal(t *testing.T) {
 	tests := []struct {
 		name     string

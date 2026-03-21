@@ -131,7 +131,10 @@ func TestMetaCommand_MissingManifestError(t *testing.T) {
 	err = runMeta("test task", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manifest file not found")
-	assert.Contains(t, err.Error(), "wave init")
+	var cliErr *CLIError
+	require.ErrorAs(t, err, &cliErr)
+	assert.Equal(t, CodeManifestMissing, cliErr.Code)
+	assert.Contains(t, cliErr.Suggestion, "wave init")
 }
 
 // TestMetaCommand_InvalidManifestError verifies that invalid manifest YAML
@@ -163,7 +166,10 @@ metadata:
 	err = runMeta("test task", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse manifest")
-	assert.Contains(t, err.Error(), "valid YAML")
+	var cliErr2 *CLIError
+	require.ErrorAs(t, err, &cliErr2)
+	assert.Equal(t, CodeManifestInvalid, cliErr2.Code)
+	assert.Contains(t, cliErr2.Suggestion, "valid YAML")
 }
 
 // TestMetaCommand_MissingPhilosopher verifies that missing philosopher
