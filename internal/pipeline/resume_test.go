@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/testutil"
 )
 
 func TestResumeManager_ValidateResumePoint(t *testing.T) {
@@ -1168,7 +1169,7 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 
 // resumeMockStore implements state.StateStore for resume failure context tests.
 type resumeMockStore struct {
-	MockStateStore
+	testutil.MockStateStore
 	attempts map[string][]state.StepAttemptRecord // key: "runID:stepID"
 }
 
@@ -1243,7 +1244,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 		adapter.WithTokensUsed(100),
 	)
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	filter := &StepFilter{Exclude: []string{"step-c"}}
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
@@ -1251,7 +1252,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "resume-exclude-test"},
@@ -1306,13 +1307,13 @@ func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
 		adapter.WithFailure(fmt.Errorf("adapter crashed")),
 	)
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 	manager := NewResumeManager(executor)
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "test-resume-steperr"},
@@ -1353,7 +1354,7 @@ func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
 
 	// Verify a "failed" event was emitted
 	foundFailed := false
-	for _, ev := range collector.events {
+	for _, ev := range collector.GetEvents() {
 		if ev.StepID == "step-b" && ev.State == "failed" {
 			foundFailed = true
 			break
@@ -1380,7 +1381,7 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 	manager := NewResumeManager(executor)
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "impl-issue"},
@@ -1502,7 +1503,7 @@ func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
 
 // capturingMockStore wraps MockStateStore and captures RecordStepAttempt calls.
 type capturingMockStore struct {
-	*MockStateStore
+	*testutil.MockStateStore
 	mu       sync.Mutex
 	attempts []*state.StepAttemptRecord
 }
@@ -1535,13 +1536,13 @@ func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 		adapter.WithFailure(fmt.Errorf("runtime failure: process exited with code 1")),
 	)
 
-	store := &capturingMockStore{MockStateStore: NewMockStateStore()}
+	store := &capturingMockStore{MockStateStore: testutil.NewMockStateStore()}
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithStateStore(store),
-		WithEmitter(newTestEventCollector()),
+		WithEmitter(testutil.NewEventCollector()),
 	)
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "test-failure-class"},
