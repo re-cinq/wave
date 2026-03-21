@@ -207,7 +207,7 @@ func newAgentExportCmd() *cobra.Command {
 			return runAgentExport(cmd, args[0], outputPath)
 		},
 	}
-	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output path (default: <name>.agent.md)")
+	cmd.Flags().StringVar(&outputPath, "export-path", "", "Export file path (default: <name>.agent.md)")
 	return cmd
 }
 

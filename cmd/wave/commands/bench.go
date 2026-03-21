@@ -69,7 +69,7 @@ Use --mode to select execution mode:
 		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
   wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
   wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
-  wave bench run --dataset tasks.jsonl --pipeline bench-solve --output results.json`,
+  wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path results.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
@@ -170,7 +170,7 @@ Use --mode to select execution mode:
 	cmd.Flags().StringVar(&label, "label", "", "Human-readable label for this run")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of tasks to run (0 = all)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Per-task timeout in seconds (0 = no limit)")
-	cmd.Flags().StringVar(&outputPath, "output", "", "Path to write JSON results file")
+	cmd.Flags().StringVar(&outputPath, "results-path", "", "Path to write JSON results file")
 	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
 	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of tasks to run in parallel")

@@ -165,7 +165,7 @@ personas:
 	rootCmd := &cobra.Command{}
 	rootCmd.PersistentFlags().String("manifest", manifestPath, "")
 	rootCmd.AddCommand(cmd)
-	rootCmd.SetArgs([]string{"agent", "export", "--output", outputPath, "navigator"})
+	rootCmd.SetArgs([]string{"agent", "export", "--export-path", outputPath, "navigator"})
 	err := rootCmd.Execute()
 	require.NoError(t, err)
 

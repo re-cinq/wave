@@ -57,7 +57,7 @@ preserving your custom settings.`,
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Include all pipelines regardless of release status")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "claude", "Default adapter to use")
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".wave/workspaces", "Workspace directory path")
-	cmd.Flags().StringVar(&opts.OutputPath, "output", "wave.yaml", "Output path for wave.yaml")
+	cmd.Flags().StringVar(&opts.OutputPath, "manifest-path", "wave.yaml", "Output path for wave.yaml")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
 	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Re-run onboarding wizard with current settings as defaults")
 
