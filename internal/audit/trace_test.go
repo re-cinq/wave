@@ -226,6 +226,134 @@ func TestFindTraceFile(t *testing.T) {
 	}
 }
 
+func TestDebugTracer_StderrMirror(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	var buf strings.Builder
+	tracer, err := NewDebugTracer(traceDir, "test-mirror", withStderrWriter(&buf))
+	if err != nil {
+		t.Fatalf("failed to create debug tracer: %v", err)
+	}
+
+	err = tracer.Emit(TraceEvent{
+		EventType: TracePromptLoad,
+		StepID:    "investigate",
+		Metadata:  map[string]string{"source_path": "/tmp/prompt.md", "size": "1024"},
+	})
+	if err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+
+	tracer.Close()
+
+	// Verify stderr mirror output contains human-readable format.
+	stderr := buf.String()
+	if !strings.Contains(stderr, "[TRACE]") {
+		t.Errorf("stderr mirror missing [TRACE] prefix: %s", stderr)
+	}
+	if !strings.Contains(stderr, TracePromptLoad) {
+		t.Errorf("stderr mirror missing event type: %s", stderr)
+	}
+	if !strings.Contains(stderr, "step=investigate") {
+		t.Errorf("stderr mirror missing step_id: %s", stderr)
+	}
+
+	// Verify NDJSON file was also written.
+	events, err := ReadTraceFile(tracer.TracePath())
+	if err != nil {
+		t.Fatalf("ReadTraceFile failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].EventType != TracePromptLoad {
+		t.Errorf("expected event_type %q, got %q", TracePromptLoad, events[0].EventType)
+	}
+}
+
+func TestDebugTracer_StderrMirrorCredentialScrubbing(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	var buf strings.Builder
+	tracer, err := NewDebugTracer(traceDir, "test-mirror-scrub", withStderrWriter(&buf))
+	if err != nil {
+		t.Fatalf("failed to create debug tracer: %v", err)
+	}
+
+	err = tracer.Emit(TraceEvent{
+		EventType: TraceArtifactWrite,
+		StepID:    "step1",
+		Metadata:  map[string]string{"content": "API_KEY=sk-secret123abc"},
+	})
+	if err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+
+	tracer.Close()
+
+	// Verify credential scrubbing in stderr mirror.
+	stderr := buf.String()
+	if strings.Contains(stderr, "sk-secret123abc") {
+		t.Errorf("stderr mirror contains unredacted secret: %s", stderr)
+	}
+}
+
+func TestDebugTracer_FunctionalOptions(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+
+	// Without mirror — should not panic or error.
+	tracer1, err := NewDebugTracer(traceDir, "test-no-opts")
+	if err != nil {
+		t.Fatalf("failed to create tracer without options: %v", err)
+	}
+	tracer1.Close()
+
+	// With WithStderrMirror(false) — explicit disable.
+	tracer2, err := NewDebugTracer(traceDir, "test-mirror-off", WithStderrMirror(false))
+	if err != nil {
+		t.Fatalf("failed to create tracer with mirror off: %v", err)
+	}
+	if tracer2.stderrMirror != nil {
+		t.Error("expected stderrMirror to be nil when disabled")
+	}
+	tracer2.Close()
+}
+
+func TestDebugTracer_NewEventTypes(t *testing.T) {
+	traceDir := filepath.Join(t.TempDir(), "traces")
+	tracer, err := NewDebugTracer(traceDir, "test-new-events")
+	if err != nil {
+		t.Fatalf("failed to create debug tracer: %v", err)
+	}
+
+	newEvents := []TraceEvent{
+		{EventType: TracePromptLoad, StepID: "s1", Metadata: map[string]string{"source_path": "/tmp/prompt.md", "size": "512"}},
+		{EventType: TracePromptLoadError, StepID: "s1", Metadata: map[string]string{"error": "file not found"}},
+		{EventType: TraceArtifactWrite, StepID: "s2", Metadata: map[string]string{"artifact": "plan", "path": ".wave/output/plan.md", "size": "2048"}},
+		{EventType: TraceArtifactSkipEmpty, StepID: "s2", Metadata: map[string]string{"reason": "ResultContent is empty"}},
+		{EventType: TraceArtifactPreserved, StepID: "s2", Metadata: map[string]string{"artifact": "spec", "path": ".wave/output/spec.md"}},
+	}
+
+	for _, ev := range newEvents {
+		if err := tracer.Emit(ev); err != nil {
+			t.Fatalf("Emit failed for %s: %v", ev.EventType, err)
+		}
+	}
+	tracer.Close()
+
+	// Verify ReadTraceFile parses all new event types (backward compatibility).
+	events, err := ReadTraceFile(tracer.TracePath())
+	if err != nil {
+		t.Fatalf("ReadTraceFile failed: %v", err)
+	}
+	if len(events) != len(newEvents) {
+		t.Fatalf("expected %d events, got %d", len(newEvents), len(events))
+	}
+	for i, ev := range events {
+		if ev.EventType != newEvents[i].EventType {
+			t.Errorf("event %d: expected event_type %q, got %q", i, newEvents[i].EventType, ev.EventType)
+		}
+	}
+}
+
 func TestTraceEvent_OmitsEmptyFields(t *testing.T) {
 	ev := TraceEvent{
 		Timestamp: "2026-01-01T00:00:00Z",
