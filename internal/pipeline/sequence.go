@@ -27,7 +27,7 @@ type SequenceResult struct {
 type PipelineResult struct {
 	PipelineName string
 	RunID        string
-	Status       string // "completed", "failed"
+	Status       string // StateCompleted, StateFailed
 	Error        error
 	TokensUsed   int
 	Duration     time.Duration
@@ -131,7 +131,7 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 		}
 
 		if execErr != nil {
-			pr.Status = "failed"
+			pr.Status = StateFailed
 			pr.Error = execErr
 			result.PipelineResults = append(result.PipelineResults, pr)
 			result.TotalTokens += pr.TokensUsed
@@ -147,7 +147,7 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 			return result, fmt.Errorf("sequence failed at pipeline %d/%d (%s): %w", i+1, len(pipelines), pipelineName, execErr)
 		}
 
-		pr.Status = "completed"
+		pr.Status = StateCompleted
 		result.PipelineResults = append(result.PipelineResults, pr)
 		result.TotalTokens += pr.TokensUsed
 
@@ -250,7 +250,7 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 		// Collect all failed pipeline names for the aggregate error
 		var failedNames []string
 		for _, pr := range result.PipelineResults {
-			if pr.Status == "failed" {
+			if pr.Status == StateFailed {
 				failedNames = append(failedNames, pr.PipelineName)
 			}
 		}
@@ -306,7 +306,7 @@ func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage
 	if err == nil && !failFast {
 		var failedNames []string
 		for _, pr := range results {
-			if pr.Status == "failed" {
+			if pr.Status == StateFailed {
 				failedNames = append(failedNames, pr.PipelineName)
 			}
 		}
@@ -375,12 +375,12 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	}
 
 	if execErr != nil {
-		pr.Status = "failed"
+		pr.Status = StateFailed
 		pr.Error = execErr
 		return pr, execErr
 	}
 
-	pr.Status = "completed"
+	pr.Status = StateCompleted
 	s.recordPipelineOutputs(p, runID, ".wave/workspaces")
 	return pr, nil
 }
