@@ -9,25 +9,8 @@ import (
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/testutil"
 )
-
-// testEmitter collects events for assertions.
-type testEmitter struct {
-	events []event.Event
-}
-
-func (e *testEmitter) Emit(ev event.Event) {
-	e.events = append(e.events, ev)
-}
-
-func (e *testEmitter) hasState(state string) bool {
-	for _, ev := range e.events {
-		if ev.State == state {
-			return true
-		}
-	}
-	return false
-}
 
 func TestCompositionExecutor_SubPipeline(t *testing.T) {
 	// This test verifies that executeSubPipeline resolves input templates.
@@ -318,7 +301,7 @@ func containsSubstr(s, substr string) bool {
 }
 
 func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	m := &manifest.Manifest{}
 
 	ce := NewCompositionExecutor(nil, emitter, nil, m, "test", ".wave/pipelines", false)
@@ -339,7 +322,7 @@ func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }

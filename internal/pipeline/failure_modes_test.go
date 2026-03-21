@@ -11,6 +11,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/security"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,7 @@ import (
 type failureModeTestContext struct {
 	executor  *DefaultPipelineExecutor
 	manifest  *manifest.Manifest
-	collector *testEventCollector
+	collector *testutil.EventCollector
 	tmpDir    string
 }
 
@@ -43,8 +44,8 @@ func setupFailureModeTest(t *testing.T, runner adapter.AdapterRunner, opts ...Ex
 	t.Helper()
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
-	collector := newTestEventCollector()
+	m := testutil.CreateTestManifest(tmpDir)
+	collector := testutil.NewEventCollector()
 
 	allOpts := append([]ExecutorOption{WithEmitter(collector)}, opts...)
 	executor := NewDefaultPipelineExecutor(runner, allOpts...)
@@ -67,7 +68,7 @@ func setupFailureModeTest(t *testing.T, runner adapter.AdapterRunner, opts ...Ex
 }
 
 // hasStepEventWithState checks whether a specific step has an event with the given state.
-func hasStepEventWithState(collector *testEventCollector, stepID, state string) bool {
+func hasStepEventWithState(collector *testutil.EventCollector, stepID, state string) bool {
 	events := collector.GetEventsByStep(stepID)
 	for _, e := range events {
 		if e.State == state {
