@@ -3,10 +3,20 @@ package audit
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+)
+
+// Trace event type constants for structured debug output.
+const (
+	TracePromptLoad       = "prompt_load"
+	TracePromptLoadError  = "prompt_load_error"
+	TraceArtifactWrite    = "artifact_write"
+	TraceArtifactSkipEmpty = "artifact_skip_empty"
+	TraceArtifactPreserved = "artifact_preserved"
 )
 
 // TraceEvent represents a single structured trace event written as NDJSON.
@@ -18,21 +28,43 @@ type TraceEvent struct {
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
+// DebugTracerOption configures a DebugTracer via functional options.
+type DebugTracerOption func(*DebugTracer)
+
+// WithStderrMirror enables human-readable debug output on stderr alongside NDJSON file output.
+func WithStderrMirror(enabled bool) DebugTracerOption {
+	return func(t *DebugTracer) {
+		if enabled {
+			t.stderrMirror = os.Stderr
+		} else {
+			t.stderrMirror = nil
+		}
+	}
+}
+
+// withStderrWriter sets a custom writer for stderr mirror output (for testing).
+func withStderrWriter(w io.Writer) DebugTracerOption {
+	return func(t *DebugTracer) {
+		t.stderrMirror = w
+	}
+}
+
 // DebugTracer writes structured NDJSON trace events to .wave/traces/<run-id>.json.
 // It is enabled by the --debug flag and provides fine-grained timing for
 // adapter execution, contract validation, and artifact injection.
 type DebugTracer struct {
-	mu        sync.Mutex
-	file      *os.File
-	runID     string
-	traceDir  string
-	tracePath string
-	scrubber  *TraceLogger // reuse credential scrubbing from existing logger
+	mu           sync.Mutex
+	file         *os.File
+	runID        string
+	traceDir     string
+	tracePath    string
+	scrubber     *TraceLogger // reuse credential scrubbing from existing logger
+	stderrMirror io.Writer    // optional: mirror trace events to stderr in human-readable format
 }
 
 // NewDebugTracer creates a new debug tracer that writes NDJSON events to
 // .wave/traces/<runID>.json. The caller must call Close() when done.
-func NewDebugTracer(traceDir, runID string) (*DebugTracer, error) {
+func NewDebugTracer(traceDir, runID string, opts ...DebugTracerOption) (*DebugTracer, error) {
 	if err := os.MkdirAll(traceDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create trace dir: %w", err)
 	}
@@ -55,13 +87,19 @@ func NewDebugTracer(traceDir, runID string) (*DebugTracer, error) {
 	scrubber.file.Close()
 	scrubber.file = nil
 
-	return &DebugTracer{
+	t := &DebugTracer{
 		file:      file,
 		runID:     runID,
 		traceDir:  traceDir,
 		tracePath: tracePath,
 		scrubber:  scrubber,
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(t)
+	}
+
+	return t, nil
 }
 
 // Emit writes a single trace event as an NDJSON line. Thread-safe.
@@ -91,8 +129,33 @@ func (t *DebugTracer) Emit(ev TraceEvent) error {
 		return fmt.Errorf("tracer is closed")
 	}
 
-	_, err = t.file.Write(append(data, '\n'))
-	return err
+	// Write NDJSON line to trace file.
+	if _, err = t.file.Write(append(data, '\n')); err != nil {
+		return err
+	}
+
+	// Mirror to stderr in human-readable format if enabled.
+	if t.stderrMirror != nil {
+		line := formatTraceForStderr(ev)
+		fmt.Fprintln(t.stderrMirror, line)
+	}
+
+	return nil
+}
+
+// formatTraceForStderr formats a TraceEvent as a human-readable debug line.
+func formatTraceForStderr(ev TraceEvent) string {
+	msg := fmt.Sprintf("[TRACE] %s", ev.EventType)
+	if ev.StepID != "" {
+		msg += fmt.Sprintf(" step=%s", ev.StepID)
+	}
+	if ev.DurationMs > 0 {
+		msg += fmt.Sprintf(" duration=%dms", ev.DurationMs)
+	}
+	for k, v := range ev.Metadata {
+		msg += fmt.Sprintf(" %s=%s", k, v)
+	}
+	return msg
 }
 
 // TracePath returns the absolute path to the trace file.

@@ -1537,9 +1537,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	} else if !hasStdoutArtifacts {
 		// Skip writing artifacts when ResultContent is empty to avoid overwriting
 		// existing artifacts with empty content during relay compaction or parsing failures
-		if e.debug {
-			fmt.Printf("[DEBUG] Warning: ResultContent is empty, skipping artifact write to preserve existing content\n")
-		}
+		e.trace(audit.TraceArtifactSkipEmpty, step.ID, 0, map[string]string{
+			"reason": "ResultContent is empty, preserving existing content",
+		})
 	}
 
 	// Check relay/compaction threshold (FR-009)
@@ -1931,22 +1931,26 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 	// Load prompt from external file if source_path is set
 	if sourcePath != "" {
-		if e.debug {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Loading prompt from source_path: %s\n", sourcePath)
-		}
+		e.trace(audit.TracePromptLoad, step.ID, 0, map[string]string{
+			"source_path": sourcePath,
+		})
 		data, err := os.ReadFile(sourcePath)
 		if err != nil {
-			if e.debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to read prompt from %s: %v\n", sourcePath, err)
-			}
+			e.trace(audit.TracePromptLoadError, step.ID, 0, map[string]string{
+				"source_path": sourcePath,
+				"error":       err.Error(),
+			})
 		} else {
 			prompt = string(data)
-			if e.debug {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Loaded prompt: %d bytes\n", len(prompt))
-			}
+			e.trace(audit.TracePromptLoad, step.ID, 0, map[string]string{
+				"source_path": sourcePath,
+				"size":        fmt.Sprintf("%d", len(prompt)),
+			})
 		}
 	} else if e.debug && step.Exec.Source == "" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Warning: step %s has neither source nor source_path set\n", step.ID)
+		e.trace(audit.TracePromptLoadError, step.ID, 0, map[string]string{
+			"error": "step has neither source nor source_path set",
+		})
 	}
 
 	// Determine the input value to use (sanitized if provided, empty string if not)
@@ -2281,16 +2285,22 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			os.MkdirAll(filepath.Dir(artPath), 0755)
 
 			// Write stdout content to artifact
-			if err := os.WriteFile(artPath, stdout, 0644); err != nil && e.debug {
-				fmt.Printf("[DEBUG] Failed to write stdout artifact %s: %v\n", art.Name, err)
+			if err := os.WriteFile(artPath, stdout, 0644); err != nil {
+				e.trace(audit.TraceArtifactWrite, step.ID, 0, map[string]string{
+					"artifact": art.Name,
+					"path":     artPath,
+					"error":    err.Error(),
+				})
 			}
 			execution.mu.Lock()
 			execution.ArtifactPaths[key] = artPath
 			execution.mu.Unlock()
 
-			if e.debug {
-				fmt.Printf("[DEBUG] Wrote stdout artifact %s to %s (%d bytes)\n", art.Name, artPath, len(stdout))
-			}
+			e.trace(audit.TraceArtifactWrite, step.ID, 0, map[string]string{
+				"artifact": art.Name,
+				"path":     artPath,
+				"size":     fmt.Sprintf("%d", len(stdout)),
+			})
 		} else {
 			// File-based artifacts: resolve path using pipeline context
 			resolvedPath := execution.Context.ResolveArtifactPath(art)
@@ -2301,9 +2311,10 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 				execution.mu.Lock()
 				execution.ArtifactPaths[key] = artPath
 				execution.mu.Unlock()
-				if e.debug {
-					fmt.Printf("[DEBUG] Artifact %s already exists at %s, preserving persona-written file\n", art.Name, artPath)
-				}
+				e.trace(audit.TraceArtifactPreserved, step.ID, 0, map[string]string{
+					"artifact": art.Name,
+					"path":     artPath,
+				})
 			} else {
 				// Fall back to writing ResultContent
 				os.MkdirAll(filepath.Dir(artPath), 0755)
