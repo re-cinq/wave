@@ -121,14 +121,14 @@ func isTTY() bool {
 
 func runClean(opts CleanOptions) error {
 	if !opts.All && opts.Pipeline == "" && opts.OlderThan == "" && opts.Status == "" {
-		return fmt.Errorf("specify --all or --pipeline <name> or --older-than <duration> or --status <status>")
+		return NewCLIError(CodeInvalidArgs, "specify --all or --pipeline <name> or --older-than <duration> or --status <status>", "Use --all, --pipeline <name>, --older-than <duration>, or --status <status>")
 	}
 
 	// Validate status if provided
 	if opts.Status != "" {
 		validStatuses := map[string]bool{"completed": true, "failed": true, "running": true, "cancelled": true, "pending": true}
 		if !validStatuses[strings.ToLower(opts.Status)] {
-			return fmt.Errorf("invalid status: %s (valid: completed, failed, running, cancelled, pending)", opts.Status)
+			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid status: %s", opts.Status), "Valid statuses: completed, failed, running, cancelled, pending")
 		}
 	}
 
@@ -138,7 +138,7 @@ func runClean(opts CleanOptions) error {
 		var err error
 		olderThanDuration, err = parseDuration(opts.OlderThan)
 		if err != nil {
-			return fmt.Errorf("invalid --older-than duration: %w", err)
+			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --older-than duration: %s", err), "Use a duration like '7d', '24h', or '1h30m'").WithCause(err)
 		}
 	}
 
@@ -151,7 +151,7 @@ func runClean(opts CleanOptions) error {
 		var err error
 		statusWorkspaces, err = getWorkspacesWithStatus(opts.Status)
 		if err != nil {
-			return fmt.Errorf("failed to get workspaces by status: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get workspaces by status: %s", err), "Check .wave/state.db is readable").WithCause(err)
 		}
 	}
 
@@ -161,7 +161,7 @@ func runClean(opts CleanOptions) error {
 			// Get workspaces sorted by modification time using workspace package
 			workspaces, err := workspace.ListWorkspacesSortedByTime(wsDir)
 			if err != nil {
-				return fmt.Errorf("failed to list workspaces: %w", err)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .wave/workspaces directory permissions").WithCause(err)
 			}
 
 			cutoffTime := time.Now().Add(-olderThanDuration)
@@ -229,7 +229,7 @@ func runClean(opts CleanOptions) error {
 	} else if opts.Pipeline != "" {
 		// Validate pipeline name to prevent path traversal
 		if strings.Contains(opts.Pipeline, "..") || filepath.IsAbs(opts.Pipeline) || strings.ContainsAny(opts.Pipeline, `/\`) {
-			return fmt.Errorf("invalid pipeline name: %s", opts.Pipeline)
+			return NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid pipeline name: %s", opts.Pipeline), "Pipeline names must not contain path separators or '..' sequences")
 		}
 		targets = append(targets,
 			filepath.Join(".wave", "workspaces", opts.Pipeline),
