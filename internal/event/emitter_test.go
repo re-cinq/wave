@@ -640,3 +640,49 @@ func TestETAFieldPresence(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Debug Verbosity Tests
+// =============================================================================
+
+func TestNDJSONEmitter_SetDebugVerbosity(t *testing.T) {
+	emitter := NewNDJSONEmitter()
+
+	// Default should be false.
+	if emitter.DebugVerbose() {
+		t.Error("expected debug verbosity to be false by default")
+	}
+
+	// Enable.
+	emitter.SetDebugVerbosity(true)
+	if !emitter.DebugVerbose() {
+		t.Error("expected debug verbosity to be true after enabling")
+	}
+
+	// Disable.
+	emitter.SetDebugVerbosity(false)
+	if emitter.DebugVerbose() {
+		t.Error("expected debug verbosity to be false after disabling")
+	}
+}
+
+func TestNDJSONEmitter_DebugVerbosity_EmitsEvents(t *testing.T) {
+	var buf bytes.Buffer
+	emitter := &NDJSONEmitter{
+		encoder: json.NewEncoder(&buf),
+	}
+	emitter.SetDebugVerbosity(true)
+
+	emitter.Emit(Event{
+		Timestamp:  time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		PipelineID: "debug-pipeline",
+		StepID:     "step-001",
+		State:      StateRunning,
+		Message:    "Step executing",
+	})
+
+	output := buf.String()
+	if !strings.Contains(output, `"pipeline_id":"debug-pipeline"`) {
+		t.Error("debug verbose mode should still emit events")
+	}
+}
