@@ -9,4 +9,4 @@
 - [X] Task 2.3: Run `go vet ./internal/pipeline/...` to verify no compilation issues [P]
 
 ## Phase 3: Commit
-- [ ] Task 3.1: Commit the change with message `test: remove empty t.Skip stub for symlink blocking #540`
+- [X] Task 3.1: Commit the change with message `test: remove empty t.Skip stub for symlink blocking #540`
