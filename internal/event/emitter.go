@@ -148,8 +148,24 @@ type EventEmitter interface {
 type NDJSONEmitter struct {
 	encoder         *json.Encoder
 	suppressJSON    bool            // When true, suppresses JSON output to stdout
+	debugVerbose    bool            // When true, emits additional internal state transition events
 	mu              sync.Mutex
 	progressEmitter ProgressEmitter // Optional enhanced progress emitter
+}
+
+// SetDebugVerbosity enables or disables emission of additional internal state
+// transition events (step state changes, prompt assembly, artifact injection details).
+func (e *NDJSONEmitter) SetDebugVerbosity(enabled bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.debugVerbose = enabled
+}
+
+// DebugVerbose returns whether debug verbosity is enabled.
+func (e *NDJSONEmitter) DebugVerbose() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.debugVerbose
 }
 
 // ProgressEmitter is an optional interface for enhanced progress visualization.
