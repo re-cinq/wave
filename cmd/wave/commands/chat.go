@@ -97,7 +97,7 @@ func runChat(opts ChatOptions) error {
 	// Open state store
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return fmt.Errorf("failed to open state database: %w", err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer store.Close()
 
@@ -111,42 +111,42 @@ func runChat(opts ChatOptions) error {
 	if runID == "" {
 		runID, err = pipeline.MostRecentCompletedRunID(store)
 		if err != nil {
-			return fmt.Errorf("no runs found: %w", err)
+			return NewCLIError(CodeRunNotFound, fmt.Sprintf("no runs found: %s", err), "Run a pipeline first with 'wave run'").WithCause(err)
 		}
 	}
 
 	// Get run record to determine pipeline name
 	run, err := store.GetRun(runID)
 	if err != nil {
-		return fmt.Errorf("run not found: %w", err)
+		return NewCLIError(CodeRunNotFound, fmt.Sprintf("run not found: %s", err), "Use 'wave status --all' to list available runs").WithCause(err)
 	}
 
 	// Load manifest
 	manifestData, err := os.ReadFile(opts.Manifest)
 	if err != nil {
-		return fmt.Errorf("failed to read manifest: %w", err)
+		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check that wave.yaml exists and is readable").WithCause(err)
 	}
 	var m manifest.Manifest
 	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
+		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest: %s", err), "Check wave.yaml syntax -- run 'wave validate' to diagnose").WithCause(err)
 	}
 
 	// Load pipeline definition
 	p, err := loadPipeline(run.PipelineName, &m)
 	if err != nil {
-		return fmt.Errorf("failed to load pipeline %q: %w", run.PipelineName, err)
+		return NewCLIError(CodePipelineNotFound, fmt.Sprintf("failed to load pipeline %q: %s", run.PipelineName, err), "The pipeline definition may have been removed or renamed").WithCause(err)
 	}
 
 	// Get project root
 	projectRoot, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get working directory: %s", err), "Check working directory permissions").WithCause(err)
 	}
 
 	// Build chat context
 	chatCtx, err := pipeline.BuildChatContext(store, runID, p, projectRoot)
 	if err != nil {
-		return fmt.Errorf("failed to build chat context: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to build chat context: %s", err), "Run state or workspace may be incomplete").WithCause(err)
 	}
 
 	// Phase 2: Step manipulation
@@ -181,8 +181,7 @@ func runChat(opts ChatOptions) error {
 			for i, s := range chatCtx.Steps {
 				availableSteps[i] = s.StepID
 			}
-			return fmt.Errorf("step %q not found in pipeline run (available: %s)",
-				opts.Step, strings.Join(availableSteps, ", "))
+			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("step %q not found in pipeline run (available: %s)", opts.Step, strings.Join(availableSteps, ", ")), "Use one of the available step names listed above")
 		}
 	}
 
@@ -200,8 +199,7 @@ func runChat(opts ChatOptions) error {
 			for i, a := range chatCtx.Artifacts {
 				availableArts[i] = a.Name
 			}
-			return fmt.Errorf("artifact %q not found in pipeline run (available: %s)",
-				opts.Artifact, strings.Join(availableArts, ", "))
+			return NewCLIError(CodeInvalidArgs, fmt.Sprintf("artifact %q not found in pipeline run (available: %s)", opts.Artifact, strings.Join(availableArts, ", ")), "Use one of the available artifact names listed above")
 		}
 	}
 
@@ -214,7 +212,7 @@ func runChat(opts ChatOptions) error {
 	}
 	wsPath, err := pipeline.PrepareChatWorkspace(chatCtx, wsOpts)
 	if err != nil {
-		return fmt.Errorf("failed to prepare chat workspace: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to prepare chat workspace: %s", err), "Check workspace directory permissions").WithCause(err)
 	}
 
 	// Print session header
@@ -290,23 +288,23 @@ func resumeChatSession(store state.StateStore, opts ChatOptions) error {
 			var err error
 			runID, err = pipeline.MostRecentCompletedRunID(store)
 			if err != nil {
-				return fmt.Errorf("no runs found: %w", err)
+				return NewCLIError(CodeRunNotFound, fmt.Sprintf("no runs found: %s", err), "Run a pipeline first with 'wave run'").WithCause(err)
 			}
 		}
 
 		sessions, err := store.ListChatSessions(runID)
 		if err != nil {
-			return fmt.Errorf("failed to list chat sessions: %w", err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list chat sessions: %s", err), "State database may be corrupted").WithCause(err)
 		}
 		if len(sessions) == 0 {
-			return fmt.Errorf("no chat sessions found for run %s", runID)
+			return NewCLIError(CodeRunNotFound, fmt.Sprintf("no chat sessions found for run %s", runID), "Start a new chat session with 'wave chat <run-id>'")
 		}
 		session = &sessions[0] // most recent (ordered by created_at DESC)
 	} else {
 		var err error
 		session, err = store.GetChatSession(opts.Resume)
 		if err != nil {
-			return fmt.Errorf("chat session not found: %w", err)
+			return NewCLIError(CodeRunNotFound, fmt.Sprintf("chat session not found: %s", err), "Use 'wave chat --list' to see available sessions").WithCause(err)
 		}
 	}
 
@@ -327,7 +325,7 @@ func resumeChatSession(store state.StateStore, opts ChatOptions) error {
 
 	projectRoot, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get working directory: %s", err), "Check working directory permissions").WithCause(err)
 	}
 
 	interactiveOpts := adapter.InteractiveOptions{
@@ -350,13 +348,13 @@ func listRecentRunsForChat(dbPath string) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return fmt.Errorf("failed to open state database: %w", err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions").WithCause(err)
 	}
 	defer store.Close()
 
 	runs, err := store.ListRuns(state.ListRunsOptions{Limit: 10})
 	if err != nil {
-		return fmt.Errorf("failed to list runs: %w", err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list runs: %s", err), "State database query failed").WithCause(err)
 	}
 
 	if len(runs) == 0 {

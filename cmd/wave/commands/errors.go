@@ -21,6 +21,11 @@ const (
 	CodeSkillSourceError       = "skill_source_error"
 	CodeSkillDependencyMissing = "skill_dependency_missing"
 	CodeInvalidArgs            = "invalid_args"
+	CodeStateDBError           = "state_db_error"
+	CodeRunNotFound            = "run_not_found"
+	CodeMigrationFailed        = "migration_failed"
+	CodeDatasetError           = "dataset_error"
+	CodeValidationFailed       = "validation_failed"
 )
 
 // CLIError represents a structured error for CLI output.
@@ -31,6 +36,7 @@ type CLIError struct {
 	Code       string `json:"code"`
 	Suggestion string `json:"suggestion"`
 	Debug      string `json:"debug,omitempty"`
+	Cause      error  `json:"-"`
 }
 
 // NewCLIError creates a new CLIError with the given code, message, and suggestion.
@@ -46,6 +52,17 @@ func (e *CLIError) Error() string {
 	return e.Message
 }
 
+// Unwrap returns the underlying cause, supporting errors.Is/As chain inspection.
+func (e *CLIError) Unwrap() error {
+	return e.Cause
+}
+
+// WithCause returns a copy of the CLIError with the Cause field set.
+func (e *CLIError) WithCause(err error) *CLIError {
+	e.Cause = err
+	return e
+}
+
 // RenderJSONError marshals an error as a JSON object to the writer.
 // If the error is a *CLIError, it is serialized directly.
 // Plain errors are wrapped as CLIError with code "internal_error".
@@ -58,6 +75,7 @@ func RenderJSONError(w io.Writer, err error, debug bool) {
 			Code:       e.Code,
 			Suggestion: e.Suggestion,
 			Debug:      e.Debug,
+			Cause:      e.Cause,
 		}
 	default:
 		cliErr = &CLIError{
