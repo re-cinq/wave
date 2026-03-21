@@ -347,13 +347,16 @@ func runRun(opts RunOptions, debug bool) error {
 		if traceDir == "" {
 			traceDir = ".wave/traces"
 		}
-		if dt, dtErr := audit.NewDebugTracer(traceDir, runID); dtErr == nil {
+		if dt, dtErr := audit.NewDebugTracer(traceDir, runID, audit.WithStderrMirror(true)); dtErr == nil {
 			debugTracer = dt
 			defer dt.Close()
 			fmt.Fprintf(os.Stderr, "  Debug trace: %s\n", dt.TracePath())
 		} else {
 			fmt.Fprintf(os.Stderr, "warning: failed to create debug tracer: %v\n", dtErr)
 		}
+
+		// Enable debug verbosity on the emitter for richer NDJSON output
+		result.Emitter.SetDebugVerbosity(true)
 	}
 
 	// Build executor with all components
