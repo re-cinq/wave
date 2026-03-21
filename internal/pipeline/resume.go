@@ -146,7 +146,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 				Timestamp:  time.Now(),
 				PipelineID: pipelineName,
 				StepID:     stepID,
-				State:      "completed",
+				State:      StateCompleted,
 				Persona:    persona,
 				Message:    "Completed in prior run",
 			})
@@ -331,7 +331,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		attempts, err := r.executor.store.GetStepAttempts(resolvedRunID, fromStep)
 		if err == nil && len(attempts) > 0 {
 			last := attempts[len(attempts)-1]
-			if last.State == "failed" {
+			if last.State == StateFailed {
 				state.FailureContexts[fromStep] = &AttemptContext{
 					Attempt:      last.Attempt,
 					MaxAttempts:  last.Attempt + 1, // at least one more attempt
@@ -460,7 +460,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 						Timestamp:  time.Now(),
 						PipelineID: pipelineID,
 						StepID:     step.ID,
-						State:      "failed",
+						State:      StateFailed,
 						Message:    err.Error(),
 					})
 				}
@@ -486,7 +486,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 		r.executor.emitter.Emit(event.Event{
 			Timestamp:      now,
 			PipelineID:     pipelineID,
-			State:          "completed",
+			State:          StateCompleted,
 			Message:        fmt.Sprintf("Pipeline completed successfully (resumed from %s)", fromStep),
 			CompletedSteps: len(execution.Status.CompletedSteps),
 			TotalSteps:     len(sortedSteps),
