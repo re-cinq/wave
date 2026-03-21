@@ -12,36 +12,10 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
-
-// matrixTestEventCollector for matrix tests
-type matrixTestEventCollector struct {
-	mu     sync.Mutex
-	events []event.Event
-}
-
-func newMatrixTestEventCollector() *matrixTestEventCollector {
-	return &matrixTestEventCollector{
-		events: make([]event.Event, 0),
-	}
-}
-
-func (c *matrixTestEventCollector) Emit(e event.Event) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.events = append(c.events, e)
-}
-
-func (c *matrixTestEventCollector) GetEvents() []event.Event {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	result := make([]event.Event, len(c.events))
-	copy(result, c.events)
-	return result
-}
 
 func TestMatrixExecutor_ReadItemsSource(t *testing.T) {
 	// Create a temporary directory for test files
@@ -837,7 +811,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			}
 
 			// Collect events to verify failure reporting
-			eventCollector := newMatrixTestEventCollector()
+			eventCollector := testutil.NewEventCollector()
 
 			executor := NewDefaultPipelineExecutor(partialFailAdapter, WithEmitter(eventCollector))
 			matrixExecutor := NewMatrixExecutor(executor)
@@ -969,7 +943,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 			itemsFile := filepath.Join(tmpDir, "items.json")
 			os.WriteFile(itemsFile, itemsJSON, 0644)
 
-			eventCollector := newMatrixTestEventCollector()
+			eventCollector := testutil.NewEventCollector()
 
 			executor := NewDefaultPipelineExecutor(
 				adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status": "success"}`)),
@@ -1312,7 +1286,7 @@ func TestMatrixExecutor_TieredExecution_IndependentItems(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1383,7 +1357,7 @@ func TestMatrixExecutor_TieredExecution_LinearChain(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1456,7 +1430,7 @@ func TestMatrixExecutor_TieredExecution_Diamond(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(
 		adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
@@ -1529,7 +1503,7 @@ func TestMatrixExecutor_TieredExecution_DependencyFailure(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1785,7 +1759,7 @@ func TestMatrixExecutor_ChildPipeline_LoadsAndExecutes(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1907,7 +1881,7 @@ func TestMatrixExecutor_ChildPipeline_WithTiers(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1987,7 +1961,7 @@ func TestMatrixExecutor_ChildPipeline_PartialFailure(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -2149,7 +2123,7 @@ func TestMatrixExecutor_Stacked_TwoTierLinearChain(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -2218,7 +2192,7 @@ func TestMatrixExecutor_Stacked_WithoutDependencyKey(t *testing.T) {
 		adapter.WithTokensUsed(100),
 	)
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -2281,7 +2255,7 @@ func TestMatrixExecutor_Stacked_PartialTierFailure(t *testing.T) {
 		),
 	}
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -2404,7 +2378,7 @@ func TestMatrixExecutor_Stacked_ParentNoOutputBranch(t *testing.T) {
 		adapter.WithTokensUsed(100),
 	)
 
-	eventCollector := newMatrixTestEventCollector()
+	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 

@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/testutil"
 )
 
 func TestGateExecutor_Approval_Auto(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	gate := NewGateExecutor(emitter, nil)
 
 	ctx := context.Background()
@@ -20,13 +21,13 @@ func TestGateExecutor_Approval_Auto(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
 
 func TestGateExecutor_Timer(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	gate := NewGateExecutor(emitter, nil)
 
 	ctx := context.Background()
@@ -41,7 +42,7 @@ func TestGateExecutor_Timer(t *testing.T) {
 		t.Errorf("timer resolved too quickly: %v", elapsed)
 	}
 
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -82,7 +83,7 @@ func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
 }
 
 func TestGateExecutor_PollGate_Auto(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	gate := NewGateExecutor(emitter, nil)
 
 	ctx := context.Background()
@@ -91,7 +92,7 @@ func TestGateExecutor_PollGate_Auto(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -126,7 +127,7 @@ func newTestGateExecutor(emitter event.EventEmitter, runner commandRunner) *Gate
 // -- pr_merge gate tests --
 
 func TestGateExecutor_PRMerge_Auto(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	g := newTestGateExecutor(emitter, nil) // runner never called for Auto
 
 	err := g.Execute(context.Background(), &GateConfig{
@@ -135,7 +136,7 @@ func TestGateExecutor_PRMerge_Auto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -157,7 +158,7 @@ func TestGateExecutor_PRMerge_MissingPRNumber(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_Merged(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 
 	callCount := 0
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -173,7 +174,7 @@ func TestGateExecutor_PRMerge_Merged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 	if callCount == 0 {
@@ -200,7 +201,7 @@ func TestGateExecutor_PRMerge_ClosedWithoutMerge(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_StillOpen_ThenMerged(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -222,7 +223,7 @@ func TestGateExecutor_PRMerge_StillOpen_ThenMerged(t *testing.T) {
 	if callCount < 3 {
 		t.Errorf("expected at least 3 calls, got %d", callCount)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -267,7 +268,7 @@ func TestGateExecutor_PRMerge_ContextCancel(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -286,7 +287,7 @@ func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -316,7 +317,7 @@ func TestGateExecutor_PRMerge_InvalidTimeout(t *testing.T) {
 // -- ci_pass gate tests --
 
 func TestGateExecutor_CIPass_Auto(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	g := newTestGateExecutor(emitter, nil)
 
 	err := g.Execute(context.Background(), &GateConfig{
@@ -325,13 +326,13 @@ func TestGateExecutor_CIPass_Auto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
 
 func TestGateExecutor_CIPass_Success(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return []byte(`[{"status":"completed","conclusion":"success"}]`), nil
@@ -345,7 +346,7 @@ func TestGateExecutor_CIPass_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -384,7 +385,7 @@ func TestGateExecutor_CIPass_Cancelled(t *testing.T) {
 }
 
 func TestGateExecutor_CIPass_Skipped_TreatedAsPass(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return []byte(`[{"status":"completed","conclusion":"skipped"}]`), nil
@@ -398,13 +399,13 @@ func TestGateExecutor_CIPass_Skipped_TreatedAsPass(t *testing.T) {
 	if err != nil {
 		t.Fatalf("skipped conclusion should be treated as pass, got error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
 
 func TestGateExecutor_CIPass_InProgress_ThenSuccess(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -426,13 +427,13 @@ func TestGateExecutor_CIPass_InProgress_ThenSuccess(t *testing.T) {
 	if callCount < 3 {
 		t.Errorf("expected at least 3 calls, got %d", callCount)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
 
 func TestGateExecutor_CIPass_NoRuns_ThenSuccess(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -451,7 +452,7 @@ func TestGateExecutor_CIPass_NoRuns_ThenSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
@@ -496,7 +497,7 @@ func TestGateExecutor_CIPass_ContextCancel(t *testing.T) {
 }
 
 func TestGateExecutor_CIPass_CLIError_Retries(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
@@ -515,13 +516,13 @@ func TestGateExecutor_CIPass_CLIError_Retries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !emitter.hasState(event.StateGateResolved) {
+	if !emitter.HasEventWithState(event.StateGateResolved) {
 		t.Error("expected gate_resolved event")
 	}
 }
 
 func TestGateExecutor_CIPass_InvalidJSON_Retries(t *testing.T) {
-	emitter := &testEmitter{}
+	emitter := testutil.NewEventCollector()
 	callCount := 0
 
 	runner := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
