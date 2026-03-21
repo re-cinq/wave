@@ -9,13 +9,14 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrencyExecutor_BasicExecution(t *testing.T) {
 	var callCount atomic.Int32
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -32,7 +33,7 @@ func TestConcurrencyExecutor_BasicExecution(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "concurrency-test"},
@@ -72,7 +73,7 @@ func TestConcurrencyExecutor_BasicExecution(t *testing.T) {
 }
 
 func TestConcurrencyExecutor_FailFast(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	callCount := &atomic.Int32{}
 
 	failAdapter := &concurrencyFailAdapter{
@@ -85,7 +86,7 @@ func TestConcurrencyExecutor_FailFast(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "failfast-test"},
@@ -113,7 +114,7 @@ func TestConcurrencyExecutor_FailFast(t *testing.T) {
 func TestConcurrencyExecutor_MaxConcurrencyCap(t *testing.T) {
 	var maxConcurrent atomic.Int32
 	var currentConcurrent atomic.Int32
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// This adapter tracks max concurrent execution
 	trackingAdapter := &concurrencyConcurrentTracker{
@@ -126,7 +127,7 @@ func TestConcurrencyExecutor_MaxConcurrencyCap(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	// Set max_concurrency to 5
 	m.Runtime.MaxConcurrency = 5
 
@@ -159,7 +160,7 @@ func TestConcurrencyExecutor_MaxConcurrencyCap(t *testing.T) {
 }
 
 func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -170,7 +171,7 @@ func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "single-test"},
@@ -195,7 +196,7 @@ func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
 }
 
 func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -206,7 +207,7 @@ func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "zero-test"},
@@ -231,7 +232,7 @@ func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
 }
 
 func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -242,7 +243,7 @@ func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	step := &Step{
 		ID:          "agg-step",
@@ -288,7 +289,7 @@ func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 }
 
 func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -299,7 +300,7 @@ func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	step := &Step{
 		ID:          "iso-step",

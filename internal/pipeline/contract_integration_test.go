@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/security"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,30 +109,6 @@ func (a *contractTestArtifactWritingAdapter) Run(ctx context.Context, cfg adapte
 	}, nil
 }
 
-// createContractTestManifest creates a manifest with configurable workspace root
-func createContractTestManifest(workspaceRoot string) *manifest.Manifest {
-	return &manifest.Manifest{
-		Metadata: manifest.Metadata{Name: "test-project"},
-		Adapters: map[string]manifest.Adapter{
-			"claude": {Binary: "claude", Mode: "headless"},
-		},
-		Personas: map[string]manifest.Persona{
-			"navigator": {
-				Adapter:     "claude",
-				Temperature: 0.1,
-			},
-			"craftsman": {
-				Adapter:     "claude",
-				Temperature: 0.7,
-			},
-		},
-		Runtime: manifest.Runtime{
-			WorkspaceRoot:     workspaceRoot,
-			DefaultTimeoutMin: 5,
-		},
-	}
-}
-
 // ============================================================================
 // Test 1: JSON Schema Contract Produces Valid JSON
 // ============================================================================
@@ -171,12 +148,12 @@ func TestContractIntegration_JSONSchemaProducesValidJSON(t *testing.T) {
 		"step1": validArtifact,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "json-schema-test"},
@@ -253,12 +230,12 @@ func TestContractIntegration_JSONSchemaValidationFailure(t *testing.T) {
 		"step1": invalidArtifact,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "json-schema-fail-test"},
@@ -344,7 +321,7 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 	executor.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
 	executor.securityLogger = securityLogger
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "schema-injection-test"},
@@ -405,7 +382,7 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 	)
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "inline-schema-test"},
@@ -583,12 +560,12 @@ func TestContractIntegration_ValidatorChecksOutput(t *testing.T) {
 				"validate-step": tt.artifact,
 			})
 
-			collector := newTestEventCollector()
+			collector := testutil.NewEventCollector()
 			executor := NewDefaultPipelineExecutor(mockAdapter,
 				WithEmitter(collector),
 			)
 
-			m := createContractTestManifest(tmpDir)
+			m := testutil.CreateTestManifest(tmpDir)
 
 			p := &Pipeline{
 				Metadata: PipelineMetadata{Name: "validation-test"},
@@ -677,12 +654,12 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 		"implement": step2Artifact,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "handover-test"},
@@ -787,12 +764,12 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 		"step-c": `{"data": "from-step-c"}`,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Create a chain: A -> B -> C, each passing artifacts
 	p := &Pipeline{
@@ -899,12 +876,12 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 		"soft-step": `{"other_field": "value"}`,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "soft-fail-test"},
@@ -958,7 +935,7 @@ func TestContractIntegration_InputTemplateReplacement(t *testing.T) {
 	)
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	testInput := "build feature XYZ"
 
@@ -1010,12 +987,12 @@ func TestContractIntegration_RetryOnContractFailure(t *testing.T) {
 		workspaceDir: tmpDir,
 	}
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(retryAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "retry-contract-test"},
@@ -1130,7 +1107,7 @@ func TestContractIntegration_PersonaContractSeparation(t *testing.T) {
 		"implement": `{"code": "func main() {}"}`,
 	})
 
-	capturingCollector := newTestEventCollector()
+	capturingCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(capturingCollector),
 	)
@@ -1247,12 +1224,12 @@ func TestContractIntegration_CustomSourcePath(t *testing.T) {
 		filename: "custom-output.json",
 	}
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(customAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "custom-source-test"},
@@ -1334,12 +1311,12 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 		"step-d": `{"step": "D"}`,
 	})
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
-	m := createContractTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "diamond-test"},
