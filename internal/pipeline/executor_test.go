@@ -18,218 +18,14 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// testEventCollector collects events emitted during execution
-type testEventCollector struct {
-	mu     sync.Mutex
-	events []event.Event
-}
-
-func newTestEventCollector() *testEventCollector {
-	return &testEventCollector{
-		events: make([]event.Event, 0),
-	}
-}
-
-func (c *testEventCollector) Emit(e event.Event) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.events = append(c.events, e)
-}
-
-func (c *testEventCollector) GetEvents() []event.Event {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	result := make([]event.Event, len(c.events))
-	copy(result, c.events)
-	return result
-}
-
-// GetPipelineID returns the pipeline ID from the first event that has a non-empty PipelineID.
-// Useful for tests where the ID is generated with a hash suffix.
-func (c *testEventCollector) GetPipelineID() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, e := range c.events {
-		if e.PipelineID != "" {
-			return e.PipelineID
-		}
-	}
-	return ""
-}
-
-func (c *testEventCollector) HasEventWithState(state string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, e := range c.events {
-		if e.State == state {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *testEventCollector) GetEventsByStep(stepID string) []event.Event {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	var result []event.Event
-	for _, e := range c.events {
-		if e.StepID == stepID {
-			result = append(result, e)
-		}
-	}
-	return result
-}
-
-func (c *testEventCollector) GetStepExecutionOrder() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	var order []string
-	seen := make(map[string]bool)
-	for _, e := range c.events {
-		if e.StepID != "" && e.State == "running" && !seen[e.StepID] {
-			order = append(order, e.StepID)
-			seen[e.StepID] = true
-		}
-	}
-	return order
-}
-
-// MockStateStore is a test implementation of StateStore for memory leak testing
-type MockStateStore struct {
-	mu               sync.RWMutex
-	pipelineStates   map[string]*state.PipelineStateRecord
-	stepStates       map[string][]state.StepStateRecord
-}
-
-func NewMockStateStore() *MockStateStore {
-	return &MockStateStore{
-		pipelineStates: make(map[string]*state.PipelineStateRecord),
-		stepStates:     make(map[string][]state.StepStateRecord),
-	}
-}
-
-func (m *MockStateStore) SavePipelineState(id string, status string, input string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	now := time.Now()
-	m.pipelineStates[id] = &state.PipelineStateRecord{
-		PipelineID: id,
-		Name:       id,
-		Status:     status,
-		Input:      input,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	}
-	return nil
-}
-
-func (m *MockStateStore) GetPipelineState(id string) (*state.PipelineStateRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	record, exists := m.pipelineStates[id]
-	if !exists {
-		return nil, errors.New("pipeline state not found")
-	}
-	return record, nil
-}
-
-func (m *MockStateStore) SaveStepState(pipelineID string, stepID string, stepState state.StepState, errMsg string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	stepRecord := state.StepStateRecord{
-		StepID:     stepID,
-		PipelineID: pipelineID,
-		State:      stepState,
-	}
-	m.stepStates[pipelineID] = append(m.stepStates[pipelineID], stepRecord)
-	return nil
-}
-
-func (m *MockStateStore) GetStepStates(pipelineID string) ([]state.StepStateRecord, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.stepStates[pipelineID], nil
-}
-
-// Implement remaining required methods with minimal stubs
-func (m *MockStateStore) ListRecentPipelines(limit int) ([]state.PipelineStateRecord, error) { return nil, nil }
-func (m *MockStateStore) Close() error { return nil }
-func (m *MockStateStore) CreateRun(pipelineName string, input string) (string, error) { return "", nil }
-func (m *MockStateStore) UpdateRunStatus(runID string, status string, currentStep string, tokens int) error { return nil }
-func (m *MockStateStore) UpdateRunBranch(runID string, branch string) error { return nil }
-func (m *MockStateStore) GetRun(runID string) (*state.RunRecord, error) { return nil, nil }
-func (m *MockStateStore) GetRunningRuns() ([]state.RunRecord, error) { return nil, nil }
-func (m *MockStateStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error) { return nil, nil }
-func (m *MockStateStore) DeleteRun(runID string) error { return nil }
-func (m *MockStateStore) LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64) error { return nil }
-func (m *MockStateStore) GetEvents(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error) { return nil, nil }
-func (m *MockStateStore) RegisterArtifact(runID string, stepID string, name string, path string, artifactType string, sizeBytes int64) error { return nil }
-func (m *MockStateStore) GetArtifacts(runID string, stepID string) ([]state.ArtifactRecord, error) { return nil, nil }
-func (m *MockStateStore) RequestCancellation(runID string, force bool) error { return nil }
-func (m *MockStateStore) CheckCancellation(runID string) (*state.CancellationRecord, error) { return nil, nil }
-func (m *MockStateStore) ClearCancellation(runID string) error { return nil }
-func (m *MockStateStore) RecordPerformanceMetric(metric *state.PerformanceMetricRecord) error { return nil }
-func (m *MockStateStore) GetPerformanceMetrics(runID string, stepID string) ([]state.PerformanceMetricRecord, error) { return nil, nil }
-func (m *MockStateStore) GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*state.StepPerformanceStats, error) { return nil, nil }
-func (m *MockStateStore) GetRecentPerformanceHistory(opts state.PerformanceQueryOptions) ([]state.PerformanceMetricRecord, error) { return nil, nil }
-func (m *MockStateStore) CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error) { return 0, nil }
-func (m *MockStateStore) SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error { return nil }
-func (m *MockStateStore) GetProgressSnapshots(runID string, stepID string, limit int) ([]state.ProgressSnapshotRecord, error) { return nil, nil }
-func (m *MockStateStore) UpdateStepProgress(runID string, stepID string, persona string, state string, progress int, action string, message string, etaMs int64, tokens int) error { return nil }
-func (m *MockStateStore) GetStepProgress(stepID string) (*state.StepProgressRecord, error) { return nil, nil }
-func (m *MockStateStore) GetAllStepProgress(runID string) ([]state.StepProgressRecord, error) { return nil, nil }
-func (m *MockStateStore) UpdatePipelineProgress(runID string, totalSteps int, completedSteps int, currentStepIndex int, overallProgress int, etaMs int64) error { return nil }
-func (m *MockStateStore) GetPipelineProgress(runID string) (*state.PipelineProgressRecord, error) { return nil, nil }
-func (m *MockStateStore) SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error { return nil }
-func (m *MockStateStore) GetArtifactMetadata(artifactID int64) (*state.ArtifactMetadataRecord, error) { return nil, nil }
-func (m *MockStateStore) SetRunTags(runID string, tags []string) error { return nil }
-func (m *MockStateStore) GetRunTags(runID string) ([]string, error) { return nil, nil }
-func (m *MockStateStore) AddRunTag(runID string, tag string) error { return nil }
-func (m *MockStateStore) RemoveRunTag(runID string, tag string) error { return nil }
-func (m *MockStateStore) UpdateRunPID(runID string, pid int) error    { return nil }
-func (m *MockStateStore) RecordStepAttempt(record *state.StepAttemptRecord) error { return nil }
-func (m *MockStateStore) GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error) { return nil, nil }
-func (m *MockStateStore) SaveChatSession(session *state.ChatSession) error { return nil }
-func (m *MockStateStore) GetChatSession(sessionID string) (*state.ChatSession, error) { return nil, errors.New("not found") }
-func (m *MockStateStore) ListChatSessions(runID string) ([]state.ChatSession, error) { return nil, nil }
-
-// createTestManifest creates a manifest for testing
-func createTestManifest(workspaceRoot string) *manifest.Manifest {
-	return &manifest.Manifest{
-		Metadata: manifest.Metadata{Name: "test-project"},
-		Adapters: map[string]manifest.Adapter{
-			"claude": {Binary: "claude", Mode: "headless"},
-		},
-		Personas: map[string]manifest.Persona{
-			"navigator": {
-				Adapter:          "claude",
-				SystemPromptFile: "",
-				Temperature:      0.1,
-			},
-			"craftsman": {
-				Adapter:          "claude",
-				SystemPromptFile: "",
-				Temperature:      0.7,
-			},
-		},
-		Runtime: manifest.Runtime{
-			WorkspaceRoot:     workspaceRoot,
-			DefaultTimeoutMin: 5,
-		},
-	}
-}
-
 // TestStepOrdering verifies steps execute in topological order (T047)
 func TestStepOrdering(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(1000),
@@ -240,7 +36,7 @@ func TestStepOrdering(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Create a pipeline with dependencies: a -> b -> c
 	p := &Pipeline{
@@ -273,7 +69,7 @@ func TestStepOrdering(t *testing.T) {
 
 // TestComplexDAGOrdering tests a more complex DAG structure
 func TestComplexDAGOrdering(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(500),
@@ -284,7 +80,7 @@ func TestComplexDAGOrdering(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Diamond dependency pattern:
 	//     A
@@ -327,7 +123,7 @@ func TestComplexDAGOrdering(t *testing.T) {
 
 // TestParallelStepExecution tests that independent steps actually run in parallel (T048)
 func TestParallelStepExecution(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Track concurrent execution
 	var maxConcurrent int32
@@ -359,7 +155,7 @@ func TestParallelStepExecution(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline with independent steps B and C that run in parallel
 	//     A
@@ -410,7 +206,7 @@ func TestParallelStepExecution(t *testing.T) {
 // TestConcurrentStepFailure tests that when one concurrent step fails,
 // the batch returns an error and other steps get cancelled via context.
 func TestConcurrentStepFailure(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Track which steps were started
 	var startedSteps sync.Map
@@ -437,7 +233,7 @@ func TestConcurrentStepFailure(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// A -> (B, C) where B fails
 	p := &Pipeline{
@@ -468,7 +264,7 @@ func TestConcurrentStepFailure(t *testing.T) {
 // TestSingleStepBatchNoOverhead tests that pipelines with only sequential
 // dependencies run through the single-step fast path (no goroutine overhead).
 func TestSingleStepBatchNoOverhead(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(500),
@@ -479,7 +275,7 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Linear pipeline: A -> B -> C (no parallelism possible)
 	p := &Pipeline{
@@ -512,7 +308,7 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 // TestFailedStepAlwaysHasID ensures that StepError always carries the step ID,
 // even when the step fails on a single-step batch (no concurrency).
 func TestFailedStepAlwaysHasID(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	failingAdapter := adapter.NewMockAdapter(
 		adapter.WithFailure(errors.New("simulated timeout")),
 	)
@@ -522,7 +318,7 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Linear pipeline: A -> B where B fails (single-step batch)
 	p := &Pipeline{
@@ -559,7 +355,7 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 
 // TestConcurrentStepWideFanOut tests a wide fan-out pattern with many parallel steps.
 func TestConcurrentStepWideFanOut(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	var maxConcurrent int32
 	var currentConcurrent int32
@@ -589,7 +385,7 @@ func TestConcurrentStepWideFanOut(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Root -> (B, C, D, E) -> Final
 	p := &Pipeline{
@@ -647,7 +443,7 @@ func (a *stepAwareAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig
 
 // TestContractFailureRetry tests retry behavior on contract validation failure (T049)
 func TestContractFailureRetry(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Track retry attempts
 	var attemptCount int32
@@ -670,7 +466,7 @@ func TestContractFailureRetry(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "retry-test"},
@@ -702,7 +498,7 @@ func TestContractFailureRetry(t *testing.T) {
 
 // TestContractFailureExhaustsRetries tests that execution fails when retries are exhausted
 func TestContractFailureExhaustsRetries(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Create an adapter that always fails
 	failingAdapter := adapter.NewMockAdapter(
@@ -714,7 +510,7 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "exhausted-retry-test"},
@@ -809,7 +605,7 @@ func TestBuildContractPrompt_NoContract(t *testing.T) {
 
 // TestProgressEventEmission tests that progress events are emitted during execution (T052)
 func TestProgressEventEmission(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(2500),
@@ -820,7 +616,7 @@ func TestProgressEventEmission(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "progress-test"},
@@ -884,7 +680,7 @@ func TestProgressEventEmission(t *testing.T) {
 
 // TestProgressEventFields tests that progress events have correct field values
 func TestProgressEventFields(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(3000),
@@ -895,7 +691,7 @@ func TestProgressEventFields(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "event-fields-test"},
@@ -939,7 +735,7 @@ func TestExecutorWithoutEmitter(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "no-emitter-test"},
@@ -958,8 +754,8 @@ func TestExecutorWithoutEmitter(t *testing.T) {
 
 // TestGetStatus tests the GetStatus method
 func TestGetStatus(t *testing.T) {
-	mockStore := NewMockStateStore()
-	collector := newTestEventCollector()
+	mockStore := testutil.NewMockStateStore()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 	)
@@ -970,7 +766,7 @@ func TestGetStatus(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "status-test"},
@@ -1004,7 +800,7 @@ func TestGetStatus(t *testing.T) {
 
 // TestDAGCycleDetection tests that cycles are detected and rejected
 func TestDAGCycleDetection(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1012,7 +808,7 @@ func TestDAGCycleDetection(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Create a pipeline with a cycle: A -> B -> C -> A
 	p := &Pipeline{
@@ -1034,7 +830,7 @@ func TestDAGCycleDetection(t *testing.T) {
 
 // TestMissingDependency tests that missing dependencies are caught
 func TestMissingDependency(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1042,7 +838,7 @@ func TestMissingDependency(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "missing-dep-test"},
@@ -1061,7 +857,7 @@ func TestMissingDependency(t *testing.T) {
 
 // TestWorkspaceCreation tests that workspaces are created for each step
 func TestWorkspaceCreation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 	)
@@ -1071,7 +867,7 @@ func TestWorkspaceCreation(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "workspace-test"},
@@ -1115,10 +911,10 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 		adapter.WithTokensUsed(1000),
 	)
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Create pipeline with output artifact
 	p := &Pipeline{
@@ -1197,8 +993,8 @@ func (a *retryTrackingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunCo
 // to prevent memory leaks, but can still be retrieved via GetStatus from persistent storage.
 func TestMemoryCleanupAfterCompletion(t *testing.T) {
 	// Use a mock state store to test persistent storage fallback
-	mockStore := NewMockStateStore()
-	collector := newTestEventCollector()
+	mockStore := testutil.NewMockStateStore()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 	)
@@ -1209,7 +1005,7 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "memory-cleanup-test"},
@@ -1244,8 +1040,8 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 
 // TestMemoryCleanupAfterFailure tests that failed pipelines are also cleaned up from memory.
 func TestMemoryCleanupAfterFailure(t *testing.T) {
-	mockStore := NewMockStateStore()
-	collector := newTestEventCollector()
+	mockStore := testutil.NewMockStateStore()
+	collector := testutil.NewEventCollector()
 	// Use a failing adapter
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithFailure(errors.New("step failure")),
@@ -1257,7 +1053,7 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "memory-cleanup-fail-test"},
@@ -1294,8 +1090,8 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 // 3. Nil pointer dereference in buildStepPrompt when Context is nil
 func TestRegressionProductionIssues(t *testing.T) {
 	t.Run("EmptyInputDoesNotCauseIssues", func(t *testing.T) {
-		mockStore := NewMockStateStore()
-		collector := newTestEventCollector()
+		mockStore := testutil.NewMockStateStore()
+		collector := testutil.NewEventCollector()
 		mockAdapter := adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
 		)
@@ -1306,7 +1102,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 		)
 
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 
 		p := &Pipeline{
 			Metadata: PipelineMetadata{Name: "empty-input-test"},
@@ -1349,7 +1145,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 
 		// Create execution without Context field (simulating the original bug)
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 
 		execution := &PipelineExecution{
 			Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "nil-context-test"}},
@@ -1397,7 +1193,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 		itemsFile := filepath.Join(tmpDir, "items.json")
 		os.WriteFile(itemsFile, itemsJSON, 0644)
 
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 
 		execution := &PipelineExecution{
 			Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "matrix-context-test"}},
@@ -1444,7 +1240,7 @@ func TestNilStatusHandlingInTests(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "status-handling-test"},
@@ -1495,10 +1291,10 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 		adapter.WithTokensUsed(1000),
 	)
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "preserve-artifact-test"},
@@ -1551,7 +1347,7 @@ func (a *configCapturingAdapter) getLastConfig() adapter.AdapterRunConfig {
 // TestExecuteStep_NonZeroExitCode_EmitsWarning verifies that a non-zero adapter exit code
 // emits a warning event but still allows the step to complete (work may have been done).
 func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithExitCode(1),
 		adapter.WithTokensUsed(100),
@@ -1562,7 +1358,7 @@ func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "exit-code-test"},
@@ -1596,7 +1392,7 @@ func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
 // TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps verifies that when a step
 // exits with a non-zero code, subsequent steps still execute (work may have been done).
 func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithExitCode(1),
 		adapter.WithTokensUsed(100),
@@ -1607,7 +1403,7 @@ func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "exit-code-chain-test"},
@@ -1667,7 +1463,7 @@ func (a *streamEventAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 // correctly emits pipeline-enriched stream_activity events for valid tool_use events,
 // and silently ignores non-tool_use events and tool_use events with empty ToolName.
 func TestStreamActivityEventBridge(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Configure three stream events:
 	// 1. Valid tool_use with ToolName and ToolInput -> SHOULD emit stream_activity
@@ -1701,7 +1497,7 @@ func TestStreamActivityEventBridge(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "stream-bridge-test"},
@@ -1802,7 +1598,7 @@ func TestCreateStepWorkspace_SharedWorktree(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "shared-wt-test"}},
@@ -1867,7 +1663,7 @@ func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "diff-branch-test"}},
@@ -1970,7 +1766,7 @@ func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*Pipelin
 
 // TestStdoutArtifactCapture tests that stdout artifacts are correctly captured and available to downstream steps
 func TestStdoutArtifactCapture(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	stdoutContent := `{"analysis": "test analysis data", "score": 42}`
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(stdoutContent),
@@ -1982,7 +1778,7 @@ func TestStdoutArtifactCapture(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline with stdout artifact
 	p := &Pipeline{
@@ -2023,7 +1819,7 @@ func TestStdoutArtifactCapture(t *testing.T) {
 
 // TestStdoutArtifactSizeLimitEnforced tests that size limit is enforced for stdout artifacts
 func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	// Create a large stdout (over 10MB would be too slow, so we'll configure a smaller limit)
 	largeContent := strings.Repeat("x", 1000)
 	mockAdapter := adapter.NewMockAdapter(
@@ -2036,7 +1832,7 @@ func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	// Set a very small limit to test the enforcement
 	m.Runtime.Artifacts.MaxStdoutSize = 100 // 100 bytes
 
@@ -2065,7 +1861,7 @@ func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
 
 // TestStdoutArtifactWrittenToCorrectLocation tests that stdout artifact paths follow the expected convention
 func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	expectedContent := "test content for stdout artifact"
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(expectedContent),
@@ -2077,7 +1873,7 @@ func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "stdout-path-test"},
@@ -2112,7 +1908,7 @@ func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 
 // TestMissingRequiredArtifactFailsBeforeStep tests that missing required artifacts fail before step execution
 func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2123,7 +1919,7 @@ func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline where step2 references a non-existent artifact from a step that doesn't exist
 	p := &Pipeline{
@@ -2160,7 +1956,7 @@ func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
 
 // TestOptionalMissingArtifactProceeds tests that optional missing artifacts don't fail the step
 func TestOptionalMissingArtifactProceeds(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2171,7 +1967,7 @@ func TestOptionalMissingArtifactProceeds(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline where step2 references an optional non-existent artifact
 	p := &Pipeline{
@@ -2217,7 +2013,7 @@ func TestOptionalMissingArtifactProceeds(t *testing.T) {
 
 // TestTypeMismatchFailsWithClearError tests that type mismatch produces a clear error
 func TestTypeMismatchFailsWithClearError(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2228,7 +2024,7 @@ func TestTypeMismatchFailsWithClearError(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline where step2 expects json but step1 produces markdown
 	p := &Pipeline{
@@ -2268,7 +2064,7 @@ func TestTypeMismatchFailsWithClearError(t *testing.T) {
 
 // TestTypeNotDeclaredSkipsValidation tests that missing type declaration skips validation
 func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2279,7 +2075,7 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline where neither side declares a type - should pass
 	p := &Pipeline{
@@ -2318,7 +2114,7 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 // TestOutcomeExtractionRegistersDeliverables verifies that step outcomes declared in
 // pipeline YAML are extracted from JSON artifacts and registered with the deliverable tracker.
 func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	artifactJSON := `{"comment_url": "https://github.com/re-cinq/wave/pull/42#issuecomment-999", "pr": "42"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2334,7 +2130,7 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-test"},
@@ -2389,7 +2185,7 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 // TestOutcomeExtractionMissingFileWarns verifies that missing artifact files produce
 // warnings but don't fail the step.
 func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2400,7 +2196,7 @@ func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-missing-test"},
@@ -2442,7 +2238,7 @@ func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
 
 // TestOutcomeExtractionPRType verifies PR outcomes are registered as PR deliverables
 func TestOutcomeExtractionPRType(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	prJSON := `{"pr_url": "https://github.com/re-cinq/wave/pull/99", "title": "feat: add feature"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2458,7 +2254,7 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-pr-test"},
@@ -2497,7 +2293,7 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 
 // TestOutcomeExtractionIssueType verifies issue outcomes are registered as issue deliverables.
 func TestOutcomeExtractionIssueType(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	issueJSON := `{"issue_url": "https://github.com/re-cinq/wave/issues/55"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2510,7 +2306,7 @@ func TestOutcomeExtractionIssueType(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-issue-test"},
@@ -2539,7 +2335,7 @@ func TestOutcomeExtractionIssueType(t *testing.T) {
 
 // TestOutcomeExtractionDeploymentType verifies deployment outcomes are registered as deployment deliverables.
 func TestOutcomeExtractionDeploymentType(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	deployJSON := `{"deploy_url": "https://staging.example.com"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2552,7 +2348,7 @@ func TestOutcomeExtractionDeploymentType(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-deploy-test"},
@@ -2582,7 +2378,7 @@ func TestOutcomeExtractionDeploymentType(t *testing.T) {
 // TestOutcomeExtractionUnknownTypeFallsBackToURL verifies that unrecognized outcome types
 // fall back to URL deliverables.
 func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	artifactJSON := `{"link": "https://example.com/report"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2595,7 +2391,7 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-unknown-test"},
@@ -2624,7 +2420,7 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 // TestOutcomeExtractionPathTraversal verifies that extract_from paths that escape the
 // workspace are rejected with a warning.
 func TestOutcomeExtractionPathTraversal(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -2632,7 +2428,7 @@ func TestOutcomeExtractionPathTraversal(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-traversal-test"},
@@ -2665,7 +2461,7 @@ func TestOutcomeExtractionPathTraversal(t *testing.T) {
 
 // TestOutcomeExtractionInvalidJSONPath verifies that an invalid JSON path produces a warning.
 func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	artifactJSON := `{"url": "https://example.com"}`
 	outcomeAdapter := &outcomeTestAdapter{
@@ -2678,7 +2474,7 @@ func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-badpath-test"},
@@ -2773,7 +2569,7 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 // json_path indexes into an empty array, the system produces a friendly warning
 // in the summary (via the tracker) but does NOT emit a real-time warning event.
 func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Artifact contains an empty array — a valid "no results" condition
 	artifactJSON := `{"enhanced_issues": []}`
@@ -2790,7 +2586,7 @@ func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-empty-array-test"},
@@ -2845,7 +2641,7 @@ func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
 // out-of-bounds error (non-empty array) still emits both a tracker warning AND
 // a real-time warning event.
 func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	// Array has 1 element but the outcome path asks for index 5
 	artifactJSON := `{"items": [{"url": "https://example.com"}]}`
@@ -2862,7 +2658,7 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "outcome-oob-test"},
@@ -2998,7 +2794,7 @@ func TestModelOverridePrecedence(t *testing.T) {
 			capturer := newModelCapturingAdapter()
 
 			var opts []ExecutorOption
-			opts = append(opts, WithEmitter(newTestEventCollector()))
+			opts = append(opts, WithEmitter(testutil.NewEventCollector()))
 			if tc.modelOverride != "" {
 				opts = append(opts, WithModelOverride(tc.modelOverride))
 			}
@@ -3058,7 +2854,7 @@ func TestModelOverrideInChildExecutor(t *testing.T) {
 // reaches AdapterRunConfig.Model through the full execution path
 func TestModelOverrideIntegration(t *testing.T) {
 	capturer := newModelCapturingAdapter()
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(capturer,
 		WithEmitter(collector),
@@ -3130,9 +2926,9 @@ func TestResolveModelMethod(t *testing.T) {
 	assert.Equal(t, "", executor2.resolveModel(p3))
 }
 
-// cancellableMockStore embeds MockStateStore and adds configurable CheckCancellation.
+// cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
 type cancellableMockStore struct {
-	MockStateStore
+	testutil.MockStateStore
 	mu        sync.Mutex
 	cancelled bool
 }
@@ -3252,16 +3048,16 @@ func (a *countingFailAdapter) getLastConfigs() []adapter.AdapterRunConfig {
 	return dst
 }
 
-// attemptTrackingStore extends MockStateStore to track RecordStepAttempt calls.
+// attemptTrackingStore extends testutil.MockStateStore to track RecordStepAttempt calls.
 type attemptTrackingStore struct {
-	*MockStateStore
+	*testutil.MockStateStore
 	mu       sync.Mutex
 	attempts []state.StepAttemptRecord
 }
 
 func newAttemptTrackingStore() *attemptTrackingStore {
 	return &attemptTrackingStore{
-		MockStateStore: NewMockStateStore(),
+		MockStateStore: testutil.NewMockStateStore(),
 	}
 }
 
@@ -3283,7 +3079,7 @@ func (s *attemptTrackingStore) getAttempts() []state.StepAttemptRecord {
 // TestExecuteStep_RetryConfig_MaxAttempts verifies that the retry count is respected.
 func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
 	failAdapter := newCountingFailAdapter(2, errors.New("step failure"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	store := newAttemptTrackingStore()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
@@ -3292,7 +3088,7 @@ func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "retry-test"},
@@ -3325,14 +3121,14 @@ func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
 // TestExecuteStep_RetryConfig_OnFailureSkip verifies that on_failure=skip skips the step.
 func TestExecuteStep_RetryConfig_OnFailureSkip(t *testing.T) {
 	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "skip-test"},
@@ -3371,14 +3167,14 @@ func TestExecuteStep_RetryConfig_OnFailureSkip(t *testing.T) {
 // TestExecuteStep_RetryConfig_OnFailureContinue verifies that on_failure=continue continues.
 func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
 	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "continue-test"},
@@ -3427,14 +3223,14 @@ func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
 // TestExecuteStep_AdaptPrompt_InjectsFailureContext verifies prompt adaptation on retry.
 func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
 	failAdapter := newCountingFailAdapter(1, errors.New("contract validation failed: missing field"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "adapt-test"},
@@ -3485,7 +3281,7 @@ func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	m.Runtime.DefaultTimeoutMin = 10 // manifest says 10 minutes
 
 	p := &Pipeline{
@@ -3526,7 +3322,7 @@ func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
 
 	p := &Pipeline{
@@ -3567,7 +3363,7 @@ func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	m.Runtime.DefaultTimeoutMin = 5 // manifest says 5 minutes
 
 	p := &Pipeline{
@@ -3606,7 +3402,7 @@ func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	m.Runtime.DefaultTimeoutMin = 8 // manifest says 8 minutes
 
 	p := &Pipeline{
@@ -3645,7 +3441,7 @@ func TestMaxConcurrentAgents_FlowsToAdapterConfig(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "concurrency-test"},
@@ -3683,7 +3479,7 @@ func TestMaxConcurrentAgents_ZeroWhenUnset(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "concurrency-default-test"},
@@ -3728,7 +3524,7 @@ func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(wrappedAdapter)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 	m.Runtime.DefaultTimeoutMin = 10
 
 	p := &Pipeline{
@@ -3801,7 +3597,7 @@ func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRu
 // TestOptionalStep_FailsPipelineContinues verifies that when an optional step fails,
 // the pipeline continues to the next independent step and completes successfully.
 func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -3819,7 +3615,7 @@ func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "optional-fail-test"},
@@ -3855,7 +3651,7 @@ func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
 // TestOptionalStep_SucceedsNormally verifies that an optional step that succeeds
 // behaves identically to a required step.
 func TestOptionalStep_SucceedsNormally(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -3863,7 +3659,7 @@ func TestOptionalStep_SucceedsNormally(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "optional-success-test"},
@@ -3891,7 +3687,7 @@ func TestOptionalStep_SucceedsNormally(t *testing.T) {
 // TestOptionalStep_DefaultBehaviorPreserved verifies that a step without the optional
 // field still halts the pipeline on failure (regression test).
 func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	failAdapter := adapter.NewMockAdapter(
 		adapter.WithFailure(errors.New("required step failed")),
 	)
@@ -3899,7 +3695,7 @@ func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "default-behavior-test"},
@@ -3922,14 +3718,14 @@ func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
 // TestOptionalStep_WithRetries verifies that an optional step with max_attempts > 1
 // retries all attempts before continuing.
 func TestOptionalStep_WithRetries(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	// Fails 5 times — more than max_attempts
 	failAdapter := newCountingFailAdapter(5, errors.New("transient failure"))
 
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "optional-retry-test"},
@@ -3970,7 +3766,7 @@ func TestOptionalStep_WithRetries(t *testing.T) {
 // TestOptionalStep_DependentSkipped verifies that a step depending on a failed
 // optional step is skipped.
 func TestOptionalStep_DependentSkipped(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -3988,7 +3784,7 @@ func TestOptionalStep_DependentSkipped(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "dep-skip-test"},
@@ -4023,7 +3819,7 @@ func TestOptionalStep_DependentSkipped(t *testing.T) {
 // TestOptionalStep_TransitiveDependencySkip verifies that C depends on B depends on
 // optional A — when A fails, both B and C are skipped.
 func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -4041,7 +3837,7 @@ func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "transitive-skip-test"},
@@ -4078,7 +3874,7 @@ func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
 // TestOptionalStep_ExplicitOnFailurePrecedence verifies that optional: true with
 // retry.on_failure: "fail" results in pipeline halt (explicit wins).
 func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	failAdapter := adapter.NewMockAdapter(
 		adapter.WithFailure(errors.New("step failed")),
 	)
@@ -4086,7 +3882,7 @@ func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "precedence-test"},
@@ -4116,8 +3912,8 @@ func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 // TestOptionalStep_PipelineStatusCompleted verifies that pipeline status is completed
 // when only optional steps fail.
 func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
-	collector := newTestEventCollector()
-	stateStore := NewMockStateStore()
+	collector := testutil.NewEventCollector()
+	stateStore := testutil.NewMockStateStore()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -4138,7 +3934,7 @@ func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "status-test"},
@@ -4184,7 +3980,7 @@ func TestPreserveWorkspaceKeepsExistingContent(t *testing.T) {
 	markerFile := filepath.Join(pipelineWsPath, "debug-marker.txt")
 	require.NoError(t, os.WriteFile(markerFile, []byte("preserved"), 0644))
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 	)
@@ -4195,7 +3991,7 @@ func TestPreserveWorkspaceKeepsExistingContent(t *testing.T) {
 		WithPreserveWorkspace(true),
 	)
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "preserve-ws-test"},
@@ -4237,7 +4033,7 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 	markerFile := filepath.Join(pipelineWsPath, "stale-marker.txt")
 	require.NoError(t, os.WriteFile(markerFile, []byte("should-be-removed"), 0644))
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 	)
@@ -4247,7 +4043,7 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 		WithRunID(runID),
 	)
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "cleanup-ws-test"},
@@ -4269,7 +4065,7 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 
 // TestExecuteWithIncludeFilter verifies that --steps filter runs only the named steps
 func TestExecuteWithIncludeFilter(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -4282,7 +4078,7 @@ func TestExecuteWithIncludeFilter(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "include-filter-test"},
@@ -4305,7 +4101,7 @@ func TestExecuteWithIncludeFilter(t *testing.T) {
 
 // TestExecuteWithExcludeFilter verifies that --exclude filter skips the named steps
 func TestExecuteWithExcludeFilter(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -4318,7 +4114,7 @@ func TestExecuteWithExcludeFilter(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "exclude-filter-test"},
@@ -4348,7 +4144,7 @@ func TestExecuteWithInvalidStepFilter(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "invalid-filter-test"},
@@ -4367,7 +4163,7 @@ func TestExecuteWithInvalidStepFilter(t *testing.T) {
 
 // TestExecuteWithNilFilter verifies that nil filter runs all steps (no-op)
 func TestExecuteWithNilFilter(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "success"}`),
 		adapter.WithTokensUsed(100),
@@ -4379,7 +4175,7 @@ func TestExecuteWithNilFilter(t *testing.T) {
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "nil-filter-test"},
@@ -4436,14 +4232,14 @@ func (a *promptFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfi
 func TestExecuteStep_OnFailureRework_TriggersReworkStep(t *testing.T) {
 	// Adapter fails when prompt contains "do something" (step-1), succeeds for rework.
 	failAdapter := newPromptFailAdapter("do something", errors.New("step-1 failed"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Use a 3-step pipeline: step-0 → step-1 (fails, reworks to rework-step)
 	// This ensures step-1 and rework-step don't run in the same concurrent batch.
@@ -4510,14 +4306,14 @@ func TestExecuteStep_OnFailureRework_ReworkStepFailsPropagates(t *testing.T) {
 	// Adapter fails when prompt contains "fail-me" — matches both step-1 and rework-step
 	// but not step-0 which has prompt "init".
 	failAdapter := newPromptFailAdapter("fail-me", errors.New("always fails"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "rework-fail-test"},
@@ -4571,14 +4367,14 @@ func TestExecuteStep_OnFailureRework_ReworkStepFailsPropagates(t *testing.T) {
 func TestExecuteStep_OnFailureRework_ExistingOnFailureBehaviorsUnchanged(t *testing.T) {
 	// Regression test: verify "fail" still works
 	failAdapter := newCountingFailAdapter(5, errors.New("always fails"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "fail-regression-test"},
@@ -4608,14 +4404,14 @@ func TestExecuteStep_OnFailureRework_ExistingOnFailureBehaviorsUnchanged(t *test
 func TestExecuteStep_OnFailureRework_FailureContextInjected(t *testing.T) {
 	// Adapter fails when prompt contains "do something" (step-1), succeeds for rework.
 	failAdapter := newPromptFailAdapter("do something", errors.New("contract validation failed: missing field"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Use step-0 → step-1 to ensure step-1 and rework-step don't run in the
 	// same concurrent batch (rework-step executes inline during step-1's rework).
@@ -4678,14 +4474,14 @@ func TestExecuteStep_OnFailureRework_FailureContextInjected(t *testing.T) {
 func TestExecuteStep_OnFailureRework_DownstreamStepsRun(t *testing.T) {
 	// Adapter fails when prompt contains "do something" (step-1), succeeds for everything else.
 	failAdapter := newPromptFailAdapter("do something", errors.New("step-1 failed"))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	// Pipeline: step-0 → step-1 (fails, reworks) → step-downstream
 	// The downstream step depends on step-1 and should run after rework succeeds.
@@ -4756,14 +4552,14 @@ func TestExecuteStep_OnFailureRework_DownstreamStepsRun(t *testing.T) {
 func TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled(t *testing.T) {
 	// Adapter succeeds for everything — step-1 should NOT fail, so rework step should never run.
 	mockAdapter := adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`))
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "rework-only-test"},
@@ -4805,7 +4601,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		// A pipeline using only the legacy requires.skills field (SkillConfig map)
 		// should execute without errors and without needing a skill store.
 		// The check command uses "true" which always succeeds on Linux.
-		collector := newTestEventCollector()
+		collector := testutil.NewEventCollector()
 		mockAdapter := adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
 			adapter.WithTokensUsed(100),
@@ -4817,9 +4613,9 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		)
 
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 		// Manifest has no Skills field (zero value: nil slice)
-		assert.Nil(t, m.Skills, "createTestManifest should not set manifest-level Skills")
+		assert.Nil(t, m.Skills, "CreateTestManifest should not set manifest-level Skills")
 		// Personas have no Skills field (zero value: nil slice)
 		for name, p := range m.Personas {
 			assert.Nil(t, p.Skills, "persona %q should not have Skills set", name)
@@ -4880,7 +4676,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 	t.Run("no_skills_at_any_scope_executes_normally", func(t *testing.T) {
 		// A pipeline with zero skill references anywhere should behave
 		// identically to pre-skill-hierarchy pipelines.
-		collector := newTestEventCollector()
+		collector := testutil.NewEventCollector()
 		mockAdapter := adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"result": "ok"}`),
 			adapter.WithTokensUsed(200),
@@ -4890,7 +4686,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		)
 
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 
 		p := &Pipeline{
 			Metadata: PipelineMetadata{Name: "no-skills-anywhere"},
@@ -4953,7 +4749,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		)
 
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 		m.Skills = []string{"test-skill"} // Global skill reference
 
 		p := &Pipeline{
@@ -4990,7 +4786,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		)
 
 		tmpDir := t.TempDir()
-		m := createTestManifest(tmpDir)
+		m := testutil.CreateTestManifest(tmpDir)
 		m.Skills = []string{"nonexistent-skill"}
 
 		p := &Pipeline{
@@ -5020,7 +4816,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 //
 // All of B, C, D should be skipped. Pipeline should succeed because A is optional.
 func TestTransitiveSkip_DiamondDependency(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -5038,7 +4834,7 @@ func TestTransitiveSkip_DiamondDependency(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "diamond-skip-test"},
@@ -5082,7 +4878,7 @@ func TestTransitiveSkip_DiamondDependency(t *testing.T) {
 //	|                       |
 //	B (skipped)            F (should execute)
 func TestTransitiveSkip_IndependentPathsExecute(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 	successAdapter := adapter.NewMockAdapter(
 		adapter.WithStdoutJSON(`{"status": "ok"}`),
 	)
@@ -5100,7 +4896,7 @@ func TestTransitiveSkip_IndependentPathsExecute(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "independent-paths-test"},
@@ -5169,7 +4965,7 @@ func (a *slowAdapter) Run(ctx context.Context, _ adapter.AdapterRunConfig) (*ada
 // Steps A, B, C have no dependencies so they all land in the same ready batch.
 // B fails immediately; A and C are slow and should be cancelled.
 func TestConcurrentBatchCancellation(t *testing.T) {
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	slowResult := &adapter.AdapterResult{
 		ExitCode:   0,
@@ -5191,7 +4987,7 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "concurrent-cancel-test"},
