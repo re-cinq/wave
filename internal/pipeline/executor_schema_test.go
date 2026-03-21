@@ -10,6 +10,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/security"
+	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -418,7 +419,7 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 	schemaPath := filepath.Join(tmpDir, "e2e.schema.json")
 	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaContent), 0644))
 
-	collector := newTestEventCollector()
+	collector := testutil.NewEventCollector()
 
 	mockAdapter := newContractTestPromptCapturingAdapter(
 		adapter.WithStdoutJSON(`{"result": "success"}`),
@@ -437,7 +438,7 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 	executor.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
 	executor.securityLogger = securityLogger
 
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "e2e-schema-test"},
@@ -810,7 +811,7 @@ func TestBuildStepPrompt_NoSchemaInjection(t *testing.T) {
 	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaContent), 0644))
 
 	executor := createSchemaTestExecutor(tmpDir)
-	m := createTestManifest(tmpDir)
+	m := testutil.CreateTestManifest(tmpDir)
 
 	execution := &PipelineExecution{
 		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "test"}},
