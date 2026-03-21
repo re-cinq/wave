@@ -295,8 +295,9 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			// to the audit system rather than blocking the pipeline
 			_ = formatter.FormatProgressiveValidationWarning(err, recoveryResult)
 		} else {
-			// Normal validation mode - respect must_pass setting
-			validationErr.Retryable = mustPass
+			// Normal validation mode - schema mismatches are always retryable
+			// (the AI can be given repair guidance to fix the artifact)
+			validationErr.Retryable = true
 		}
 
 		// Add context about validation mode
