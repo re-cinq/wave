@@ -136,7 +136,7 @@ steps:
         source: .wave/output/review-comment.md
 
   - id: publish
-    persona: github-commenter
+    persona: "{{ forge.type }}-commenter"
     dependencies: [compose]
     memory:
       inject_artifacts:
