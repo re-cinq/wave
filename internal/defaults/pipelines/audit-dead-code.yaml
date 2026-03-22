@@ -108,12 +108,9 @@ steps:
            - Then unused exports
            - Then orphaned files
            - Skip anything with confidence=medium unless trivially safe
-           - After each removal, verify: `{{ project.build_command }}`
+           - After each removal, verify the build still passes
 
-        2. **Run full test suite**:
-           ```bash
-           {{ project.test_command }}
-           ```
+        2. Run the full test suite and fix any failures before committing.
 
         3. **Commit**:
            ```bash
