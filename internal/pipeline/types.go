@@ -20,6 +20,15 @@ const (
 	StateReworking = string(state.StateReworking)
 )
 
+// OnFailure policy constants for contract and step failure handling.
+const (
+	OnFailureFail     = "fail"
+	OnFailureSkip     = "skip"
+	OnFailureContinue = "continue"
+	OnFailureRework   = "rework"
+	OnFailureRetry    = "retry"
+)
+
 type Pipeline struct {
 	Kind     string           `yaml:"kind"`
 	Metadata PipelineMetadata `yaml:"metadata"`
@@ -104,11 +113,11 @@ type RetryConfig struct {
 
 // Validate checks that the RetryConfig is well-formed.
 func (r RetryConfig) Validate() error {
-	if r.OnFailure == "rework" && r.ReworkStep == "" {
+	if r.OnFailure == OnFailureRework && r.ReworkStep == "" {
 		return fmt.Errorf("rework_step is required when on_failure is \"rework\"")
 	}
-	if r.ReworkStep != "" && r.OnFailure != "rework" {
-		return fmt.Errorf("rework_step is set but on_failure is %q (must be \"rework\")", r.OnFailure)
+	if r.ReworkStep != "" && r.OnFailure != OnFailureRework {
+		return fmt.Errorf("rework_step is set but on_failure is %q (must be %q)", r.OnFailure, OnFailureRework)
 	}
 	return nil
 }

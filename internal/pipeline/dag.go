@@ -70,7 +70,7 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 		}
 
 		// Validate rework targets
-		if step.Retry.OnFailure == "rework" {
+		if step.Retry.OnFailure == OnFailureRework {
 			if err := v.validateReworkTarget(step.ID, step.Retry.ReworkStep, stepMap); err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	// Validate that each rework target is unique (prevent race on concurrent rework)
 	reworkTargets := make(map[string]string) // target -> source step
 	for _, step := range p.Steps {
-		if step.Retry.OnFailure == "rework" {
+		if step.Retry.OnFailure == OnFailureRework {
 			target := step.Retry.ReworkStep
 			if existing, ok := reworkTargets[target]; ok {
 				return fmt.Errorf("rework target %q is used by both step %q and step %q (each target must be unique)", target, existing, step.ID)
@@ -93,7 +93,7 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	for _, step := range p.Steps {
 		if step.Retry.OnFailure != "" {
 			switch step.Retry.OnFailure {
-			case "fail", "skip", "continue", "rework":
+			case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework:
 				// valid
 			default:
 				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, or rework)", step.ID, step.Retry.OnFailure)
