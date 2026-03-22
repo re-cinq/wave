@@ -172,6 +172,17 @@ func TestHandleAPIRuns_Pagination(t *testing.T) {
 		}
 	}
 
+	// Verify all rows are visible through the read-only store before testing
+	// pagination. SQLite WAL mode can have brief visibility delays between
+	// separate connections.
+	runs, err := srv.store.ListRuns(state.ListRunsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("failed to verify test data: %v", err)
+	}
+	if len(runs) != 30 {
+		t.Fatalf("expected 30 runs to be visible through roStore, got %d (WAL sync issue)", len(runs))
+	}
+
 	req := httptest.NewRequest("GET", "/api/runs", nil)
 	rec := httptest.NewRecorder()
 	srv.handleAPIRuns(rec, req)

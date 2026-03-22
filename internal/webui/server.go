@@ -73,7 +73,10 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	if cfg.Manifest != nil && cfg.Manifest.Runtime.WorkspaceRoot != "" {
 		wsRoot = cfg.Manifest.Runtime.WorkspaceRoot
 	}
-	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
+	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
+	if err != nil {
+		log.Printf("[webui] failed to initialize workspace manager: %v", err)
+	}
 
 	// Initialize GitHub client if token is available
 	ghToken := resolveGitHubToken()

@@ -128,13 +128,9 @@ steps:
         1. **Implement step by step** following the plan:
            - Follow existing codebase patterns identified in exploration
            - Write tests alongside implementation
-           - After each significant change, verify it compiles: `{{ project.build_command }}`
+           - After each significant change, verify it compiles
 
-        2. **Run full test suite**:
-           ```bash
-           {{ project.test_command }}
-           ```
-           Fix any failures before proceeding.
+        2. Run the full test suite and fix any failures before proceeding.
 
         3. **Commit**:
            ```bash
