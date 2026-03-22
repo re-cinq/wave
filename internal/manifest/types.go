@@ -6,15 +6,14 @@ import (
 )
 
 type Project struct {
-	Language            string `yaml:"language,omitempty"`
-	Flavour             string `yaml:"flavour,omitempty"`
-	TestCommand         string `yaml:"test_command,omitempty"`
-	ContractTestCommand string `yaml:"contract_test_command,omitempty"`
-	LintCommand         string `yaml:"lint_command,omitempty"`
-	BuildCommand        string `yaml:"build_command,omitempty"`
-	FormatCommand       string `yaml:"format_command,omitempty"`
-	SourceGlob          string `yaml:"source_glob,omitempty"`
-	Skill               string `yaml:"skill,omitempty"`
+	Language      string `yaml:"language,omitempty"`
+	Flavour       string `yaml:"flavour,omitempty"`
+	TestCommand   string `yaml:"test_command,omitempty"`
+	LintCommand   string `yaml:"lint_command,omitempty"`
+	BuildCommand  string `yaml:"build_command,omitempty"`
+	FormatCommand string `yaml:"format_command,omitempty"`
+	SourceGlob    string `yaml:"source_glob,omitempty"`
+	Skill         string `yaml:"skill,omitempty"`
 }
 
 type Manifest struct {
@@ -205,13 +204,6 @@ func (p *Project) ProjectVars() map[string]string {
 	}
 	if p.TestCommand != "" {
 		vars["project.test_command"] = p.TestCommand
-	}
-	// contract_test_command falls back to test_command if not set.
-	// This allows lighter test runs during contract validation (e.g. without -race).
-	if p.ContractTestCommand != "" {
-		vars["project.contract_test_command"] = p.ContractTestCommand
-	} else if p.TestCommand != "" {
-		vars["project.contract_test_command"] = p.TestCommand
 	}
 	if p.LintCommand != "" {
 		vars["project.lint_command"] = p.LintCommand

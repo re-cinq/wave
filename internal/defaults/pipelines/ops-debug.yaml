@@ -138,7 +138,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "{{ project.contract_test_command }}"
+        command: "{{ project.test_command }}"
 
         must_pass: false
         on_failure: retry

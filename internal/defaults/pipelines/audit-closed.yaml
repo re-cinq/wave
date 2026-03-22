@@ -20,7 +20,7 @@ input:
 
 steps:
   - id: inventory
-    persona: analyst
+    persona: github-analyst
     workspace:
       mount:
         - source: ./
@@ -107,7 +107,7 @@ steps:
         on_failure: retry
 
   - id: audit
-    persona: analyst
+    persona: github-analyst
     dependencies: [inventory]
     memory:
       inject_artifacts:
