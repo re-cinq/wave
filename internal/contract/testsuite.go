@@ -146,9 +146,9 @@ func extractTestSuiteDetails(command string, args []string, stdout, stderr strin
 
 	if stderr != "" {
 		stderrLines := strings.Split(strings.TrimSpace(stderr), "\n")
-		if len(stderrLines) > 10 {
-			stderrLines = stderrLines[len(stderrLines)-10:]
-			details = append(details, "stderr (last 10 lines):")
+		if len(stderrLines) > 50 {
+			stderrLines = stderrLines[len(stderrLines)-50:]
+			details = append(details, "stderr (last 50 lines):")
 		} else {
 			details = append(details, "stderr:")
 		}
@@ -161,9 +161,9 @@ func extractTestSuiteDetails(command string, args []string, stdout, stderr strin
 
 	if stdout != "" {
 		stdoutLines := strings.Split(strings.TrimSpace(stdout), "\n")
-		if len(stdoutLines) > 10 {
-			stdoutLines = stdoutLines[len(stdoutLines)-10:]
-			details = append(details, "stdout (last 10 lines):")
+		if len(stdoutLines) > 50 {
+			stdoutLines = stdoutLines[len(stdoutLines)-50:]
+			details = append(details, "stdout (last 50 lines):")
 		} else {
 			details = append(details, "stdout:")
 		}
