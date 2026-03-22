@@ -85,7 +85,7 @@ func generateNavigateStep(persona, input string) Step {
 				Type:       "json_schema",
 				SchemaPath: ".wave/contracts/navigation.schema.json",
 				Source:     ".wave/output/analysis.json",
-				OnFailure:  "retry",
+				OnFailure:  OnFailureRetry,
 				MaxRetries: 2,
 			},
 		},
@@ -118,7 +118,7 @@ func generateExecuteStep(persona, input string) Step {
 				Type:       "test_suite",
 				Command:    "go test ./...",
 				MustPass:   true,
-				OnFailure:  "retry",
+				OnFailure:  OnFailureRetry,
 				MaxRetries: 3,
 			},
 			Compaction: CompactionConfig{
