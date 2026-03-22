@@ -5,8 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -14,6 +17,7 @@ import (
 type ValidateOptions struct {
 	ManifestPath string
 	Pipeline     string
+	All          bool
 	Verbose      bool
 }
 
@@ -33,6 +37,7 @@ Checks manifest syntax, references, and system dependencies.`,
 
 	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Specific pipeline to validate")
+	cmd.Flags().BoolVar(&opts.All, "all", false, "Validate all pipelines in .wave/pipelines/")
 
 	return cmd
 }
@@ -114,9 +119,43 @@ func runValidate(opts ValidateOptions) error {
 		fmt.Printf("\n")
 	}
 
-	if opts.Pipeline != "" {
-		if err := validatePipeline(opts.Pipeline, &m); err != nil {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline validation failed: %s", err), "Fix the pipeline definition and re-run validation").WithCause(err)
+	// Detect forge for template resolution
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+
+	if opts.All {
+		pipelineDir := filepath.Join(filepath.Dir(opts.ManifestPath), ".wave", "pipelines")
+		entries, err := os.ReadDir(pipelineDir)
+		if err != nil {
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline directory: %s", err), "Run 'wave init' to create pipeline directory").WithCause(err)
+		}
+		var allErrs []string
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+				continue
+			}
+			name := strings.TrimSuffix(entry.Name(), ".yaml")
+			if errs := validatePipelineFull(name, &m, forgeInfo); len(errs) > 0 {
+				for _, e := range errs {
+					allErrs = append(allErrs, fmt.Sprintf("%s: %s", name, e))
+				}
+			} else if opts.Verbose {
+				fmt.Printf("✓ Pipeline '%s' is valid\n", name)
+			}
+		}
+		if len(allErrs) > 0 {
+			fmt.Printf("✗ Pipeline validation failed:\n")
+			for _, e := range allErrs {
+				fmt.Printf("  - %s\n", e)
+			}
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("%d pipeline issue(s) found", len(allErrs)), "Fix the issues listed above and re-run 'wave validate --all'")
+		}
+	} else if opts.Pipeline != "" {
+		if errs := validatePipelineFull(opts.Pipeline, &m, forgeInfo); len(errs) > 0 {
+			fmt.Printf("✗ Pipeline '%s' validation failed:\n", opts.Pipeline)
+			for _, e := range errs {
+				fmt.Printf("  - %s\n", e)
+			}
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline '%s' validation failed: %s", opts.Pipeline, strings.Join(errs, "; ")), "Fix the pipeline definition and re-run validation")
 		}
 		if opts.Verbose {
 			fmt.Printf("✓ Pipeline '%s' is valid\n", opts.Pipeline)
@@ -196,72 +235,109 @@ func validateAdapterBinaries(m *manifest.Manifest, verbose bool) []string {
 	return warnings
 }
 
-func validatePipeline(pipelineName string, m *manifest.Manifest) error {
-	pipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
-	if _, err := os.Stat(pipelinePath); os.IsNotExist(err) {
-		return NewCLIError(CodePipelineNotFound, fmt.Sprintf("pipeline file '%s' does not exist", pipelinePath), "Create the pipeline file or check the pipeline name")
-	}
+// isCompositionStep returns true if the step is an orchestration primitive
+// (sub-pipeline, branch, gate, loop) that does not require a persona.
+func isCompositionStep(step pipeline.Step) bool {
+	return step.SubPipeline != "" || step.Branch != nil || step.Gate != nil || step.Loop != nil || step.Aggregate != nil
+}
 
+// resolveForgeTemplate expands {{ forge.type }} in a persona name using the detected forge.
+// Returns all possible expansions if forge is unknown.
+func resolveForgeTemplate(persona string, fi forge.ForgeInfo) []string {
+	if !strings.Contains(persona, "{{ forge.type }}") && !strings.Contains(persona, "{{forge.type}}") {
+		return []string{persona}
+	}
+	if fi.Type != forge.ForgeUnknown {
+		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", string(fi.Type))
+		resolved = strings.ReplaceAll(resolved, "{{forge.type}}", string(fi.Type))
+		return []string{resolved}
+	}
+	// Unknown forge: expand to all variants
+	var results []string
+	for _, ft := range []string{"github", "gitlab", "gitea", "bitbucket"} {
+		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", ft)
+		resolved = strings.ReplaceAll(resolved, "{{forge.type}}", ft)
+		results = append(results, resolved)
+	}
+	return results
+}
+
+// validatePipelineFull performs comprehensive validation of a pipeline against the manifest.
+// Returns a list of error strings (empty = valid).
+func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.ForgeInfo) []string {
+	pipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline file: %s", err), "Check file permissions").WithCause(err)
+		if os.IsNotExist(err) {
+			return []string{fmt.Sprintf("pipeline file does not exist: %s", pipelinePath)}
+		}
+		return []string{fmt.Sprintf("cannot read pipeline file: %s", err)}
 	}
 
-	var pipeline map[string]interface{}
-	if err := yaml.Unmarshal(pipelineData, &pipeline); err != nil {
-		return NewCLIError(CodeValidationFailed, fmt.Sprintf("failed to parse pipeline: %s", err), "Check pipeline YAML syntax").WithCause(err)
+	var p pipeline.Pipeline
+	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
+		return []string{fmt.Sprintf("invalid YAML: %s", err)}
 	}
 
-	if pipeline["kind"] != "WavePipeline" {
-		return NewCLIError(CodeValidationFailed, "invalid pipeline kind, expected 'WavePipeline'", "Set kind: WavePipeline in the pipeline file")
-	}
-
-	steps, ok := pipeline["steps"].([]interface{})
-	if !ok {
-		return NewCLIError(CodeValidationFailed, "pipeline must have steps", "Add at least one step to the pipeline")
-	}
+	var errs []string
 
 	stepIDs := make(map[string]bool)
-	for i, stepInterface := range steps {
-		step, ok := stepInterface.(map[string]interface{})
-		if !ok {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] must be an object", i), "Ensure each step is a YAML mapping with id, persona, etc.")
+	for i, step := range p.Steps {
+		// Duplicate step ID
+		if stepIDs[step.ID] {
+			errs = append(errs, fmt.Sprintf("step[%d] duplicate id '%s'", i, step.ID))
 		}
+		stepIDs[step.ID] = true
 
-		stepID, ok := step["id"].(string)
-		if !ok || stepID == "" {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].id is required", i), "Add an id field to each step")
-		}
-
-		if stepIDs[stepID] {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("duplicate step id: %s", stepID), "Rename one of the duplicate steps")
-		}
-		stepIDs[stepID] = true
-
-		// Composition steps use `pipeline:` instead of `persona:`
-		_, hasSubPipeline := step["pipeline"].(string)
-
-		persona, hasPersona := step["persona"].(string)
-		if !hasSubPipeline && (!hasPersona || persona == "") {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].persona is required (or use pipeline: for composition steps)", i), "Add a persona field or pipeline field to the step")
-		}
-
-		if hasPersona && persona != "" && m.GetPersona(persona) == nil {
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d].persona '%s' not found in manifest", i, persona), "Add the persona to wave.yaml or use an existing persona")
-		}
-
-		if deps, ok := step["dependencies"].([]interface{}); ok {
-			for _, depInterface := range deps {
-				dep, ok := depInterface.(string)
-				if !ok || dep == "" {
-					return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] has invalid dependency", i), "Ensure all dependency values are valid step ID strings")
+		// Persona validation (skip composition steps)
+		if !isCompositionStep(step) {
+			if step.Persona == "" {
+				errs = append(errs, fmt.Sprintf("step '%s' has no persona (and is not a composition step)", step.ID))
+			} else {
+				// Resolve forge templates and check at least one variant exists in manifest
+				candidates := resolveForgeTemplate(step.Persona, fi)
+				found := false
+				for _, c := range candidates {
+					if m.GetPersona(c) != nil {
+						found = true
+						break
+					}
 				}
-				if !stepIDs[dep] {
-					return NewCLIError(CodeValidationFailed, fmt.Sprintf("step[%d] depends on non-existent step '%s'", i, dep), "Check that the dependency step ID matches an earlier step")
+				if !found {
+					errs = append(errs, fmt.Sprintf("step '%s' persona '%s' not found in manifest", step.ID, step.Persona))
 				}
+			}
+		}
+
+		// Sub-pipeline existence
+		if step.SubPipeline != "" && !strings.Contains(step.SubPipeline, "{{") {
+			subPath := filepath.Join(".wave", "pipelines", step.SubPipeline+".yaml")
+			if _, err := os.Stat(subPath); os.IsNotExist(err) {
+				errs = append(errs, fmt.Sprintf("step '%s' references sub-pipeline '%s' which does not exist", step.ID, step.SubPipeline))
+			}
+		}
+
+		// Contract schema file existence
+		if sp := step.Handover.Contract.SchemaPath; sp != "" && !strings.Contains(sp, "{{") {
+			if _, err := os.Stat(sp); os.IsNotExist(err) {
+				errs = append(errs, fmt.Sprintf("step '%s' references contract schema '%s' which does not exist", step.ID, sp))
+			}
+		}
+
+		// Dependency validation
+		for _, dep := range step.Dependencies {
+			if !stepIDs[dep] {
+				errs = append(errs, fmt.Sprintf("step '%s' depends on non-existent step '%s'", step.ID, dep))
+			}
+		}
+
+		// Prompt file existence
+		if sp := step.Exec.SourcePath; sp != "" && !strings.Contains(sp, "{{") {
+			if _, err := os.Stat(sp); os.IsNotExist(err) {
+				errs = append(errs, fmt.Sprintf("step '%s' references prompt file '%s' which does not exist", step.ID, sp))
 			}
 		}
 	}
 
-	return nil
+	return errs
 }
