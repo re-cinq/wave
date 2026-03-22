@@ -23,7 +23,7 @@ input:
 
 steps:
   - id: gather
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       mount:
         - source: ./
@@ -401,8 +401,8 @@ steps:
 
         1. **Announce**: Print which proposal you're applying and what it does
         2. **Apply**: Make the code changes
-        3. **Build**: `{{ project.build_command }}` — must succeed
-        4. **Test**: `{{ project.test_command }}` — must pass
+        3. **Build**: Run the project's build command — must succeed
+        4. **Test**: Run the project's test suite — must pass
         5. **Commit**: If build and tests pass:
            ```bash
            git add <specific-files>
@@ -420,8 +420,8 @@ steps:
         ## Final Verification
 
         After all tier-1 proposals are applied (or attempted):
-        1. Run the full test suite: `{{ project.test_command }}`
-        2. Run the build: `{{ project.build_command }}`
+        1. Run the full test suite
+        2. Run the project's build command
         3. Summarize what was applied, what was skipped, and net lines changed
 
         ## Important

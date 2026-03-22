@@ -89,14 +89,20 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
 	// Get events
-	events, _ := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	if err != nil {
+		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
+	}
 	eventSummaries := make([]EventSummary, len(events))
 	for i, e := range events {
 		eventSummaries[i] = eventToSummary(e)
 	}
 
 	// Get all artifacts
-	allArts, _ := s.store.GetArtifacts(runID, "")
+	allArts, err := s.store.GetArtifacts(runID, "")
+	if err != nil {
+		log.Printf("[webui] failed to get artifacts for run %s: %v", runID, err)
+	}
 	artSummaries := make([]ArtifactSummary, len(allArts))
 	for i, a := range allArts {
 		artSummaries[i] = artifactToSummary(a)
@@ -114,7 +120,10 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 
 // handleRunsPage handles GET /runs - serves the HTML run list page.
 func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
-	cursor, _ := decodeCursor(r.URL.Query().Get("cursor"))
+	cursor, err := decodeCursor(r.URL.Query().Get("cursor"))
+	if err != nil {
+		log.Printf("[webui] invalid cursor parameter: %v", err)
+	}
 
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
@@ -221,7 +230,10 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get events
-	events, _ := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	if err != nil {
+		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
+	}
 	eventSummaries := make([]EventSummary, len(events))
 	for i, e := range events {
 		eventSummaries[i] = eventToSummary(e)
@@ -343,7 +355,10 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 	}
 
 	// Get all events for this run
-	events, _ := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	if err != nil {
+		log.Printf("[webui] buildStepDetails: failed to get events for run %s: %v", runID, err)
+	}
 	log.Printf("[webui] buildStepDetails: runID=%s pipeline=%s steps=%d events=%d", runID, pipelineName, len(p.Steps), len(events))
 
 	// Build step state from events: track latest state, timestamps, tokens per step
@@ -441,7 +456,10 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			}
 		}
 
-		arts, _ := s.store.GetArtifacts(runID, step.ID)
+		arts, artErr := s.store.GetArtifacts(runID, step.ID)
+		if artErr != nil {
+			log.Printf("[webui] failed to get artifacts for run %s step %s: %v", runID, step.ID, artErr)
+		}
 		artSummaries := make([]ArtifactSummary, len(arts))
 		for j, a := range arts {
 			artSummaries[j] = artifactToSummary(a)
