@@ -231,6 +231,23 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 		personaRefs[name] = true
 	}
 
+	// Expand forge-templated persona refs (e.g. "{{ forge.type }}-analyst") into
+	// all 4 forge variants so they survive filtering. filterPersonasByForge (called
+	// later) trims to only the detected forge.
+	expandedRefs := make(map[string]bool)
+	for ref := range personaRefs {
+		if strings.Contains(ref, "{{ forge.type }}") || strings.Contains(ref, "{{forge.type}}") {
+			for _, forgeType := range []string{"github", "gitlab", "gitea", "bitbucket"} {
+				expanded := strings.ReplaceAll(ref, "{{ forge.type }}", forgeType)
+				expanded = strings.ReplaceAll(expanded, "{{forge.type}}", forgeType)
+				expandedRefs[expanded] = true
+			}
+		} else {
+			expandedRefs[ref] = true
+		}
+	}
+	personaRefs = expandedRefs
+
 	// Filter persona configs to only referenced ones
 	personaConfigs = make(map[string]manifest.Persona)
 	for name, cfg := range allPersonaConfigs {
@@ -1175,15 +1192,15 @@ func flavourToProjectMap(fi *onboarding.FlavourInfo) map[string]interface{} {
 	return m
 }
 
-// knownForgePrefixes lists the prefixes used by forge-specific personas/pipelines.
-var knownForgePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
+// knownForgePrefixes lists the prefixes used by forge-specific personas.
+var knownForgePrefixes = []string{"github-", "gitlab-", "bitbucket-", "gitea-"}
 
-// forgeTypeToPrefix maps forge types to their naming convention prefix.
+// forgeTypeToPrefix maps forge types to their persona naming convention prefix.
 var forgeTypeToPrefix = map[forge.ForgeType]string{
-	forge.ForgeGitHub:    "gh",
-	forge.ForgeGitLab:    "gl",
-	forge.ForgeBitbucket: "bb",
-	forge.ForgeGitea:     "gt",
+	forge.ForgeGitHub:    "github",
+	forge.ForgeGitLab:    "gitlab",
+	forge.ForgeBitbucket: "bitbucket",
+	forge.ForgeGitea:     "gitea",
 }
 
 // filterPersonasByForge filters persona configs to only include personas

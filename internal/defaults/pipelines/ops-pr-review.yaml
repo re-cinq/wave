@@ -179,7 +179,7 @@ steps:
         source: .wave/output/review-summary.md
 
   - id: publish
-    persona: github-commenter
+    persona: "{{ forge.type }}-commenter"
     dependencies: [summary]
     memory:
       inject_artifacts:
