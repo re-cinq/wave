@@ -131,22 +131,26 @@ func NewStateStore(dbPath string) (StateStore, error) {
 	db.SetMaxIdleConns(1)
 
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	// Configure SQLite for concurrent access
 	// Enable WAL mode for better concurrent read/write performance
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
 	}
 
 	// Set busy timeout to 5 seconds to handle lock contention
 	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
 	}
 
 	// Enable foreign key enforcement (disabled by default in SQLite)
 	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
@@ -154,10 +158,12 @@ func NewStateStore(dbPath string) (StateStore, error) {
 	migrationConfig := LoadMigrationConfigFromEnv()
 
 	if err := migrationConfig.Validate(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("invalid migration configuration: %w", err)
 	}
 
 	if err := initializeWithMigrations(db, migrationConfig); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to initialize with migrations: %w", err)
 	}
 
