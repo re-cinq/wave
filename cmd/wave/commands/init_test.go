@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -1789,4 +1791,55 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "non-interactive",
 			"error should mention non-interactive terminal, got: %v", err)
 	})
+}
+
+// Test filterTransitiveDeps expands forge template personas to all 4 variants
+func TestFilterTransitiveDeps_ForgeTemplateExpansion(t *testing.T) {
+	// Create a mock cobra command for stderr output
+	cmd := &cobra.Command{Use: "test"}
+	var errBuf bytes.Buffer
+	cmd.SetErr(&errBuf)
+
+	// Pipeline YAML that references a forge-templated persona
+	pipelineYAML := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: analyze
+    persona: "{{ forge.type }}-analyst"
+    exec:
+      type: prompt
+      source: "analyze this"
+`
+	pipelines := map[string]string{
+		"test-pipeline": pipelineYAML,
+	}
+
+	// All persona configs include all 4 forge variants + a system persona
+	allPersonaConfigs := map[string]manifest.Persona{
+		"github-analyst":    {Adapter: "claude"},
+		"gitlab-analyst":    {Adapter: "claude"},
+		"gitea-analyst":     {Adapter: "claude"},
+		"bitbucket-analyst": {Adapter: "claude"},
+		"navigator":         {Adapter: "claude"},
+		"summarizer":        {Adapter: "claude"},
+		"philosopher":       {Adapter: "claude"},
+		"unrelated":         {Adapter: "claude"},
+	}
+
+	_, _, personaConfigs := filterTransitiveDeps(cmd, pipelines, nil, nil, allPersonaConfigs)
+
+	// All 4 forge variants should be included
+	assert.Contains(t, personaConfigs, "github-analyst", "github variant should be included")
+	assert.Contains(t, personaConfigs, "gitlab-analyst", "gitlab variant should be included")
+	assert.Contains(t, personaConfigs, "gitea-analyst", "gitea variant should be included")
+	assert.Contains(t, personaConfigs, "bitbucket-analyst", "bitbucket variant should be included")
+
+	// System personas should be included
+	assert.Contains(t, personaConfigs, "navigator", "system persona navigator should be included")
+	assert.Contains(t, personaConfigs, "summarizer", "system persona summarizer should be included")
+
+	// Unrelated persona should NOT be included
+	_, hasUnrelated := personaConfigs["unrelated"]
+	assert.False(t, hasUnrelated, "unrelated persona should not be included")
 }

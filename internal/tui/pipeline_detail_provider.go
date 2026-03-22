@@ -34,7 +34,7 @@ func stepTypeLabel(s pipeline.Step) string {
 	case s.Aggregate != nil:
 		return "aggregate"
 	default:
-		return ""
+		return "step"
 	}
 }
 
