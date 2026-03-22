@@ -57,6 +57,8 @@ func (r *OptimizeResult) ApplyTo(p *manifest.Project) *manifest.Project {
 			out.Language = c.Proposed
 		case "project.test_command":
 			out.TestCommand = c.Proposed
+		case "project.contract_test_command":
+			out.ContractTestCommand = c.Proposed
 		case "project.lint_command":
 			out.LintCommand = c.Proposed
 		case "project.build_command":
