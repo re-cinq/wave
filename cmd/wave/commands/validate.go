@@ -281,14 +281,19 @@ func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.Fo
 
 	var errs []string
 
+	// First pass: collect all step IDs and check for duplicates.
+	// This must happen before dependency validation so that YAML ordering
+	// does not produce false positives (the executor topologically sorts at runtime).
 	stepIDs := make(map[string]bool)
 	for i, step := range p.Steps {
-		// Duplicate step ID
 		if stepIDs[step.ID] {
 			errs = append(errs, fmt.Sprintf("step[%d] duplicate id '%s'", i, step.ID))
 		}
 		stepIDs[step.ID] = true
+	}
 
+	// Second pass: validate references now that all step IDs are known.
+	for _, step := range p.Steps {
 		// Persona validation (skip composition steps)
 		if !isCompositionStep(step) {
 			if step.Persona == "" {
