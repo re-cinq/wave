@@ -20,7 +20,7 @@ input:
 
 steps:
   - id: inventory
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       mount:
         - source: ./
@@ -107,7 +107,7 @@ steps:
         on_failure: retry
 
   - id: audit
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     dependencies: [inventory]
     memory:
       inject_artifacts:

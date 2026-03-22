@@ -21,7 +21,7 @@ input:
 
 steps:
   - id: fetch-epic
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -65,7 +65,7 @@ steps:
         progressive_validation: false
 
   - id: scope-and-create
-    persona: github-scoper
+    persona: "{{ forge.type }}-scoper"
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:
@@ -125,7 +125,7 @@ steps:
         progressive_validation: false
 
   - id: verify-report
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     dependencies: [scope-and-create]
     memory:
       inject_artifacts:
