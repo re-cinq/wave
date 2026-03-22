@@ -33,19 +33,23 @@ func NewMigrationRunner(dbPath string) (*MigrationRunner, error) {
 	db.SetMaxIdleConns(1)
 
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	// Configure SQLite for concurrent access
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
 	}
 
 	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
 	}
 
 	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
@@ -53,6 +57,7 @@ func NewMigrationRunner(dbPath string) (*MigrationRunner, error) {
 
 	// Initialize migration table if it doesn't exist
 	if err := manager.InitializeMigrationTable(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to initialize migration table: %w", err)
 	}
 
