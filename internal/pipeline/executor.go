@@ -32,6 +32,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// maxStdoutTailChars is the maximum number of characters to retain from
+// stdout when passing output to retry/rework context. Keeps payloads
+// small while preserving the most recent (and usually most relevant) output.
+const maxStdoutTailChars = 2000
 
 type PipelineExecutor interface {
 	Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error
@@ -807,8 +811,8 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					execution.mu.Lock()
 					if result, ok := execution.Results[step.ID]; ok {
 						if stdout, ok := result["stdout"].(string); ok {
-							if len(stdout) > 2000 {
-								stdoutTail = stdout[len(stdout)-2000:]
+							if len(stdout) > maxStdoutTailChars {
+								stdoutTail = stdout[len(stdout)-maxStdoutTailChars:]
 							} else {
 								stdoutTail = stdout
 							}
@@ -832,14 +836,14 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			onFailure := step.Retry.OnFailure
 			if onFailure == "" {
 				if step.IsOptional() {
-					onFailure = "continue"
+					onFailure = OnFailureContinue
 				} else {
-					onFailure = "fail"
+					onFailure = OnFailureFail
 				}
 			}
 
 			switch onFailure {
-			case "skip":
+			case OnFailureSkip:
 				execution.mu.Lock()
 				execution.States[step.ID] = StateSkipped
 				execution.mu.Unlock()
@@ -855,7 +859,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				})
 				return nil
 
-			case "continue":
+			case OnFailureContinue:
 				execution.mu.Lock()
 				execution.States[step.ID] = StateFailed
 				execution.mu.Unlock()
@@ -871,10 +875,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				})
 				return nil
 
-			case "rework":
+			case OnFailureRework:
 				return e.executeReworkStep(ctx, execution, step, lastErr, attemptDuration)
 
-			default: // "fail"
+			default: // OnFailureFail
 				execution.mu.Lock()
 				execution.States[step.ID] = StateFailed
 				execution.mu.Unlock()
@@ -974,8 +978,8 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	execution.mu.Lock()
 	if result, ok := execution.Results[failedStep.ID]; ok {
 		if stdout, ok := result["stdout"].(string); ok {
-			if len(stdout) > 2000 {
-				attemptCtx.PriorStdout = stdout[len(stdout)-2000:]
+			if len(stdout) > maxStdoutTailChars {
+				attemptCtx.PriorStdout = stdout[len(stdout)-maxStdoutTailChars:]
 			} else {
 				attemptCtx.PriorStdout = stdout
 			}
@@ -2033,7 +2037,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 			sb.WriteString("\n")
 		}
 		if attemptCtx.PriorStdout != "" {
-			sb.WriteString("### Previous Output (last 2000 chars)\n```\n")
+			sb.WriteString(fmt.Sprintf("### Previous Output (last %d chars)\n```\n", maxStdoutTailChars))
 			sb.WriteString(attemptCtx.PriorStdout)
 			sb.WriteString("\n```\n\n")
 		}
