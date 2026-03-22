@@ -117,6 +117,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 			Message:    "No items to process",
 		})
 		// Initialize empty results so downstream steps can check
+		execution.mu.Lock()
 		execution.Results[step.ID] = map[string]interface{}{
 			"worker_results":    []map[string]interface{}{},
 			"worker_workspaces": []string{},
@@ -124,6 +125,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 			"success_count":     0,
 			"fail_count":        0,
 		}
+		execution.mu.Unlock()
 		return nil
 	}
 
@@ -608,12 +610,13 @@ func (m *MatrixExecutor) aggregateResults(execution *PipelineExecution, step *St
 	aggregated["success_count"] = successCount
 	aggregated["fail_count"] = failCount
 
+	execution.mu.Lock()
 	execution.Results[step.ID] = aggregated
-
 	// Register the first worker's workspace as the step workspace
 	if len(workerPaths) > 0 {
 		execution.WorkspacePaths[step.ID] = filepath.Dir(workerPaths[0])
 	}
+	execution.mu.Unlock()
 }
 
 // emit sends an event through the executor's emitter.
