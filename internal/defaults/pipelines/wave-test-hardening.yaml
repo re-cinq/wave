@@ -96,14 +96,11 @@ steps:
         3. Use `t.Helper()` for test helpers
         4. Use `t.TempDir()` for filesystem isolation
         5. Check error messages, not just error existence
-        6. Run `{{ project.test_command }}` after adding tests
+        6. Run the project's test suite after adding tests
         7. Do NOT use `t.Skip()` without a linked issue
         8. Focus on the highest-impact gaps first
 
-        After each batch of tests:
-        ```bash
-        {{ project.test_command }}
-        ```
+        After each batch of tests, run the full test suite.
     retry:
       max_attempts: 3
     handover:
