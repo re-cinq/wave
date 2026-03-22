@@ -291,8 +291,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			validationErr.Message = validationErr.Message + " (progressive validation: warning only)"
 			validationErr.Retryable = false // Don't retry warnings
 
-			// TODO: In a real implementation, these warnings would be logged
-			// to the audit system rather than blocking the pipeline
+			// Progressive warnings are formatted but not yet routed to the audit system.
 			_ = formatter.FormatProgressiveValidationWarning(err, recoveryResult)
 		} else {
 			// Normal validation mode - schema mismatches are always retryable
