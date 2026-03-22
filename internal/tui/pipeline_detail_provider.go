@@ -20,6 +20,24 @@ type StepSummary struct {
 	Persona string
 }
 
+// stepTypeLabel returns a descriptive label for composition steps that have no persona.
+func stepTypeLabel(s pipeline.Step) string {
+	switch {
+	case s.SubPipeline != "":
+		return "pipeline:" + s.SubPipeline
+	case s.Branch != nil:
+		return "branch"
+	case s.Gate != nil:
+		return "gate"
+	case s.Loop != nil:
+		return "loop"
+	case s.Aggregate != nil:
+		return "aggregate"
+	default:
+		return ""
+	}
+}
+
 // AvailableDetail is the data projection for rendering an available pipeline's configuration.
 type AvailableDetail struct {
 	Name         string
@@ -131,7 +149,11 @@ func (d *DefaultDetailDataProvider) FetchAvailableDetail(name string) (*Availabl
 		// Map steps to StepSummary.
 		steps := make([]StepSummary, len(p.Steps))
 		for i, s := range p.Steps {
-			steps[i] = StepSummary{ID: s.ID, Persona: s.Persona}
+			persona := s.Persona
+			if persona == "" {
+				persona = stepTypeLabel(s)
+			}
+			steps[i] = StepSummary{ID: s.ID, Persona: persona}
 		}
 
 		// Collect output artifact names across all steps.
