@@ -374,11 +374,11 @@ func TestTestSuiteValidator_LongOutput(t *testing.T) {
 	v := &testSuiteValidator{}
 	workspacePath := t.TempDir()
 
-	// Command that generates many lines of output
+	// Command that generates many lines of output (100 lines, truncated to 50)
 	cfg := ContractConfig{
 		Type:        "test_suite",
 		Command:     "sh",
-		CommandArgs: []string{"-c", "for i in $(seq 1 50); do echo \"Line $i\"; done; exit 1"},
+		CommandArgs: []string{"-c", "for i in $(seq 1 100); do echo \"Line $i\"; done; exit 1"},
 		Dir:         workspacePath,
 	}
 
@@ -392,16 +392,20 @@ func TestTestSuiteValidator_LongOutput(t *testing.T) {
 		t.Fatalf("expected ValidationError, got %T", err)
 	}
 
-	// Should have truncated output (last 10 lines)
+	// Should have truncated output (last 50 lines)
 	lineCount := 0
 	for _, detail := range validErr.Details {
 		if strings.HasPrefix(detail, "  Line") {
 			lineCount++
 		}
 	}
-	// Should not have all 50 lines
-	if lineCount > 15 {
-		t.Errorf("expected truncated output, got %d lines", lineCount)
+	// Should have at most 50 lines, not all 100
+	if lineCount > 55 {
+		t.Errorf("expected truncated output (max ~50 lines), got %d lines", lineCount)
+	}
+	// Should have at least 40 lines (we keep 50, minus any empty)
+	if lineCount < 40 {
+		t.Errorf("expected at least 40 lines of output, got %d lines", lineCount)
 	}
 }
 
