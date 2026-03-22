@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Epic Children",
+  "description": "Schema for the list of open child issue URLs belonging to an epic",
+  "type": "object",
+  "required": ["parent_url", "repo", "child_urls"],
+  "properties": {
+    "parent_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of the parent epic issue"
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$",
+      "description": "Repository in owner/repo format"
+    },
+    "child_urls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "minItems": 1,
+      "description": "URLs of open child issues to implement"
+    }
+  }
+}
