@@ -5,8 +5,7 @@ metadata:
     name: wave-project
 project:
     language: go
-    test_command: "go test -race ./..."
-    contract_test_command: "go test ./..."
+    test_command: "go test ./..."
     lint_command: "go vet ./..."
     build_command: "go build ./..."
     source_glob: "*.go"

@@ -523,15 +523,14 @@ func TestNewContextWithProject_AllFields(t *testing.T) {
 	ctx := newContextWithProject("pipe-123", "implement", "build-step", m)
 
 	expectedVars := map[string]string{
-		"project.language":              "rust",
-		"project.flavour":              "rust",
-		"project.test_command":          "cargo test",
-		"project.contract_test_command": "cargo test",
-		"project.lint_command":          "cargo clippy -- -D warnings",
-		"project.build_command":         "cargo build",
-		"project.format_command":        "cargo fmt -- --check",
-		"project.source_glob":           "*.rs",
-		"project.skill":                 "rust",
+		"project.language":       "rust",
+		"project.flavour":        "rust",
+		"project.test_command":   "cargo test",
+		"project.lint_command":   "cargo clippy -- -D warnings",
+		"project.build_command":  "cargo build",
+		"project.format_command": "cargo fmt -- --check",
+		"project.source_glob":    "*.rs",
+		"project.skill":          "rust",
 	}
 
 	for key, want := range expectedVars {
