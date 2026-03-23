@@ -720,12 +720,28 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 
 // buildDetachEnv constructs a minimal environment for detached subprocesses.
 func buildDetachEnv() []string {
-	env := []string{
-		"HOME=" + os.Getenv("HOME"),
-		"PATH=" + os.Getenv("PATH"),
+	// Ensure $HOME/.local/bin is in PATH — install tools (uv, pip, cargo)
+	// place binaries there and it may not be in PATH in sandboxed environments.
+	path := os.Getenv("PATH")
+	home := os.Getenv("HOME")
+	if home != "" {
+		toolBin := filepath.Join(home, ".local", "bin")
+		if !strings.Contains(path, toolBin) {
+			path = toolBin + string(os.PathListSeparator) + path
+		}
 	}
-	// Pass through common env vars needed by adapters.
-	for _, key := range []string{"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION", "TERM", "USER", "SHELL"} {
+
+	env := []string{
+		"HOME=" + home,
+		"PATH=" + path,
+	}
+	// Pass through common env vars needed by adapters and tool managers.
+	for _, key := range []string{
+		"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION",
+		"TERM", "USER", "SHELL",
+		// XDG dirs used by uv, pip, and other tool managers for locating data/config
+		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+	} {
 		if val, ok := os.LookupEnv(key); ok {
 			env = append(env, key+"="+val)
 		}
