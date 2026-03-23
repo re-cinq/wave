@@ -243,11 +243,11 @@ func TestProgressBarAnimationRegression(t *testing.T) {
 	}
 
 	// Verify both bars contain filled and empty portions for 50% progress
-	if !strings.Contains(bar1, "█") {
-		t.Error("Progress bar should contain filled blocks for 50% progress")
+	if !strings.Contains(bar1, dashboard.charSet.Block) {
+		t.Errorf("Progress bar should contain filled blocks for 50%% progress, got: %s", bar1)
 	}
-	if !strings.Contains(bar2, "█") {
-		t.Error("Progress bar should contain filled blocks for 50% progress")
+	if !strings.Contains(bar2, dashboard.charSet.Block) {
+		t.Errorf("Progress bar should contain filled blocks for 50%% progress, got: %s", bar2)
 	}
 
 	// Test edge case: 0% progress (all empty, should still animate)
@@ -258,8 +258,8 @@ func TestProgressBarAnimationRegression(t *testing.T) {
 
 	// Test edge case: 100% progress (all filled, no empty space for animation)
 	barFull := dashboard.renderProgressBar(100, width)
-	if !strings.Contains(barFull, "█") {
-		t.Error("Full progress bar should contain filled blocks")
+	if !strings.Contains(barFull, dashboard.charSet.Block) {
+		t.Errorf("Full progress bar should contain filled blocks, got: %s", barFull)
 	}
 }
 
