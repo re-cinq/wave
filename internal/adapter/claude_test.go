@@ -38,70 +38,7 @@ func setupBaseProtocol(t *testing.T) {
 	})
 }
 
-func TestNormalizeAllowedTools(t *testing.T) {
-	tests := []struct {
-		name  string
-		input []string
-		want  []string
-	}{
-		{
-			name:  "preserves Write and Edit bare tools",
-			input: []string{"Read", "Write", "Edit", "Bash"},
-			want:  []string{"Read", "Write", "Edit", "Bash"},
-		},
-		{
-			name:  "preserves scoped Write entries",
-			input: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
-			want:  []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)"},
-		},
-		{
-			name:  "deduplicates entries",
-			input: []string{"Read", "Write", "Read", "Write"},
-			want:  []string{"Read", "Write"},
-		},
-		{
-			name:  "preserves Bash scoped entries",
-			input: []string{"Bash(go test*)", "Bash(git log*)", "Read"},
-			want:  []string{"Bash(go test*)", "Bash(git log*)", "Read"},
-		},
-		{
-			name:  "bare Write subsumes scoped Write entries",
-			input: []string{"Read", "Glob", "Grep", "WebSearch", "Write(.wave/output/*)", "Write"},
-			want:  []string{"Read", "Glob", "Grep", "WebSearch", "Write"},
-		},
-		{
-			name:  "empty input",
-			input: []string{},
-			want:  nil,
-		},
-		{
-			name:  "bare Write preserved",
-			input: []string{"Write"},
-			want:  []string{"Write"},
-		},
-		{
-			name:  "bare Edit subsumes scoped Edit entries",
-			input: []string{"Edit", "Edit(.wave/output/*)", "Read"},
-			want:  []string{"Edit", "Read"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := normalizeAllowedTools(tt.input)
-			if len(got) != len(tt.want) {
-				t.Fatalf("normalizeAllowedTools(%v) = %v, want %v", tt.input, got, tt.want)
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("normalizeAllowedTools(%v)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
-				}
-			}
-		})
-	}
-}
-
-func TestContractPromptInClaudeMD(t *testing.T) {
+func TestContractPromptInAgentFile(t *testing.T) {
 	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	tmpDir := t.TempDir()
@@ -118,35 +55,34 @@ func TestContractPromptInClaudeMD(t *testing.T) {
 		t.Fatalf("prepareWorkspace failed: %v", err)
 	}
 
-	claudeMdPath := filepath.Join(tmpDir, "CLAUDE.md")
-	data, err := os.ReadFile(claudeMdPath)
+	agentPath := filepath.Join(tmpDir, agentFilePath)
+	data, err := os.ReadFile(agentPath)
 	if err != nil {
-		t.Fatalf("failed to read CLAUDE.md: %v", err)
+		t.Fatalf("failed to read agent file: %v", err)
 	}
 
 	content := string(data)
 	if !strings.Contains(content, "Contract Compliance") {
-		t.Error("CLAUDE.md should contain 'Contract Compliance' section")
+		t.Error("agent file should contain 'Contract Compliance' section")
 	}
 	if !strings.Contains(content, "artifact.json") {
-		t.Error("CLAUDE.md should contain the output file path")
+		t.Error("agent file should contain the output file path")
 	}
 	if !strings.Contains(content, "Valid JSON only") {
-		t.Error("CLAUDE.md should contain format instruction")
+		t.Error("agent file should contain format instruction")
 	}
 }
 
-func TestSettingsJSONFormat(t *testing.T) {
+func TestNoSettingsJSONWhenSandboxDisabled(t *testing.T) {
 	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	tmpDir := t.TempDir()
 
 	cfg := AdapterRunConfig{
-		Persona:       "test",
+		Persona:      "test",
 		WorkspacePath: tmpDir,
-		Model:         "sonnet",
-		Temperature:   0.5,
-		AllowedTools:  []string{"Read", "Write(.wave/output/*)", "Glob"},
+		Model:        "sonnet",
+		AllowedTools: []string{"Read", "Write(.wave/output/*)", "Glob"},
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
@@ -154,115 +90,14 @@ func TestSettingsJSONFormat(t *testing.T) {
 	}
 
 	settingsPath := filepath.Join(tmpDir, ".claude", "settings.json")
-	data, err := os.ReadFile(settingsPath)
-	if err != nil {
-		t.Fatalf("failed to read settings.json: %v", err)
-	}
-
-	// Verify it's valid JSON
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		t.Fatalf("settings.json is not valid JSON: %v", err)
-	}
-
-	// Verify permissions.allow field exists (not allowed_tools)
-	if _, ok := raw["allowed_tools"]; ok {
-		t.Error("settings.json should not have 'allowed_tools' field")
-	}
-
-	perms, ok := raw["permissions"].(map[string]interface{})
-	if !ok {
-		t.Fatal("settings.json missing 'permissions' object")
-	}
-
-	allow, ok := perms["allow"].([]interface{})
-	if !ok {
-		t.Fatal("settings.json missing 'permissions.allow' array")
-	}
-
-// Verify Write(.wave/output/*) is preserved in permissions
-	allowStrs := make([]string, len(allow))
-	for i, v := range allow {
-		allowStrs[i] = v.(string)
-	}
-
-	expected := []string{"Read", "Write(.wave/output/*)", "Glob"}
-	if len(allowStrs) != len(expected) {
-		t.Fatalf("permissions.allow = %v, want %v", allowStrs, expected)
-	}
-	for i, want := range expected {
-		if allowStrs[i] != want {
-			t.Errorf("permissions.allow[%d] = %q, want %q", i, allowStrs[i], want)
-		}
+	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+		t.Error("settings.json should not be created when sandbox is disabled")
 	}
 }
 
-func TestBuildArgsNormalizesAllowedTools(t *testing.T) {
-	adapter := NewClaudeAdapter()
-	cfg := AdapterRunConfig{
-		AllowedTools: []string{"Read", "Write(.wave/output/*)", "Write(.wave/artifact.json)", "Glob"},
-		Prompt:       "test",
-	}
+// --- Phase 2 tests: deny rules, sandbox settings, agent file restrictions, env hygiene ---
 
-	args := adapter.buildArgs(cfg)
-
-	// Find the --allowedTools value
-	var allowedToolsArg string
-	for i, arg := range args {
-		if arg == "--allowedTools" && i+1 < len(args) {
-			allowedToolsArg = args[i+1]
-			break
-		}
-	}
-
-	if allowedToolsArg == "" {
-		t.Fatal("--allowedTools not found in args")
-	}
-
-	// Write entries should be preserved
-	expected := "Read,Write(.wave/output/*),Write(.wave/artifact.json),Glob"
-	if allowedToolsArg != expected {
-		t.Errorf("--allowedTools = %q, want %q", allowedToolsArg, expected)
-	}
-
-	// Verify --disallowedTools TodoWrite is present
-	var disallowedToolsArg string
-	for i, arg := range args {
-		if arg == "--disallowedTools" && i+1 < len(args) {
-			disallowedToolsArg = args[i+1]
-			break
-		}
-	}
-	if disallowedToolsArg != "TodoWrite" {
-		t.Errorf("--disallowedTools = %q, want %q", disallowedToolsArg, "TodoWrite")
-	}
-}
-
-
-func TestBuildArgsDisallowsTodoWrite(t *testing.T) {
-	adapter := NewClaudeAdapter()
-
-	// Even with no explicit AllowedTools, --disallowedTools TodoWrite must be present
-	cfg := AdapterRunConfig{
-		Prompt: "test",
-	}
-	args := adapter.buildArgs(cfg)
-
-	var disallowedToolsArg string
-	for i, arg := range args {
-		if arg == "--disallowedTools" && i+1 < len(args) {
-			disallowedToolsArg = args[i+1]
-			break
-		}
-	}
-	if disallowedToolsArg != "TodoWrite" {
-		t.Errorf("--disallowedTools = %q, want %q", disallowedToolsArg, "TodoWrite")
-	}
-}
-
-// --- Phase 2 tests: deny rules, sandbox settings, CLAUDE.md restrictions, env hygiene ---
-
-func TestSettingsJSONDenyRules(t *testing.T) {
+func TestDenyRulesInAgentFrontmatter(t *testing.T) {
 	setupBaseProtocol(t)
 	tests := []struct {
 		name     string
@@ -270,19 +105,21 @@ func TestSettingsJSONDenyRules(t *testing.T) {
 		wantDeny []string
 	}{
 		{
-			name:     "deny rules written to settings.json",
-			deny:     []string{"Write(*)", "Edit(*)", "Bash(rm *)"},
-			wantDeny: []string{"Write(*)", "Edit(*)", "Bash(rm *)"},
+			name: "deny rules appear in agent frontmatter",
+			deny: []string{"Write(*)", "Edit(*)", "Bash(rm *)"},
+			// TodoWrite is auto-injected by prepareWorkspace
+			wantDeny: []string{"Write(*)", "Edit(*)", "Bash(rm *)", "TodoWrite"},
 		},
 		{
-			name:     "empty deny omitted from JSON",
-			deny:     nil,
-			wantDeny: nil,
+			name: "empty deny gets only TodoWrite",
+			deny: nil,
+			// TodoWrite is auto-injected
+			wantDeny: []string{"TodoWrite"},
 		},
 		{
-			name:     "single deny rule",
-			deny:     []string{"Bash(rm -rf /*)"},
-			wantDeny: []string{"Bash(rm -rf /*)"},
+			name: "single deny rule plus auto TodoWrite",
+			deny: []string{"Bash(rm -rf /*)"},
+			wantDeny: []string{"Bash(rm -rf /*)", "TodoWrite"},
 		},
 	}
 
@@ -302,28 +139,15 @@ func TestSettingsJSONDenyRules(t *testing.T) {
 				t.Fatalf("prepareWorkspace failed: %v", err)
 			}
 
-			data, err := os.ReadFile(filepath.Join(tmpDir, ".claude", "settings.json"))
+			data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 			if err != nil {
-				t.Fatalf("failed to read settings.json: %v", err)
+				t.Fatalf("failed to read agent file: %v", err)
 			}
+			content := string(data)
 
-			var settings ClaudeSettings
-			if err := json.Unmarshal(data, &settings); err != nil {
-				t.Fatalf("failed to parse settings.json: %v", err)
-			}
-
-			if tt.wantDeny == nil {
-				if len(settings.Permissions.Deny) != 0 {
-					t.Errorf("expected no deny rules, got %v", settings.Permissions.Deny)
-				}
-			} else {
-				if len(settings.Permissions.Deny) != len(tt.wantDeny) {
-					t.Fatalf("deny rules = %v, want %v", settings.Permissions.Deny, tt.wantDeny)
-				}
-				for i, want := range tt.wantDeny {
-					if settings.Permissions.Deny[i] != want {
-						t.Errorf("deny[%d] = %q, want %q", i, settings.Permissions.Deny[i], want)
-					}
+			for _, want := range tt.wantDeny {
+				if !strings.Contains(content, "  - "+want+"\n") {
+					t.Errorf("agent frontmatter missing deny rule %q\nGot:\n%s", want, content)
 				}
 			}
 		})
@@ -347,7 +171,7 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 			wantDomains:    []string{"api.anthropic.com", "github.com", "*.github.com"},
 		},
 		{
-			name:           "no sandbox when not enabled",
+			name:           "no settings.json when sandbox disabled",
 			sandboxEnabled: false,
 			allowedDomains: nil,
 			wantSandbox:    false,
@@ -384,56 +208,70 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 				t.Fatalf("prepareWorkspace failed: %v", err)
 			}
 
-			data, err := os.ReadFile(filepath.Join(tmpDir, ".claude", "settings.json"))
+			settingsPath := filepath.Join(tmpDir, ".claude", "settings.json")
+
+			if !tt.wantSandbox {
+				if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+					t.Error("settings.json should not exist when sandbox is disabled")
+				}
+				return
+			}
+
+			data, err := os.ReadFile(settingsPath)
 			if err != nil {
 				t.Fatalf("failed to read settings.json: %v", err)
 			}
 
-			var settings ClaudeSettings
+			var settings SandboxOnlySettings
 			if err := json.Unmarshal(data, &settings); err != nil {
 				t.Fatalf("failed to parse settings.json: %v", err)
 			}
 
-			if tt.wantSandbox {
-				if settings.Sandbox == nil {
-					t.Fatal("expected sandbox settings, got nil")
+			// Verify settings.json contains ONLY sandbox field
+			var raw map[string]interface{}
+			if err := json.Unmarshal(data, &raw); err != nil {
+				t.Fatalf("failed to parse settings.json as raw map: %v", err)
+			}
+			for key := range raw {
+				if key != "sandbox" {
+					t.Errorf("settings.json should only contain 'sandbox' field, found %q", key)
 				}
-				if !settings.Sandbox.Enabled {
-					t.Error("expected sandbox.enabled = true")
+			}
+
+			if settings.Sandbox == nil {
+				t.Fatal("expected sandbox settings, got nil")
+			}
+			if !settings.Sandbox.Enabled {
+				t.Error("expected sandbox.enabled = true")
+			}
+			if !settings.Sandbox.AutoAllowBashIfSandboxed {
+				t.Error("expected sandbox.autoAllowBashIfSandboxed = true")
+			}
+			if settings.Sandbox.AllowUnsandboxedCommands {
+				t.Error("expected sandbox.allowUnsandboxedCommands = false")
+			}
+			if len(tt.wantDomains) > 0 {
+				if settings.Sandbox.Network == nil {
+					t.Fatal("expected sandbox.network, got nil")
 				}
-				if !settings.Sandbox.AutoAllowBashIfSandboxed {
-					t.Error("expected sandbox.autoAllowBashIfSandboxed = true")
+				if len(settings.Sandbox.Network.AllowedDomains) != len(tt.wantDomains) {
+					t.Fatalf("allowedDomains = %v, want %v", settings.Sandbox.Network.AllowedDomains, tt.wantDomains)
 				}
-				if settings.Sandbox.AllowUnsandboxedCommands {
-					t.Error("expected sandbox.allowUnsandboxedCommands = false")
-				}
-				if len(tt.wantDomains) > 0 {
-					if settings.Sandbox.Network == nil {
-						t.Fatal("expected sandbox.network, got nil")
-					}
-					if len(settings.Sandbox.Network.AllowedDomains) != len(tt.wantDomains) {
-						t.Fatalf("allowedDomains = %v, want %v", settings.Sandbox.Network.AllowedDomains, tt.wantDomains)
-					}
-					for i, want := range tt.wantDomains {
-						if settings.Sandbox.Network.AllowedDomains[i] != want {
-							t.Errorf("allowedDomains[%d] = %q, want %q", i, settings.Sandbox.Network.AllowedDomains[i], want)
-						}
-					}
-				} else {
-					if settings.Sandbox.Network != nil {
-						t.Errorf("expected no network settings, got %+v", settings.Sandbox.Network)
+				for i, want := range tt.wantDomains {
+					if settings.Sandbox.Network.AllowedDomains[i] != want {
+						t.Errorf("allowedDomains[%d] = %q, want %q", i, settings.Sandbox.Network.AllowedDomains[i], want)
 					}
 				}
 			} else {
-				if settings.Sandbox != nil {
-					t.Errorf("expected no sandbox settings, got %+v", settings.Sandbox)
+				if settings.Sandbox.Network != nil {
+					t.Errorf("expected no network settings, got %+v", settings.Sandbox.Network)
 				}
 			}
 		})
 	}
 }
 
-func TestCLAUDEMDRestrictionSection(t *testing.T) {
+func TestAgentFileRestrictionSection(t *testing.T) {
 	setupBaseProtocol(t)
 	tests := []struct {
 		name         string
@@ -442,7 +280,7 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 		wantAbsent   []string
 	}{
 		{
-			name: "deny rules appear in CLAUDE.md",
+			name: "deny rules appear in agent file",
 			cfg: AdapterRunConfig{
 				Persona:      "navigator",
 				Model:        "sonnet",
@@ -463,7 +301,7 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 			},
 		},
 		{
-			name: "network domains appear in CLAUDE.md",
+			name: "network domains appear in agent file",
 			cfg: AdapterRunConfig{
 				Persona:        "implementer",
 				Model:          "opus",
@@ -502,20 +340,20 @@ func TestCLAUDEMDRestrictionSection(t *testing.T) {
 				t.Fatalf("prepareWorkspace failed: %v", err)
 			}
 
-			data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+			data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 			if err != nil {
-				t.Fatalf("failed to read CLAUDE.md: %v", err)
+				t.Fatalf("failed to read agent file: %v", err)
 			}
 			content := string(data)
 
 			for _, want := range tt.wantContains {
 				if !strings.Contains(content, want) {
-					t.Errorf("CLAUDE.md missing %q\nGot:\n%s", want, content)
+					t.Errorf("agent file missing %q\nGot:\n%s", want, content)
 				}
 			}
 			for _, absent := range tt.wantAbsent {
 				if strings.Contains(content, absent) {
-					t.Errorf("CLAUDE.md should not contain %q\nGot:\n%s", absent, content)
+					t.Errorf("agent file should not contain %q\nGot:\n%s", absent, content)
 				}
 			}
 		})
@@ -615,7 +453,7 @@ func TestBuildConcurrencyHint(t *testing.T) {
 	}
 }
 
-func TestConcurrencyHintInClaudeMD(t *testing.T) {
+func TestConcurrencyHintInAgentFile(t *testing.T) {
 	setupBaseProtocol(t)
 	tests := []struct {
 		name         string
@@ -697,20 +535,20 @@ func TestConcurrencyHintInClaudeMD(t *testing.T) {
 				t.Fatalf("prepareWorkspace failed: %v", err)
 			}
 
-			data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+			data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 			if err != nil {
-				t.Fatalf("failed to read CLAUDE.md: %v", err)
+				t.Fatalf("failed to read agent file: %v", err)
 			}
 			content := string(data)
 
 			for _, want := range tt.wantContains {
 				if !strings.Contains(content, want) {
-					t.Errorf("CLAUDE.md missing %q\nGot:\n%s", want, content)
+					t.Errorf("agent file missing %q\nGot:\n%s", want, content)
 				}
 			}
 			for _, absent := range tt.wantAbsent {
 				if strings.Contains(content, absent) {
-					t.Errorf("CLAUDE.md should not contain %q\nGot:\n%s", absent, content)
+					t.Errorf("agent file should not contain %q\nGot:\n%s", absent, content)
 				}
 			}
 		})
@@ -736,9 +574,9 @@ func TestConcurrencyHintOrdering(t *testing.T) {
 		t.Fatalf("prepareWorkspace failed: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 	if err != nil {
-		t.Fatalf("failed to read CLAUDE.md: %v", err)
+		t.Fatalf("failed to read agent file: %v", err)
 	}
 	content := string(data)
 
@@ -872,9 +710,9 @@ func TestBuildEnvironmentMissingPassthroughVar(t *testing.T) {
 	}
 }
 
-func TestSettingsJSONPerPersona(t *testing.T) {
+func TestAgentFilePerPersona(t *testing.T) {
 	setupBaseProtocol(t)
-	// Table-driven test: verify settings.json for different persona profiles
+	// Table-driven test: verify agent file generated per persona config
 	tests := []struct {
 		name           string
 		persona        string
@@ -896,7 +734,7 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 			wantSandbox:  false,
 		},
 		{
-			name:           "implementer: full access with sandbox (Write/Edit preserved)",
+			name:           "implementer: full access with sandbox",
 			persona:        "implementer",
 			allowedTools:   []string{"Read", "Write", "Edit", "Bash", "Glob", "Grep"},
 			allowedDomains: []string{"api.anthropic.com", "github.com", "proxy.golang.org"},
@@ -935,44 +773,42 @@ func TestSettingsJSONPerPersona(t *testing.T) {
 				t.Fatalf("prepareWorkspace failed: %v", err)
 			}
 
-			data, err := os.ReadFile(filepath.Join(tmpDir, ".claude", "settings.json"))
+			// Verify agent file contains correct tools in frontmatter
+			data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 			if err != nil {
-				t.Fatalf("failed to read settings.json: %v", err)
+				t.Fatalf("failed to read agent file: %v", err)
 			}
+			content := string(data)
 
-			var settings ClaudeSettings
-			if err := json.Unmarshal(data, &settings); err != nil {
-				t.Fatalf("failed to parse settings.json: %v", err)
-			}
-
-			// Verify allow
-			if len(settings.Permissions.Allow) != len(tt.wantAllow) {
-				t.Fatalf("allow = %v, want %v", settings.Permissions.Allow, tt.wantAllow)
-			}
-			for i, want := range tt.wantAllow {
-				if settings.Permissions.Allow[i] != want {
-					t.Errorf("allow[%d] = %q, want %q", i, settings.Permissions.Allow[i], want)
+			// Verify allowed tools
+			for _, tool := range tt.wantAllow {
+				if !strings.Contains(content, "  - "+tool+"\n") {
+					t.Errorf("agent frontmatter missing allowed tool %q", tool)
 				}
 			}
 
-			// Verify deny
-			if len(tt.wantDeny) > 0 {
-				if len(settings.Permissions.Deny) != len(tt.wantDeny) {
-					t.Fatalf("deny = %v, want %v", settings.Permissions.Deny, tt.wantDeny)
-				}
-				for i, want := range tt.wantDeny {
-					if settings.Permissions.Deny[i] != want {
-						t.Errorf("deny[%d] = %q, want %q", i, settings.Permissions.Deny[i], want)
-					}
+			// Verify deny tools
+			for _, tool := range tt.wantDeny {
+				if !strings.Contains(content, "  - "+tool+"\n") {
+					t.Errorf("agent frontmatter missing deny tool %q", tool)
 				}
 			}
 
-			// Verify sandbox
-			if tt.wantSandbox && settings.Sandbox == nil {
-				t.Error("expected sandbox settings, got nil")
+			// Verify model
+			if !strings.Contains(content, "model: opus\n") {
+				t.Error("agent frontmatter missing model")
 			}
-			if !tt.wantSandbox && settings.Sandbox != nil {
-				t.Errorf("expected no sandbox, got %+v", settings.Sandbox)
+
+			// Verify sandbox settings.json
+			settingsPath := filepath.Join(tmpDir, ".claude", "settings.json")
+			if tt.wantSandbox {
+				if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
+					t.Error("expected settings.json for sandbox, but not found")
+				}
+			} else {
+				if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+					t.Error("settings.json should not exist when sandbox is disabled")
+				}
 			}
 		})
 	}
@@ -1661,8 +1497,8 @@ func TestParseOutputSubtype(t *testing.T) {
 	}
 }
 
-// T004: Base protocol is prepended before persona content in CLAUDE.md
-func TestBaseProtocolPrepended(t *testing.T) {
+// T004: Base protocol is prepended before persona content in agent file
+func TestBaseProtocolInAgentFile(t *testing.T) {
 	setupBaseProtocol(t)
 	a := NewClaudeAdapter()
 	tmpDir := t.TempDir()
@@ -1678,9 +1514,9 @@ func TestBaseProtocolPrepended(t *testing.T) {
 		t.Fatalf("prepareWorkspace failed: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 	if err != nil {
-		t.Fatalf("failed to read CLAUDE.md: %v", err)
+		t.Fatalf("failed to read agent file: %v", err)
 	}
 	content := string(data)
 
@@ -1690,13 +1526,13 @@ func TestBaseProtocolPrepended(t *testing.T) {
 	separatorIdx := strings.Index(content, "\n\n---\n\n")
 
 	if protocolIdx == -1 {
-		t.Fatal("CLAUDE.md missing base protocol heading '# Wave Agent Protocol'")
+		t.Fatal("agent file missing base protocol heading '# Wave Agent Protocol'")
 	}
 	if personaIdx == -1 {
-		t.Fatal("CLAUDE.md missing persona heading '# Test Persona'")
+		t.Fatal("agent file missing persona heading '# Test Persona'")
 	}
 	if separatorIdx == -1 {
-		t.Fatal("CLAUDE.md missing '---' separator between base protocol and persona")
+		t.Fatal("agent file missing '---' separator between base protocol and persona")
 	}
 	if protocolIdx >= separatorIdx {
 		t.Error("base protocol heading should appear before the separator")
@@ -1714,7 +1550,7 @@ func TestBaseProtocolPrepended(t *testing.T) {
 		"Permission enforcement",
 	} {
 		if !strings.Contains(content, want) {
-			t.Errorf("CLAUDE.md missing base protocol element %q", want)
+			t.Errorf("agent file missing base protocol element %q", want)
 		}
 	}
 }
@@ -1742,7 +1578,7 @@ func TestBaseProtocolMissingError(t *testing.T) {
 }
 
 // T006: Base protocol is prepended even when SystemPrompt is set directly
-func TestBaseProtocolWithInlinePrompt(t *testing.T) {
+func TestBaseProtocolWithInlinePromptInAgentFile(t *testing.T) {
 	setupBaseProtocol(t)
 	a := NewClaudeAdapter()
 	tmpDir := t.TempDir()
@@ -1758,18 +1594,18 @@ func TestBaseProtocolWithInlinePrompt(t *testing.T) {
 		t.Fatalf("prepareWorkspace failed: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmpDir, "CLAUDE.md"))
+	data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
 	if err != nil {
-		t.Fatalf("failed to read CLAUDE.md: %v", err)
+		t.Fatalf("failed to read agent file: %v", err)
 	}
 	content := string(data)
 
 	// Base protocol must still be present even with inline prompt
 	if !strings.Contains(content, "# Wave Agent Protocol") {
-		t.Error("CLAUDE.md missing base protocol when using SystemPrompt")
+		t.Error("agent file missing base protocol when using SystemPrompt")
 	}
 	if !strings.Contains(content, "# Inline Persona") {
-		t.Error("CLAUDE.md missing inline persona content")
+		t.Error("agent file missing inline persona content")
 	}
 	// Verify ordering
 	if strings.Index(content, "# Wave Agent Protocol") > strings.Index(content, "# Inline Persona") {
@@ -1966,12 +1802,12 @@ func TestBuildSkillSection(t *testing.T) {
 	})
 }
 
-func TestSkillSectionInClaudeMD(t *testing.T) {
+func TestSkillSectionInAgentFile(t *testing.T) {
 	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()
 	workspace := t.TempDir()
 
-	t.Run("skills appear in CLAUDE.md when ResolvedSkills non-empty", func(t *testing.T) {
+	t.Run("skills appear in agent file when ResolvedSkills non-empty", func(t *testing.T) {
 		cfg := AdapterRunConfig{
 			Persona:      "craftsman",
 			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
@@ -1985,21 +1821,21 @@ func TestSkillSectionInClaudeMD(t *testing.T) {
 			t.Fatalf("prepareWorkspace failed: %v", err)
 		}
 
-		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
-		data, err := os.ReadFile(claudeMDPath)
+		agentPath := filepath.Join(workspace, agentFilePath)
+		data, err := os.ReadFile(agentPath)
 		if err != nil {
-			t.Fatalf("failed to read CLAUDE.md: %v", err)
+			t.Fatalf("failed to read agent file: %v", err)
 		}
 		content := string(data)
 
 		if !strings.Contains(content, "## Available Skills") {
-			t.Error("CLAUDE.md missing Available Skills section")
+			t.Error("agent file missing Available Skills section")
 		}
 		if !strings.Contains(content, "**golang**") {
-			t.Error("CLAUDE.md missing golang skill")
+			t.Error("agent file missing golang skill")
 		}
 		if !strings.Contains(content, "**cli**") {
-			t.Error("CLAUDE.md missing cli skill")
+			t.Error("agent file missing cli skill")
 		}
 	})
 
@@ -2013,15 +1849,15 @@ func TestSkillSectionInClaudeMD(t *testing.T) {
 			t.Fatalf("prepareWorkspace failed: %v", err)
 		}
 
-		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
-		data, err := os.ReadFile(claudeMDPath)
+		agentPath := filepath.Join(workspace, agentFilePath)
+		data, err := os.ReadFile(agentPath)
 		if err != nil {
-			t.Fatalf("failed to read CLAUDE.md: %v", err)
+			t.Fatalf("failed to read agent file: %v", err)
 		}
 		content := string(data)
 
 		if strings.Contains(content, "## Available Skills") {
-			t.Error("CLAUDE.md should not have Available Skills section when no skills")
+			t.Error("agent file should not have Available Skills section when no skills")
 		}
 	})
 
@@ -2039,10 +1875,10 @@ func TestSkillSectionInClaudeMD(t *testing.T) {
 			t.Fatalf("prepareWorkspace failed: %v", err)
 		}
 
-		claudeMDPath := filepath.Join(workspace, "CLAUDE.md")
-		data, err := os.ReadFile(claudeMDPath)
+		agentPath := filepath.Join(workspace, agentFilePath)
+		data, err := os.ReadFile(agentPath)
 		if err != nil {
-			t.Fatalf("failed to read CLAUDE.md: %v", err)
+			t.Fatalf("failed to read agent file: %v", err)
 		}
 		content := string(data)
 
@@ -2176,17 +2012,15 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 		}
 	})
 
-	t.Run("scoped tools are normalized: bare subsumes scoped", func(t *testing.T) {
+	t.Run("tools are passed through without normalization", func(t *testing.T) {
 		p := PersonaSpec{AllowedTools: []string{"Write", "Write(.wave/output/*)"}}
 		out := PersonaToAgentMarkdown(p, "", "", "", "")
-		// bare Write should appear exactly once
-		count := strings.Count(out, "  - Write\n")
-		if count != 1 {
-			t.Errorf("expected bare Write exactly once in tools, got %d", count)
+		// Both bare Write and scoped Write should appear (no subsumption)
+		if !strings.Contains(out, "  - Write\n") {
+			t.Error("expected bare Write in tools")
 		}
-		// scoped Write(.wave/output/*) should be dropped
-		if strings.Contains(out, "Write(.wave/output/*)") {
-			t.Error("scoped Write should be dropped when bare Write is present")
+		if !strings.Contains(out, "  - Write(.wave/output/*)\n") {
+			t.Error("expected scoped Write(.wave/output/*) in tools — no normalization")
 		}
 	})
 
@@ -2223,7 +2057,6 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 		AllowedTools:   []string{"Read", "Glob"},
 		DenyTools:      []string{"Edit(*)"},
 		Model:          "sonnet",
-		UseAgentFlag:   true,
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
@@ -2251,10 +2084,174 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 		}
 	})
 
-	t.Run("CLAUDE.md is not written in agent mode", func(t *testing.T) {
+	t.Run("CLAUDE.md is not written", func(t *testing.T) {
 		claudeMdPath := filepath.Join(tmpDir, "CLAUDE.md")
 		if _, err := os.Stat(claudeMdPath); !os.IsNotExist(err) {
-			t.Error("CLAUDE.md should not be written in agent mode")
+			t.Error("CLAUDE.md should not be written")
 		}
 	})
+}
+
+// T028: Verify buildArgs produces --agent, no legacy flags
+func TestBuildArgsAgentMode(t *testing.T) {
+	adapter := NewClaudeAdapter()
+	cfg := AdapterRunConfig{
+		AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
+		DenyTools:    []string{"Bash(rm *)"},
+		Model:        "opus",
+		Prompt:       "test prompt",
+	}
+
+	args := adapter.buildArgs(cfg)
+
+	// --agent must be present
+	hasAgent := false
+	for i, arg := range args {
+		if arg == "--agent" && i+1 < len(args) {
+			hasAgent = true
+			if args[i+1] != agentFilePath {
+				t.Errorf("--agent value = %q, want %q", args[i+1], agentFilePath)
+			}
+		}
+	}
+	if !hasAgent {
+		t.Error("--agent flag not found in args")
+	}
+
+	// Retained flags must be present
+	argsStr := strings.Join(args, " ")
+	for _, want := range []string{"--output-format", "--verbose", "--no-session-persistence"} {
+		if !strings.Contains(argsStr, want) {
+			t.Errorf("args missing retained flag %q", want)
+		}
+	}
+
+	// Legacy flags must NOT be present
+	for _, absent := range []string{"--allowedTools", "--disallowedTools", "--dangerously-skip-permissions", "--model"} {
+		if strings.Contains(argsStr, absent) {
+			t.Errorf("args should not contain legacy flag %q", absent)
+		}
+	}
+}
+
+// T029: Verify TodoWrite is injected into disallowedTools in agent frontmatter
+func TestTodoWriteInjection(t *testing.T) {
+	setupBaseProtocol(t)
+	adapter := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		AllowedTools: []string{"Read", "Write"},
+		DenyTools:    []string{"Bash(rm *)"},
+	}
+
+	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
+	if err != nil {
+		t.Fatalf("failed to read agent file: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "  - TodoWrite\n") {
+		t.Error("agent frontmatter should contain TodoWrite in disallowedTools")
+	}
+	if !strings.Contains(content, "  - Bash(rm *)\n") {
+		t.Error("agent frontmatter should contain original deny rule Bash(rm *)")
+	}
+}
+
+// T030: Verify no duplicate when persona already denies TodoWrite
+func TestTodoWriteNoDuplication(t *testing.T) {
+	setupBaseProtocol(t)
+	adapter := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:      "test",
+		Model:        "sonnet",
+		AllowedTools: []string{"Read"},
+		DenyTools:    []string{"TodoWrite", "Bash(sudo *)"},
+	}
+
+	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, agentFilePath))
+	if err != nil {
+		t.Fatalf("failed to read agent file: %v", err)
+	}
+	content := string(data)
+
+	// TodoWrite should appear exactly once
+	count := strings.Count(content, "  - TodoWrite\n")
+	if count != 1 {
+		t.Errorf("expected TodoWrite exactly once in disallowedTools, got %d", count)
+	}
+}
+
+// T031: Verify agent frontmatter omits tools/disallowedTools when lists are empty
+func TestEmptyToolLists(t *testing.T) {
+	p := PersonaSpec{}
+	out := PersonaToAgentMarkdown(p, "", "", "", "")
+
+	if strings.Contains(out, "tools:") {
+		t.Error("frontmatter should not contain 'tools:' when AllowedTools is empty")
+	}
+	if strings.Contains(out, "disallowedTools:") {
+		t.Error("frontmatter should not contain 'disallowedTools:' when DenyTools is empty")
+	}
+	// Should still have permissionMode
+	if !strings.Contains(out, "permissionMode: dontAsk") {
+		t.Error("frontmatter should always contain permissionMode: dontAsk")
+	}
+}
+
+// T032: Verify minimal settings.json with sandbox-only config
+func TestSandboxOnlySettingsJSON(t *testing.T) {
+	setupBaseProtocol(t)
+	adapter := NewClaudeAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		Persona:        "test",
+		Model:          "sonnet",
+		AllowedTools:   []string{"Read", "Write"},
+		SandboxEnabled: true,
+		AllowedDomains: []string{"api.anthropic.com"},
+	}
+
+	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("prepareWorkspace failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("failed to read settings.json: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("settings.json is not valid JSON: %v", err)
+	}
+
+	// Must contain only "sandbox" key
+	if len(raw) != 1 {
+		t.Errorf("settings.json should have exactly 1 top-level key, got %d: %v", len(raw), raw)
+	}
+	if _, ok := raw["sandbox"]; !ok {
+		t.Error("settings.json missing 'sandbox' key")
+	}
+
+	// Must NOT contain model, temperature, permissions, or output_format
+	for _, forbidden := range []string{"model", "temperature", "permissions", "output_format"} {
+		if _, ok := raw[forbidden]; ok {
+			t.Errorf("settings.json should not contain %q", forbidden)
+		}
+	}
 }
