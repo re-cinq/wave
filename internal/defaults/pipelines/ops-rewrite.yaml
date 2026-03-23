@@ -21,7 +21,7 @@ input:
 
 steps:
   - id: scan-and-score
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -69,7 +69,7 @@ steps:
         progressive_validation: false
 
   - id: apply-enhancements
-    persona: github-enhancer
+    persona: "{{ forge.type }}-enhancer"
     dependencies: [scan-and-score]
     memory:
       inject_artifacts:

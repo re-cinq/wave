@@ -21,7 +21,7 @@ input:
 
 steps:
   - id: gather-context
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -71,7 +71,7 @@ steps:
         progressive_validation: false
 
   - id: draft-update
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     dependencies: [gather-context]
     memory:
       inject_artifacts:
@@ -127,7 +127,7 @@ steps:
         progressive_validation: false
 
   - id: apply-update
-    persona: github-enhancer
+    persona: "{{ forge.type }}-enhancer"
     dependencies: [draft-update]
     memory:
       inject_artifacts:

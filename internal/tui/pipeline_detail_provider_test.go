@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -340,4 +341,54 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_EmptyBranchGlob(t *testin
 	got, err := provider.FetchFinishedDetail("run-glob-test")
 	require.NoError(t, err)
 	assert.Equal(t, wsDir, got.WorkspacePath)
+}
+
+func TestStepTypeLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		step     pipeline.Step
+		expected string
+	}{
+		{
+			name:     "sub-pipeline step",
+			step:     pipeline.Step{SubPipeline: "child"},
+			expected: "pipeline:child",
+		},
+		{
+			name:     "branch step",
+			step:     pipeline.Step{Branch: &pipeline.BranchConfig{On: "{{ outcome }}"}},
+			expected: "branch",
+		},
+		{
+			name:     "gate step",
+			step:     pipeline.Step{Gate: &pipeline.GateConfig{Type: "approval"}},
+			expected: "gate",
+		},
+		{
+			name:     "loop step",
+			step:     pipeline.Step{Loop: &pipeline.LoopConfig{MaxIterations: 3}},
+			expected: "loop",
+		},
+		{
+			name:     "aggregate step",
+			step:     pipeline.Step{Aggregate: &pipeline.AggregateConfig{From: "steps.*"}},
+			expected: "aggregate",
+		},
+		{
+			name:     "persona step returns step fallback",
+			step:     pipeline.Step{Persona: "navigator"},
+			expected: "step",
+		},
+		{
+			name:     "empty step returns step fallback",
+			step:     pipeline.Step{},
+			expected: "step",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, stepTypeLabel(tt.step))
+		})
+	}
 }
