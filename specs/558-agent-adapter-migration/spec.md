@@ -97,6 +97,48 @@ As a Wave developer, I want `UseAgentFlag` removed from `AdapterRunConfig` so th
 - **Temperature field**: The persona `temperature` field has no equivalent in agent frontmatter — it is intentionally dropped. Document this as an accepted behavior change.
 - **Existing `wave agent` CLI**: The `wave agent list/inspect/export` commands must continue to work and produce agent files matching the new runtime format.
 
+## Clarifications
+
+### C-001: `--model` CLI flag redundancy with agent frontmatter
+
+**Ambiguity**: The agent frontmatter includes `model:` and `buildArgs` currently always passes `--model <model>`. After migration, should `--model` remain as a CLI flag alongside the agent frontmatter `model:` field?
+
+**Resolution**: Remove `--model` from `buildArgs`. The agent frontmatter `model:` field is the single source of truth for model selection. Passing both creates ambiguity about which takes precedence and defeats the purpose of self-contained agent files. The `buildArgs` method should only contain `--agent`, `--output-format`, `--verbose`, and `--no-session-persistence`.
+
+**Rationale**: Claude Code's `--agent` flag is designed to be self-contained. Duplicating model in both frontmatter and CLI flags reintroduces the multi-surface problem this migration eliminates.
+
+### C-002: Retained CLI flags (`--output-format`, `--verbose`, `--no-session-persistence`)
+
+**Ambiguity**: The spec says `buildArgs` should use `--agent` instead of permission-related flags, but does not mention whether `--output-format stream-json`, `--verbose`, and `--no-session-persistence` should be retained.
+
+**Resolution**: These three flags MUST be retained in `buildArgs`. They control runtime transport behavior (NDJSON streaming, verbosity for token tracking, session lifecycle) that has no equivalent in agent frontmatter. The agent frontmatter covers model, tools, and permissions only.
+
+**Rationale**: Agent frontmatter schema (per research spec #557) does not include output format or session persistence fields. These are orthogonal operational concerns, not persona configuration.
+
+### C-003: `chatworkspace.go` settings.json is out of scope
+
+**Ambiguity**: `internal/pipeline/chatworkspace.go` also writes `.claude/settings.json` with full permissions for interactive `wave chat` sessions. Should this also be migrated to agent files?
+
+**Resolution**: `chatworkspace.go` is OUT OF SCOPE for this migration. It serves a different use case (interactive debugging sessions launched via `wave chat`) and does not use `ClaudeAdapter.prepareWorkspace()`. The `chatSettings` and `chatPermissions` types in that file are distinct from `ClaudeSettings`/`ClaudePermissions` and should not be touched. A separate issue should be filed if chat workspace migration is desired.
+
+**Rationale**: The spec's edge case "Non-Claude adapters" principle applies — this migration targets `ClaudeAdapter` pipeline execution only. Chat workspace uses `LaunchInteractive` which has its own argument assembly. Mixing scopes increases risk.
+
+### C-004: TodoWrite injection site
+
+**Ambiguity**: FR-006 requires automatic `TodoWrite` injection into `disallowedTools`, but doesn't specify whether this happens in `prepareWorkspace` (before calling `PersonaToAgentMarkdown`) or inside `PersonaToAgentMarkdown` itself.
+
+**Resolution**: TodoWrite injection MUST happen in `prepareWorkspace`, before constructing the `PersonaSpec` passed to `PersonaToAgentMarkdown`. Specifically, the adapter should append `"TodoWrite"` to `cfg.DenyTools` (if not already present) before building the `PersonaSpec`. `PersonaToAgentMarkdown` remains a pure compiler with no business logic — it writes whatever is in the spec.
+
+**Rationale**: Keeping `PersonaToAgentMarkdown` as a pure mapping function preserves testability and ensures `wave agent export` produces output that exactly matches runtime behavior (since the CLI export path can also inject TodoWrite before calling the same function). Business rules belong in the orchestration layer, not the serialization layer.
+
+### C-005: `interactive.go` `--dangerously-skip-permissions` is out of scope
+
+**Ambiguity**: `internal/adapter/interactive.go:95` also passes `--dangerously-skip-permissions` in `buildInteractiveArgs`. Should this be migrated to use `--agent` as well?
+
+**Resolution**: `interactive.go` is OUT OF SCOPE. It serves interactive `wave chat` sessions where the user directly controls Claude Code via stdin/stdout. Interactive mode uses `--allowedTools` and `--dangerously-skip-permissions` by design because there is no agent file involved — the session is user-driven, not pipeline-driven. A future migration may address this, but it requires different UX considerations.
+
+**Rationale**: Interactive sessions fundamentally differ from pipeline steps — they don't have personas, contracts, or workspace isolation. The `--dangerously-skip-permissions` flag in interactive mode enables the user to interact without being prompted, which is the expected behavior for `wave chat`.
+
 ## Requirements _(mandatory)_
 
 ### Functional Requirements
@@ -104,9 +146,9 @@ As a Wave developer, I want `UseAgentFlag` removed from `AdapterRunConfig` so th
 - **FR-001**: The adapter MUST generate a `.claude/wave-agent.md` file for every pipeline step using the `ClaudeAdapter`, containing YAML frontmatter with `model`, `tools`, `disallowedTools`, and `permissionMode` fields.
 - **FR-002**: The adapter MUST NOT write `.claude/settings.json` when sandbox is disabled.
 - **FR-003**: The adapter MUST write a minimal `.claude/settings.json` containing ONLY sandbox configuration when sandbox is enabled.
-- **FR-004**: The adapter MUST pass `--agent .claude/wave-agent.md` in CLI arguments instead of `--allowedTools`, `--disallowedTools`, and `--dangerously-skip-permissions`.
+- **FR-004**: The adapter MUST pass `--agent .claude/wave-agent.md` in CLI arguments instead of `--allowedTools`, `--disallowedTools`, `--dangerously-skip-permissions`, and `--model`. The retained CLI flags are: `--output-format stream-json`, `--verbose`, and `--no-session-persistence` (see C-001, C-002).
 - **FR-005**: The adapter MUST NOT call `normalizeAllowedTools` — tool lists from persona manifests are passed through to agent frontmatter without modification.
-- **FR-006**: The adapter MUST automatically inject `TodoWrite` into `disallowedTools` if not already present in the persona's deny list.
+- **FR-006**: The adapter MUST automatically inject `TodoWrite` into `disallowedTools` if not already present in the persona's deny list. Injection happens in `prepareWorkspace` before constructing `PersonaSpec`, not inside `PersonaToAgentMarkdown` (see C-004).
 - **FR-007**: The `PersonaToAgentMarkdown` function MUST pass tools through directly without normalization.
 - **FR-008**: The `UseAgentFlag` field MUST be removed from `AdapterRunConfig` — agent mode is unconditional.
 - **FR-009**: The `ClaudeSettings` and `ClaudePermissions` types MUST be simplified or removed — only sandbox-related types retained.
@@ -128,7 +170,7 @@ As a Wave developer, I want `UseAgentFlag` removed from `AdapterRunConfig` so th
 - **SC-002**: `normalizeAllowedTools` function and its 8 test cases are deleted from the codebase — verified by grep.
 - **SC-003**: All existing tests in `internal/adapter/` pass with the new code path — verified by `go test ./internal/adapter/...`.
 - **SC-004**: All existing tests across the project pass — verified by `go test ./...`.
-- **SC-005**: The `buildArgs` method produces CLI arguments containing `--agent` and NOT containing `--allowedTools`, `--disallowedTools`, or `--dangerously-skip-permissions` — verified by unit test.
+- **SC-005**: The `buildArgs` method produces CLI arguments containing `--agent` and NOT containing `--allowedTools`, `--disallowedTools`, `--dangerously-skip-permissions`, or `--model` — verified by unit test. It MUST still contain `--output-format`, `--verbose`, and `--no-session-persistence`.
 - **SC-006**: Net reduction in adapter code — the migration should remove more lines than it adds, measured by `git diff --stat`.
 - **SC-007**: `UseAgentFlag` field has zero references in the codebase after migration — verified by grep.
 - **SC-008**: Pipeline execution reliability is equal or better compared to pre-migration baseline — verified by running a representative pipeline end-to-end.

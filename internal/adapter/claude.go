@@ -27,12 +27,11 @@ func NewClaudeAdapter() *ClaudeAdapter {
 	return &ClaudeAdapter{claudePath: path}
 }
 
-type ClaudeSettings struct {
-	Model        string            `json:"model"`
-	Temperature  float64           `json:"temperature"`
-	OutputFormat string            `json:"output_format"`
-	Permissions  ClaudePermissions `json:"permissions"`
-	Sandbox      *SandboxSettings  `json:"sandbox,omitempty"`
+// SandboxOnlySettings is a minimal settings.json structure written only when
+// sandbox is enabled. It replaces the full ClaudeSettings struct — model,
+// temperature, permissions, and output format now live in agent frontmatter.
+type SandboxOnlySettings struct {
+	Sandbox *SandboxSettings `json:"sandbox,omitempty"`
 }
 
 type SandboxSettings struct {
@@ -44,11 +43,6 @@ type SandboxSettings struct {
 
 type NetworkSettings struct {
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
-}
-
-type ClaudePermissions struct {
-	Allow []string `json:"allow"`
-	Deny  []string `json:"deny,omitempty"`
 }
 
 func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
@@ -204,9 +198,9 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	return result, nil
 }
 
-// agentFilePath is the workspace-relative path used to store the agent .md
-// file when UseAgentFlag mode is active. It lives inside .claude/ so it stays
-// out of the project root and is excluded by the standard .gitignore rule.
+// agentFilePath is the workspace-relative path for the self-contained agent .md
+// file. It lives inside .claude/ so it stays out of the project root and is
+// excluded by the standard .gitignore rule.
 const agentFilePath = ".claude/wave-agent.md"
 
 func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
@@ -215,45 +209,26 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to create .claude directory: %w", err)
 	}
 
-	// Build allowed tools list from config
-	allowedTools := cfg.AllowedTools
-	if len(allowedTools) == 0 {
-		allowedTools = []string{"Read", "Bash", "Glob", "Grep"}
-	}
-
-	// Generate settings.json for this step's persona
-	model := cfg.Model
-	if model == "" {
-		model = "opus" // Default to opus for best quality
-	}
-	settings := ClaudeSettings{
-		Model:        model,
-		Temperature:  cfg.Temperature,
-		OutputFormat: "stream-json",
-		Permissions: ClaudePermissions{
-			Allow: normalizeAllowedTools(allowedTools),
-			Deny:  cfg.DenyTools,
-		},
-	}
-
-	// Add sandbox settings when sandbox is enabled (master switch)
+	// Write minimal settings.json only when sandbox is enabled.
+	// All other configuration (model, permissions, tools) lives in the agent frontmatter.
 	if cfg.SandboxEnabled {
-		settings.Sandbox = &SandboxSettings{
-			Enabled:                  true,
-			AllowUnsandboxedCommands: false,
-			AutoAllowBashIfSandboxed: true,
+		sandboxSettings := SandboxOnlySettings{
+			Sandbox: &SandboxSettings{
+				Enabled:                  true,
+				AllowUnsandboxedCommands: false,
+				AutoAllowBashIfSandboxed: true,
+			},
 		}
 		if len(cfg.AllowedDomains) > 0 {
-			settings.Sandbox.Network = &NetworkSettings{
+			sandboxSettings.Sandbox.Network = &NetworkSettings{
 				AllowedDomains: cfg.AllowedDomains,
 			}
 		}
-	}
-
-	settingsPath := filepath.Join(settingsDir, "settings.json")
-	settingsData, _ := json.MarshalIndent(settings, "", "  ")
-	if err := os.WriteFile(settingsPath, settingsData, 0644); err != nil {
-		return fmt.Errorf("failed to write settings.json: %w", err)
+		settingsPath := filepath.Join(settingsDir, "settings.json")
+		settingsData, _ := json.MarshalIndent(sandboxSettings, "", "  ")
+		if err := os.WriteFile(settingsPath, settingsData, 0644); err != nil {
+			return fmt.Errorf("failed to write settings.json: %w", err)
+		}
 	}
 
 	// 0. Base protocol preamble (shared across all personas)
@@ -295,42 +270,34 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	// 3. Restriction section from manifest
 	restrictions := buildRestrictionSection(cfg)
 
-	if cfg.UseAgentFlag {
-		// Agent mode: compile persona into a self-contained agent .md file with
-		// YAML frontmatter and pass it via --agent <path>. No CLAUDE.md needed.
-		spec := PersonaSpec{
-			Model:        cfg.Model,
-			AllowedTools: cfg.AllowedTools,
-			DenyTools:    cfg.DenyTools,
+	// Inject TodoWrite into deny list if not already present
+	hasTodoWrite := false
+	for _, tool := range cfg.DenyTools {
+		if tool == "TodoWrite" {
+			hasTodoWrite = true
+			break
 		}
-		agentMd := PersonaToAgentMarkdown(
-			spec,
-			string(baseProtocol),
-			systemPrompt,
-			contractSection,
-			restrictions,
-		)
-		agentMdPath := filepath.Join(workspacePath, agentFilePath)
-		if err := os.WriteFile(agentMdPath, []byte(agentMd), 0644); err != nil {
-			return fmt.Errorf("failed to write agent .md: %w", err)
-		}
-	} else {
-		// Standard mode: assemble CLAUDE.md from layers
-		var claudeMd strings.Builder
-		claudeMd.Write(baseProtocol)
-		claudeMd.WriteString("\n\n---\n\n")
-		claudeMd.WriteString(systemPrompt)
-		if contractSection != "" {
-			claudeMd.WriteString("\n\n---\n\n")
-			claudeMd.WriteString(contractSection)
-		}
-		if restrictions != "" {
-			claudeMd.WriteString(restrictions)
-		}
-		claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
-		if err := os.WriteFile(claudeMdPath, []byte(claudeMd.String()), 0644); err != nil {
-			return fmt.Errorf("failed to write CLAUDE.md: %w", err)
-		}
+	}
+	if !hasTodoWrite {
+		cfg.DenyTools = append(cfg.DenyTools, "TodoWrite")
+	}
+
+	// Compile persona into a self-contained agent .md file with YAML frontmatter.
+	spec := PersonaSpec{
+		Model:        cfg.Model,
+		AllowedTools: cfg.AllowedTools,
+		DenyTools:    cfg.DenyTools,
+	}
+	agentMd := PersonaToAgentMarkdown(
+		spec,
+		string(baseProtocol),
+		systemPrompt,
+		contractSection,
+		restrictions,
+	)
+	agentMdPath := filepath.Join(workspacePath, agentFilePath)
+	if err := os.WriteFile(agentMdPath, []byte(agentMd), 0644); err != nil {
+		return fmt.Errorf("failed to write agent .md: %w", err)
 	}
 
 	// Copy skill command files into workspace .claude/commands/
@@ -404,34 +371,12 @@ func getenvDefault(key, fallback string) string {
 func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args := []string{"-p"}
 
-	// Set model - default to opus for best quality
-	model := cfg.Model
-	if model == "" {
-		model = "opus"
-	}
-	args = append(args, "--model", model)
-
-	if cfg.UseAgentFlag {
-		// Agent mode: pass --agent pointing to the compiled persona .md file.
-		// Permissions are embedded in the frontmatter; no separate allowedTools flag.
-		args = append(args, "--agent", agentFilePath)
-	} else {
-		if len(cfg.AllowedTools) > 0 {
-			normalized := normalizeAllowedTools(cfg.AllowedTools)
-			args = append(args, "--allowedTools", strings.Join(normalized, ","))
-		}
-
-		// Prevent personas from wasting turns on TodoWrite
-		args = append(args, "--disallowedTools", "TodoWrite")
-	}
+	// Agent mode: pass --agent pointing to the compiled persona .md file.
+	// Model, permissions, and tools are embedded in the agent frontmatter.
+	args = append(args, "--agent", agentFilePath)
 
 	args = append(args, "--output-format", "stream-json")
 	args = append(args, "--verbose")
-	// Skip permission prompts — Wave enforces permissions via allowedTools
-	args = append(args, "--dangerously-skip-permissions")
-	// Note: Claude CLI doesn't support --temperature flag
-	// Temperature is set via .claude/settings.json in prepareWorkspace
-	// Use --no-session-persistence to avoid saving sessions
 	args = append(args, "--no-session-persistence")
 
 	if cfg.Prompt != "" {
@@ -911,9 +856,8 @@ func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, con
 	}
 
 	if len(persona.AllowedTools) > 0 {
-		normalized := normalizeAllowedTools(persona.AllowedTools)
 		b.WriteString("tools:\n")
-		for _, tool := range normalized {
+		for _, tool := range persona.AllowedTools {
 			b.WriteString("  - ")
 			b.WriteString(tool)
 			b.WriteString("\n")
@@ -954,36 +898,3 @@ func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, con
 	return b.String()
 }
 
-// normalizeAllowedTools deduplicates tool entries and collapses scoped
-// permissions when a bare (unscoped) version is present. For example,
-// if the list contains both "Write" and "Write(.wave/output/*)", the
-// scoped entry is dropped because bare Write already subsumes it.
-func normalizeAllowedTools(tools []string) []string {
-	// First pass: identify bare (unscoped) tool names
-	bare := make(map[string]bool)
-	for _, tool := range tools {
-		if !strings.Contains(tool, "(") {
-			bare[tool] = true
-		}
-	}
-
-	// Second pass: deduplicate and drop scoped entries subsumed by bare ones
-	seen := make(map[string]bool)
-	var result []string
-	for _, tool := range tools {
-		if seen[tool] {
-			continue
-		}
-		seen[tool] = true
-		// If this is a scoped entry like "Write(.wave/output/*)" and bare
-		// "Write" exists, skip it — the bare version already covers it.
-		if idx := strings.Index(tool, "("); idx > 0 {
-			name := tool[:idx]
-			if bare[name] {
-				continue
-			}
-		}
-		result = append(result, tool)
-	}
-	return result
-}
