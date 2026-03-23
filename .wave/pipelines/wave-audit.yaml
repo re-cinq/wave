@@ -21,7 +21,7 @@ input:
 
 steps:
   - id: collect-inventory
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

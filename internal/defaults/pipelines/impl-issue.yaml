@@ -116,7 +116,7 @@ steps:
         persona: summarizer
 
   - id: create-pr
-    persona: github-commenter
+    persona: "{{ forge.type }}-commenter"
     dependencies: [implement]
     memory:
       inject_artifacts:

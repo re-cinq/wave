@@ -348,8 +348,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		// Build persona scope map from manifest personas used in this pipeline
 		personaScopes := make(map[string][]string)
 		for _, step := range sortedSteps {
-			if persona := m.GetPersona(step.Persona); persona != nil && len(persona.TokenScopes) > 0 {
-				personaScopes[step.Persona] = persona.TokenScopes
+			resolvedName := pipelineContext.ResolvePlaceholders(step.Persona)
+			if persona := m.GetPersona(resolvedName); persona != nil && len(persona.TokenScopes) > 0 {
+				personaScopes[resolvedName] = persona.TokenScopes
 			}
 		}
 
@@ -1214,8 +1215,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
 		State:         StateRunning,
-		Persona:       step.Persona,
-		Message:       fmt.Sprintf("Starting %s persona in %s", step.Persona, workspacePath),
+		Persona:       resolvedPersona,
+		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
 		Model:            e.resolveModel(persona),
 		Adapter:       adapterDef.Binary,
@@ -1242,13 +1243,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			}
 			artifactNames = append(artifactNames, name)
 		}
-		e.logger.LogStepStart(pipelineID, step.ID, step.Persona, artifactNames)
+		_ = e.logger.LogStepStart(pipelineID, step.ID, resolvedPersona, artifactNames)
 	}
 
 	prompt := e.buildStepPrompt(execution, step)
 
 	if e.logger != nil {
-		e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", step.Persona, len(prompt)))
+		_ = e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", resolvedPersona, len(prompt)))
 	}
 
 	// Resolve timeout with four-tier precedence:
@@ -1359,7 +1360,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
-		Persona:          step.Persona,
+		Persona:          resolvedPersona,
 		WorkspacePath:    workspacePath,
 		Prompt:           prompt,
 		SystemPrompt:     systemPrompt,
@@ -1386,7 +1387,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					PipelineID: pipelineID,
 					StepID:     step.ID,
 					State:      event.StateStreamActivity,
-					Persona:    step.Persona,
+					Persona:    resolvedPersona,
 					ToolName:   evt.ToolName,
 					ToolTarget: evt.ToolInput,
 				})
@@ -1400,14 +1401,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
 		State:         "step_progress",
-		Persona:       step.Persona,
+		Persona:       resolvedPersona,
 		Progress:      25,
 		CurrentAction: "Executing agent",
 	})
 
 	stepStart := time.Now()
 	e.trace("adapter_start", step.ID, 0, map[string]string{
-		"persona": step.Persona,
+		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
 		"model":   e.resolveModel(persona),
 	})
@@ -1430,7 +1431,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				RunID:        pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
-				Persona:      step.Persona,
+				Persona:      resolvedPersona,
 				StartedAt:    stepStart,
 				CompletedAt:  &completedAt,
 				DurationMs:   time.Since(stepStart).Milliseconds(),
@@ -1466,7 +1467,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				RunID:        pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
-				Persona:      step.Persona,
+				Persona:      resolvedPersona,
 				StartedAt:    stepStart,
 				CompletedAt:  &completedAt,
 				DurationMs:   time.Since(stepStart).Milliseconds(),
@@ -1492,7 +1493,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
 		State:         "step_progress",
-		Persona:       step.Persona,
+		Persona:       resolvedPersona,
 		Progress:      75,
 		CurrentAction: "Processing results",
 		TokensUsed:    result.TokensUsed,
@@ -1632,7 +1633,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 						RunID:        pipelineID,
 						StepID:       step.ID,
 						PipelineName: execution.Status.PipelineName,
-						Persona:      step.Persona,
+						Persona:      resolvedPersona,
 						StartedAt:    stepStart,
 						CompletedAt:  &completedAt,
 						DurationMs:   time.Since(stepStart).Milliseconds(),
@@ -1693,7 +1694,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      StateCompleted,
-		Persona:    step.Persona,
+		Persona:    resolvedPersona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
 		Artifacts:  stepArtifacts,
@@ -1712,7 +1713,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			RunID:              pipelineID,
 			StepID:             step.ID,
 			PipelineName:       execution.Status.PipelineName,
-			Persona:            step.Persona,
+			Persona:            resolvedPersona,
 			StartedAt:          stepStart,
 			CompletedAt:        &completedAt,
 			DurationMs:         stepDuration,
