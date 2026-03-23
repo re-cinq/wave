@@ -69,11 +69,6 @@ type AdapterRunConfig struct {
 	// Injected into CLAUDE.md so the persona knows the required output format.
 	ContractPrompt string
 
-	// UseAgentFlag enables the --agent mode: instead of writing a CLAUDE.md and
-	// settings.json, the adapter compiles the persona into a Claude Code agent .md
-	// file with YAML frontmatter and passes it via --agent <path>.
-	UseAgentFlag bool
-
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)
