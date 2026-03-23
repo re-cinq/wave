@@ -8,7 +8,7 @@ requires:
   skills:
     speckit:
       check: specify check
-      install: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+      install: uv tool install --force specify-cli --from git+https://github.com/github/spec-kit.git
       init: specify init
   tools:
     - git
