@@ -559,9 +559,9 @@ func renderAvailableDetail(detail *AvailableDetail, width int) string {
 		sb.WriteString("\n")
 		for i, step := range detail.Steps {
 			if step.Persona != "" {
-				sb.WriteString(fmt.Sprintf("  %d. %s (%s)\n", i+1, step.ID, step.Persona))
+				fmt.Fprintf(&sb, "  %d. %s (%s)\n", i+1, step.ID, step.Persona)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %d. %s\n", i+1, step.ID))
+				fmt.Fprintf(&sb, "  %d. %s\n", i+1, step.ID)
 			}
 		}
 	}
@@ -688,18 +688,18 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 				iconStr = mutedStyle.Render("\u2014")
 			}
 			if step.Persona != "" {
-				sb.WriteString(fmt.Sprintf("  %s %-20s  %s  (%s)\n",
+				fmt.Fprintf(&sb, "  %s %-20s  %s  (%s)\n",
 					iconStr,
 					step.ID,
 					formatDuration(step.Duration),
 					step.Persona,
-				))
+				)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %s %-20s  %s\n",
+				fmt.Fprintf(&sb, "  %s %-20s  %s\n",
 					iconStr,
 					step.ID,
 					formatDuration(step.Duration),
-				))
+				)
 			}
 		}
 	}

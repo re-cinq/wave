@@ -1243,13 +1243,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			}
 			artifactNames = append(artifactNames, name)
 		}
-		e.logger.LogStepStart(pipelineID, step.ID, resolvedPersona, artifactNames)
+		_ = e.logger.LogStepStart(pipelineID, step.ID, resolvedPersona, artifactNames)
 	}
 
 	prompt := e.buildStepPrompt(execution, step)
 
 	if e.logger != nil {
-		e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", resolvedPersona, len(prompt)))
+		_ = e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", resolvedPersona, len(prompt)))
 	}
 
 	// Resolve timeout with four-tier precedence:
