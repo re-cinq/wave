@@ -21,7 +21,7 @@ input:
 
 steps:
   - id: fetch-issue
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -213,7 +213,7 @@ steps:
         on_failure: retry
 
   - id: post-comment
-    persona: github-commenter
+    persona: "{{ forge.type }}-commenter"
     dependencies: [synthesize-report]
     memory:
       inject_artifacts:

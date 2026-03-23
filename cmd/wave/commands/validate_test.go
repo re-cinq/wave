@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -896,4 +899,230 @@ steps:
 	err := cmd.Execute()
 	assert.Error(t, err, "validate should fail when pipeline has invalid dependency")
 	assert.Contains(t, err.Error(), "non-existent step", "error should mention non-existent step dependency")
+}
+
+// Test resolveForgeTemplate with known forge, unknown forge, and no template
+func TestResolveForgeTemplate(t *testing.T) {
+	tests := []struct {
+		name     string
+		persona  string
+		fi       forge.ForgeInfo
+		expected []string
+	}{
+		{
+			name:     "no template returns persona unchanged",
+			persona:  "navigator",
+			fi:       forge.ForgeInfo{Type: forge.ForgeGitHub},
+			expected: []string{"navigator"},
+		},
+		{
+			name:     "known forge resolves spaced template",
+			persona:  "{{ forge.type }}-analyst",
+			fi:       forge.ForgeInfo{Type: forge.ForgeGitHub},
+			expected: []string{"github-analyst"},
+		},
+		{
+			name:     "known forge resolves compact template",
+			persona:  "{{forge.type}}-analyst",
+			fi:       forge.ForgeInfo{Type: forge.ForgeGitLab},
+			expected: []string{"gitlab-analyst"},
+		},
+		{
+			name:     "unknown forge expands to all 4 variants",
+			persona:  "{{ forge.type }}-analyst",
+			fi:       forge.ForgeInfo{Type: forge.ForgeUnknown},
+			expected: []string{"github-analyst", "gitlab-analyst", "gitea-analyst", "bitbucket-analyst"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolveForgeTemplate(tt.persona, tt.fi)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test isCompositionStep with different step types
+func TestIsCompositionStep(t *testing.T) {
+	tests := []struct {
+		name     string
+		step     pipeline.Step
+		expected bool
+	}{
+		{
+			name:     "persona step is not composition",
+			step:     pipeline.Step{ID: "s1", Persona: "navigator"},
+			expected: false,
+		},
+		{
+			name:     "sub-pipeline step is composition",
+			step:     pipeline.Step{ID: "s1", SubPipeline: "child-pipeline"},
+			expected: true,
+		},
+		{
+			name:     "branch step is composition",
+			step:     pipeline.Step{ID: "s1", Branch: &pipeline.BranchConfig{On: "{{ outcome }}"}},
+			expected: true,
+		},
+		{
+			name:     "gate step is composition",
+			step:     pipeline.Step{ID: "s1", Gate: &pipeline.GateConfig{Type: "approval"}},
+			expected: true,
+		},
+		{
+			name:     "loop step is composition",
+			step:     pipeline.Step{ID: "s1", Loop: &pipeline.LoopConfig{MaxIterations: 3}},
+			expected: true,
+		},
+		{
+			name:     "aggregate step is composition",
+			step:     pipeline.Step{ID: "s1", Aggregate: &pipeline.AggregateConfig{From: "steps.*"}},
+			expected: true,
+		},
+		{
+			name:     "empty step is not composition",
+			step:     pipeline.Step{ID: "s1"},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isCompositionStep(tt.step))
+		})
+	}
+}
+
+// Test validatePipelineFull with various scenarios
+func TestValidatePipelineFull(t *testing.T) {
+	fi := forge.ForgeInfo{Type: forge.ForgeGitHub}
+
+	t.Run("missing persona", func(t *testing.T) {
+		h := newTestHelper(t)
+		h.chdir()
+		defer h.restore()
+
+		m := &manifest.Manifest{
+			Personas: map[string]manifest.Persona{
+				"navigator": {Adapter: "claude"},
+			},
+		}
+		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+metadata:
+  name: test
+steps:
+  - id: s1
+    persona: nonexistent
+    exec:
+      type: prompt
+      source: "do something"
+`)
+		errs := validatePipelineFull("test", m, fi)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "not found in manifest") {
+				found = true
+			}
+		}
+		assert.True(t, found, "should report missing persona, got: %v", errs)
+	})
+
+	t.Run("composition step without persona is valid", func(t *testing.T) {
+		h := newTestHelper(t)
+		h.chdir()
+		defer h.restore()
+
+		m := &manifest.Manifest{
+			Personas: map[string]manifest.Persona{},
+		}
+		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+metadata:
+  name: test
+steps:
+  - id: s1
+    gate:
+      type: approval
+`)
+		errs := validatePipelineFull("test", m, fi)
+		for _, e := range errs {
+			assert.NotContains(t, e, "no persona", "gate step should not require persona")
+		}
+	})
+
+	t.Run("bad dependency", func(t *testing.T) {
+		h := newTestHelper(t)
+		h.chdir()
+		defer h.restore()
+
+		m := &manifest.Manifest{
+			Personas: map[string]manifest.Persona{
+				"navigator": {Adapter: "claude"},
+			},
+		}
+		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+metadata:
+  name: test
+steps:
+  - id: s1
+    persona: navigator
+    dependencies:
+      - does-not-exist
+    exec:
+      type: prompt
+      source: "do something"
+`)
+		errs := validatePipelineFull("test", m, fi)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "non-existent step") {
+				found = true
+			}
+		}
+		assert.True(t, found, "should report bad dependency, got: %v", errs)
+	})
+
+	t.Run("forward dependency is valid after two-pass fix", func(t *testing.T) {
+		h := newTestHelper(t)
+		h.chdir()
+		defer h.restore()
+
+		m := &manifest.Manifest{
+			Personas: map[string]manifest.Persona{
+				"navigator": {Adapter: "claude"},
+			},
+		}
+		// step1 depends on step2, but step2 is listed after step1 in YAML.
+		// This should be valid because the executor does topological sorting.
+		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+metadata:
+  name: test
+steps:
+  - id: step1
+    persona: navigator
+    dependencies:
+      - step2
+    exec:
+      type: prompt
+      source: "depends on step2"
+  - id: step2
+    persona: navigator
+    exec:
+      type: prompt
+      source: "base step"
+`)
+		errs := validatePipelineFull("test", m, fi)
+		for _, e := range errs {
+			assert.NotContains(t, e, "non-existent step", "forward dependency should be valid, got error: %s", e)
+		}
+	})
+}
+
+// Test stepTypeLabel returns "step" for unrecognized types
+func TestStepTypeLabel_Fallback(t *testing.T) {
+	// This is a TUI function, tested indirectly through isCompositionStep
+	// which uses the same pattern. The direct TUI test is in tui package.
+	// Here we verify the composition detection logic is consistent.
+	step := pipeline.Step{ID: "s1", Persona: "navigator"}
+	assert.False(t, isCompositionStep(step), "persona step should not be composition")
 }

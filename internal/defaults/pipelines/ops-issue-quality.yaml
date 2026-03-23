@@ -20,7 +20,7 @@ input:
 
 steps:
   - id: scan
-    persona: github-analyst
+    persona: "{{ forge.type }}-analyst"
     workspace:
       mount:
         - source: ./
@@ -110,7 +110,7 @@ steps:
         on_failure: retry
 
   - id: enhance
-    persona: github-commenter
+    persona: "{{ forge.type }}-commenter"
     dependencies: [scan]
     memory:
       inject_artifacts:
