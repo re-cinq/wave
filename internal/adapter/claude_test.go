@@ -322,9 +322,14 @@ func TestAgentFileRestrictionSection(t *testing.T) {
 				Model:        "sonnet",
 				SystemPrompt: "# Test persona",
 			},
-			wantAbsent: []string{
+			// TodoWrite is always auto-injected into DenyTools, so the
+			// restriction section will contain "Denied Tools" with TodoWrite.
+			wantContains: []string{
 				"## Restrictions",
 				"### Denied Tools",
+				"`TodoWrite`",
+			},
+			wantAbsent: []string{
 				"### Allowed Tools",
 				"### Network Access",
 			},
