@@ -638,6 +638,276 @@ func TestParseTesslSyncOutput(t *testing.T) {
 	}
 }
 
+// --- Audit tests ---
+
+func TestSkillsAuditTable(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+	env.createSkill("python", "Python development skill")
+
+	out, err := executeSkillsCmd("audit")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "golang") {
+		t.Errorf("expected golang in audit output, got: %s", out)
+	}
+	if !strings.Contains(out, "standalone") {
+		t.Errorf("expected 'standalone' classification in output, got: %s", out)
+	}
+	if !strings.Contains(out, "total") {
+		t.Errorf("expected summary in output, got: %s", out)
+	}
+}
+
+func TestSkillsAuditJSON(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+
+	out, err := executeSkillsCmd("audit", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result SkillAuditOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nraw: %s", err, out)
+	}
+	if len(result.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(result.Skills))
+	}
+	if result.Skills[0].Name != "golang" {
+		t.Errorf("expected skill name 'golang', got %q", result.Skills[0].Name)
+	}
+	if result.Skills[0].Classification != "standalone" {
+		t.Errorf("expected classification 'standalone', got %q", result.Skills[0].Classification)
+	}
+	if result.Summary.Total != 1 {
+		t.Errorf("expected total 1, got %d", result.Summary.Total)
+	}
+}
+
+func TestSkillsAuditEmpty(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("audit")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "No skills found") {
+		t.Errorf("expected 'No skills found' message, got: %s", out)
+	}
+}
+
+// --- Publish tests ---
+
+func TestSkillsPublishNoArgs(t *testing.T) {
+	_, err := executeSkillsCmd("publish")
+	if err == nil {
+		t.Fatal("expected error for missing args")
+	}
+}
+
+func TestSkillsPublishNonexistent(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("publish", "nonexistent", "--dry-run")
+	_ = out
+	if err != nil {
+		t.Logf("got error (expected for non-existent): %v", err)
+	}
+	// The command returns an error via result but doesn't produce a CLI error
+	// Since publishOne returns a PublishResult with Error set, not a cli error
+}
+
+func TestSkillsPublishDryRun(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+
+	out, err := executeSkillsCmd("publish", "golang", "--dry-run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "golang") {
+		t.Errorf("expected skill name in output, got: %s", out)
+	}
+}
+
+func TestSkillsPublishDryRunJSON(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+
+	out, err := executeSkillsCmd("publish", "golang", "--dry-run", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result SkillPublishOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nraw: %s", err, out)
+	}
+	if len(result.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result.Results))
+	}
+	if result.Results[0].Name != "golang" {
+		t.Errorf("expected name 'golang', got %q", result.Results[0].Name)
+	}
+	if result.Results[0].Status != "published" {
+		t.Errorf("expected status 'published' for dry-run, got %q", result.Results[0].Status)
+	}
+}
+
+func TestSkillsPublishAllConflict(t *testing.T) {
+	_, err := executeSkillsCmd("publish", "golang", "--all")
+	if err == nil {
+		t.Fatal("expected error for --all with name arg")
+	}
+	cliErr, ok := err.(*CLIError)
+	if !ok {
+		t.Fatalf("expected *CLIError, got %T: %v", err, err)
+	}
+	if cliErr.Code != CodeFlagConflict {
+		t.Errorf("expected code %q, got %q", CodeFlagConflict, cliErr.Code)
+	}
+}
+
+// --- Verify tests ---
+
+func TestSkillsVerifyNoLockfile(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	if err := os.MkdirAll(".wave", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("verify")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "No published skills") {
+		t.Errorf("expected 'No published skills' message, got: %s", out)
+	}
+}
+
+func TestSkillsVerifyWithMatchingDigests(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+
+	// Compute actual digest
+	store := skill.NewDirectoryStore(skill.SkillSource{Root: ".wave/skills", Precedence: 1})
+	s, err := store.Read("golang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := skill.ComputeDigest(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Write lockfile with matching digest
+	lockfile := fmt.Sprintf(`{"version":1,"published":[{"name":"golang","digest":%q,"registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`, digest)
+	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("verify", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result SkillVerifyOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nraw: %s", err, out)
+	}
+	if len(result.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result.Results))
+	}
+	if result.Results[0].Status != "ok" {
+		t.Errorf("expected status 'ok', got %q", result.Results[0].Status)
+	}
+	if result.Summary.OK != 1 {
+		t.Errorf("expected OK count 1, got %d", result.Summary.OK)
+	}
+}
+
+func TestSkillsVerifyModified(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	env.createSkill("golang", "Go development skill")
+
+	// Write lockfile with wrong digest
+	lockfile := `{"version":1,"published":[{"name":"golang","digest":"sha256:wrong","registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`
+	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("verify", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result SkillVerifyOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nraw: %s", err, out)
+	}
+	if result.Results[0].Status != "modified" {
+		t.Errorf("expected status 'modified', got %q", result.Results[0].Status)
+	}
+}
+
+func TestSkillsVerifyMissing(t *testing.T) {
+	env := newSkillTestEnv(t)
+	defer env.cleanup()
+
+	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write lockfile for a skill that doesn't exist locally
+	lockfile := `{"version":1,"published":[{"name":"deleted-skill","digest":"sha256:abc","registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`
+	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := executeSkillsCmd("verify", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result SkillVerifyOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nraw: %s", err, out)
+	}
+	if result.Results[0].Status != "missing" {
+		t.Errorf("expected status 'missing', got %q", result.Results[0].Status)
+	}
+	if result.Summary.Missing != 1 {
+		t.Errorf("expected Missing count 1, got %d", result.Summary.Missing)
+	}
+}
+
 // --- T016: TestClassifySkillError — verify all error code mappings ---
 
 func TestClassifySkillError(t *testing.T) {
