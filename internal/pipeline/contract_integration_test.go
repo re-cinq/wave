@@ -354,20 +354,22 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	_ = executor.Execute(ctx, p, m, "test")
 
-	// Schema injection is now in ContractPrompt (CLAUDE.md), NOT in the main prompt.
-	// Verify the main prompt is clean (no OUTPUT REQUIREMENTS).
+	// Contract schema is appended directly to the user prompt so the model
+	// sees it alongside the task instructions (not buried in the agent .md
+	// system prompt where it was previously ignored).
 	prompts := capturingAdapter.GetCapturedPrompts()
 	require.Len(t, prompts, 1, "Should have captured one prompt")
 
 	prompt := prompts[0]
-	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS", "Main prompt should not contain OUTPUT REQUIREMENTS — schema is in ContractPrompt/CLAUDE.md")
-	assert.Equal(t, "Analyze the codebase", prompt, "Main prompt should be clean source text")
+	assert.True(t, strings.HasPrefix(prompt, "Analyze the codebase"), "Prompt should start with source text")
+	assert.Contains(t, prompt, "result", "Prompt should contain schema field 'result'")
+	assert.Contains(t, prompt, "confidence", "Prompt should contain schema field 'confidence'")
+	assert.Contains(t, prompt, "CRITICAL", "Prompt should contain contract compliance warning")
 
-	// Verify schema content is in the contract prompt (buildContractPrompt)
-	contractPrompt := executor.buildContractPrompt(&p.Steps[0], nil)
-	assert.Contains(t, contractPrompt, "result", "Contract prompt should contain schema field 'result'")
-	assert.Contains(t, contractPrompt, "confidence", "Contract prompt should contain schema field 'confidence'")
-	assert.Contains(t, contractPrompt, "JSON", "Contract prompt should mention JSON format")
+	// ContractPrompt on the adapter config should be empty (no longer injected into agent .md)
+	configs := capturingAdapter.GetCapturedConfigs()
+	require.Len(t, configs, 1)
+	assert.Empty(t, configs[0].ContractPrompt, "ContractPrompt should be empty — schema now in user prompt")
 }
 
 func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
@@ -412,17 +414,19 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 
 	_ = executor.Execute(ctx, p, m, "test")
 
-	// Schema injection is now in ContractPrompt (CLAUDE.md), NOT in the main prompt.
+	// Contract schema is appended to user prompt, not system prompt.
 	prompts := capturingAdapter.GetCapturedPrompts()
 	require.Len(t, prompts, 1)
 
 	prompt := prompts[0]
-	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS", "Main prompt should not contain OUTPUT REQUIREMENTS")
-	assert.Equal(t, "Check status", prompt, "Main prompt should be clean source text")
+	assert.True(t, strings.HasPrefix(prompt, "Check status"), "Prompt should start with source text")
+	assert.Contains(t, prompt, "status", "Prompt should contain inline schema field")
+	assert.Contains(t, prompt, "CRITICAL", "Prompt should contain contract compliance warning")
 
-	// Verify schema content is in the contract prompt
-	contractPrompt := executor.buildContractPrompt(&p.Steps[0], nil)
-	assert.Contains(t, contractPrompt, "status", "Contract prompt should contain inline schema field")
+	// ContractPrompt on the adapter config should be empty
+	configs := capturingAdapter.GetCapturedConfigs()
+	require.Len(t, configs, 1)
+	assert.Empty(t, configs[0].ContractPrompt, "ContractPrompt should be empty — schema now in user prompt")
 }
 
 // ============================================================================

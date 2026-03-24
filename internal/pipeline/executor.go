@@ -1355,8 +1355,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Auto-generate contract compliance prompt for CLAUDE.md
+	// Auto-generate contract compliance section. This is appended directly
+	// to the user prompt (not the system prompt / agent .md) so the model
+	// sees it alongside the task instructions where it has the strongest
+	// signal. System prompt injection was unreliable — models would ignore
+	// the schema buried in the agent .md body among other context.
 	contractPrompt := e.buildContractPrompt(step, execution.Context)
+	if contractPrompt != "" {
+		prompt = prompt + "\n\n" + contractPrompt
+	}
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
@@ -1378,7 +1385,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DockerImage:      execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
-		ContractPrompt:      contractPrompt,
+		ContractPrompt:      "", // Contract now in user prompt, not system prompt
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
