@@ -35,8 +35,27 @@ func TestBuildDetachEnv(t *testing.T) {
 	}
 
 	assert.Equal(t, "/home/test", envMap["HOME"])
-	assert.Equal(t, "/usr/bin", envMap["PATH"])
+	// PATH should include $HOME/.local/bin prepended for tool manager binaries
+	assert.Equal(t, "/home/test/.local/bin:/usr/bin", envMap["PATH"])
 	assert.Equal(t, "sk-test-key", envMap["ANTHROPIC_API_KEY"])
+}
+
+func TestBuildDetachEnvNoPathDuplication(t *testing.T) {
+	// When $HOME/.local/bin is already in PATH, don't duplicate it.
+	t.Setenv("HOME", "/home/test")
+	t.Setenv("PATH", "/home/test/.local/bin:/usr/bin")
+
+	env := buildDetachEnv()
+	envMap := make(map[string]string)
+	for _, e := range env {
+		for i := 0; i < len(e); i++ {
+			if e[i] == '=' {
+				envMap[e[:i]] = e[i+1:]
+				break
+			}
+		}
+	}
+	assert.Equal(t, "/home/test/.local/bin:/usr/bin", envMap["PATH"])
 }
 
 func TestBuildDetachEnvOmitsMissing(t *testing.T) {
