@@ -321,14 +321,16 @@ func (m *MatrixExecutor) readItemsSource(execution *PipelineExecution, strategy 
 			artifactPath := parts[1]
 
 			// Look for the artifact in the previous step's workspace
-			if wsPath, ok := execution.WorkspacePaths[stepID]; ok {
+			execution.mu.Lock()
+			wsPath, wsOk := execution.WorkspacePaths[stepID]
+			artKey := stepID + ":" + artifactPath
+			artPath, artOk := execution.ArtifactPaths[artKey]
+			execution.mu.Unlock()
+
+			if wsOk {
 				itemsSourcePath = filepath.Join(wsPath, artifactPath)
-			} else {
-				// Try to find via artifact paths
-				key := stepID + ":" + artifactPath
-				if artPath, ok := execution.ArtifactPaths[key]; ok {
-					itemsSourcePath = artPath
-				}
+			} else if artOk {
+				itemsSourcePath = artPath
 			}
 		}
 	}
@@ -436,9 +438,11 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 	}
 
 	// Copy artifact paths from parent execution
+	execution.mu.Lock()
 	for k, v := range execution.ArtifactPaths {
 		workerExecution.ArtifactPaths[k] = v
 	}
+	execution.mu.Unlock()
 
 	// Run the step execution
 	err = m.executor.runStepExecution(ctx, workerExecution, workerStep)
@@ -714,12 +718,14 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 			if len(cleanupBranches) > 0 {
 				// Find repo root from execution context
 				repoRoot := "."
+				execution.mu.Lock()
 				for _, info := range execution.WorktreePaths {
 					if info.RepoRoot != "" {
 						repoRoot = info.RepoRoot
 						break
 					}
 				}
+				execution.mu.Unlock()
 				m.cleanupIntegrationBranches(repoRoot, cleanupBranches)
 			}
 		}()
@@ -784,12 +790,14 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 				case len(parentBranches) > 1:
 					// Multi-parent: create integration branch
 					repoRoot := "."
+					execution.mu.Lock()
 					for _, info := range execution.WorktreePaths {
 						if info.RepoRoot != "" {
 							repoRoot = info.RepoRoot
 							break
 						}
 					}
+					execution.mu.Unlock()
 					integrationBranch, err := m.createIntegrationBranch(repoRoot, pipelineID, id, parentBranches)
 					if err != nil {
 						// Mark this item as failed due to merge conflict
