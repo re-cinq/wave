@@ -3,6 +3,7 @@ package preflight
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/recinq/wave/internal/skill"
@@ -530,6 +531,63 @@ func TestCheckBubblewrap(t *testing.T) {
 	}
 	if result.Kind != "tool" {
 		t.Errorf("expected kind 'tool', got %q", result.Kind)
+	}
+}
+
+func TestTruncateOutput(t *testing.T) {
+	tests := []struct {
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"short", 10, "short"},
+		{"exactly10!", 10, "exactly10!"},
+		{"longer than max", 10, "longer tha..."},
+		{"  trimmed  ", 20, "trimmed"},
+		{"", 10, ""},
+	}
+	for _, tt := range tests {
+		got := truncateOutput(tt.input, tt.maxLen)
+		if got != tt.want {
+			t.Errorf("truncateOutput(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+		}
+	}
+}
+
+func TestCheckSkills_PostInstallPathFallback(t *testing.T) {
+	// Simulate: check always fails, install succeeds. The re-check via
+	// isSkillInstalledWithToolBin also fails since the binary doesn't exist.
+	// Verifies we get a diagnostic error message.
+	skills := map[string]skill.SkillConfig{
+		"myskill": {
+			Check:   "nonexistent-binary-xyz --version",
+			Install: "echo installing",
+		},
+	}
+
+	c := NewChecker(skills)
+	c.runCmd = func(name string, args ...string) error {
+		cmd := strings.Join(args, " ")
+		// Install commands succeed
+		if strings.Contains(cmd, "installing") || strings.Contains(cmd, "echo") {
+			return nil
+		}
+		// All check commands fail
+		return fmt.Errorf("not found")
+	}
+
+	results, err := c.CheckSkills([]string{"myskill"})
+	if err == nil {
+		t.Fatal("expected error for skill that fails check after install")
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].OK {
+		t.Error("expected skill to fail (binary doesn't exist)")
+	}
+	if !strings.Contains(results[0].Message, "still not detected after install") {
+		t.Errorf("expected diagnostic message, got: %s", results[0].Message)
 	}
 }
 
