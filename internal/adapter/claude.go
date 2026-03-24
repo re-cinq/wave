@@ -225,7 +225,10 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 			}
 		}
 		settingsPath := filepath.Join(settingsDir, "settings.json")
-		settingsData, _ := json.MarshalIndent(sandboxSettings, "", "  ")
+		settingsData, err := json.MarshalIndent(sandboxSettings, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal sandbox settings: %w", err)
+		}
 		if err := os.WriteFile(settingsPath, settingsData, 0644); err != nil {
 			return fmt.Errorf("failed to write settings.json: %w", err)
 		}
@@ -267,10 +270,9 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		contractSection += hint
 	}
 
-	// 3. Restriction section from manifest
-	restrictions := buildRestrictionSection(cfg)
-
-	// Inject TodoWrite into deny list if not already present
+	// Inject TodoWrite into deny list if not already present.
+	// This must happen BEFORE buildRestrictionSection so that both the
+	// frontmatter (disallowedTools) and the body (## Restrictions) are consistent.
 	hasTodoWrite := false
 	for _, tool := range cfg.DenyTools {
 		if tool == "TodoWrite" {
@@ -281,6 +283,9 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	if !hasTodoWrite {
 		cfg.DenyTools = append(cfg.DenyTools, "TodoWrite")
 	}
+
+	// 3. Restriction section from manifest
+	restrictions := buildRestrictionSection(cfg)
 
 	// Compile persona into a self-contained agent .md file with YAML frontmatter.
 	spec := PersonaSpec{
