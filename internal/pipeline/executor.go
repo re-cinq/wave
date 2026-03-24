@@ -1355,8 +1355,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Auto-generate contract compliance prompt for CLAUDE.md
+	// Auto-generate contract compliance section. This is appended directly
+	// to the user prompt (not the system prompt / agent .md) so the model
+	// sees it alongside the task instructions where it has the strongest
+	// signal. System prompt injection was unreliable — models would ignore
+	// the schema buried in the agent .md body among other context.
 	contractPrompt := e.buildContractPrompt(step, execution.Context)
+	if contractPrompt != "" {
+		prompt = prompt + "\n\n" + contractPrompt
+	}
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
@@ -1378,7 +1385,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DockerImage:      execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
-		ContractPrompt:      contractPrompt,
+		ContractPrompt:      "", // Contract now in user prompt, not system prompt
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
@@ -2001,7 +2008,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 	}
 
 	// NOTE: Schema injection for json_schema contracts is handled exclusively by
-	// buildContractPrompt → ContractPrompt → CLAUDE.md. Do NOT duplicate it here.
+	// buildContractPrompt → appended to user prompt (-p argument). Do NOT duplicate it here.
 	// See: buildContractPrompt() which uses the correct output path from OutputArtifacts.
 
 	// Resolve remaining template variables using pipeline context
@@ -2591,10 +2598,10 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 
 }
 
-// buildContractPrompt generates a contract compliance section for CLAUDE.md
-// based on the step's contract definition and output artifacts. This tells the
-// persona exactly what format the output must be in, so pipeline authors don't
-// need to repeat format requirements in their prompts.
+// buildContractPrompt generates a contract compliance section that is appended
+// to the user prompt (-p argument) at execution time. This tells the persona
+// exactly what format the output must be in, so pipeline authors don't need to
+// repeat format requirements in their prompts.
 //
 // This is the SINGLE source of truth for schema injection — it includes security
 // validation (path traversal, content sanitization) and the full schema content.
