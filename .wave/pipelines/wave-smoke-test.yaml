@@ -1,6 +1,6 @@
 kind: WavePipeline
 metadata:
-  name: test-smoke
+  name: wave-smoke-test
   description: "Minimal pipeline for testing contracts and artifacts"
   release: false
 
@@ -32,7 +32,7 @@ steps:
       contract:
         type: json_schema
         source: .wave/output/analysis.json
-        schema_path: .wave/contracts/smoke-test.schema.json
+        schema_path: .wave/contracts/wave-smoke-test.schema.json
         on_failure: retry
 
   - id: summarize

@@ -3,6 +3,7 @@ package defaults
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -51,7 +52,9 @@ func assertDirParity(t *testing.T, getter func() (map[string]string, error), kin
 		}
 	}
 
-	// Also check for files in .wave/<kind>/ that are NOT in embedded defaults
+	// Also check for files in .wave/<kind>/ that are NOT in embedded defaults.
+	// Skip wave-* prefixed files — those are development-only pipelines/contracts
+	// that are not shipped to users and don't need embedded defaults.
 	entries, err := os.ReadDir(waveDir)
 	if err != nil {
 		t.Fatalf("failed to read .wave/%s/: %v", kind, err)
@@ -59,6 +62,9 @@ func assertDirParity(t *testing.T, getter func() (map[string]string, error), kin
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
+		}
+		if strings.HasPrefix(entry.Name(), "wave-") {
+			continue // Development-only, not shipped
 		}
 		if _, ok := embedded[entry.Name()]; !ok {
 			t.Errorf("file %q exists in .wave/%s/ but not in internal/defaults/%s/", entry.Name(), kind, kind)
