@@ -25,6 +25,8 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"statusClass":    statusClass,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"add":            func(a, b int) int { return a + b },
+		"subtract":       func(a, b int) int { return a - b },
 	}
 	pages := map[string]string{
 		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
@@ -34,8 +36,8 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/skills.html":     `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/compose.html":    `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/issues.html":     `<html><body>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
-		"templates/prs.html":        `<html><body>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
+		"templates/issues.html":     `<html><body><span class="filter">{{.FilterState}}</span>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
+		"templates/prs.html":        `<html><body><span class="filter">{{.FilterState}}</span>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
 		"templates/health.html":     `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
 		"templates/notfound.html":   `<html><body>Page not found</body></html>`,
 	}
