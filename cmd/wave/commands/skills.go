@@ -64,6 +64,67 @@ type SkillSyncOutput struct {
 	Status       string   `json:"status"`
 }
 
+// SkillAuditItem represents one skill in audit output.
+type SkillAuditItem struct {
+	Name           string   `json:"name"`
+	Classification string   `json:"classification"`
+	WaveRefCount   int      `json:"wave_ref_count"`
+	Warnings       []string `json:"warnings,omitempty"`
+	Source         string   `json:"source"`
+}
+
+// SkillAuditOutput is the top-level output for wave skills audit.
+type SkillAuditOutput struct {
+	Skills  []SkillAuditItem `json:"skills"`
+	Summary AuditSummary     `json:"summary"`
+}
+
+// AuditSummary provides aggregate counts.
+type AuditSummary struct {
+	Total        int `json:"total"`
+	Standalone   int `json:"standalone"`
+	WaveSpecific int `json:"wave_specific"`
+	Both         int `json:"both"`
+}
+
+// PublishResultItem represents one publish result in CLI output.
+type PublishResultItem struct {
+	Name     string   `json:"name"`
+	Status   string   `json:"status"`
+	URL      string   `json:"url,omitempty"`
+	Digest   string   `json:"digest,omitempty"`
+	Reason   string   `json:"reason,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+// SkillPublishOutput is the top-level output for wave skills publish.
+type SkillPublishOutput struct {
+	Results  []PublishResultItem `json:"results"`
+	Lockfile string              `json:"lockfile"`
+}
+
+// SkillVerifyItem represents one verify result.
+type SkillVerifyItem struct {
+	Name           string `json:"name"`
+	Status         string `json:"status"`
+	ExpectedDigest string `json:"expected_digest,omitempty"`
+	ActualDigest   string `json:"actual_digest,omitempty"`
+}
+
+// SkillVerifyOutput is the top-level output for wave skills verify.
+type SkillVerifyOutput struct {
+	Results []SkillVerifyItem `json:"results"`
+	Summary VerifySummary     `json:"summary"`
+}
+
+// VerifySummary provides aggregate verify counts.
+type VerifySummary struct {
+	Total    int `json:"total"`
+	OK       int `json:"ok"`
+	Modified int `json:"modified"`
+	Missing  int `json:"missing"`
+}
+
 // NewSkillsCmd creates the top-level wave skills command.
 func NewSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -76,7 +137,10 @@ Subcommands:
   install   Install a skill from any source
   remove    Remove an installed skill
   search    Search the Tessl registry
-  sync      Sync project dependencies from the Tessl registry`,
+  sync      Sync project dependencies from the Tessl registry
+  audit     Audit and classify skills for publishing
+  publish   Publish skills to a registry
+  verify    Verify published skill integrity`,
 	}
 
 	cmd.AddCommand(newSkillsListCmd())
@@ -84,6 +148,9 @@ Subcommands:
 	cmd.AddCommand(newSkillsRemoveCmd())
 	cmd.AddCommand(newSkillsSearchCmd())
 	cmd.AddCommand(newSkillsSyncCmd())
+	cmd.AddCommand(newSkillsAuditCmd())
+	cmd.AddCommand(newSkillsPublishCmd())
+	cmd.AddCommand(newSkillsVerifyCmd())
 
 	return cmd
 }
@@ -555,4 +622,374 @@ func parseTesslSyncOutput(output string) (synced []string, warnings []string) {
 		}
 	}
 	return synced, warnings
+}
+
+// --- Audit ---
+
+func newSkillsAuditCmd() *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "audit",
+		Short: "Audit and classify skills for publishing",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSkillsAudit(cmd, format)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
+	return cmd
+}
+
+func runSkillsAudit(cmd *cobra.Command, format string) error {
+	format = ResolveFormat(cmd, format)
+
+	store := newSkillStore()
+	classifications, err := skill.ClassifyAll(store)
+	if err != nil {
+		return err
+	}
+
+	output := SkillAuditOutput{
+		Skills: make([]SkillAuditItem, 0, len(classifications)),
+	}
+
+	for _, c := range classifications {
+		item := SkillAuditItem{
+			Name:           c.Name,
+			Classification: c.Tag,
+			WaveRefCount:   c.WaveRefCount,
+			Warnings:       c.Warnings,
+			Source:         c.SourcePath,
+		}
+		output.Skills = append(output.Skills, item)
+
+		switch c.Tag {
+		case skill.TagStandalone:
+			output.Summary.Standalone++
+		case skill.TagWaveSpecific:
+			output.Summary.WaveSpecific++
+		case skill.TagBoth:
+			output.Summary.Both++
+		}
+	}
+	output.Summary.Total = len(classifications)
+
+	switch format {
+	case "json":
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
+	default:
+		return renderSkillsAuditTable(cmd.OutOrStdout(), output)
+	}
+}
+
+func renderSkillsAuditTable(w io.Writer, output SkillAuditOutput) error {
+	f := display.NewFormatter()
+
+	if len(output.Skills) == 0 {
+		fmt.Fprintln(w, "No skills found.")
+		return nil
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%-25s %-18s %-12s %-30s %s\n",
+		f.Colorize("NAME", "\033[1;37m"),
+		f.Colorize("CLASSIFICATION", "\033[1;37m"),
+		f.Colorize("WAVE REFS", "\033[1;37m"),
+		f.Colorize("WARNINGS", "\033[1;37m"),
+		f.Colorize("SOURCE", "\033[1;37m"))
+
+	for _, s := range output.Skills {
+		tag := s.Classification
+		switch s.Classification {
+		case skill.TagStandalone:
+			tag = f.Success(s.Classification)
+		case skill.TagWaveSpecific:
+			tag = f.Error(s.Classification)
+		case skill.TagBoth:
+			tag = f.Warning(s.Classification)
+		}
+
+		warns := ""
+		if len(s.Warnings) > 0 {
+			warns = strings.Join(s.Warnings, ", ")
+		}
+
+		fmt.Fprintf(w, "%-25s %-18s %-12d %-30s %s\n",
+			f.Primary(s.Name),
+			tag,
+			s.WaveRefCount,
+			warns,
+			f.Muted(s.Source))
+	}
+
+	fmt.Fprintf(w, "\n%d standalone, %d wave-specific, %d both (%d total)\n",
+		output.Summary.Standalone, output.Summary.WaveSpecific,
+		output.Summary.Both, output.Summary.Total)
+
+	return nil
+}
+
+// --- Publish ---
+
+func newSkillsPublishCmd() *cobra.Command {
+	var format string
+	var force, dryRun, all bool
+	var registry string
+	cmd := &cobra.Command{
+		Use:   "publish [name]",
+		Short: "Publish skills to a registry",
+		Long: `Publish a skill to the Tessl registry.
+
+Examples:
+  wave skills publish golang             # Publish a single skill
+  wave skills publish --all              # Publish all standalone skills
+  wave skills publish golang --dry-run   # Validate without publishing
+  wave skills publish golang --force     # Force publish wave-specific skills`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if all && len(args) > 0 {
+				return NewCLIError(CodeFlagConflict,
+					"--all cannot be used with a skill name argument",
+					"Use either `wave skills publish <name>` or `wave skills publish --all`")
+			}
+			if !all && len(args) == 0 {
+				return NewCLIError(CodeInvalidArgs,
+					"skill name is required (or use --all)",
+					"Usage: wave skills publish <name> or wave skills publish --all")
+			}
+			name := ""
+			if len(args) > 0 {
+				name = args[0]
+			}
+			return runSkillsPublish(cmd, name, format, all, force, dryRun, registry)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
+	cmd.Flags().BoolVar(&force, "force", false, "Force publish wave-specific skills")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and compute digest without publishing")
+	cmd.Flags().BoolVar(&all, "all", false, "Publish all standalone-eligible skills")
+	cmd.Flags().StringVar(&registry, "registry", "tessl", "Target registry name")
+	return cmd
+}
+
+func runSkillsPublish(cmd *cobra.Command, name, format string, all, force, dryRun bool, registry string) error {
+	format = ResolveFormat(cmd, format)
+
+	store := newSkillStore()
+	lockfilePath := ".wave/skills.lock"
+	publisher := skill.NewPublisher(store, lockfilePath, registry, exec.LookPath)
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	opts := skill.PublishOpts{
+		Force:    force,
+		DryRun:   dryRun,
+		Registry: registry,
+	}
+
+	var results []skill.PublishResult
+
+	if all {
+		var err error
+		results, err = publisher.PublishAll(ctx, opts)
+		if err != nil {
+			return NewCLIError(CodeSkillPublishFailed, err.Error(),
+				"Check skill store and retry")
+		}
+	} else {
+		result := publisher.PublishOne(ctx, name, opts)
+		results = append(results, result)
+	}
+
+	output := SkillPublishOutput{
+		Results:  make([]PublishResultItem, 0, len(results)),
+		Lockfile: lockfilePath,
+	}
+
+	for _, r := range results {
+		item := PublishResultItem{
+			Name:     r.Name,
+			Digest:   r.Digest,
+			URL:      r.URL,
+			Warnings: r.Warnings,
+		}
+		switch {
+		case r.Skipped:
+			item.Status = "skipped"
+			item.Reason = r.SkipReason
+		case r.Success:
+			item.Status = "published"
+		default:
+			item.Status = "failed"
+			item.Reason = r.Error
+		}
+		output.Results = append(output.Results, item)
+	}
+
+	switch format {
+	case "json":
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
+	default:
+		return renderSkillsPublishTable(cmd.OutOrStdout(), output)
+	}
+}
+
+func renderSkillsPublishTable(w io.Writer, output SkillPublishOutput) error {
+	f := display.NewFormatter()
+
+	published, skipped, failed := 0, 0, 0
+	for _, r := range output.Results {
+		var status string
+		switch r.Status {
+		case "published":
+			status = f.Success("Published")
+			published++
+		case "skipped":
+			status = f.Warning("Skipped")
+			skipped++
+		case "failed":
+			status = f.Error("Failed")
+			failed++
+		}
+
+		detail := r.URL
+		if r.Reason != "" {
+			detail = r.Reason
+		}
+
+		fmt.Fprintf(w, "  %s %s", status, f.Primary(r.Name))
+		if detail != "" {
+			fmt.Fprintf(w, " — %s", detail)
+		}
+		fmt.Fprintln(w)
+
+		for _, warn := range r.Warnings {
+			fmt.Fprintf(w, "    %s %s\n", f.Warning("warning:"), warn)
+		}
+	}
+
+	if len(output.Results) > 1 {
+		fmt.Fprintf(w, "\n%d published, %d skipped, %d failed\n", published, skipped, failed)
+	}
+
+	return nil
+}
+
+// --- Verify ---
+
+func newSkillsVerifyCmd() *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "verify",
+		Short: "Verify published skill integrity",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSkillsVerify(cmd, format)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
+	return cmd
+}
+
+func runSkillsVerify(cmd *cobra.Command, format string) error {
+	format = ResolveFormat(cmd, format)
+
+	lockfilePath := ".wave/skills.lock"
+	lf, err := skill.LoadLockfile(lockfilePath)
+	if err != nil {
+		return err
+	}
+
+	if len(lf.Published) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "No published skills.")
+		return nil
+	}
+
+	store := newSkillStore()
+	output := SkillVerifyOutput{
+		Results: make([]SkillVerifyItem, 0, len(lf.Published)),
+	}
+
+	for _, rec := range lf.Published {
+		item := SkillVerifyItem{
+			Name:           rec.Name,
+			ExpectedDigest: rec.Digest,
+		}
+
+		s, readErr := store.Read(rec.Name)
+		if readErr != nil {
+			item.Status = "missing"
+			output.Summary.Missing++
+		} else {
+			digest, digestErr := skill.ComputeDigest(s)
+			if digestErr != nil {
+				item.Status = "missing"
+				output.Summary.Missing++
+			} else {
+				item.ActualDigest = digest
+				if digest == rec.Digest {
+					item.Status = "ok"
+					output.Summary.OK++
+				} else {
+					item.Status = "modified"
+					output.Summary.Modified++
+				}
+			}
+		}
+
+		output.Results = append(output.Results, item)
+	}
+	output.Summary.Total = len(lf.Published)
+
+	switch format {
+	case "json":
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
+	default:
+		return renderSkillsVerifyTable(cmd.OutOrStdout(), output)
+	}
+}
+
+func renderSkillsVerifyTable(w io.Writer, output SkillVerifyOutput) error {
+	f := display.NewFormatter()
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%-25s %-12s %-30s %s\n",
+		f.Colorize("NAME", "\033[1;37m"),
+		f.Colorize("STATUS", "\033[1;37m"),
+		f.Colorize("EXPECTED", "\033[1;37m"),
+		f.Colorize("ACTUAL", "\033[1;37m"))
+
+	for _, r := range output.Results {
+		var status string
+		switch r.Status {
+		case "ok":
+			status = f.Success("ok")
+		case "modified":
+			status = f.Warning("modified")
+		case "missing":
+			status = f.Error("missing")
+		}
+
+		expected := r.ExpectedDigest
+		if len(expected) > 20 {
+			expected = expected[:20] + "..."
+		}
+		actual := r.ActualDigest
+		if len(actual) > 20 {
+			actual = actual[:20] + "..."
+		}
+
+		fmt.Fprintf(w, "%-25s %-12s %-30s %s\n",
+			f.Primary(r.Name),
+			status,
+			expected,
+			actual)
+	}
+
+	fmt.Fprintf(w, "\n%d ok, %d modified, %d missing\n",
+		output.Summary.OK, output.Summary.Modified, output.Summary.Missing)
+
+	return nil
 }

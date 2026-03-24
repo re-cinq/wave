@@ -26,6 +26,9 @@ const (
 	CodeMigrationFailed        = "migration_failed"
 	CodeDatasetError           = "dataset_error"
 	CodeValidationFailed       = "validation_failed"
+	CodeSkillPublishFailed     = "skill_publish_failed"
+	CodeSkillValidationFailed  = "skill_validation_failed"
+	CodeSkillAlreadyExists     = "skill_already_exists"
 )
 
 // CLIError represents a structured error for CLI output.
