@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (PoC implemented)
+Complete
 
 ## Context
 
@@ -22,15 +22,14 @@ The research in issue #395 (3 rounds) established:
 
 ## Decision
 
-Provide a **gradual migration path** rather than a hard cutover:
+Use agent `.md` files as the **only** code path for Claude Code adapter execution:
 
 1. **`PersonaToAgentMarkdown()`** compiler in `internal/adapter/claude.go`
    converts `manifest.Persona` to a Claude Code agent `.md` file
-2. **`UseAgentFlag`** field on `AdapterRunConfig` opt-in enables the new path
+2. Agent mode is **unconditional** — no opt-in flag
 3. **`wave agent list/inspect/export`** CLI commands let users preview and
    export agent files
-4. **No forced migration** — the existing CLAUDE.md + settings.json path
-   remains the default
+4. The legacy CLAUDE.md + settings.json code path has been removed
 
 ## Agent .md Format
 
@@ -43,7 +42,7 @@ tools:
   - Grep
   - Agent
 disallowedTools: []
-permissionMode: dontAsk
+permissionMode: bypassPermissions
 ---
 <base protocol preamble>
 
@@ -61,14 +60,15 @@ permissionMode: dontAsk
 ## Consequences
 
 - Personas can be used outside Wave via `claude --agent <exported>.md`
-- Agent file is self-contained — no separate settings.json needed
-- Migration is opt-in per pipeline or per run via `UseAgentFlag`
+- Agent file is self-contained — model, tools, and permissions in frontmatter
+- `settings.json` is only written for sandbox configuration (when enabled)
+- `normalizeAllowedTools` removed — tool lists pass through verbatim
 - Future Claude Code features (agent orchestration, tool permissions) can be
   adopted incrementally
 
 ## Implementation
 
 - `PersonaToAgentMarkdown()` in `internal/adapter/claude.go`
-- `UseAgentFlag` on `AdapterRunConfig` in `internal/adapter/adapter.go`
+- Agent mode is unconditional — `UseAgentFlag` removed from `AdapterRunConfig`
 - `wave agent` CLI in `cmd/wave/commands/agent.go`
 - Test coverage in `cmd/wave/commands/agent_test.go`
