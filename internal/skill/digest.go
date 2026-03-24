@@ -33,7 +33,7 @@ func ComputeDigest(s Skill) (string, error) {
 			// Skip unreadable resource files
 			continue
 		}
-		h.Write([]byte(fmt.Sprintf("\n---resource:%s---\n", relpath)))
+		fmt.Fprintf(h, "\n---resource:%s---\n", relpath)
 		h.Write(data)
 	}
 
