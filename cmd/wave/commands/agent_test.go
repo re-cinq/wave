@@ -54,7 +54,7 @@ func TestPersonaToAgentMarkdown_Basic(t *testing.T) {
 
 	assert.True(t, strings.HasPrefix(md, "---\n"))
 	assert.Contains(t, md, "model: sonnet")
-	assert.Contains(t, md, "permissionMode: dontAsk")
+	assert.Contains(t, md, "permissionMode: bypassPermissions")
 	assert.Contains(t, md, "  - Read")
 	assert.Contains(t, md, "  - Glob")
 	assert.Contains(t, md, "  - Grep")
@@ -172,6 +172,6 @@ personas:
 	data, err := os.ReadFile(outputPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "model: sonnet")
-	assert.Contains(t, string(data), "permissionMode: dontAsk")
+	assert.Contains(t, string(data), "permissionMode: bypassPermissions")
 	assert.Contains(t, string(data), "# Navigator")
 }
