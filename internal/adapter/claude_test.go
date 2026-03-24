@@ -1950,11 +1950,11 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 		}
 	})
 
-	t.Run("permissionMode is always dontAsk", func(t *testing.T) {
+	t.Run("permissionMode is always bypassPermissions", func(t *testing.T) {
 		p := PersonaSpec{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
-		if !strings.Contains(out, "permissionMode: dontAsk\n") {
-			t.Error("frontmatter should always include permissionMode: dontAsk")
+		if !strings.Contains(out, "permissionMode: bypassPermissions\n") {
+			t.Error("frontmatter should always include permissionMode: bypassPermissions")
 		}
 	})
 
@@ -2030,7 +2030,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 		if !strings.HasPrefix(out, "---\n") {
 			t.Error("output must start with ---")
 		}
-		if !strings.Contains(out, "---\npermissionMode: dontAsk\n---\n") {
+		if !strings.Contains(out, "---\npermissionMode: bypassPermissions\n---\n") {
 			t.Errorf("minimal frontmatter not found in output:\n%s", out)
 		}
 	})
@@ -2076,8 +2076,8 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 		if !strings.Contains(content, "model: sonnet\n") {
 			t.Error("agent .md should contain model")
 		}
-		if !strings.Contains(content, "permissionMode: dontAsk\n") {
-			t.Error("agent .md should contain permissionMode: dontAsk")
+		if !strings.Contains(content, "permissionMode: bypassPermissions\n") {
+			t.Error("agent .md should contain permissionMode: bypassPermissions")
 		}
 		if !strings.Contains(content, "# Navigator") {
 			t.Error("agent .md should contain system prompt")
@@ -2120,14 +2120,14 @@ func TestBuildArgsAgentMode(t *testing.T) {
 
 	// Retained flags must be present
 	argsStr := strings.Join(args, " ")
-	for _, want := range []string{"--output-format", "--verbose", "--no-session-persistence"} {
+	for _, want := range []string{"--output-format", "--verbose", "--no-session-persistence", "--dangerously-skip-permissions"} {
 		if !strings.Contains(argsStr, want) {
 			t.Errorf("args missing retained flag %q", want)
 		}
 	}
 
-	// Legacy flags must NOT be present
-	for _, absent := range []string{"--allowedTools", "--disallowedTools", "--dangerously-skip-permissions", "--model"} {
+	// Legacy flags must NOT be present (permissions now in frontmatter, model in frontmatter)
+	for _, absent := range []string{"--allowedTools", "--disallowedTools", "--model"} {
 		if strings.Contains(argsStr, absent) {
 			t.Errorf("args should not contain legacy flag %q", absent)
 		}
@@ -2207,8 +2207,8 @@ func TestEmptyToolLists(t *testing.T) {
 		t.Error("frontmatter should not contain 'disallowedTools:' when DenyTools is empty")
 	}
 	// Should still have permissionMode
-	if !strings.Contains(out, "permissionMode: dontAsk") {
-		t.Error("frontmatter should always contain permissionMode: dontAsk")
+	if !strings.Contains(out, "permissionMode: bypassPermissions") {
+		t.Error("frontmatter should always contain permissionMode: bypassPermissions")
 	}
 }
 
