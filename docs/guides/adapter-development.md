@@ -444,12 +444,12 @@ The Claude adapter compiles persona configuration into a self-contained agent `.
 - `model` — the LLM model identifier
 - `tools` — allowed tool list (passed through verbatim from persona config)
 - `disallowedTools` — denied tool list (includes auto-injected `TodoWrite`)
-- `permissionMode: dontAsk` — always set
+- `permissionMode: bypassPermissions` — always set
 
 **Body** is assembled from four layers:
 1. **Base protocol preamble** — shared across all personas (`.wave/personas/base-protocol.md`)
 2. **Persona system prompt** — role, responsibilities, constraints
-3. **Contract compliance section** — auto-generated from step contract schema (`cfg.ContractPrompt`)
+3. **Contract compliance section** — auto-generated from step contract schema (appended to user prompt, not agent .md body)
 4. **Restriction section** — denied/allowed tools and network domains
 
 Your adapter may use a different mechanism (e.g., `AGENTS.md` for OpenCode, a custom config file for other CLIs).

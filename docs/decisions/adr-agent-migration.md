@@ -42,7 +42,7 @@ tools:
   - Grep
   - Agent
 disallowedTools: []
-permissionMode: dontAsk
+permissionMode: bypassPermissions
 ---
 <base protocol preamble>
 
