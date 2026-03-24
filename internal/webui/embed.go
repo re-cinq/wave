@@ -48,6 +48,8 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
 		"contains":       strings.Contains,
+		"add":            func(a, b int) int { return a + b },
+		"subtract":       func(a, b int) int { return a - b },
 	}
 
 	// Parse layout into the base template.

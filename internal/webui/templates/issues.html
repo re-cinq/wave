@@ -3,6 +3,15 @@
 <div class="page-header">
     <h1>Issues</h1>
 </div>
+
+<div class="filters">
+    <select id="state-filter" onchange="filterIssues()" aria-label="Filter issues by state">
+        <option value="open"{{if eq .FilterState "open"}} selected{{end}}>Open</option>
+        <option value="closed"{{if eq .FilterState "closed"}} selected{{end}}>Closed</option>
+        <option value="all"{{if eq .FilterState "all"}} selected{{end}}>All</option>
+    </select>
+</div>
+
 {{if .Message}}
 <div class="alert alert-error">
     <p>{{.Message}}</p>
@@ -13,6 +22,7 @@
             <tr>
                 <th>#</th>
                 <th>Title</th>
+                <th>State</th>
                 <th>Author</th>
                 <th>Labels</th>
                 <th>Comments</th>
@@ -25,6 +35,11 @@
             <tr>
                 <td><a href="{{.URL}}" target="_blank" rel="noopener">#{{.Number}}</a></td>
                 <td>{{.Title}}</td>
+                <td>
+                    {{if eq .State "open"}}<span class="badge badge-open">open</span>
+                    {{else}}<span class="badge badge-closed">closed</span>
+                    {{end}}
+                </td>
                 <td>{{.Author}}</td>
                 <td>{{range .Labels}}<span class="badge">{{.}}</span> {{end}}</td>
                 <td>{{.Comments}}</td>
@@ -36,11 +51,23 @@
             {{end}}
         </tbody>
     </table>
+    {{if .HasMore}}
+    <div class="pagination">
+        {{if gt .Page 1}}<a href="/issues?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>{{end}}
+        <span>Page {{.Page}}</span>
+        <a href="/issues?state={{.FilterState}}&page={{add .Page 1}}" class="btn">Next</a>
+    </div>
+    {{else if gt .Page 1}}
+    <div class="pagination">
+        <a href="/issues?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>
+        <span>Page {{.Page}}</span>
+    </div>
+    {{end}}
 {{else}}
 <div class="empty-state">
     <div class="empty-state-icon">&#9998;</div>
-    <p><strong>No open issues</strong></p>
-    <p>No open issues found in this repository.</p>
+    <p><strong>No {{.FilterState}} issues</strong></p>
+    <p>No {{.FilterState}} issues found in this repository.</p>
 </div>
 {{end}}
 
@@ -113,5 +140,12 @@
         });
     });
 })();
+
+function filterIssues() {
+    var params = new URLSearchParams();
+    var stateEl = document.getElementById('state-filter');
+    if (stateEl && stateEl.value) params.set('state', stateEl.value);
+    window.location.search = params.toString();
+}
 </script>
 {{end}}
