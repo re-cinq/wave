@@ -1,9 +1,12 @@
 package preflight
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/recinq/wave/internal/skill"
@@ -74,6 +77,23 @@ func NewChecker(skills map[string]skill.SkillConfig) *Checker {
 // defaultRunCmd executes a command and returns an error if it fails.
 func defaultRunCmd(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	return cmd.Run()
+}
+
+// runCmdWithOutput executes a command and returns combined stdout+stderr output.
+func runCmdWithOutput(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
+
+// runCmdWithEnv executes a command with additional environment variables.
+func runCmdWithEnv(env []string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), env...)
 	return cmd.Run()
 }
 
@@ -244,18 +264,27 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 		// Run install command
 		if err := c.runShellCommand(cfg.Install); err != nil {
+			// Capture output for diagnostics on failure
+			installOutput, _ := runCmdWithOutput("sh", "-c", cfg.Install)
+			msg := fmt.Sprintf("skill %q install failed: %v", name, err)
+			if installOutput != "" {
+				msg += "; output: " + truncateOutput(installOutput, 200)
+			}
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q install failed: %v", name, err),
+				Message: msg,
 			})
 			failed = append(failed, name)
 			continue
 		}
 
-		// Re-check after install
-		if c.isSkillInstalled(cfg) {
+		// Re-check after install. First try with existing PATH, then retry
+		// with $HOME/.local/bin added since install tools (uv, pip, cargo)
+		// place binaries there and sandboxed/detached environments may not
+		// include it in PATH.
+		if c.isSkillInstalled(cfg) || c.isSkillInstalledWithToolBin(cfg) {
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
@@ -263,11 +292,20 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 				Message: fmt.Sprintf("skill %q installed successfully", name),
 			})
 		} else {
+			// Capture check output for diagnostics
+			checkOutput, checkErr := runCmdWithOutput("sh", "-c", cfg.Check)
+			msg := fmt.Sprintf("skill %q still not detected after install", name)
+			if checkErr != nil {
+				msg += fmt.Sprintf(" (check error: %v)", checkErr)
+			}
+			if checkOutput != "" {
+				msg += "; check output: " + truncateOutput(checkOutput, 200)
+			}
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
 				OK:      false,
-				Message: fmt.Sprintf("skill %q still not detected after install", name),
+				Message: msg,
 			})
 			failed = append(failed, name)
 		}
@@ -289,9 +327,41 @@ func (c *Checker) isSkillInstalled(cfg skill.SkillConfig) bool {
 	return c.runShellCommand(cfg.Check) == nil
 }
 
+// isSkillInstalledWithToolBin checks skill installation with $HOME/.local/bin
+// added to PATH. Install tools (uv, pip, cargo) place binaries there, and
+// in sandboxed or detached environments this directory may not be in PATH
+// even after a successful install.
+func (c *Checker) isSkillInstalledWithToolBin(cfg skill.SkillConfig) bool {
+	if cfg.Check == "" {
+		return false
+	}
+	// First try with existing PATH
+	if c.runShellCommand(cfg.Check) == nil {
+		return true
+	}
+	// Retry with $HOME/.local/bin prepended to PATH
+	home := os.Getenv("HOME")
+	if home == "" {
+		return false
+	}
+	toolBin := filepath.Join(home, ".local", "bin")
+	currentPath := os.Getenv("PATH")
+	enhancedPath := toolBin + string(os.PathListSeparator) + currentPath
+	return runCmdWithEnv([]string{"PATH=" + enhancedPath}, "sh", "-c", cfg.Check) == nil
+}
+
 // runShellCommand executes a shell command string via sh -c.
 func (c *Checker) runShellCommand(command string) error {
 	return c.runCmd("sh", "-c", command)
+}
+
+// truncateOutput trims output to maxLen characters, adding ellipsis if truncated.
+func truncateOutput(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // Run executes all preflight checks for the given tool and skill requirements.
