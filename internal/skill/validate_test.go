@@ -146,6 +146,140 @@ func TestValidateSkillRefs(t *testing.T) {
 	}
 }
 
+func TestValidateForPublish(t *testing.T) {
+	tests := []struct {
+		name       string
+		skill      Skill
+		wantValid  bool
+		wantErrors int
+		wantWarns  int
+		errField   string
+		warnField  string
+	}{
+		{
+			name: "fully valid skill",
+			skill: Skill{
+				Name:          "golang",
+				Description:   "Go development",
+				License:       "MIT",
+				Compatibility: "Claude Code",
+				AllowedTools:  []string{"Read", "Write"},
+			},
+			wantValid:  true,
+			wantErrors: 0,
+			wantWarns:  0,
+		},
+		{
+			name: "missing name",
+			skill: Skill{
+				Description: "test",
+			},
+			wantValid:  false,
+			wantErrors: 1,
+			errField:   "name",
+		},
+		{
+			name: "missing description",
+			skill: Skill{
+				Name: "test",
+			},
+			wantValid:  false,
+			wantErrors: 1,
+			errField:   "description",
+		},
+		{
+			name: "invalid name format",
+			skill: Skill{
+				Name:        "INVALID_NAME",
+				Description: "test",
+			},
+			wantValid:  false,
+			wantErrors: 1,
+			errField:   "name",
+		},
+		{
+			name: "missing license is warning",
+			skill: Skill{
+				Name:          "test",
+				Description:   "test",
+				Compatibility: "all",
+				AllowedTools:  []string{"Read"},
+			},
+			wantValid: true,
+			wantWarns: 1,
+			warnField: "license",
+		},
+		{
+			name: "missing compatibility is warning",
+			skill: Skill{
+				Name:         "test",
+				Description:  "test",
+				License:      "MIT",
+				AllowedTools: []string{"Read"},
+			},
+			wantValid: true,
+			wantWarns: 1,
+			warnField: "compatibility",
+		},
+		{
+			name: "missing allowed-tools is warning",
+			skill: Skill{
+				Name:          "test",
+				Description:   "test",
+				License:       "MIT",
+				Compatibility: "all",
+			},
+			wantValid: true,
+			wantWarns: 1,
+			warnField: "allowed-tools",
+		},
+		{
+			name:       "multiple issues collected",
+			skill:      Skill{},
+			wantValid:  false,
+			wantErrors: 2, // name + description
+			wantWarns:  3, // license + compatibility + allowed-tools
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := ValidateForPublish(tt.skill)
+			if report.Valid() != tt.wantValid {
+				t.Errorf("Valid() = %v, want %v", report.Valid(), tt.wantValid)
+			}
+			if tt.wantErrors > 0 && len(report.Errors) != tt.wantErrors {
+				t.Errorf("got %d errors, want %d: %v", len(report.Errors), tt.wantErrors, report.Errors)
+			}
+			if tt.wantWarns > 0 && len(report.Warnings) != tt.wantWarns {
+				t.Errorf("got %d warnings, want %d: %v", len(report.Warnings), tt.wantWarns, report.Warnings)
+			}
+			if tt.errField != "" {
+				found := false
+				for _, e := range report.Errors {
+					if e.Field == tt.errField {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("expected error for field %q, got: %v", tt.errField, report.Errors)
+				}
+			}
+			if tt.warnField != "" {
+				found := false
+				for _, w := range report.Warnings {
+					if w.Field == tt.warnField {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("expected warning for field %q, got: %v", tt.warnField, report.Warnings)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateManifestSkills(t *testing.T) {
 	store := &mockStore{
 		skills: map[string]Skill{
