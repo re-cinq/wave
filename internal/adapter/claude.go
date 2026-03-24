@@ -377,6 +377,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 
 	args = append(args, "--output-format", "stream-json")
 	args = append(args, "--verbose")
+	// Skip permission prompts — Wave enforces permissions via agent frontmatter.
+	// The CLI flag is still required for the top-level process; the frontmatter
+	// permissionMode only applies to subagents.
+	args = append(args, "--dangerously-skip-permissions")
 	args = append(args, "--no-session-persistence")
 
 	if cfg.Prompt != "" {
@@ -873,7 +877,7 @@ func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, con
 		}
 	}
 
-	b.WriteString("permissionMode: dontAsk\n")
+	b.WriteString("permissionMode: bypassPermissions\n")
 	b.WriteString("---\n")
 
 	// --- Body sections ---
