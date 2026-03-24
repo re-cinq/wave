@@ -247,9 +247,12 @@ type IssueSummary struct {
 
 // IssueListResponse is the JSON response for the issue list API.
 type IssueListResponse struct {
-	Issues   []IssueSummary `json:"issues"`
-	RepoSlug string         `json:"repo_slug,omitempty"`
-	Message  string         `json:"message,omitempty"`
+	Issues      []IssueSummary `json:"issues"`
+	RepoSlug    string         `json:"repo_slug,omitempty"`
+	Message     string         `json:"message,omitempty"`
+	FilterState string         `json:"filter_state,omitempty"`
+	Page        int            `json:"page,omitempty"`
+	HasMore     bool           `json:"has_more"`
 }
 
 // PRSummary is a summary of a GitHub pull request for the API.
@@ -274,6 +277,9 @@ type PRListResponse struct {
 	PullRequests []PRSummary `json:"pull_requests"`
 	RepoSlug     string      `json:"repo_slug,omitempty"`
 	Message      string      `json:"message,omitempty"`
+	FilterState  string      `json:"filter_state,omitempty"`
+	Page         int         `json:"page,omitempty"`
+	HasMore      bool        `json:"has_more"`
 }
 
 // HealthCheckResult is the result of a single health check for the API.
