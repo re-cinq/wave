@@ -3,18 +3,21 @@
 
 function LogViewer() {
     this.sections = new Map();
+    this.seenEventIDs = new Set();
     this.search = {
         query: '',
         matches: [],
         currentIndex: -1,
         totalCount: 0,
-        debounceTimer: null
+        debounceTimer: null,
+        filterMode: false
     };
     this.connection = {
         status: 'connected',
         retryCount: 0,
         lastEventId: null
     };
+    this.pageAutoScroll = true;
     this.batchBuffer = [];
     this.batchTimer = null;
 }
@@ -110,6 +113,21 @@ LogViewer.prototype.init = function(runStatus) {
     if (searchClear) {
         searchClear.addEventListener('click', function() { self.clearSearch(); });
     }
+
+    // Wire filter toggle button
+    var filterToggle = document.getElementById('log-filter-toggle');
+    if (filterToggle) {
+        filterToggle.addEventListener('click', function() { self.toggleFilterMode(); });
+    }
+
+    // Page-level scroll listener: disable auto-scroll to active step on manual scroll
+    var scrollTimer = null;
+    window.addEventListener('scroll', function() {
+        if (scrollTimer) clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(function() {
+            self.pageAutoScroll = false;
+        }, 100);
+    }, { passive: true });
 };
 
 // ---------------------------------------------------------------------------
@@ -125,7 +143,10 @@ LogViewer.prototype.createSection = function(stepId, stepName, status, element) 
         autoScroll: true,
         lines: [],
         lineCount: 0,
-        element: element
+        element: element,
+        lastMessage: null,
+        lastRepeatElement: null,
+        repeatCount: 0
     };
 };
 
@@ -137,9 +158,51 @@ LogViewer.prototype.addLine = function(stepId, eventData) {
     var section = this.sections.get(stepId);
     if (!section) return;
 
+    // De-duplicate: skip if event ID already seen
+    var eventID = eventData.id;
+    if (eventID) {
+        if (this.seenEventIDs.has(eventID)) return;
+        this.seenEventIDs.add(eventID);
+        // Cap the dedup set at 10000 entries
+        if (this.seenEventIDs.size > 10000) {
+            var iter = this.seenEventIDs.values();
+            this.seenEventIDs.delete(iter.next().value);
+        }
+    }
+
+    var rawContent = eventData.message || '';
+
+    // Repeat collapsing: detect consecutive identical stream_activity messages
+    if (eventData.state === 'stream_activity' && rawContent === section.lastMessage && rawContent !== '') {
+        section.repeatCount++;
+        // Update existing repeat element or create one
+        if (section.lastRepeatElement) {
+            var badge = section.lastRepeatElement.querySelector('.log-repeat-badge');
+            if (badge) {
+                badge.textContent = '\u00d7' + (section.repeatCount + 1);
+            }
+        } else {
+            // Convert last line to have a repeat badge
+            var lastLine = section.lines[section.lines.length - 1];
+            if (lastLine && lastLine.element) {
+                var badge = document.createElement('span');
+                badge.className = 'log-repeat-badge';
+                badge.textContent = '\u00d7' + (section.repeatCount + 1);
+                lastLine.element.appendChild(badge);
+                lastLine.element.classList.add('log-repeated');
+                section.lastRepeatElement = lastLine.element;
+            }
+        }
+        return;
+    }
+
+    // Reset repeat tracking for new unique message
+    section.lastMessage = rawContent;
+    section.lastRepeatElement = null;
+    section.repeatCount = 0;
+
     section.lineCount++;
     var lineNumber = section.lineCount;
-    var rawContent = eventData.message || '';
     var htmlContent = this.ansiToHtml(rawContent);
 
     var line = {
@@ -287,14 +350,10 @@ LogViewer.prototype._applyCollapsed = function(section) {
 
     if (section.expanded) {
         card.classList.remove('step-collapsed');
+        card.setAttribute('data-expanded', 'true');
     } else {
         card.classList.add('step-collapsed');
-    }
-
-    // Update chevron
-    var chevron = card.querySelector('.step-log-chevron');
-    if (chevron) {
-        chevron.textContent = section.expanded ? '\u25BC' : '\u25B6';
+        card.setAttribute('data-expanded', 'false');
     }
 
     // Auto-scroll to bottom when expanding if autoScroll is enabled
@@ -511,6 +570,11 @@ LogViewer.prototype._executeSearch = function(query) {
         self._applyVisibleHighlights();
         self._scrollToCurrentMatch();
     }
+
+    // Apply filter if filter mode is active
+    if (self.search.filterMode) {
+        self._applyFilter();
+    }
 };
 
 LogViewer.prototype.nextMatch = function() {
@@ -540,6 +604,64 @@ LogViewer.prototype.clearSearch = function() {
     var input = document.getElementById('log-search-input');
     if (input) input.value = '';
     this._updateSearchCount();
+    this._applyFilter();
+};
+
+// ---------------------------------------------------------------------------
+// Filter mode — hide non-matching lines
+// ---------------------------------------------------------------------------
+
+LogViewer.prototype.toggleFilterMode = function() {
+    this.search.filterMode = !this.search.filterMode;
+    var btn = document.getElementById('log-filter-toggle');
+    if (btn) {
+        if (this.search.filterMode) {
+            btn.classList.add('log-filter-active');
+        } else {
+            btn.classList.remove('log-filter-active');
+        }
+    }
+    this._applyFilter();
+};
+
+LogViewer.prototype._applyFilter = function() {
+    var self = this;
+    var query = self.search.query;
+    var filterMode = self.search.filterMode;
+    var visibleCount = 0;
+    var totalCount = 0;
+
+    self.sections.forEach(function(section) {
+        for (var i = 0; i < section.lines.length; i++) {
+            var line = section.lines[i];
+            totalCount++;
+            if (!line.element) continue;
+
+            if (filterMode && query) {
+                var lowerRaw = line.rawContent.toLowerCase();
+                var lowerQuery = query.toLowerCase();
+                if (lowerRaw.indexOf(lowerQuery) === -1) {
+                    line.element.style.display = 'none';
+                } else {
+                    line.element.style.display = '';
+                    visibleCount++;
+                }
+            } else {
+                line.element.style.display = '';
+                visibleCount++;
+            }
+        }
+    });
+
+    // Update filter count display
+    var countEl = document.getElementById('log-filter-count');
+    if (countEl) {
+        if (filterMode && query) {
+            countEl.textContent = visibleCount + '/' + totalCount;
+        } else {
+            countEl.textContent = '';
+        }
+    }
 };
 
 LogViewer.prototype._clearHighlights = function() {
@@ -769,9 +891,24 @@ LogViewer.prototype.onStepStateChange = function(stepId, newState) {
 
     section.status = newState;
 
+    // Remove step-active from all cards, apply to current running step
+    var allCards = document.querySelectorAll('.step-card');
+    for (var i = 0; i < allCards.length; i++) {
+        allCards[i].classList.remove('step-active');
+    }
+
     if (newState === 'running' || newState === 'failed') {
         section.expanded = true;
         this._applyCollapsed(section);
+
+        if (newState === 'running' && section.element) {
+            section.element.classList.add('step-active');
+
+            // Auto-scroll to active step card (page-level)
+            if (this.pageAutoScroll) {
+                section.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
     } else if (newState === 'completed') {
         section.expanded = false;
         this._applyCollapsed(section);

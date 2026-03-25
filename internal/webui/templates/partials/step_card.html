@@ -2,7 +2,12 @@
 <div class="step-card {{statusClass .State}}{{if and (ne .State "running") (ne .State "failed")}} step-collapsed{{end}}" id="step-{{.StepID}}" data-expanded="{{if or (eq .State "running") (eq .State "failed")}}true{{else}}false{{end}}" data-step-status="{{.State}}" {{if .StartedAt}}data-started-at="{{formatTimeISO .StartedAt}}"{{end}} aria-label="Step {{.StepID}}, status: {{.State}}">
     <div class="step-card-content">
         <div class="step-header" role="button" tabindex="0" aria-expanded="{{if or (eq .State "running") (eq .State "failed")}}true{{else}}false{{end}}" onclick="toggleStepCard('{{.StepID}}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleStepCard('{{.StepID}}');}">
-            <span class="step-toggle" aria-hidden="true">&#9654;</span>
+            <span class="step-chevron" aria-hidden="true"></span>
+            {{if eq .State "running"}}<span class="step-status-icon step-status-running" aria-label="Running"></span>
+            {{else if eq .State "completed"}}<span class="step-status-icon step-status-completed" aria-label="Completed">&#10003;</span>
+            {{else if eq .State "failed"}}<span class="step-status-icon step-status-failed" aria-label="Failed">&#10007;</span>
+            {{else}}<span class="step-status-icon step-status-pending" aria-label="Pending">&#9679;</span>
+            {{end}}
             <span class="step-id">{{.StepID}}</span>
             <span class="badge {{statusClass .State}}">{{.State}}</span>
             {{if .FormattedStartedAt}}<span class="step-start-time">{{.FormattedStartedAt}}</span>{{end}}
