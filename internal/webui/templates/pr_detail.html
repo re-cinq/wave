@@ -57,7 +57,7 @@
         <tbody>
             {{range .Runs}}
             <tr>
-                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a></td>
+                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a> <a href="/pipelines/{{.PipelineName}}" class="text-muted" title="View pipeline">&rarr;</a></td>
                 <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
                 <td>{{.StepsCompleted}}/{{.StepsTotal}}</td>
                 <td>{{formatTokens .TotalTokens}}</td>
