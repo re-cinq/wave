@@ -342,6 +342,43 @@ func TestCreatePipelineContext_WithPersonas(t *testing.T) {
 	}
 }
 
+func TestProgressDisplay_PersonaRefreshFromEvent(t *testing.T) {
+	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 2)
+	pd.AddStep("gather", "gather", "{{ forge.type }}-analyst")
+	pd.AddStep("apply", "apply", "{{ forge.type }}-enhancer")
+
+	// Verify initial persona is the unresolved template
+	if pd.steps["gather"].Persona != "{{ forge.type }}-analyst" {
+		t.Fatalf("initial persona = %q, want %q", pd.steps["gather"].Persona, "{{ forge.type }}-analyst")
+	}
+
+	// Emit a running event with the resolved persona
+	pd.EmitProgress(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: "test-pipeline",
+		StepID:     "gather",
+		State:      "running",
+		Persona:    "github-analyst",
+	})
+
+	pd.mu.Lock()
+	persona := pd.steps["gather"].Persona
+	pd.mu.Unlock()
+
+	if persona != "github-analyst" {
+		t.Errorf("persona after running event = %q, want %q", persona, "github-analyst")
+	}
+
+	// Verify toPipelineContext reflects the resolved persona
+	pd.mu.Lock()
+	ctx := pd.toPipelineContext()
+	pd.mu.Unlock()
+
+	if ctx.StepPersonas["gather"] != "github-analyst" {
+		t.Errorf("StepPersonas[gather] = %q, want %q", ctx.StepPersonas["gather"], "github-analyst")
+	}
+}
+
 func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	var buf bytes.Buffer
 	bpd := NewBasicProgressDisplayWithVerbose(true)
