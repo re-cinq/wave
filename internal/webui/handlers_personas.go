@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 )
 
 // handleAPIPersonas handles GET /api/personas - returns persona list as JSON.
@@ -26,6 +27,83 @@ func (s *Server) handlePersonasPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/personas.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// handlePersonaDetailPage handles GET /personas/{name} - serves the HTML persona detail page.
+func (s *Server) handlePersonaDetailPage(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "missing persona name", http.StatusBadRequest)
+		return
+	}
+
+	if s.manifest == nil || s.manifest.Personas == nil {
+		http.Error(w, "persona not found", http.StatusNotFound)
+		return
+	}
+
+	p, ok := s.manifest.Personas[name]
+	if !ok {
+		http.Error(w, "persona not found", http.StatusNotFound)
+		return
+	}
+
+	var prompt string
+	if p.SystemPromptFile != "" {
+		promptPath := p.GetSystemPromptPath(s.repoDir)
+		if data, err := os.ReadFile(promptPath); err == nil {
+			prompt = string(data)
+		}
+	}
+
+	persona := PersonaSummary{
+		Name:         name,
+		Description:  p.Description,
+		Adapter:      p.Adapter,
+		Model:        p.Model,
+		Temperature:  p.Temperature,
+		AllowedTools: p.Permissions.AllowedTools,
+		DeniedTools:  p.Permissions.Deny,
+		Skills:       p.Skills,
+		Prompt:       prompt,
+	}
+
+	// Find pipeline usage
+	var usedBy []PersonaUsageRef
+	pipelineNames := listPipelineNames()
+	for _, pName := range pipelineNames {
+		pl, err := loadPipelineYAML(pName)
+		if err != nil {
+			continue
+		}
+		for _, step := range pl.Steps {
+			resolved := resolveForgeVars(step.Persona)
+			if resolved == name || strings.EqualFold(resolved, name) {
+				usedBy = append(usedBy, PersonaUsageRef{
+					Pipeline: pName,
+					StepID:   step.ID,
+				})
+			}
+		}
+	}
+
+	var allowedDomains []string
+	if p.Sandbox != nil {
+		allowedDomains = p.Sandbox.AllowedDomains
+	}
+
+	data := PersonaDetailData{
+		ActivePage:     "personas",
+		Persona:        persona,
+		TokenScopes:    p.TokenScopes,
+		AllowedDomains: allowedDomains,
+		UsedBy:         usedBy,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/persona_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
