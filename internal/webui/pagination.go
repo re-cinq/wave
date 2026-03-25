@@ -55,3 +55,28 @@ func parsePageSize(r *http.Request) int {
 	}
 	return limit
 }
+
+// parsePageNumber parses and validates the page query parameter.
+// Returns 1 for missing, non-numeric, zero, or negative values.
+func parsePageNumber(r *http.Request) int {
+	pageStr := r.URL.Query().Get("page")
+	if pageStr == "" {
+		return 1
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		return 1
+	}
+	return page
+}
+
+// validateStateFilter validates a state filter value.
+// Returns the validated state or "open" as default for invalid values.
+func validateStateFilter(state string) string {
+	switch state {
+	case "open", "closed", "all":
+		return state
+	default:
+		return "open"
+	}
+}

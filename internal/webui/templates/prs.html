@@ -3,6 +3,15 @@
 <div class="page-header">
     <h1>Pull Requests</h1>
 </div>
+
+<div class="filters">
+    <select id="state-filter" onchange="filterPRs()" aria-label="Filter pull requests by state">
+        <option value="open"{{if eq .FilterState "open"}} selected{{end}}>Open</option>
+        <option value="closed"{{if eq .FilterState "closed"}} selected{{end}}>Closed</option>
+        <option value="all"{{if eq .FilterState "all"}} selected{{end}}>All</option>
+    </select>
+</div>
+
 {{if .Message}}
 <div class="alert alert-error">
     <p>{{.Message}}</p>
@@ -40,11 +49,33 @@
             {{end}}
         </tbody>
     </table>
+    {{if .HasMore}}
+    <div class="pagination">
+        {{if gt .Page 1}}<a href="/prs?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>{{end}}
+        <span>Page {{.Page}}</span>
+        <a href="/prs?state={{.FilterState}}&page={{add .Page 1}}" class="btn">Next</a>
+    </div>
+    {{else if gt .Page 1}}
+    <div class="pagination">
+        <a href="/prs?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>
+        <span>Page {{.Page}}</span>
+    </div>
+    {{end}}
 {{else}}
 <div class="empty-state">
     <div class="empty-state-icon">&#128256;</div>
-    <p><strong>No open pull requests</strong></p>
-    <p>No open pull requests found in this repository.</p>
+    <p><strong>No {{.FilterState}} pull requests</strong></p>
+    <p>No {{.FilterState}} pull requests found in this repository.</p>
 </div>
 {{end}}
+{{end}}
+{{define "scripts"}}
+<script>
+function filterPRs() {
+    var params = new URLSearchParams();
+    var stateEl = document.getElementById('state-filter');
+    if (stateEl && stateEl.value) params.set('state', stateEl.value);
+    window.location.search = params.toString();
+}
+</script>
 {{end}}

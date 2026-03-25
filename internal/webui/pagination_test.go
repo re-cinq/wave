@@ -73,6 +73,55 @@ func TestParsePageSize(t *testing.T) {
 	}
 }
 
+func TestParsePageNumber(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		expected int
+	}{
+		{"default", "", 1},
+		{"valid page 2", "page=2", 2},
+		{"valid page 10", "page=10", 10},
+		{"zero defaults to 1", "page=0", 1},
+		{"negative defaults to 1", "page=-1", 1},
+		{"non-numeric defaults to 1", "page=abc", 1},
+		{"page 1 explicit", "page=1", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/api/issues?"+tt.query, nil)
+			got := parsePageNumber(req)
+			if got != tt.expected {
+				t.Errorf("parsePageNumber() = %d, want %d", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateStateFilter(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"open", "open"},
+		{"closed", "closed"},
+		{"all", "all"},
+		{"", "open"},
+		{"invalid", "open"},
+		{"OPEN", "open"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := validateStateFilter(tt.input)
+			if got != tt.expected {
+				t.Errorf("validateStateFilter(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 // TestDecodeCursor_InvalidJSON verifies that valid base64 containing invalid
 // JSON returns an error with a descriptive message.
 func TestDecodeCursor_InvalidJSON(t *testing.T) {
