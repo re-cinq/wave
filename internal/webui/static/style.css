@@ -307,6 +307,12 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .issue-body-content {
     margin: 0; padding: 1rem; background: var(--color-bg);
     border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.markdown-body {
+    white-space: pre-wrap; line-height: 1.6; font-family: var(--font-sans);
+    padding: 1rem; background: var(--color-bg);
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    color: var(--color-text);
     font-size: 0.8rem; line-height: 1.6; white-space: pre-wrap;
     word-break: break-word; max-height: 60vh; overflow-y: auto;
     font-family: var(--font-sans);

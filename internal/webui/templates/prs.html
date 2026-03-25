@@ -43,7 +43,7 @@
                 </td>
                 <td>{{.Author}}</td>
                 <td><code>{{.HeadBranch}}</code> &rarr; <code>{{.BaseBranch}}</code></td>
-                <td><span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} files)</td>
+                <td>{{if or .Additions .Deletions .ChangedFiles}}<span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} {{pluralize .ChangedFiles "file" "files"}}){{else}}--{{end}}</td>
                 <td>{{.CreatedAt}}</td>
             </tr>
             {{end}}
