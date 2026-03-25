@@ -229,31 +229,88 @@ func (m PipelineListModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
+// selectedItemID returns a stable identity string for the currently selected
+// navigable item, or "" if nothing is selected.
+func (m *PipelineListModel) selectedItemID() string {
+	if len(m.navigable) == 0 || m.cursor >= len(m.navigable) {
+		return ""
+	}
+	item := m.navigable[m.cursor]
+	switch item.kind {
+	case itemKindPipelineName:
+		return "name:" + item.pipelineName
+	case itemKindRunning:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
+			return "run:" + m.running[item.dataIndex].RunID
+		}
+	case itemKindFinished:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
+			return "fin:" + m.finished[item.dataIndex].RunID
+		}
+	}
+	return ""
+}
+
+// restoreCursor finds the navigable item matching prevID and moves the cursor
+// to it, preserving the user's selection across data refreshes.
+func (m *PipelineListModel) restoreCursor(prevID string) {
+	if prevID == "" || len(m.navigable) == 0 {
+		if len(m.navigable) == 0 {
+			m.cursor = 0
+		}
+		return
+	}
+	for i, item := range m.navigable {
+		var id string
+		switch item.kind {
+		case itemKindPipelineName:
+			id = "name:" + item.pipelineName
+		case itemKindRunning:
+			if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
+				id = "run:" + m.running[item.dataIndex].RunID
+			}
+		case itemKindFinished:
+			if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
+				id = "fin:" + m.finished[item.dataIndex].RunID
+			}
+		}
+		if id == prevID {
+			m.cursor = i
+			return
+		}
+	}
+	// Item disappeared — clamp cursor.
+	if m.cursor >= len(m.navigable) {
+		m.cursor = len(m.navigable) - 1
+	}
+}
+
 // handleDataMsg processes a PipelineDataMsg.
 func (m PipelineListModel) handleDataMsg(msg PipelineDataMsg) (PipelineListModel, tea.Cmd) {
 	if msg.Err != nil {
 		return m, nil
 	}
 
+	// Capture selected item identity before rebuild.
+	prevID := m.selectedItemID()
+
 	m.running = msg.Running
 	m.finished = msg.Finished
 	m.available = msg.Available
 	m.buildNavigableItems()
 
-	// Clamp cursor to new bounds
-	if len(m.navigable) == 0 {
-		m.cursor = 0
-	} else if m.cursor >= len(m.navigable) {
-		m.cursor = len(m.navigable) - 1
-	}
+	// Restore cursor to the same item if it still exists.
+	m.restoreCursor(prevID)
 
 	cmds := []tea.Cmd{
 		func() tea.Msg { return RunningCountMsg{Count: len(m.running)} },
 	}
 
-	// Re-emit PipelineSelectedMsg if cursor is on a pipeline item
-	if cmd := m.emitSelectionMsg(); cmd != nil {
-		cmds = append(cmds, cmd)
+	// Only re-emit selection if the selected item actually changed.
+	if newID := m.selectedItemID(); newID != prevID {
+		if cmd := m.emitSelectionMsg(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	// Start/stop elapsed ticker based on running pipeline count

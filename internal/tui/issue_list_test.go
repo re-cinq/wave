@@ -542,3 +542,87 @@ func TestIssueListModel_FailedPipelineShowsCross(t *testing.T) {
 	view := m.View()
 	assert.Contains(t, view, "✗")
 }
+
+func TestIssueListModel_PipelineRefresh_PreservesCursorPosition(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+			{Number: 2, Title: "Add dark mode", HTMLURL: "https://github.com/org/repo/issues/2"},
+		},
+	})
+
+	// Add running pipeline linked to issue #1
+	m, _ = m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "impl-issue", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+		},
+	})
+	// navigable: [issue#1, running-run-001, issue#2]
+	assert.Equal(t, 3, len(m.navigable))
+
+	// Navigate cursor to the running pipeline child (index 1)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, issueNavKindRunning, m.navigable[m.cursor].kind)
+
+	// Simulate a data refresh with the same pipeline still running
+	m, cmd := m.Update(PipelineDataMsg{
+		Running: []RunningPipeline{
+			{RunID: "run-001", Name: "impl-issue", Input: "https://github.com/org/repo/issues/1", StartedAt: time.Now()},
+		},
+	})
+
+	// Cursor should still be on the same running pipeline
+	assert.Equal(t, 1, m.cursor)
+	assert.Equal(t, issueNavKindRunning, m.navigable[m.cursor].kind)
+
+	// No selection message should be emitted since the item didn't change
+	assert.Nil(t, cmd)
+}
+
+func TestIssueListModel_PipelineRefresh_CursorFollowsFinishedRun(t *testing.T) {
+	m := NewIssueListModel(&mockIssueDataProvider{})
+	m.SetSize(80, 20)
+
+	m, _ = m.Update(IssueDataMsg{
+		Issues: []IssueData{
+			{Number: 1, Title: "Fix auth", HTMLURL: "https://github.com/org/repo/issues/1"},
+		},
+	})
+
+	// Send initial finished pipeline data so the issue has children
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-001", Name: "impl-issue", Input: "https://github.com/org/repo/issues/1", Duration: time.Minute},
+			{RunID: "run-002", Name: "ops-refresh", Input: "https://github.com/org/repo/issues/1", Duration: 30 * time.Second},
+		},
+	})
+
+	// Expand issue to see finished children (space only works when children exist)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	// navigable: [issue#1, fin-run-001, fin-run-002]
+	assert.Equal(t, 3, len(m.navigable))
+
+	// Navigate to second finished pipeline (run-002)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Equal(t, 2, m.cursor)
+
+	// Refresh with a new pipeline added before run-002 in the list
+	m, _ = m.Update(PipelineDataMsg{
+		Finished: []FinishedPipeline{
+			{RunID: "run-003", Name: "plan-scope", Input: "https://github.com/org/repo/issues/1", Duration: 2 * time.Minute},
+			{RunID: "run-001", Name: "impl-issue", Input: "https://github.com/org/repo/issues/1", Duration: time.Minute},
+			{RunID: "run-002", Name: "ops-refresh", Input: "https://github.com/org/repo/issues/1", Duration: 30 * time.Second},
+		},
+	})
+
+	// Cursor should still be on run-002 (now at index 3 due to new item)
+	assert.Equal(t, 3, m.cursor)
+	item := m.navigable[m.cursor]
+	assert.Equal(t, issueNavKindFinished, item.kind)
+	assert.Equal(t, "run-002", m.finished[item.dataIndex].RunID)
+}
