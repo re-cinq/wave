@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FileDiff API Response",
+  "description": "Response schema for GET /api/runs/{id}/diff/{path...} — single file diff content.",
+  "type": "object",
+  "required": ["path", "status", "additions", "deletions", "content", "truncated", "size"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative file path within the repository"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["added", "modified", "deleted", "renamed"],
+      "description": "Change status"
+    },
+    "additions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "deletions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "content": {
+      "type": "string",
+      "description": "Unified diff text content (empty string for binary files or unavailable diffs)"
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "Whether the diff was truncated due to size limit"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total size of diff content in bytes (before truncation)"
+    },
+    "binary": {
+      "type": "boolean",
+      "description": "Whether the file is binary"
+    },
+    "old_path": {
+      "type": "string",
+      "description": "Original file path for renamed files"
+    }
+  },
+  "additionalProperties": false
+}
