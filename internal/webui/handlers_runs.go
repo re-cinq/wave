@@ -268,12 +268,22 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				duration = sd.Duration
 				tokens = sd.TokensUsed
 			}
-			dagSteps = append(dagSteps, DAGStepInput{
+			var contract string
+		if step.Handover.Contract.Type != "" {
+			contract = step.Handover.Contract.Type
+		}
+		var artifactNames []string
+		for _, a := range step.OutputArtifacts {
+			artifactNames = append(artifactNames, a.Name)
+		}
+		dagSteps = append(dagSteps, DAGStepInput{
 				ID:           step.ID,
 				Persona:      resolveForgeVars(step.Persona),
 				Status:       status,
 				Duration:     duration,
 				Tokens:       tokens,
+				Contract:     contract,
+				Artifacts:    strings.Join(artifactNames, ", "),
 				Dependencies: step.Dependencies,
 			})
 		}
