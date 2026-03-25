@@ -12,7 +12,7 @@
             <span class="badge {{statusClass .State}}">{{.State}}</span>
             {{if .FormattedStartedAt}}<span class="step-start-time">{{.FormattedStartedAt}}</span>{{end}}
             <span class="step-duration" {{if eq .State "running"}}data-live-timer="true"{{end}}>{{if .Duration}}{{.Duration}}{{end}}</span>
-            <span class="step-persona">{{.Persona}}</span>
+            <a href="/personas/{{.Persona}}" class="step-persona" onclick="event.stopPropagation();">{{.Persona}}</a>
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">Save</button>
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">Copy</button>
         </div>
