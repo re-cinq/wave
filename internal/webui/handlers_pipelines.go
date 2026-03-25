@@ -2,10 +2,12 @@ package webui
 
 import (
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/state"
 )
 
 // PipelineSummary holds summary info about an available pipeline.
@@ -52,13 +54,14 @@ func (s *Server) handleAPIPipelineInfo(w http.ResponseWriter, r *http.Request) {
 
 // PipelineDetailStep holds step info for the pipeline detail view.
 type PipelineDetailStep struct {
-	ID           string   `json:"id"`
-	Persona      string   `json:"persona"`
-	Dependencies []string `json:"dependencies,omitempty"`
-	Timeout      int      `json:"timeout,omitempty"`
-	Optional     bool     `json:"optional,omitempty"`
-	Artifacts    []string `json:"artifacts,omitempty"`
-	Contract     string   `json:"contract,omitempty"`
+	ID                 string   `json:"id"`
+	Persona            string   `json:"persona"`
+	Dependencies       []string `json:"dependencies,omitempty"`
+	Timeout            int      `json:"timeout,omitempty"`
+	Optional           bool     `json:"optional,omitempty"`
+	Artifacts          []string `json:"artifacts,omitempty"`
+	Contract           string   `json:"contract,omitempty"`
+	ContractSchemaName string   `json:"contract_schema_name,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -84,20 +87,27 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			artifactNames = append(artifactNames, a.Name)
 		}
 		var contract string
+		var contractSchemaName string
 		if step.Handover.Contract.Type != "" {
 			contract = step.Handover.Contract.Type
 			if step.Handover.Contract.SchemaPath != "" {
 				contract += " (" + step.Handover.Contract.SchemaPath + ")"
+				base := filepath.Base(step.Handover.Contract.SchemaPath)
+				contractSchemaName = strings.TrimSuffix(base, ".schema.json")
+				if !strings.HasSuffix(base, ".schema.json") {
+					contractSchemaName = strings.TrimSuffix(base, ".json")
+				}
 			}
 		}
 		steps = append(steps, PipelineDetailStep{
-			ID:           step.ID,
-			Persona:      resolveForgeVars(step.Persona),
-			Dependencies: step.Dependencies,
-			Timeout:      step.TimeoutMinutes,
-			Optional:     step.Optional,
-			Artifacts:    artifactNames,
-			Contract:     contract,
+			ID:                 step.ID,
+			Persona:            resolveForgeVars(step.Persona),
+			Dependencies:       step.Dependencies,
+			Timeout:            step.TimeoutMinutes,
+			Optional:           step.Optional,
+			Artifacts:          artifactNames,
+			Contract:           contract,
+			ContractSchemaName: contractSchemaName,
 		})
 	}
 	return PipelineDetail{
@@ -173,14 +183,28 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		})
 	}
 
+	// Count runs for this pipeline
+	var runCount int
+	if s.store != nil {
+		runs, err := s.store.ListRuns(state.ListRunsOptions{
+			PipelineName: name,
+			Limit:        1000,
+		})
+		if err == nil {
+			runCount = len(runs)
+		}
+	}
+
 	data := struct {
 		ActivePage string
 		Pipeline   PipelineDetail
 		DAG        *DAGLayout
+		RunCount   int
 	}{
 		ActivePage: "pipelines",
 		Pipeline:   buildPipelineDetail(name, p),
 		DAG:        ComputeDAGLayout(dagSteps),
+		RunCount:   runCount,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
