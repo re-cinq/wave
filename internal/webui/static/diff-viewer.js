@@ -138,7 +138,8 @@
     DiffViewer.prototype.loadFileDiff = function(path) {
         var self = this;
         this.currentFile = path;
-        var url = '/api/runs/' + encodeURIComponent(this.runID) + '/diff/' + path;
+        var url = '/api/runs/' + encodeURIComponent(this.runID) + '/diff/' +
+            path.split('/').map(encodeURIComponent).join('/');
 
         fetch(url)
             .then(function(resp) {

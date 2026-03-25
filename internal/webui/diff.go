@@ -1,22 +1,36 @@
 package webui
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const maxDiffSize = 100 * 1024 // 100KB per file diff
 
+// gitCommandTimeout is the maximum time allowed for a single git subprocess.
+const gitCommandTimeout = 30 * time.Second
+
+// gitCommand creates a git command with a context timeout and explicit working directory.
+func gitCommand(ctx context.Context, repoDir string, args ...string) *exec.Cmd {
+	ctx, cancel := context.WithTimeout(ctx, gitCommandTimeout)
+	_ = cancel // cancel will fire when context expires or parent cancels
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoDir
+	return cmd
+}
+
 // resolveBaseBranch determines the base branch for diff comparison.
 // Resolution order: (1) git symbolic-ref refs/remotes/origin/HEAD,
 // (2) check if main exists, (3) check if master exists.
-func resolveBaseBranch() (string, error) {
+func resolveBaseBranch(ctx context.Context, repoDir string) (string, error) {
 	// Try origin/HEAD first
-	out, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD").Output()
+	out, err := gitCommand(ctx, repoDir, "symbolic-ref", "refs/remotes/origin/HEAD").Output()
 	if err == nil {
 		ref := strings.TrimSpace(string(out))
 		branch := strings.TrimPrefix(ref, "refs/remotes/origin/")
@@ -26,12 +40,12 @@ func resolveBaseBranch() (string, error) {
 	}
 
 	// Fallback: check if main exists
-	if err := exec.Command("git", "rev-parse", "--verify", "main").Run(); err == nil {
+	if err := gitCommand(ctx, repoDir, "rev-parse", "--verify", "main").Run(); err == nil {
 		return "main", nil
 	}
 
 	// Fallback: check if master exists
-	if err := exec.Command("git", "rev-parse", "--verify", "master").Run(); err == nil {
+	if err := gitCommand(ctx, repoDir, "rev-parse", "--verify", "master").Run(); err == nil {
 		return "master", nil
 	}
 
@@ -39,11 +53,11 @@ func resolveBaseBranch() (string, error) {
 }
 
 // computeDiffSummary computes the diff summary between base and head branches.
-func computeDiffSummary(baseBranch, headBranch string) (*DiffSummary, error) {
+func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch string) (*DiffSummary, error) {
 	diffRange := baseBranch + "..." + headBranch
 
 	// Get per-file additions/deletions
-	numstatOut, err := exec.Command("git", "diff", "--numstat", diffRange).Output()
+	numstatOut, err := gitCommand(ctx, repoDir, "diff", "--numstat", diffRange).Output()
 	if err != nil {
 		return &DiffSummary{
 			Available: false,
@@ -52,7 +66,7 @@ func computeDiffSummary(baseBranch, headBranch string) (*DiffSummary, error) {
 	}
 
 	// Get per-file change status
-	nameStatusOut, err := exec.Command("git", "diff", "--name-status", diffRange).Output()
+	nameStatusOut, err := gitCommand(ctx, repoDir, "diff", "--name-status", diffRange).Output()
 	if err != nil {
 		return &DiffSummary{
 			Available: false,
@@ -172,7 +186,7 @@ func computeDiffSummary(baseBranch, headBranch string) (*DiffSummary, error) {
 }
 
 // computeFileDiff computes the diff for a single file between base and head branches.
-func computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error) {
+func computeFileDiff(ctx context.Context, repoDir, baseBranch, headBranch, filePath string) (*FileDiff, error) {
 	// Validate path: reject traversal and absolute paths (FR-013)
 	cleanPath := filepath.Clean(filePath)
 	if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/") {
@@ -182,7 +196,7 @@ func computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error)
 	diffRange := baseBranch + "..." + headBranch
 
 	// Check if file is binary
-	numstatOut, err := exec.Command("git", "diff", "--numstat", diffRange, "--", cleanPath).Output()
+	numstatOut, err := gitCommand(ctx, repoDir, "diff", "--numstat", diffRange, "--", cleanPath).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff failed: %w", err)
 	}
@@ -201,13 +215,13 @@ func computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error)
 	if isBinary {
 		return &FileDiff{
 			Path:   cleanPath,
-			Status: detectFileStatus(baseBranch, headBranch, cleanPath),
+			Status: detectFileStatus(ctx, repoDir, baseBranch, headBranch, cleanPath),
 			Binary: true,
 		}, nil
 	}
 
 	// Get the actual diff content
-	diffOut, err := exec.Command("git", "diff", diffRange, "--", cleanPath).Output()
+	diffOut, err := gitCommand(ctx, repoDir, "diff", diffRange, "--", cleanPath).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff failed: %w", err)
 	}
@@ -237,7 +251,7 @@ func computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error)
 
 	return &FileDiff{
 		Path:      cleanPath,
-		Status:    detectFileStatus(baseBranch, headBranch, cleanPath),
+		Status:    detectFileStatus(ctx, repoDir, baseBranch, headBranch, cleanPath),
 		Additions: additions,
 		Deletions: deletions,
 		Content:   content,
@@ -247,9 +261,9 @@ func computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error)
 }
 
 // detectFileStatus determines the change status of a file.
-func detectFileStatus(baseBranch, headBranch, filePath string) string {
+func detectFileStatus(ctx context.Context, repoDir, baseBranch, headBranch, filePath string) string {
 	diffRange := baseBranch + "..." + headBranch
-	out, err := exec.Command("git", "diff", "--name-status", diffRange, "--", filePath).Output()
+	out, err := gitCommand(ctx, repoDir, "diff", "--name-status", diffRange, "--", filePath).Output()
 	if err != nil {
 		return "modified"
 	}
