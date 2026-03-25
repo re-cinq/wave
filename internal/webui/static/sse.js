@@ -204,12 +204,12 @@ function updatePageFromAPI(data) {
             var item = document.createElement('div');
             item.className = 'event-item';
             var t = new Date(ev.timestamp).toLocaleString();
-            var stepHtml = ev.step_id ? '<span class="event-step">' + ev.step_id + '</span>' : '';
+            var stepHtml = ev.step_id ? '<span class="event-step">' + escapeHTML(ev.step_id) + '</span>' : '';
             item.innerHTML =
                 '<span class="event-time">' + t + '</span>' +
-                '<span class="badge status-' + ev.state + '">' + ev.state + '</span>' +
+                '<span class="badge status-' + escapeHTML(ev.state) + '">' + escapeHTML(ev.state) + '</span>' +
                 stepHtml +
-                '<span class="event-message">' + (ev.message || '') + '</span>';
+                '<span class="event-message">' + escapeHTML(ev.message || '') + '</span>';
             timeline.appendChild(item);
         });
     }
@@ -226,26 +226,36 @@ function createStepCard(step) {
     card.setAttribute('data-expanded', isExpanded ? 'true' : 'false');
     if (isExpanded) expandedSteps.add(step.step_id);
 
-    var spinnerHtml = step.state === 'running' ? '<span class="step-running-spinner" aria-label="Running"></span>' : '';
+    var statusIconHtml = '';
+    if (step.state === 'running') {
+        statusIconHtml = '<span class="step-status-icon step-status-running" aria-label="Running"></span>';
+    } else if (step.state === 'completed') {
+        statusIconHtml = '<span class="step-status-icon step-status-completed" aria-label="Completed">&#10003;</span>';
+    } else if (step.state === 'failed') {
+        statusIconHtml = '<span class="step-status-icon step-status-failed" aria-label="Failed">&#10007;</span>';
+    } else {
+        statusIconHtml = '<span class="step-status-icon step-status-pending" aria-label="Pending">&#9679;</span>';
+    }
     var startTimeHtml = step.started_at ? '<span class="step-start-time">' + formatStartTime(step.started_at) + '</span>' : '';
-    var durationHtml = step.duration ? '<span class="step-duration">' + step.duration + '</span>' : '';
+    var durationHtml = '<span class="step-duration"' + (step.state === 'running' ? ' data-live-timer="true"' : '') + '>' + (step.duration || '') + '</span>';
 
+    var safeStepId = escapeHTML(step.step_id);
     var headerHtml =
-        '<div class="step-header" onclick="toggleStepCard(\'' + step.step_id + '\')">' +
-        '<span class="step-toggle" aria-hidden="true">\u25B6</span>' +
-        '<span class="step-id">' + step.step_id + '</span>' +
-        spinnerHtml +
-        '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
+        '<div class="step-header" data-step-id="' + safeStepId + '" onclick="toggleStepCard(this.getAttribute(\'data-step-id\'))">' +
+        '<span class="step-chevron" aria-hidden="true"></span>' +
+        statusIconHtml +
+        '<span class="step-id">' + safeStepId + '</span>' +
+        '<span class="badge status-' + escapeHTML(step.state) + '">' + escapeHTML(step.state) + '</span>' +
         startTimeHtml +
         durationHtml +
-        '<span class="step-persona">' + (step.persona || '') + '</span>' +
-        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(\'' + step.step_id + '\')" title="Download log">Save</button>' +
-        '<button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(\'' + step.step_id + '\')" title="Copy log">Copy</button>' +
+        '<span class="step-persona">' + escapeHTML(step.persona || '') + '</span>' +
+        '<button class="btn-icon" data-step-id="' + safeStepId + '" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(this.getAttribute(\'data-step-id\'))" title="Download log">Save</button>' +
+        '<button class="btn-icon" data-step-id="' + safeStepId + '" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(this.getAttribute(\'data-step-id\'))" title="Copy log">Copy</button>' +
         '</div>';
 
     var bodyParts = [];
     if (step.current_action) {
-        bodyParts.push('<div class="step-action">' + step.current_action + '</div>');
+        bodyParts.push('<div class="step-action">' + escapeHTML(step.current_action) + '</div>');
     }
     if (step.progress > 0) {
         bodyParts.push(
@@ -257,27 +267,27 @@ function createStepCard(step) {
     var metaParts = [];
     if (step.duration) metaParts.push('<span>Duration: ' + step.duration + '</span>');
     if (step.state === 'completed' || step.state === 'failed' || step.state === 'running') {
-        metaParts.push('<span class="token-count" data-step-id="' + step.step_id + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
+        metaParts.push('<span class="token-count" data-step-id="' + safeStepId + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
     }
     if (metaParts.length) {
         bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
     }
     if (step.error) {
         var isLong = step.error.length > 200;
-        bodyParts.push('<div class="step-error-banner' + (isLong ? ' collapsed' : '') + '" id="error-' + step.step_id + '">' + step.error + '</div>');
+        bodyParts.push('<div class="step-error-banner' + (isLong ? ' collapsed' : '') + '" id="error-' + safeStepId + '">' + escapeHTML(step.error) + '</div>');
         if (isLong) {
-            bodyParts.push('<span class="step-error-toggle" onclick="toggleErrorExpand(\'' + step.step_id + '\')">Show more</span>');
+            bodyParts.push('<span class="step-error-toggle" data-step-id="' + safeStepId + '" onclick="toggleErrorExpand(this.getAttribute(\'data-step-id\'))">Show more</span>');
         }
     }
     if (step.artifacts && step.artifacts.length > 0) {
         var artItems = step.artifacts.map(function(art) {
             return '<li>' +
                 '<a href="#" class="artifact-link"' +
-                ' data-run-id="' + step.run_id + '"' +
-                ' data-step-id="' + step.step_id + '"' +
-                ' data-artifact-name="' + art.name + '"' +
+                ' data-run-id="' + escapeHTML(step.run_id) + '"' +
+                ' data-step-id="' + safeStepId + '"' +
+                ' data-artifact-name="' + escapeHTML(art.name) + '"' +
                 ' onclick="toggleArtifact(this); return false;"' +
-                ' aria-expanded="false">' + art.name + '</a>' +
+                ' aria-expanded="false">' + escapeHTML(art.name) + '</a>' +
                 '<span class="artifact-size">(' + (art.size_bytes || 0) + ' bytes)</span>' +
                 '<div class="artifact-inline" hidden></div>' +
                 '</li>';
@@ -285,7 +295,7 @@ function createStepCard(step) {
         bodyParts.push('<div class="step-artifacts"><strong>Artifacts:</strong><ul>' + artItems + '</ul></div>');
     }
 
-    var logHtml = '<div class="step-log" id="log-' + step.step_id + '" data-step-id="' + step.step_id + '">' +
+    var logHtml = '<div class="step-log" id="log-' + safeStepId + '" data-step-id="' + safeStepId + '">' +
         '<div class="step-log-content"></div>' +
         '</div>';
     card.innerHTML = headerHtml + '<div class="step-body">' + bodyParts.join('') + logHtml + '</div>';
@@ -434,6 +444,18 @@ function updateStepCardState(stepID, newState) {
                 badge.className = 'badge status-' + newState;
                 badge.textContent = newState;
             }
+            // Update status icon
+            var icon = card.querySelector('.step-status-icon');
+            if (icon) {
+                icon.className = 'step-status-icon step-status-' + newState;
+                if (newState === 'completed') {
+                    icon.innerHTML = '&#10003;';
+                } else if (newState === 'failed') {
+                    icon.innerHTML = '&#10007;';
+                } else if (newState === 'running') {
+                    icon.innerHTML = '';
+                }
+            }
         }
     });
 }
@@ -452,13 +474,13 @@ function appendEventToTimeline(data, type) {
     item.className = 'event-item';
 
     var time = new Date(data.timestamp).toLocaleString();
-    var stepHtml = data.step_id ? '<span class="event-step">' + data.step_id + '</span>' : '';
+    var stepHtml = data.step_id ? '<span class="event-step">' + escapeHTML(data.step_id) + '</span>' : '';
 
     item.innerHTML =
         '<span class="event-time">' + time + '</span>' +
-        '<span class="badge status-' + type + '">' + type + '</span>' +
+        '<span class="badge status-' + escapeHTML(type) + '">' + escapeHTML(type) + '</span>' +
         stepHtml +
-        '<span class="event-message">' + (data.message || '') + '</span>';
+        '<span class="event-message">' + escapeHTML(data.message || '') + '</span>';
 
     timeline.appendChild(item);
 }
