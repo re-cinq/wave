@@ -1,4 +1,4 @@
-{{define "title"}} - {{.Persona.Name}}{{end}}
+{{define "title"}} Personas {{.Persona.Name}}{{if .Persona.Description}} — {{.Persona.Description}}{{end}}{{end}}
 {{define "content"}}
 <div class="page-header">
     <div>
