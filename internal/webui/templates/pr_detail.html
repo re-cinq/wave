@@ -1,0 +1,78 @@
+{{define "title"}} - PR #{{.PR.Number}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/prs" class="back-link" aria-label="Back to pull requests list">&larr; Back to PRs</a>
+        <h1>#{{.PR.Number}} {{.PR.Title}}
+            {{if .PR.Merged}}<span class="badge status-completed">merged</span>
+            {{else if eq .PR.State "open"}}<span class="badge badge-open">open</span>
+            {{else}}<span class="badge badge-closed">closed</span>{{end}}
+            {{if .PR.Draft}}<span class="badge">draft</span>{{end}}
+        </h1>
+    </div>
+    <div class="actions">
+        <a href="{{.PR.URL}}" target="_blank" rel="noopener noreferrer" class="btn">View on GitHub</a>
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Author</span> <span class="run-stat-value">{{.PR.Author}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Branch</span> <span class="run-stat-value"><code>{{.PR.HeadBranch}}</code> &rarr; <code>{{.PR.BaseBranch}}</code></span></span>
+        <span class="run-stat"><span class="run-stat-label">Changes</span> <span class="run-stat-value"><span class="diff-summary-adds">+{{.PR.Additions}}</span> <span class="diff-summary-dels">-{{.PR.Deletions}}</span> ({{.PR.ChangedFiles}} files)</span></span>
+        <span class="run-stat"><span class="run-stat-label">Commits</span> <span class="run-stat-value">{{.PR.Commits}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Comments</span> <span class="run-stat-value">{{.PR.Comments}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Created</span> <span class="run-stat-value">{{.PR.CreatedAt}}</span></span>
+    </div>
+    {{if .PR.Labels}}
+    <div class="run-summary-meta">
+        <span class="run-meta-item">{{range .PR.Labels}}<span class="badge">{{.}}</span> {{end}}</span>
+    </div>
+    {{end}}
+</div>
+
+{{if .PR.Body}}
+<div class="card">
+    <h2>Description</h2>
+    <div class="issue-body">
+        <pre class="issue-body-content">{{.PR.Body}}</pre>
+    </div>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Related Pipeline Runs</h2>
+    {{if .Runs}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Pipeline</th>
+                <th>Status</th>
+                <th>Steps</th>
+                <th>Tokens</th>
+                <th>Duration</th>
+                <th>Started</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Runs}}
+            <tr>
+                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a></td>
+                <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
+                <td>{{.StepsCompleted}}/{{.StepsTotal}}</td>
+                <td>{{formatTokens .TotalTokens}}</td>
+                <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
+                <td>{{.FormattedStartedAt}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>No pipeline runs</strong></p>
+        <p>No pipelines have been run against this PR yet.</p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{define "scripts"}}{{end}}

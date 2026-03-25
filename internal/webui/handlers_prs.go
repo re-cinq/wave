@@ -2,10 +2,13 @@ package webui
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/state"
 )
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
@@ -34,6 +37,106 @@ func (s *Server) handleAPIPRs(w http.ResponseWriter, r *http.Request) {
 	page := parsePageNumber(r)
 	data := s.getPRListData(stateFilter, page)
 	writeJSON(w, http.StatusOK, data)
+}
+
+// handlePRDetailPage handles GET /prs/{number} - serves PR detail with related runs.
+func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
+	numberStr := r.PathValue("number")
+	number := parsePageNumber2(numberStr)
+	if number <= 0 {
+		http.Error(w, "invalid PR number", http.StatusBadRequest)
+		return
+	}
+
+	if s.githubClient == nil || s.repoSlug == "" {
+		http.Error(w, "GitHub integration not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	owner, repo := splitRepoSlug(s.repoSlug)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	pr, err := s.githubClient.GetPullRequest(ctx, owner, repo, number)
+	if err != nil {
+		http.Error(w, "PR not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Find related runs — match by PR URL or head branch name
+	prURL := pr.HTMLURL
+	headBranch := ""
+	if pr.Head != nil {
+		headBranch = pr.Head.Ref
+	}
+	baseBranch := ""
+	if pr.Base != nil {
+		baseBranch = pr.Base.Ref
+	}
+
+	allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 500})
+	if err != nil {
+		allRuns = nil
+	}
+	var relatedRuns []RunSummary
+	for _, run := range allRuns {
+		matched := false
+		if run.Input != "" && prURL != "" && strings.Contains(run.Input, prURL) {
+			matched = true
+		}
+		if !matched && run.Input != "" && strings.Contains(run.Input, fmt.Sprintf("/pull/%d", number)) {
+			matched = true
+		}
+		if !matched && headBranch != "" && run.BranchName == headBranch {
+			matched = true
+		}
+		if matched {
+			relatedRuns = append(relatedRuns, runToSummary(run))
+		}
+	}
+
+	author := ""
+	if pr.User != nil {
+		author = pr.User.Login
+	}
+	var labels []string
+	for _, l := range pr.Labels {
+		labels = append(labels, l.Name)
+	}
+
+	data := struct {
+		ActivePage string
+		PR         PRDetail
+		Runs       []RunSummary
+	}{
+		ActivePage: "prs",
+		PR: PRDetail{
+			Number:       pr.Number,
+			Title:        pr.Title,
+			State:        pr.State,
+			Body:         pr.Body,
+			Author:       author,
+			Labels:       labels,
+			Draft:        pr.Draft,
+			Merged:       pr.Merged,
+			HeadBranch:   headBranch,
+			BaseBranch:   baseBranch,
+			Additions:    pr.Additions,
+			Deletions:    pr.Deletions,
+			ChangedFiles: pr.ChangedFiles,
+			Commits:      pr.Commits,
+			Comments:     pr.Comments,
+			CreatedAt:    pr.CreatedAt.Format("2006-01-02 15:04"),
+			UpdatedAt:    pr.UpdatedAt.Format("2006-01-02 15:04"),
+			URL:          pr.HTMLURL,
+		},
+		Runs: relatedRuns,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/pr_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
 }
 
 const prsPerPage = 50

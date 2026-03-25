@@ -1,0 +1,112 @@
+{{define "title"}} - {{.Pipeline.Name}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/pipelines" class="back-link" aria-label="Back to pipelines list">&larr; Back to Pipelines</a>
+        <h1>{{.Pipeline.Name}}</h1>
+        {{if .Pipeline.Description}}<p class="persona-desc">{{.Pipeline.Description}}</p>{{end}}
+    </div>
+    <div class="actions">
+        <button class="btn btn-primary" onclick="showQuickStart('{{.Pipeline.Name}}')" aria-label="Start pipeline">Start</button>
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{len .Pipeline.Steps}}</span></span>
+        {{if .Pipeline.Category}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.Pipeline.Category}}</span></span>{{end}}
+        {{if .Pipeline.IsComposition}}<span class="run-stat"><span class="run-stat-label">Type</span> <span class="run-stat-value">Composition</span></span>{{end}}
+        {{if .Pipeline.Skills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
+    </div>
+</div>
+
+{{if .DAG}}
+<div class="card">
+    <details open>
+        <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
+        <div id="dag-container" class="dag-container">
+            {{template "templates/partials/dag_svg.html" .DAG}}
+        </div>
+    </details>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Steps</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Step</th>
+                <th>Persona</th>
+                <th>Dependencies</th>
+                <th>Contract</th>
+                <th>Artifacts</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Pipeline.Steps}}
+            <tr>
+                <td><code>{{.ID}}</code></td>
+                <td><span class="badge">{{.Persona}}</span></td>
+                <td>{{if .Dependencies}}{{range $i, $d := .Dependencies}}{{if $i}}, {{end}}<code>{{$d}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
+                <td>{{if .Contract}}<code>{{.Contract}}</code>{{else}}<span class="text-muted">none</span>{{end}}</td>
+                <td>{{if .Artifacts}}{{range $i, $a := .Artifacts}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
+                <td>{{if .Optional}}<span class="badge">optional</span>{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
+    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
+    <div class="form-group">
+        <label for="quickstart-input">Input (optional)</label>
+        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+    </div>
+    <div class="dialog-actions">
+        <button class="btn" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+    </div>
+</dialog>
+{{end}}
+{{define "scripts"}}
+<script>
+var quickStartPipeline = '';
+
+function showQuickStart(name) {
+    quickStartPipeline = name;
+    document.getElementById('quickstart-name').textContent = name;
+    document.getElementById('quickstart-input').value = '';
+    document.getElementById('quickstart-dialog').showModal();
+    document.getElementById('quickstart-input').focus();
+}
+
+function hideQuickStart() {
+    document.getElementById('quickstart-dialog').close();
+    quickStartPipeline = '';
+}
+
+function submitQuickStart() {
+    if (!quickStartPipeline) return;
+    var input = document.getElementById('quickstart-input').value;
+    var btn = document.getElementById('quickstart-submit');
+    setButtonLoading(btn, true);
+    fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({input: input || ''})
+    }).then(function(data) {
+        showToast('Pipeline started: ' + data.run_id, 'success', 3000);
+        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
+    }).catch(function() {
+        setButtonLoading(btn, false);
+    });
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') hideQuickStart();
+});
+</script>
+{{end}}

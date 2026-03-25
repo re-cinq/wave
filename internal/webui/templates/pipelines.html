@@ -27,6 +27,7 @@
         </div>
         {{end}}
         <div class="card-actions">
+            <a href="/pipelines/{{.Name}}" class="btn" aria-label="View details for {{.Name}}">Details</a>
             <button class="btn btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
         </div>
     </article>

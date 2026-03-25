@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/state"
 )
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
@@ -74,6 +75,109 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 		Status:       "running",
 		StartedAt:    time.Now().UTC(),
 	})
+}
+
+// handleIssueDetailPage handles GET /issues/{number} - serves issue detail with related runs.
+func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
+	numberStr := r.PathValue("number")
+	number := parsePageNumber2(numberStr)
+	if number <= 0 {
+		http.Error(w, "invalid issue number", http.StatusBadRequest)
+		return
+	}
+
+	if s.githubClient == nil || s.repoSlug == "" {
+		http.Error(w, "GitHub integration not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	owner, repo := splitRepoSlug(s.repoSlug)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	issue, err := s.githubClient.GetIssue(ctx, owner, repo, number)
+	if err != nil {
+		http.Error(w, "issue not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Build issue URL pattern to find related runs
+	issueURL := issue.HTMLURL
+	// Also try shortened pattern
+	patterns := []string{issueURL}
+	if issueURL != "" {
+		// Also match just the issue number path segment
+		patterns = append(patterns, "/issues/"+numberStr)
+	}
+
+	// Find runs whose input contains this issue URL
+	allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 500})
+	if err != nil {
+		allRuns = nil
+	}
+	var relatedRuns []RunSummary
+	for _, run := range allRuns {
+		if run.Input == "" {
+			continue
+		}
+		for _, pat := range patterns {
+			if strings.Contains(run.Input, pat) {
+				relatedRuns = append(relatedRuns, runToSummary(run))
+				break
+			}
+		}
+	}
+
+	var labels []string
+	for _, l := range issue.Labels {
+		labels = append(labels, l.Name)
+	}
+	author := ""
+	if issue.User != nil {
+		author = issue.User.Login
+	}
+	var assignees []string
+	for _, a := range issue.Assignees {
+		assignees = append(assignees, a.Login)
+	}
+
+	data := struct {
+		ActivePage string
+		Issue      IssueDetail
+		Runs       []RunSummary
+	}{
+		ActivePage: "issues",
+		Issue: IssueDetail{
+			Number:    issue.Number,
+			Title:     issue.Title,
+			State:     issue.State,
+			Body:      issue.Body,
+			Author:    author,
+			Labels:    labels,
+			Assignees: assignees,
+			Comments:  issue.Comments,
+			CreatedAt: issue.CreatedAt.Format("2006-01-02 15:04"),
+			UpdatedAt: issue.UpdatedAt.Format("2006-01-02 15:04"),
+			URL:       issue.HTMLURL,
+		},
+		Runs: relatedRuns,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/issue_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func parsePageNumber2(s string) int {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
 const issuesPerPage = 50
