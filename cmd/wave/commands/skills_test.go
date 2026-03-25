@@ -726,12 +726,16 @@ func TestSkillsPublishNonexistent(t *testing.T) {
 	}
 
 	out, err := executeSkillsCmd("publish", "nonexistent", "--dry-run")
-	_ = out
+	// The command should either return an error or output indicating failure
 	if err != nil {
-		t.Logf("got error (expected for non-existent): %v", err)
+		if !strings.Contains(err.Error(), "nonexistent") && !strings.Contains(err.Error(), "not found") {
+			t.Errorf("expected error to mention missing skill, got: %v", err)
+		}
+	} else {
+		if !strings.Contains(out, "not found") && !strings.Contains(out, "error") {
+			t.Errorf("expected output to indicate failure for nonexistent skill, got: %s", out)
+		}
 	}
-	// The command returns an error via result but doesn't produce a CLI error
-	// Since publishOne returns a PublishResult with Error set, not a cli error
 }
 
 func TestSkillsPublishDryRun(t *testing.T) {

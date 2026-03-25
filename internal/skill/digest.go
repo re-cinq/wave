@@ -30,8 +30,7 @@ func ComputeDigest(s Skill) (string, error) {
 		absPath := filepath.Join(s.SourcePath, relpath)
 		data, readErr := os.ReadFile(absPath)
 		if readErr != nil {
-			// Skip unreadable resource files
-			continue
+			return "", fmt.Errorf("cannot read resource %q: %w", relpath, readErr)
 		}
 		fmt.Fprintf(h, "\n---resource:%s---\n", relpath)
 		h.Write(data)
