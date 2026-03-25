@@ -155,10 +155,20 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 	// Build DAG layout
 	var dagSteps []DAGStepInput
 	for _, step := range p.Steps {
+		var contract string
+		if step.Handover.Contract.Type != "" {
+			contract = step.Handover.Contract.Type
+		}
+		var artifactNames []string
+		for _, a := range step.OutputArtifacts {
+			artifactNames = append(artifactNames, a.Name)
+		}
 		dagSteps = append(dagSteps, DAGStepInput{
 			ID:           step.ID,
 			Persona:      resolveForgeVars(step.Persona),
 			Status:       "pending",
+			Contract:     contract,
+			Artifacts:    strings.Join(artifactNames, ", "),
 			Dependencies: step.Dependencies,
 		})
 	}
