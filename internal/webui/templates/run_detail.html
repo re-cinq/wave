@@ -250,7 +250,7 @@ function formatArtifactContent(content) {
         if (/\b(error|fatal|panic|FAIL)\b/i.test(line)) cls = ' log-error';
         else if (/\b(warn|warning|WARN)\b/i.test(line)) cls = ' log-warning';
         else if (/\b(info|INFO|note|NOTE)\b/i.test(line)) cls = ' log-info';
-        return '<span class="log-line"><span class="log-line-number">' + num + '</span><span class="log-line-content' + cls + '">' + line + '</span></span>';
+        return '<span class="log-line"><span class="log-line-number">' + num + '</span><span class="log-line-content' + cls + '">' + escapeHTML(line) + '</span></span>';
     }).join('\n');
 }
 
@@ -260,6 +260,9 @@ function copyRunID(text, btn) {
         var orig = btn.textContent;
         btn.textContent = 'Copied';
         setTimeout(function() { btn.textContent = orig; }, 1500);
+    }).catch(function() {
+        btn.textContent = 'Failed';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
     });
 }
 
