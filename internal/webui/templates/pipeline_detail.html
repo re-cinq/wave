@@ -1,4 +1,4 @@
-{{define "title"}} Pipelines {{.Pipeline.Name}}{{if .Pipeline.Description}} — {{.Pipeline.Description}}{{end}}{{end}}
+{{define "title"}}{{.Pipeline.Name}}{{if .Pipeline.Description}} · {{.Pipeline.Description}}{{end}} · Wave{{end}}
 {{define "content"}}
 <div class="page-header">
     <div>

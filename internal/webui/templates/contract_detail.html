@@ -1,4 +1,4 @@
-{{define "title"}} Contracts {{.Contract.Name}}{{if .Contract.Title}} — {{.Contract.Title}}{{end}}{{end}}
+{{define "title"}}{{.Contract.Name}}{{if .Contract.Title}} · {{.Contract.Title}}{{end}} · Wave{{end}}
 {{define "content"}}
 <div class="page-header">
     <div>

@@ -1,4 +1,4 @@
-{{define "title"}} Personas {{.Persona.Name}}{{if .Persona.Description}} — {{.Persona.Description}}{{end}}{{end}}
+{{define "title"}}{{.Persona.Name}}{{if .Persona.Description}} · {{.Persona.Description}}{{end}} · Wave{{end}}
 {{define "content"}}
 <div class="page-header">
     <div>
