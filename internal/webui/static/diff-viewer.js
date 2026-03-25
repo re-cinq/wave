@@ -51,21 +51,12 @@
         var summary = this.summary;
         if (!summary) return;
 
-        // Handle unavailable diff (T019)
-        if (!summary.available) {
-            this.container.innerHTML =
-                '<h2>Changed Files</h2>' +
-                '<div class="diff-unavailable">' + escapeHTML(summary.message || 'Diff unavailable') + '</div>';
+        // Handle unavailable diff or empty file list — hide the panel entirely
+        if (!summary.available || !summary.files || summary.files.length === 0) {
+            this.container.style.display = 'none';
             return;
         }
-
-        // Handle empty file list (T019)
-        if (!summary.files || summary.files.length === 0) {
-            this.container.innerHTML =
-                '<h2>Changed Files</h2>' +
-                '<div class="diff-unavailable">No files changed</div>';
-            return;
-        }
+        this.container.style.display = '';
 
         var html = '<h2>Changed Files</h2>';
 
@@ -246,9 +237,8 @@
     // --- Error Rendering (T019) ---
 
     DiffViewer.prototype.renderError = function(message) {
-        this.container.innerHTML =
-            '<h2>Changed Files</h2>' +
-            '<div class="diff-error">' + escapeHTML(message) + '</div>';
+        // Hide the panel on error — merged/deleted branches have no diff
+        this.container.style.display = 'none';
     };
 
     // --- SSE Refresh (T020) ---

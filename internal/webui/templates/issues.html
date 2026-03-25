@@ -33,8 +33,8 @@
         <tbody>
             {{range .Issues}}
             <tr>
-                <td><a href="{{.URL}}" target="_blank" rel="noopener">#{{.Number}}</a></td>
-                <td>{{.Title}}</td>
+                <td><a href="/issues/{{.Number}}">#{{.Number}}</a></td>
+                <td><a href="/issues/{{.Number}}">{{.Title}}</a></td>
                 <td>
                     {{if eq .State "open"}}<span class="badge badge-open">open</span>
                     {{else}}<span class="badge badge-closed">closed</span>

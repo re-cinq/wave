@@ -32,8 +32,8 @@
         <tbody>
             {{range .PullRequests}}
             <tr>
-                <td><a href="{{.URL}}" target="_blank" rel="noopener">#{{.Number}}</a></td>
-                <td>{{.Title}}</td>
+                <td><a href="/prs/{{.Number}}">#{{.Number}}</a></td>
+                <td><a href="/prs/{{.Number}}">{{.Title}}</a></td>
                 <td>
                     {{if .Merged}}<span class="badge badge-merged">merged</span>
                     {{else if .Draft}}<span class="badge badge-draft">draft</span>

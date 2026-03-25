@@ -1,0 +1,79 @@
+{{define "title"}} - Issue #{{.Issue.Number}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/issues" class="back-link" aria-label="Back to issues list">&larr; Back to Issues</a>
+        <h1>#{{.Issue.Number}} {{.Issue.Title}}
+            {{if eq .Issue.State "open"}}<span class="badge badge-open">open</span>
+            {{else}}<span class="badge badge-closed">closed</span>{{end}}
+        </h1>
+    </div>
+    <div class="actions">
+        <a href="{{.Issue.URL}}" target="_blank" rel="noopener noreferrer" class="btn">View on GitHub</a>
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Author</span> <span class="run-stat-value">{{.Issue.Author}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Comments</span> <span class="run-stat-value">{{.Issue.Comments}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Created</span> <span class="run-stat-value">{{.Issue.CreatedAt}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Updated</span> <span class="run-stat-value">{{.Issue.UpdatedAt}}</span></span>
+    </div>
+    {{if .Issue.Labels}}
+    <div class="run-summary-meta">
+        <span class="run-meta-item">{{range .Issue.Labels}}<span class="badge">{{.}}</span> {{end}}</span>
+    </div>
+    {{end}}
+    {{if .Issue.Assignees}}
+    <div class="run-summary-meta">
+        <span class="run-meta-item"><span class="run-stat-label">Assignees</span> {{range $i, $a := .Issue.Assignees}}{{if $i}}, {{end}}{{$a}}{{end}}</span>
+    </div>
+    {{end}}
+</div>
+
+{{if .Issue.Body}}
+<div class="card">
+    <h2>Description</h2>
+    <div class="issue-body">
+        <pre class="issue-body-content">{{.Issue.Body}}</pre>
+    </div>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Related Pipeline Runs</h2>
+    {{if .Runs}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Pipeline</th>
+                <th>Status</th>
+                <th>Steps</th>
+                <th>Tokens</th>
+                <th>Duration</th>
+                <th>Started</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Runs}}
+            <tr>
+                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a></td>
+                <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
+                <td>{{.StepsCompleted}}/{{.StepsTotal}}</td>
+                <td>{{formatTokens .TotalTokens}}</td>
+                <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
+                <td>{{.FormattedStartedAt}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>No pipeline runs</strong></p>
+        <p>No pipelines have been run against this issue yet.</p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{define "scripts"}}{{end}}
