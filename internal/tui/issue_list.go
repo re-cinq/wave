@@ -112,19 +112,23 @@ func (m IssueListModel) Update(msg tea.Msg) (IssueListModel, tea.Cmd) {
 		if msg.Err != nil {
 			return m, nil
 		}
+
+		// Capture selected item identity before rebuild.
+		prevID := m.selectedItemID()
+
 		m.running = msg.Running
 		m.finished = msg.Finished
 		m.buildNavigableItems()
 
-		if len(m.navigable) == 0 {
-			m.cursor = 0
-		} else if m.cursor >= len(m.navigable) {
-			m.cursor = len(m.navigable) - 1
-		}
+		// Restore cursor to the same item if it still exists.
+		m.restoreCursor(prevID)
 
 		var cmds []tea.Cmd
-		if cmd := m.emitSelectionMsg(); cmd != nil {
-			cmds = append(cmds, cmd)
+		// Only re-emit selection if the selected item actually changed.
+		if newID := m.selectedItemID(); newID != prevID {
+			if cmd := m.emitSelectionMsg(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
 		// Start elapsed ticker if we have running pipelines linked to issues
 		if !m.tickerActive && m.hasRunningChildren() {
@@ -608,6 +612,66 @@ func (m *IssueListModel) buildNavigableItems() {
 				}
 			}
 		}
+	}
+}
+
+// selectedItemID returns a stable identity string for the currently selected
+// navigable item, or "" if nothing is selected.
+func (m *IssueListModel) selectedItemID() string {
+	if len(m.navigable) == 0 || m.cursor >= len(m.navigable) {
+		return ""
+	}
+	item := m.navigable[m.cursor]
+	switch item.kind {
+	case issueNavKindIssue:
+		if item.issue != nil {
+			return fmt.Sprintf("issue:%s", item.issue.HTMLURL)
+		}
+	case issueNavKindRunning:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
+			return fmt.Sprintf("run:%s", m.running[item.dataIndex].RunID)
+		}
+	case issueNavKindFinished:
+		if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
+			return fmt.Sprintf("fin:%s", m.finished[item.dataIndex].RunID)
+		}
+	}
+	return ""
+}
+
+// restoreCursor finds the navigable item matching prevID and moves the cursor
+// to it, preserving the user's selection across data refreshes.
+func (m *IssueListModel) restoreCursor(prevID string) {
+	if prevID == "" || len(m.navigable) == 0 {
+		if len(m.navigable) == 0 {
+			m.cursor = 0
+		}
+		return
+	}
+	for i, item := range m.navigable {
+		var id string
+		switch item.kind {
+		case issueNavKindIssue:
+			if item.issue != nil {
+				id = fmt.Sprintf("issue:%s", item.issue.HTMLURL)
+			}
+		case issueNavKindRunning:
+			if item.dataIndex >= 0 && item.dataIndex < len(m.running) {
+				id = fmt.Sprintf("run:%s", m.running[item.dataIndex].RunID)
+			}
+		case issueNavKindFinished:
+			if item.dataIndex >= 0 && item.dataIndex < len(m.finished) {
+				id = fmt.Sprintf("fin:%s", m.finished[item.dataIndex].RunID)
+			}
+		}
+		if id == prevID {
+			m.cursor = i
+			return
+		}
+	}
+	// Item disappeared — clamp cursor.
+	if m.cursor >= len(m.navigable) {
+		m.cursor = len(m.navigable) - 1
 	}
 }
 
