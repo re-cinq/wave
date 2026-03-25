@@ -6,10 +6,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/recinq/wave/internal/state"
 )
+
+// githubURLPattern matches GitHub issue and PR URLs.
+var githubURLPattern = regexp.MustCompile(`https://github\.com/[\w.\-]+/[\w.\-]+/(?:issues|pull)/\d+`)
+
+// parseLinkedURL extracts the first GitHub issue or PR URL from the input string.
+func parseLinkedURL(input string) string {
+	return githubURLPattern.FindString(input)
+}
 
 // handleAPIRuns handles GET /api/runs - returns paginated run list as JSON.
 func (s *Server) handleAPIRuns(w http.ResponseWriter, r *http.Request) {
@@ -325,13 +334,21 @@ func runToSummary(r state.RunRecord) RunSummary {
 
 	summary.BranchName = r.BranchName
 
-	// Truncated input preview for list views
+	// Full input and truncated preview
 	if r.Input != "" {
+		summary.Input = r.Input
 		preview := r.Input
 		if len(preview) > 80 {
 			preview = preview[:80] + "..."
 		}
 		summary.InputPreview = preview
+		summary.LinkedURL = parseLinkedURL(r.Input)
+	}
+
+	// Human-readable timestamps
+	summary.FormattedStartedAt = r.StartedAt.Format("Jan 2 15:04:05")
+	if r.CompletedAt != nil {
+		summary.FormattedCompletedAt = r.CompletedAt.Format("Jan 2 15:04:05")
 	}
 
 	// Compute step progress from pipeline definition
