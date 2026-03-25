@@ -99,23 +99,15 @@ func (s *Server) handleAPIContracts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"contracts": contracts})
 }
 
-// handleAPIContractDetail handles GET /api/contracts/{name} — returns contract
-// schema content as JSON.
-func (s *Server) handleAPIContractDetail(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	if name == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing contract name")
-		return
-	}
-
+// findContract looks up a contract by name, returning the detail response.
+// Returns nil if not found.
+func findContract(name string) *ContractDetailResponse {
 	// Prevent path traversal.
 	if strings.Contains(name, "/") || strings.Contains(name, "..") || strings.Contains(name, string(os.PathSeparator)) {
-		writeJSONError(w, http.StatusBadRequest, "invalid contract name")
-		return
+		return nil
 	}
 
 	dir := contractsDir()
-	// Try exact filename first, then with .schema.json suffix.
 	var filePath string
 	for _, candidate := range []string{
 		filepath.Join(dir, name+".schema.json"),
@@ -129,14 +121,12 @@ func (s *Server) handleAPIContractDetail(w http.ResponseWriter, r *http.Request)
 	}
 
 	if filePath == "" {
-		writeJSONError(w, http.StatusNotFound, "contract not found")
-		return
+		return nil
 	}
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to read contract")
-		return
+		return nil
 	}
 
 	filename := filepath.Base(filePath)
@@ -151,7 +141,7 @@ func (s *Server) handleAPIContractDetail(w http.ResponseWriter, r *http.Request)
 	}
 	_ = json.Unmarshal(data, &meta)
 
-	resp := ContractDetailResponse{
+	return &ContractDetailResponse{
 		ContractSummary: ContractSummary{
 			Name:        contractName,
 			Title:       meta.Title,
@@ -160,6 +150,81 @@ func (s *Server) handleAPIContractDetail(w http.ResponseWriter, r *http.Request)
 		},
 		Schema: string(data),
 	}
+}
+
+// handleAPIContractDetail handles GET /api/contracts/{name} — returns contract
+// schema content as JSON.
+func (s *Server) handleAPIContractDetail(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing contract name")
+		return
+	}
+
+	if strings.Contains(name, "/") || strings.Contains(name, "..") || strings.Contains(name, string(os.PathSeparator)) {
+		writeJSONError(w, http.StatusBadRequest, "invalid contract name")
+		return
+	}
+
+	resp := findContract(name)
+	if resp == nil {
+		writeJSONError(w, http.StatusNotFound, "contract not found")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleContractDetailPage handles GET /contracts/{name} — serves the HTML contract detail page.
+func (s *Server) handleContractDetailPage(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "missing contract name", http.StatusBadRequest)
+		return
+	}
+
+	contract := findContract(name)
+	if contract == nil {
+		http.Error(w, "contract not found", http.StatusNotFound)
+		return
+	}
+
+	// Find pipeline usage
+	var usedBy []ContractUsageRef
+	pipelineNames := listPipelineNames()
+	for _, pName := range pipelineNames {
+		pl, err := loadPipelineYAML(pName)
+		if err != nil {
+			continue
+		}
+		for _, step := range pl.Steps {
+			if step.Handover.Contract.SchemaPath == "" {
+				continue
+			}
+			// Extract schema base name from path like ".wave/contracts/foo.schema.json"
+			schemaBase := filepath.Base(step.Handover.Contract.SchemaPath)
+			schemaName := strings.TrimSuffix(schemaBase, ".schema.json")
+			if !strings.HasSuffix(schemaBase, ".schema.json") {
+				schemaName = strings.TrimSuffix(schemaBase, ".json")
+			}
+			if schemaName == name {
+				usedBy = append(usedBy, ContractUsageRef{
+					Pipeline:     pName,
+					StepID:       step.ID,
+					ContractType: step.Handover.Contract.Type,
+				})
+			}
+		}
+	}
+
+	data := ContractDetailPage{
+		ActivePage: "contracts",
+		Contract:   *contract,
+		UsedBy:     usedBy,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/contract_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
 }

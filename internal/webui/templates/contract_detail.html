@@ -1,0 +1,57 @@
+{{define "title"}} - {{.Contract.Name}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/contracts" class="back-link" aria-label="Back to contracts list">&larr; Back to Contracts</a>
+        <h1>{{.Contract.Name}}{{if .Contract.Title}} <span class="text-muted">— {{.Contract.Title}}</span>{{end}}</h1>
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Filename</span> <span class="run-stat-value"><code>{{.Contract.Filename}}</code></span></span>
+        <span class="run-stat"><span class="run-stat-label">Type</span> <span class="run-stat-value">JSON Schema</span></span>
+    </div>
+</div>
+
+{{if .Contract.Description}}
+<div class="card">
+    <h2>Description</h2>
+    <p>{{.Contract.Description}}</p>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Schema</h2>
+    <pre class="detail-code"><code>{{.Contract.Schema}}</code></pre>
+</div>
+
+<div class="card">
+    <h2>Used by</h2>
+    {{if .UsedBy}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Pipeline</th>
+                <th>Step</th>
+                <th>Contract Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .UsedBy}}
+            <tr>
+                <td><a href="/pipelines/{{.Pipeline}}">{{.Pipeline}}</a></td>
+                <td><code>{{.StepID}}</code></td>
+                <td><code>{{.ContractType}}</code></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>Not used by any pipeline</strong></p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{define "scripts"}}{{end}}
