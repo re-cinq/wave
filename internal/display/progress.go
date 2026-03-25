@@ -368,6 +368,11 @@ func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 			pd.stepOrder = append(pd.stepOrder, ev.StepID)
 		}
 
+		// Update persona from resolved event value (defense-in-depth for forge template vars)
+		if ev.Persona != "" {
+			step.Persona = ev.Persona
+		}
+
 		// Update step based on event state
 		switch ev.State {
 		case "started", "running":
