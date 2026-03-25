@@ -157,6 +157,7 @@ type PersonaSummary struct {
 	AllowedTools []string `json:"allowed_tools,omitempty"`
 	DeniedTools  []string `json:"denied_tools,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
+	Prompt       string   `json:"prompt,omitempty"`
 }
 
 // PersonaListResponse is the JSON response for the persona list API.

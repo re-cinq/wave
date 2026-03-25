@@ -20,61 +20,23 @@
     </div>
 </div>
 
-<div class="stats-card-grid">
-    <div class="stats-card">
-        <span class="stats-card-label">Run ID</span>
-        <span class="stats-card-value"><code>{{.Run.RunID}}</code> <button class="stats-card-copy-btn" onclick="copyRunID('{{.Run.RunID}}', this)" title="Copy Run ID" aria-label="Copy Run ID">&#x2398;</button></span>
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value">{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Run.TotalTokens}}</span></span>
+        <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Run.FormattedStartedAt}}</span></span>
+        {{if .Run.FormattedCompletedAt}}<span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{.Run.FormattedCompletedAt}}</span></span>{{end}}
     </div>
-    <div class="stats-card">
-        <span class="stats-card-label">Pipeline</span>
-        <span class="stats-card-value">{{.Run.PipelineName}}</span>
-    </div>
-    {{if .Run.Input}}
-    <div class="stats-card stats-card-wide">
-        <span class="stats-card-label">Input</span>
-        <span class="stats-card-value">{{if gt (len .Run.Input) 120}}<details><summary>{{slice .Run.Input 0 120}}...</summary><pre class="stats-card-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>
-    </div>
-    {{end}}
-    <div class="stats-card">
-        <span class="stats-card-label">Started</span>
-        <span class="stats-card-value">{{.Run.FormattedStartedAt}}</span>
-    </div>
-    <div class="stats-card">
-        <span class="stats-card-label">Duration</span>
-        <span class="stats-card-value">{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</span>
-    </div>
-    {{if .Run.FormattedCompletedAt}}
-    <div class="stats-card">
-        <span class="stats-card-label">Finished</span>
-        <span class="stats-card-value">{{.Run.FormattedCompletedAt}}</span>
-    </div>
-    {{end}}
-    <div class="stats-card">
-        <span class="stats-card-label">Steps</span>
-        <span class="stats-card-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span>
-    </div>
-    <div class="stats-card">
-        <span class="stats-card-label">Tokens</span>
-        <span class="stats-card-value">{{formatTokens .Run.TotalTokens}}</span>
-    </div>
-    {{if .Run.BranchName}}
-    <div class="stats-card">
-        <span class="stats-card-label">Branch</span>
-        <span class="stats-card-value"><code>{{.Run.BranchName}}</code></span>
-    </div>
-    {{end}}
-    {{if .Run.LinkedURL}}
-    <div class="stats-card">
-        <span class="stats-card-label">Linked Issue/PR</span>
-        <span class="stats-card-value"><a href="{{.Run.LinkedURL}}" target="_blank" rel="noopener noreferrer">{{.Run.LinkedURL}}</a></span>
-    </div>
-    {{end}}
     {{if gt .Run.StepsTotal 0}}
-    <div class="stats-card stats-card-wide">
-        <span class="stats-card-label">Progress</span>
-        <div class="progress-bar progress-bar-sm">
-            <div class="progress-fill" style="width: {{.Run.Progress}}%"></div>
-        </div>
+    <div class="progress-bar progress-bar-sm">
+        <div class="progress-fill" style="width: {{.Run.Progress}}%"></div>
+    </div>
+    {{end}}
+    {{if or .Run.Input .Run.LinkedURL}}
+    <div class="run-summary-meta">
+        {{if .Run.Input}}<span class="run-meta-item">{{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>{{end}}
+        {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" rel="noopener noreferrer" class="run-meta-link">{{.Run.LinkedURL}}</a>{{end}}
     </div>
     {{end}}
 </div>
@@ -115,18 +77,18 @@
 </div>
 {{end}}
 
-<div class="run-detail-layout">
-    {{if .DAG}}
-    <div class="run-detail-sidebar">
-        <div class="card">
-            <h2>Pipeline Graph</h2>
-            <div id="dag-container" class="dag-container">
-                {{template "templates/partials/dag_svg.html" .DAG}}
-            </div>
+{{if .DAG}}
+<div class="card dag-card">
+    <details open>
+        <summary class="dag-toggle">Pipeline Graph</summary>
+        <div id="dag-container" class="dag-container">
+            {{template "templates/partials/dag_svg.html" .DAG}}
         </div>
-    </div>
-    {{end}}
+    </details>
+</div>
+{{end}}
 
+<div class="run-detail-layout">
     <div class="run-detail-main">
         <div class="card">
             <div class="steps-header-toolbar">
