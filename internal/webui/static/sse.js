@@ -374,7 +374,7 @@ function updateDAGNodeStatus(stepID, status) {
     if (overlay) {
         var badge = overlay.querySelector('.badge');
         if (badge) {
-            badge.className = 'badge ' + cssStatus;
+            badge.className = 'badge status-' + cssStatus;
             badge.textContent = cssStatus;
         }
         var durationText = node ? (node.getAttribute('data-duration') || '') : '';

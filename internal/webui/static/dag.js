@@ -142,7 +142,7 @@ function toggleDetailOverlay(node) {
     var statusRow = document.createElement('div');
     statusRow.className = 'detail-row';
     var badge = document.createElement('span');
-    badge.className = 'badge ' + status;
+    badge.className = 'badge status-' + status;
     badge.textContent = status;
     statusRow.appendChild(document.createTextNode('Status: '));
     statusRow.appendChild(badge);
