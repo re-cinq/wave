@@ -581,6 +581,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .persona-tools code { font-size: 0.75rem; margin-right: 0.25rem; }
 .persona-tools.denied code { background: var(--color-failed-bg); color: var(--color-failed); }
 
+/* Artifact Tree */
+.artifact-tree { padding: 0.5rem 0; }
+.artifact-group { margin-bottom: 0.75rem; padding-left: 0.5rem; border-left: 2px solid var(--color-border); }
+.artifact-group strong { color: var(--color-text); font-size: 0.875rem; }
+.artifact-group ul { margin: 0.25rem 0 0 1rem; padding: 0; list-style: none; }
+.artifact-group li { color: var(--color-text-secondary); font-size: 0.813rem; font-family: var(--font-mono); padding: 0.125rem 0; }
+
 /* Artifact Viewer */
 .artifact-viewer { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 .artifact-header { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; background: var(--color-bg-tertiary); border-bottom: 1px solid var(--color-border); }

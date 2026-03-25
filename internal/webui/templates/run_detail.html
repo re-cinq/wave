@@ -3,7 +3,8 @@
 <div class="page-header">
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
-        <h1>{{.Run.PipelineName}} <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
+        <h1><a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a> <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
+        {{if .PipelineDescription}}<p class="persona-desc">{{.PipelineDescription}}</p>{{end}}
         <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code>{{if .Run.BranchName}} | Branch: <code>{{.Run.BranchName}}</code>{{end}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
     </div>
     <div class="actions">
@@ -27,6 +28,8 @@
         <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Run.TotalTokens}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Run.FormattedStartedAt}}</span></span>
         {{if .Run.FormattedCompletedAt}}<span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{.Run.FormattedCompletedAt}}</span></span>{{end}}
+        {{if .PipelineCategory}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.PipelineCategory}}</span></span>{{end}}
+        {{if .PipelineSkills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .PipelineSkills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
     </div>
     {{if gt .Run.StepsTotal 0}}
     <div class="progress-bar progress-bar-sm">
@@ -83,6 +86,26 @@
         <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
         <div id="dag-container" class="dag-container">
             {{template "templates/partials/dag_svg.html" .DAG}}
+        </div>
+    </details>
+</div>
+{{end}}
+
+{{if .ArtifactGroups}}
+<div class="card">
+    <details>
+        <summary class="section-toggle"><h2>Artifacts</h2></summary>
+        <div class="artifact-tree">
+            {{range .ArtifactGroups}}
+            <div class="artifact-group">
+                <strong>{{.StepID}}</strong>
+                <ul>
+                    {{range .Artifacts}}
+                    <li>{{.Name}} <span class="artifact-size">({{.SizeBytes}} bytes)</span></li>
+                    {{end}}
+                </ul>
+            </div>
+            {{end}}
         </div>
     </details>
 </div>

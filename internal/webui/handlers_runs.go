@@ -311,18 +311,46 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Extract pipeline metadata for the header
+	var pipelineDescription, pipelineCategory string
+	var pipelineSkills []string
+	if p, err := loadPipelineYAML(run.PipelineName); err == nil {
+		pipelineDescription = p.Metadata.Description
+		pipelineCategory = p.Metadata.Category
+		pipelineSkills = filterTemplateVars(p.Skills)
+	}
+
+	// Group artifacts by step
+	var artifactGroups []StepArtifactGroup
+	for _, sd := range stepDetails {
+		if len(sd.Artifacts) > 0 {
+			artifactGroups = append(artifactGroups, StepArtifactGroup{
+				StepID:    sd.StepID,
+				Artifacts: sd.Artifacts,
+			})
+		}
+	}
+
 	data := struct {
-		ActivePage string
-		Run        RunSummary
-		Steps      []StepDetail
-		Events     []EventSummary
-		DAG        *DAGLayout
+		ActivePage          string
+		Run                 RunSummary
+		Steps               []StepDetail
+		Events              []EventSummary
+		DAG                 *DAGLayout
+		PipelineDescription string
+		PipelineCategory    string
+		PipelineSkills      []string
+		ArtifactGroups      []StepArtifactGroup
 	}{
-		ActivePage: "runs",
-		Run:        runSummary,
-		Steps:      stepDetails,
-		Events:     eventSummaries,
-		DAG:        dagLayout,
+		ActivePage:          "runs",
+		Run:                 runSummary,
+		Steps:               stepDetails,
+		Events:              eventSummaries,
+		DAG:                 dagLayout,
+		PipelineDescription: pipelineDescription,
+		PipelineCategory:    pipelineCategory,
+		PipelineSkills:      pipelineSkills,
+		ArtifactGroups:      artifactGroups,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
