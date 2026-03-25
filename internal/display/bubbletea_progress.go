@@ -250,6 +250,10 @@ func (btpd *BubbleTeaProgressDisplay) updateFromEvent(evt event.Event) {
 			btpd.stepStartTimes[evt.StepID] = time.Now()
 		}
 		step.State = StateRunning
+		// Update persona from resolved event value (defense-in-depth for forge template vars)
+		if evt.Persona != "" {
+			step.Persona = evt.Persona
+		}
 		// Capture model/adapter/temperature metadata from start events
 		if evt.Model != "" {
 			btpd.stepModels[evt.StepID] = evt.Model

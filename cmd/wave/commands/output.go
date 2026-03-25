@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
@@ -201,18 +203,38 @@ func CreateEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pi
 	}
 }
 
+// resolveForgePersona replaces {{ forge.type }} (and unspaced variant) in a
+// persona name with the detected forge type string.
+func resolveForgePersona(persona string, info forge.ForgeInfo) string {
+	if !strings.Contains(persona, "forge.") {
+		return persona
+	}
+	r := strings.NewReplacer(
+		"{{ forge.type }}", string(info.Type),
+		"{{forge.type}}", string(info.Type),
+		"{{ forge.cli_tool }}", info.CLITool,
+		"{{forge.cli_tool}}", info.CLITool,
+		"{{ forge.pr_command }}", info.PRCommand,
+		"{{forge.pr_command}}", info.PRCommand,
+	)
+	return r.Replace(persona)
+}
+
 // createAutoEmitter selects BubbleTea TUI when connected to a TTY,
 // plain text otherwise.
 func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
 	termInfo := display.NewTerminalInfo()
 	isTTY := termInfo.IsTTY() && termInfo.SupportsANSI()
 
+	// Detect forge for resolving persona template variables
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+
 	if isTTY {
 		btpd := display.NewBubbleTeaProgressDisplay(pipelineID, pipelineName, len(steps), nil, cfg.Verbose)
 
-		// Register steps for tracking
+		// Register steps for tracking with resolved persona names
 		for _, step := range steps {
-			btpd.AddStep(step.ID, step.ID, step.Persona)
+			btpd.AddStep(step.ID, step.ID, resolveForgePersona(step.Persona, forgeInfo))
 		}
 
 		throttled := display.NewThrottledProgressEmitter(btpd)
