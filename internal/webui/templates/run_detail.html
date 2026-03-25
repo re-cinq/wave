@@ -138,6 +138,8 @@
                         <button id="log-search-prev" title="Previous match (Shift+Ctrl+G)">&#x25B2;</button>
                         <button id="log-search-next" title="Next match (Ctrl+G)">&#x25BC;</button>
                         <button id="log-search-clear" title="Clear search">&#x2715;</button>
+                        <button id="log-filter-toggle" class="log-filter-btn" title="Filter mode: hide non-matching lines">Filter</button>
+                        <span id="log-filter-count" class="log-filter-count"></span>
                     </div>
                     <div class="log-level-filter">
                         <button class="log-level-btn log-level-active" data-level="all" onclick="filterLogLevel('all', this)" title="Show all logs">All</button>
@@ -248,7 +250,7 @@ function formatArtifactContent(content) {
         if (/\b(error|fatal|panic|FAIL)\b/i.test(line)) cls = ' log-error';
         else if (/\b(warn|warning|WARN)\b/i.test(line)) cls = ' log-warning';
         else if (/\b(info|INFO|note|NOTE)\b/i.test(line)) cls = ' log-info';
-        return '<span class="log-line"><span class="log-line-number">' + num + '</span><span class="log-line-content' + cls + '">' + line + '</span></span>';
+        return '<span class="log-line"><span class="log-line-number">' + num + '</span><span class="log-line-content' + cls + '">' + escapeHTML(line) + '</span></span>';
     }).join('\n');
 }
 
@@ -258,6 +260,9 @@ function copyRunID(text, btn) {
         var orig = btn.textContent;
         btn.textContent = 'Copied';
         setTimeout(function() { btn.textContent = orig; }, 1500);
+    }).catch(function() {
+        btn.textContent = 'Failed';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
     });
 }
 

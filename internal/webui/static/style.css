@@ -1193,3 +1193,106 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 .step-duration[data-live-timer="true"] {
     color: var(--color-running);
 }
+
+/* Step status icons */
+.step-status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: 50%;
+}
+.step-status-running {
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 2px solid var(--color-running-bg);
+    border-top-color: var(--color-running);
+    animation: spin 0.8s linear infinite;
+}
+.step-status-completed {
+    color: var(--color-completed);
+    font-weight: bold;
+}
+.step-status-failed {
+    color: var(--color-failed);
+    font-weight: bold;
+}
+.step-status-pending {
+    color: var(--color-text-muted);
+    font-size: 0.5rem;
+}
+
+/* Step chevron — replaces step-toggle */
+.step-chevron {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    flex-shrink: 0;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+    margin-right: 0.25rem;
+}
+.step-card[data-expanded="true"] .step-chevron,
+.step-card:not(.step-collapsed) .step-chevron {
+    transform: rotate(-135deg);
+}
+.step-card.step-collapsed .step-chevron {
+    transform: rotate(-45deg);
+}
+
+/* Active step highlight */
+.step-card.step-active {
+    box-shadow: 0 0 0 2px var(--color-running);
+}
+
+/* Repeat collapsing — "repeated N times" badge */
+.log-repeated {
+    position: relative;
+}
+.log-repeat-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 2em;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Search filter mode */
+.log-filter-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.log-filter-btn:hover {
+    background: var(--color-border);
+    color: var(--color-text);
+}
+.log-filter-btn.log-filter-active {
+    background: var(--wave-primary);
+    color: #fff;
+    border-color: var(--wave-primary);
+}
+.log-filter-count {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}

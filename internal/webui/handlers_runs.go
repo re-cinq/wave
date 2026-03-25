@@ -98,7 +98,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
 	// Get events
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
 	}
@@ -239,7 +239,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get events
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 100})
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
 	}
