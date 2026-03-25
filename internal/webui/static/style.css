@@ -262,10 +262,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .detail-dialog {
     background: var(--color-bg-secondary); color: var(--color-text);
     border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-    padding: 0; max-width: 640px; width: 90%;
+    padding: 0; max-width: 800px; width: 90%;
     box-shadow: 0 8px 32px var(--color-shadow);
     margin: auto; position: fixed; inset: 0; height: fit-content;
-    max-height: 80vh;
+    max-height: 85vh;
     overflow: hidden;
 }
 .detail-dialog[open] { display: flex; flex-direction: column; overscroll-behavior: contain; }
@@ -295,6 +295,12 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .detail-list dd code {
     font-size: 0.75rem; word-break: break-all;
+}
+.persona-prompt {
+    margin: 0.5rem 0 0; padding: 1rem; background: var(--color-bg);
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    font-size: 0.75rem; line-height: 1.5; white-space: pre-wrap;
+    word-break: break-word; max-height: 40vh; overflow-y: auto;
 }
 .dialog-actions {
     display: flex; justify-content: flex-end; gap: 0.5rem;
@@ -503,10 +509,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .event-step { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-bg-tertiary); padding: 0.15em 0.5em; border-radius: var(--radius-sm); }
 .event-message { color: var(--color-text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Run Detail Layout — sidebar (DAG) + main (steps/events) */
-.run-detail-layout { display: flex; gap: 1rem; align-items: flex-start; }
-.run-detail-sidebar { flex: 0 0 auto; position: sticky; top: 4.5rem; }
-.run-detail-main { flex: 1; min-width: 0; }
+/* Run Detail Layout — single column, full width */
+.run-detail-layout { display: flex; flex-direction: column; gap: 1rem; }
+.run-detail-main { width: 100%; min-width: 0; }
 
 /* DAG Visualization */
 .dag-container { overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
@@ -595,8 +600,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     .container { padding: 1rem; }
     .personas-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .health-checks { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-    .run-detail-layout { flex-direction: column; }
-    .run-detail-sidebar { position: static; width: 100%; order: -1; }
+    .run-detail-layout { gap: 0.75rem; }
 }
 @media (max-width: 768px) {
     html { font-size: 13px; }
@@ -624,7 +628,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     .log-search input { width: 100%; }
     .log-level-filter { width: 100%; justify-content: flex-start; }
     .run-detail-layout { gap: 0.5rem; }
-    .stats-card-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+    .run-summary-stats { gap: 0.25rem 0.75rem; }
     .filters { flex-direction: column; gap: 0.5rem; }
     .filters select, .filters input { width: 100%; }
     .step-log-content .log-line .log-line-number { display: none; }
@@ -1056,41 +1060,52 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 }
 
 /* Stats Card Grid */
-.stats-card-grid {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-.stats-card {
-    display: flex; flex-direction: column; gap: 0.25rem;
-    padding: 0.75rem 1rem;
+/* Run summary bar — compact horizontal stats */
+.run-summary-bar {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    margin-bottom: 1rem; padding: 0.625rem 1rem;
     background: var(--color-bg-secondary); border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
 }
-.stats-card-wide { grid-column: 1 / -1; }
-.stats-card-label {
+.run-summary-stats {
+    display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: baseline;
+}
+.run-stat { display: inline-flex; align-items: baseline; gap: 0.35rem; }
+.run-stat-label {
     font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.05em; color: var(--color-text-muted);
+    letter-spacing: 0.04em; color: var(--color-text-muted);
 }
-.stats-card-value {
-    font-size: 0.875rem; font-weight: 600; font-family: var(--font-mono);
-    color: var(--color-text); word-break: break-word;
+.run-stat-value {
+    font-size: 0.8125rem; font-weight: 600; font-family: var(--font-mono);
+    color: var(--color-text);
 }
-.stats-card-value a { color: var(--color-link); text-decoration: none; }
-.stats-card-value a:hover { text-decoration: underline; color: var(--color-link-hover); }
-.stats-card-copy-btn {
-    display: inline-block; background: none; border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm); color: var(--color-text-secondary);
-    cursor: pointer; padding: 0.1rem 0.35rem; font-size: 0.75rem;
-    vertical-align: middle; margin-left: 0.25rem; line-height: 1;
+.run-summary-meta {
+    font-size: 0.8rem; color: var(--color-text-secondary);
+    word-break: break-word; line-height: 1.4;
 }
-.stats-card-copy-btn:hover { color: var(--color-text); border-color: var(--color-border-light); }
-.stats-card-input-full {
-    margin: 0.5rem 0 0; padding: 0.5rem; font-size: 0.8rem;
+.run-meta-link { color: var(--color-link); text-decoration: none; }
+.run-meta-link:hover { text-decoration: underline; }
+.run-meta-input-full {
+    margin: 0.25rem 0 0; padding: 0.5rem; font-size: 0.8rem;
     background: var(--color-bg-tertiary); border-radius: var(--radius-sm);
     white-space: pre-wrap; word-break: break-word;
 }
-.stats-card details summary { cursor: pointer; }
+.run-summary-bar details summary { cursor: pointer; }
+.run-summary-bar .progress-bar-sm { height: 0.375rem; }
 .progress-bar-sm { height: 0.5rem; }
+
+/* DAG card — full width, collapsible */
+.dag-card { margin-bottom: 1rem; }
+.dag-toggle {
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    list-style: none; padding: 0.5rem 0; color: var(--color-text);
+}
+.dag-toggle::-webkit-details-marker { display: none; }
+.dag-toggle::before {
+    content: '\25B6'; display: inline-block; margin-right: 0.5rem;
+    font-size: 0.625rem; transition: transform 0.15s;
+}
+details[open] > .dag-toggle::before { transform: rotate(90deg); }
 .progress-bar-sm .progress-fill { font-size: 0; min-width: 0; }
 
 /* Steps Timeline */
@@ -1179,7 +1194,7 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
     .nav-links.nav-open { display: flex; }
     .nav-link { padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); }
     .theme-toggle { align-self: flex-start; margin: 0.25rem 0.75rem; }
-    .stats-card-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+    .run-summary-stats { gap: 0.25rem 0.75rem; }
     .log-toolbar { flex-direction: column; align-items: flex-start; }
     .filter-chips { gap: 0.35rem; }
 }

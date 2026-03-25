@@ -93,6 +93,8 @@ type DefaultPipelineExecutor struct {
 	stackedBaseBranch string
 	// Debug tracer for structured NDJSON trace file output (enabled by --debug)
 	debugTracer *audit.DebugTracer
+	// Accumulated token count across all steps (survives pipeline cleanup)
+	totalTokens int
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -1518,6 +1520,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.mu.Lock()
 	execution.Results[step.ID] = output
 	execution.mu.Unlock()
+
+	// Accumulate tokens at executor level (survives pipeline cleanup)
+	if result.TokensUsed > 0 {
+		e.mu.Lock()
+		e.totalTokens += result.TokensUsed
+		e.mu.Unlock()
+	}
 
 	// Check for stdout artifacts and validate size limits
 	hasStdoutArtifacts := false
@@ -2984,16 +2993,7 @@ func (e *DefaultPipelineExecutor) GetDeliverableTracker() *deliverable.Tracker {
 func (e *DefaultPipelineExecutor) GetTotalTokens() int {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-
-	var total int
-	for _, execution := range e.pipelines {
-		for _, result := range execution.Results {
-			if tokens, ok := result["tokens_used"].(int); ok {
-				total += tokens
-			}
-		}
-	}
-	return total
+	return e.totalTokens
 }
 
 func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {

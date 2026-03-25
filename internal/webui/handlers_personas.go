@@ -2,6 +2,7 @@ package webui
 
 import (
 	"net/http"
+	"os"
 	"sort"
 )
 
@@ -37,6 +38,13 @@ func (s *Server) getPersonaSummaries() []PersonaSummary {
 
 	var personas []PersonaSummary
 	for name, p := range s.manifest.Personas {
+		var prompt string
+		if p.SystemPromptFile != "" {
+			promptPath := p.GetSystemPromptPath(s.repoDir)
+			if data, err := os.ReadFile(promptPath); err == nil {
+				prompt = string(data)
+			}
+		}
 		personas = append(personas, PersonaSummary{
 			Name:         name,
 			Description:  p.Description,
@@ -46,6 +54,7 @@ func (s *Server) getPersonaSummaries() []PersonaSummary {
 			AllowedTools: p.Permissions.AllowedTools,
 			DeniedTools:  p.Permissions.Deny,
 			Skills:       p.Skills,
+			Prompt:       prompt,
 		})
 	}
 
