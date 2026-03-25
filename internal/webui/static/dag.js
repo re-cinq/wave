@@ -20,17 +20,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         node.addEventListener('mouseleave', hideTooltip);
         node.addEventListener('click', function() {
-            var id = this.getAttribute('data-id');
-            scrollToStep(id);
+            toggleDetailOverlay(this);
         });
         node.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                var id = this.getAttribute('data-id');
-                scrollToStep(id);
+                toggleDetailOverlay(this);
             }
         });
         node.style.cursor = 'pointer';
+    });
+
+    // Close overlay when clicking outside of it and outside dag nodes
+    document.addEventListener('click', function(e) {
+        var overlay = document.querySelector('.dag-detail-overlay');
+        if (!overlay) return;
+        // If the click is inside the overlay or on a dag node, do nothing
+        if (overlay.contains(e.target) || e.target.closest('.dag-node')) return;
+        overlay.remove();
     });
 });
 
@@ -59,6 +66,125 @@ function hideTooltip() {
     if (tooltip) {
         tooltip.style.display = 'none';
     }
+}
+
+// Extract X,Y from an SVG transform="translate(X, Y)" attribute.
+function parseTranslate(node) {
+    var transform = node.getAttribute('transform') || '';
+    var match = transform.match(/translate\(\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/);
+    if (match) {
+        return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+    }
+    return { x: 0, y: 0 };
+}
+
+// Compute the scale factor between SVG viewBox coordinates and rendered pixels.
+function getSVGScale(svgEl) {
+    var viewBox = svgEl.viewBox.baseVal;
+    if (!viewBox || viewBox.width === 0) return 1;
+    var rect = svgEl.getBoundingClientRect();
+    return rect.width / viewBox.width;
+}
+
+// Toggle the detail overlay for a given DAG node <g> element.
+function toggleDetailOverlay(node) {
+    var id = node.getAttribute('data-id');
+    var existing = document.querySelector('.dag-detail-overlay');
+
+    // If an overlay already exists for this node, remove it (toggle off)
+    if (existing && existing.getAttribute('data-for') === id) {
+        existing.remove();
+        return;
+    }
+
+    // Remove any existing overlay for a different node
+    if (existing) {
+        existing.remove();
+    }
+
+    var container = node.closest('.dag-container');
+    if (!container) return;
+
+    // Ensure the container is a positioning context for absolute children
+    if (getComputedStyle(container).position === 'static') {
+        container.style.position = 'relative';
+    }
+
+    var svgEl = container.querySelector('.dag-svg');
+    if (!svgEl) return;
+
+    var status = node.getAttribute('data-status') || '';
+    var persona = node.getAttribute('data-persona') || '';
+    var duration = node.getAttribute('data-duration') || '';
+    var tokens = node.getAttribute('data-tokens') || '';
+
+    var pos = parseTranslate(node);
+    var scale = getSVGScale(svgEl);
+
+    // Position the overlay to the right of the node (node width 140 + 8px gap)
+    var overlayX = (pos.x + 140 + 8) * scale;
+    var overlayY = pos.y * scale;
+
+    // Build the overlay element
+    var overlay = document.createElement('div');
+    overlay.className = 'dag-detail-overlay';
+    overlay.setAttribute('data-for', id);
+    overlay.style.left = overlayX + 'px';
+    overlay.style.top = overlayY + 'px';
+
+    // Header: step ID
+    var header = document.createElement('div');
+    header.className = 'detail-header';
+    header.textContent = id;
+    overlay.appendChild(header);
+
+    // Status row with badge
+    var statusRow = document.createElement('div');
+    statusRow.className = 'detail-row';
+    var badge = document.createElement('span');
+    badge.className = 'badge ' + status;
+    badge.textContent = status;
+    statusRow.appendChild(document.createTextNode('Status: '));
+    statusRow.appendChild(badge);
+    overlay.appendChild(statusRow);
+
+    // Persona row
+    if (persona) {
+        var personaRow = document.createElement('div');
+        personaRow.className = 'detail-row';
+        personaRow.textContent = 'Persona: ' + persona;
+        overlay.appendChild(personaRow);
+    }
+
+    // Duration row
+    if (duration) {
+        var durationRow = document.createElement('div');
+        durationRow.className = 'detail-row';
+        durationRow.textContent = 'Duration: ' + duration;
+        overlay.appendChild(durationRow);
+    }
+
+    // Tokens row
+    if (tokens && tokens !== '0') {
+        var tokensRow = document.createElement('div');
+        tokensRow.className = 'detail-row';
+        tokensRow.textContent = 'Tokens: ' + tokens;
+        overlay.appendChild(tokensRow);
+    }
+
+    // "Go to step" link
+    var link = document.createElement('a');
+    link.className = 'detail-link';
+    link.href = '#';
+    link.textContent = 'Go to step \u2192';
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        overlay.remove();
+        scrollToStep(id);
+    });
+    overlay.appendChild(link);
+
+    container.appendChild(overlay);
 }
 
 function scrollToStep(stepID) {
