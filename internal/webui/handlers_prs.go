@@ -10,7 +10,9 @@ import (
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
 func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
-	prData := s.getPRListData()
+	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	page := parsePageNumber(r)
+	prData := s.getPRListData(stateFilter, page)
 
 	data := struct {
 		ActivePage string
@@ -28,14 +30,20 @@ func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIPRs handles GET /api/prs - returns PR list as JSON.
 func (s *Server) handleAPIPRs(w http.ResponseWriter, r *http.Request) {
-	data := s.getPRListData()
+	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	page := parsePageNumber(r)
+	data := s.getPRListData(stateFilter, page)
 	writeJSON(w, http.StatusOK, data)
 }
 
-func (s *Server) getPRListData() PRListResponse {
+const prsPerPage = 50
+
+func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	if s.githubClient == nil || s.repoSlug == "" {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
+			FilterState:  stateFilter,
+			Page:         page,
 			Message:      "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
 		}
 	}
@@ -44,6 +52,8 @@ func (s *Server) getPRListData() PRListResponse {
 	if owner == "" {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
+			FilterState:  stateFilter,
+			Page:         page,
 			Message:      "Could not determine repository from git remote.",
 		}
 	}
@@ -52,14 +62,22 @@ func (s *Server) getPRListData() PRListResponse {
 	defer cancel()
 
 	prs, err := s.githubClient.ListPullRequests(ctx, owner, repo, github.ListPullRequestsOptions{
-		State:   "open",
-		PerPage: 50,
+		State:   stateFilter,
+		PerPage: prsPerPage + 1, // fetch one extra to detect HasMore
+		Page:    page,
 	})
 	if err != nil {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
+			FilterState:  stateFilter,
+			Page:         page,
 			Message:      "Failed to fetch pull requests: " + err.Error(),
 		}
+	}
+
+	hasMore := len(prs) > prsPerPage
+	if hasMore {
+		prs = prs[:prsPerPage]
 	}
 
 	var summaries []PRSummary
@@ -100,5 +118,8 @@ func (s *Server) getPRListData() PRListResponse {
 	return PRListResponse{
 		PullRequests: summaries,
 		RepoSlug:     s.repoSlug,
+		FilterState:  stateFilter,
+		Page:         page,
+		HasMore:      hasMore,
 	}
 }
