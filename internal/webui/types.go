@@ -11,21 +11,25 @@ type RunListResponse struct {
 
 // RunSummary is a summary of a pipeline run for list views.
 type RunSummary struct {
-	RunID          string     `json:"run_id"`
-	PipelineName   string     `json:"pipeline_name"`
-	Status         string     `json:"status"`
-	CurrentStep    string     `json:"current_step,omitempty"`
-	TotalTokens    int        `json:"total_tokens"`
-	StartedAt      time.Time  `json:"started_at"`
-	CompletedAt    *time.Time `json:"completed_at,omitempty"`
-	Duration       string     `json:"duration,omitempty"`
-	Tags           []string   `json:"tags,omitempty"`
-	Progress       int        `json:"progress,omitempty"`
-	ErrorMessage   string     `json:"error_message,omitempty"`
-	InputPreview   string     `json:"input_preview,omitempty"`
-	BranchName     string     `json:"branch_name,omitempty"`
-	StepsCompleted int        `json:"steps_completed,omitempty"`
-	StepsTotal     int        `json:"steps_total,omitempty"`
+	RunID                string     `json:"run_id"`
+	PipelineName         string     `json:"pipeline_name"`
+	Status               string     `json:"status"`
+	CurrentStep          string     `json:"current_step,omitempty"`
+	TotalTokens          int        `json:"total_tokens"`
+	StartedAt            time.Time  `json:"started_at"`
+	CompletedAt          *time.Time `json:"completed_at,omitempty"`
+	Duration             string     `json:"duration,omitempty"`
+	Tags                 []string   `json:"tags,omitempty"`
+	Progress             int        `json:"progress,omitempty"`
+	ErrorMessage         string     `json:"error_message,omitempty"`
+	InputPreview         string     `json:"input_preview,omitempty"`
+	Input                string     `json:"input,omitempty"`
+	LinkedURL            string     `json:"linked_url,omitempty"`
+	FormattedStartedAt   string     `json:"formatted_started_at,omitempty"`
+	FormattedCompletedAt string     `json:"formatted_completed_at,omitempty"`
+	BranchName           string     `json:"branch_name,omitempty"`
+	StepsCompleted       int        `json:"steps_completed,omitempty"`
+	StepsTotal           int        `json:"steps_total,omitempty"`
 }
 
 // RunDetailResponse is the JSON response for the run detail API.
