@@ -166,6 +166,12 @@
             </div>
         </div>
 
+        {{if .Run.BranchName}}
+        <div class="card" id="diff-panel">
+            <!-- Populated by diff-viewer.js -->
+        </div>
+        {{end}}
+
         {{if .Events}}
         <div class="card">
             <h2>Events</h2>
@@ -191,6 +197,7 @@
 {{define "scripts"}}
 <script src="/static/log-viewer.js"></script>
 <script src="/static/sse.js"></script>
+<script src="/static/diff-viewer.js"></script>
 <script>
 // Connect SSE only for actively running pipelines
 var runStatus = '{{.Run.Status}}';
@@ -322,6 +329,13 @@ function toggleArtifact(link) {
         });
 }
 
+// Initialize diff viewer (T011, T020)
+var diffPanel = document.getElementById('diff-panel');
+if (diffPanel && window.DiffViewer) {
+    var diffViewer = new DiffViewer('{{.Run.RunID}}', diffPanel);
+    diffViewer.loadFileList();
+    window.diffViewer = diffViewer;
+}
 
 </script>
 {{end}}

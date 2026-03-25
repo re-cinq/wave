@@ -306,3 +306,37 @@ type HealthCheckResult struct {
 type HealthListResponse struct {
 	Checks []HealthCheckResult `json:"checks"`
 }
+
+// DiffSummary represents the aggregate changed-file list for a pipeline run.
+type DiffSummary struct {
+	Files          []FileSummary `json:"files"`
+	TotalFiles     int           `json:"total_files"`
+	TotalAdditions int           `json:"total_additions"`
+	TotalDeletions int           `json:"total_deletions"`
+	BaseBranch     string        `json:"base_branch"`
+	HeadBranch     string        `json:"head_branch"`
+	Available      bool          `json:"available"`
+	Message        string        `json:"message,omitempty"`
+}
+
+// FileSummary represents a single changed file in the diff summary.
+type FileSummary struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+	Binary    bool   `json:"binary"`
+}
+
+// FileDiff represents the diff content for a single file.
+type FileDiff struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+	Content   string `json:"content"`
+	Truncated bool   `json:"truncated"`
+	Size      int    `json:"size"`
+	Binary    bool   `json:"binary"`
+	OldPath   string `json:"old_path,omitempty"`
+}
