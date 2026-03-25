@@ -363,6 +363,30 @@ function updateDAGNodeStatus(stepID, status) {
         if (rect) {
             rect.setAttribute('class', 'dag-node-rect ' + cssStatus);
         }
+        var icon = node.querySelector('.dag-status-icon');
+        if (icon) {
+            icon.setAttribute('class', 'dag-status-icon ' + cssStatus);
+        }
+    }
+
+    // Refresh detail overlay if one is open for this node
+    var overlay = document.querySelector('.dag-detail-overlay[data-for="' + stepID + '"]');
+    if (overlay) {
+        var badge = overlay.querySelector('.badge');
+        if (badge) {
+            badge.className = 'badge status-' + cssStatus;
+            badge.textContent = cssStatus;
+        }
+        var durationText = node ? (node.getAttribute('data-duration') || '') : '';
+        var rows = overlay.querySelectorAll('.detail-row');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].textContent.indexOf('Duration:') === 0) {
+                if (durationText) {
+                    rows[i].textContent = 'Duration: ' + durationText;
+                }
+                break;
+            }
+        }
     }
 }
 
