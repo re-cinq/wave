@@ -98,7 +98,6 @@ func (p *Publisher) PublishOne(ctx context.Context, name string, opts PublishOpt
 	if existing != nil && existing.Digest == digest {
 		result.Skipped = true
 		result.SkipReason = "up-to-date"
-		result.Success = true
 		return result
 	}
 
@@ -120,7 +119,15 @@ func (p *Publisher) PublishOne(ctx context.Context, name string, opts PublishOpt
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(publishCtx, tesslPath, "publish", s.SourcePath)
+	args := []string{"publish", s.SourcePath}
+	registry := p.registryName
+	if opts.Registry != "" {
+		registry = opts.Registry
+	}
+	if registry != "" {
+		args = append(args, "--registry", registry)
+	}
+	cmd := exec.CommandContext(publishCtx, tesslPath, args...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
