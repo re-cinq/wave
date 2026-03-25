@@ -10,11 +10,12 @@
         stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
   {{end}}
   {{range .Nodes}}
-  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, status: {{.Status}}" tabindex="0">
+  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, status: {{.Status}}" tabindex="0">
     <rect width="140" height="60" rx="8" ry="8" class="dag-node-rect {{.Status}}"/>
-    <text x="70" y="20" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
-    <text x="70" y="36" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text>
-    {{if .Duration}}<text x="70" y="52" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
+    <circle cx="12" cy="30" r="5" class="dag-status-icon {{.Status}}"/>
+    <text x="80" y="20" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
+    <text x="80" y="36" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text>
+    {{if .Duration}}<text x="80" y="52" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
   </g>
   {{end}}
 </svg>
