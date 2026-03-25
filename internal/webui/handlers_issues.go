@@ -12,7 +12,9 @@ import (
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
 func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
-	issueData := s.getIssueListData()
+	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	page := parsePageNumber(r)
+	issueData := s.getIssueListData(stateFilter, page)
 
 	data := struct {
 		ActivePage string
@@ -30,7 +32,9 @@ func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIIssues handles GET /api/issues - returns issue list as JSON.
 func (s *Server) handleAPIIssues(w http.ResponseWriter, r *http.Request) {
-	data := s.getIssueListData()
+	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	page := parsePageNumber(r)
+	data := s.getIssueListData(stateFilter, page)
 	writeJSON(w, http.StatusOK, data)
 }
 
@@ -72,19 +76,25 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (s *Server) getIssueListData() IssueListResponse {
+const issuesPerPage = 50
+
+func (s *Server) getIssueListData(stateFilter string, page int) IssueListResponse {
 	if s.githubClient == nil || s.repoSlug == "" {
 		return IssueListResponse{
-			Issues:  []IssueSummary{},
-			Message: "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
+			Issues:      []IssueSummary{},
+			FilterState: stateFilter,
+			Page:        page,
+			Message:     "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
 		}
 	}
 
 	owner, repo := splitRepoSlug(s.repoSlug)
 	if owner == "" {
 		return IssueListResponse{
-			Issues:  []IssueSummary{},
-			Message: "Could not determine repository from git remote.",
+			Issues:      []IssueSummary{},
+			FilterState: stateFilter,
+			Page:        page,
+			Message:     "Could not determine repository from git remote.",
 		}
 	}
 
@@ -92,14 +102,22 @@ func (s *Server) getIssueListData() IssueListResponse {
 	defer cancel()
 
 	issues, err := s.githubClient.ListIssues(ctx, owner, repo, github.ListIssuesOptions{
-		State:   "open",
-		PerPage: 50,
+		State:   stateFilter,
+		PerPage: issuesPerPage + 1, // fetch one extra to detect HasMore
+		Page:    page,
 	})
 	if err != nil {
 		return IssueListResponse{
-			Issues:  []IssueSummary{},
-			Message: "Failed to fetch issues: " + err.Error(),
+			Issues:      []IssueSummary{},
+			FilterState: stateFilter,
+			Page:        page,
+			Message:     "Failed to fetch issues: " + err.Error(),
 		}
+	}
+
+	hasMore := len(issues) > issuesPerPage
+	if hasMore {
+		issues = issues[:issuesPerPage]
 	}
 
 	var summaries []IssueSummary
@@ -132,8 +150,11 @@ func (s *Server) getIssueListData() IssueListResponse {
 	}
 
 	return IssueListResponse{
-		Issues:   summaries,
-		RepoSlug: s.repoSlug,
+		Issues:      summaries,
+		RepoSlug:    s.repoSlug,
+		FilterState: stateFilter,
+		Page:        page,
+		HasMore:     hasMore,
 	}
 }
 
