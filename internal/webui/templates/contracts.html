@@ -14,7 +14,7 @@
             <span class="badge">{{.Filename}}</span>
         </div>
         <div class="card-actions">
-            <button class="btn" onclick="viewContract('{{.Name}}')" aria-label="View schema for {{.Name}}">View Schema</button>
+            <a href="/contracts/{{.Name}}" class="btn" aria-label="View schema for {{.Name}}">View Schema</a>
         </div>
     </div>
     {{end}}
@@ -26,39 +26,5 @@
     <p>Add JSON schema files to <code>.wave/contracts/</code> to define output validation.</p>
 </div>
 {{end}}
-<dialog id="schema-dialog" class="detail-dialog" aria-labelledby="schema-dialog-title">
-    <div class="detail-dialog-header">
-        <h3 id="schema-dialog-title"></h3>
-        <button class="btn-icon" onclick="document.getElementById('schema-dialog').close()" title="Close">&times;</button>
-    </div>
-    <div id="schema-dialog-body" class="detail-dialog-body"></div>
-</dialog>
 {{end}}
-{{define "scripts"}}
-<script>
-function viewContract(name) {
-    var dialog = document.getElementById('schema-dialog');
-    var title = document.getElementById('schema-dialog-title');
-    var body = document.getElementById('schema-dialog-body');
-
-    title.textContent = name;
-    body.innerHTML = '<span class="artifact-loading">Loading\u2026</span>';
-    dialog.showModal();
-
-    fetch('/api/contracts/' + encodeURIComponent(name))
-        .then(function(resp) {
-            if (!resp.ok) {
-                return resp.json().then(function(e) { throw new Error(e.error || resp.statusText); });
-            }
-            return resp.json();
-        })
-        .then(function(data) {
-            body.innerHTML = '<pre class="detail-code"><code>' + escapeHTML(data.schema) + '</code></pre>';
-        })
-        .catch(function(err) {
-            body.innerHTML = '<div class="step-error">Failed to load: ' + escapeHTML(String(err)) + '</div>';
-        });
-}
-
-</script>
-{{end}}
+{{define "scripts"}}{{end}}

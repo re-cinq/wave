@@ -21,6 +21,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /personas", s.handlePersonasPage)
 	mux.HandleFunc("GET /personas/{name}", s.handlePersonaDetailPage)
 	mux.HandleFunc("GET /contracts", s.handleContractsPage)
+	mux.HandleFunc("GET /contracts/{name}", s.handleContractDetailPage)
 	mux.HandleFunc("GET /skills", s.handleSkillsPage)
 	mux.HandleFunc("GET /compose", s.handleComposePage)
 	mux.HandleFunc("GET /issues", s.handleIssuesPage)

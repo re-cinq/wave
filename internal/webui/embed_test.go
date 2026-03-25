@@ -279,6 +279,7 @@ func TestParseTemplates(t *testing.T) {
 		"templates/persona_detail.html",
 		"templates/pipelines.html",
 		"templates/contracts.html",
+		"templates/contract_detail.html",
 		"templates/skills.html",
 		"templates/compose.html",
 		"templates/issues.html",
