@@ -48,13 +48,22 @@ func TestComputeDAGLayout_LinearChain(t *testing.T) {
 		t.Errorf("expected 2 edges, got %d", len(layout.Edges))
 	}
 
-	// Verify nodes are in different layers (different Y positions in top-to-bottom layout)
+	// Verify nodes are in different layers (different X positions in left-to-right layout)
+	xPositions := make(map[int]bool)
+	for _, n := range layout.Nodes {
+		xPositions[n.X] = true
+	}
+	if len(xPositions) != 3 {
+		t.Errorf("expected 3 different X positions for linear chain, got %d", len(xPositions))
+	}
+
+	// All nodes in a linear chain have 1 node per layer, so Y should be the same
 	yPositions := make(map[int]bool)
 	for _, n := range layout.Nodes {
 		yPositions[n.Y] = true
 	}
-	if len(yPositions) != 3 {
-		t.Errorf("expected 3 different Y positions for linear chain, got %d", len(yPositions))
+	if len(yPositions) != 1 {
+		t.Errorf("expected all nodes to share same Y position in linear chain, got %d unique", len(yPositions))
 	}
 }
 
@@ -78,9 +87,73 @@ func TestComputeDAGLayout_Diamond(t *testing.T) {
 		t.Errorf("expected 4 edges, got %d", len(layout.Edges))
 	}
 
-	// Height should accommodate at least 3 layers (top-to-bottom layout)
-	if layout.Height < 3*layerGapY {
-		t.Errorf("expected height >= %d for 3-layer graph, got %d", 3*layerGapY, layout.Height)
+	// Width should accommodate at least 3 layers (left-to-right layout)
+	if layout.Width < 3*layerGapX {
+		t.Errorf("expected width >= %d for 3-layer graph, got %d", 3*layerGapX, layout.Width)
+	}
+}
+
+func TestComputeDAGLayout_FanOut(t *testing.T) {
+	steps := []DAGStepInput{
+		{ID: "source", Persona: "nav", Status: "completed"},
+		{ID: "a", Persona: "dev", Status: "pending", Dependencies: []string{"source"}},
+		{ID: "b", Persona: "dev", Status: "pending", Dependencies: []string{"source"}},
+		{ID: "c", Persona: "dev", Status: "pending", Dependencies: []string{"source"}},
+	}
+
+	layout := ComputeDAGLayout(steps)
+	if layout == nil {
+		t.Fatal("expected non-nil layout")
+	}
+
+	if len(layout.Nodes) != 4 {
+		t.Errorf("expected 4 nodes, got %d", len(layout.Nodes))
+	}
+
+	// Find target nodes (a, b, c)
+	nodeMap := make(map[string]DAGLayoutNode)
+	for _, n := range layout.Nodes {
+		nodeMap[n.ID] = n
+	}
+
+	// All 3 targets should share the same X position (same layer)
+	if nodeMap["a"].X != nodeMap["b"].X || nodeMap["b"].X != nodeMap["c"].X {
+		t.Errorf("fan-out targets should share X position: a=%d, b=%d, c=%d",
+			nodeMap["a"].X, nodeMap["b"].X, nodeMap["c"].X)
+	}
+
+	// All 3 targets should have different Y positions
+	ySet := map[int]bool{nodeMap["a"].Y: true, nodeMap["b"].Y: true, nodeMap["c"].Y: true}
+	if len(ySet) != 3 {
+		t.Errorf("fan-out targets should have different Y positions, got %d unique",
+			len(ySet))
+	}
+
+	// Source should be to the left of targets
+	if nodeMap["source"].X >= nodeMap["a"].X {
+		t.Errorf("source X (%d) should be less than target X (%d)",
+			nodeMap["source"].X, nodeMap["a"].X)
+	}
+}
+
+func TestComputeDAGLayout_EdgeDirectionLTR(t *testing.T) {
+	steps := []DAGStepInput{
+		{ID: "start", Persona: "nav", Status: "completed"},
+		{ID: "left", Persona: "dev1", Status: "completed", Dependencies: []string{"start"}},
+		{ID: "right", Persona: "dev2", Status: "completed", Dependencies: []string{"start"}},
+		{ID: "end", Persona: "review", Status: "pending", Dependencies: []string{"left", "right"}},
+	}
+
+	layout := ComputeDAGLayout(steps)
+	if layout == nil {
+		t.Fatal("expected non-nil layout")
+	}
+
+	for _, edge := range layout.Edges {
+		if edge.FromX >= edge.ToX {
+			t.Errorf("edge %s→%s has FromX=%d >= ToX=%d, expected left-to-right flow",
+				edge.From, edge.To, edge.FromX, edge.ToX)
+		}
 	}
 }
 
