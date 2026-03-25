@@ -35,7 +35,7 @@
     {{end}}
     {{if or .Run.Input .Run.LinkedURL}}
     <div class="run-summary-meta">
-        {{if .Run.Input}}<span class="run-meta-item">{{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>{{end}}
+        {{if .Run.Input}}<span class="run-meta-item"><span class="run-stat-label">Input</span> {{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>{{end}}
         {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" rel="noopener noreferrer" class="run-meta-link">{{.Run.LinkedURL}}</a>{{end}}
     </div>
     {{end}}
@@ -78,9 +78,9 @@
 {{end}}
 
 {{if .DAG}}
-<div class="card dag-card">
-    <details open>
-        <summary class="dag-toggle">Pipeline Graph</summary>
+<div class="card">
+    <details>
+        <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
         <div id="dag-container" class="dag-container">
             {{template "templates/partials/dag_svg.html" .DAG}}
         </div>
@@ -128,7 +128,7 @@
             </div>
         </div>
 
-        {{if .Run.BranchName}}
+        {{if and .Run.BranchName (eq .Run.Status "completed")}}
         <div class="card" id="diff-panel">
             <!-- Populated by diff-viewer.js -->
         </div>
@@ -161,9 +161,11 @@
 <script src="/static/sse.js"></script>
 <script src="/static/diff-viewer.js"></script>
 <script>
-// Connect SSE only for actively running pipelines
+// Connect SSE only for actively running pipelines (not stale ones)
 var runStatus = '{{.Run.Status}}';
-if (runStatus === 'running') {
+var runStarted = new Date('{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}');
+var isStale = (Date.now() - runStarted.getTime()) > 3600000; // >1h old
+if (runStatus === 'running' && !isStale) {
     connectSSE('{{.Run.RunID}}');
 }
 // Initialize log viewer

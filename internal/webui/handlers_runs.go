@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -66,6 +69,7 @@ func (s *Server) handleAPIRuns(w http.ResponseWriter, r *http.Request) {
 	for i, run := range runs {
 		summaries[i] = runToSummary(run)
 	}
+	s.enrichRunSummaries(summaries, runs)
 
 	resp := RunListResponse{
 		Runs:    summaries,
@@ -172,6 +176,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	for i, run := range runs {
 		summaries[i] = runToSummary(run)
 	}
+	s.enrichRunSummaries(summaries, runs)
 
 	var nextCursor string
 	if hasMore && len(runs) > 0 {
@@ -265,7 +270,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 			}
 			dagSteps = append(dagSteps, DAGStepInput{
 				ID:           step.ID,
-				Persona:      step.Persona,
+				Persona:      resolveForgeVars(step.Persona),
 				Status:       status,
 				Duration:     duration,
 				Tokens:       tokens,
@@ -313,6 +318,33 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/run_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// enrichRunSummaries populates step progress for a batch of run summaries.
+// Uses event_log (not step_state) because step_state has cross-run collisions.
+func (s *Server) enrichRunSummaries(summaries []RunSummary, runs []state.RunRecord) {
+	for i := range summaries {
+		// Get total from pipeline definition
+		if p, loadErr := loadPipelineYAML(runs[i].PipelineName); loadErr == nil {
+			summaries[i].StepsTotal = len(p.Steps)
+		}
+
+		// Count completed steps from event_log
+		events, err := s.store.GetEvents(runs[i].RunID, state.EventQueryOptions{Limit: 5000})
+		if err != nil {
+			continue
+		}
+		completedSteps := make(map[string]bool)
+		for _, ev := range events {
+			if ev.StepID != "" && ev.State == "completed" {
+				completedSteps[ev.StepID] = true
+			}
+		}
+		summaries[i].StepsCompleted = len(completedSteps)
+		if summaries[i].StepsTotal > 0 {
+			summaries[i].Progress = (len(completedSteps) * 100) / summaries[i].StepsTotal
+		}
 	}
 }
 
@@ -407,17 +439,19 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			stepMap[ev.StepID] = si
 		}
 		if ev.Persona != "" {
-			si.persona = ev.Persona
+			si.persona = resolveForgeVars(ev.Persona)
 		}
 
-		// Track state transitions
+		// Track state transitions — terminal states (completed/failed) are final
 		switch ev.State {
 		case "running":
 			if si.startedAt == nil {
 				t := ev.Timestamp
 				si.startedAt = &t
 			}
-			si.state = "running"
+			if si.state != "completed" && si.state != "failed" {
+				si.state = "running"
+			}
 		case "completed":
 			t := ev.Timestamp
 			si.completedAt = &t
@@ -443,7 +477,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 		sd := StepDetail{
 			RunID:   runID,
 			StepID:  step.ID,
-			Persona: step.Persona,
+			Persona: resolveForgeVars(step.Persona),
 			State:   "pending",
 		}
 
@@ -556,6 +590,33 @@ func listPipelineNames() []string {
 		}
 	}
 	return names
+}
+
+// resolveForgeVars replaces {{ forge.* }} template variables in a string.
+// Cached after first detection.
+var (
+	forgeOnce sync.Once
+	forgeInfo forge.ForgeInfo
+)
+
+func resolveForgeVars(s string) string {
+	if !strings.Contains(s, "{{ forge.") {
+		return s
+	}
+	forgeOnce.Do(func() {
+		forgeInfo, _ = forge.DetectFromGitRemotes()
+	})
+	r := strings.NewReplacer(
+		"{{ forge.type }}", string(forgeInfo.Type),
+		"{{ forge.cli_tool }}", forgeInfo.CLITool,
+		"{{ forge.pr_term }}", forgeInfo.PRTerm,
+		"{{ forge.pr_command }}", forgeInfo.PRCommand,
+		"{{ forge.host }}", forgeInfo.Host,
+		"{{ forge.owner }}", forgeInfo.Owner,
+		"{{ forge.repo }}", forgeInfo.Repo,
+		"{{ forge.prefix }}", forgeInfo.PipelinePrefix,
+	)
+	return r.Replace(s)
 }
 
 // JSON response helpers

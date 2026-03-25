@@ -258,6 +258,21 @@ type IssueSummary struct {
 	URL       string   `json:"url"`
 }
 
+// IssueDetail holds full issue information for the detail page.
+type IssueDetail struct {
+	Number    int      `json:"number"`
+	Title     string   `json:"title"`
+	State     string   `json:"state"`
+	Body      string   `json:"body"`
+	Author    string   `json:"author"`
+	Labels    []string `json:"labels"`
+	Assignees []string `json:"assignees,omitempty"`
+	Comments  int      `json:"comments"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+	URL       string   `json:"url"`
+}
+
 // IssueListResponse is the JSON response for the issue list API.
 type IssueListResponse struct {
 	Issues      []IssueSummary `json:"issues"`
@@ -283,6 +298,28 @@ type PRSummary struct {
 	ChangedFiles int    `json:"changed_files"`
 	CreatedAt    string `json:"created_at"`
 	URL          string `json:"url"`
+}
+
+// PRDetail holds full PR information for the detail page.
+type PRDetail struct {
+	Number       int      `json:"number"`
+	Title        string   `json:"title"`
+	State        string   `json:"state"`
+	Body         string   `json:"body"`
+	Author       string   `json:"author"`
+	Labels       []string `json:"labels,omitempty"`
+	Draft        bool     `json:"draft"`
+	Merged       bool     `json:"merged"`
+	HeadBranch   string   `json:"head_branch"`
+	BaseBranch   string   `json:"base_branch"`
+	Additions    int      `json:"additions"`
+	Deletions    int      `json:"deletions"`
+	ChangedFiles int      `json:"changed_files"`
+	Commits      int      `json:"commits"`
+	Comments     int      `json:"comments"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
+	URL          string   `json:"url"`
 }
 
 // PRListResponse is the JSON response for the PR list API.

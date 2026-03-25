@@ -17,12 +17,15 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /runs/{id}", s.handleRunDetailPage)
 
 	mux.HandleFunc("GET /pipelines", s.handlePipelinesPage)
+	mux.HandleFunc("GET /pipelines/{name}", s.handlePipelineDetailPage)
 	mux.HandleFunc("GET /personas", s.handlePersonasPage)
 	mux.HandleFunc("GET /contracts", s.handleContractsPage)
 	mux.HandleFunc("GET /skills", s.handleSkillsPage)
 	mux.HandleFunc("GET /compose", s.handleComposePage)
 	mux.HandleFunc("GET /issues", s.handleIssuesPage)
+	mux.HandleFunc("GET /issues/{number}", s.handleIssueDetailPage)
 	mux.HandleFunc("GET /prs", s.handlePRsPage)
+	mux.HandleFunc("GET /prs/{number}", s.handlePRDetailPage)
 	mux.HandleFunc("GET /health", s.handleHealthPage)
 
 	// API endpoints (JSON)
@@ -39,6 +42,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/contracts/{name}", s.handleAPIContractDetail)
 	mux.HandleFunc("GET /api/compose", s.handleAPICompose)
 	mux.HandleFunc("GET /api/pipelines/info", s.handleAPIPipelineInfo)
+	mux.HandleFunc("GET /api/pipelines/{name}", s.handleAPIPipelineDetail)
 	mux.HandleFunc("GET /api/runs/{id}/artifacts/{step}/{name}", s.handleArtifact)
 	mux.HandleFunc("GET /api/runs/{id}/step-events", s.handleAPIStepEvents)
 	mux.HandleFunc("GET /api/runs/{id}/diff", s.handleAPIDiffSummary)

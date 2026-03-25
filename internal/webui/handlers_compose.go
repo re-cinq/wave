@@ -68,7 +68,7 @@ func getCompositionPipelines() []CompositionPipeline {
 			Category:    p.Metadata.Category,
 			StepCount:   len(p.Steps),
 			Steps:       steps,
-			Skills:      p.Skills,
+			Skills:      filterTemplateVars(p.Skills),
 		})
 	}
 
@@ -138,7 +138,7 @@ func classifyStep(step *pipeline.Step) CompositionStep {
 		cs.SubPipeline = step.SubPipeline
 	default:
 		cs.Type = "persona"
-		cs.Persona = step.Persona
+		cs.Persona = resolveForgeVars(step.Persona)
 	}
 
 	return cs
