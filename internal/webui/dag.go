@@ -10,14 +10,16 @@ type DAGLayout struct {
 
 // DAGLayoutNode is a node with computed position for SVG rendering.
 type DAGLayoutNode struct {
-	ID       string
-	Label    string
-	Persona  string
-	Status   string
-	Duration string
-	Tokens   int
-	X        int
-	Y        int
+	ID        string
+	Label     string
+	Persona   string
+	Status    string
+	Duration  string
+	Tokens    int
+	Contract  string
+	Artifacts string
+	X         int
+	Y         int
 }
 
 // DAGLayoutEdge is an edge with computed bezier curve points for SVG.
@@ -36,7 +38,7 @@ type DAGLayoutEdge struct {
 
 const (
 	nodeWidth  = 140
-	nodeHeight = 60
+	nodeHeight = 80
 	layerGapX  = 180 // horizontal gap between layers (left→right columns)
 	nodeGapY   = 80  // vertical gap between nodes in the same layer (rows)
 	paddingX   = 20
@@ -90,14 +92,16 @@ func ComputeDAGLayout(steps []DAGStepInput) *DAGLayout {
 			y := paddingY + offsetY + nodeIdx*nodeGapY
 
 			layout.Nodes = append(layout.Nodes, DAGLayoutNode{
-				ID:       s.ID,
-				Label:    s.ID,
-				Persona:  s.Persona,
-				Status:   s.Status,
-				Duration: s.Duration,
-				Tokens:   s.Tokens,
-				X:        x,
-				Y:        y,
+				ID:        s.ID,
+				Label:     s.ID,
+				Persona:   s.Persona,
+				Status:    s.Status,
+				Duration:  s.Duration,
+				Tokens:    s.Tokens,
+				Contract:  s.Contract,
+				Artifacts: s.Artifacts,
+				X:         x,
+				Y:         y,
 			})
 		}
 	}
@@ -157,6 +161,8 @@ type DAGStepInput struct {
 	Status       string
 	Duration     string
 	Tokens       int
+	Contract     string
+	Artifacts    string
 	Dependencies []string
 }
 

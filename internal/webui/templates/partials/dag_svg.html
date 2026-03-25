@@ -1,21 +1,23 @@
 {{define "templates/partials/dag_svg.html"}}
-<svg class="dag-svg" width="{{.Width}}" height="{{.Height}}" viewBox="0 0 {{.Width}} {{.Height}}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline step dependency graph">
+<svg class="dag-svg" width="{{.Width}}" height="{{.Height}}" viewBox="0 0 {{.Width}} {{.Height}}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" aria-label="Pipeline step dependency graph">
   <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0 0, 6 2, 0 4" fill="#666"/>
     </marker>
   </defs>
   {{range .Edges}}
   <path class="dag-edge" d="M{{.FromX}} {{.FromY}} C{{.CX1}} {{.CY1}}, {{.CX2}} {{.CY2}}, {{.ToX}} {{.ToY}}"
-        stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+        stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)"/>
   {{end}}
   {{range .Nodes}}
   <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, status: {{.Status}}" tabindex="0">
-    <rect width="140" height="60" rx="8" ry="8" class="dag-node-rect {{.Status}}"/>
+    <rect width="140" height="80" rx="8" ry="8" class="dag-node-rect {{.Status}}"/>
     <circle cx="126" cy="12" r="4" class="dag-status-icon {{.Status}}"/>
-    <text x="70" y="26" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
-    <text x="70" y="42" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text>
-    {{if .Duration}}<text x="70" y="54" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
+    <text x="70" y="20" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
+    <a xlink:href="/personas/{{.Persona}}"><text x="70" y="34" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text></a>
+    {{if .Duration}}<text x="70" y="48" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
+    {{if .Contract}}<text x="70" y="62" text-anchor="middle" class="dag-node-contract">{{.Contract}}</text>{{end}}
+    {{if .Artifacts}}<text x="70" y="74" text-anchor="middle" class="dag-node-artifact">{{.Artifacts}}</text>{{end}}
   </g>
   {{end}}
 </svg>
