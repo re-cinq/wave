@@ -202,6 +202,37 @@ func TestUpdateFromEvent_SyntheticCompletionMarksStepDone(t *testing.T) {
 	}
 }
 
+func TestUpdateFromEvent_PersonaRefreshFromEvent(t *testing.T) {
+	d := newTestBubbleTeaDisplay()
+
+	// Register a step with an unresolved forge template persona
+	d.AddStep("gather-context", "gather-context", "{{ forge.type }}-analyst")
+
+	// Verify initial persona is the unresolved template
+	if d.steps["gather-context"].Persona != "{{ forge.type }}-analyst" {
+		t.Fatalf("initial persona = %q, want %q", d.steps["gather-context"].Persona, "{{ forge.type }}-analyst")
+	}
+
+	// Simulate a running event with the resolved persona (as the executor sends)
+	d.updateFromEvent(event.Event{
+		StepID:    "gather-context",
+		State:     "running",
+		Persona:   "github-analyst",
+		Timestamp: time.Now(),
+	})
+
+	// Verify persona was updated to resolved value
+	if d.steps["gather-context"].Persona != "github-analyst" {
+		t.Errorf("persona after running event = %q, want %q", d.steps["gather-context"].Persona, "github-analyst")
+	}
+
+	// Verify toPipelineContext reflects the resolved persona
+	ctx := d.toPipelineContext()
+	if ctx.StepPersonas["gather-context"] != "github-analyst" {
+		t.Errorf("StepPersonas[gather-context] = %q, want %q", ctx.StepPersonas["gather-context"], "github-analyst")
+	}
+}
+
 func TestUpdateFromEvent_ModelAdapterTemperatureCapture(t *testing.T) {
 	d := newTestBubbleTeaDisplay()
 
