@@ -353,13 +353,15 @@ func TestProgressDisplay_PersonaRefreshFromEvent(t *testing.T) {
 	}
 
 	// Emit a running event with the resolved persona
-	pd.EmitProgress(event.Event{
+	if err := pd.EmitProgress(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: "test-pipeline",
 		StepID:     "gather",
 		State:      "running",
 		Persona:    "github-analyst",
-	})
+	}); err != nil {
+		t.Fatalf("EmitProgress failed: %v", err)
+	}
 
 	pd.mu.Lock()
 	persona := pd.steps["gather"].Persona
