@@ -10,7 +10,7 @@
         <h3>{{.Name}}</h3>
         {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
         <div class="persona-meta">
-            <span class="badge">{{.StepCount}} steps</span>
+            <span class="badge">{{.StepCount}} {{pluralize .StepCount "step" "steps"}}</span>
             {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
             {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
         </div>
