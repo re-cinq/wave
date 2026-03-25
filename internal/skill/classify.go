@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"errors"
 	"strings"
 )
 
@@ -83,7 +84,7 @@ func ClassifyAll(store Store) ([]SkillClassification, error) {
 	skills, err := store.List()
 	if err != nil {
 		var discErr *DiscoveryError
-		if !isDiscoveryError(err, &discErr) {
+		if !errors.As(err, &discErr) {
 			return nil, err
 		}
 		// Continue with discovered skills despite warnings
@@ -98,13 +99,4 @@ func ClassifyAll(store Store) ([]SkillClassification, error) {
 		results = append(results, ClassifySkill(full))
 	}
 	return results, nil
-}
-
-// isDiscoveryError checks if err is a *DiscoveryError and assigns it.
-func isDiscoveryError(err error, target **DiscoveryError) bool {
-	if de, ok := err.(*DiscoveryError); ok {
-		*target = de
-		return true
-	}
-	return false
 }
