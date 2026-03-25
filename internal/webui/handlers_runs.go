@@ -289,6 +289,13 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		runSummary.Progress = (completed * 100) / runSummary.StepsTotal
 	}
 
+	// If DB has 0 tokens, compute from step details (event_log stores per-step tokens)
+	if runSummary.TotalTokens == 0 {
+		for _, sd := range stepDetails {
+			runSummary.TotalTokens += sd.TokensUsed
+		}
+	}
+
 	data := struct {
 		ActivePage string
 		Run        RunSummary

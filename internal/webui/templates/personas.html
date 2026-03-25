@@ -42,6 +42,7 @@
                 data-allowed="{{range $i, $t := .AllowedTools}}{{if $i}}, {{end}}{{$t}}{{end}}"
                 data-denied="{{range $i, $t := .DeniedTools}}{{if $i}}, {{end}}{{$t}}{{end}}"
                 data-skills="{{range $i, $s := .Skills}}{{if $i}}, {{end}}{{$s}}{{end}}"
+                data-prompt="{{.Prompt}}"
             >Details</button>
         </div>
     </article>
@@ -81,6 +82,9 @@ function viewPersona(btn) {
     if (btn.dataset.denied) html += '<dt>Denied tools</dt><dd><code>' + escapeHTML(btn.dataset.denied) + '</code></dd>';
     if (btn.dataset.skills) html += '<dt>Skills</dt><dd>' + escapeHTML(btn.dataset.skills) + '</dd>';
     html += '</dl>';
+    if (btn.dataset.prompt) {
+        html += '<h4>System Prompt</h4><pre class="persona-prompt">' + escapeHTML(btn.dataset.prompt) + '</pre>';
+    }
 
     body.innerHTML = html;
     dialog.showModal();
