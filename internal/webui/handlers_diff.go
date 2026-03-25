@@ -40,12 +40,7 @@ func (s *Server) handleAPIDiffSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary, err := computeDiffSummary(r.Context(), s.repoDir, baseBranch, run.BranchName)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to compute diff")
-		return
-	}
-
+	summary := computeDiffSummary(r.Context(), s.repoDir, baseBranch, run.BranchName)
 	writeJSON(w, http.StatusOK, summary)
 }
 

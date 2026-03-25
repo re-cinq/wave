@@ -20,7 +20,9 @@ func TestHandleAPIDiffSummary_RunNotFound(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.NewDecoder(rec.Body).Decode(&resp)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
 	if resp["error"] == "" {
 		t.Error("expected error message in response")
 	}
@@ -45,7 +47,9 @@ func TestHandleAPIDiffSummary_EmptyBranchName(t *testing.T) {
 	}
 
 	var summary DiffSummary
-	json.NewDecoder(rec.Body).Decode(&summary)
+	if err = json.NewDecoder(rec.Body).Decode(&summary); err != nil {
+		t.Fatal(err)
+	}
 	if summary.Available {
 		t.Error("expected Available=false for empty BranchName")
 	}
@@ -88,7 +92,9 @@ func TestHandleAPIDiffFile_PathTraversal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rwStore.UpdateRunBranch(runID, "some-branch")
+	if err := rwStore.UpdateRunBranch(runID, "some-branch"); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/runs/"+runID+"/diff/../../../etc/passwd", nil)
 	req.SetPathValue("id", runID)
@@ -128,7 +134,9 @@ func TestHandleAPIDiffFile_MissingPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rwStore.UpdateRunBranch(runID, "some-branch")
+	if err := rwStore.UpdateRunBranch(runID, "some-branch"); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/runs/"+runID+"/diff/", nil)
 	req.SetPathValue("id", runID)
