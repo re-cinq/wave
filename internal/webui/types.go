@@ -378,3 +378,38 @@ type FileDiff struct {
 	Binary    bool   `json:"binary"`
 	OldPath   string `json:"old_path,omitempty"`
 }
+
+// PersonaDetailData holds all data for the persona detail page.
+type PersonaDetailData struct {
+	ActivePage    string
+	Persona       PersonaSummary
+	TokenScopes   []string
+	AllowedDomains []string
+	UsedBy        []PersonaUsageRef
+}
+
+// PersonaUsageRef links a persona to a pipeline step that uses it.
+type PersonaUsageRef struct {
+	Pipeline string
+	StepID   string
+}
+
+// ContractDetailPage holds all data for the contract detail page.
+type ContractDetailPage struct {
+	ActivePage string
+	Contract   ContractDetailResponse
+	UsedBy     []ContractUsageRef
+}
+
+// ContractUsageRef links a contract to a pipeline step that uses it.
+type ContractUsageRef struct {
+	Pipeline     string
+	StepID       string
+	ContractType string
+}
+
+// StepArtifactGroup groups artifacts by the step that produced them.
+type StepArtifactGroup struct {
+	StepID    string
+	Artifacts []ArtifactSummary
+}

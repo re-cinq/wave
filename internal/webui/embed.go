@@ -25,6 +25,7 @@ var pageTemplates = []string{
 	"templates/runs.html",
 	"templates/run_detail.html",
 	"templates/personas.html",
+	"templates/persona_detail.html",
 	"templates/pipelines.html",
 	"templates/pipeline_detail.html",
 	"templates/contracts.html",
@@ -53,6 +54,12 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"contains":       strings.Contains,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
+		"pluralize": func(n int, singular, plural string) string {
+			if n == 1 {
+				return singular
+			}
+			return plural
+		},
 	}
 
 	// Parse layout into the base template.
