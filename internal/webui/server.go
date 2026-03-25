@@ -31,6 +31,7 @@ type Server struct {
 	wsManager    workspace.WorkspaceManager
 	githubClient *github.Client
 	repoSlug     string // "owner/repo"
+	repoDir      string // git repository root directory
 	bind         string
 	port       int
 	token      string
@@ -87,6 +88,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		repoSlug = detectRepoSlug()
 	}
 
+	// Resolve git repo root for safe subprocess execution
+	repoDir := "."
+	if out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		repoDir = strings.TrimSpace(string(out))
+	}
+
 	s := &Server{
 		store:      roStore,
 		rwStore:    rwStore,
@@ -96,6 +103,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		wsManager:    wsManager,
 		githubClient: ghClient,
 		repoSlug:     repoSlug,
+		repoDir:      repoDir,
 		bind:         cfg.Bind,
 		port:       cfg.Port,
 		token:      cfg.Token,

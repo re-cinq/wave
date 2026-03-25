@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,18 +11,10 @@ import (
 
 // setupGitRepo creates a temporary git repository with a main branch,
 // a feature branch, and sample changes for diff testing.
-func setupGitRepo(t *testing.T) (repoDir string, cleanup func()) {
+func setupGitRepo(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
 
 	// Initialize repo
 	run := func(args ...string) {
@@ -80,16 +73,14 @@ func setupGitRepo(t *testing.T) (repoDir string, cleanup func()) {
 	// Go back to main so base branch resolution works
 	run("git", "checkout", "main")
 
-	return dir, func() {
-		os.Chdir(origDir)
-	}
+	return dir
 }
 
 func TestResolveBaseBranch(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	branch, err := resolveBaseBranch()
+	branch, err := resolveBaseBranch(ctx, dir)
 	if err != nil {
 		t.Fatalf("resolveBaseBranch() error: %v", err)
 	}
@@ -100,9 +91,7 @@ func TestResolveBaseBranch(t *testing.T) {
 
 func TestResolveBaseBranch_NoMainBranch(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	ctx := context.Background()
 
 	// Create a repo with only a "master" branch
 	run := func(args ...string) {
@@ -121,7 +110,7 @@ func TestResolveBaseBranch_NoMainBranch(t *testing.T) {
 	run("git", "add", "-A")
 	run("git", "commit", "-m", "init")
 
-	branch, err := resolveBaseBranch()
+	branch, err := resolveBaseBranch(ctx, dir)
 	if err != nil {
 		t.Fatalf("resolveBaseBranch() error: %v", err)
 	}
@@ -131,10 +120,10 @@ func TestResolveBaseBranch_NoMainBranch(t *testing.T) {
 }
 
 func TestComputeDiffSummary(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	summary, err := computeDiffSummary("main", "feature-branch")
+	summary, err := computeDiffSummary(ctx, dir, "main", "feature-branch")
 	if err != nil {
 		t.Fatalf("computeDiffSummary() error: %v", err)
 	}
@@ -193,10 +182,10 @@ func TestComputeDiffSummary(t *testing.T) {
 }
 
 func TestComputeDiffSummary_NonexistentBranch(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	summary, err := computeDiffSummary("main", "nonexistent-branch")
+	summary, err := computeDiffSummary(ctx, dir, "main", "nonexistent-branch")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -209,10 +198,10 @@ func TestComputeDiffSummary_NonexistentBranch(t *testing.T) {
 }
 
 func TestComputeFileDiff(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	diff, err := computeFileDiff("main", "feature-branch", "existing.go")
+	diff, err := computeFileDiff(ctx, dir, "main", "feature-branch", "existing.go")
 	if err != nil {
 		t.Fatalf("computeFileDiff() error: %v", err)
 	}
@@ -232,10 +221,10 @@ func TestComputeFileDiff(t *testing.T) {
 }
 
 func TestComputeFileDiff_BinaryFile(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	diff, err := computeFileDiff("main", "feature-branch", "image.png")
+	diff, err := computeFileDiff(ctx, dir, "main", "feature-branch", "image.png")
 	if err != nil {
 		t.Fatalf("computeFileDiff() error: %v", err)
 	}
@@ -249,10 +238,10 @@ func TestComputeFileDiff_BinaryFile(t *testing.T) {
 }
 
 func TestComputeFileDiff_PathTraversal(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	_, err := computeFileDiff("main", "feature-branch", "../../../etc/passwd")
+	_, err := computeFileDiff(ctx, dir, "main", "feature-branch", "../../../etc/passwd")
 	if err == nil {
 		t.Error("expected error for path traversal")
 	}
@@ -262,10 +251,10 @@ func TestComputeFileDiff_PathTraversal(t *testing.T) {
 }
 
 func TestComputeFileDiff_AbsolutePath(t *testing.T) {
-	_, cleanup := setupGitRepo(t)
-	defer cleanup()
+	dir := setupGitRepo(t)
+	ctx := context.Background()
 
-	_, err := computeFileDiff("main", "feature-branch", "/etc/passwd")
+	_, err := computeFileDiff(ctx, dir, "main", "feature-branch", "/etc/passwd")
 	if err == nil {
 		t.Error("expected error for absolute path")
 	}
@@ -273,9 +262,7 @@ func TestComputeFileDiff_AbsolutePath(t *testing.T) {
 
 func TestComputeFileDiff_Truncation(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	ctx := context.Background()
 
 	run := func(args ...string) {
 		cmd := exec.Command(args[0], args[1:]...)
@@ -303,7 +290,7 @@ func TestComputeFileDiff_Truncation(t *testing.T) {
 	run("git", "commit", "-m", "large file")
 	run("git", "checkout", "main")
 
-	diff, err := computeFileDiff("main", "feature", "large.txt")
+	diff, err := computeFileDiff(ctx, dir, "main", "feature", "large.txt")
 	if err != nil {
 		t.Fatalf("computeFileDiff() error: %v", err)
 	}
