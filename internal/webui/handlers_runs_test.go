@@ -607,3 +607,170 @@ func TestBuildStepDetails_NoPipeline(t *testing.T) {
 		t.Errorf("expected nil details for missing pipeline, got %d", len(details))
 	}
 }
+
+// TestParseLinkedURL tests GitHub issue/PR URL extraction from input strings.
+func TestParseLinkedURL(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "github issue URL",
+			input: "https://github.com/re-cinq/wave/issues/562",
+			want:  "https://github.com/re-cinq/wave/issues/562",
+		},
+		{
+			name:  "github PR URL",
+			input: "https://github.com/re-cinq/wave/pull/123",
+			want:  "https://github.com/re-cinq/wave/pull/123",
+		},
+		{
+			name:  "URL embedded in text",
+			input: "Please review https://github.com/re-cinq/wave/issues/42 and fix it",
+			want:  "https://github.com/re-cinq/wave/issues/42",
+		},
+		{
+			name:  "multiple URLs returns first",
+			input: "https://github.com/re-cinq/wave/issues/1 and https://github.com/re-cinq/wave/pull/2",
+			want:  "https://github.com/re-cinq/wave/issues/1",
+		},
+		{
+			name:  "non-github URL",
+			input: "https://gitlab.com/org/repo/issues/5",
+			want:  "",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "no URL in text",
+			input: "just some plain text without URLs",
+			want:  "",
+		},
+		{
+			name:  "github URL without issue or PR path",
+			input: "https://github.com/re-cinq/wave",
+			want:  "",
+		},
+		{
+			name:  "repo with dots and hyphens",
+			input: "https://github.com/my-org/my.project/issues/99",
+			want:  "https://github.com/my-org/my.project/issues/99",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseLinkedURL(tc.input)
+			if got != tc.want {
+				t.Errorf("parseLinkedURL(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRunToSummary_NewFields verifies that Input, LinkedURL, FormattedStartedAt,
+// and FormattedCompletedAt are populated correctly by runToSummary.
+func TestRunToSummary_NewFields(t *testing.T) {
+	start := time.Date(2026, 3, 25, 14, 30, 0, 0, time.UTC)
+	end := time.Date(2026, 3, 25, 14, 35, 0, 0, time.UTC)
+
+	t.Run("with github URL input and completion time", func(t *testing.T) {
+		run := state.RunRecord{
+			RunID:        "run-new-1",
+			PipelineName: "impl-issue",
+			Status:       "completed",
+			Input:        "https://github.com/re-cinq/wave/issues/562",
+			StartedAt:    start,
+			CompletedAt:  &end,
+			BranchName:   "562-stats-card",
+		}
+		summary := runToSummary(run)
+
+		if summary.Input != run.Input {
+			t.Errorf("Input: expected %q, got %q", run.Input, summary.Input)
+		}
+		if summary.LinkedURL != "https://github.com/re-cinq/wave/issues/562" {
+			t.Errorf("LinkedURL: expected GitHub URL, got %q", summary.LinkedURL)
+		}
+		if summary.FormattedStartedAt == "" {
+			t.Error("FormattedStartedAt: expected non-empty")
+		}
+		if summary.FormattedCompletedAt == "" {
+			t.Error("FormattedCompletedAt: expected non-empty for completed run")
+		}
+		if summary.BranchName != "562-stats-card" {
+			t.Errorf("BranchName: expected %q, got %q", "562-stats-card", summary.BranchName)
+		}
+	})
+
+	t.Run("without completion time", func(t *testing.T) {
+		run := state.RunRecord{
+			RunID:        "run-new-2",
+			PipelineName: "impl-issue",
+			Status:       "running",
+			Input:        "some plain text input",
+			StartedAt:    start,
+		}
+		summary := runToSummary(run)
+
+		if summary.Input != "some plain text input" {
+			t.Errorf("Input: expected %q, got %q", "some plain text input", summary.Input)
+		}
+		if summary.LinkedURL != "" {
+			t.Errorf("LinkedURL: expected empty for non-URL input, got %q", summary.LinkedURL)
+		}
+		if summary.FormattedStartedAt == "" {
+			t.Error("FormattedStartedAt: expected non-empty")
+		}
+		if summary.FormattedCompletedAt != "" {
+			t.Errorf("FormattedCompletedAt: expected empty for running run, got %q", summary.FormattedCompletedAt)
+		}
+	})
+
+	t.Run("empty input", func(t *testing.T) {
+		run := state.RunRecord{
+			RunID:        "run-new-3",
+			PipelineName: "impl-issue",
+			Status:       "pending",
+			StartedAt:    start,
+		}
+		summary := runToSummary(run)
+
+		if summary.Input != "" {
+			t.Errorf("Input: expected empty, got %q", summary.Input)
+		}
+		if summary.LinkedURL != "" {
+			t.Errorf("LinkedURL: expected empty, got %q", summary.LinkedURL)
+		}
+		if summary.InputPreview != "" {
+			t.Errorf("InputPreview: expected empty, got %q", summary.InputPreview)
+		}
+	})
+
+	t.Run("long input gets truncated preview", func(t *testing.T) {
+		longInput := strings.Repeat("a", 100)
+		run := state.RunRecord{
+			RunID:        "run-new-4",
+			PipelineName: "impl-issue",
+			Status:       "completed",
+			Input:        longInput,
+			StartedAt:    start,
+			CompletedAt:  &end,
+		}
+		summary := runToSummary(run)
+
+		if summary.Input != longInput {
+			t.Error("Input: expected full input text")
+		}
+		if len(summary.InputPreview) > 84 { // 80 chars + "..."
+			t.Errorf("InputPreview: expected truncated, got length %d", len(summary.InputPreview))
+		}
+		if !strings.HasSuffix(summary.InputPreview, "...") {
+			t.Error("InputPreview: expected to end with '...'")
+		}
+	})
+}
