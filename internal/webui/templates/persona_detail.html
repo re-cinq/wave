@@ -1,0 +1,96 @@
+{{define "title"}} - {{.Persona.Name}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/personas" class="back-link" aria-label="Back to personas list">&larr; Back to Personas</a>
+        <h1>{{.Persona.Name}}</h1>
+        {{if .Persona.Description}}<p class="persona-desc">{{.Persona.Description}}</p>{{end}}
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat"><span class="run-stat-label">Adapter</span> <span class="run-stat-value">{{.Persona.Adapter}}</span></span>
+        {{if .Persona.Model}}<span class="run-stat"><span class="run-stat-label">Model</span> <span class="run-stat-value">{{.Persona.Model}}</span></span>{{end}}
+        {{if .Persona.Temperature}}<span class="run-stat"><span class="run-stat-label">Temperature</span> <span class="run-stat-value">{{.Persona.Temperature}}</span></span>{{end}}
+        {{if .Persona.Skills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{len .Persona.Skills}}</span></span>{{end}}
+    </div>
+</div>
+
+<div class="card">
+    <h2>Permissions</h2>
+    <dl class="detail-list">
+        {{if .Persona.AllowedTools}}
+        <dt>Allowed Tools</dt>
+        <dd>{{range .Persona.AllowedTools}}<code>{{.}}</code> {{end}}</dd>
+        {{end}}
+        {{if .Persona.DeniedTools}}
+        <dt>Denied Tools</dt>
+        <dd>{{range .Persona.DeniedTools}}<code>{{.}}</code> {{end}}</dd>
+        {{end}}
+        {{if not (or .Persona.AllowedTools .Persona.DeniedTools)}}
+        <dt>Tools</dt>
+        <dd><span class="text-muted">No explicit tool restrictions</span></dd>
+        {{end}}
+    </dl>
+</div>
+
+{{if or .TokenScopes .AllowedDomains}}
+<div class="card">
+    <h2>Token Scopes &amp; Sandbox</h2>
+    <dl class="detail-list">
+        {{if .TokenScopes}}
+        <dt>Token Scopes</dt>
+        <dd>{{range .TokenScopes}}<code>{{.}}</code> {{end}}</dd>
+        {{end}}
+        {{if .AllowedDomains}}
+        <dt>Allowed Domains</dt>
+        <dd>{{range .AllowedDomains}}<code>{{.}}</code> {{end}}</dd>
+        {{end}}
+    </dl>
+</div>
+{{end}}
+
+{{if .Persona.Skills}}
+<div class="card">
+    <h2>Skills</h2>
+    <div class="persona-tools">
+        {{range .Persona.Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
+    </div>
+</div>
+{{end}}
+
+{{if .Persona.Prompt}}
+<div class="card">
+    <h2>System Prompt</h2>
+    <pre class="persona-prompt">{{.Persona.Prompt}}</pre>
+</div>
+{{end}}
+
+<div class="card">
+    <h2>Used by</h2>
+    {{if .UsedBy}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Pipeline</th>
+                <th>Step</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .UsedBy}}
+            <tr>
+                <td><a href="/pipelines/{{.Pipeline}}">{{.Pipeline}}</a></td>
+                <td><code>{{.StepID}}</code></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>Not used by any pipeline</strong></p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{define "scripts"}}{{end}}
