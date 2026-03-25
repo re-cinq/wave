@@ -226,15 +226,24 @@ function createStepCard(step) {
     card.setAttribute('data-expanded', isExpanded ? 'true' : 'false');
     if (isExpanded) expandedSteps.add(step.step_id);
 
-    var spinnerHtml = step.state === 'running' ? '<span class="step-running-spinner" aria-label="Running"></span>' : '';
+    var statusIconHtml = '';
+    if (step.state === 'running') {
+        statusIconHtml = '<span class="step-status-icon step-status-running" aria-label="Running"></span>';
+    } else if (step.state === 'completed') {
+        statusIconHtml = '<span class="step-status-icon step-status-completed" aria-label="Completed">&#10003;</span>';
+    } else if (step.state === 'failed') {
+        statusIconHtml = '<span class="step-status-icon step-status-failed" aria-label="Failed">&#10007;</span>';
+    } else {
+        statusIconHtml = '<span class="step-status-icon step-status-pending" aria-label="Pending">&#9679;</span>';
+    }
     var startTimeHtml = step.started_at ? '<span class="step-start-time">' + formatStartTime(step.started_at) + '</span>' : '';
-    var durationHtml = step.duration ? '<span class="step-duration">' + step.duration + '</span>' : '';
+    var durationHtml = '<span class="step-duration"' + (step.state === 'running' ? ' data-live-timer="true"' : '') + '>' + (step.duration || '') + '</span>';
 
     var headerHtml =
         '<div class="step-header" onclick="toggleStepCard(\'' + step.step_id + '\')">' +
-        '<span class="step-toggle" aria-hidden="true">\u25B6</span>' +
+        '<span class="step-chevron" aria-hidden="true"></span>' +
+        statusIconHtml +
         '<span class="step-id">' + step.step_id + '</span>' +
-        spinnerHtml +
         '<span class="badge status-' + step.state + '">' + step.state + '</span>' +
         startTimeHtml +
         durationHtml +
@@ -433,6 +442,18 @@ function updateStepCardState(stepID, newState) {
             if (badge) {
                 badge.className = 'badge status-' + newState;
                 badge.textContent = newState;
+            }
+            // Update status icon
+            var icon = card.querySelector('.step-status-icon');
+            if (icon) {
+                icon.className = 'step-status-icon step-status-' + newState;
+                if (newState === 'completed') {
+                    icon.innerHTML = '&#10003;';
+                } else if (newState === 'failed') {
+                    icon.innerHTML = '&#10007;';
+                } else if (newState === 'running') {
+                    icon.innerHTML = '';
+                }
             }
         }
     });

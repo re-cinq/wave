@@ -70,6 +70,14 @@ type EventSummary struct {
 	DurationMs int64     `json:"duration_ms"`
 }
 
+// StepEventsResponse is the JSON response for the paginated step events API.
+type StepEventsResponse struct {
+	Events  []EventSummary `json:"events"`
+	HasMore bool           `json:"has_more"`
+	Offset  int            `json:"offset"`
+	Limit   int            `json:"limit"`
+}
+
 // ArtifactSummary holds summary information about a pipeline artifact.
 type ArtifactSummary struct {
 	ID        int64  `json:"id"`
