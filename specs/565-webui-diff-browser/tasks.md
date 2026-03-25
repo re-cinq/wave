@@ -7,7 +7,7 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 [P1] Add DiffSummary, FileSummary, and FileDiff Go types to `internal/webui/types.go`
+- [X] T001 [P1] Add DiffSummary, FileSummary, and FileDiff Go types to `internal/webui/types.go`
   - Add `DiffSummary` struct: `Files []FileSummary`, `TotalFiles int`, `TotalAdditions int`, `TotalDeletions int`, `BaseBranch string`, `HeadBranch string`, `Available bool`, `Message string` (omitempty). JSON tags must match `specs/565-webui-diff-browser/contracts/diff-summary-api.json` schema
   - Add `FileSummary` struct: `Path string`, `Status string`, `Additions int`, `Deletions int`, `Binary bool`. Status values: "added", "modified", "deleted", "renamed"
   - Add `FileDiff` struct: `Path string`, `Status string`, `Additions int`, `Deletions int`, `Content string`, `Truncated bool`, `Size int`, `Binary bool`, `OldPath string` (omitempty). JSON tags must match `specs/565-webui-diff-browser/contracts/file-diff-api.json` schema
@@ -15,13 +15,13 @@
 
 ## Phase 2: Backend — Git Diff Engine
 
-- [ ] T002 [P1] Create `internal/webui/diff.go` with `resolveBaseBranch` function
+- [X] T002 [P1] Create `internal/webui/diff.go` with `resolveBaseBranch` function
   - Implement `resolveBaseBranch() (string, error)` that resolves the base branch for diff comparison
   - Resolution order: (1) `git symbolic-ref refs/remotes/origin/HEAD` → strip `refs/remotes/origin/` prefix, (2) check if `main` branch exists via `git rev-parse --verify main`, (3) check if `master` exists, (4) return error "no base branch could be determined"
   - Use `os/exec` to run git commands (existing pattern in `internal/webui/server.go:detectRepoSlug`)
   - File: `internal/webui/diff.go`
 
-- [ ] T003 [P1] [P] Add `computeDiffSummary` to `internal/webui/diff.go`
+- [X] T003 [P1] [P] Add `computeDiffSummary` to `internal/webui/diff.go`
   - Implement `computeDiffSummary(baseBranch, headBranch string) (*DiffSummary, error)`
   - Run `git diff --numstat <base>...<head>` to get per-file additions/deletions
   - Run `git diff --name-status <base>...<head>` to get per-file change status (A/M/D/R)
@@ -33,7 +33,7 @@
   - Depends on: T001, T002
   - File: `internal/webui/diff.go`
 
-- [ ] T004 [P1] [P] Add `computeFileDiff` to `internal/webui/diff.go`
+- [X] T004 [P1] [P] Add `computeFileDiff` to `internal/webui/diff.go`
   - Implement `computeFileDiff(baseBranch, headBranch, filePath string) (*FileDiff, error)`
   - Validate `filePath`: reject paths containing `..` or starting with `/` (FR-013). Use `filepath.Clean` + `strings.Contains(cleanPath, "..")` pattern from `handlers_artifacts.go:46`
   - Run `git diff <base>...<head> -- <path>` to get unified diff content
@@ -44,7 +44,7 @@
   - Depends on: T001, T002
   - File: `internal/webui/diff.go`
 
-- [ ] T005 [P1] [P] Create `internal/webui/diff_test.go` with unit tests
+- [X] T005 [P1] [P] Create `internal/webui/diff_test.go` with unit tests
   - Test `resolveBaseBranch` with mock git repo (use `t.TempDir()` + `git init` + create branches)
   - Test `computeDiffSummary` with a temp repo containing added, modified, deleted, renamed, and binary files
   - Test `computeFileDiff` with: normal diff, large diff (truncation), binary file, path traversal rejection
@@ -55,7 +55,7 @@
 
 ## Phase 3: User Story 1 + User Story 2 — API Handlers (P1)
 
-- [ ] T006 [P1] Create `internal/webui/handlers_diff.go` with diff API handlers
+- [X] T006 [P1] Create `internal/webui/handlers_diff.go` with diff API handlers
   - Implement `handleAPIDiffSummary(w, r)` for `GET /api/runs/{id}/diff`:
     - Extract `runID` via `r.PathValue("id")`, validate non-empty
     - Get `RunRecord` via `s.store.GetRun(runID)`, return 404 if not found
@@ -72,14 +72,14 @@
   - Depends on: T003, T004
   - File: `internal/webui/handlers_diff.go`
 
-- [ ] T007 [P1] Register diff API routes in `internal/webui/routes.go`
+- [X] T007 [P1] Register diff API routes in `internal/webui/routes.go`
   - Add `mux.HandleFunc("GET /api/runs/{id}/diff", s.handleAPIDiffSummary)` in the API endpoints section
   - Add `mux.HandleFunc("GET /api/runs/{id}/diff/{path...}", s.handleAPIDiffFile)` using Go 1.22+ wildcard path matching
   - Place routes after existing `/api/runs/{id}/artifacts/{step}/{name}` route
   - Depends on: T006
   - File: `internal/webui/routes.go`
 
-- [ ] T008 [P1] [P] Create `internal/webui/handlers_diff_test.go` with handler tests
+- [X] T008 [P1] [P] Create `internal/webui/handlers_diff_test.go` with handler tests
   - Use `testServer(t)` pattern from `handlers_test.go` to create test server with temp DB
   - Create a `RunRecord` with `BranchName` set, insert via state store
   - Test `GET /api/runs/{id}/diff`: success (200), run not found (404), empty BranchName (200 with `available: false`)
@@ -91,7 +91,7 @@
 
 ## Phase 4: User Story 1 + User Story 2 — Frontend File List & Unified Diff (P1)
 
-- [ ] T009 [P1] Create `internal/webui/static/diff-viewer.js` with DiffViewer class and file list
+- [X] T009 [P1] Create `internal/webui/static/diff-viewer.js` with DiffViewer class and file list
   - Create `DiffViewer` class with constructor taking `runID` and container element
   - Implement `loadFileList(runID)`: fetch `GET /api/runs/{runID}/diff`, parse JSON response
   - Implement `renderFileList(summary)`: render flat file list sorted alphabetically, each entry shows relative path and status icon (A green, M yellow, D red) with add/delete line counts
@@ -103,7 +103,7 @@
   - Depends on: T007
   - File: `internal/webui/static/diff-viewer.js`
 
-- [ ] T010 [P1] Add unified diff parser and renderer to `internal/webui/static/diff-viewer.js`
+- [X] T010 [P1] Add unified diff parser and renderer to `internal/webui/static/diff-viewer.js`
   - Implement `parseDiff(content)`: parse unified diff text into structured hunks
     - Split on `@@` markers to identify hunks with line number ranges
     - Classify each line as addition (`+`), deletion (`-`), or context (` `)
@@ -116,7 +116,7 @@
   - Depends on: T009
   - File: `internal/webui/static/diff-viewer.js`
 
-- [ ] T011 [P1] Add diff panel HTML section to `internal/webui/templates/run_detail.html`
+- [X] T011 [P1] Add diff panel HTML section to `internal/webui/templates/run_detail.html`
   - Add a new `<div class="card" id="diff-panel">` section inside `.run-detail-main`, positioned after the Steps card and before the Events card
   - Panel contains: `<h2>Changed Files</h2>`, a `<div id="diff-file-list">` for the file list, and a `<div id="diff-viewer-content">` for the diff content
   - Only render the panel when `{{.Run.BranchName}}` is non-empty
@@ -126,7 +126,7 @@
   - Depends on: T009, T010
   - File: `internal/webui/templates/run_detail.html`
 
-- [ ] T012 [P1] Add diff viewer CSS to `internal/webui/static/style.css`
+- [X] T012 [P1] Add diff viewer CSS to `internal/webui/static/style.css`
   - Add styles for `#diff-panel` layout: split into file list (left, ~250px) and diff content (right, flex)
   - File list styles: `.diff-file-item` with hover highlight, `.diff-status-A` (green), `.diff-status-M` (yellow), `.diff-status-D` (red)
   - Diff content styles: `.diff-line` with `.diff-add` (green bg), `.diff-del` (red bg), `.diff-context` (no bg)
@@ -139,7 +139,7 @@
 
 ## Phase 5: User Story 3 — View Mode Switching (P2)
 
-- [ ] T013 [P2] [P] Add side-by-side diff renderer to `internal/webui/static/diff-viewer.js`
+- [X] T013 [P2] [P] Add side-by-side diff renderer to `internal/webui/static/diff-viewer.js`
   - Implement `renderSideBySide(parsedDiff)`: render two-column layout
   - Left column shows old file content with line numbers, right column shows new content
   - Align corresponding lines: context lines appear on both sides, deletions on left only, additions on right only
@@ -148,7 +148,7 @@
   - Depends on: T010
   - File: `internal/webui/static/diff-viewer.js`
 
-- [ ] T014 [P2] [P] Add raw before/after view renderer to `internal/webui/static/diff-viewer.js`
+- [X] T014 [P2] [P] Add raw before/after view renderer to `internal/webui/static/diff-viewer.js`
   - Implement `renderRaw(parsedDiff, mode)` where mode is "before" or "after"
   - "Before" mode: reconstruct the old file content by taking context lines and deletion lines
   - "After" mode: reconstruct the new file content by taking context lines and addition lines
@@ -157,7 +157,7 @@
   - Depends on: T010
   - File: `internal/webui/static/diff-viewer.js`
 
-- [ ] T015 [P2] Add view mode toggle UI and localStorage persistence to `internal/webui/static/diff-viewer.js`
+- [X] T015 [P2] Add view mode toggle UI and localStorage persistence to `internal/webui/static/diff-viewer.js`
   - Add toggle buttons above the diff content area: "Unified" | "Side-by-side" | "Raw"
   - Style active toggle with distinct background color
   - On toggle click: re-render the current file diff in the selected mode using the already-fetched content
@@ -169,7 +169,7 @@
 
 ## Phase 6: User Story 2 — Syntax Highlighting (P1)
 
-- [ ] T016 [P1] Add CSS-based regex syntax highlighting to `internal/webui/static/diff-viewer.js`
+- [X] T016 [P1] Add CSS-based regex syntax highlighting to `internal/webui/static/diff-viewer.js`
   - Implement `highlightSyntax(code, language)` function
   - Detect language from file extension: `.go`, `.js`, `.ts`, `.yaml`/`.yml`, `.json`, `.md`, `.html`, `.css`, `.sql`, `.sh`/`.bash`
   - Token classes and regex patterns per language category:
@@ -185,7 +185,7 @@
 
 ## Phase 7: User Story 4 — Virtualization (P3)
 
-- [ ] T017 [P3] Implement viewport-based virtualization for large diffs in `internal/webui/static/diff-viewer.js`
+- [X] T017 [P3] Implement viewport-based virtualization for large diffs in `internal/webui/static/diff-viewer.js`
   - Only activate virtualization when diff exceeds 500 lines (FR-010)
   - Calculate total container height: `lineCount * LINE_HEIGHT` (fixed monospace line height)
   - Render only visible lines plus a buffer of ±50 lines above/below viewport
@@ -199,7 +199,7 @@
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T018 [P1] Add summary bar showing file count and line changes to diff panel
+- [X] T018 [P1] Add summary bar showing file count and line changes to diff panel
   - Display total changed files, total additions (green `+N`), total deletions (red `-N`) from `DiffSummary` response
   - Position above the file list panel, styled similar to `.run-summary-bar`
   - Update summary when file list loads or refreshes
@@ -207,7 +207,7 @@
   - Depends on: T009
   - File: `internal/webui/static/diff-viewer.js`, `internal/webui/static/style.css`
 
-- [ ] T019 [P1] Handle all edge cases in both backend and frontend
+- [X] T019 [P1] Handle all edge cases in both backend and frontend
   - Backend (`handlers_diff.go`/`diff.go`):
     - Run not found → 404 with `{"error": "run not found"}`
     - Empty `BranchName` (FR-006) → 200 with `{available: false, message: "No branch associated with this run"}`
@@ -225,7 +225,7 @@
   - Depends on: T006, T009
   - File: `internal/webui/handlers_diff.go`, `internal/webui/diff.go`, `internal/webui/static/diff-viewer.js`
 
-- [ ] T020 [P2] Wire SSE events to refresh diff file list during running pipelines
+- [X] T020 [P2] Wire SSE events to refresh diff file list during running pipelines
   - In `run_detail.html` script block: when SSE receives a `step_completed` event, call `diffViewer.loadFileList()` to refresh
   - Only refresh when run status is "running"
   - Debounce rapid successive refreshes (wait 2s between refreshes)

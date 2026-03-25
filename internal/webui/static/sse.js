@@ -355,6 +355,11 @@ function handleSSEEvent(type, data) {
     if (data.message && type !== 'step_progress' && type !== 'stream_activity') {
         appendEventToTimeline(data, type);
     }
+
+    // Refresh diff viewer on step completion during running pipelines
+    if (type === 'completed' && data.step_id && window.diffViewer) {
+        window.diffViewer.refreshIfNeeded();
+    }
 }
 
 function updateDAGNodeStatus(stepID, status) {
