@@ -53,7 +53,8 @@ func resolveBaseBranch(ctx context.Context, repoDir string) (string, error) {
 }
 
 // computeDiffSummary computes the diff summary between base and head branches.
-func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch string) (*DiffSummary, error) {
+// Returns a DiffSummary with Available=false if the branch is deleted or unreachable.
+func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch string) *DiffSummary {
 	diffRange := baseBranch + "..." + headBranch
 
 	// Get per-file additions/deletions
@@ -62,7 +63,7 @@ func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch str
 		return &DiffSummary{
 			Available: false,
 			Message:   "Branch deleted — diff unavailable",
-		}, nil
+		}
 	}
 
 	// Get per-file change status
@@ -71,7 +72,7 @@ func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch str
 		return &DiffSummary{
 			Available: false,
 			Message:   "Branch deleted — diff unavailable",
-		}, nil
+		}
 	}
 
 	// Parse name-status into a map
@@ -124,13 +125,11 @@ func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch str
 			idx := strings.Index(path, " => ")
 			if strings.Contains(path, "{") {
 				// Format: path/{old => new}/rest
-				prefix := ""
-				suffix := ""
 				braceStart := strings.Index(path, "{")
 				braceEnd := strings.Index(path, "}")
 				if braceStart >= 0 && braceEnd > braceStart {
-					prefix = path[:braceStart]
-					suffix = path[braceEnd+1:]
+					prefix := path[:braceStart]
+					suffix := path[braceEnd+1:]
 					inner := path[braceStart+1 : braceEnd]
 					innerParts := strings.SplitN(inner, " => ", 2)
 					if len(innerParts) == 2 {
@@ -182,7 +181,7 @@ func computeDiffSummary(ctx context.Context, repoDir, baseBranch, headBranch str
 		BaseBranch:     baseBranch,
 		HeadBranch:     headBranch,
 		Available:      true,
-	}, nil
+	}
 }
 
 // computeFileDiff computes the diff for a single file between base and head branches.

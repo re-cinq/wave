@@ -106,7 +106,9 @@ func TestResolveBaseBranch_NoMainBranch(t *testing.T) {
 	run("git", "init", "-b", "master")
 	run("git", "config", "user.email", "test@test.com")
 	run("git", "config", "user.name", "Test")
-	os.WriteFile(filepath.Join(dir, "f.txt"), []byte("hello"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	run("git", "add", "-A")
 	run("git", "commit", "-m", "init")
 
@@ -123,10 +125,7 @@ func TestComputeDiffSummary(t *testing.T) {
 	dir := setupGitRepo(t)
 	ctx := context.Background()
 
-	summary, err := computeDiffSummary(ctx, dir, "main", "feature-branch")
-	if err != nil {
-		t.Fatalf("computeDiffSummary() error: %v", err)
-	}
+	summary := computeDiffSummary(ctx, dir, "main", "feature-branch")
 
 	if !summary.Available {
 		t.Fatal("expected Available=true")
@@ -185,10 +184,7 @@ func TestComputeDiffSummary_NonexistentBranch(t *testing.T) {
 	dir := setupGitRepo(t)
 	ctx := context.Background()
 
-	summary, err := computeDiffSummary(ctx, dir, "main", "nonexistent-branch")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	summary := computeDiffSummary(ctx, dir, "main", "nonexistent-branch")
 	if summary.Available {
 		t.Error("expected Available=false for nonexistent branch")
 	}
@@ -278,14 +274,18 @@ func TestComputeFileDiff_Truncation(t *testing.T) {
 	run("git", "config", "user.name", "Test")
 
 	// Create empty file on main
-	os.WriteFile(filepath.Join(dir, "large.txt"), []byte(""), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "large.txt"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	run("git", "add", "-A")
 	run("git", "commit", "-m", "init")
 
 	// Create a large file on feature branch
 	run("git", "checkout", "-b", "feature")
 	largeContent := strings.Repeat("This is a line of content for testing truncation.\n", 3000)
-	os.WriteFile(filepath.Join(dir, "large.txt"), []byte(largeContent), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "large.txt"), []byte(largeContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	run("git", "add", "-A")
 	run("git", "commit", "-m", "large file")
 	run("git", "checkout", "main")
