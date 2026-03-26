@@ -1,9 +1,11 @@
 package forge
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/recinq/wave/internal/github"
 )
@@ -31,7 +33,9 @@ func resolveGitHubToken() string {
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t
 	}
-	out, err := exec.Command("gh", "auth", "token").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "gh", "auth", "token").Output()
 	if err == nil {
 		if t := strings.TrimSpace(string(out)); t != "" {
 			return t

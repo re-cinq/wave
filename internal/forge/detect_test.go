@@ -349,10 +349,20 @@ func TestDetect_SubdomainVariants(t *testing.T) {
 }
 
 func TestDetect_SSHWithPort(t *testing.T) {
-	// SSH URLs with port: ssh://git@gitlab.example.com:2222/org/repo.git
+	// SSH URLs with port: ssh://git@github.com:2222/org/repo.git
+	// The port in the URL causes the host to include ":2222", so
+	// classifyHost won't match "github.com" — this is a known limitation.
 	info := Detect("ssh://git@github.com:2222/org/repo.git")
-	// With port, parsing may differ — verify it doesn't panic
-	_ = info
+	// Host includes port, so forge detection falls back to unknown
+	if info.Type != ForgeUnknown {
+		t.Errorf("Type = %q, want %q (port in host breaks suffix matching)", info.Type, ForgeUnknown)
+	}
+	if info.Owner != "org" {
+		t.Errorf("Owner = %q, want %q", info.Owner, "org")
+	}
+	if info.Repo != "repo" {
+		t.Errorf("Repo = %q, want %q", info.Repo, "repo")
+	}
 }
 
 func TestForgeInfo_Slug_AllForges(t *testing.T) {
