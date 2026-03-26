@@ -18,6 +18,9 @@ input:
 steps:
   - id: analyze
     persona: navigator
+    contexts:
+      - configuration
+      - execution
     workspace:
       mount:
         - source: ./
@@ -74,6 +77,8 @@ steps:
 
   - id: evolve
     persona: craftsman
+    contexts:
+      - configuration
     dependencies: [analyze]
     memory:
       inject_artifacts:
