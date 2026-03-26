@@ -41,7 +41,7 @@ Single-source-of-truth manifest system — wave.yaml loading with synchronous va
 - Pipeline search order: .wave/pipelines/<name>.yaml > .wave/pipelines/<name> > absolute/relative path
 - Five embedded filesystems compiled into binary — personas .md, persona configs .yaml, pipelines .yaml, contracts .json, prompts .md
 - Release-filtered installation — only pipelines with metadata.release:true installed by default, --all for everything
-- Deprecated name resolution via taxonomyMappings table — e.g. 'implement' -> 'impl-issue', 'gh-implement' -> 'impl-issue'
+- No backward-compatibility or deprecated name resolution — removed pre-1.0.0
 - Five-level configuration layering: embedded defaults < installed .wave/ files < wave.yaml < CLI flags < template variables at execution time
 - Merge semantics for wave init --merge — preserves existing files (status:'preserved'), creates new files (status:'new')
 - Forge-aware template expansion — {{ forge.type }}, {{ forge.cli_tool }}, {{ forge.pr_term }}, {{ forge.pr_command }} resolved from git remote detection
