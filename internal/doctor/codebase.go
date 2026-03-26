@@ -3,6 +3,7 @@ package doctor
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os/exec"
 	"time"
 
@@ -77,7 +78,9 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 			State:   "open",
 			PerPage: 100,
 		})
-		if err == nil {
+		if err != nil {
+			log.Printf("[doctor] failed to list pull requests: %v", err)
+		} else {
 			health.PRs = analyzePRs(prs, opts.now())
 		}
 
@@ -85,7 +88,9 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 			State:   "open",
 			PerPage: 100,
 		})
-		if err == nil {
+		if err != nil {
+			log.Printf("[doctor] failed to list issues: %v", err)
+		} else {
 			health.Issues = analyzeIssues(ctx, issues, opts.ForgeClient)
 		}
 	}
