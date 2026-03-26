@@ -1,8 +1,8 @@
-# security Context
+# adapter Context
 
 > Project telos: Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation
 
-Input validation, path sanitization, permission enforcement
+Subprocess execution layer — Claude Code, OpenCode, Ollama adapters
 
 ## Invariants
 

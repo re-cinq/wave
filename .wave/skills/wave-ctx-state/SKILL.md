@@ -1,8 +1,8 @@
-# security Context
+# state Context
 
 > Project telos: Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation
 
-Input validation, path sanitization, permission enforcement
+SQLite persistence — run tracking, step state, decision lineage
 
 ## Invariants
 

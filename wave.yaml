@@ -9,6 +9,34 @@ project:
     lint_command: "go vet ./..."
     build_command: "go build ./..."
     source_glob: "*.go"
+ontology:
+    telos: "Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation"
+    contexts:
+        - name: pipeline
+          description: "Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle"
+          invariants:
+            - "Steps execute in topological order respecting dependencies"
+            - "Each step gets fresh memory — no chat history inheritance"
+            - "Contract validation blocks downstream steps on hard failure"
+        - name: adapter
+          description: "Subprocess execution layer — Claude Code, OpenCode, Ollama adapters"
+          invariants:
+            - "CLAUDE.md is assembled from 5 layers: base-protocol, ontology, persona, contract, restrictions"
+            - "Adapters never import manifest package directly — use PersonaSpec"
+        - name: state
+          description: "SQLite persistence — run tracking, step state, decision lineage"
+          invariants:
+            - "Migrations run automatically on startup"
+            - "WAL mode for concurrent read/write"
+        - name: security
+          description: "Input validation, path sanitization, permission enforcement"
+          invariants:
+            - "All user inputs sanitized for prompt injection"
+            - "Deny rules projected into both settings.json AND runtime CLAUDE.md"
+    conventions:
+        naming: "snake_case for Go files, kebab-case for pipelines and personas"
+        testing: "table-driven tests with t.TempDir() for isolation"
+        errors: "structured CLIError with code, message, suggestion"
 adapters:
     claude:
         binary: claude
