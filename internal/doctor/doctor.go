@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/recinq/wave/internal/forge"
-	"github.com/recinq/wave/internal/github"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
 )
@@ -65,8 +64,8 @@ type Options struct {
 	Fix            bool
 	SkipCodebase   bool
 
-	// GHClient is the GitHub API client for codebase analysis.
-	GHClient *github.Client
+	// ForgeClient is the forge API client for codebase analysis.
+	ForgeClient forge.Client
 
 	// LookPath overrides exec.LookPath for testing.
 	LookPath func(file string) (string, error)
@@ -144,8 +143,8 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 	// 6. Codebase health (forge API)
 	if !opts.SkipCodebase && fi.Type != forge.ForgeUnknown {
 		codebase, err := AnalyzeCodebase(ctx, CodebaseOptions{
-			ForgeInfo: fi,
-			GHClient:  opts.GHClient,
+			ForgeInfo:   fi,
+			ForgeClient: opts.ForgeClient,
 		})
 		if err == nil && codebase != nil {
 			report.Codebase = codebase
