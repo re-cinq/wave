@@ -18,9 +18,6 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
-    contexts:
-      - validation
-      - execution
     workspace:
       mount:
         - source: ./
@@ -76,9 +73,6 @@ steps:
 
   - id: harden
     persona: craftsman
-    contexts:
-      - validation
-      - execution
     dependencies: [analyze-coverage]
     memory:
       inject_artifacts:

@@ -1,13 +1,16 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/manifest"
@@ -46,24 +49,20 @@ func NewAnalyzeCmd() *cobra.Command {
 in wave.yaml.
 
 By default, performs a deterministic scan using directory structure and
-package detection. Use --deep for AI-assisted analysis (not yet implemented).
+package detection. Use --deep for AI-assisted analysis that extracts
+invariants, domain vocabulary, and key decisions from code and tests.
 Use --evolve to propose ontology updates based on pipeline run history.`,
 		Example: `  wave analyze
   wave analyze --json
   wave analyze --deep
   wave analyze --evolve`,
 		Args: cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if deepFlag {
-				return NewCLIError(CodeInvalidArgs,
-					"--deep requires an adapter and is not yet implemented",
-					"Use deterministic scan (no flags) for now")
-			}
-			return nil
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
+			if deepFlag {
+				return runAnalyzeDeep(cmd)
+			}
 			return runAnalyze(cmd, evolveFlag)
 		},
 	}
@@ -443,4 +442,261 @@ func updateManifestOntology(manifestPath string, ontology *manifest.Ontology) er
 	}
 
 	return os.WriteFile(manifestPath, outData, 0o644)
+}
+
+// deepAnalysisResult is the expected JSON output from the deep analysis agent.
+type deepAnalysisResult struct {
+	Contexts []deepContextResult `json:"contexts"`
+}
+
+type deepContextResult struct {
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Invariants      []string `json:"invariants"`
+	KeyDecisions    []string `json:"key_decisions"`
+	DomainVocabulary []struct {
+		Term    string `json:"term"`
+		Meaning string `json:"meaning"`
+	} `json:"domain_vocabulary"`
+	NeighboringContexts []string `json:"neighboring_contexts"`
+	KeyFiles            []string `json:"key_files"`
+}
+
+// runAnalyzeDeep launches a navigator persona to deep-scan the project
+// and extract invariants, domain vocabulary, and key decisions per context.
+func runAnalyzeDeep(cmd *cobra.Command) error {
+	manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")
+	if manifestPath == "" {
+		manifestPath = "wave.yaml"
+	}
+
+	m, err := manifest.Load(manifestPath)
+	if err != nil {
+		return NewCLIError(CodeManifestMissing,
+			fmt.Sprintf("failed to load manifest: %s", err),
+			"Run 'wave init' to create a manifest")
+	}
+
+	if m.Ontology == nil || len(m.Ontology.Contexts) == 0 {
+		return NewCLIError(CodeInvalidArgs,
+			"no ontology contexts declared in wave.yaml",
+			"Run 'wave init' or add contexts under ontology.contexts first, then re-run with --deep")
+	}
+
+	// Build the context list for the prompt
+	var contextList strings.Builder
+	for _, ctx := range m.Ontology.Contexts {
+		fmt.Fprintf(&contextList, "- **%s**: %s\n", ctx.Name, ctx.Description)
+	}
+
+	prompt := fmt.Sprintf(`Analyze this project's codebase and extract detailed domain knowledge for each bounded context.
+
+The project's telos: %s
+
+Declared bounded contexts:
+%s
+
+For EACH bounded context above, search the codebase to find:
+
+1. **Invariants**: Rules that must ALWAYS hold true. Look for:
+   - Assertions and validation logic
+   - Error conditions that panic or return errors
+   - Comments with "must", "always", "never", "invariant"
+   - Test assertions that verify invariant behavior
+
+2. **Key decisions**: Architectural choices that shape the context. Look for:
+   - Design patterns used (interfaces, factories, strategies)
+   - Trade-offs documented in comments or commit messages
+   - Configuration defaults with reasoning
+
+3. **Domain vocabulary**: Key terms specific to this context. Look for:
+   - Type names and their doc comments
+   - Constants and enums
+   - Function names that encode domain concepts
+
+4. **Neighboring contexts**: What other bounded contexts this one interacts with.
+
+5. **Key files**: The 5-10 most important source files for this context.
+
+Output your findings as a JSON object with this exact structure:
+`+"```json\n"+`{
+  "contexts": [
+    {
+      "name": "<context-name>",
+      "description": "<updated description based on code analysis>",
+      "invariants": ["<invariant 1>", "<invariant 2>"],
+      "key_decisions": ["<decision 1>", "<decision 2>"],
+      "domain_vocabulary": [{"term": "<term>", "meaning": "<meaning>"}],
+      "neighboring_contexts": ["<context-name>"],
+      "key_files": ["<relative/path/to/file.go>"]
+    }
+  ]
+}
+`+"```\n"+`
+Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextList.String())
+
+	// Resolve adapter binary
+	adapterName := "claude"
+	if len(m.Adapters) > 0 {
+		for name := range m.Adapters {
+			adapterName = name
+			break
+		}
+	}
+	adapterDef := m.GetAdapter(adapterName)
+	if adapterDef == nil {
+		return NewCLIError(CodeInvalidArgs,
+			fmt.Sprintf("adapter %q not found in manifest", adapterName),
+			"Check wave.yaml adapters section")
+	}
+
+	// Get navigator persona for read-only analysis
+	persona := m.GetPersona("navigator")
+	if persona == nil {
+		return NewCLIError(CodeInvalidArgs,
+			"navigator persona not found in manifest",
+			"Add a navigator persona to .wave/personas/")
+	}
+
+	fmt.Fprintf(os.Stderr, "  Launching deep analysis with %s adapter...\n", adapterName)
+	fmt.Fprintf(os.Stderr, "  Analyzing %d bounded contexts...\n\n", len(m.Ontology.Contexts))
+
+	// Create output directory
+	if err := os.MkdirAll(".wave/output", 0o755); err != nil {
+		return err
+	}
+
+	// Build adapter config
+	cwd, _ := os.Getwd()
+	cfg := adapter.AdapterRunConfig{
+		Adapter:       adapterDef.Binary,
+		Persona:       "navigator",
+		WorkspacePath: cwd,
+		Prompt:        prompt,
+		SystemPrompt:  "You are a codebase analysis specialist. Extract domain knowledge from code structure, tests, and documentation. Output structured JSON.",
+		Timeout:       30 * time.Minute,
+		Model:         persona.Model,
+		AllowedTools:  []string{"Read", "Glob", "Grep", "Bash(git log*)"},
+		DenyTools:     []string{"Write", "Edit", "Bash(rm*)", "Bash(mv*)"},
+		OutputFormat:  adapterDef.OutputFormat,
+	}
+
+	// Run the adapter
+	a := adapter.NewClaudeAdapter()
+	ctx := context.Background()
+	result, err := a.Run(ctx, cfg)
+	if err != nil {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("deep analysis failed: %s", err),
+			"Check that the adapter binary is available and authenticated")
+	}
+
+	if result.ExitCode != 0 {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("deep analysis exited with code %d", result.ExitCode),
+			"Check adapter logs for details")
+	}
+
+	// Read the output file the agent wrote
+	outputPath := filepath.Join(cwd, ".wave/output/deep-analysis.json")
+	outputData, err := os.ReadFile(outputPath)
+	if err != nil {
+		return NewCLIError(CodeInternalError,
+			"deep analysis completed but output file not found at .wave/output/deep-analysis.json",
+			"The agent may not have written the file — check adapter output")
+	}
+
+	var deepResult deepAnalysisResult
+	if err := json.Unmarshal(outputData, &deepResult); err != nil {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("failed to parse deep analysis output: %s", err),
+			"The output may not be valid JSON — check .wave/output/deep-analysis.json")
+	}
+
+	// Write enriched SKILL.md files
+	fmt.Fprintf(os.Stderr, "  Writing enriched context skills...\n")
+	for _, ctx := range deepResult.Contexts {
+		skillDir := filepath.Join(".wave", "skills", "wave-ctx-"+ctx.Name)
+		if err := os.MkdirAll(skillDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not create %s: %v\n", skillDir, err)
+			continue
+		}
+
+		content := generateDeepSkillContent(ctx, m.Ontology.Telos)
+		skillPath := filepath.Join(skillDir, "SKILL.md")
+		if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not write %s: %v\n", skillPath, err)
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "  ✓ %s (%d invariants, %d decisions, %d terms)\n",
+			skillPath, len(ctx.Invariants), len(ctx.KeyDecisions), len(ctx.DomainVocabulary))
+	}
+
+	// Remove staleness sentinel after deep refresh
+	os.Remove(".wave/.ontology-stale")
+
+	fmt.Fprintf(os.Stderr, "\n  Deep analysis complete. Review the generated skills before committing.\n")
+	return nil
+}
+
+// generateDeepSkillContent creates a rich SKILL.md from deep analysis results.
+func generateDeepSkillContent(ctx deepContextResult, telos string) string {
+	var b strings.Builder
+
+	b.WriteString("---\n")
+	fmt.Fprintf(&b, "name: wave-ctx-%s\n", ctx.Name)
+	fmt.Fprintf(&b, "description: Domain context for %s\n", ctx.Description)
+	b.WriteString("---\n\n")
+
+	// Capitalize first letter for heading
+	ctxTitle := ctx.Name
+	if len(ctxTitle) > 0 {
+		ctxTitle = strings.ToUpper(ctxTitle[:1]) + ctxTitle[1:]
+	}
+	fmt.Fprintf(&b, "# %s Context\n\n", ctxTitle)
+	fmt.Fprintf(&b, "%s\n\n", ctx.Description)
+
+	if len(ctx.Invariants) > 0 {
+		b.WriteString("## Invariants\n\n")
+		for _, inv := range ctx.Invariants {
+			fmt.Fprintf(&b, "- %s\n", inv)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(ctx.KeyDecisions) > 0 {
+		b.WriteString("## Key Decisions\n\n")
+		for _, dec := range ctx.KeyDecisions {
+			fmt.Fprintf(&b, "- %s\n", dec)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(ctx.DomainVocabulary) > 0 {
+		b.WriteString("## Domain Vocabulary\n\n")
+		b.WriteString("| Term | Meaning |\n")
+		b.WriteString("|------|--------|\n")
+		for _, v := range ctx.DomainVocabulary {
+			fmt.Fprintf(&b, "| %s | %s |\n", v.Term, v.Meaning)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(ctx.NeighboringContexts) > 0 {
+		b.WriteString("## Neighboring Contexts\n\n")
+		for _, nc := range ctx.NeighboringContexts {
+			fmt.Fprintf(&b, "- **%s**\n", nc)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(ctx.KeyFiles) > 0 {
+		b.WriteString("## Key Files\n\n")
+		for _, f := range ctx.KeyFiles {
+			fmt.Fprintf(&b, "- `%s`\n", f)
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
