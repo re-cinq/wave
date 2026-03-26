@@ -1161,7 +1161,7 @@ func TestSubprocessTimeout_ProcessGroupKill(t *testing.T) {
 	}
 }
 
-// TestSubprocessTimeout_ZeroTimeout verifies that zero timeout gets a default.
+// TestSubprocessTimeout_ZeroTimeout verifies that zero timeout means no timeout.
 func TestSubprocessTimeout_ZeroTimeout(t *testing.T) {
 	runner := NewProcessGroupRunner()
 	ctx := context.Background()
@@ -1171,7 +1171,7 @@ func TestSubprocessTimeout_ZeroTimeout(t *testing.T) {
 		Persona:       "test",
 		WorkspacePath: "/tmp",
 		Prompt:        "quick test",
-		Timeout:       0, // Should get default timeout
+		Timeout:       0, // No timeout — runs until done
 		Env:           []string{},
 	}
 

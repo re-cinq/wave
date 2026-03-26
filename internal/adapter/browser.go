@@ -76,10 +76,12 @@ func NewBrowserAdapter() *BrowserAdapter {
 
 // Run executes browser commands from cfg.Prompt (JSON array of BrowserCommand).
 func (a *BrowserAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 5 * time.Minute
+	var cancel context.CancelFunc
+	if cfg.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
 	}
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	// Parse commands from prompt
