@@ -1,8 +1,8 @@
-# security Context
+# pipeline Context
 
 > Project telos: Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation
 
-Input validation, path sanitization, permission enforcement
+Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle
 
 ## Invariants
 
