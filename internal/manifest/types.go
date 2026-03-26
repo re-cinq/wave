@@ -96,6 +96,7 @@ type Runtime struct {
 	DefaultTimeoutMin    int                    `yaml:"default_timeout_minutes,omitempty"`
 	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`
 	MaxConcurrency       int                    `yaml:"max_concurrency,omitempty"`
+	Timeouts             Timeouts               `yaml:"timeouts,omitempty"`
 	Relay                RelayConfig            `yaml:"relay,omitempty"`
 	Audit                AuditConfig            `yaml:"audit,omitempty"`
 	MetaPipeline         MetaConfig             `yaml:"meta_pipeline,omitempty"`
@@ -342,8 +343,9 @@ func (p *Persona) GetSystemPromptPath(root string) string {
 }
 
 func (r *Runtime) GetDefaultTimeout() time.Duration {
+	// Legacy field takes precedence for backward compatibility
 	if r.DefaultTimeoutMin > 0 {
 		return time.Duration(r.DefaultTimeoutMin) * time.Minute
 	}
-	return 5 * time.Minute
+	return r.Timeouts.GetStepDefault()
 }

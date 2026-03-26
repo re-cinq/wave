@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
-// Timeout constants for adapter operations.
-const (
-	CLITimeout        = 2 * time.Minute
-	HTTPTimeout       = 2 * time.Minute
-	HTTPHeaderTimeout = 30 * time.Second
+// Timeout constants — re-exported from manifest.Timeouts for backward compatibility.
+// Configure via runtime.timeouts in wave.yaml.
+var (
+	CLITimeout        = timeouts.SkillCLI
+	HTTPTimeout       = timeouts.SkillHTTP
+	HTTPHeaderTimeout = timeouts.SkillHTTPHeader
 )
 
 // SourceAdapter handles installation of skills from a specific source type.

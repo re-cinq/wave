@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 type ClaudeAdapter struct {
@@ -131,12 +133,16 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
-			killProcessGroup(cmd.Process)
+			killProcessGroup(cmd.Process, cfg.ProcessGrace)
 		}
 		// Wait briefly for stdout to drain so we can capture diagnostic data
+		drainTimeout := cfg.StdoutDrain
+		if drainTimeout <= 0 {
+			drainTimeout = timeouts.StdoutDrain
+		}
 		select {
 		case <-stdoutDone:
-		case <-time.After(1 * time.Second):
+		case <-time.After(drainTimeout):
 		}
 		cmd.Wait()
 
