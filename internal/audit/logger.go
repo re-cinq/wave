@@ -15,6 +15,8 @@ type AuditLogger interface {
 	LogStepStart(pipelineID, stepID, persona string, injectedArtifacts []string) error
 	LogStepEnd(pipelineID, stepID, status string, duration time.Duration, exitCode int, outputBytes int, tokensUsed int, errMsg string) error
 	LogContractResult(pipelineID, stepID, contractType, result string) error
+	LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error
+	LogOntologyLineage(pipelineID, stepID, contextName, stepStatus string, invariantCount int) error
 	Close() error
 }
 
@@ -115,6 +117,22 @@ func (l *TraceLogger) LogStepEnd(pipelineID, stepID, status string, duration tim
 func (l *TraceLogger) LogContractResult(pipelineID, stepID, contractType, result string) error {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	line := timestamp + " [CONTRACT] pipeline=" + pipelineID + " step=" + stepID + " type=" + contractType + " result=" + result + "\n"
+	_, err := l.file.WriteString(line)
+	return err
+}
+
+func (l *TraceLogger) LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := fmt.Sprintf("%s [ONTOLOGY_INJECT] pipeline=%s step=%s contexts=[%s] invariants=%d\n",
+		timestamp, pipelineID, stepID, strings.Join(contexts, ","), invariantCount)
+	_, err := l.file.WriteString(line)
+	return err
+}
+
+func (l *TraceLogger) LogOntologyLineage(pipelineID, stepID, contextName, stepStatus string, invariantCount int) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := fmt.Sprintf("%s [ONTOLOGY_LINEAGE] pipeline=%s step=%s context=%s status=%s invariants=%d\n",
+		timestamp, pipelineID, stepID, contextName, stepStatus, invariantCount)
 	_, err := l.file.WriteString(line)
 	return err
 }
