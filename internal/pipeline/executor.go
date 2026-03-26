@@ -860,6 +860,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateSkipped,
 					Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
 				})
+				e.recordOntologyUsage(execution, step, "skipped")
 				return nil
 
 			case OnFailureContinue:
@@ -876,6 +877,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateFailed,
 					Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
 				})
+				e.recordOntologyUsage(execution, step, "failed")
 				return nil
 
 			case OnFailureRework:
@@ -888,6 +890,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 				}
+				e.recordOntologyUsage(execution, step, "failed")
 				return lastErr
 			}
 		}
@@ -936,10 +939,44 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Extract declared outcomes from step artifacts
 		e.processStepOutcomes(execution, step)
 
+		// Record ontology usage for decision lineage tracking
+		e.recordOntologyUsage(execution, step, "success")
+
 		return nil
 	}
 
 	return lastErr
+}
+
+// recordOntologyUsage records ontology context usage for a step after its final status is determined.
+// This enables decision lineage tracking across pipeline runs.
+func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecution, step *Step, stepStatus string) {
+	if e.store == nil || len(step.Contexts) == 0 {
+		return
+	}
+
+	// Determine contract pass/fail: nil if no contract, true/false based on step outcome
+	var contractPassed *bool
+	if step.Handover.Contract.Type != "" {
+		passed := stepStatus == "success"
+		contractPassed = &passed
+	}
+
+	for _, ctxName := range step.Contexts {
+		invariantCount := 0
+		if execution.Manifest.Ontology != nil {
+			for _, ctx := range execution.Manifest.Ontology.Contexts {
+				if ctx.Name == ctxName {
+					invariantCount = len(ctx.Invariants)
+					break
+				}
+			}
+		}
+		_ = e.store.RecordOntologyUsage(
+			execution.Status.ID, step.ID, ctxName,
+			invariantCount, stepStatus, contractPassed,
+		)
+	}
 }
 
 // executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,
@@ -1367,6 +1404,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		prompt = prompt + "\n\n" + contractPrompt
 	}
 
+	// Build ontology section from manifest for CLAUDE.md injection
+	ontologySection := ""
+	if execution.Manifest.Ontology != nil {
+		ontologySection = execution.Manifest.Ontology.RenderMarkdown(step.Contexts)
+	}
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:          adapterDef.Binary,
 		Persona:          resolvedPersona,
@@ -1387,6 +1430,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		DockerImage:      execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
+		OntologySection:     ontologySection,
 		ContractPrompt:      "", // Contract now in user prompt, not system prompt
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {

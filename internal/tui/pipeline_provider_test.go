@@ -113,6 +113,13 @@ func (b baseStateStore) GetChatSession(string) (*state.ChatSession, error) {
 	return nil, errors.New("not found")
 }
 func (b baseStateStore) ListChatSessions(string) ([]state.ChatSession, error) { return nil, nil }
+func (b baseStateStore) RecordOntologyUsage(string, string, string, int, string, *bool) error {
+	return nil
+}
+func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
+	return &state.OntologyStats{}, nil
+}
+func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

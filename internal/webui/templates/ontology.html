@@ -1,0 +1,82 @@
+{{define "title"}}Ontology · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Project Ontology</h1>
+</div>
+
+{{if .HasOntology}}
+{{if .Telos}}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h3>Telos</h3>
+    <p style="color: var(--text-secondary); font-style: italic;">{{.Telos}}</p>
+</div>
+{{end}}
+
+{{if .Contexts}}
+<h2>Bounded Contexts</h2>
+<div class="personas-grid">
+    {{range .Contexts}}
+    <div class="card">
+        <h3>{{.Name}}</h3>
+        {{if .Description}}
+        <p style="color: var(--text-secondary);">{{.Description}}</p>
+        {{end}}
+        <div class="persona-meta">
+            <span class="badge">{{.InvariantCount}} {{if eq .InvariantCount 1}}invariant{{else}}invariants{{end}}</span>
+            {{if .HasSkill}}
+            <span class="badge badge-success">skill provisioned</span>
+            <span class="badge" title="Last updated">{{.LastUpdatedAgo}}</span>
+            {{else}}
+            <span class="badge badge-warning">no skill</span>
+            {{end}}
+        </div>
+        {{if .Invariants}}
+        <div style="margin-top: 0.75rem;">
+            <strong style="font-size: 0.85rem;">Invariants:</strong>
+            <ul style="margin: 0.25rem 0; padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary);">
+                {{range .Invariants}}
+                <li>{{.}}</li>
+                {{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="empty-state">
+    <p><strong>No bounded contexts defined</strong></p>
+    <p>Add contexts under <code>ontology.contexts</code> in wave.yaml</p>
+</div>
+{{end}}
+
+{{if .Conventions}}
+<h2 style="margin-top: 1.5rem;">Conventions</h2>
+<div class="card">
+    <table class="table" style="margin: 0;">
+        <thead>
+            <tr>
+                <th>Convention</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $key, $value := .Conventions}}
+            <tr>
+                <td><code>{{$key}}</code></td>
+                <td>{{$value}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{else}}
+<div class="empty-state">
+    <p><strong>No ontology configured</strong></p>
+    <p>Run <code>wave init</code> to set up your project ontology, or add an <code>ontology:</code> section to wave.yaml</p>
+</div>
+{{end}}
+{{end}}
+{{define "scripts"}}{{end}}

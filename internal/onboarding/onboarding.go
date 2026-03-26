@@ -37,6 +37,8 @@ type WizardResult struct {
 	Skills               []string // installed skill names from onboarding
 	WaveCommandGenerated bool     // true if .claude/commands/wave.md was created
 	Dependencies         []DependencyStatus
+	OntologyTelos    string   // project purpose statement
+	OntologyContexts []string // bounded context names
 }
 
 // DependencyStatus reports the status of a required dependency.
@@ -158,7 +160,22 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 		}
 	}
 
-	// Step 7: Wave command registration
+	// Step 7: Project ontology
+	ontologyStep := &OntologyStep{}
+	ontologyResult, err := ontologyStep.Run(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("ontology configuration failed: %w", err)
+	}
+	if ontologyResult != nil && !ontologyResult.Skipped && ontologyResult.Data != nil {
+		if v, ok := ontologyResult.Data["telos"].(string); ok {
+			result.OntologyTelos = v
+		}
+		if v, ok := ontologyResult.Data["contexts"].([]string); ok {
+			result.OntologyContexts = v
+		}
+	}
+
+	// Step 8: Wave command registration
 	waveCommandStep := &WaveCommandStep{}
 	waveCommandResult, err := waveCommandStep.Run(&cfg)
 	if err != nil {
@@ -339,6 +356,24 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 
 	if len(result.Skills) > 0 {
 		m["skills"] = result.Skills
+	}
+
+	// Add ontology section if telos or contexts are provided
+	if result.OntologyTelos != "" || len(result.OntologyContexts) > 0 {
+		ontology := map[string]interface{}{}
+		if result.OntologyTelos != "" {
+			ontology["telos"] = result.OntologyTelos
+		}
+		if len(result.OntologyContexts) > 0 {
+			contexts := make([]map[string]interface{}, len(result.OntologyContexts))
+			for i, name := range result.OntologyContexts {
+				contexts[i] = map[string]interface{}{
+					"name": name,
+				}
+			}
+			ontology["contexts"] = contexts
+		}
+		m["ontology"] = ontology
 	}
 
 	return m

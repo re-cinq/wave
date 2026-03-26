@@ -20,6 +20,7 @@ type ContentProviders struct {
 	IssueProvider    IssueDataProvider
 	PRProvider       PRDataProvider
 	SuggestProvider  SuggestDataProvider
+	OntologyProvider OntologyDataProvider
 }
 
 // ContentModel is the main content area component composing a left pipeline list pane and a right detail pane.
@@ -49,6 +50,8 @@ type ContentModel struct {
 	prDetail       *PRDetailModel
 	suggestList    *SuggestListModel
 	suggestDetail  *SuggestDetailModel
+	ontologyList   *OntologyListModel
+	ontologyDetail *OntologyDetailModel
 
 	// Data providers for alternative views
 	personaProvider  PersonaDataProvider
@@ -58,6 +61,7 @@ type ContentModel struct {
 	issueProvider    IssueDataProvider
 	prProvider       PRDataProvider
 	suggestProvider  SuggestDataProvider
+	ontologyProvider OntologyDataProvider
 
 	// Compose mode (nil when inactive)
 	composing     bool
@@ -97,6 +101,7 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.issueProvider = p.IssueProvider
 		m.prProvider = p.PRProvider
 		m.suggestProvider = p.SuggestProvider
+		m.ontologyProvider = p.OntologyProvider
 	}
 
 	return m
@@ -134,6 +139,8 @@ func (m ContentModel) IsFiltering() bool {
 		return m.prList != nil && m.prList.filtering
 	case ViewSuggest:
 		return m.suggestList != nil && m.suggestList.filtering
+	case ViewOntology:
+		return m.ontologyList != nil && m.ontologyList.filtering
 	}
 	return false
 }
@@ -212,6 +219,12 @@ func (m *ContentModel) SetSize(w, h int) {
 	if m.suggestDetail != nil {
 		m.suggestDetail.SetSize(rightWidth, m.childHeight())
 	}
+	if m.ontologyList != nil {
+		m.ontologyList.SetSize(leftWidth, m.childHeight())
+	}
+	if m.ontologyDetail != nil {
+		m.ontologyDetail.SetSize(rightWidth, m.childHeight())
+	}
 	if m.composeList != nil {
 		m.composeList.SetSize(leftWidth, m.childHeight())
 	}
@@ -222,7 +235,7 @@ func (m *ContentModel) SetSize(w, h int) {
 
 // cycleView moves to the next view and returns init commands if the view was just created.
 func (m *ContentModel) cycleView() tea.Cmd {
-	m.currentView = (m.currentView + 1) % 8
+	m.currentView = (m.currentView + 1) % 9
 	m.focus = FocusPaneLeft
 
 	var initCmd tea.Cmd
@@ -356,6 +369,23 @@ func (m *ContentModel) cycleView() tea.Cmd {
 		}
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
+		}
+
+	case ViewOntology:
+		if m.ontologyList == nil && m.ontologyProvider != nil {
+			ol := NewOntologyListModel(m.ontologyProvider)
+			ol.SetSize(leftWidth, m.childHeight())
+			m.ontologyList = &ol
+			od := NewOntologyDetailModel()
+			od.SetSize(rightWidth, m.childHeight())
+			m.ontologyDetail = &od
+			initCmd = m.ontologyList.Init()
+		}
+		if m.ontologyList != nil {
+			m.ontologyList.SetFocused(true)
+		}
+		if m.ontologyDetail != nil {
+			m.ontologyDetail.SetFocused(false)
 		}
 	}
 
@@ -505,6 +535,23 @@ func (m *ContentModel) setView(v ViewType) tea.Cmd {
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
 		}
+
+	case ViewOntology:
+		if m.ontologyList == nil && m.ontologyProvider != nil {
+			ol := NewOntologyListModel(m.ontologyProvider)
+			ol.SetSize(leftWidth, m.childHeight())
+			m.ontologyList = &ol
+			od := NewOntologyDetailModel()
+			od.SetSize(rightWidth, m.childHeight())
+			m.ontologyDetail = &od
+			initCmd = m.ontologyList.Init()
+		}
+		if m.ontologyList != nil {
+			m.ontologyList.SetFocused(true)
+		}
+		if m.ontologyDetail != nil {
+			m.ontologyDetail.SetFocused(false)
+		}
 	}
 
 	batchCmds := []tea.Cmd{
@@ -536,6 +583,8 @@ func numberKeyToView(key string) (ViewType, bool) {
 		return ViewPullRequests, true
 	case "8":
 		return ViewSuggest, true
+	case "9":
+		return ViewOntology, true
 	default:
 		return 0, false
 	}
@@ -553,7 +602,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, nil
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
-			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
+			m.currentView = (m.currentView + 7) % 9 // net effect: -1 after cycleView adds +1
 			cmd := m.cycleView()
 			return m, cmd
 		}
@@ -575,7 +624,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			return m, cmd
 		}
 
-		// Number key direct-jump navigation (1-8) when in left pane and no input active
+		// Number key direct-jump navigation (1-9) when in left pane and no input active
 		if m.focus == FocusPaneLeft && !m.IsInputActive() {
 			if v, ok := numberKeyToView(msg.String()); ok {
 				cmd := m.setView(v)
@@ -1077,6 +1126,32 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			*m.suggestDetail, detailCmd = m.suggestDetail.Update(msg)
 			if detailCmd != nil {
 				cmds = append(cmds, detailCmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case OntologyDataMsg:
+		if m.ontologyList != nil {
+			var cmd tea.Cmd
+			*m.ontologyList, cmd = m.ontologyList.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case OntologySelectedMsg:
+		if m.ontologyList != nil {
+			var listCmd tea.Cmd
+			*m.ontologyList, listCmd = m.ontologyList.Update(msg)
+			if listCmd != nil {
+				cmds = append(cmds, listCmd)
+			}
+		}
+		if m.ontologyDetail != nil && m.ontologyList != nil {
+			for i := range m.ontologyList.navigable {
+				if m.ontologyList.navigable[i].Name == msg.Name {
+					m.ontologyDetail.SetContext(&m.ontologyList.navigable[i])
+					break
+				}
 			}
 		}
 		return m, tea.Batch(cmds...)
@@ -1707,6 +1782,13 @@ func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(true)
 		}
+	case ViewOntology:
+		if m.ontologyList != nil {
+			m.ontologyList.SetFocused(false)
+		}
+		if m.ontologyDetail != nil {
+			m.ontologyDetail.SetFocused(true)
+		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
@@ -1768,6 +1850,13 @@ func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
 		}
+	case ViewOntology:
+		if m.ontologyList != nil {
+			m.ontologyList.SetFocused(true)
+		}
+		if m.ontologyDetail != nil {
+			m.ontologyDetail.SetFocused(false)
+		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
@@ -1820,6 +1909,12 @@ func (m ContentModel) routeToActiveList(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.suggestList != nil {
 			var cmd tea.Cmd
 			*m.suggestList, cmd = m.suggestList.Update(msg)
+			return m, cmd
+		}
+	case ViewOntology:
+		if m.ontologyList != nil {
+			var cmd tea.Cmd
+			*m.ontologyList, cmd = m.ontologyList.Update(msg)
 			return m, cmd
 		}
 	}
@@ -1878,6 +1973,12 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			var cmd tea.Cmd
 			*m.suggestDetail, cmd = m.suggestDetail.Update(msg)
+			return m, cmd
+		}
+	case ViewOntology:
+		if m.ontologyDetail != nil {
+			var cmd tea.Cmd
+			*m.ontologyDetail, cmd = m.ontologyDetail.Update(msg)
 			return m, cmd
 		}
 	}
@@ -1996,6 +2097,18 @@ func (m ContentModel) View() string {
 			rightView = m.suggestDetail.View()
 		} else {
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a suggestion to view details")
+		}
+
+	case ViewOntology:
+		if m.ontologyList != nil {
+			leftView = m.ontologyList.View()
+		} else {
+			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "No ontology configured")
+		}
+		if m.ontologyDetail != nil {
+			rightView = m.ontologyDetail.View()
+		} else {
+			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select a context to view details")
 		}
 	}
 

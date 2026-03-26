@@ -223,7 +223,7 @@ func (s *SkillSelectionStep) promptEcosystemSelection() (string, error) {
 				Title("Select a skill ecosystem").
 				Options(options...).
 				Value(&selected),
-		).Title("Step 6 of 6 — Skill Selection").
+		).Title("Step 6 of 8 — Skill Selection").
 			Description("Choose a skill ecosystem to install skills from, or skip."),
 	).WithTheme(tui.WaveTheme())
 

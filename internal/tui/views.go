@@ -12,6 +12,7 @@ const (
 	ViewIssues
 	ViewPullRequests
 	ViewSuggest
+	ViewOntology
 )
 
 // String returns the display name for the view (used as status bar label).
@@ -33,6 +34,8 @@ func (v ViewType) String() string {
 		return "Pull Requests"
 	case ViewSuggest:
 		return "Suggest"
+	case ViewOntology:
+		return "Ontology"
 	default:
 		return "Unknown"
 	}
