@@ -151,11 +151,6 @@ personas:
     model: claude-sonnet-4-20250514     # Specific model (optional)
     system_prompt_file: .wave/personas/db-migrator.md
     temperature: 0.2              # 0.0-1.0, lower = more deterministic
-    max_tokens: 4096              # Maximum response length
-    timeout: 300                  # Seconds before timeout
-    retry:
-      max_attempts: 3             # Retry failed executions
-      backoff: exponential        # Retry strategy
     permissions:
       allowed_tools: [...]
       deny: [...]
@@ -442,7 +437,7 @@ If a persona behaves unexpectedly:
 
 If persona execution times out:
 
-1. Increase the `timeout` configuration
+1. Increase `runtime.timeouts.step_default_minutes` in wave.yaml or use `--timeout` per run
 2. Break complex tasks into smaller steps
 3. Consider using a faster model for simple tasks
 

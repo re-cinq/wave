@@ -14,16 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Header completion counts (e.g. "1 ok, 1 fail") in live output
 - Handover metadata (artifacts, contracts, targets) in verbose dashboard mode
 - Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
-- Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
 - Forge-agnostic template variables in pipeline prompts
 - Skill management CLI (`wave skills list|install|remove|search|sync`)
+- Project ontology system with telos, bounded contexts, invariants, and conventions (#590)
+- `wave analyze` CLI for deterministic ontology generation and `--deep` AI-assisted enrichment
+- `wave analyze --evolve` self-evolution feedback loop using decision lineage
+- Ontology lineage badges in WebUI and TUI (total runs, success rate, last used)
+- Staleness detection and warning banners in WebUI and TUI ontology views
+- Centralized `runtime.timeouts` configuration with 16 tunable values
+- Full `Timeouts` section in manifest schema documentation
 
 ### Changed
 - Renamed all pipelines to use taxonomy prefixes (e.g., `implement` → `impl-issue`, `pr-review` → `ops-pr-review`, `speckit-flow` → `impl-speckit`)
 - Unified forge-specific pipelines into forge-agnostic pipelines with template variables
+- `github_api_seconds` → `forge_api_seconds` in timeout configuration
+- All hardcoded timeout values replaced with configurable constants via `internal/timeouts`
 
 ### Removed
+- Deprecated pipeline name resolution (`ResolveDeprecatedName`) — no backward-compat shims pre-1.0.0
+- Timeout constant re-exports from `manifest` package
 - Stale multiplatform pipeline tests referencing non-existent gl-*/gt-* YAML files
+- Nonexistent `timeout` and `retry` persona fields from custom-personas guide
 
 ## [0.69.0] - 2026-03-10
 
