@@ -951,8 +951,17 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 // recordOntologyUsage records ontology context usage for a step after its final status is determined.
 // This enables decision lineage tracking across pipeline runs.
 func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecution, step *Step, stepStatus string) {
-	if e.store == nil || len(step.Contexts) == 0 {
+	if e.store == nil || execution.Manifest.Ontology == nil || len(execution.Manifest.Ontology.Contexts) == 0 {
 		return
+	}
+
+	// Determine which contexts were injected: if step declares contexts, only those;
+	// otherwise all contexts are injected (RenderMarkdown with empty filter passes all).
+	injectedContexts := step.Contexts
+	if len(injectedContexts) == 0 {
+		for _, ctx := range execution.Manifest.Ontology.Contexts {
+			injectedContexts = append(injectedContexts, ctx.Name)
+		}
 	}
 
 	// Determine contract pass/fail: nil if no contract, true/false based on step outcome
@@ -962,20 +971,21 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 		contractPassed = &passed
 	}
 
-	for _, ctxName := range step.Contexts {
+	for _, ctxName := range injectedContexts {
 		invariantCount := 0
-		if execution.Manifest.Ontology != nil {
-			for _, ctx := range execution.Manifest.Ontology.Contexts {
-				if ctx.Name == ctxName {
-					invariantCount = len(ctx.Invariants)
-					break
-				}
+		for _, ctx := range execution.Manifest.Ontology.Contexts {
+			if ctx.Name == ctxName {
+				invariantCount = len(ctx.Invariants)
+				break
 			}
 		}
-		_ = e.store.RecordOntologyUsage(
+		if err := e.store.RecordOntologyUsage(
 			execution.Status.ID, step.ID, ctxName,
 			invariantCount, stepStatus, contractPassed,
-		)
+		); err != nil {
+			_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
+				fmt.Sprintf("context=%s err=%v", ctxName, err))
+		}
 	}
 }
 
