@@ -139,6 +139,10 @@ const (
 	StateLoopIterationComplete = "loop_iteration_complete"
 	StateLoopIterationFailed   = "loop_iteration_failed"
 	StateLoopSummary           = "loop_summary"
+
+	// Ontology lifecycle states
+	StateOntologyInject  = "ontology_inject"  // Ontology contexts injected into step
+	StateOntologyLineage = "ontology_lineage" // Ontology decision lineage recorded
 )
 
 type EventEmitter interface {
