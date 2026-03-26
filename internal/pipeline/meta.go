@@ -20,7 +20,6 @@ const (
 	DefaultMaxDepth       = 3
 	DefaultMaxTotalSteps  = 20
 	DefaultMaxTotalTokens = 500000
-	DefaultMetaTimeout    = 30 * time.Minute
 
 	PhilosopherPersona = "philosopher"
 	NavigatorPersona   = "navigator"
@@ -964,7 +963,7 @@ func (e *MetaPipelineExecutor) getTimeout(m *manifest.Manifest) time.Duration {
 	if m.Runtime.MetaPipeline.TimeoutMin > 0 {
 		return time.Duration(m.Runtime.MetaPipeline.TimeoutMin) * time.Minute
 	}
-	return DefaultMetaTimeout
+	return m.Runtime.Timeouts.GetMetaDefault()
 }
 
 // checkDepthLimit verifies the current depth is within limits.

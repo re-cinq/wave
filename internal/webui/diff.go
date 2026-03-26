@@ -8,13 +8,15 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 const maxDiffSize = 100 * 1024 // 100KB per file diff
 
 // gitCommandTimeout is the maximum time allowed for a single git subprocess.
-const gitCommandTimeout = 30 * time.Second
+// Configured via runtime.timeouts.git_command_seconds in wave.yaml.
+var gitCommandTimeout = timeouts.GitCommand
 
 // gitCommand creates a git command with a context timeout and explicit working directory.
 func gitCommand(ctx context.Context, repoDir string, args ...string) *exec.Cmd {

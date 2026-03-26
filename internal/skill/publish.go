@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // PublishOpts configures a publish operation.
@@ -115,7 +117,7 @@ func (p *Publisher) PublishOne(ctx context.Context, name string, opts PublishOpt
 		return result
 	}
 
-	publishCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	publishCtx, cancel := context.WithTimeout(ctx, timeouts.SkillPublish)
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer

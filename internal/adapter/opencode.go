@@ -92,7 +92,7 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
-			killProcessGroup(cmd.Process)
+			killProcessGroup(cmd.Process, cfg.ProcessGrace)
 		}
 		cmd.Wait()
 		return nil, ctx.Err()

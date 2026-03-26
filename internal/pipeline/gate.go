@@ -10,6 +10,7 @@ import (
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -24,17 +25,19 @@ func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]b
 
 // GateExecutor handles blocking gate steps.
 type GateExecutor struct {
-	emitter event.EventEmitter
-	store   state.StateStore
-	runner  commandRunner // injectable for tests
+	emitter  event.EventEmitter
+	store    state.StateStore
+	runner   commandRunner // injectable for tests
+	timeouts *manifest.Timeouts
 }
 
 // NewGateExecutor creates a gate executor.
-func NewGateExecutor(emitter event.EventEmitter, store state.StateStore) *GateExecutor {
+func NewGateExecutor(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts) *GateExecutor {
 	return &GateExecutor{
-		emitter: emitter,
-		store:   store,
-		runner:  defaultCommandRunner,
+		emitter:  emitter,
+		store:    store,
+		runner:   defaultCommandRunner,
+		timeouts: timeouts,
 	}
 }
 
@@ -76,7 +79,7 @@ func (g *GateExecutor) executeApproval(ctx context.Context, gate *GateConfig) er
 	}
 
 	// Parse timeout
-	timeout := 24 * time.Hour // default 24h
+	timeout := g.timeouts.GetGateApproval()
 	if gate.Timeout != "" {
 		d, err := time.ParseDuration(gate.Timeout)
 		if err != nil {
@@ -122,8 +125,8 @@ func (g *GateExecutor) executeTimer(ctx context.Context, gate *GateConfig) error
 
 // parsePollGateTiming returns the poll interval and timeout for a poll gate.
 func parsePollGateTiming(gate *GateConfig) (interval, timeout time.Duration, err error) {
-	interval = 30 * time.Second
-	timeout = 30 * time.Minute
+	interval = manifest.DefaultGatePollInterval
+	timeout = manifest.DefaultGatePollTimeout
 
 	if gate.Interval != "" {
 		interval, err = time.ParseDuration(gate.Interval)

@@ -267,6 +267,14 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 			"workspace_root":          cfg.Workspace,
 			"max_concurrent_workers":  5,
 			"default_timeout_minutes": 30,
+			"timeouts": map[string]interface{}{
+				"step_default_minutes":     30,
+				"relay_compaction_minutes":  5,
+				"meta_default_minutes":     30,
+				"skill_install_seconds":    120,
+				"process_grace_seconds":    3,
+				"gate_poll_timeout_minutes": 30,
+			},
 			"relay": map[string]interface{}{
 				"token_threshold_percent": 80,
 				"strategy":                "summarize_to_checkpoint",
