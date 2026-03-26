@@ -868,20 +868,20 @@ func TestContentModel_StartsAtViewPipelines(t *testing.T) {
 		"should start at ViewPipelines")
 }
 
-func TestContentModel_TabCyclesAllEightViews(t *testing.T) {
+func TestContentModel_TabCyclesAllNineViews(t *testing.T) {
 	m := NewContentModel(&contentTestPipelineProvider{}, nil, LaunchDependencies{})
 
 	visited := make(map[ViewType]bool)
 	visited[m.currentView] = true
 
-	// Tab 8 times — should cycle through all 8 views and return to start
-	for i := 0; i < 8; i++ {
+	// Tab 9 times — should cycle through all 9 views and return to start
+	for i := 0; i < 9; i++ {
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 		visited[m.currentView] = true
 	}
 
-	// All 8 views should have been visited
-	assert.Equal(t, 8, len(visited), "Tab should cycle through all 8 views")
+	// All 9 views should have been visited
+	assert.Equal(t, 9, len(visited), "Tab should cycle through all 9 views")
 }
 
 func TestContentModel_NumberKey3_GoesToViewContracts(t *testing.T) {
@@ -906,12 +906,12 @@ func TestContentModel_TabCyclesAndReturns(t *testing.T) {
 	assert.NotEqual(t, startView, nextView,
 		"Tab should cycle to next view")
 
-	// Tab 7 more times should return to original
-	for i := 0; i < 7; i++ {
+	// Tab 8 more times should return to original
+	for i := 0; i < 8; i++ {
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	}
 	assert.Equal(t, startView, m.currentView,
-		"8 Tabs should complete the cycle")
+		"9 Tabs should complete the cycle")
 }
 
 // ===========================================================================

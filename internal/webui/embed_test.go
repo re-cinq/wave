@@ -285,6 +285,7 @@ func TestParseTemplates(t *testing.T) {
 		"templates/issues.html",
 		"templates/prs.html",
 		"templates/health.html",
+		"templates/ontology.html",
 		"templates/notfound.html",
 	}
 	for _, page := range expected {

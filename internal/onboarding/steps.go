@@ -69,7 +69,7 @@ func (s *DependencyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 
 	// Report dependency status
 	if cfg.Interactive {
-		fmt.Fprintf(os.Stderr, "\n  Step 1 of 6 — Dependency Verification\n\n")
+		fmt.Fprintf(os.Stderr, "\n  Step 1 of 8 — Dependency Verification\n\n")
 		for _, dep := range deps {
 			if dep.Found {
 				fmt.Fprintf(os.Stderr, "  ✓ %s\n", dep.Name)
@@ -154,7 +154,7 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Title("Build command").
 					Value(&buildCmd).
 					Placeholder("e.g. go build ./..."),
-			).Title("Step 2 of 6 — Test Commands").
+			).Title("Step 2 of 8 — Test Commands").
 				Description("Confirm or override the detected project commands."),
 		).WithTheme(tui.WaveTheme())
 
@@ -293,7 +293,7 @@ func (s *PipelineSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 				Options(options...).
 				Value(&selectedPipelines).
 				Height(12),
-		).Title("Step 3 of 6 — Pipeline Selection").
+		).Title("Step 3 of 8 — Pipeline Selection").
 			Description("Choose which pipelines to include in your project."),
 	).WithTheme(tui.WaveTheme())
 
@@ -350,7 +350,7 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Title("Select LLM adapter").
 					Options(options...).
 					Value(&selectedAdapter),
-			).Title("Step 4 of 6 — Adapter Configuration").
+			).Title("Step 4 of 8 — Adapter Configuration").
 				Description("Choose the LLM adapter for pipeline execution."),
 		).WithTheme(tui.WaveTheme())
 
@@ -444,7 +444,7 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 						Title("Select default model").
 						Options(options...).
 						Value(&selectedModel),
-				).Title("Step 5 of 6 — Model Selection").
+				).Title("Step 5 of 8 — Model Selection").
 					Description("Choose the default model for pipeline execution."),
 			).WithTheme(tui.WaveTheme())
 
@@ -483,7 +483,7 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 						Title("Enter model name (leave blank for adapter default)").
 						Value(&selectedModel).
 						Placeholder("e.g. gpt-4o"),
-				).Title("Step 5 of 6 — Model Selection").
+				).Title("Step 5 of 8 — Model Selection").
 					Description("Enter the model name for your adapter."),
 			).WithTheme(tui.WaveTheme())
 
