@@ -1057,6 +1057,14 @@ func TestForgeVariables_ConcurrentAccess(t *testing.T) {
 		forge.Detect("https://gitea.example.com/g/h.git"),
 	}
 
+	// Valid (type, cli_tool) pairs — the final state must be one of these
+	validPairs := map[string]string{
+		"github":    "gh",
+		"gitlab":    "glab",
+		"bitbucket": "bb",
+		"gitea":     "tea",
+	}
+
 	done := make(chan struct{})
 
 	// Writers
@@ -1077,5 +1085,18 @@ func TestForgeVariables_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		<-done
+	}
+
+	// After all goroutines complete, the final state must be internally consistent:
+	// forge.type and forge.cli_tool must belong to the same forge.
+	finalType := ctx.ResolvePlaceholders("{{ forge.type }}")
+	finalCLI := ctx.ResolvePlaceholders("{{ forge.cli_tool }}")
+
+	expectedCLI, ok := validPairs[finalType]
+	if !ok {
+		t.Errorf("final forge.type = %q is not a valid forge type", finalType)
+	} else if finalCLI != expectedCLI {
+		t.Errorf("inconsistent final state: forge.type=%q but forge.cli_tool=%q (expected %q)",
+			finalType, finalCLI, expectedCLI)
 	}
 }
