@@ -114,6 +114,21 @@ func renderOntologyDetail(info *OntologyInfo, width int) string {
 		}
 	}
 
+	// Lineage stats
+	if info.HasLineage {
+		sb.WriteString("\n")
+		sb.WriteString(sectionStyle.Render("Pipeline Lineage:"))
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("  %s %d\n", labelStyle.Render("Total runs:"), info.TotalRuns))
+		sb.WriteString(fmt.Sprintf("  %s %d  %s %d\n",
+			labelStyle.Render("Successes:"), info.Successes,
+			labelStyle.Render("Failures:"), info.Failures))
+		sb.WriteString(fmt.Sprintf("  %s %.0f%%\n", labelStyle.Render("Success rate:"), info.SuccessRate))
+		if !info.LastUsed.IsZero() {
+			sb.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Last used:"), info.LastUsed.Format("2006-01-02 15:04")))
+		}
+	}
+
 	// Skill file
 	sb.WriteString("\n")
 	sb.WriteString(sectionStyle.Render("Context Skill:"))

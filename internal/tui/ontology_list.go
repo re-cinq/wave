@@ -28,6 +28,7 @@ type OntologyListModel struct {
 	height       int
 	items        []OntologyInfo
 	telos        string
+	stale        bool
 	cursor       int
 	navigable    []OntologyInfo
 	filtering    bool
@@ -77,6 +78,7 @@ func (m OntologyListModel) Update(msg tea.Msg) (OntologyListModel, tea.Cmd) {
 		}
 		if msg.Overview != nil {
 			m.telos = msg.Overview.Telos
+			m.stale = msg.Overview.Stale
 			m.items = msg.Overview.Contexts
 		}
 		m.loaded = true
@@ -111,6 +113,13 @@ func (m OntologyListModel) View() string {
 
 	var lines []string
 	visibleHeight := m.height
+
+	// Staleness warning
+	if m.stale {
+		warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
+		lines = append(lines, warnStyle.Render("! stale — run wave analyze"))
+		visibleHeight--
+	}
 
 	// Telos line takes one row when present
 	if m.telos != "" {
@@ -175,6 +184,14 @@ func (m OntologyListModel) View() string {
 
 		if len(ctx.Invariants) > 0 {
 			suffix += mutedStyle.Render(fmt.Sprintf(" (%d inv)", len(ctx.Invariants)))
+		}
+
+		if ctx.HasLineage {
+			rateStyle := mutedStyle
+			if ctx.SuccessRate < 50 {
+				rateStyle = staleStyle
+			}
+			suffix += rateStyle.Render(fmt.Sprintf(" %d runs %.0f%%", ctx.TotalRuns, ctx.SuccessRate))
 		}
 
 		nameMaxWidth := m.width - 3 - lipgloss.Width(suffix)
