@@ -16,7 +16,13 @@ import (
 // These are stripped after all known variables have been substituted so that
 // missing project config fields resolve to empty strings instead of leaking
 // literal mustache syntax into prompts and contract commands.
-var unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)?\s*\}\}`)
+var (
+	unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)?\s*\}\}`)
+	threeDigitPrefixRe     = regexp.MustCompile(`^(\d{3})-`)
+	numericPrefixRe        = regexp.MustCompile(`(\d+)[-_]`)
+	invalidPathCharRe      = regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
+	consecutiveDashRe      = regexp.MustCompile(`-+`)
+)
 
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
@@ -106,11 +112,6 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	for key, value := range customVarsCopy {
 		result = replaceBoth(result, key, value)
 	}
-
-	// Handle standard template variables (both spaced and unspaced)
-	result = replaceBoth(result, "pipeline_id", ctx.PipelineID)
-	result = replaceBoth(result, "pipeline_name", ctx.PipelineName)
-	result = replaceBoth(result, "step_id", ctx.StepID)
 
 	// Strip unresolved {{ project.* }} placeholders so they don't leak into
 	// prompts or contract commands when a project field is not configured.
@@ -260,15 +261,13 @@ func getCurrentGitBranch() (string, error) {
 // extractFeatureNumber extracts feature number from branch name (supports ###-name format)
 func extractFeatureNumber(branchName string) string {
 	// Match patterns like "018-enhanced-progress", "001-feature-name", etc.
-	re := regexp.MustCompile(`^(\d{3})-`)
-	matches := re.FindStringSubmatch(branchName)
+	matches := threeDigitPrefixRe.FindStringSubmatch(branchName)
 	if len(matches) > 1 {
 		return branchName // Return full branch name as feature identifier
 	}
 
 	// Try other common patterns like "feature/123-name"
-	re2 := regexp.MustCompile(`(\d+)[-_]`)
-	matches2 := re2.FindStringSubmatch(branchName)
+	matches2 := numericPrefixRe.FindStringSubmatch(branchName)
 	if len(matches2) > 1 {
 		// Pad to 3 digits
 		num, _ := strconv.Atoi(matches2[1])
@@ -281,10 +280,10 @@ func extractFeatureNumber(branchName string) string {
 // sanitizeBranchName removes invalid characters from branch names for use in paths
 func sanitizeBranchName(branchName string) string {
 	// Replace invalid path characters
-	sanitized := regexp.MustCompile(`[^a-zA-Z0-9\-_]`).ReplaceAllString(branchName, "-")
+	sanitized := invalidPathCharRe.ReplaceAllString(branchName, "-")
 
 	// Remove consecutive dashes
-	sanitized = regexp.MustCompile(`-+`).ReplaceAllString(sanitized, "-")
+	sanitized = consecutiveDashRe.ReplaceAllString(sanitized, "-")
 
 	// Trim leading/trailing dashes
 	sanitized = strings.Trim(sanitized, "-")
