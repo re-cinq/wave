@@ -105,16 +105,3 @@ All Wave pipelines use a mandatory taxonomy prefix that guarantees the pipeline'
 | `wave-security-audit` | Security audit of Wave itself |
 | `wave-test-hardening` | Harden Wave's test suite |
 
-## Deprecated Names
-
-Old pipeline names are automatically resolved to their new taxonomy names via `ResolveDeprecatedName()`. For example:
-
-- `implement` → `impl-issue`
-- `gh-implement` → `impl-issue`
-- `pr-review` → `ops-pr-review`
-- `research` → `plan-research`
-- `scope` → `plan-scope`
-- `speckit-flow` → `impl-speckit`
-- `prototype` → `impl-prototype`
-
-See `internal/pipeline/deprecated.go` for the full mapping.

@@ -187,17 +187,6 @@ func runRun(opts RunOptions, debug bool) error {
 
 	p, err := loadPipeline(opts.Pipeline, &m)
 	if err != nil {
-		// Check if this is a deprecated forge-prefixed name
-		if resolved, deprecated := pipeline.ResolveDeprecatedName(opts.Pipeline); deprecated {
-			if pp, resolveErr := loadPipeline(resolved, &m); resolveErr == nil {
-				fmt.Fprintf(os.Stderr, "⚠ Pipeline %q is deprecated. Use %q instead.\n", opts.Pipeline, resolved)
-				p = pp
-				err = nil
-				opts.Pipeline = resolved
-			}
-		}
-	}
-	if err != nil {
 		// Pipeline not found — if interactive, try TUI with partial name as filter
 		if isInteractive() {
 			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
