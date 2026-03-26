@@ -24,21 +24,21 @@ import (
 
 // Server is the HTTP server for the Wave dashboard.
 type Server struct {
-	httpServer *http.Server
-	store      state.StateStore
-	rwStore    state.StateStore // read-write store for execution control
-	manifest   *manifest.Manifest
-	templates  map[string]*template.Template
-	broker     *SSEBroker
-	wsManager    workspace.WorkspaceManager
-	forgeClient  forge.Client
-	repoSlug     string // "owner/repo"
-	repoDir      string // git repository root directory
-	bind         string
-	port       int
-	token      string
-	activeRuns map[string]context.CancelFunc // runID -> cancel
-	mu         sync.Mutex
+	httpServer  *http.Server
+	store       state.StateStore
+	rwStore     state.StateStore // read-write store for execution control
+	manifest    *manifest.Manifest
+	templates   map[string]*template.Template
+	broker      *SSEBroker
+	wsManager   workspace.WorkspaceManager
+	forgeClient forge.Client
+	repoSlug    string // "owner/repo"
+	repoDir     string // git repository root directory
+	bind        string
+	port        int
+	token       string
+	activeRuns  map[string]context.CancelFunc // runID -> cancel
+	mu          sync.Mutex
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -96,19 +96,19 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
-		store:      roStore,
-		rwStore:    rwStore,
-		manifest:   cfg.Manifest,
-		templates:  tmpl,
-		broker:     NewSSEBroker(),
+		store:       roStore,
+		rwStore:     rwStore,
+		manifest:    cfg.Manifest,
+		templates:   tmpl,
+		broker:      NewSSEBroker(),
 		wsManager:   wsManager,
 		forgeClient: forgeClient,
 		repoSlug:    repoSlug,
-		repoDir:      repoDir,
-		bind:         cfg.Bind,
-		port:       cfg.Port,
-		token:      cfg.Token,
-		activeRuns: make(map[string]context.CancelFunc),
+		repoDir:     repoDir,
+		bind:        cfg.Bind,
+		port:        cfg.Port,
+		token:       cfg.Token,
+		activeRuns:  make(map[string]context.CancelFunc),
 	}
 
 	mux := http.NewServeMux()
@@ -204,4 +204,3 @@ func (s *Server) Start() error {
 func (s *Server) GetBroker() *SSEBroker {
 	return s.broker
 }
-

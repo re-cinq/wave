@@ -11,8 +11,11 @@ type GitHubClient struct {
 	client *github.Client
 }
 
-// NewGitHubClient wraps an existing github.Client.
+// NewGitHubClient wraps an existing github.Client. Panics if client is nil.
 func NewGitHubClient(client *github.Client) *GitHubClient {
+	if client == nil {
+		panic("forge: NewGitHubClient called with nil github.Client")
+	}
 	return &GitHubClient{client: client}
 }
 
