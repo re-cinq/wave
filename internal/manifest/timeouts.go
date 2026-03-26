@@ -28,7 +28,8 @@ import (
 //	    gate_poll_interval_seconds: 30
 //	    gate_poll_timeout_minutes: 30
 //	    git_command_seconds: 30
-//	    github_api_seconds: 15
+//	    forge_api_seconds: 15
+//	    retry_max_delay_seconds: 60
 type Timeouts struct {
 	StepDefaultMin      int `yaml:"step_default_minutes,omitempty"`
 	RelayCompactionMin  int `yaml:"relay_compaction_minutes,omitempty"`
@@ -44,28 +45,10 @@ type Timeouts struct {
 	GatePollIntervalSec int `yaml:"gate_poll_interval_seconds,omitempty"`
 	GatePollTimeoutMin  int `yaml:"gate_poll_timeout_minutes,omitempty"`
 	GitCommandSec       int `yaml:"git_command_seconds,omitempty"`
-	GithubAPISec        int `yaml:"github_api_seconds,omitempty"`
+	ForgeAPISec         int `yaml:"forge_api_seconds,omitempty"`
+	RetryMaxDelaySec    int `yaml:"retry_max_delay_seconds,omitempty"`
 }
 
-// Re-export default constants so callers that already import manifest
-// don't need to also import the timeouts leaf package.
-const (
-	DefaultStepTimeout      = timeouts.StepDefault
-	DefaultRelayCompaction  = timeouts.RelayCompaction
-	DefaultMetaTimeout      = timeouts.MetaDefault
-	DefaultSkillInstall     = timeouts.SkillInstall
-	DefaultSkillCLI         = timeouts.SkillCLI
-	DefaultSkillHTTP        = timeouts.SkillHTTP
-	DefaultSkillHTTPHeader  = timeouts.SkillHTTPHeader
-	DefaultSkillPublish     = timeouts.SkillPublish
-	DefaultProcessGrace     = timeouts.ProcessGrace
-	DefaultStdoutDrain      = timeouts.StdoutDrain
-	DefaultGateApproval     = timeouts.GateApproval
-	DefaultGatePollInterval = timeouts.GatePollInterval
-	DefaultGatePollTimeout  = timeouts.GatePollTimeout
-	DefaultGitCommand       = timeouts.GitCommand
-	DefaultGithubAPI        = timeouts.GithubAPI
-)
 
 func (t *Timeouts) GetStepDefault() time.Duration {
 	if t != nil && t.StepDefaultMin > 0 {
@@ -165,9 +148,16 @@ func (t *Timeouts) GetGitCommand() time.Duration {
 	return timeouts.GitCommand
 }
 
-func (t *Timeouts) GetGithubAPI() time.Duration {
-	if t != nil && t.GithubAPISec > 0 {
-		return time.Duration(t.GithubAPISec) * time.Second
+func (t *Timeouts) GetForgeAPI() time.Duration {
+	if t != nil && t.ForgeAPISec > 0 {
+		return time.Duration(t.ForgeAPISec) * time.Second
 	}
-	return timeouts.GithubAPI
+	return timeouts.ForgeAPI
+}
+
+func (t *Timeouts) GetRetryMaxDelay() time.Duration {
+	if t != nil && t.RetryMaxDelaySec > 0 {
+		return time.Duration(t.RetryMaxDelaySec) * time.Second
+	}
+	return timeouts.RetryMaxDelay
 }

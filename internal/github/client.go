@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 const (
@@ -45,7 +47,7 @@ func NewClient(config ClientConfig) *Client {
 	}
 	if config.HTTPClient == nil {
 		config.HTTPClient = &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: timeouts.ForgeAPI,
 		}
 	}
 	if config.UserAgent == "" {

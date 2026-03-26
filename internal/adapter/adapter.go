@@ -45,7 +45,7 @@ type AdapterRunConfig struct {
 	SystemPrompt  string
 	Timeout       time.Duration // 0 means no timeout; callers set per use case
 	ProcessGrace  time.Duration // SIGTERM→SIGKILL grace period; 0 uses timeouts.ProcessGrace
-	StdoutDrain   time.Duration // post-cancel stdout drain wait; 0 uses manifest.DefaultStdoutDrain
+	StdoutDrain   time.Duration // post-cancel stdout drain wait; 0 uses timeouts.StdoutDrain
 	Env           []string
 	Temperature   float64
 	AllowedTools  []string
