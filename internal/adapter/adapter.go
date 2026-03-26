@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/recinq/wave/internal/timeouts"
 	"github.com/recinq/wave/internal/sandbox"
 )
 
@@ -43,6 +44,8 @@ type AdapterRunConfig struct {
 	Prompt        string
 	SystemPrompt  string
 	Timeout       time.Duration // 0 means no timeout; callers set per use case
+	ProcessGrace  time.Duration // SIGTERM→SIGKILL grace period; 0 uses timeouts.ProcessGrace
+	StdoutDrain   time.Duration // post-cancel stdout drain wait; 0 uses manifest.DefaultStdoutDrain
 	Env           []string
 	Temperature   float64
 	AllowedTools  []string
@@ -159,7 +162,7 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 
 	select {
 	case <-ctx.Done():
-		killProcessGroup(cmd.Process)
+		killProcessGroup(cmd.Process, cfg.ProcessGrace)
 		cmd.Wait()
 		return nil, ctx.Err()
 	case err := <-copyDone:
@@ -186,18 +189,21 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	return &result, nil
 }
 
-// killProcessGroup sends SIGTERM to the process group, then SIGKILL after a
-// 3-second grace period if the process hasn't exited. It does NOT call
-// process.Wait() — callers must call cmd.Wait() themselves to avoid
-// "wait: no child processes" errors from double-waiting.
-func killProcessGroup(process *os.Process) {
+// killProcessGroup sends SIGTERM to the process group, then SIGKILL after the
+// grace period if the process hasn't exited. It does NOT call process.Wait() —
+// callers must call cmd.Wait() themselves to avoid "wait: no child processes"
+// errors from double-waiting.
+func killProcessGroup(process *os.Process, grace time.Duration) {
+	if grace <= 0 {
+		grace = timeouts.ProcessGrace
+	}
 	// Send SIGTERM first for graceful shutdown
 	_ = syscall.Kill(-process.Pid, syscall.SIGTERM)
 
 	// Schedule a forced kill after the grace period. The caller's cmd.Wait()
 	// will reap the process; if it hasn't exited by then, SIGKILL finishes it.
 	go func() {
-		time.Sleep(3 * time.Second)
+		time.Sleep(grace)
 		// SIGKILL is harmless if the process already exited
 		_ = syscall.Kill(-process.Pid, syscall.SIGKILL)
 	}()

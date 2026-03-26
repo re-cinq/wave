@@ -7,15 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
-
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/timeouts"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/tui"
 )
 
 // skillInstallTimeout is the maximum duration for skill installation operations.
-const skillInstallTimeout = 2 * time.Minute
+// Configured via runtime.timeouts.skill_install_seconds in wave.yaml.
+var skillInstallTimeout = timeouts.SkillInstall
 
 // lookPathFunc is a function type for looking up executables on PATH.
 // Defaults to exec.LookPath but can be overridden for testing.

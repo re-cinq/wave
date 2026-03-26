@@ -299,7 +299,7 @@ func (c *CompositionExecutor) executeBranch(ctx context.Context, p *Pipeline, st
 
 // executeGate blocks until a gate condition is met.
 func (c *CompositionExecutor) executeGate(ctx context.Context, step *Step) error {
-	gate := NewGateExecutor(c.emitter, c.store)
+	gate := NewGateExecutor(c.emitter, c.store, &c.manifest.Runtime.Timeouts)
 	return gate.Execute(ctx, step.Gate, c.tmplCtx)
 }
 

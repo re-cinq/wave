@@ -420,8 +420,8 @@ func TestMetaPipelineExecutor_GetTimeout(t *testing.T) {
 	// Default timeout
 	m := &manifest.Manifest{}
 	timeout := executor.getTimeout(m)
-	if timeout != DefaultMetaTimeout {
-		t.Errorf("default timeout = %v, want %v", timeout, DefaultMetaTimeout)
+	if timeout != manifest.DefaultMetaTimeout {
+		t.Errorf("default timeout = %v, want %v", timeout, manifest.DefaultMetaTimeout)
 	}
 
 	// Custom timeout

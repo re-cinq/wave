@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
-
 	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/timeouts"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -54,7 +53,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	owner, repo := splitRepoSlug(s.repoSlug)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
 	defer cancel()
 
 	pr, err := s.githubClient.GetPullRequest(ctx, owner, repo, number)
@@ -161,7 +160,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
 	defer cancel()
 
 	prs, err := s.githubClient.ListPullRequests(ctx, owner, repo, github.ListPullRequestsOptions{

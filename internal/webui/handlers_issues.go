@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/timeouts"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -92,7 +93,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	owner, repo := splitRepoSlug(s.repoSlug)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
 	defer cancel()
 
 	issue, err := s.githubClient.GetIssue(ctx, owner, repo, number)
@@ -202,7 +203,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
 	defer cancel()
 
 	issues, err := s.githubClient.ListIssues(ctx, owner, repo, github.ListIssuesOptions{

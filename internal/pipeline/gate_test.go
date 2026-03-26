@@ -13,7 +13,7 @@ import (
 
 func TestGateExecutor_Approval_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil)
+	gate := NewGateExecutor(emitter, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, &GateConfig{Type: "approval", Auto: true}, nil)
@@ -28,7 +28,7 @@ func TestGateExecutor_Approval_Auto(t *testing.T) {
 
 func TestGateExecutor_Timer(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil)
+	gate := NewGateExecutor(emitter, nil, nil)
 
 	ctx := context.Background()
 	start := time.Now()
@@ -48,7 +48,7 @@ func TestGateExecutor_Timer(t *testing.T) {
 }
 
 func TestGateExecutor_Timer_MissingTimeout(t *testing.T) {
-	gate := NewGateExecutor(nil, nil)
+	gate := NewGateExecutor(nil, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, &GateConfig{Type: "timer"}, nil)
@@ -58,7 +58,7 @@ func TestGateExecutor_Timer_MissingTimeout(t *testing.T) {
 }
 
 func TestGateExecutor_Approval_Timeout(t *testing.T) {
-	gate := NewGateExecutor(nil, nil)
+	gate := NewGateExecutor(nil, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, &GateConfig{Type: "approval", Timeout: "50ms"}, nil)
@@ -68,7 +68,7 @@ func TestGateExecutor_Approval_Timeout(t *testing.T) {
 }
 
 func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
-	gate := NewGateExecutor(nil, nil)
+	gate := NewGateExecutor(nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -84,7 +84,7 @@ func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
 
 func TestGateExecutor_PollGate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil)
+	gate := NewGateExecutor(emitter, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, &GateConfig{Type: "pr_merge", Auto: true}, nil)
@@ -98,7 +98,7 @@ func TestGateExecutor_PollGate_Auto(t *testing.T) {
 }
 
 func TestGateExecutor_UnknownType(t *testing.T) {
-	gate := NewGateExecutor(nil, nil)
+	gate := NewGateExecutor(nil, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, &GateConfig{Type: "unknown"}, nil)
@@ -108,7 +108,7 @@ func TestGateExecutor_UnknownType(t *testing.T) {
 }
 
 func TestGateExecutor_NilConfig(t *testing.T) {
-	gate := NewGateExecutor(nil, nil)
+	gate := NewGateExecutor(nil, nil, nil)
 
 	ctx := context.Background()
 	err := gate.Execute(ctx, nil, nil)
@@ -119,7 +119,7 @@ func TestGateExecutor_NilConfig(t *testing.T) {
 
 // newTestGateExecutor builds a GateExecutor with an injected commandRunner for testing.
 func newTestGateExecutor(emitter event.EventEmitter, runner commandRunner) *GateExecutor {
-	g := NewGateExecutor(emitter, nil)
+	g := NewGateExecutor(emitter, nil, nil)
 	g.runner = runner
 	return g
 }
@@ -293,7 +293,7 @@ func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_InvalidInterval(t *testing.T) {
-	g := NewGateExecutor(nil, nil)
+	g := NewGateExecutor(nil, nil, nil)
 	err := g.Execute(context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Interval: "not-a-duration",
@@ -304,7 +304,7 @@ func TestGateExecutor_PRMerge_InvalidInterval(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_InvalidTimeout(t *testing.T) {
-	g := NewGateExecutor(nil, nil)
+	g := NewGateExecutor(nil, nil, nil)
 	err := g.Execute(context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Timeout: "not-a-duration",

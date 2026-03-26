@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // Relay-specific errors
@@ -48,9 +50,10 @@ type CompactionConfig struct {
 
 // RelayMonitorConfig holds configuration for the relay monitor.
 type RelayMonitorConfig struct {
-	DefaultThreshold   int `json:"defaultThreshold"`
-	MinTokensToCompact int `json:"minTokensToCompact"`
-	ContextWindow      int `json:"contextWindow"`
+	DefaultThreshold   int           `json:"defaultThreshold"`
+	MinTokensToCompact int           `json:"minTokensToCompact"`
+	ContextWindow      int           `json:"contextWindow"`
+	CompactionTimeout  time.Duration `json:"-"` // set from manifest.Timeouts.GetRelayCompaction()
 }
 
 // RelayMonitor monitors token usage and triggers compaction when needed.
@@ -130,7 +133,7 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 		ChatHistory:   chatHistory,
 		SystemPrompt:  systemPrompt,
 		CompactPrompt: compactPrompt,
-		Timeout:       5 * time.Minute,
+		Timeout:       m.compactionTimeout(),
 	}
 
 	compacted, err := m.adapter.RunCompaction(ctx, cfg)
@@ -158,6 +161,13 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 	}
 
 	return compacted, nil
+}
+
+func (m *RelayMonitor) compactionTimeout() time.Duration {
+	if m.config.CompactionTimeout > 0 {
+		return m.config.CompactionTimeout
+	}
+	return timeouts.RelayCompaction
 }
 
 // validateConfig validates the relay monitor configuration.
