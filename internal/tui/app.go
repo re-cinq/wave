@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -155,13 +155,16 @@ func RunTUI(deps LaunchDependencies) error {
 	if repoSlug == "" {
 		repoSlug = detectRepoFromGitRemote()
 	}
-	var ghClient *github.Client
 	if repoSlug != "" {
-		token := resolveGitHubToken()
-		if token != "" {
-			ghClient = github.NewClient(github.ClientConfig{Token: token})
-			cp.IssueProvider = NewDefaultIssueDataProvider(ghClient, repoSlug)
-			cp.PRProvider = NewDefaultPRDataProvider(ghClient, repoSlug)
+		forgeInfo := forge.Detect(repoSlug)
+		if forgeInfo.Type == forge.ForgeUnknown {
+			// Try detecting from git remotes for full URL resolution
+			forgeInfo, _ = forge.DetectFromGitRemotes()
+		}
+		forgeClient := forge.NewClient(forgeInfo)
+		if forgeClient != nil {
+			cp.IssueProvider = NewDefaultIssueDataProvider(forgeClient, repoSlug)
+			cp.PRProvider = NewDefaultPRDataProvider(forgeClient, repoSlug)
 		}
 	}
 

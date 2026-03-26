@@ -2,15 +2,13 @@ package tui
 
 import (
 	"context"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/forge"
 )
 
-// IssueData is a TUI-specific projection of a GitHub issue.
+// IssueData is a TUI-specific projection of a forge issue.
 type IssueData struct {
 	Number    int
 	Title     string
@@ -30,14 +28,14 @@ type IssueDataProvider interface {
 	FetchIssues() ([]IssueData, error)
 }
 
-// DefaultIssueDataProvider uses the GitHub client to fetch issues.
+// DefaultIssueDataProvider uses a forge client to fetch issues.
 type DefaultIssueDataProvider struct {
-	client   *github.Client
+	client   forge.Client
 	repoSlug string // owner/repo format
 }
 
 // NewDefaultIssueDataProvider creates a new issue data provider.
-func NewDefaultIssueDataProvider(client *github.Client, repoSlug string) *DefaultIssueDataProvider {
+func NewDefaultIssueDataProvider(client forge.Client, repoSlug string) *DefaultIssueDataProvider {
 	return &DefaultIssueDataProvider{client: client, repoSlug: repoSlug}
 }
 
@@ -50,7 +48,7 @@ func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
 	if !ok {
 		return nil, nil
 	}
-	issues, err := p.client.ListIssues(context.Background(), owner, repo, github.ListIssuesOptions{
+	issues, err := p.client.ListIssues(context.Background(), owner, repo, forge.ListIssuesOptions{
 		State:   "open",
 		PerPage: 50,
 		Sort:    "updated",
@@ -60,47 +58,23 @@ func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
 	}
 	var result []IssueData
 	for _, issue := range issues {
-		if issue.IsPullRequest() {
-			continue // Skip PRs
+		if issue.IsPR {
+			continue
 		}
-		d := IssueData{
+		result = append(result, IssueData{
 			Number:    issue.Number,
 			Title:     issue.Title,
 			State:     issue.State,
+			Author:    issue.Author,
+			Labels:    issue.Labels,
+			Assignees: issue.Assignees,
 			Body:      issue.Body,
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt,
 			UpdatedAt: issue.UpdatedAt,
 			HTMLURL:   issue.HTMLURL,
-		}
-		if issue.User != nil {
-			d.Author = issue.User.Login
-		}
-		for _, l := range issue.Labels {
-			d.Labels = append(d.Labels, l.Name)
-		}
-		for _, a := range issue.Assignees {
-			d.Assignees = append(d.Assignees, a.Login)
-		}
-		result = append(result, d)
+		})
 	}
 	return result, nil
 }
 
-// resolveGitHubToken returns a GitHub token from environment variables,
-// falling back to `gh auth token` if available.
-func resolveGitHubToken() string {
-	if token := os.Getenv("GH_TOKEN"); token != "" {
-		return token
-	}
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		return token
-	}
-	out, err := exec.Command("gh", "auth", "token").Output()
-	if err == nil {
-		if token := strings.TrimSpace(string(out)); token != "" {
-			return token
-		}
-	}
-	return ""
-}
