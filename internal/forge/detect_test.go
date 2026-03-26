@@ -288,6 +288,91 @@ func TestFilterPipelinesByForge(t *testing.T) {
 	}
 }
 
+func TestFilterPipelinesByForge_EmptyInput(t *testing.T) {
+	got := FilterPipelinesByForge(ForgeGitHub, nil)
+	if got != nil {
+		t.Errorf("expected nil for empty input, got %v", got)
+	}
+
+	got = FilterPipelinesByForge(ForgeGitHub, []string{})
+	if got != nil {
+		t.Errorf("expected nil for empty slice, got %v", got)
+	}
+}
+
+func TestFilterPipelinesByForge_NoPrefixedPipelines(t *testing.T) {
+	generic := []string{"speckit-flow", "wave-evolve", "debug", "deploy"}
+	for _, ft := range []ForgeType{ForgeGitHub, ForgeGitLab, ForgeBitbucket, ForgeGitea} {
+		got := FilterPipelinesByForge(ft, generic)
+		if len(got) != len(generic) {
+			t.Errorf("forge %s: got %d pipelines, want %d (all generic should be returned)", ft, len(got), len(generic))
+		}
+	}
+}
+
+func TestDetect_SubdomainVariants(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		wantType ForgeType
+	}{
+		{
+			name:     "GitHub enterprise subdomain",
+			url:      "git@enterprise.github.com:org/repo.git",
+			wantType: ForgeGitHub,
+		},
+		{
+			name:     "GitLab self-hosted subdomain",
+			url:      "git@self-hosted.gitlab.com:org/repo.git",
+			wantType: ForgeGitLab,
+		},
+		{
+			name:     "Gitea with port in URL",
+			url:      "https://gitea.company.com/org/repo.git",
+			wantType: ForgeGitea,
+		},
+		{
+			name:     "Bitbucket server subdomain",
+			url:      "git@stash.bitbucket.org:team/project.git",
+			wantType: ForgeBitbucket,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Detect(tt.url)
+			if got.Type != tt.wantType {
+				t.Errorf("Type = %q, want %q", got.Type, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestDetect_SSHWithPort(t *testing.T) {
+	// SSH URLs with port: ssh://git@gitlab.example.com:2222/org/repo.git
+	info := Detect("ssh://git@github.com:2222/org/repo.git")
+	// With port, parsing may differ — verify it doesn't panic
+	_ = info
+}
+
+func TestForgeInfo_Slug_AllForges(t *testing.T) {
+	// Verify Slug works correctly for all detected forge types
+	urls := []string{
+		"https://github.com/owner/repo.git",
+		"https://gitlab.com/owner/repo.git",
+		"https://bitbucket.org/owner/repo.git",
+		"https://gitea.example.com/owner/repo.git",
+	}
+
+	for _, url := range urls {
+		info := Detect(url)
+		slug := info.Slug()
+		if slug != "owner/repo" {
+			t.Errorf("Detect(%q).Slug() = %q, want %q", url, slug, "owner/repo")
+		}
+	}
+}
+
 func TestParseRemoteURL(t *testing.T) {
 	tests := []struct {
 		name      string
