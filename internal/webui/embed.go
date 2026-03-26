@@ -37,6 +37,7 @@ var pageTemplates = []string{
 	"templates/prs.html",
 	"templates/pr_detail.html",
 	"templates/health.html",
+	"templates/ontology.html",
 	"templates/notfound.html",
 }
 

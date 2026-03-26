@@ -173,6 +173,10 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, personaErrs...)
 	}
 
+	if ontologyErrs := validateOntology(m.Ontology, filePath); len(ontologyErrs) > 0 {
+		errs = append(errs, ontologyErrs...)
+	}
+
 	return errs
 }
 
@@ -293,6 +297,35 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 }
 
 
+
+func validateOntology(o *Ontology, filePath string) []error {
+	if o == nil {
+		return nil
+	}
+	var errs []error
+	seen := make(map[string]bool)
+	for i, ctx := range o.Contexts {
+		if strings.TrimSpace(ctx.Name) == "" {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      fmt.Sprintf("ontology.contexts[%d].name", i),
+				Reason:     "is required",
+				Suggestion: "Each bounded context must have a name",
+			})
+			continue
+		}
+		if seen[ctx.Name] {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      fmt.Sprintf("ontology.contexts[%d].name", i),
+				Reason:     fmt.Sprintf("duplicate context name %q", ctx.Name),
+				Suggestion: "Each bounded context name must be unique",
+			})
+		}
+		seen[ctx.Name] = true
+	}
+	return errs
+}
 
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)

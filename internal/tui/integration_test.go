@@ -161,13 +161,13 @@ func TestApp_TabCycling(t *testing.T) {
 	assert.Equal(t, ViewContracts, app.content.currentView,
 		"second Tab should advance to Contracts view")
 
-	// Tab enough times to wrap back to Pipelines (6 more = total 8 = full cycle)
-	for range 6 {
+	// Tab enough times to wrap back to Pipelines (7 more = total 9 = full cycle)
+	for range 7 {
 		updated, _ = app.Update(tea.KeyMsg{Type: tea.KeyTab})
 		app = updated.(AppModel)
 	}
 	assert.Equal(t, ViewPipelines, app.content.currentView,
-		"8 Tabs should complete a full view cycle back to Pipelines")
+		"9 Tabs should complete a full view cycle back to Pipelines")
 }
 
 // ---------------------------------------------------------------------------

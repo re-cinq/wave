@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -16,11 +17,26 @@ type Project struct {
 	Skill         string `yaml:"skill,omitempty"`
 }
 
+// OntologyContext defines a bounded context within the project ontology.
+type OntologyContext struct {
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description,omitempty"`
+	Invariants  []string `yaml:"invariants,omitempty"`
+}
+
+// Ontology defines the project's domain model for context-aware agent injection.
+type Ontology struct {
+	Telos       string              `yaml:"telos,omitempty"`
+	Contexts    []OntologyContext   `yaml:"contexts,omitempty"`
+	Conventions map[string]string   `yaml:"conventions,omitempty"`
+}
+
 type Manifest struct {
 	APIVersion  string              `yaml:"apiVersion"`
 	Kind        string              `yaml:"kind"`
 	Metadata    Metadata            `yaml:"metadata"`
 	Project     *Project            `yaml:"project,omitempty"`
+	Ontology    *Ontology           `yaml:"ontology,omitempty"`
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Skills      []string            `yaml:"skills,omitempty"`
@@ -224,6 +240,83 @@ func (p *Project) ProjectVars() map[string]string {
 		vars["project.skill"] = p.Skill
 	}
 	return vars
+}
+
+// OntologyVars returns ontology config as a key-value map for template resolution.
+func (o *Ontology) OntologyVars() map[string]string {
+	vars := make(map[string]string)
+	if o == nil {
+		return vars
+	}
+	if o.Telos != "" {
+		vars["ontology.telos"] = o.Telos
+	}
+	for _, ctx := range o.Contexts {
+		if ctx.Description != "" {
+			vars["ontology.context."+ctx.Name] = ctx.Description
+		}
+	}
+	for k, v := range o.Conventions {
+		vars["ontology.convention."+k] = v
+	}
+	return vars
+}
+
+// RenderMarkdown renders the ontology as a compact markdown section for CLAUDE.md injection.
+// If contextFilter is non-empty, only matching bounded contexts are included.
+func (o *Ontology) RenderMarkdown(contextFilter []string) string {
+	if o == nil {
+		return ""
+	}
+	if o.Telos == "" && len(o.Contexts) == 0 && len(o.Conventions) == 0 {
+		return ""
+	}
+
+	filterSet := make(map[string]bool, len(contextFilter))
+	for _, name := range contextFilter {
+		filterSet[name] = true
+	}
+
+	var b strings.Builder
+	b.WriteString("## Project Ontology\n\n")
+
+	if o.Telos != "" {
+		b.WriteString("**Purpose**: ")
+		b.WriteString(o.Telos)
+		b.WriteString("\n\n")
+	}
+
+	for _, ctx := range o.Contexts {
+		if len(filterSet) > 0 && !filterSet[ctx.Name] {
+			continue
+		}
+		b.WriteString("### ")
+		b.WriteString(ctx.Name)
+		b.WriteString("\n")
+		if ctx.Description != "" {
+			b.WriteString(ctx.Description)
+			b.WriteString("\n")
+		}
+		for _, inv := range ctx.Invariants {
+			b.WriteString("- ")
+			b.WriteString(inv)
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if len(o.Conventions) > 0 {
+		b.WriteString("### Conventions\n")
+		for k, v := range o.Conventions {
+			b.WriteString("- **")
+			b.WriteString(k)
+			b.WriteString("**: ")
+			b.WriteString(v)
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
 }
 
 func (m *Manifest) GetAdapter(name string) *Adapter {

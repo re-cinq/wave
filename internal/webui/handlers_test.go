@@ -39,6 +39,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/issues.html":     `<html><body><span class="filter">{{.FilterState}}</span>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
 		"templates/prs.html":        `<html><body><span class="filter">{{.FilterState}}</span>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
 		"templates/health.html":     `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
+		"templates/ontology.html":   `<html><body>{{if .HasOntology}}<div>{{.Telos}}</div>{{range .Contexts}}<div>{{.Name}}</div>{{end}}{{end}}</body></html>`,
 		"templates/notfound.html":   `<html><body>Page not found</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))

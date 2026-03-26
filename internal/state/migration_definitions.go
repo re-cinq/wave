@@ -278,5 +278,26 @@ CREATE INDEX IF NOT EXISTS idx_chat_session_run ON chat_session(run_id);
 `,
 			Down: "",
 		},
+		{
+			Version:     11,
+			Description: "Add ontology_usage table for decision lineage tracking",
+			Up: `CREATE TABLE IF NOT EXISTS ontology_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    context_name TEXT NOT NULL,
+    invariant_count INTEGER NOT NULL DEFAULT 0,
+    step_status TEXT NOT NULL,
+    contract_passed INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ontology_usage_context ON ontology_usage(context_name);
+CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
+			Down: `DROP TABLE IF EXISTS ontology_usage;
+DROP INDEX IF EXISTS idx_ontology_usage_context;
+DROP INDEX IF EXISTS idx_ontology_usage_run;`,
+		},
 	}
 }

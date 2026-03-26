@@ -60,6 +60,9 @@ type MockStateStore struct {
 	saveChatSession               func(session *state.ChatSession) error
 	getChatSession                func(sessionID string) (*state.ChatSession, error)
 	listChatSessions              func(runID string) ([]state.ChatSession, error)
+	recordOntologyUsage           func(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
+	getOntologyStats              func(contextName string) (*state.OntologyStats, error)
+	getOntologyStatsAll           func() ([]state.OntologyStats, error)
 
 	// Internal storage for default implementations
 	pipelineStates map[string]*state.PipelineStateRecord
@@ -414,6 +417,27 @@ func (m *MockStateStore) GetChatSession(sessionID string) (*state.ChatSession, e
 func (m *MockStateStore) ListChatSessions(runID string) ([]state.ChatSession, error) {
 	if m.listChatSessions != nil {
 		return m.listChatSessions(runID)
+	}
+	return nil, nil
+}
+
+func (m *MockStateStore) RecordOntologyUsage(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error {
+	if m.recordOntologyUsage != nil {
+		return m.recordOntologyUsage(runID, stepID, contextName, invariantCount, status, contractPassed)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetOntologyStats(contextName string) (*state.OntologyStats, error) {
+	if m.getOntologyStats != nil {
+		return m.getOntologyStats(contextName)
+	}
+	return &state.OntologyStats{ContextName: contextName}, nil
+}
+
+func (m *MockStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) {
+	if m.getOntologyStatsAll != nil {
+		return m.getOntologyStatsAll()
 	}
 	return nil, nil
 }

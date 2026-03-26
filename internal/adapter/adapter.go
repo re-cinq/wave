@@ -65,6 +65,11 @@ type AdapterRunConfig struct {
 	// Maximum concurrent sub-agents the persona may spawn (0 or 1 = no hint).
 	MaxConcurrentAgents int
 
+	// OntologySection is the rendered project ontology markdown injected between
+	// the base protocol and persona system prompt in the agent .md file.
+	// Built from manifest.Ontology.RenderMarkdown() by the executor.
+	OntologySection string
+
 	// ContractPrompt is deprecated — contract schemas are now appended directly to the
 	// user prompt by the executor. This field is retained for interface compatibility
 	// but is always empty at runtime. See executor.go buildContractPrompt().

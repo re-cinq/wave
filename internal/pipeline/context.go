@@ -16,7 +16,7 @@ import (
 // These are stripped after all known variables have been substituted so that
 // missing project config fields resolve to empty strings instead of leaking
 // literal mustache syntax into prompts and contract commands.
-var unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*project\.\w+\s*\}\}`)
+var unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)?\s*\}\}`)
 
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
@@ -124,6 +124,11 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 	ctx := NewPipelineContext(pipelineID, pipelineName, stepID)
 	if m != nil && m.Project != nil {
 		for k, v := range m.Project.ProjectVars() {
+			ctx.SetCustomVariable(k, v)
+		}
+	}
+	if m != nil && m.Ontology != nil {
+		for k, v := range m.Ontology.OntologyVars() {
 			ctx.SetCustomVariable(k, v)
 		}
 	}

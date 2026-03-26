@@ -296,6 +296,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	agentMd := PersonaToAgentMarkdown(
 		spec,
 		string(baseProtocol),
+		cfg.OntologySection,
 		systemPrompt,
 		contractSection,
 		restrictions,
@@ -847,12 +848,13 @@ type PersonaSpec struct {
 // The frontmatter sets model, tools, disallowedTools, and permissionMode so
 // the agent is fully self-contained — no separate settings.json needed.
 //
-// The body is assembled from four layers (matching the runtime CLAUDE.md):
+// The body is assembled from five layers (matching the runtime CLAUDE.md):
 //  1. baseProtocol — the shared Wave agent protocol preamble
-//  2. systemPrompt — the persona's role/responsibilities/constraints text
-//  3. contractSection — the auto-generated contract compliance section
-//  4. restrictions — the denied/allowed tools and network domain section
-func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, contractSection, restrictions string) string {
+//  2. ontologySection — the project domain context (telos, invariants, conventions)
+//  3. systemPrompt — the persona's role/responsibilities/constraints text
+//  4. contractSection — the auto-generated contract compliance section
+//  5. restrictions — the denied/allowed tools and network domain section
+func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, ontologySection, systemPrompt, contractSection, restrictions string) string {
 	var b strings.Builder
 
 	// --- YAML frontmatter ---
@@ -888,6 +890,11 @@ func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, systemPrompt, con
 	// --- Body sections ---
 	if baseProtocol != "" {
 		b.WriteString(baseProtocol)
+		b.WriteString("\n\n---\n\n")
+	}
+
+	if ontologySection != "" {
+		b.WriteString(ontologySection)
 		b.WriteString("\n\n---\n\n")
 	}
 

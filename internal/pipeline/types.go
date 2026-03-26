@@ -190,6 +190,9 @@ type Step struct {
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
 	Concurrency     int              `yaml:"concurrency,omitempty"`
 
+	// Ontology context filter — when set, only these bounded contexts are injected
+	Contexts []string `yaml:"contexts,omitempty"`
+
 	// Composition primitives
 	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
 	SubInput    string           `yaml:"input,omitempty"`        // Input template for child pipeline
