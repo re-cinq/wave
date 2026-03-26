@@ -166,7 +166,7 @@ func RunTUI(deps LaunchDependencies) error {
 	}
 
 	if deps.Manifest != nil {
-		cp.OntologyProvider = NewDefaultOntologyDataProvider(deps.Manifest, ".wave/skills")
+		cp.OntologyProvider = NewDefaultOntologyDataProvider(deps.Manifest, ".wave/skills", deps.Store)
 	}
 
 	// SuggestProvider is wired externally to avoid import cycles (tui → doctor → onboarding → tui).

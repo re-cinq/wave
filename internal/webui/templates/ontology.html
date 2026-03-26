@@ -5,6 +5,11 @@
 </div>
 
 {{if .HasOntology}}
+{{if .Stale}}
+<div class="card" style="margin-bottom: 1.5rem; border-left: 3px solid var(--warning-color, #f0ad4e);">
+    <p style="color: var(--warning-color, #f0ad4e);">Ontology may be stale — run <code>wave analyze</code> to refresh context skills.</p>
+</div>
+{{end}}
 {{if .Telos}}
 <div class="card" style="margin-bottom: 1.5rem;">
     <h3>Telos</h3>
@@ -24,10 +29,15 @@
         <div class="persona-meta">
             <span class="badge">{{.InvariantCount}} {{if eq .InvariantCount 1}}invariant{{else}}invariants{{end}}</span>
             {{if .HasSkill}}
-            <span class="badge badge-success">skill provisioned</span>
+            <span class="badge badge-ok">skill provisioned</span>
             <span class="badge" title="Last updated">{{.LastUpdatedAgo}}</span>
             {{else}}
-            <span class="badge badge-warning">no skill</span>
+            <span class="badge badge-warn">no skill</span>
+            {{end}}
+            {{if .HasLineage}}
+            <span class="badge" title="Pipeline runs using this context">{{.TotalRuns}} {{if eq .TotalRuns 1}}run{{else}}runs{{end}}</span>
+            <span class="badge {{if ge .SuccessRate 80.0}}badge-ok{{else if ge .SuccessRate 50.0}}badge-warn{{else}}badge-error{{end}}" title="Success rate">{{printf "%.0f" .SuccessRate}}%</span>
+            {{if .LastUsedAgo}}<span class="badge" title="Last used">used {{.LastUsedAgo}}</span>{{end}}
             {{end}}
         </div>
         {{if .Invariants}}
