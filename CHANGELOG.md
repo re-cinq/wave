@@ -13,8 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SWE-bench benchmarking with `wave bench run`, `wave bench compare`, repo checkout, baseline mode, and `bench-solve` pipeline (#288)
 - Mobile responsiveness improvements for documentation landing page terminal
 - Pipeline taxonomy with mandatory prefixes (`audit-`, `doc-`, `impl-`, `ops-`, `plan-`, `test-`, `wave-`)
-- Deprecated name resolution via `ResolveDeprecatedName()` for backward compatibility
 - Forge-agnostic template variables (`{{ forge.cli_tool }}`, `{{ forge.pr_command }}`) in pipeline prompts
+- Project ontology system with telos, bounded contexts, invariants, and conventions (#590)
+- `wave analyze` CLI for deterministic ontology generation and `--deep` AI-assisted enrichment (#595)
+- `wave analyze --evolve` self-evolution feedback loop using decision lineage (#599)
+- Ontology context skills (`.wave/skills/wave-ctx-*/SKILL.md`) with domain vocabulary, invariants, and key decisions
+- Decision lineage tracking in `ontology_usage` SQLite table — per-step context injection with success/failure rates (#598)
+- Ontology lineage badges in WebUI and TUI (total runs, success rate, last used) (#601)
+- Staleness detection via git post-merge hook sentinel and wave.yaml mtime comparison
+- Staleness warning banner in WebUI and TUI ontology views
+- Centralized timeout configuration via `runtime.timeouts` in wave.yaml with 16 configurable values
+- `wave init` scaffolds all timeout values for new projects
 - Skill management CLI subcommand (`wave skills list|install|remove|search|sync`)
 - `wave meta` dynamic pipeline generation with `--save` flag for persistence (PR #416, #95)
 - Persona token scoping with `token_scopes` manifest field and preflight validation (PR #417, #213)
@@ -43,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all documentation references to use taxonomy-prefixed pipeline names
 - Removed deny rules from personas, enforcing security via sandbox instead
 - Security optimizations: pre-compile regexes, optimize allocations, add Unicode normalization
+- Renamed `timeouts.GithubAPI` → `timeouts.ForgeAPI` to reflect forge-agnostic usage
+- YAML key `github_api_seconds` → `forge_api_seconds` in `runtime.timeouts`
+
+### Removed
+- Deprecated pipeline name resolution (`ResolveDeprecatedName`, `taxonomyMappings`) — no backward-compatibility shims pre-1.0.0
+- Timeout constant re-exports from `manifest` package — use `internal/timeouts` directly
+- Nonexistent `timeout` and `retry` fields from persona documentation
 
 ### Fixed
 - TUI issues view right pane overwritten by pipeline refresh events (PR #415, #411)
