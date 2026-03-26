@@ -156,11 +156,7 @@ func RunTUI(deps LaunchDependencies) error {
 		repoSlug = detectRepoFromGitRemote()
 	}
 	if repoSlug != "" {
-		forgeInfo := forge.Detect(repoSlug)
-		if forgeInfo.Type == forge.ForgeUnknown {
-			// Try detecting from git remotes for full URL resolution
-			forgeInfo, _ = forge.DetectFromGitRemotes()
-		}
+		forgeInfo, _ := forge.DetectFromGitRemotes()
 		forgeClient := forge.NewClient(forgeInfo)
 		if forgeClient != nil {
 			cp.IssueProvider = NewDefaultIssueDataProvider(forgeClient, repoSlug)
