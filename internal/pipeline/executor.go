@@ -374,6 +374,18 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	// Ontology staleness check: warn if ontology is older than latest commit
+	if m.Ontology != nil && len(m.Ontology.Contexts) > 0 {
+		if msg := e.checkOntologyStaleness(); msg != "" {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				State:      "warning",
+				Message:    msg,
+			})
+		}
+	}
+
 	// Start cancellation poller for cross-process cancel support.
 	// When another process (TUI, webui) writes a cancellation record to the DB,
 	// this goroutine detects it and cancels the executor's context.
@@ -946,6 +958,38 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	}
 
 	return lastErr
+}
+
+// checkOntologyStaleness returns a warning message if the ontology may be out of date.
+// Two signals: (1) .wave/.ontology-stale sentinel exists (set by git post-merge hook),
+// (2) wave.yaml is older than the most recent git commit.
+func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
+	// Check sentinel file first (cheapest — single stat call)
+	if _, err := os.Stat(".wave/.ontology-stale"); err == nil {
+		// Remove sentinel so warning fires once per merge, not every run
+		os.Remove(".wave/.ontology-stale")
+		return "ontology may be stale (post-merge changes detected) — run 'wave analyze' to refresh"
+	}
+
+	// Compare wave.yaml mtime against latest commit time
+	manifestStat, err := os.Stat("wave.yaml")
+	if err != nil {
+		return ""
+	}
+
+	out, err := exec.Command("git", "log", "-1", "--format=%cI").Output()
+	if err != nil {
+		return ""
+	}
+	lastCommit, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
+	if err != nil {
+		return ""
+	}
+
+	if lastCommit.After(manifestStat.ModTime()) {
+		return "ontology may be stale (wave.yaml older than latest commit) — run 'wave analyze' to refresh"
+	}
+	return ""
 }
 
 // recordOntologyUsage records ontology context usage for a step after its final status is determined.

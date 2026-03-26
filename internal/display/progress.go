@@ -358,6 +358,12 @@ func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 		pd.estimatedTimeMs = ev.EstimatedTimeMs
 	}
 
+	// Handle pipeline-level warnings (no StepID)
+	if ev.StepID == "" && ev.State == "warning" && ev.Message != "" {
+		pd.render()
+		return nil
+	}
+
 	// Handle step-level events
 	if ev.StepID != "" {
 		step, exists := pd.steps[ev.StepID]
@@ -608,6 +614,12 @@ func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 	defer bpd.mu.Unlock()
 
 	timestamp := ev.Timestamp.Format("15:04:05")
+
+	// Pipeline-level warnings (no StepID)
+	if ev.StepID == "" && ev.State == "warning" && ev.Message != "" {
+		fmt.Fprintf(bpd.writer, "[%s] ⚠ %s\n", timestamp, ev.Message)
+		return nil
+	}
 
 	if ev.StepID != "" {
 		switch ev.State {
