@@ -42,9 +42,9 @@ Pipeline execution engine — DAG resolution and topological sorting, step orche
 ## Key Decisions
 
 - DFS-based topological sort with postorder traversal — guarantees all dependencies appear before dependents
-- Four-tier timeout resolution: step-level > CLI --timeout > manifest default > hardcoded fallback (5min generic, 10min Claude)
+- Four-tier timeout resolution: step-level > CLI --timeout > manifest default > configurable fallback in internal/timeouts
 - Three-tier model resolution: CLI --model > per-persona model > adapter default
-- Retry loop with backoff strategies (fixed, linear, exponential capped at 60s) — step-level retries re-run the entire adapter, not just validation
+- Retry loop with backoff strategies (fixed, linear, exponential capped at timeouts.RetryMaxDelay) — step-level retries re-run the entire adapter, not just validation
 - Rework architecture: failed step triggers separate rework_step with AttemptContext (error, stdout tail, partial artifacts) injected
 - Cross-pipeline artifact flow via crossPipelineArtifacts map — enables pipeline composition without filesystem coupling
 - Resume creates sub-pipeline by stripping dependencies on completed steps — avoids DAG validation failure on partial graph
