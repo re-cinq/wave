@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // mockMetaRunner implements adapter.AdapterRunner for testing.
@@ -420,8 +421,8 @@ func TestMetaPipelineExecutor_GetTimeout(t *testing.T) {
 	// Default timeout
 	m := &manifest.Manifest{}
 	timeout := executor.getTimeout(m)
-	if timeout != manifest.DefaultMetaTimeout {
-		t.Errorf("default timeout = %v, want %v", timeout, manifest.DefaultMetaTimeout)
+	if timeout != timeouts.MetaDefault {
+		t.Errorf("default timeout = %v, want %v", timeout, timeouts.MetaDefault)
 	}
 
 	// Custom timeout

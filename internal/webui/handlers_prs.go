@@ -53,7 +53,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	owner, repo := splitRepoSlug(s.repoSlug)
-	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
 	pr, err := s.githubClient.GetPullRequest(ctx, owner, repo, number)
@@ -160,7 +160,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeouts.GithubAPI)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
 	prs, err := s.githubClient.ListPullRequests(ctx, owner, repo, github.ListPullRequestsOptions{
