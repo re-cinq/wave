@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 )
 
 type OpenCodeAdapter struct {
@@ -27,12 +26,12 @@ func NewOpenCodeAdapter() *OpenCodeAdapter {
 }
 
 func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 10 * time.Minute
-	}
-
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	if cfg.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 
 	workspacePath := cfg.WorkspacePath
