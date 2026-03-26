@@ -303,6 +303,7 @@ Global runtime settings governing execution behavior.
 | `sandbox` | [`RuntimeSandbox`](#runtimesandbox) | no | see defaults | Sandbox settings including env passthrough and domain allowlisting. |
 | `artifacts` | [`RuntimeArtifactsConfig`](#runtimeartifactsconfig) | no | see defaults | Global artifact handling configuration. |
 | `pipeline_id_hash_length` | `int` | no | `4` | Length of hash suffix appended to pipeline workspace IDs. |
+| `timeouts` | [`Timeouts`](#timeouts) | no | see defaults | Fine-grained timeout configuration for all Wave operations. |
 
 ### RelayConfig
 
@@ -365,6 +366,29 @@ Audit logs **never** capture environment variable values or credential content. 
 | `max_stdout_size` | `int` | no | `10485760` | Maximum bytes to capture from stdout (default: 10MB). |
 | `default_artifact_dir` | `string` | no | `".wave/artifacts"` | Base directory for artifacts. |
 
+### Timeouts
+
+Fine-grained timeout configuration. All values fall back to built-in defaults in `internal/timeouts/` when omitted or zero.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `step_default_minutes` | `int` | `5` | Default per-step execution timeout. |
+| `relay_compaction_minutes` | `int` | `5` | Context compaction/summarization timeout. |
+| `meta_default_minutes` | `int` | `30` | Meta-pipeline generation timeout. |
+| `skill_install_seconds` | `int` | `120` | Skill auto-install timeout during preflight. |
+| `skill_cli_seconds` | `int` | `120` | Skill CLI command execution timeout. |
+| `skill_http_seconds` | `int` | `120` | Skill HTTP source fetch timeout. |
+| `skill_http_header_seconds` | `int` | `30` | Skill HTTP header-only probe timeout. |
+| `skill_publish_seconds` | `int` | `30` | `tessl publish` command timeout. |
+| `process_grace_seconds` | `int` | `3` | Grace period between SIGTERM and SIGKILL for adapter subprocesses. |
+| `stdout_drain_seconds` | `int` | `1` | Post-cancel stdout drain wait. |
+| `gate_approval_hours` | `int` | `24` | Maximum wait for manual gate approval. |
+| `gate_poll_interval_seconds` | `int` | `30` | Poll interval for command-based gates. |
+| `gate_poll_timeout_minutes` | `int` | `30` | Maximum poll duration for command-based gates. |
+| `git_command_seconds` | `int` | `30` | Timeout for git subprocess calls (diff, log, etc.). |
+| `forge_api_seconds` | `int` | `15` | Timeout for forge API calls (GitHub, GitLab, Bitbucket, Gitea). |
+| `retry_max_delay_seconds` | `int` | `60` | Cap on exponential backoff delay between retries. |
+
 ### Full Runtime Example
 
 ```yaml
@@ -372,6 +396,14 @@ runtime:
   workspace_root: .wave/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 5
+  timeouts:
+    step_default_minutes: 5
+    relay_compaction_minutes: 5
+    meta_default_minutes: 30
+    skill_install_seconds: 120
+    process_grace_seconds: 3
+    forge_api_seconds: 15
+    retry_max_delay_seconds: 60
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint

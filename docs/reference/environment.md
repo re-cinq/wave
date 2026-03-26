@@ -25,11 +25,8 @@ Configuration values are resolved in this order (highest priority first):
 
 ### Default Step Timeout
 
-The default step timeout depends on context:
-- **wave.yaml manifest**: `default_timeout_minutes: 90` (90 minutes)
-- **Onboarding wizard** (`wave init`): defaults to 30 minutes if not specified
-
-The manifest value takes precedence once configured.
+The default step timeout is `5` minutes (from `internal/timeouts.StepDefault`).
+Override via `runtime.timeouts.step_default_minutes` in `wave.yaml`, or per-run with `--timeout`.
 
 ## Display & Terminal Variables
 
