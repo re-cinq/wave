@@ -7,6 +7,7 @@ import (
 
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // Step lifecycle state constants — canonical source: state.StepState.
@@ -149,8 +150,8 @@ func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
 		return base
 	case "exponential":
 		d := base * time.Duration(1<<uint(attempt-1))
-		if d > 60*time.Second {
-			return 60 * time.Second
+		if d > timeouts.RetryMaxDelay {
+			return timeouts.RetryMaxDelay
 		}
 		return d
 	default: // "linear" or empty

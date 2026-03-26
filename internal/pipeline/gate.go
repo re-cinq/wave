@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // commandRunner is a function that runs a command and returns its combined output.
@@ -125,8 +126,8 @@ func (g *GateExecutor) executeTimer(ctx context.Context, gate *GateConfig) error
 
 // parsePollGateTiming returns the poll interval and timeout for a poll gate.
 func parsePollGateTiming(gate *GateConfig) (interval, timeout time.Duration, err error) {
-	interval = manifest.DefaultGatePollInterval
-	timeout = manifest.DefaultGatePollTimeout
+	interval = timeouts.GatePollInterval
+	timeout = timeouts.GatePollTimeout
 
 	if gate.Interval != "" {
 		interval, err = time.ParseDuration(gate.Interval)
