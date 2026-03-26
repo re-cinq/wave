@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/recinq/wave/internal/forge"
@@ -826,5 +827,276 @@ func TestInjectForgeVariables_GitLab(t *testing.T) {
 				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestInjectForgeVariables_Bitbucket(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "create-pr",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeBitbucket,
+		Host:           "bitbucket.org",
+		Owner:          "myteam",
+		Repo:           "myproject",
+		CLITool:        "bb",
+		PipelinePrefix: "bb",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pr",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"forge.type", "{{ forge.type }}", "bitbucket"},
+		{"forge.host", "{{ forge.host }}", "bitbucket.org"},
+		{"forge.owner", "{{ forge.owner }}", "myteam"},
+		{"forge.repo", "{{ forge.repo }}", "myproject"},
+		{"forge.cli_tool", "{{ forge.cli_tool }}", "bb"},
+		{"forge.prefix", "{{ forge.prefix }}", "bb"},
+		{"forge.pr_term", "{{ forge.pr_term }}", "Pull Request"},
+		{"forge.pr_command", "{{ forge.pr_command }}", "pr"},
+		{"persona resolution", "{{ forge.prefix }}-commenter", "bb-commenter"},
+		{"PR creation command", "{{ forge.cli_tool }} {{ forge.pr_command }} create", "bb pr create"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestInjectForgeVariables_Gitea(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "create-pr",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeGitea,
+		Host:           "gitea.example.com",
+		Owner:          "devs",
+		Repo:           "app",
+		CLITool:        "tea",
+		PipelinePrefix: "gt",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pr",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"forge.type", "{{ forge.type }}", "gitea"},
+		{"forge.host", "{{ forge.host }}", "gitea.example.com"},
+		{"forge.owner", "{{ forge.owner }}", "devs"},
+		{"forge.repo", "{{ forge.repo }}", "app"},
+		{"forge.cli_tool", "{{ forge.cli_tool }}", "tea"},
+		{"forge.prefix", "{{ forge.prefix }}", "gt"},
+		{"forge.pr_term", "{{ forge.pr_term }}", "Pull Request"},
+		{"forge.pr_command", "{{ forge.pr_command }}", "pr"},
+		{"persona resolution", "{{ forge.prefix }}-commenter", "gt-commenter"},
+		{"PR creation command", "{{ forge.cli_tool }} {{ forge.pr_command }} create", "tea pr create"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestInjectForgeVariables_Unknown(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "step1",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{Type: forge.ForgeUnknown}
+	InjectForgeVariables(ctx, info)
+
+	// forge.type should be "unknown", all others empty
+	for _, key := range []string{
+		"forge.type", "forge.host", "forge.owner", "forge.repo",
+		"forge.cli_tool", "forge.prefix", "forge.pr_term", "forge.pr_command",
+	} {
+		got := ctx.CustomVariables[key]
+		if key == "forge.type" {
+			if got != "unknown" {
+				t.Errorf("CustomVariables[%q] = %q, want %q", key, got, "unknown")
+			}
+		} else if got != "" {
+			t.Errorf("CustomVariables[%q] = %q, want empty for unknown forge", key, got)
+		}
+	}
+
+	// Persona resolution with unknown forge produces "-commenter"
+	result := ctx.ResolvePlaceholders("{{ forge.prefix }}-commenter")
+	if result != "-commenter" {
+		t.Errorf("persona resolution with unknown forge = %q, want %q", result, "-commenter")
+	}
+}
+
+func TestInjectForgeVariables_EmptyForgeInfo(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "step1",
+		CustomVariables: make(map[string]string),
+	}
+
+	InjectForgeVariables(ctx, forge.ForgeInfo{})
+
+	// Zero-value ForgeInfo has empty Type (""), which resolves to empty string
+	got := ctx.CustomVariables["forge.type"]
+	if got != "" {
+		t.Errorf("CustomVariables[forge.type] = %q, want empty for zero-value ForgeInfo", got)
+	}
+}
+
+func TestForgeVariables_AllForgeTypes_ConsistentStructure(t *testing.T) {
+	forges := []struct {
+		name string
+		info forge.ForgeInfo
+	}{
+		{"GitHub", forge.Detect("https://github.com/owner/repo.git")},
+		{"GitLab", forge.Detect("https://gitlab.com/owner/repo.git")},
+		{"Bitbucket", forge.Detect("https://bitbucket.org/owner/repo.git")},
+		{"Gitea", forge.Detect("https://gitea.example.com/owner/repo.git")},
+	}
+
+	template := "{{ forge.cli_tool }} {{ forge.pr_command }} create --title 'feat: {{ forge.pr_term }}'"
+
+	for _, tt := range forges {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &PipelineContext{
+				PipelineID:      "test",
+				PipelineName:    "test",
+				StepID:          "step",
+				CustomVariables: make(map[string]string),
+			}
+			InjectForgeVariables(ctx, tt.info)
+			result := ctx.ResolvePlaceholders(template)
+
+			if strings.Contains(result, "{{") {
+				t.Errorf("unresolved placeholders in result: %q", result)
+			}
+			if result == "" {
+				t.Error("result should not be empty for known forge type")
+			}
+		})
+	}
+}
+
+func TestForgeVariables_MixedProjectAndForgeVars(t *testing.T) {
+	m := &manifest.Manifest{
+		Project: &manifest.Project{
+			Language:    "go",
+			TestCommand: "go test ./...",
+		},
+	}
+	ctx := newContextWithProject("pipe-123", "implement", "step", m)
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeGitHub,
+		Host:           "github.com",
+		Owner:          "recinq",
+		Repo:           "wave",
+		CLITool:        "gh",
+		PipelinePrefix: "gh",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pr",
+	}
+	InjectForgeVariables(ctx, info)
+
+	// Both namespaces should resolve in the same template
+	template := "{{ project.test_command }} && {{ forge.cli_tool }} {{ forge.pr_command }} create"
+	result := ctx.ResolvePlaceholders(template)
+
+	if strings.Contains(result, "{{ forge.") {
+		t.Errorf("unresolved forge variables: %q", result)
+	}
+	if !strings.Contains(result, "gh pr create") {
+		t.Errorf("expected 'gh pr create' in result: %q", result)
+	}
+}
+
+func TestForgeVariables_ConcurrentAccess(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "concurrent-test",
+		PipelineName:    "test",
+		StepID:          "step",
+		CustomVariables: make(map[string]string),
+	}
+
+	forges := []forge.ForgeInfo{
+		forge.Detect("https://github.com/a/b.git"),
+		forge.Detect("https://gitlab.com/c/d.git"),
+		forge.Detect("https://bitbucket.org/e/f.git"),
+		forge.Detect("https://gitea.example.com/g/h.git"),
+	}
+
+	// Valid (type, cli_tool) pairs — the final state must be one of these
+	validPairs := map[string]string{
+		"github":    "gh",
+		"gitlab":    "glab",
+		"bitbucket": "bb",
+		"gitea":     "tea",
+	}
+
+	done := make(chan struct{})
+
+	// Writers
+	for i := 0; i < 10; i++ {
+		go func(i int) {
+			InjectForgeVariables(ctx, forges[i%len(forges)])
+			done <- struct{}{}
+		}(i)
+	}
+
+	// Readers
+	for i := 0; i < 10; i++ {
+		go func() {
+			_ = ctx.ResolvePlaceholders("{{ forge.type }}: {{ forge.cli_tool }}")
+			done <- struct{}{}
+		}()
+	}
+
+	for i := 0; i < 20; i++ {
+		<-done
+	}
+
+	// After all goroutines complete, the final state must be internally consistent:
+	// forge.type and forge.cli_tool must belong to the same forge.
+	finalType := ctx.ResolvePlaceholders("{{ forge.type }}")
+	finalCLI := ctx.ResolvePlaceholders("{{ forge.cli_tool }}")
+
+	expectedCLI, ok := validPairs[finalType]
+	if !ok {
+		t.Errorf("final forge.type = %q is not a valid forge type", finalType)
+	} else if finalCLI != expectedCLI {
+		t.Errorf("inconsistent final state: forge.type=%q but forge.cli_tool=%q (expected %q)",
+			finalType, finalCLI, expectedCLI)
 	}
 }
