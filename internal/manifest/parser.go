@@ -165,6 +165,10 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, err)
 	}
 
+	if timeoutErrs := validateTimeouts(&m.Runtime.Timeouts, filePath); len(timeoutErrs) > 0 {
+		errs = append(errs, timeoutErrs...)
+	}
+
 	if adapterErrs := validateAdaptersWithFile(m.Adapters, basePath, filePath); len(adapterErrs) > 0 {
 		errs = append(errs, adapterErrs...)
 	}
@@ -200,6 +204,45 @@ func validateRuntime(r *Runtime, basePath string) *ValidationError {
 		}
 	}
 	return nil
+}
+
+func validateTimeouts(t *Timeouts, filePath string) []error {
+	if t == nil {
+		return nil
+	}
+	var errs []error
+	fields := []struct {
+		name string
+		val  int
+	}{
+		{"step_default_minutes", t.StepDefaultMin},
+		{"relay_compaction_minutes", t.RelayCompactionMin},
+		{"meta_default_minutes", t.MetaDefaultMin},
+		{"skill_install_seconds", t.SkillInstallSec},
+		{"skill_cli_seconds", t.SkillCLISec},
+		{"skill_http_seconds", t.SkillHTTPSec},
+		{"skill_http_header_seconds", t.SkillHTTPHeaderSec},
+		{"skill_publish_seconds", t.SkillPublishSec},
+		{"process_grace_seconds", t.ProcessGraceSec},
+		{"stdout_drain_seconds", t.StdoutDrainSec},
+		{"gate_approval_hours", t.GateApprovalHours},
+		{"gate_poll_interval_seconds", t.GatePollIntervalSec},
+		{"gate_poll_timeout_minutes", t.GatePollTimeoutMin},
+		{"git_command_seconds", t.GitCommandSec},
+		{"forge_api_seconds", t.ForgeAPISec},
+		{"retry_max_delay_seconds", t.RetryMaxDelaySec},
+	}
+	for _, f := range fields {
+		if f.val < 0 {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      "runtime.timeouts." + f.name,
+				Reason:     "must not be negative",
+				Suggestion: "Use 0 to fall back to the default, or a positive value",
+			})
+		}
+	}
+	return errs
 }
 
 func validateAdaptersWithFile(adapters map[string]Adapter, basePath, filePath string) []error {
