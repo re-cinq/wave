@@ -98,12 +98,8 @@ func TestNewClient_GitLabWithToken(t *testing.T) {
 	t.Setenv("GITLAB_TOKEN", "test-token")
 
 	client := NewClient(ForgeInfo{Type: ForgeGitLab})
-	if client == nil {
-		t.Fatal("expected non-nil client for GitLab with token")
-	}
-	_, ok := client.(*UnsupportedClient)
-	if !ok {
-		t.Fatalf("expected *UnsupportedClient, got %T", client)
+	if client != nil {
+		t.Errorf("expected nil client for unsupported forge GitLab, got %T", client)
 	}
 }
 
