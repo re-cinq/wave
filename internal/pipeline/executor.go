@@ -985,6 +985,8 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 		); err != nil {
 			_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
 				fmt.Sprintf("context=%s err=%v", ctxName, err))
+		} else {
+			_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
 		}
 	}
 }
@@ -1418,6 +1420,24 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	ontologySection := ""
 	if execution.Manifest.Ontology != nil {
 		ontologySection = execution.Manifest.Ontology.RenderMarkdown(step.Contexts)
+		if ontologySection != "" {
+			injected := step.Contexts
+			if len(injected) == 0 {
+				for _, ctx := range execution.Manifest.Ontology.Contexts {
+					injected = append(injected, ctx.Name)
+				}
+			}
+			totalInvariants := 0
+			for _, ctx := range execution.Manifest.Ontology.Contexts {
+				for _, name := range injected {
+					if ctx.Name == name {
+						totalInvariants += len(ctx.Invariants)
+						break
+					}
+				}
+			}
+			_ = e.logger.LogOntologyInject(pipelineID, step.ID, injected, totalInvariants)
+		}
 	}
 
 	cfg := adapter.AdapterRunConfig{
