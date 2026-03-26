@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/display"
@@ -574,7 +573,7 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 		WorkspacePath: cwd,
 		Prompt:        prompt,
 		SystemPrompt:  "You are a codebase analysis specialist. Extract domain knowledge from code structure, tests, and documentation. Output structured JSON.",
-		Timeout:       30 * time.Minute,
+		// No timeout — deep analysis scales with codebase size
 		Model:         persona.Model,
 		AllowedTools:  []string{"Read", "Glob", "Grep", "Bash(git log*)"},
 		DenyTools:     []string{"Write", "Edit", "Bash(rm*)", "Bash(mv*)"},

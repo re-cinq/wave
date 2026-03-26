@@ -42,7 +42,7 @@ type AdapterRunConfig struct {
 	WorkspacePath string
 	Prompt        string
 	SystemPrompt  string
-	Timeout       time.Duration
+	Timeout       time.Duration // 0 means no timeout; callers set per use case
 	Env           []string
 	Temperature   float64
 	AllowedTools  []string
@@ -99,12 +99,12 @@ func NewProcessGroupRunner() *ProcessGroupRunner {
 }
 
 func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
-	if cfg.Timeout == 0 {
-		cfg.Timeout = 5 * time.Minute
-	}
-
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	if cfg.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 
 	args := strings.Fields(cfg.Prompt)
