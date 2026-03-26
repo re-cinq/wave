@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/forge"
 )
 
-// PRData is a TUI-specific projection of a GitHub pull request.
+// PRData is a TUI-specific projection of a forge pull request.
 type PRData struct {
 	Number       int
 	Title        string
@@ -35,14 +35,14 @@ type PRDataProvider interface {
 	FetchPRs() ([]PRData, error)
 }
 
-// DefaultPRDataProvider uses the GitHub client to fetch pull requests.
+// DefaultPRDataProvider uses a forge client to fetch pull requests.
 type DefaultPRDataProvider struct {
-	client   *github.Client
+	client   forge.Client
 	repoSlug string // owner/repo format
 }
 
 // NewDefaultPRDataProvider creates a new PR data provider.
-func NewDefaultPRDataProvider(client *github.Client, repoSlug string) *DefaultPRDataProvider {
+func NewDefaultPRDataProvider(client forge.Client, repoSlug string) *DefaultPRDataProvider {
 	return &DefaultPRDataProvider{client: client, repoSlug: repoSlug}
 }
 
@@ -55,7 +55,7 @@ func (p *DefaultPRDataProvider) FetchPRs() ([]PRData, error) {
 	if !ok {
 		return nil, nil
 	}
-	prs, err := p.client.ListPullRequests(context.Background(), owner, repo, github.ListPullRequestsOptions{
+	prs, err := p.client.ListPullRequests(context.Background(), owner, repo, forge.ListPullRequestsOptions{
 		State:   "open",
 		PerPage: 50,
 		Sort:    "updated",
@@ -65,10 +65,12 @@ func (p *DefaultPRDataProvider) FetchPRs() ([]PRData, error) {
 	}
 	var result []PRData
 	for _, pr := range prs {
-		d := PRData{
+		result = append(result, PRData{
 			Number:       pr.Number,
 			Title:        pr.Title,
 			State:        pr.State,
+			Author:       pr.Author,
+			Labels:       pr.Labels,
 			Body:         pr.Body,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
@@ -80,20 +82,9 @@ func (p *DefaultPRDataProvider) FetchPRs() ([]PRData, error) {
 			CreatedAt:    pr.CreatedAt,
 			UpdatedAt:    pr.UpdatedAt,
 			HTMLURL:      pr.HTMLURL,
-		}
-		if pr.User != nil {
-			d.Author = pr.User.Login
-		}
-		for _, l := range pr.Labels {
-			d.Labels = append(d.Labels, l.Name)
-		}
-		if pr.Head != nil {
-			d.HeadBranch = pr.Head.Ref
-		}
-		if pr.Base != nil {
-			d.BaseBranch = pr.Base.Ref
-		}
-		result = append(result, d)
+			HeadBranch:   pr.HeadBranch,
+			BaseBranch:   pr.BaseBranch,
+		})
 	}
 	return result, nil
 }
