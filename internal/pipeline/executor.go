@@ -1031,6 +1031,13 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 				fmt.Sprintf("context=%s err=%v", ctxName, err))
 		} else {
 			_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
+			e.emit(event.Event{
+				PipelineID: execution.Status.ID,
+				StepID:     step.ID,
+				State:      event.StateOntologyLineage,
+				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, stepStatus, invariantCount),
+				Timestamp:  time.Now(),
+			})
 		}
 	}
 }
@@ -1481,6 +1488,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				}
 			}
 			_ = e.logger.LogOntologyInject(pipelineID, step.ID, injected, totalInvariants)
+			e.emit(event.Event{
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      event.StateOntologyInject,
+				Message:    fmt.Sprintf("contexts=[%s] invariants=%d", strings.Join(injected, ","), totalInvariants),
+				Timestamp:  time.Now(),
+			})
 		}
 	}
 
