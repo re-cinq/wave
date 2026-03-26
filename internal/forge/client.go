@@ -5,9 +5,6 @@ import (
 	"errors"
 )
 
-// ErrNotConfigured is returned when a forge client has no valid token.
-var ErrNotConfigured = errors.New("forge client not configured: no authentication token found")
-
 // ErrNotSupported is returned by stub implementations for unsupported forges.
 var ErrNotSupported = errors.New("forge type not yet supported")
 

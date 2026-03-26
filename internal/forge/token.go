@@ -79,9 +79,9 @@ func NewClient(info ForgeInfo) Client {
 	case ForgeGitHub:
 		ghClient := github.NewClient(github.ClientConfig{Token: token})
 		return NewGitHubClient(ghClient)
-	case ForgeGitLab, ForgeBitbucket, ForgeGitea:
-		return NewUnsupportedClient(info.Type)
 	default:
+		// Non-GitHub forges not yet supported — return nil so callers'
+		// nil-guard checks show "not configured" rather than cryptic errors.
 		return nil
 	}
 }

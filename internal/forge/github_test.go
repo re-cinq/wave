@@ -161,10 +161,19 @@ func TestConvertGitHubPR_NilHeadBase(t *testing.T) {
 }
 
 func TestGitHubClient_ForgeType(t *testing.T) {
-	client := NewGitHubClient(nil)
+	client := NewGitHubClient(github.NewClient(github.ClientConfig{Token: "test"}))
 	if client.ForgeType() != ForgeGitHub {
 		t.Errorf("ForgeType() = %v, want %v", client.ForgeType(), ForgeGitHub)
 	}
+}
+
+func TestNewGitHubClient_NilPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic for nil client")
+		}
+	}()
+	NewGitHubClient(nil)
 }
 
 func TestGitHubClient_UnwrapGitHub(t *testing.T) {
