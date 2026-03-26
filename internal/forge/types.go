@@ -1,0 +1,61 @@
+package forge
+
+import "time"
+
+// Issue is a forge-neutral representation of an issue/work-item.
+type Issue struct {
+	Number    int
+	Title     string
+	Body      string
+	State     string // "open", "closed"
+	Author    string
+	Labels    []string
+	Assignees []string
+	Comments  int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	ClosedAt  *time.Time
+	HTMLURL   string
+	IsPR      bool
+}
+
+// PullRequest is a forge-neutral representation of a PR/MR.
+type PullRequest struct {
+	Number       int
+	Title        string
+	Body         string
+	State        string // "open", "closed", "merged"
+	Author       string
+	Labels       []string
+	Draft        bool
+	Merged       bool
+	HeadBranch   string
+	BaseBranch   string
+	Additions    int
+	Deletions    int
+	ChangedFiles int
+	Commits      int
+	Comments     int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ClosedAt     *time.Time
+	MergedAt     *time.Time
+	HTMLURL      string
+}
+
+// ListIssuesOptions configures issue listing.
+type ListIssuesOptions struct {
+	State   string // "open", "closed", "all"
+	Labels  []string
+	Sort    string // "created", "updated"
+	PerPage int
+	Page    int
+}
+
+// ListPullRequestsOptions configures PR listing.
+type ListPullRequestsOptions struct {
+	State   string // "open", "closed", "all"
+	Sort    string
+	PerPage int
+	Page    int
+}

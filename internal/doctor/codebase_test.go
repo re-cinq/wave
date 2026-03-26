@@ -75,6 +75,7 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 		BaseURL: server.URL,
 		Token:   "test-token",
 	})
+	forgeClient := forge.NewGitHubClient(client)
 
 	result, err := AnalyzeCodebase(context.Background(), CodebaseOptions{
 		ForgeInfo: forge.ForgeInfo{
@@ -82,7 +83,7 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 			Owner: "test",
 			Repo:  "repo",
 		},
-		GHClient: client,
+		ForgeClient: forgeClient,
 		Now:      func() time.Time { return now },
 		RunGHCmd: func(args ...string) ([]byte, error) {
 			runs := []ghRunResult{

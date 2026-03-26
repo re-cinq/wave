@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
@@ -31,7 +31,7 @@ type Server struct {
 	templates  map[string]*template.Template
 	broker     *SSEBroker
 	wsManager    workspace.WorkspaceManager
-	githubClient *github.Client
+	forgeClient  forge.Client
 	repoSlug     string // "owner/repo"
 	repoDir      string // git repository root directory
 	bind         string
@@ -84,14 +84,10 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		log.Printf("[webui] failed to initialize workspace manager: %v", err)
 	}
 
-	// Initialize GitHub client if token is available
-	ghToken := resolveGitHubToken()
-	var ghClient *github.Client
-	var repoSlug string
-	if ghToken != "" {
-		ghClient = github.NewClient(github.ClientConfig{Token: ghToken})
-		repoSlug = detectRepoSlug()
-	}
+	// Detect forge and initialize client
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	forgeClient := forge.NewClient(forgeInfo)
+	repoSlug := forgeInfo.Slug()
 
 	// Resolve git repo root for safe subprocess execution
 	repoDir := "."
@@ -105,9 +101,9 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		manifest:   cfg.Manifest,
 		templates:  tmpl,
 		broker:     NewSSEBroker(),
-		wsManager:    wsManager,
-		githubClient: ghClient,
-		repoSlug:     repoSlug,
+		wsManager:   wsManager,
+		forgeClient: forgeClient,
+		repoSlug:    repoSlug,
 		repoDir:      repoDir,
 		bind:         cfg.Bind,
 		port:       cfg.Port,
@@ -209,41 +205,3 @@ func (s *Server) GetBroker() *SSEBroker {
 	return s.broker
 }
 
-// resolveGitHubToken tries GH_TOKEN, GITHUB_TOKEN, then `gh auth token`.
-func resolveGitHubToken() string {
-	if t := os.Getenv("GH_TOKEN"); t != "" {
-		return t
-	}
-	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
-		return t
-	}
-	out, err := exec.Command("gh", "auth", "token").Output()
-	if err == nil {
-		return strings.TrimSpace(string(out))
-	}
-	return ""
-}
-
-// detectRepoSlug extracts "owner/repo" from the git remote origin URL.
-func detectRepoSlug() string {
-	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
-	if err != nil {
-		return ""
-	}
-	remote := strings.TrimSpace(string(out))
-	// Handle SSH URLs: git@github.com:owner/repo.git
-	if strings.HasPrefix(remote, "git@") {
-		parts := strings.SplitN(remote, ":", 2)
-		if len(parts) == 2 {
-			slug := strings.TrimSuffix(parts[1], ".git")
-			return slug
-		}
-	}
-	// Handle HTTPS URLs: https://github.com/owner/repo.git
-	remote = strings.TrimSuffix(remote, ".git")
-	parts := strings.Split(remote, "/")
-	if len(parts) >= 2 {
-		return parts[len(parts)-2] + "/" + parts[len(parts)-1]
-	}
-	return ""
-}
