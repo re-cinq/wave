@@ -12,27 +12,35 @@ project:
 ontology:
     telos: "Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation"
     contexts:
-        - name: pipeline
-          description: "Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle"
+        - name: execution
+          description: "Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle, adapter subprocess management"
           invariants:
-            - "Steps execute in topological order respecting dependencies"
+            - "Steps execute in topological order respecting DAG dependencies"
             - "Each step gets fresh memory — no chat history inheritance"
-            - "Contract validation blocks downstream steps on hard failure"
-        - name: adapter
-          description: "Subprocess execution layer — Claude Code, OpenCode, Ollama adapters"
-          invariants:
-            - "CLAUDE.md is assembled from 5 layers: base-protocol, ontology, persona, contract, restrictions"
-            - "Adapters never import manifest package directly — use PersonaSpec"
-        - name: state
-          description: "SQLite persistence — run tracking, step state, decision lineage"
-          invariants:
-            - "Migrations run automatically on startup"
-            - "WAL mode for concurrent read/write"
+            - "Contract validation must pass before step is marked successful"
+            - "Each step runs in an isolated workspace"
+            - "Artifacts from prior steps are injected before persona prompt fires"
         - name: security
-          description: "Input validation, path sanitization, permission enforcement"
+          description: "Permission enforcement, input sanitization, path validation, sandbox configuration"
           invariants:
             - "All user inputs sanitized for prompt injection"
             - "Deny rules projected into both settings.json AND runtime CLAUDE.md"
+            - "No credentials on disk; sanitized logging"
+            - "Workspace isolation prevents data leakage between steps"
+        - name: validation
+          description: "Output validation, contract enforcement, preflight checks, adaptive retry"
+          invariants:
+            - "Hard contract failures block step completion"
+            - "Soft contract failures log warnings but do not block"
+            - "Contract validation MUST NOT pass silently on failure"
+            - "Preflight checks run before any step executes"
+        - name: configuration
+          description: "Manifest loading, persona management, pipeline definitions, embedded defaults"
+          invariants:
+            - "wave.yaml is the single source of truth for project configuration"
+            - "Single static binary — no runtime dependencies except adapter binaries"
+            - "Parity enforcement between .wave/ files and internal/defaults/"
+            - "Pipeline YAML defaults memory.strategy to fresh"
     conventions:
         naming: "snake_case for Go files, kebab-case for pipelines and personas"
         testing: "table-driven tests with t.TempDir() for isolation"

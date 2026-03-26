@@ -18,6 +18,9 @@ input:
 steps:
   - id: threat-model
     persona: navigator
+    contexts:
+      - security
+      - execution
     workspace:
       mount:
         - source: ./
@@ -66,6 +69,9 @@ steps:
 
   - id: verify
     persona: auditor
+    contexts:
+      - security
+      - execution
     dependencies: [threat-model]
     memory:
       inject_artifacts:
