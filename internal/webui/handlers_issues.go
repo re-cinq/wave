@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/recinq/wave/internal/github"
-	"github.com/recinq/wave/internal/timeouts"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
@@ -87,8 +87,8 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.githubClient == nil || s.repoSlug == "" {
-		http.Error(w, "GitHub integration not configured", http.StatusServiceUnavailable)
+	if s.forgeClient == nil || s.repoSlug == "" {
+		http.Error(w, "Forge integration not configured", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	issue, err := s.githubClient.GetIssue(ctx, owner, repo, number)
+	issue, err := s.forgeClient.GetIssue(ctx, owner, repo, number)
 	if err != nil {
 		http.Error(w, "issue not found: "+err.Error(), http.StatusNotFound)
 		return
@@ -129,19 +129,6 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var labels []string
-	for _, l := range issue.Labels {
-		labels = append(labels, l.Name)
-	}
-	author := ""
-	if issue.User != nil {
-		author = issue.User.Login
-	}
-	var assignees []string
-	for _, a := range issue.Assignees {
-		assignees = append(assignees, a.Login)
-	}
-
 	data := struct {
 		ActivePage string
 		Issue      IssueDetail
@@ -153,9 +140,9 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 			Title:     issue.Title,
 			State:     issue.State,
 			Body:      issue.Body,
-			Author:    author,
-			Labels:    labels,
-			Assignees: assignees,
+			Author:    issue.Author,
+			Labels:    issue.Labels,
+			Assignees: issue.Assignees,
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02 15:04"),
 			UpdatedAt: issue.UpdatedAt.Format("2006-01-02 15:04"),
@@ -184,12 +171,12 @@ func parsePageNumber2(s string) int {
 const issuesPerPage = 50
 
 func (s *Server) getIssueListData(stateFilter string, page int) IssueListResponse {
-	if s.githubClient == nil || s.repoSlug == "" {
+	if s.forgeClient == nil || s.repoSlug == "" {
 		return IssueListResponse{
 			Issues:      []IssueSummary{},
 			FilterState: stateFilter,
 			Page:        page,
-			Message:     "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
+			Message:     "Forge integration not configured. Set a forge token (GH_TOKEN, GITLAB_TOKEN, etc.) to enable.",
 		}
 	}
 
@@ -206,7 +193,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	issues, err := s.githubClient.ListIssues(ctx, owner, repo, github.ListIssuesOptions{
+	issues, err := s.forgeClient.ListIssues(ctx, owner, repo, forge.ListIssuesOptions{
 		State:   stateFilter,
 		PerPage: issuesPerPage + 1, // fetch one extra to detect HasMore
 		Page:    page,
@@ -227,23 +214,15 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 
 	var summaries []IssueSummary
 	for _, issue := range issues {
-		if issue.IsPullRequest() {
+		if issue.IsPR {
 			continue
-		}
-		var labels []string
-		for _, l := range issue.Labels {
-			labels = append(labels, l.Name)
-		}
-		author := ""
-		if issue.User != nil {
-			author = issue.User.Login
 		}
 		summaries = append(summaries, IssueSummary{
 			Number:    issue.Number,
 			Title:     issue.Title,
 			State:     issue.State,
-			Author:    author,
-			Labels:    labels,
+			Author:    issue.Author,
+			Labels:    issue.Labels,
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02"),
 			URL:       issue.HTMLURL,

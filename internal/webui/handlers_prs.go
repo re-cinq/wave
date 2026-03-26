@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"github.com/recinq/wave/internal/github"
-	"github.com/recinq/wave/internal/timeouts"
+
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
@@ -47,8 +48,8 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.githubClient == nil || s.repoSlug == "" {
-		http.Error(w, "GitHub integration not configured", http.StatusServiceUnavailable)
+	if s.forgeClient == nil || s.repoSlug == "" {
+		http.Error(w, "Forge integration not configured", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -56,7 +57,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	pr, err := s.githubClient.GetPullRequest(ctx, owner, repo, number)
+	pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, number)
 	if err != nil {
 		http.Error(w, "PR not found: "+err.Error(), http.StatusNotFound)
 		return
@@ -64,14 +65,6 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// Find related runs — match by PR URL or head branch name
 	prURL := pr.HTMLURL
-	headBranch := ""
-	if pr.Head != nil {
-		headBranch = pr.Head.Ref
-	}
-	baseBranch := ""
-	if pr.Base != nil {
-		baseBranch = pr.Base.Ref
-	}
 
 	allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 500})
 	if err != nil {
@@ -86,21 +79,12 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		if !matched && run.Input != "" && strings.Contains(run.Input, fmt.Sprintf("/pull/%d", number)) {
 			matched = true
 		}
-		if !matched && headBranch != "" && run.BranchName == headBranch {
+		if !matched && pr.HeadBranch != "" && run.BranchName == pr.HeadBranch {
 			matched = true
 		}
 		if matched {
 			relatedRuns = append(relatedRuns, runToSummary(run))
 		}
-	}
-
-	author := ""
-	if pr.User != nil {
-		author = pr.User.Login
-	}
-	var labels []string
-	for _, l := range pr.Labels {
-		labels = append(labels, l.Name)
 	}
 
 	data := struct {
@@ -114,12 +98,12 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 			Title:        pr.Title,
 			State:        pr.State,
 			Body:         pr.Body,
-			Author:       author,
-			Labels:       labels,
+			Author:       pr.Author,
+			Labels:       pr.Labels,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
-			HeadBranch:   headBranch,
-			BaseBranch:   baseBranch,
+			HeadBranch:   pr.HeadBranch,
+			BaseBranch:   pr.BaseBranch,
 			Additions:    pr.Additions,
 			Deletions:    pr.Deletions,
 			ChangedFiles: pr.ChangedFiles,
@@ -141,12 +125,12 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 const prsPerPage = 50
 
 func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
-	if s.githubClient == nil || s.repoSlug == "" {
+	if s.forgeClient == nil || s.repoSlug == "" {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
 			FilterState:  stateFilter,
 			Page:         page,
-			Message:      "GitHub integration not configured. Set GH_TOKEN or GITHUB_TOKEN to enable.",
+			Message:      "Forge integration not configured. Set a forge token (GH_TOKEN, GITLAB_TOKEN, etc.) to enable.",
 		}
 	}
 
@@ -163,7 +147,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	prs, err := s.githubClient.ListPullRequests(ctx, owner, repo, github.ListPullRequestsOptions{
+	prs, err := s.forgeClient.ListPullRequests(ctx, owner, repo, forge.ListPullRequestsOptions{
 		State:   stateFilter,
 		PerPage: prsPerPage + 1, // fetch one extra to detect HasMore
 		Page:    page,
@@ -184,27 +168,15 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 
 	var summaries []PRSummary
 	for _, pr := range prs {
-		author := ""
-		if pr.User != nil {
-			author = pr.User.Login
-		}
-		headBranch := ""
-		if pr.Head != nil {
-			headBranch = pr.Head.Ref
-		}
-		baseBranch := ""
-		if pr.Base != nil {
-			baseBranch = pr.Base.Ref
-		}
 		summaries = append(summaries, PRSummary{
 			Number:       pr.Number,
 			Title:        pr.Title,
 			State:        pr.State,
-			Author:       author,
+			Author:       pr.Author,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
-			HeadBranch:   headBranch,
-			BaseBranch:   baseBranch,
+			HeadBranch:   pr.HeadBranch,
+			BaseBranch:   pr.BaseBranch,
 			Additions:    pr.Additions,
 			Deletions:    pr.Deletions,
 			ChangedFiles: pr.ChangedFiles,
