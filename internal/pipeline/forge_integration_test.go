@@ -169,30 +169,63 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 	}
 }
 
-// TestForgeIntegration_FullExecutorFlow_GitHub verifies the full executor
-// flow uses forge variables when running in a GitHub repo. This test only
-// runs when the test environment has a GitHub remote.
-func TestForgeIntegration_FullExecutorFlow_GitHub(t *testing.T) {
-	info, err := forge.DetectFromGitRemotes()
-	if err != nil || info.Type != forge.ForgeGitHub {
-		t.Skip("test requires a git remote pointing to github.com")
+// TestForgeIntegration_FullExecutorFlow verifies the full executor flow uses
+// forge variables correctly for all forge types using synthetic ForgeInfo.
+func TestForgeIntegration_FullExecutorFlow(t *testing.T) {
+	tests := []struct {
+		name       string
+		info       forge.ForgeInfo
+		wantCLI    string
+		wantPR     string
+		wantType   string
+	}{
+		{
+			name:     "GitHub",
+			info:     forge.ForgeInfo{Type: forge.ForgeGitHub, Host: "github.com", Owner: "org", Repo: "repo", CLITool: "gh", PipelinePrefix: "gh", PRTerm: "Pull Request", PRCommand: "pr"},
+			wantCLI:  "gh pr create",
+			wantPR:   "github-committer",
+			wantType: "github",
+		},
+		{
+			name:     "GitLab",
+			info:     forge.ForgeInfo{Type: forge.ForgeGitLab, Host: "gitlab.com", Owner: "org", Repo: "repo", CLITool: "glab", PipelinePrefix: "gl", PRTerm: "Merge Request", PRCommand: "mr"},
+			wantCLI:  "glab mr create",
+			wantPR:   "gitlab-committer",
+			wantType: "gitlab",
+		},
+		{
+			name:     "Bitbucket",
+			info:     forge.ForgeInfo{Type: forge.ForgeBitbucket, Host: "bitbucket.org", Owner: "org", Repo: "repo", CLITool: "bb", PipelinePrefix: "bb", PRTerm: "Pull Request", PRCommand: "pr"},
+			wantCLI:  "bb pr create",
+			wantPR:   "bitbucket-committer",
+			wantType: "bitbucket",
+		},
+		{
+			name:     "Gitea",
+			info:     forge.ForgeInfo{Type: forge.ForgeGitea, Host: "gitea.example.com", Owner: "org", Repo: "repo", CLITool: "tea", PipelinePrefix: "gt", PRTerm: "Pull Request", PRCommand: "pr"},
+			wantCLI:  "tea pr create",
+			wantPR:   "gitea-committer",
+			wantType: "gitea",
+		},
 	}
 
-	ctx := NewPipelineContext("test", "implement", "step")
-	InjectForgeVariables(ctx, info)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := NewPipelineContext("test", "implement", "step")
+			InjectForgeVariables(ctx, tt.info)
 
-	// Verify the detected info produces valid resolutions
-	result := ctx.ResolvePlaceholders("{{ forge.cli_tool }} {{ forge.pr_command }} create")
-	if result != "gh pr create" {
-		t.Errorf("got %q, want %q", result, "gh pr create")
-	}
+			result := ctx.ResolvePlaceholders("{{ forge.cli_tool }} {{ forge.pr_command }} create")
+			if result != tt.wantCLI {
+				t.Errorf("CLI command = %q, want %q", result, tt.wantCLI)
+			}
 
-	// Verify no unresolved placeholders
-	persona := ctx.ResolvePlaceholders("{{ forge.type }}-committer")
-	if strings.Contains(persona, "{{") {
-		t.Errorf("unresolved placeholders in persona: %q", persona)
-	}
-	if persona != "github-committer" {
-		t.Errorf("persona = %q, want %q", persona, "github-committer")
+			persona := ctx.ResolvePlaceholders("{{ forge.type }}-committer")
+			if strings.Contains(persona, "{{") {
+				t.Errorf("unresolved placeholders in persona: %q", persona)
+			}
+			if persona != tt.wantPR {
+				t.Errorf("persona = %q, want %q", persona, tt.wantPR)
+			}
+		})
 	}
 }
