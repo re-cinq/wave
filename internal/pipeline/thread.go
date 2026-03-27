@@ -9,6 +9,12 @@ import (
 	"github.com/recinq/wave/internal/relay"
 )
 
+// InputSanitizer is a minimal interface for prompt injection sanitization.
+// Matches security.InputSanitizer.SanitizeInput signature.
+type InputSanitizer interface {
+	SanitizeInput(input string, inputType string) (interface{}, string, error)
+}
+
 // DefaultMaxTranscriptSize is the maximum number of characters stored per thread group.
 // When exceeded, oldest entries are truncated first.
 const DefaultMaxTranscriptSize = 100_000
@@ -25,16 +31,22 @@ type ThreadManager struct {
 	execution        *PipelineExecution
 	maxTranscriptSize int
 	compactor        relay.CompactionAdapter
+	sanitizer        InputSanitizer
 }
 
 // NewThreadManager creates a ThreadManager for the given execution.
 // compactor may be nil — summary fidelity falls back to compact if unavailable.
-func NewThreadManager(execution *PipelineExecution, compactor relay.CompactionAdapter) *ThreadManager {
-	return &ThreadManager{
+// sanitizer may be nil — transcript content will not be sanitized.
+func NewThreadManager(execution *PipelineExecution, compactor relay.CompactionAdapter, sanitizer ...InputSanitizer) *ThreadManager {
+	tm := &ThreadManager{
 		execution:        execution,
 		maxTranscriptSize: DefaultMaxTranscriptSize,
 		compactor:        compactor,
 	}
+	if len(sanitizer) > 0 {
+		tm.sanitizer = sanitizer[0]
+	}
+	return tm
 }
 
 // AppendTranscript adds a step's output to the thread group transcript.
@@ -42,6 +54,16 @@ func NewThreadManager(execution *PipelineExecution, compactor relay.CompactionAd
 func (tm *ThreadManager) AppendTranscript(threadGroup, stepID, content string) {
 	tm.execution.mu.Lock()
 	defer tm.execution.mu.Unlock()
+
+	// Sanitize transcript content to prevent prompt injection across thread boundaries.
+	// Thread transcripts carry prior step output into future step prompts, so any
+	// embedded instructions could manipulate downstream personas.
+	if tm.sanitizer != nil {
+		_, sanitized, err := tm.sanitizer.SanitizeInput(content, "thread_transcript")
+		if err == nil {
+			content = sanitized
+		}
+	}
 
 	entry := ThreadEntry{
 		StepID:    stepID,
