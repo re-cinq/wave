@@ -40,7 +40,30 @@ type Manifest struct {
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Skills      []string            `yaml:"skills,omitempty"`
-	Runtime     Runtime                    `yaml:"runtime"`
+	Runtime     Runtime             `yaml:"runtime"`
+	Server      *ServerConfig       `yaml:"server,omitempty"`
+}
+
+// ServerConfig holds server-mode configuration from the manifest.
+type ServerConfig struct {
+	Bind          string            `yaml:"bind,omitempty"`
+	MaxConcurrent int               `yaml:"max_concurrent,omitempty"`
+	Auth          ServerAuthConfig  `yaml:"auth,omitempty"`
+	TLS           ServerTLSConfig  `yaml:"tls,omitempty"`
+}
+
+// ServerAuthConfig holds authentication configuration for server mode.
+type ServerAuthConfig struct {
+	Mode      string `yaml:"mode,omitempty"`       // "jwt", "mtls", "bearer", "none"
+	JWTSecret string `yaml:"jwt_secret,omitempty"` // supports ${ENV_VAR} expansion
+}
+
+// ServerTLSConfig holds TLS configuration for server mode.
+type ServerTLSConfig struct {
+	Enabled bool   `yaml:"enabled,omitempty"`
+	Cert    string `yaml:"cert,omitempty"`
+	Key     string `yaml:"key,omitempty"`
+	CA      string `yaml:"ca,omitempty"` // CA cert for mTLS client verification
 }
 
 type Metadata struct {

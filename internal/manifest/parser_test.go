@@ -1247,3 +1247,74 @@ runtime:
 		}
 	})
 }
+
+func TestManifestServerConfig(t *testing.T) {
+	t.Run("server section parsed correctly", func(t *testing.T) {
+		yamlStr := `apiVersion: wave/v1alpha1
+kind: Manifest
+metadata:
+  name: test
+  description: test manifest
+runtime:
+  workspace_root: .wave/workspaces
+server:
+  bind: "0.0.0.0:9090"
+  max_concurrent: 10
+  auth:
+    mode: jwt
+    jwt_secret: "${WAVE_JWT_SECRET}"
+  tls:
+    enabled: true
+    cert: "/path/to/cert.pem"
+    key: "/path/to/key.pem"
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		if m.Server == nil {
+			t.Fatal("expected Server to be non-nil")
+		}
+		if m.Server.Bind != "0.0.0.0:9090" {
+			t.Errorf("expected Bind '0.0.0.0:9090', got %q", m.Server.Bind)
+		}
+		if m.Server.MaxConcurrent != 10 {
+			t.Errorf("expected MaxConcurrent 10, got %d", m.Server.MaxConcurrent)
+		}
+		if m.Server.Auth.Mode != "jwt" {
+			t.Errorf("expected Auth.Mode 'jwt', got %q", m.Server.Auth.Mode)
+		}
+		if m.Server.Auth.JWTSecret != "${WAVE_JWT_SECRET}" {
+			t.Errorf("expected Auth.JWTSecret '${WAVE_JWT_SECRET}', got %q", m.Server.Auth.JWTSecret)
+		}
+		if !m.Server.TLS.Enabled {
+			t.Error("expected TLS.Enabled to be true")
+		}
+		if m.Server.TLS.Cert != "/path/to/cert.pem" {
+			t.Errorf("expected TLS.Cert '/path/to/cert.pem', got %q", m.Server.TLS.Cert)
+		}
+		if m.Server.TLS.Key != "/path/to/key.pem" {
+			t.Errorf("expected TLS.Key '/path/to/key.pem', got %q", m.Server.TLS.Key)
+		}
+	})
+
+	t.Run("no server section yields nil", func(t *testing.T) {
+		yamlStr := `apiVersion: wave/v1alpha1
+kind: Manifest
+metadata:
+  name: test
+  description: test manifest
+runtime:
+  workspace_root: .wave/workspaces
+`
+		var m Manifest
+		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
+			t.Fatalf("unmarshal error: %v", err)
+		}
+
+		if m.Server != nil {
+			t.Errorf("expected Server to be nil when not configured, got %+v", m.Server)
+		}
+	})
+}
