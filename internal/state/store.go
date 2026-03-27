@@ -123,6 +123,10 @@ type StateStore interface {
 	GetOntologyStats(contextName string) (*OntologyStats, error)
 	GetOntologyStatsAll() ([]OntologyStats, error)
 
+	// Parent-child run linkage
+	SetParentRun(childRunID, parentRunID, stepID string) error
+	GetChildRuns(parentRunID string) ([]RunRecord, error)
+
 	// Retrospective tracking
 	SaveRetrospective(record *RetrospectiveRecord) error
 	GetRetrospective(runID string) (*RetrospectiveRecord, error)
@@ -573,7 +577,8 @@ func (s *stateStore) UpdateRunPID(runID string, pid int) error {
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
+	                 parent_run_id, parent_step_id
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
@@ -582,6 +587,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	var completedAt, cancelledAt sql.NullInt64
 	var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 	var pid sql.NullInt64
+	var parentRunID, parentStepID sql.NullString
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -597,6 +603,8 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&tagsJSON,
 		&branchName,
 		&pid,
+		&parentRunID,
+		&parentStepID,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -635,6 +643,12 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if pid.Valid {
 		record.PID = int(pid.Int64)
 	}
+	if parentRunID.Valid {
+		record.ParentRunID = parentRunID.String
+	}
+	if parentStepID.Valid {
+		record.ParentStepID = parentStepID.String
+	}
 
 	return &record, nil
 }
@@ -643,7 +657,8 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
+	                 parent_run_id, parent_step_id
 	          FROM pipeline_run
 	          WHERE (status = 'running' OR (status = 'pending' AND started_at > unixepoch() - 300))
 	          ORDER BY started_at DESC`
@@ -654,7 +669,8 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 // ListRuns returns runs matching the specified options.
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
-	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
+	                 parent_run_id, parent_step_id
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -985,6 +1001,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var completedAt, cancelledAt sql.NullInt64
 		var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 		var pid sql.NullInt64
+		var parentRunID, parentStepID sql.NullString
 
 		err := rows.Scan(
 			&record.RunID,
@@ -1000,6 +1017,8 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&tagsJSON,
 			&branchName,
 			&pid,
+			&parentRunID,
+			&parentStepID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -1034,6 +1053,12 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if pid.Valid {
 			record.PID = int(pid.Int64)
+		}
+		if parentRunID.Valid {
+			record.ParentRunID = parentRunID.String
+		}
+		if parentStepID.Valid {
+			record.ParentStepID = parentStepID.String
 		}
 
 		records = append(records, record)
@@ -2044,6 +2069,43 @@ func (s *stateStore) GetOntologyStatsAll() ([]OntologyStats, error) {
 		allStats = append(allStats, stats)
 	}
 	return allStats, nil
+}
+
+// =============================================================================
+// Parent-Child Run Linkage
+// =============================================================================
+
+// SetParentRun sets the parent run ID and step ID on a child run record.
+func (s *stateStore) SetParentRun(childRunID, parentRunID, stepID string) error {
+	query := `UPDATE pipeline_run SET parent_run_id = ?, parent_step_id = ? WHERE run_id = ?`
+
+	result, err := s.db.Exec(query, parentRunID, stepID, childRunID)
+	if err != nil {
+		return fmt.Errorf("failed to set parent run: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("run not found: %s", childRunID)
+	}
+
+	return nil
+}
+
+// GetChildRuns returns all runs that are children of the specified parent run,
+// ordered by started_at.
+func (s *stateStore) GetChildRuns(parentRunID string) ([]RunRecord, error) {
+	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
+	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
+	                 parent_run_id, parent_step_id
+	          FROM pipeline_run
+	          WHERE parent_run_id = ?
+	          ORDER BY started_at ASC`
+
+	return s.queryRunsWithArgs(query, parentRunID)
 }
 
 // SaveRetrospective saves a retrospective index record.

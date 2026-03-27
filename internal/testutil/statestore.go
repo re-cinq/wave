@@ -65,6 +65,8 @@ type MockStateStore struct {
 	getOntologyStatsAll           func() ([]state.OntologyStats, error)
 	saveStepVisitCount            func(pipelineID, stepID string, count int) error
 	getStepVisitCount             func(pipelineID, stepID string) (int, error)
+	setParentRun                  func(childRunID, parentRunID, stepID string) error
+	getChildRuns                  func(parentRunID string) ([]state.RunRecord, error)
 
 	// Internal storage for default implementations
 	pipelineStates map[string]*state.PipelineStateRecord
@@ -458,6 +460,21 @@ func (m *MockStateStore) GetStepVisitCount(pipelineID, stepID string) (int, erro
 	return 0, nil
 }
 
+
+func (m *MockStateStore) SetParentRun(childRunID, parentRunID, stepID string) error {
+	if m.setParentRun != nil {
+		return m.setParentRun(childRunID, parentRunID, stepID)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetChildRuns(parentRunID string) ([]state.RunRecord, error) {
+	if m.getChildRuns != nil {
+		return m.getChildRuns(parentRunID)
+	}
+	return nil, nil
+}
+
 func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) error {
 	return nil
 }
@@ -481,6 +498,7 @@ func (m *MockStateStore) UpdateRetrospectiveSmoothness(runID string, smoothness 
 func (m *MockStateStore) UpdateRetrospectiveStatus(runID string, status string) error {
 	return nil
 }
+
 
 // Functional options for overriding specific methods.
 
