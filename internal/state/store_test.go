@@ -2619,3 +2619,103 @@ func TestArtifactMetadata(t *testing.T) {
 		assert.Equal(t, `{"updated":true}`, meta.MetadataJSON)
 	})
 }
+
+// =============================================================================
+// Parent-Child Run Linkage Tests
+// =============================================================================
+
+// TestSetParentRun tests parent-child run linkage via SetParentRun.
+func TestSetParentRun(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Create parent and child runs
+	parentRunID, err := store.CreateRun("parent-pipeline", "input")
+	require.NoError(t, err)
+
+	childRunID, err := store.CreateRun("child-pipeline", "input")
+	require.NoError(t, err)
+
+	// Link child to parent
+	err = store.SetParentRun(childRunID, parentRunID, "step-1")
+	require.NoError(t, err)
+
+	// Verify linkage via GetRun
+	child, err := store.GetRun(childRunID)
+	require.NoError(t, err)
+	assert.Equal(t, parentRunID, child.ParentRunID)
+	assert.Equal(t, "step-1", child.ParentStepID)
+
+	// Verify parent is unaffected
+	parent, err := store.GetRun(parentRunID)
+	require.NoError(t, err)
+	assert.Empty(t, parent.ParentRunID)
+	assert.Empty(t, parent.ParentStepID)
+}
+
+// TestGetChildRuns tests querying child runs for a parent.
+func TestGetChildRuns(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Create a parent run
+	parentRunID, err := store.CreateRun("parent-pipeline", "input")
+	require.NoError(t, err)
+
+	// Create 3 child runs and link each to the parent with different step IDs
+	stepIDs := []string{"step-a", "step-b", "step-c"}
+	childIDs := make([]string, 3)
+	for i, stepID := range stepIDs {
+		childID, err := store.CreateRun("child-pipeline", "input")
+		require.NoError(t, err)
+		childIDs[i] = childID
+
+		err = store.SetParentRun(childID, parentRunID, stepID)
+		require.NoError(t, err)
+	}
+
+	// Retrieve children
+	children, err := store.GetChildRuns(parentRunID)
+	require.NoError(t, err)
+	assert.Len(t, children, 3)
+
+	// Verify each child has correct ParentRunID
+	for _, child := range children {
+		assert.Equal(t, parentRunID, child.ParentRunID)
+	}
+
+	// Verify returned runs are ordered by started_at (ascending)
+	for i := 1; i < len(children); i++ {
+		assert.True(t, children[i].StartedAt.After(children[i-1].StartedAt) || children[i].StartedAt.Equal(children[i-1].StartedAt),
+			"children should be ordered by started_at ASC")
+	}
+}
+
+// TestGetChildRuns_Empty tests GetChildRuns with no children.
+func TestGetChildRuns_Empty(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Create a parent run with no children
+	parentRunID, err := store.CreateRun("parent-pipeline", "input")
+	require.NoError(t, err)
+
+	// Retrieve children — should return empty slice, no error
+	children, err := store.GetChildRuns(parentRunID)
+	require.NoError(t, err)
+	assert.Empty(t, children)
+}
+
+// TestParentRunID_NotSetByDefault verifies that ParentRunID is empty by default.
+func TestParentRunID_NotSetByDefault(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("test-pipeline", "input")
+	require.NoError(t, err)
+
+	run, err := store.GetRun(runID)
+	require.NoError(t, err)
+	assert.Empty(t, run.ParentRunID, "ParentRunID should be empty by default")
+	assert.Empty(t, run.ParentStepID, "ParentStepID should be empty by default")
+}

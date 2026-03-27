@@ -120,6 +120,8 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 	return &state.OntologyStats{}, nil
 }
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
+func (b baseStateStore) SetParentRun(string, string, string) error           { return nil }
+func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)      { return nil, nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

@@ -17,6 +17,8 @@ type RunRecord struct {
 	Tags         []string // Tags for categorization and filtering
 	BranchName   string   // Worktree branch for this run
 	PID          int      // OS process ID of the detached executor (0 = unknown/in-process)
+	ParentRunID  string   // Parent pipeline run ID (empty for top-level runs)
+	ParentStepID string   // Step ID in parent pipeline that launched this child run
 }
 
 // ListRunsOptions specifies filters for listing runs.
