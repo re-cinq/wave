@@ -118,6 +118,12 @@ type StateStore interface {
 	RecordOntologyUsage(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
 	GetOntologyStats(contextName string) (*OntologyStats, error)
 	GetOntologyStatsAll() ([]OntologyStats, error)
+
+	// Retrospective tracking
+	SaveRetrospective(record *RetrospectiveRecord) error
+	GetRetrospective(runID string) (*RetrospectiveRecord, error)
+	ListRetrospectives(opts ListRetrospectivesOptions) ([]RetrospectiveRecord, error)
+	UpdateRetrospectiveNarrative(runID string, narrativeJSON string, smoothness string) error
 }
 
 type stateStore struct {
@@ -1987,4 +1993,149 @@ func (s *stateStore) GetOntologyStatsAll() ([]OntologyStats, error) {
 		allStats = append(allStats, stats)
 	}
 	return allStats, nil
+}
+
+// =============================================================================
+// Retrospective Tracking Methods
+// =============================================================================
+
+// SaveRetrospective inserts a retrospective record for a pipeline run.
+func (s *stateStore) SaveRetrospective(record *RetrospectiveRecord) error {
+	query := `INSERT INTO retrospective (run_id, pipeline_name, quantitative_json, narrative_json, smoothness, generated_at)
+	          VALUES (?, ?, ?, ?, ?, ?)`
+
+	result, err := s.db.Exec(query, record.RunID, record.PipelineName, record.QuantitativeJSON, record.NarrativeJSON, record.Smoothness, record.GeneratedAt.Unix())
+	if err != nil {
+		return fmt.Errorf("failed to save retrospective: %w", err)
+	}
+
+	if id, err := result.LastInsertId(); err == nil {
+		record.ID = id
+	}
+
+	return nil
+}
+
+// GetRetrospective retrieves a retrospective record by run ID.
+// Returns nil and no error if no retrospective exists for the run.
+func (s *stateStore) GetRetrospective(runID string) (*RetrospectiveRecord, error) {
+	query := `SELECT id, run_id, pipeline_name, quantitative_json, narrative_json, smoothness, generated_at
+	          FROM retrospective
+	          WHERE run_id = ?`
+
+	var record RetrospectiveRecord
+	var generatedAt int64
+	var narrativeJSON, smoothness sql.NullString
+
+	err := s.db.QueryRow(query, runID).Scan(
+		&record.ID,
+		&record.RunID,
+		&record.PipelineName,
+		&record.QuantitativeJSON,
+		&narrativeJSON,
+		&smoothness,
+		&generatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get retrospective: %w", err)
+	}
+
+	record.GeneratedAt = time.Unix(generatedAt, 0)
+	if narrativeJSON.Valid {
+		record.NarrativeJSON = narrativeJSON.String
+	}
+	if smoothness.Valid {
+		record.Smoothness = smoothness.String
+	}
+
+	return &record, nil
+}
+
+// ListRetrospectives retrieves retrospective records with optional filters.
+func (s *stateStore) ListRetrospectives(opts ListRetrospectivesOptions) ([]RetrospectiveRecord, error) {
+	query := `SELECT id, run_id, pipeline_name, quantitative_json, narrative_json, smoothness, generated_at
+	          FROM retrospective
+	          WHERE 1=1`
+	args := []any{}
+
+	if opts.PipelineName != "" {
+		query += " AND pipeline_name = ?"
+		args = append(args, opts.PipelineName)
+	}
+	if opts.SinceUnix > 0 {
+		query += " AND generated_at >= ?"
+		args = append(args, opts.SinceUnix)
+	}
+
+	query += " ORDER BY generated_at DESC"
+
+	if opts.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, opts.Limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query retrospectives: %w", err)
+	}
+	defer rows.Close()
+
+	var records []RetrospectiveRecord
+	for rows.Next() {
+		var record RetrospectiveRecord
+		var generatedAt int64
+		var narrativeJSON, smoothness sql.NullString
+
+		err := rows.Scan(
+			&record.ID,
+			&record.RunID,
+			&record.PipelineName,
+			&record.QuantitativeJSON,
+			&narrativeJSON,
+			&smoothness,
+			&generatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan retrospective: %w", err)
+		}
+
+		record.GeneratedAt = time.Unix(generatedAt, 0)
+		if narrativeJSON.Valid {
+			record.NarrativeJSON = narrativeJSON.String
+		}
+		if smoothness.Valid {
+			record.Smoothness = smoothness.String
+		}
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating retrospectives: %w", err)
+	}
+
+	return records, nil
+}
+
+// UpdateRetrospectiveNarrative updates the narrative JSON and smoothness for a retrospective.
+func (s *stateStore) UpdateRetrospectiveNarrative(runID string, narrativeJSON string, smoothness string) error {
+	query := `UPDATE retrospective SET narrative_json = ?, smoothness = ? WHERE run_id = ?`
+
+	result, err := s.db.Exec(query, narrativeJSON, smoothness, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update retrospective narrative: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("retrospective not found for run: %s", runID)
+	}
+
+	return nil
 }

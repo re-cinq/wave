@@ -22,6 +22,7 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
+	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -51,6 +52,7 @@ type RunOptions struct {
 	Delay             string // --delay between iterations
 	OnFailure         string // --on-failure halt|skip
 	Detach            bool   // --detach flag for background execution
+	NoRetro           bool   // --no-retro flag to disable retrospective generation
 }
 
 func NewRunCmd() *cobra.Command {
@@ -133,6 +135,7 @@ including any per-persona model pinning in wave.yaml.`,
 	cmd.Flags().StringVar(&opts.Delay, "delay", "0s", "Delay between iterations (e.g., 5s, 1m)")
 	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
 	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run pipeline as a detached background process")
+	cmd.Flags().BoolVar(&opts.NoRetro, "no-retro", false, "Disable retrospective generation for this run")
 
 	return cmd
 }
@@ -385,6 +388,14 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if registry != nil {
 		execOpts = append(execOpts, pipeline.WithAdapterRegistry(registry))
+	}
+	if opts.NoRetro {
+		execOpts = append(execOpts, pipeline.WithNoRetro(true))
+	}
+	execOpts = append(execOpts, pipeline.WithExecutorManifest(&m))
+	if store != nil {
+		retroStore := retro.NewFileStore(filepath.Join(".wave", "retros"), store)
+		execOpts = append(execOpts, pipeline.WithRetroStore(retroStore))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)

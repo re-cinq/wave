@@ -205,3 +205,21 @@ type OntologyStats struct {
 	SuccessRate float64
 	LastUsed    time.Time
 }
+
+// RetrospectiveRecord holds a run retrospective record.
+type RetrospectiveRecord struct {
+	ID               int64
+	RunID            string
+	PipelineName     string
+	QuantitativeJSON string
+	NarrativeJSON    string
+	Smoothness       string
+	GeneratedAt      time.Time
+}
+
+// ListRetrospectivesOptions specifies filters for listing retrospectives.
+type ListRetrospectivesOptions struct {
+	PipelineName string
+	Limit        int
+	SinceUnix    int64
+}

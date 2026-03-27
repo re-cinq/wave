@@ -155,6 +155,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewSuggestCmd())
 	rootCmd.AddCommand(commands.NewSkillsCmd())
 	rootCmd.AddCommand(commands.NewPostmortemCmd())
+	rootCmd.AddCommand(commands.NewRetroCmd())
 	rootCmd.AddCommand(commands.NewAgentCmd())
 	rootCmd.AddCommand(commands.NewAnalyzeCmd())
 	rootCmd.AddCommand(commands.NewBenchCmd())

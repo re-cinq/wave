@@ -136,7 +136,7 @@ func (e *MetaPipelineExecutor) GenerateOnly(ctx context.Context, task string, m 
 	normalizeGeneratedPipeline(pipeline)
 
 	// Validate the generated pipeline structure
-	if err := ValidateGeneratedPipeline(pipeline, WithManifest(m)); err != nil {
+	if err := ValidateGeneratedPipeline(pipeline, WithValidationManifest(m)); err != nil {
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: e.getPipelineID(),
@@ -205,7 +205,7 @@ func (e *MetaPipelineExecutor) Execute(ctx context.Context, task string, m *mani
 	normalizeGeneratedPipeline(pipeline)
 
 	// Validate the generated pipeline structure
-	if err := ValidateGeneratedPipeline(pipeline, WithManifest(m)); err != nil {
+	if err := ValidateGeneratedPipeline(pipeline, WithValidationManifest(m)); err != nil {
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: e.getPipelineID(),
@@ -816,8 +816,8 @@ type validationConfig struct {
 	manifest *manifest.Manifest
 }
 
-// WithManifest enables manifest-aware validation (e.g., persona existence checks).
-func WithManifest(m *manifest.Manifest) ValidationOption {
+// WithValidationManifest enables manifest-aware validation (e.g., persona existence checks).
+func WithValidationManifest(m *manifest.Manifest) ValidationOption {
 	return func(c *validationConfig) { c.manifest = m }
 }
 

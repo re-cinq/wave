@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
+	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -97,6 +98,10 @@ type DefaultPipelineExecutor struct {
 	totalTokens int
 	// Adapter registry for per-step adapter resolution
 	registry *adapter.AdapterRegistry
+	// Retrospective generation
+	retroStore retro.Store
+	noRetro    bool
+	manifest   *manifest.Manifest
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -167,6 +172,21 @@ func WithSkillStore(s skill.Store) ExecutorOption {
 // WithAdapterRegistry sets the adapter registry for per-step adapter resolution.
 func WithAdapterRegistry(reg *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = reg }
+}
+
+// WithRetroStore sets the retrospective store for saving run retrospectives.
+func WithRetroStore(s retro.Store) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.retroStore = s }
+}
+
+// WithNoRetro disables retrospective generation for this executor.
+func WithNoRetro(noRetro bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.noRetro = noRetro }
+}
+
+// WithExecutorManifest sets the manifest for retrospective configuration access.
+func WithExecutorManifest(m *manifest.Manifest) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.manifest = m }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -248,6 +268,9 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
 		registry:               e.registry,
+		retroStore:             e.retroStore,
+		noRetro:                e.noRetro,
+		manifest:               e.manifest,
 	}
 }
 
@@ -643,6 +666,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
+
+	// Generate retrospective after pipeline completion
+	e.generateRetrospective(pipelineID, pipelineName, execution)
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
@@ -3517,6 +3543,59 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 	defer e.mu.Unlock()
 
 	delete(e.pipelines, pipelineID)
+}
+
+// generateRetrospective collects quantitative metrics and optionally generates
+// a narrative assessment after pipeline completion.
+func (e *DefaultPipelineExecutor) generateRetrospective(pipelineID string, pipelineName string, execution *PipelineExecution) {
+	// Skip if retros disabled via CLI flag
+	if e.noRetro {
+		return
+	}
+	// Skip if retros disabled via manifest config
+	if e.manifest != nil && !e.manifest.Runtime.Retro.IsEnabled() {
+		return
+	}
+	if e.store == nil || e.retroStore == nil {
+		return
+	}
+
+	// Collect quantitative data
+	collector := retro.NewCollector(e.store)
+	retrospective, err := collector.Collect(pipelineID, pipelineName)
+	if err != nil {
+		if e.debug {
+			fmt.Fprintf(os.Stderr, "[retro] failed to collect metrics: %v\n", err)
+		}
+		return
+	}
+
+	// Save quantitative retro immediately
+	if err := e.retroStore.Save(retrospective); err != nil {
+		if e.debug {
+			fmt.Fprintf(os.Stderr, "[retro] failed to save retrospective: %v\n", err)
+		}
+		return
+	}
+
+	// Narrative generation (async if enabled)
+	if e.manifest != nil && e.manifest.Runtime.Retro.ShouldNarrate() && e.runner != nil {
+		go func() {
+			narrator := retro.NewNarrator(e.runner, e.manifest.Runtime.Retro.GetNarrateModel())
+			narrative, err := narrator.Narrate(context.Background(), retrospective, execution.Input)
+			if err != nil {
+				if e.debug {
+					fmt.Fprintf(os.Stderr, "[retro] narrative generation failed: %v\n", err)
+				}
+				return
+			}
+			if err := e.retroStore.UpdateNarrative(pipelineID, narrative); err != nil {
+				if e.debug {
+					fmt.Fprintf(os.Stderr, "[retro] failed to save narrative: %v\n", err)
+				}
+			}
+		}()
+	}
 }
 
 // ResumeWithValidation resumes a pipeline with full validation and error handling.

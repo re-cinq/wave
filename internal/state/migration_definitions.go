@@ -299,5 +299,25 @@ CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
 DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 		},
+		{
+			Version:     12,
+			Description: "Add retrospective table for run retrospective storage",
+			Up: `CREATE TABLE IF NOT EXISTS retrospective (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL UNIQUE,
+    pipeline_name TEXT NOT NULL,
+    quantitative_json TEXT NOT NULL,
+    narrative_json TEXT,
+    smoothness TEXT,
+    generated_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_retrospective_pipeline ON retrospective(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_retrospective_generated ON retrospective(generated_at);`,
+			Down: `DROP TABLE IF EXISTS retrospective;
+DROP INDEX IF EXISTS idx_retrospective_pipeline;
+DROP INDEX IF EXISTS idx_retrospective_generated;`,
+		},
 	}
 }

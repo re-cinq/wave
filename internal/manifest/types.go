@@ -104,6 +104,7 @@ type Runtime struct {
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
 	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"` // Adapter fallback chains
+	Retro                RetroConfig            `yaml:"retro,omitempty"`
 }
 
 // GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.
@@ -209,6 +210,39 @@ type MetaConfig struct {
 	MaxTotalSteps  int `yaml:"max_total_steps,omitempty"`
 	MaxTotalTokens int `yaml:"max_total_tokens,omitempty"`
 	TimeoutMin     int `yaml:"timeout_minutes,omitempty"`
+}
+
+// RetroConfig holds configuration for run retrospectives.
+type RetroConfig struct {
+	Enabled      *bool  `yaml:"enabled,omitempty"`
+	Narrate      *bool  `yaml:"narrate,omitempty"`
+	NarrateModel string `yaml:"narrate_model,omitempty"`
+}
+
+// IsEnabled returns whether retrospectives are enabled.
+// Defaults to true when not explicitly set.
+func (r RetroConfig) IsEnabled() bool {
+	if r.Enabled == nil {
+		return true
+	}
+	return *r.Enabled
+}
+
+// ShouldNarrate returns whether retrospective narration is enabled.
+// Defaults to true when not explicitly set.
+func (r RetroConfig) ShouldNarrate() bool {
+	if r.Narrate == nil {
+		return true
+	}
+	return *r.Narrate
+}
+
+// GetNarrateModel returns the model to use for narration, defaulting to claude-haiku-4-5.
+func (r RetroConfig) GetNarrateModel() string {
+	if r.NarrateModel != "" {
+		return r.NarrateModel
+	}
+	return "claude-haiku-4-5"
 }
 
 // ProjectVars returns project config as a key-value map for template resolution.

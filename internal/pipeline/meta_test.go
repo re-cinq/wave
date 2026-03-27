@@ -1783,7 +1783,7 @@ func TestValidateGeneratedPipeline_WithManifest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGeneratedPipeline(tt.pipeline, WithManifest(m))
+			err := ValidateGeneratedPipeline(tt.pipeline, WithValidationManifest(m))
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error but got nil")
@@ -1830,7 +1830,7 @@ func TestValidateGeneratedPipeline_WithManifest_MissingAdapter(t *testing.T) {
 		},
 	}
 
-	err := ValidateGeneratedPipeline(p, WithManifest(m))
+	err := ValidateGeneratedPipeline(p, WithValidationManifest(m))
 	if err == nil {
 		t.Fatal("expected error for missing adapter")
 	}

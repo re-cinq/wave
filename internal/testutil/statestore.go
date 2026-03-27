@@ -63,6 +63,10 @@ type MockStateStore struct {
 	recordOntologyUsage           func(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
 	getOntologyStats              func(contextName string) (*state.OntologyStats, error)
 	getOntologyStatsAll           func() ([]state.OntologyStats, error)
+	saveRetrospective             func(record *state.RetrospectiveRecord) error
+	getRetrospective              func(runID string) (*state.RetrospectiveRecord, error)
+	listRetrospectives            func(opts state.ListRetrospectivesOptions) ([]state.RetrospectiveRecord, error)
+	updateRetrospectiveNarrative  func(runID string, narrativeJSON string, smoothness string) error
 
 	// Internal storage for default implementations
 	pipelineStates map[string]*state.PipelineStateRecord
@@ -442,6 +446,34 @@ func (m *MockStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) {
 	return nil, nil
 }
 
+func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) error {
+	if m.saveRetrospective != nil {
+		return m.saveRetrospective(record)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
+	if m.getRetrospective != nil {
+		return m.getRetrospective(runID)
+	}
+	return nil, nil
+}
+
+func (m *MockStateStore) ListRetrospectives(opts state.ListRetrospectivesOptions) ([]state.RetrospectiveRecord, error) {
+	if m.listRetrospectives != nil {
+		return m.listRetrospectives(opts)
+	}
+	return nil, nil
+}
+
+func (m *MockStateStore) UpdateRetrospectiveNarrative(runID string, narrativeJSON string, smoothness string) error {
+	if m.updateRetrospectiveNarrative != nil {
+		return m.updateRetrospectiveNarrative(runID, narrativeJSON, smoothness)
+	}
+	return nil
+}
+
 // Functional options for overriding specific methods.
 
 func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
@@ -478,4 +510,8 @@ func WithUpdateRunStatus(fn func(runID, status, currentStep string, tokens int) 
 
 func WithLogEvent(fn func(runID, stepID, st, persona, message string, tokens int, durationMs int64) error) MockStateStoreOption {
 	return func(m *MockStateStore) { m.logEvent = fn }
+}
+
+func WithGetPerformanceMetrics(fn func(runID, stepID string) ([]state.PerformanceMetricRecord, error)) MockStateStoreOption {
+	return func(m *MockStateStore) { m.getPerformanceMetrics = fn }
 }
