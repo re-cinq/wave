@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -279,7 +280,7 @@ func (s *stateStore) SaveStepState(pipelineID string, stepID string, state StepS
 
 	query := `INSERT INTO step_state (step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message)
 	          VALUES (?, ?, ?, 0, ?, ?, NULL, ?)
-	          ON CONFLICT(step_id) DO UPDATE SET
+	          ON CONFLICT(step_id, pipeline_id) DO UPDATE SET
 	              state = excluded.state,
 	              retry_count = CASE WHEN excluded.state = 'retrying' THEN retry_count + 1 ELSE retry_count END,
 	              started_at = COALESCE(started_at, excluded.started_at),
@@ -643,7 +644,7 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	// Cursor-based pagination: return runs before the cursor position
 	if opts.BeforeUnix > 0 {
 		if opts.BeforeRunID != "" {
-			query += " AND (started_at < ? OR (started_at = ? AND id < ?))"
+			query += " AND (started_at < ? OR (started_at = ? AND run_id < ?))"
 			args = append(args, opts.BeforeUnix, opts.BeforeUnix, opts.BeforeRunID)
 		} else {
 			query += " AND started_at < ?"
@@ -1840,6 +1841,9 @@ func (s *stateStore) GetStepAttempts(runID string, stepID string) ([]StepAttempt
 		}
 		records = append(records, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating step attempts: %w", err)
+	}
 	return records, nil
 }
 
@@ -1954,7 +1958,7 @@ func (s *stateStore) GetOntologyStats(contextName string) (*OntologyStats, error
 	var lastUsed int64
 	err := row.Scan(&stats.ContextName, &stats.TotalRuns, &stats.Successes, &stats.Failures, &stats.SuccessRate, &lastUsed)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return &OntologyStats{ContextName: contextName}, nil
 		}
 		return nil, fmt.Errorf("failed to get ontology stats for %s: %w", contextName, err)

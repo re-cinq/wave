@@ -23,6 +23,10 @@ func NewCollector(store state.StateStore) *Collector {
 // The returned Retrospective has Quantitative data filled in and
 // Narrative set to nil.
 func (c *Collector) Collect(runID string, pipelineName string) (*Retrospective, error) {
+	if c.store == nil {
+		return nil, fmt.Errorf("collector state store is nil")
+	}
+
 	// 1. Get step states for the run.
 	stepStates, err := c.store.GetStepStates(runID)
 	if err != nil {

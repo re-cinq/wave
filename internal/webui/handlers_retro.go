@@ -2,14 +2,22 @@ package webui
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/retro"
 )
+
+// validRunIDPattern matches only alphanumeric characters, hyphens, and underscores.
+var validRunIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// maxRetroListLimit caps the limit query parameter to prevent abuse.
+const maxRetroListLimit = 500
 
 // handleAPIRunRetro returns the retrospective for a specific run.
 func (s *Server) handleAPIRunRetro(w http.ResponseWriter, r *http.Request) {
@@ -18,11 +26,16 @@ func (s *Server) handleAPIRunRetro(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing run ID", http.StatusBadRequest)
 		return
 	}
+	if !validRunIDPattern.MatchString(runID) {
+		http.Error(w, "invalid run ID", http.StatusBadRequest)
+		return
+	}
 
 	retroStore := retro.NewFileStore(filepath.Join(".wave", "retros"), s.store)
 	result, err := retroStore.Get(runID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] failed to get retrospective for run %s: %v", runID, err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	if result == nil {
@@ -42,7 +55,7 @@ func (s *Server) handleAPIRetros(w http.ResponseWriter, r *http.Request) {
 		opts.PipelineName = pipeline
 	}
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
 			opts.Limit = limit
 		}
 	}
@@ -54,11 +67,15 @@ func (s *Server) handleAPIRetros(w http.ResponseWriter, r *http.Request) {
 	if opts.Limit == 0 {
 		opts.Limit = 50
 	}
+	if opts.Limit > maxRetroListLimit {
+		opts.Limit = maxRetroListLimit
+	}
 
 	retroStore := retro.NewFileStore(filepath.Join(".wave", "retros"), s.store)
 	retros, err := retroStore.List(opts)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] failed to list retrospectives: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 

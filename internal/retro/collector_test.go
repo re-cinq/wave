@@ -256,3 +256,11 @@ func TestCollector_EmptyRun(t *testing.T) {
 		t.Errorf("Narrative = %v, want nil", r.Narrative)
 	}
 }
+
+func TestCollector_NilStoreReturnsError(t *testing.T) {
+	collector := retro.NewCollector(nil)
+	_, err := collector.Collect("run-001", "test-pipeline")
+	if err == nil {
+		t.Fatal("expected error for nil store, got nil")
+	}
+}

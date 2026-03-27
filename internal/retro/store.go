@@ -6,10 +6,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/recinq/wave/internal/state"
 )
+
+// validRunID matches only alphanumeric characters, hyphens, and underscores.
+var validRunID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// validateRunID checks that a run ID is safe for use in filesystem paths.
+func validateRunID(runID string) error {
+	if runID == "" {
+		return errors.New("run ID must not be empty")
+	}
+	if !validRunID.MatchString(runID) {
+		return fmt.Errorf("invalid run ID: %q", runID)
+	}
+	return nil
+}
 
 // Store defines the interface for persisting and retrieving retrospectives.
 type Store interface {
@@ -47,8 +62,8 @@ func (fs *FileStore) Save(retro *Retrospective) error {
 	if retro == nil {
 		return errors.New("retrospective must not be nil")
 	}
-	if retro.RunID == "" {
-		return errors.New("retrospective run_id must not be empty")
+	if err := validateRunID(retro.RunID); err != nil {
+		return fmt.Errorf("invalid retrospective run ID: %w", err)
 	}
 
 	// Ensure base directory exists.
@@ -84,6 +99,10 @@ func (fs *FileStore) Save(retro *Retrospective) error {
 // if the file does not exist it falls back to SQLite. Returns (nil, nil) when
 // neither source has a record.
 func (fs *FileStore) Get(runID string) (*Retrospective, error) {
+	if err := validateRunID(runID); err != nil {
+		return nil, fmt.Errorf("invalid run ID: %w", err)
+	}
+
 	// Try file first.
 	filePath := filepath.Join(fs.baseDir, runID+".json")
 	data, err := os.ReadFile(filePath)
@@ -146,6 +165,9 @@ func (fs *FileStore) List(opts ListOptions) ([]Retrospective, error) {
 // It reads the current retro from file, merges the new narrative, rewrites
 // the file, and updates the SQLite record.
 func (fs *FileStore) UpdateNarrative(runID string, narrative *NarrativeData) error {
+	if err := validateRunID(runID); err != nil {
+		return fmt.Errorf("invalid run ID: %w", err)
+	}
 	if narrative == nil {
 		return errors.New("narrative must not be nil")
 	}

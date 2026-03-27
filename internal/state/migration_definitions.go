@@ -319,5 +319,28 @@ CREATE INDEX IF NOT EXISTS idx_retrospective_generated ON retrospective(generate
 DROP INDEX IF EXISTS idx_retrospective_pipeline;
 DROP INDEX IF EXISTS idx_retrospective_generated;`,
 		},
+		{
+			Version:     13,
+			Description: "Fix step_state primary key to be composite (step_id, pipeline_id)",
+			Up: `CREATE TABLE IF NOT EXISTS step_state_new (
+    step_id TEXT NOT NULL,
+    pipeline_id TEXT NOT NULL,
+    state TEXT NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    started_at INTEGER,
+    completed_at INTEGER,
+    workspace_path TEXT,
+    error_message TEXT,
+    PRIMARY KEY (step_id, pipeline_id),
+    FOREIGN KEY (pipeline_id) REFERENCES pipeline_state(pipeline_id) ON DELETE CASCADE
+);
+
+INSERT OR IGNORE INTO step_state_new SELECT * FROM step_state;
+DROP TABLE step_state;
+ALTER TABLE step_state_new RENAME TO step_state;
+
+CREATE INDEX IF NOT EXISTS idx_step_pipeline_id ON step_state(pipeline_id);`,
+			Down: "",
+		},
 	}
 }

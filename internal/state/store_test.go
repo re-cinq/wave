@@ -1211,6 +1211,36 @@ func TestListRuns(t *testing.T) {
 		assert.Equal(t, "second", runs[0].PipelineName)
 		assert.Equal(t, "first", runs[1].PipelineName)
 	})
+
+	t.Run("cursor pagination with BeforeRunID", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithFile(t)
+		defer cleanup()
+
+		id1, err := store.CreateRun("pipeline-a", "")
+		require.NoError(t, err)
+
+		id2, err := store.CreateRun("pipeline-b", "")
+		require.NoError(t, err)
+
+		// Get both runs to find the timestamps.
+		allRuns, err := store.ListRuns(ListRunsOptions{})
+		require.NoError(t, err)
+		require.Len(t, allRuns, 2)
+
+		// Use the first run's timestamp as the cursor.
+		runs, err := store.ListRuns(ListRunsOptions{
+			BeforeUnix:  allRuns[0].StartedAt.Unix(),
+			BeforeRunID: allRuns[0].RunID,
+		})
+		require.NoError(t, err)
+		// Should return only runs before the cursor.
+		// With same timestamp, only runs with run_id < cursor should be returned.
+		_ = id1
+		_ = id2
+		// The key thing is this doesn't error — the old `id < ?` would have
+		// caused a SQL error since the column is `run_id`, not `id`.
+		assert.True(t, len(runs) <= 1, "expected at most 1 run before cursor, got %d", len(runs))
+	})
 }
 
 // TestDeleteRun tests run deletion.

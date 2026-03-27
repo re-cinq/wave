@@ -395,3 +395,66 @@ func TestFileStore_UpdateNarrativeNilNarrative(t *testing.T) {
 		t.Fatal("expected error for nil narrative, got nil")
 	}
 }
+
+func TestFileStore_PathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	baseDir := filepath.Join(tmpDir, "retros")
+	mock := testutil.NewMockStateStore()
+	store := NewFileStore(baseDir, mock)
+
+	// Attempts to traverse the filesystem via crafted run IDs should be rejected.
+	maliciousIDs := []string{
+		"../../etc/passwd",
+		"../secrets",
+		"run/../../../config",
+		"run/../../config",
+		".hidden",
+		"run id with spaces",
+		"run;injection",
+		"",
+	}
+
+	for _, id := range maliciousIDs {
+		t.Run("Get_"+id, func(t *testing.T) {
+			_, err := store.Get(id)
+			if err == nil {
+				t.Errorf("expected error for malicious run ID %q, got nil", id)
+			}
+		})
+
+		t.Run("Save_"+id, func(t *testing.T) {
+			retro := &Retrospective{
+				RunID:    id,
+				Pipeline: "test",
+				Quantitative: QuantitativeData{
+					TotalSteps: 1,
+				},
+				Timestamp: time.Now(),
+			}
+			err := store.Save(retro)
+			if err == nil {
+				t.Errorf("expected error for malicious run ID %q, got nil", id)
+			}
+		})
+
+		t.Run("UpdateNarrative_"+id, func(t *testing.T) {
+			err := store.UpdateNarrative(id, &NarrativeData{Smoothness: SmoothnessSmooth})
+			if err == nil {
+				t.Errorf("expected error for malicious run ID %q, got nil", id)
+			}
+		})
+	}
+
+	// Valid run IDs should be accepted by the validation function.
+	validIDs := []string{
+		"run-001",
+		"abc123",
+		"run_with_underscores",
+		"Run-Mixed-Case-123",
+	}
+	for _, id := range validIDs {
+		if err := validateRunID(id); err != nil {
+			t.Errorf("valid run ID %q rejected: %v", id, err)
+		}
+	}
+}
