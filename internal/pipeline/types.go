@@ -385,6 +385,13 @@ type BranchConfig struct {
 	Cases map[string]string `yaml:"cases"` // value → pipeline name ("skip" = no-op)
 }
 
+// GateChoice defines a single choice option for an approval gate.
+type GateChoice struct {
+	Label  string `yaml:"label"`            // Human-readable label (e.g. "Approve")
+	Key    string `yaml:"key"`              // Keyboard shortcut key (e.g. "a")
+	Target string `yaml:"target,omitempty"` // Target step ID on selection, or "_fail" to abort pipeline
+}
+
 // GateConfig configures a blocking gate step.
 type GateConfig struct {
 	Type      string `yaml:"type"`                  // "approval", "pr_merge", "ci_pass", "timer"
@@ -393,11 +400,72 @@ type GateConfig struct {
 	Message   string `yaml:"message,omitempty"`     // Display message while waiting
 	TUIAction string `yaml:"tui_action,omitempty"`  // TUI action identifier
 
+	// Human approval gate fields
+	Choices  []GateChoice `yaml:"choices,omitempty"`  // Choice options for interactive approval
+	Freeform bool         `yaml:"freeform,omitempty"` // Allow freeform text input alongside choices
+	Default  string       `yaml:"default,omitempty"`  // Default choice key (used on timeout or auto-approve)
+	Prompt   string       `yaml:"prompt,omitempty"`   // Prompt text displayed to the user
+
 	// Poll gate fields (pr_merge, ci_pass)
 	PRNumber int    `yaml:"pr_number,omitempty"` // PR number for pr_merge gate
 	Repo     string `yaml:"repo,omitempty"`      // "owner/repo" slug; detected from git remotes if empty
 	Branch   string `yaml:"branch,omitempty"`    // Branch name for ci_pass gate; detected from git if empty
 	Interval string `yaml:"interval,omitempty"`  // Poll interval (e.g. "30s"); default 30s
+}
+
+// Validate checks that the GateConfig is well-formed when it uses choices.
+func (g *GateConfig) Validate(stepIDs map[string]bool) error {
+	if len(g.Choices) == 0 {
+		return nil // No choices — legacy gate, no validation needed
+	}
+
+	// Validate unique keys
+	keys := make(map[string]bool, len(g.Choices))
+	for i, c := range g.Choices {
+		if c.Key == "" {
+			return fmt.Errorf("gate choice[%d]: key is required", i)
+		}
+		if c.Label == "" {
+			return fmt.Errorf("gate choice[%d]: label is required", i)
+		}
+		if keys[c.Key] {
+			return fmt.Errorf("gate choice[%d]: duplicate key %q", i, c.Key)
+		}
+		keys[c.Key] = true
+
+		// Validate target references
+		if c.Target != "" && c.Target != "_fail" && stepIDs != nil {
+			if !stepIDs[c.Target] {
+				return fmt.Errorf("gate choice[%d]: target %q is not a valid step ID or _fail", i, c.Target)
+			}
+		}
+	}
+
+	// Validate default references a valid choice key
+	if g.Default != "" {
+		found := false
+		for _, c := range g.Choices {
+			if c.Key == g.Default {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("gate default %q does not match any choice key", g.Default)
+		}
+	}
+
+	return nil
+}
+
+// FindChoiceByKey returns the GateChoice matching the given key, or nil.
+func (g *GateConfig) FindChoiceByKey(key string) *GateChoice {
+	for i := range g.Choices {
+		if g.Choices[i].Key == key {
+			return &g.Choices[i]
+		}
+	}
+	return nil
 }
 
 // LoopConfig configures a feedback loop with termination condition.
