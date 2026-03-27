@@ -30,6 +30,7 @@ type GateExecutor struct {
 	store    state.StateStore
 	runner   commandRunner // injectable for tests
 	timeouts *manifest.Timeouts
+	handler  GateHandler // interactive handler for approval gates with choices
 }
 
 // NewGateExecutor creates a gate executor.
@@ -42,10 +43,29 @@ func NewGateExecutor(emitter event.EventEmitter, store state.StateStore, timeout
 	}
 }
 
+// NewGateExecutorWithHandler creates a gate executor with an interactive handler.
+func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts, handler GateHandler) *GateExecutor {
+	return &GateExecutor{
+		emitter:  emitter,
+		store:    store,
+		runner:   defaultCommandRunner,
+		timeouts: timeouts,
+		handler:  handler,
+	}
+}
+
 // Execute blocks until the gate condition is met, times out, or context is cancelled.
+// For approval gates with choices, it returns a *GateDecision; for other gate types
+// it returns nil. The decision is accessible via the second return value.
 func (g *GateExecutor) Execute(ctx context.Context, gate *GateConfig, tmplCtx *TemplateContext) error {
+	_, err := g.ExecuteWithDecision(ctx, gate, tmplCtx)
+	return err
+}
+
+// ExecuteWithDecision is like Execute but also returns the gate decision for approval gates.
+func (g *GateExecutor) ExecuteWithDecision(ctx context.Context, gate *GateConfig, tmplCtx *TemplateContext) (*GateDecision, error) {
 	if gate == nil {
-		return fmt.Errorf("gate config is nil")
+		return nil, fmt.Errorf("gate config is nil")
 	}
 
 	g.emit(event.Event{
@@ -58,25 +78,44 @@ func (g *GateExecutor) Execute(ctx context.Context, gate *GateConfig, tmplCtx *T
 	case "approval":
 		return g.executeApproval(ctx, gate)
 	case "timer":
-		return g.executeTimer(ctx, gate)
+		return nil, g.executeTimer(ctx, gate)
 	case "pr_merge":
-		return g.executePRMerge(ctx, gate)
+		return nil, g.executePRMerge(ctx, gate)
 	case "ci_pass":
-		return g.executeCIPass(ctx, gate)
+		return nil, g.executeCIPass(ctx, gate)
 	default:
-		return fmt.Errorf("unknown gate type: %q", gate.Type)
+		return nil, fmt.Errorf("unknown gate type: %q", gate.Type)
 	}
 }
 
 // executeApproval waits for manual approval or auto-approves.
-func (g *GateExecutor) executeApproval(ctx context.Context, gate *GateConfig) error {
-	if gate.Auto {
+// When the gate has choices and a handler is set, it delegates to the handler.
+// Returns a *GateDecision for choice-based gates, nil for legacy auto-approve.
+func (g *GateExecutor) executeApproval(ctx context.Context, gate *GateConfig) (*GateDecision, error) {
+	// Legacy auto-approve path (no choices)
+	if gate.Auto && len(gate.Choices) == 0 {
 		g.emit(event.Event{
 			Timestamp: time.Now(),
 			State:     event.StateGateResolved,
 			Message:   "gate auto-approved",
 		})
-		return nil
+		return nil, nil
+	}
+
+	// Choice-based gate with a handler
+	if len(gate.Choices) > 0 && g.handler != nil {
+		decision, err := g.handler.Prompt(ctx, gate)
+		if err != nil {
+			return nil, fmt.Errorf("gate prompt failed: %w", err)
+		}
+
+		g.emit(event.Event{
+			Timestamp: time.Now(),
+			State:     event.StateGateResolved,
+			Message:   fmt.Sprintf("gate resolved: %s (%s)", decision.Label, decision.Choice),
+		})
+
+		return decision, nil
 	}
 
 	// Parse timeout
@@ -84,19 +123,42 @@ func (g *GateExecutor) executeApproval(ctx context.Context, gate *GateConfig) er
 	if gate.Timeout != "" {
 		d, err := time.ParseDuration(gate.Timeout)
 		if err != nil {
-			return fmt.Errorf("invalid gate timeout %q: %w", gate.Timeout, err)
+			return nil, fmt.Errorf("invalid gate timeout %q: %w", gate.Timeout, err)
 		}
 		timeout = d
 	}
 
+	// Timeout-to-default: if the gate has choices with a default, use it on timeout
+	if len(gate.Choices) > 0 && gate.Default != "" {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(timeout):
+			choice := gate.FindChoiceByKey(gate.Default)
+			if choice != nil {
+				decision := &GateDecision{
+					Choice:    choice.Key,
+					Label:     choice.Label,
+					Timestamp: time.Now(),
+					Target:    choice.Target,
+				}
+				g.emit(event.Event{
+					Timestamp: time.Now(),
+					State:     event.StateGateResolved,
+					Message:   fmt.Sprintf("gate timed out, using default: %s", choice.Label),
+				})
+				return decision, nil
+			}
+			return nil, fmt.Errorf("gate timed out after %s", timeout)
+		}
+	}
+
 	// In non-interactive mode, wait for context cancellation or timeout.
-	// The TUI or external system is expected to resolve the gate by cancelling
-	// the context or using the state store.
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil, ctx.Err()
 	case <-time.After(timeout):
-		return fmt.Errorf("gate timed out after %s", timeout)
+		return nil, fmt.Errorf("gate timed out after %s", timeout)
 	}
 }
 

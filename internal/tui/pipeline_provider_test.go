@@ -130,6 +130,8 @@ func (b baseStateStore) ListRetrospectives(opts state.ListRetrospectivesOptions)
 func (b baseStateStore) UpdateRetrospectiveNarrative(runID string, narrativeJSON string, smoothness string) error {
 	return nil
 }
+func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
+func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

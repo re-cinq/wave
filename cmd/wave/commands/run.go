@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -23,7 +22,6 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
-	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -53,7 +51,7 @@ type RunOptions struct {
 	Delay             string // --delay between iterations
 	OnFailure         string // --on-failure halt|skip
 	Detach            bool   // --detach flag for background execution
-	NoRetro           bool   // --no-retro flag to disable retrospective generation
+	AutoApprove       bool   // --auto-approve flag for skipping approval gates
 }
 
 func NewRunCmd() *cobra.Command {
@@ -136,7 +134,7 @@ including any per-persona model pinning in wave.yaml.`,
 	cmd.Flags().StringVar(&opts.Delay, "delay", "0s", "Delay between iterations (e.g., 5s, 1m)")
 	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
 	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run pipeline as a detached background process")
-	cmd.Flags().BoolVar(&opts.NoRetro, "no-retro", false, "Disable retrospective generation for this run")
+	cmd.Flags().BoolVar(&opts.AutoApprove, "auto-approve", false, "Auto-approve all approval gates using default choices (required for --detach with gates)")
 
 	return cmd
 }
@@ -232,38 +230,29 @@ func runRun(opts RunOptions, debug bool) error {
 	// Detached mode: re-exec ourselves as a detached subprocess and return immediately.
 	// This reuses the same pattern as the TUI's pipeline_launcher.go.
 	if opts.Detach {
+		// Validate: if pipeline has approval gates with choices, --auto-approve is required
+		if !opts.AutoApprove && pipelineHasApprovalGates(p) {
+			return NewCLIError(CodeInvalidArgs,
+				"--detach with approval gates requires --auto-approve",
+				"Add --auto-approve to auto-approve gates in detached mode, or remove --detach for interactive execution")
+		}
 		return runDetached(opts, p, &m)
 	}
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
-	var registry *adapter.AdapterRegistry
 	if opts.Mock {
 		// Add simulated delay to see progress animations in action
 		runner = adapter.NewMockAdapter(
 			adapter.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
-		// Build adapter registry from manifest adapters.
-		// Sort adapter names for deterministic selection of the default.
-		registry = adapter.NewAdapterRegistry()
-		adapterNames := make([]string, 0, len(m.Adapters))
+		var adapterName string
 		for name := range m.Adapters {
-			adapterNames = append(adapterNames, name)
+			adapterName = name
+			break
 		}
-		sort.Strings(adapterNames)
-		for _, name := range adapterNames {
-			registry.Register(name, adapter.ResolveAdapter(name))
-		}
-		// Use "claude" as default if available, otherwise first sorted name.
-		defaultAdapter := adapterNames[0]
-		for _, name := range adapterNames {
-			if name == "claude" {
-				defaultAdapter = "claude"
-				break
-			}
-		}
-		runner = adapter.ResolveAdapter(defaultAdapter)
+		runner = adapter.ResolveAdapter(adapterName)
 	}
 
 	// Initialize state store under .wave/ — must happen before run ID generation
@@ -397,16 +386,8 @@ func runRun(opts RunOptions, debug bool) error {
 	if stepFilter != nil {
 		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
 	}
-	if registry != nil {
-		execOpts = append(execOpts, pipeline.WithAdapterRegistry(registry))
-	}
-	if opts.NoRetro {
-		execOpts = append(execOpts, pipeline.WithNoRetro(true))
-	}
-	execOpts = append(execOpts, pipeline.WithExecutorManifest(&m))
-	if store != nil {
-		retroStore := retro.NewFileStore(filepath.Join(".wave", "retros"), store)
-		execOpts = append(execOpts, pipeline.WithRetroStore(retroStore))
+	if opts.AutoApprove {
+		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -699,6 +680,9 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	if opts.Output.Verbose {
 		args = append(args, "--verbose")
 	}
+	if opts.AutoApprove {
+		args = append(args, "--auto-approve")
+	}
 
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -948,6 +932,17 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 		return fmt.Errorf("dry-run validation found %d error(s) — pipeline is not safe to execute", report.ErrorCount())
 	}
 	return nil
+}
+
+// pipelineHasApprovalGates returns true if any step in the pipeline has an approval
+// gate with interactive choices that would require human input.
+func pipelineHasApprovalGates(p *pipeline.Pipeline) bool {
+	for _, step := range p.Steps {
+		if step.Gate != nil && step.Gate.Type == "approval" && len(step.Gate.Choices) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // extractPreflightMetadata extracts missing skills and tools from preflight errors.

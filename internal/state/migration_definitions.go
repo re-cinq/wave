@@ -341,6 +341,12 @@ ALTER TABLE step_state_new RENAME TO step_state;
 
 CREATE INDEX IF NOT EXISTS idx_step_pipeline_id ON step_state(pipeline_id);`,
 			Down: "",
+			},
+		{
+			Version:     13,
+			Description: "Add visit_count column to step_state for graph-mode loop tracking",
+			Up:          `ALTER TABLE step_state ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;`,
+			Down:        "",
 		},
 	}
 }

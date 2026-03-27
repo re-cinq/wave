@@ -5,9 +5,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
@@ -183,6 +185,10 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 
 	if fallbackErrs := validateFallbacks(m); len(fallbackErrs) > 0 {
 		errs = append(errs, fallbackErrs...)
+	}
+
+	if hookErrs := validateHooks(m.Hooks, filePath); len(hookErrs) > 0 {
+		errs = append(errs, hookErrs...)
 	}
 
 	return errs
@@ -469,4 +475,96 @@ func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
 		return nil, fmt.Errorf("skill validation failed: %s", strings.Join(validationErrs, "; "))
 	}
 	return m, nil
+}
+
+func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
+	var errs []error
+	seenNames := make(map[string]int, len(hks))
+	for i, h := range hks {
+		prefix := fmt.Sprintf("hooks[%d]", i)
+		if strings.TrimSpace(h.Name) == "" {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      prefix + ".name",
+				Reason:     "is required",
+				Suggestion: "Each hook must have a unique name",
+			})
+		} else if prev, ok := seenNames[h.Name]; ok {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      prefix + ".name",
+				Reason:     fmt.Sprintf("duplicate hook name %q (first defined at hooks[%d])", h.Name, prev),
+				Suggestion: "Each hook must have a unique name",
+			})
+		} else {
+			seenNames[h.Name] = i
+		}
+		if !hooks.ValidEventTypes[h.Event] {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      prefix + ".event",
+				Reason:     fmt.Sprintf("invalid event type %q", h.Event),
+				Suggestion: "Valid events: run_start, run_completed, run_failed, step_start, step_completed, step_failed, step_retrying, contract_validated, artifact_created, workspace_created",
+			})
+		}
+		if !hooks.ValidHookTypes[h.Type] {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      prefix + ".type",
+				Reason:     fmt.Sprintf("invalid hook type %q", h.Type),
+				Suggestion: "Valid types: command, http, llm_judge, script",
+			})
+		}
+		// Validate required fields per type
+		switch h.Type {
+		case hooks.HookTypeCommand:
+			if strings.TrimSpace(h.Command) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      prefix + ".command",
+					Reason:     "is required for command hooks",
+					Suggestion: "Set 'command' to a shell command to execute",
+				})
+			}
+		case hooks.HookTypeHTTP:
+			if strings.TrimSpace(h.URL) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      prefix + ".url",
+					Reason:     "is required for http hooks",
+					Suggestion: "Set 'url' to the webhook endpoint URL",
+				})
+			}
+		case hooks.HookTypeLLMJudge:
+			if strings.TrimSpace(h.Prompt) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      prefix + ".prompt",
+					Reason:     "is required for llm_judge hooks",
+					Suggestion: "Set 'prompt' to the LLM evaluation prompt",
+				})
+			}
+		case hooks.HookTypeScript:
+			if strings.TrimSpace(h.Script) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      prefix + ".script",
+					Reason:     "is required for script hooks",
+					Suggestion: "Set 'script' to the inline script content",
+				})
+			}
+		}
+		// Validate matcher regex compiles
+		if h.Matcher != "" {
+			if _, err := regexp.Compile(h.Matcher); err != nil {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      prefix + ".matcher",
+					Reason:     fmt.Sprintf("invalid regex: %v", err),
+					Suggestion: "Use valid regex syntax (e.g., 'implement|fix', '.*')",
+				})
+			}
+		}
+	}
+	return errs
 }

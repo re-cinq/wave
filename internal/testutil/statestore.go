@@ -67,6 +67,8 @@ type MockStateStore struct {
 	getRetrospective              func(runID string) (*state.RetrospectiveRecord, error)
 	listRetrospectives            func(opts state.ListRetrospectivesOptions) ([]state.RetrospectiveRecord, error)
 	updateRetrospectiveNarrative  func(runID string, narrativeJSON string, smoothness string) error
+	saveStepVisitCount            func(pipelineID, stepID string, count int) error
+	getStepVisitCount             func(pipelineID, stepID string) (int, error)
 
 	// Internal storage for default implementations
 	pipelineStates map[string]*state.PipelineStateRecord
@@ -453,6 +455,13 @@ func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) er
 	return nil
 }
 
+func (m *MockStateStore) SaveStepVisitCount(pipelineID, stepID string, count int) error {
+	if m.saveStepVisitCount != nil {
+		return m.saveStepVisitCount(pipelineID, stepID, count)
+	}
+	return nil
+}
+
 func (m *MockStateStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
 	if m.getRetrospective != nil {
 		return m.getRetrospective(runID)
@@ -472,6 +481,13 @@ func (m *MockStateStore) UpdateRetrospectiveNarrative(runID string, narrativeJSO
 		return m.updateRetrospectiveNarrative(runID, narrativeJSON, smoothness)
 	}
 	return nil
+}
+
+func (m *MockStateStore) GetStepVisitCount(pipelineID, stepID string) (int, error) {
+	if m.getStepVisitCount != nil {
+		return m.getStepVisitCount(pipelineID, stepID)
+	}
+	return 0, nil
 }
 
 // Functional options for overriding specific methods.

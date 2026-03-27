@@ -27,6 +27,11 @@ type ContractConfig struct {
 	// Wrapper detection settings
 	DisableWrapperDetection bool `json:"disable_wrapper_detection,omitempty"` // Disable error wrapper detection (default: false, detection enabled)
 	DebugMode              bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
+
+	// LLM judge settings
+	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation (e.g. "claude-haiku-4-5")
+	Criteria  []string `json:"criteria,omitempty"`   // Evaluation criteria for LLM judge
+	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 }
 
 // ValidationError provides detailed information about contract validation failures.
@@ -81,6 +86,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &FormatValidator{}
 	case "non_empty_file":
 		return &nonEmptyFileValidator{}
+	case "llm_judge":
+		return &llmJudgeValidator{}
 	default:
 		return nil
 	}
