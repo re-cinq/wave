@@ -13,6 +13,7 @@ import (
 // via the WebUI HTTP endpoint.
 type pendingGate struct {
 	Gate     *pipeline.GateConfig
+	StepID   string // step this gate belongs to (for URL verification)
 	Response chan *pipeline.GateDecision
 }
 
@@ -33,13 +34,16 @@ func NewGateRegistry() *GateRegistry {
 
 // Register stores a pending gate for the given run and returns a channel
 // that will receive the decision when it arrives from the HTTP endpoint.
-func (r *GateRegistry) Register(runID string, gate *pipeline.GateConfig) chan *pipeline.GateDecision {
+// stepID identifies which pipeline step owns this gate (used by the HTTP
+// handler to reject requests targeting the wrong step).
+func (r *GateRegistry) Register(runID, stepID string, gate *pipeline.GateConfig) chan *pipeline.GateDecision {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	ch := make(chan *pipeline.GateDecision, 1)
 	r.pending[runID] = &pendingGate{
 		Gate:     gate,
+		StepID:   stepID,
 		Response: ch,
 	}
 	return ch
@@ -72,6 +76,18 @@ func (r *GateRegistry) GetPending(runID string) *pipeline.GateConfig {
 	return nil
 }
 
+// GetPendingStepID returns the step ID associated with the pending gate for a
+// run. Returns "" if no gate is pending.
+func (r *GateRegistry) GetPendingStepID(runID string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if pg, ok := r.pending[runID]; ok {
+		return pg.StepID
+	}
+	return ""
+}
+
 // Remove removes a pending gate without resolving it (e.g. on context cancellation).
 func (r *GateRegistry) Remove(runID string) {
 	r.mu.Lock()
@@ -98,7 +114,7 @@ func NewWebUIGateHandler(runID string, registry *GateRegistry) *WebUIGateHandler
 // Prompt registers the gate in the registry and blocks until a decision
 // arrives from the HTTP endpoint or the context is cancelled.
 func (h *WebUIGateHandler) Prompt(ctx context.Context, gate *pipeline.GateConfig) (*pipeline.GateDecision, error) {
-	ch := h.registry.Register(h.runID, gate)
+	ch := h.registry.Register(h.runID, gate.RuntimeStepID, gate)
 
 	select {
 	case <-ctx.Done():

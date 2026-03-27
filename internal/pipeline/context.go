@@ -192,16 +192,18 @@ func (ctx *PipelineContext) SetGateDecision(stepID string, decision *GateDecisio
 	}
 	ctx.GateDecisions[stepID] = decision
 
-	// Also set as custom variables for template resolution
+	// Also set as custom variables for template resolution.
+	// Strip Go template delimiters from freeform text to prevent injection
+	// into downstream template resolution.
 	if ctx.CustomVariables == nil {
 		ctx.CustomVariables = make(map[string]string)
 	}
 	prefix := "gate." + stepID
-	ctx.CustomVariables[prefix+".choice"] = decision.Label
-	ctx.CustomVariables[prefix+".key"] = decision.Choice
-	ctx.CustomVariables[prefix+".text"] = decision.Text
+	ctx.CustomVariables[prefix+".choice"] = stripTemplateDelimiters(decision.Label)
+	ctx.CustomVariables[prefix+".key"] = stripTemplateDelimiters(decision.Choice)
+	ctx.CustomVariables[prefix+".text"] = stripTemplateDelimiters(decision.Text)
 	ctx.CustomVariables[prefix+".timestamp"] = decision.Timestamp.Format(time.RFC3339)
-	ctx.CustomVariables[prefix+".target"] = decision.Target
+	ctx.CustomVariables[prefix+".target"] = stripTemplateDelimiters(decision.Target)
 }
 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows
@@ -347,4 +349,13 @@ func (ctx *PipelineContext) ResolveContractSource(contractCfg ContractConfig) st
 		return ctx.ResolvePlaceholders(contractCfg.Source)
 	}
 	return ""
+}
+
+// stripTemplateDelimiters removes Go template delimiters ({{ and }}) from a
+// string to prevent template injection when user-supplied values (e.g. gate
+// freeform text) are stored as custom template variables.
+func stripTemplateDelimiters(s string) string {
+	s = strings.ReplaceAll(s, "{{", "")
+	s = strings.ReplaceAll(s, "}}", "")
+	return s
 }

@@ -11,11 +11,19 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // anthropicAPIURL is the default Anthropic Messages API endpoint.
 // Tests override this via the package-level variable.
 var anthropicAPIURL = "https://api.anthropic.com/v1/messages"
+
+// judgeHTTPClient is used for all LLM judge API calls instead of
+// http.DefaultClient so that callers sharing the process cannot observe
+// or mutate transport-level settings (timeouts, cookies, redirects).
+var judgeHTTPClient = &http.Client{
+	Timeout: 60 * time.Second,
+}
 
 type llmJudgeValidator struct{}
 
@@ -126,9 +134,14 @@ func (v *llmJudgeValidator) buildUserPrompt(criteria []string, content string) s
 		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, c))
 	}
 	b.WriteString("\n--- Content to evaluate ---\n\n")
-	// Truncate very large content to avoid token limits
+	// Truncate very large content to avoid token limits.
+	// Use a valid UTF-8 boundary to avoid splitting multi-byte runes.
 	if len(content) > 50000 {
-		b.WriteString(content[:50000])
+		truncated := content[:50000]
+		for !utf8.ValidString(truncated) && len(truncated) > 0 {
+			truncated = truncated[:len(truncated)-1]
+		}
+		b.WriteString(truncated)
 		b.WriteString("\n\n[... truncated ...]")
 	} else {
 		b.WriteString(content)
@@ -173,7 +186,7 @@ func (v *llmJudgeValidator) callAPI(apiKey, model, systemPrompt, userPrompt stri
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := judgeHTTPClient.Do(req)
 	if err != nil {
 		return nil, &ValidationError{
 			ContractType: "llm_judge",

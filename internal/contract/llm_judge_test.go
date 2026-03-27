@@ -355,6 +355,26 @@ func TestLLMJudge_MalformedResponse(t *testing.T) {
 	}
 }
 
+func TestBuildUserPrompt_UTF8SafeTruncation(t *testing.T) {
+	v := &llmJudgeValidator{}
+
+	// Create content that ends with a multi-byte rune at the 50000 byte boundary.
+	// U+1F600 (😀) is 4 bytes in UTF-8. Place it so that a naive byte slice at
+	// 50000 would split the rune.
+	base := strings.Repeat("a", 49999) // 49999 ASCII bytes
+	base += "😀"                        // 4 bytes → total 50003 bytes; naive [:50000] splits the emoji
+
+	prompt := v.buildUserPrompt([]string{"criterion"}, base)
+
+	// The truncated portion must be valid UTF-8.
+	if strings.Contains(prompt, "\uFFFD") {
+		t.Error("truncated prompt contains replacement character, indicating invalid UTF-8")
+	}
+	if !strings.Contains(prompt, "[... truncated ...]") {
+		t.Error("expected truncation marker in prompt")
+	}
+}
+
 func TestExtractJSON(t *testing.T) {
 	tests := []struct {
 		name  string
