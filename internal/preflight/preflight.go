@@ -407,6 +407,59 @@ func (c *Checker) Run(tools, skills []string) ([]Result, error) {
 	return allResults, nil
 }
 
+// CollectAdapterBinaries returns the unique set of adapter binary names
+// referenced by the given pipeline steps. It resolves each step's persona
+// to find the adapter, then collects the adapter binary. If a step has a
+// direct adapter override, that takes precedence over the persona's adapter.
+//
+// This allows preflight checks to verify that all adapter binaries are
+// available on PATH before pipeline execution begins.
+func CollectAdapterBinaries(
+	personas map[string]Persona,
+	adapters map[string]AdapterDef,
+	steps []StepRef,
+) []string {
+	seen := make(map[string]bool)
+	var binaries []string
+	for _, step := range steps {
+		adapterName := ""
+		// Step-level adapter override takes precedence
+		if step.Adapter != "" {
+			adapterName = step.Adapter
+		} else if step.Persona != "" {
+			if p, ok := personas[step.Persona]; ok {
+				adapterName = p.Adapter
+			}
+		}
+		if adapterName == "" {
+			continue
+		}
+		if a, ok := adapters[adapterName]; ok && a.Binary != "" {
+			if !seen[a.Binary] {
+				seen[a.Binary] = true
+				binaries = append(binaries, a.Binary)
+			}
+		}
+	}
+	return binaries
+}
+
+// Persona is a minimal representation of a manifest persona for preflight binary collection.
+type Persona struct {
+	Adapter string
+}
+
+// AdapterDef is a minimal representation of a manifest adapter for preflight binary collection.
+type AdapterDef struct {
+	Binary string
+}
+
+// StepRef is a minimal representation of a pipeline step for preflight binary collection.
+type StepRef struct {
+	Persona string
+	Adapter string // Step-level adapter override
+}
+
 // PreflightError is a composite error returned when both tools and skills fail.
 // It implements errors.As() for both SkillError and ToolError so callers can
 // extract either typed error from the chain.

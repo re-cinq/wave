@@ -137,15 +137,19 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 }
 
 // InjectForgeVariables populates forge.* template variables in the context.
+// All variables are set atomically under a single lock acquisition to
+// prevent interleaved writes from concurrent callers.
 func InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo) {
-	ctx.SetCustomVariable("forge.type", string(info.Type))
-	ctx.SetCustomVariable("forge.host", info.Host)
-	ctx.SetCustomVariable("forge.owner", info.Owner)
-	ctx.SetCustomVariable("forge.repo", info.Repo)
-	ctx.SetCustomVariable("forge.cli_tool", info.CLITool)
-	ctx.SetCustomVariable("forge.prefix", info.PipelinePrefix)
-	ctx.SetCustomVariable("forge.pr_term", info.PRTerm)
-	ctx.SetCustomVariable("forge.pr_command", info.PRCommand)
+	ctx.setCustomVariablesBatch(map[string]string{
+		"forge.type":       string(info.Type),
+		"forge.host":       info.Host,
+		"forge.owner":      info.Owner,
+		"forge.repo":       info.Repo,
+		"forge.cli_tool":   info.CLITool,
+		"forge.prefix":     info.PipelinePrefix,
+		"forge.pr_term":    info.PRTerm,
+		"forge.pr_command": info.PRCommand,
+	})
 }
 
 // SetCustomVariable adds a custom template variable
@@ -156,6 +160,21 @@ func (ctx *PipelineContext) SetCustomVariable(key, value string) {
 		ctx.CustomVariables = make(map[string]string)
 	}
 	ctx.CustomVariables[key] = value
+}
+
+// setCustomVariablesBatch atomically sets multiple custom variables under a
+// single lock acquisition. This prevents interleaved writes from concurrent
+// goroutines that would leave the context in an inconsistent state (e.g.,
+// forge.type from one forge and forge.cli_tool from another).
+func (ctx *PipelineContext) setCustomVariablesBatch(vars map[string]string) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	for k, v := range vars {
+		ctx.CustomVariables[k] = v
+	}
 }
 
 // SetArtifactPath registers an artifact path for template resolution.

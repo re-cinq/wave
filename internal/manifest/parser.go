@@ -181,6 +181,10 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, ontologyErrs...)
 	}
 
+	if fallbackErrs := validateFallbacks(m); len(fallbackErrs) > 0 {
+		errs = append(errs, fallbackErrs...)
+	}
+
 	return errs
 }
 
@@ -366,6 +370,49 @@ func validateOntology(o *Ontology, filePath string) []error {
 			})
 		}
 		seen[ctx.Name] = true
+	}
+	return errs
+}
+
+// validateFallbacks checks runtime.fallbacks configuration for consistency.
+func validateFallbacks(m *Manifest) []error {
+	if len(m.Runtime.Fallbacks) == 0 {
+		return nil
+	}
+	var errs []error
+	for adapterName, fallbacks := range m.Runtime.Fallbacks {
+		// Key must reference a known adapter
+		if _, ok := m.Adapters[adapterName]; !ok {
+			errs = append(errs, &ValidationError{
+				Field:  "runtime.fallbacks." + adapterName,
+				Reason: fmt.Sprintf("adapter %q is not defined in manifest adapters", adapterName),
+			})
+		}
+		seen := make(map[string]bool)
+		for _, fb := range fallbacks {
+			// No self-reference
+			if fb == adapterName {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("adapter %q cannot fall back to itself", adapterName),
+				})
+			}
+			// Must reference known adapter
+			if _, ok := m.Adapters[fb]; !ok {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("fallback adapter %q is not defined in manifest adapters", fb),
+				})
+			}
+			// No duplicates
+			if seen[fb] {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("duplicate fallback adapter %q", fb),
+				})
+			}
+			seen[fb] = true
+		}
 	}
 	return errs
 }

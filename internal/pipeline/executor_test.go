@@ -2911,19 +2911,30 @@ func TestModelOverrideIntegration(t *testing.T) {
 // TestResolveModelMethod tests the resolveModel method directly
 func TestResolveModelMethod(t *testing.T) {
 	executor := &DefaultPipelineExecutor{modelOverride: "haiku"}
+	emptyStep := &Step{}
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(p1))
+	assert.Equal(t, "haiku", executor.resolveModel(emptyStep, p1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(emptyStep, p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(p3))
+	assert.Equal(t, "", executor2.resolveModel(emptyStep, p3))
+
+	// Step-level model takes precedence over persona model
+	executor3 := &DefaultPipelineExecutor{modelOverride: ""}
+	stepWithModel := &Step{Model: "sonnet"}
+	p4 := &manifest.Persona{Model: "opus"}
+	assert.Equal(t, "sonnet", executor3.resolveModel(stepWithModel, p4))
+
+	// CLI override still wins over step-level model
+	executor4 := &DefaultPipelineExecutor{modelOverride: "haiku"}
+	assert.Equal(t, "haiku", executor4.resolveModel(stepWithModel, p4))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
