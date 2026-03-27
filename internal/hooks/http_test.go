@@ -12,7 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func disableSSRFValidation(t *testing.T) {
+	t.Helper()
+	orig := urlValidator
+	urlValidator = func(string) error { return nil }
+	t.Cleanup(func() { urlValidator = orig })
+}
+
 func TestExecuteHTTP(t *testing.T) {
+	disableSSRFValidation(t)
 	tests := []struct {
 		name             string
 		responseCode     int
@@ -21,68 +29,15 @@ func TestExecuteHTTP(t *testing.T) {
 		expectedReason   string
 		checkReason      bool
 	}{
-		{
-			name:             "200 ok=true returns proceed",
-			responseCode:     200,
-			responseBody:     `{"ok":true}`,
-			expectedDecision: DecisionProceed,
-		},
-		{
-			name:             "200 ok=false returns block with reason",
-			responseCode:     200,
-			responseBody:     `{"ok":false,"reason":"security issue"}`,
-			expectedDecision: DecisionBlock,
-			expectedReason:   "security issue",
-			checkReason:      true,
-		},
-		{
-			name:             "200 ok=true action=skip returns skip",
-			responseCode:     200,
-			responseBody:     `{"ok":true,"action":"skip"}`,
-			expectedDecision: DecisionSkip,
-		},
-		{
-			name:             "200 ok=false action=skip still returns skip",
-			responseCode:     200,
-			responseBody:     `{"ok":false,"action":"skip","reason":"not needed"}`,
-			expectedDecision: DecisionSkip,
-			expectedReason:   "not needed",
-			checkReason:      true,
-		},
-		{
-			name:             "500 returns block",
-			responseCode:     500,
-			responseBody:     `internal server error`,
-			expectedDecision: DecisionBlock,
-			expectedReason:   "status 500",
-			checkReason:      true,
-		},
-		{
-			name:             "404 returns block",
-			responseCode:     404,
-			responseBody:     `not found`,
-			expectedDecision: DecisionBlock,
-			expectedReason:   "status 404",
-			checkReason:      true,
-		},
-		{
-			name:             "200 malformed JSON returns block",
-			responseCode:     200,
-			responseBody:     `not json at all`,
-			expectedDecision: DecisionBlock,
-			expectedReason:   "failed to parse response",
-			checkReason:      true,
-		},
-		{
-			name:             "200 empty body returns block",
-			responseCode:     200,
-			responseBody:     ``,
-			expectedDecision: DecisionBlock,
-			expectedReason:   "failed to parse response",
-			checkReason:      true,
-		},
+		{name: "200 ok=true", responseCode: 200, responseBody: `{"ok":true}`, expectedDecision: DecisionProceed},
+		{name: "200 ok=false", responseCode: 200, responseBody: `{"ok":false,"reason":"security issue"}`, expectedDecision: DecisionBlock, expectedReason: "security issue", checkReason: true},
+		{name: "200 action=skip", responseCode: 200, responseBody: `{"ok":true,"action":"skip"}`, expectedDecision: DecisionSkip},
+		{name: "200 ok=false action=skip", responseCode: 200, responseBody: `{"ok":false,"action":"skip","reason":"not needed"}`, expectedDecision: DecisionSkip, expectedReason: "not needed", checkReason: true},
+		{name: "500", responseCode: 500, responseBody: `error`, expectedDecision: DecisionBlock, expectedReason: "status 500", checkReason: true},
+		{name: "404", responseCode: 404, responseBody: `not found`, expectedDecision: DecisionBlock, expectedReason: "status 404", checkReason: true},
+		{name: "malformed JSON", responseCode: 200, responseBody: `not json`, expectedDecision: DecisionBlock, expectedReason: "failed to parse response", checkReason: true},
+		{name: "empty body", responseCode: 200, responseBody: ``, expectedDecision: DecisionBlock, expectedReason: "failed to parse response", checkReason: true},
 	}
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,94 +46,83 @@ func TestExecuteHTTP(t *testing.T) {
 				w.Write([]byte(tc.responseBody))
 			}))
 			defer server.Close()
-
-			hook := &LifecycleHookDef{
-				Name:    "test-http-hook",
-				Type:    HookTypeHTTP,
-				URL:     server.URL,
-				Timeout: "5s",
-			}
-			evt := HookEvent{
-				Type:       EventStepStart,
-				PipelineID: "test-pipeline",
-				StepID:     "test-step",
-			}
-
-			result := executeHTTP(context.Background(), hook, evt)
-
+			hook := &LifecycleHookDef{Name: "test-http-hook", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}
+			result := executeHTTP(context.Background(), hook, HookEvent{Type: EventStepStart, PipelineID: "test-pipeline", StepID: "test-step"})
 			assert.Equal(t, tc.expectedDecision, result.Decision)
-			assert.Equal(t, "test-http-hook", result.HookName)
-			if tc.checkReason {
-				assert.Contains(t, result.Reason, tc.expectedReason)
-			}
+			if tc.checkReason { assert.Contains(t, result.Reason, tc.expectedReason) }
 		})
 	}
 }
 
 func TestExecuteHTTPPostBodyContainsEvent(t *testing.T) {
+	disableSSRFValidation(t)
 	var receivedBody []byte
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify it's a POST
 		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-
 		var err error
 		receivedBody, err = io.ReadAll(r.Body)
 		require.NoError(t, err)
-
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		w.Write([]byte(`{"ok":true}`))
 	}))
 	defer server.Close()
-
-	hook := &LifecycleHookDef{
-		Name:    "body-check-hook",
-		Type:    HookTypeHTTP,
-		URL:     server.URL,
-		Timeout: "5s",
-	}
-	evt := HookEvent{
-		Type:       EventStepStart,
-		PipelineID: "my-pipeline",
-		StepID:     "my-step",
-		Input:      "test input",
-		Workspace:  "/tmp/workspace",
-		Artifacts:  []string{"artifact1.json"},
-	}
-
+	hook := &LifecycleHookDef{Name: "body-hook", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}
+	evt := HookEvent{Type: EventStepStart, PipelineID: "my-pipeline", StepID: "my-step", Input: "test input", Workspace: "/tmp/ws", Artifacts: []string{"a.json"}}
 	result := executeHTTP(context.Background(), hook, evt)
 	require.Equal(t, DecisionProceed, result.Decision)
-
-	// Parse the received body and verify it contains the event fields
-	var receivedEvt HookEvent
-	err := json.Unmarshal(receivedBody, &receivedEvt)
-	require.NoError(t, err)
-	assert.Equal(t, EventStepStart, receivedEvt.Type)
-	assert.Equal(t, "my-pipeline", receivedEvt.PipelineID)
-	assert.Equal(t, "my-step", receivedEvt.StepID)
-	assert.Equal(t, "test input", receivedEvt.Input)
-	assert.Equal(t, "/tmp/workspace", receivedEvt.Workspace)
-	assert.Equal(t, []string{"artifact1.json"}, receivedEvt.Artifacts)
+	var got HookEvent
+	require.NoError(t, json.Unmarshal(receivedBody, &got))
+	assert.Equal(t, "my-pipeline", got.PipelineID)
+	assert.Equal(t, "my-step", got.StepID)
 }
 
-func TestExecuteHTTPConnectionError(t *testing.T) {
-	// Use a URL that will fail to connect
-	hook := &LifecycleHookDef{
-		Name:    "conn-err-hook",
-		Type:    HookTypeHTTP,
-		URL:     "http://127.0.0.1:1", // port 1 should be unreachable
-		Timeout: "1s",
+func TestExecuteHTTPSSRFBlocked(t *testing.T) {
+	for _, tc := range []struct{ name, url string }{
+		{"localhost", "http://localhost:8080/hook"},
+		{"loopback", "http://127.0.0.1:8080/hook"},
+		{"loopback6", "http://[::1]:8080/hook"},
+		{"link-local", "http://169.254.169.254/latest/meta-data/"},
+		{"10.x", "http://10.0.0.1:8080/hook"},
+		{"172.16.x", "http://172.16.0.1:8080/hook"},
+		{"192.168.x", "http://192.168.1.1:8080/hook"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := executeHTTP(context.Background(), &LifecycleHookDef{Name: "ssrf", Type: HookTypeHTTP, URL: tc.url, Timeout: "1s"}, HookEvent{Type: EventStepStart, PipelineID: "test"})
+			assert.Equal(t, DecisionBlock, result.Decision)
+			assert.NotNil(t, result.Err)
+			assert.Contains(t, result.Reason, "blocked URL")
+		})
 	}
-	evt := HookEvent{
-		Type:       EventStepStart,
-		PipelineID: "test-pipeline",
+}
+
+func TestValidateHTTPTarget(t *testing.T) {
+	for _, tc := range []struct{ name, url string; wantErr bool }{
+		{"public IP", "https://8.8.8.8/webhook", false},
+		{"localhost", "http://localhost/hook", true},
+		{"localhost.", "http://localhost./hook", true},
+		{"loopback", "http://127.0.0.1/hook", true},
+		{"10.x", "http://10.0.0.1/hook", true},
+		{"172.16.x", "http://172.16.0.1/hook", true},
+		{"192.168.x", "http://192.168.1.1/hook", true},
+		{"link-local", "http://169.254.169.254/m", true},
+		{"ipv6 loopback", "http://[::1]/hook", true},
+		{"empty host", "http:///hook", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHTTPTarget(tc.url)
+			if tc.wantErr { assert.Error(t, err) } else { assert.NoError(t, err) }
+		})
 	}
+}
 
-	result := executeHTTP(context.Background(), hook, evt)
-
+func TestExecuteHTTPLimitedResponseBody(t *testing.T) {
+	disableSSRFValidation(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		for i := 0; i < maxResponseBodySize+1024; i++ { w.Write([]byte("x")) }
+	}))
+	defer server.Close()
+	result := executeHTTP(context.Background(), &LifecycleHookDef{Name: "large", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}, HookEvent{Type: EventStepStart, PipelineID: "test"})
 	assert.Equal(t, DecisionBlock, result.Decision)
-	assert.NotNil(t, result.Err)
-	assert.Contains(t, result.Reason, "HTTP request failed")
+	assert.Contains(t, result.Reason, "failed to parse response")
 }

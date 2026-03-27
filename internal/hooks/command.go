@@ -3,8 +3,6 @@ package hooks
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"os"
 	"os/exec"
 )
 
@@ -15,53 +13,18 @@ func executeCommand(ctx context.Context, hook *LifecycleHookDef, evt HookEvent) 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", os.ExpandEnv(hook.Command))
+	// The shell itself handles variable expansion — no need for os.ExpandEnv
+	// which would incorrectly expand WAVE_HOOK_* vars in the parent process.
+	cmd := exec.CommandContext(ctx, "sh", "-c", hook.Command)
 
-	// Set hook event as environment variables
-	cmd.Env = append(os.Environ(),
-		"WAVE_HOOK_EVENT="+string(evt.Type),
-		"WAVE_HOOK_PIPELINE="+evt.PipelineID,
-		"WAVE_HOOK_STEP="+evt.StepID,
-		"WAVE_HOOK_WORKSPACE="+evt.Workspace,
-	)
+	// Curated environment: only base system vars + WAVE_HOOK_* variables.
+	// The full host environment is NOT inherited to prevent sandbox bypass.
+	cmd.Env = buildHookEnv(evt)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	if err == nil {
-		return HookResult{
-			HookName: hook.Name,
-			Decision: DecisionProceed,
-		}
-	}
-
-	// Extract exit code
-	exitCode := 1
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		exitCode = exitErr.ExitCode()
-	}
-
-	reason := stderr.String()
-	if exitCode == 2 {
-		// Try to parse JSON reason from stderr
-		var jsonReason struct {
-			Reason string `json:"reason"`
-		}
-		if json.Unmarshal(stderr.Bytes(), &jsonReason) == nil && jsonReason.Reason != "" {
-			reason = jsonReason.Reason
-		}
-	}
-
-	if reason == "" {
-		reason = err.Error()
-	}
-
-	return HookResult{
-		HookName: hook.Name,
-		Decision: DecisionBlock,
-		Reason:   reason,
-		Err:      err,
-	}
+	return interpretExitCode(hook.Name, err, stderr.Bytes())
 }
