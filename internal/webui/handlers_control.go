@@ -89,13 +89,13 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
-	// Execute in background goroutine
+	// Execute via scheduler for concurrency control
 	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	s.activeRuns[runID] = cancel
 	s.mu.Unlock()
 
-	go func() {
+	runFn := func() {
 		defer func() {
 			if traceLogger != nil {
 				traceLogger.Close()
@@ -134,7 +134,16 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 				log.Printf("Warning: failed to update run %s to completed: %v", runID, err)
 			}
 		}
-	}()
+	}
+
+	if s.scheduler != nil {
+		if err := s.scheduler.Submit(ctx, runFn); err != nil {
+			log.Printf("Warning: scheduler submit failed for run %s: %v — running directly", runID, err)
+			go runFn()
+		}
+	} else {
+		go runFn()
+	}
 }
 
 // handleStartPipeline handles POST /api/pipelines/{name}/start
@@ -341,6 +350,84 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, resp)
+}
+
+// handleSubmitRun handles POST /api/runs — submit a new pipeline run.
+func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
+	var req SubmitRunRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Pipeline == "" {
+		writeJSONError(w, http.StatusBadRequest, "pipeline name is required")
+		return
+	}
+
+	// Load pipeline definition
+	p, err := loadPipelineYAML(req.Pipeline)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
+		return
+	}
+
+	// Create run record
+	runID, err := s.rwStore.CreateRun(req.Pipeline, req.Input)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
+		return
+	}
+
+	s.launchPipelineExecution(runID, req.Pipeline, req.Input, p)
+
+	resp := SubmitRunResponse{
+		RunID:        runID,
+		PipelineName: req.Pipeline,
+		Status:       "running",
+		StartedAt:    time.Now(),
+	}
+
+	writeJSON(w, http.StatusCreated, resp)
+}
+
+// handleRunLogs handles GET /api/runs/{id}/logs — get structured run logs.
+func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing run ID")
+		return
+	}
+
+	// Verify run exists
+	if _, err := s.store.GetRun(runID); err != nil {
+		writeJSONError(w, http.StatusNotFound, "run not found")
+		return
+	}
+
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{})
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to get events")
+		return
+	}
+
+	logs := make([]RunLogEntry, 0, len(events))
+	for _, ev := range events {
+		logs = append(logs, RunLogEntry{
+			Timestamp:  ev.Timestamp,
+			StepID:     ev.StepID,
+			State:      ev.State,
+			Persona:    ev.Persona,
+			Message:    ev.Message,
+			TokensUsed: ev.TokensUsed,
+			DurationMs: ev.DurationMs,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, RunLogsResponse{
+		RunID: runID,
+		Logs:  logs,
+	})
 }
 
 // loadPipelineYAML loads a pipeline definition from .wave/pipelines/.
