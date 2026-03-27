@@ -22,6 +22,7 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
+	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -52,6 +53,7 @@ type RunOptions struct {
 	OnFailure         string // --on-failure halt|skip
 	Detach            bool   // --detach flag for background execution
 	AutoApprove       bool   // --auto-approve flag for skipping approval gates
+	NoRetro       bool   // --no-retro flag to skip retrospective generation
 }
 
 func NewRunCmd() *cobra.Command {
@@ -135,6 +137,7 @@ including any per-persona model pinning in wave.yaml.`,
 	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
 	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run pipeline as a detached background process")
 	cmd.Flags().BoolVar(&opts.AutoApprove, "auto-approve", false, "Auto-approve all approval gates using default choices (required for --detach with gates)")
+	cmd.Flags().BoolVar(&opts.NoRetro, "no-retro", false, "Skip retrospective generation for this run")
 
 	return cmd
 }
@@ -388,6 +391,10 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.AutoApprove {
 		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
+	}
+	if store != nil && !opts.NoRetro {
+		retroGen := retro.NewGenerator(store, runner, ".wave/retros", &m.Runtime.Retros)
+		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)

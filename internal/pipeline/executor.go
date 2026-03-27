@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/relay"
+	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -102,6 +103,8 @@ type DefaultPipelineExecutor struct {
 	gateHandler GateHandler
 	// Lifecycle hook runner for pipeline-level hooks
 	hookRunner hooks.HookRunner
+	// Retrospective generator for post-run analysis
+	retroGenerator *retro.Generator
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -183,6 +186,11 @@ func WithGateHandler(h GateHandler) ExecutorOption {
 // WithHookRunner sets the lifecycle hook runner for pipeline events.
 func WithHookRunner(r hooks.HookRunner) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
+}
+
+// WithRetroGenerator sets the retrospective generator for post-run analysis.
+func WithRetroGenerator(g *retro.Generator) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.retroGenerator = g }
 }
 
 // WithRegistry sets the adapter registry for per-step adapter resolution.
@@ -279,6 +287,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
 		hookRunner:             e.hookRunner,
+		retroGenerator:         e.retroGenerator,
 	}
 }
 
@@ -731,6 +740,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
 
+	// Generate retrospective (non-blocking)
+	if e.retroGenerator != nil {
+		e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+	}
+
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
 
@@ -904,6 +918,11 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
 	})
+
+	// Generate retrospective (non-blocking)
+	if e.retroGenerator != nil {
+		e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+	}
 
 	e.cleanupCompletedPipeline(pipelineID)
 	return nil
