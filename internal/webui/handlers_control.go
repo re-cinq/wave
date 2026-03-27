@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -462,3 +463,80 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 
 	return &p, nil
 }
+// handleGateApprove handles POST /api/runs/{id}/gates/{step}/approve
+func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing run ID")
+		return
+	}
+
+	stepID := r.PathValue("step")
+	if stepID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing step ID")
+		return
+	}
+
+	// Limit request body to 1MB to prevent abuse via oversized freeform text.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	var req GateApproveRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Choice == "" {
+		writeJSONError(w, http.StatusBadRequest, "choice is required")
+		return
+	}
+
+	// Check that a gate is actually pending for this run
+	if s.gateRegistry == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "gate registry not initialized")
+		return
+	}
+
+	gate := s.gateRegistry.GetPending(runID)
+	if gate == nil {
+		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
+		return
+	}
+
+	// Verify that the step ID in the URL matches the actual pending gate step.
+	// This prevents approving the wrong gate when steps change between request
+	// construction and submission.
+	pendingStepID := s.gateRegistry.GetPendingStepID(runID)
+	if pendingStepID != "" && pendingStepID != stepID {
+		writeJSONError(w, http.StatusConflict,
+			fmt.Sprintf("step mismatch: pending gate is for step %q, not %q", pendingStepID, stepID))
+		return
+	}
+
+	// Validate the choice key against the gate's choices
+	choice := gate.FindChoiceByKey(req.Choice)
+	if choice == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid choice key: "+req.Choice)
+		return
+	}
+
+	decision := &pipeline.GateDecision{
+		Choice: choice.Key,
+		Label:  choice.Label,
+		Text:   req.Text,
+		Target: choice.Target,
+	}
+
+	if err := s.gateRegistry.Resolve(runID, decision); err != nil {
+		writeJSONError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, GateApproveResponse{
+		RunID:  runID,
+		StepID: stepID,
+		Choice: choice.Key,
+		Label:  choice.Label,
+	})
+}
+

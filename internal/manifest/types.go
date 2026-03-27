@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/hooks"
 )
 
 type Project struct {
@@ -39,31 +41,10 @@ type Manifest struct {
 	Ontology    *Ontology           `yaml:"ontology,omitempty"`
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
-	Skills      []string            `yaml:"skills,omitempty"`
-	Runtime     Runtime             `yaml:"runtime"`
 	Server      *ServerConfig       `yaml:"server,omitempty"`
-}
-
-// ServerConfig holds server-mode configuration from the manifest.
-type ServerConfig struct {
-	Bind          string            `yaml:"bind,omitempty"`
-	MaxConcurrent int               `yaml:"max_concurrent,omitempty"`
-	Auth          ServerAuthConfig  `yaml:"auth,omitempty"`
-	TLS           ServerTLSConfig  `yaml:"tls,omitempty"`
-}
-
-// ServerAuthConfig holds authentication configuration for server mode.
-type ServerAuthConfig struct {
-	Mode      string `yaml:"mode,omitempty"`       // "jwt", "mtls", "bearer", "none"
-	JWTSecret string `yaml:"jwt_secret,omitempty"` // supports ${ENV_VAR} expansion
-}
-
-// ServerTLSConfig holds TLS configuration for server mode.
-type ServerTLSConfig struct {
-	Enabled bool   `yaml:"enabled,omitempty"`
-	Cert    string `yaml:"cert,omitempty"`
-	Key     string `yaml:"key,omitempty"`
-	CA      string `yaml:"ca,omitempty"` // CA cert for mTLS client verification
+	Skills      []string            `yaml:"skills,omitempty"`
+	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
+	Runtime     Runtime                    `yaml:"runtime"`
 }
 
 type Metadata struct {
@@ -113,6 +94,12 @@ type HookRule struct {
 	Command string `yaml:"command"`
 }
 
+// CircuitBreakerConfig controls failure fingerprint tracking and circuit breaking.
+type CircuitBreakerConfig struct {
+	Limit          int      `yaml:"limit,omitempty"`           // Same failure N times = terminate (default: 3)
+	TrackedClasses []string `yaml:"tracked_classes,omitempty"` // Failure classes to track (default: deterministic, contract_failure, test_failure)
+}
+
 type Runtime struct {
 	WorkspaceRoot        string                 `yaml:"workspace_root"`
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
@@ -126,6 +113,8 @@ type Runtime struct {
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
+	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"` // Adapter fallback chains
 }
 
@@ -372,4 +361,26 @@ func (r *Runtime) GetDefaultTimeout() time.Duration {
 		return time.Duration(r.DefaultTimeoutMin) * time.Minute
 	}
 	return r.Timeouts.GetStepDefault()
+}
+
+// ServerConfig holds server-mode configuration from the manifest.
+type ServerConfig struct {
+	Bind          string            `yaml:"bind,omitempty"`
+	MaxConcurrent int               `yaml:"max_concurrent,omitempty"`
+	Auth          ServerAuthConfig  `yaml:"auth,omitempty"`
+	TLS           ServerTLSConfig  `yaml:"tls,omitempty"`
+}
+
+// ServerAuthConfig holds authentication configuration for server mode.
+type ServerAuthConfig struct {
+	Mode      string `yaml:"mode,omitempty"`       // "jwt", "mtls", "bearer", "none"
+	JWTSecret string `yaml:"jwt_secret,omitempty"` // supports ${ENV_VAR} expansion
+}
+
+// ServerTLSConfig holds TLS configuration for server mode.
+type ServerTLSConfig struct {
+	Enabled bool   `yaml:"enabled,omitempty"`
+	Cert    string `yaml:"cert,omitempty"`
+	Key     string `yaml:"key,omitempty"`
+	CA      string `yaml:"ca,omitempty"` // CA cert for mTLS client verification
 }

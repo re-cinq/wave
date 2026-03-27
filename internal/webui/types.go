@@ -414,21 +414,23 @@ type StepArtifactGroup struct {
 	Artifacts []ArtifactSummary
 }
 
-// SubmitRunRequest is the request body for submitting a run via POST /api/runs.
-type SubmitRunRequest struct {
-	Pipeline string `json:"pipeline"`
-	Input    string `json:"input"`
+// GateApproveRequest is the request body for approving a gate.
+type GateApproveRequest struct {
+	Choice string `json:"choice"`         // Choice key (required)
+	Text   string `json:"text,omitempty"` // Freeform text (optional)
 }
 
-// SubmitRunResponse is the JSON response after submitting a run.
-type SubmitRunResponse struct {
-	RunID        string    `json:"run_id"`
-	PipelineName string    `json:"pipeline_name"`
-	Status       string    `json:"status"`
-	StartedAt    time.Time `json:"started_at"`
+// GateApproveResponse is the JSON response after approving a gate.
+type GateApproveResponse struct {
+	RunID  string `json:"run_id"`
+	StepID string `json:"step_id"`
+	Choice string `json:"choice"`
+	Label  string `json:"label"`
+}
+type GateResolveRequest struct {
+	Approve bool `json:"approve"`
 }
 
-// RunLogEntry is a single log entry for the run logs endpoint.
 type RunLogEntry struct {
 	Timestamp  time.Time `json:"timestamp"`
 	StepID     string    `json:"step_id,omitempty"`
@@ -439,13 +441,20 @@ type RunLogEntry struct {
 	DurationMs int64     `json:"duration_ms,omitempty"`
 }
 
-// RunLogsResponse is the JSON response for the run logs endpoint.
 type RunLogsResponse struct {
 	RunID string        `json:"run_id"`
 	Logs  []RunLogEntry `json:"logs"`
 }
 
-// GateResolveRequest is the optional request body for resolving a gate.
-type GateResolveRequest struct {
-	Approve bool `json:"approve"`
+type SubmitRunRequest struct {
+	Pipeline string `json:"pipeline"`
+	Input    string `json:"input"`
 }
+
+type SubmitRunResponse struct {
+	RunID        string    `json:"run_id"`
+	PipelineName string    `json:"pipeline_name"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+}
+

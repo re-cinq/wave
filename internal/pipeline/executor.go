@@ -19,10 +19,10 @@ import (
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
-	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
@@ -95,6 +95,12 @@ type DefaultPipelineExecutor struct {
 	debugTracer *audit.DebugTracer
 	// Accumulated token count across all steps (survives pipeline cleanup)
 	totalTokens int
+	// Auto-approve mode: skip all approval gates using default choices
+	autoApprove bool
+	// Gate handler for interactive approval gates (CLI, TUI, WebUI)
+	gateHandler GateHandler
+	// Lifecycle hook runner for pipeline-level hooks
+	hookRunner hooks.HookRunner
 	// Adapter registry for per-step adapter resolution
 	registry *adapter.AdapterRegistry
 }
@@ -164,6 +170,22 @@ func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
 
+// WithAutoApprove enables auto-approve mode where all approval gates use their
+// default choice without human interaction. Required for --detach and CI mode.
+func WithAutoApprove(auto bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.autoApprove = auto }
+}
+
+// WithGateHandler sets the interactive handler for approval gates with choices.
+func WithGateHandler(h GateHandler) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.gateHandler = h }
+}
+
+// WithHookRunner sets the lifecycle hook runner for pipeline events.
+func WithHookRunner(r hooks.HookRunner) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
+}
+
 // WithAdapterRegistry sets the adapter registry for per-step adapter resolution.
 func WithAdapterRegistry(reg *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = reg }
@@ -202,6 +224,8 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
+	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
 	ThreadTranscripts  map[string][]ThreadEntry    // threadGroup -> ordered transcript entries
 }
 
@@ -248,6 +272,9 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
+		autoApprove:            e.autoApprove,
+		gateHandler:            e.gateHandler,
+		hookRunner:             e.hookRunner,
 		registry:               e.registry,
 	}
 }
@@ -260,22 +287,24 @@ func (e *DefaultPipelineExecutor) LastExecution() *PipelineExecution {
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	// Detect graph-mode pipelines (edges or conditional steps present)
+	if IsGraphPipeline(p) {
+		return e.executeGraphPipeline(ctx, p, m, input)
+	}
+
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
-	}
-	// Emit non-fatal DAG validation warnings (e.g., mixed-persona thread groups)
-	for _, w := range validator.Warnings {
-		e.emit(event.Event{
-			Timestamp: time.Now(),
-			State:     "warning",
-			Message:   w,
-		})
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
+	}
+
+	// Resolve named retry policies into concrete values before execution
+	if err := ResolvePipelineRetryPolicies(p); err != nil {
+		return fmt.Errorf("retry policy resolution: %w", err)
 	}
 
 	// Apply step filter (--steps / --exclude) to the sorted step list
@@ -331,14 +360,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	// Preflight validation: check required tools and skills before execution
-	{
-		var skills map[string]skill.SkillConfig
-		if p.Requires != nil {
-			skills = p.Requires.Skills
-		}
-		checker := preflight.NewChecker(skills)
+	if p.Requires != nil {
+		checker := preflight.NewChecker(p.Requires.Skills)
 		var tools []string
-		if p.Requires != nil && len(p.Requires.Tools) > 0 {
+		if len(p.Requires.Tools) > 0 {
 			for _, tool := range p.Requires.Tools {
 				resolved := pipelineContext.ResolvePlaceholders(tool)
 				if resolved != "" {
@@ -346,34 +371,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				}
 			}
 		}
-
-		// Collect adapter binaries from all pipeline steps for preflight verification
-		personas := make(map[string]preflight.Persona, len(m.Personas))
-		for name, pers := range m.Personas {
-			personas[name] = preflight.Persona{Adapter: pers.Adapter}
-		}
-		adapters := make(map[string]preflight.AdapterDef, len(m.Adapters))
-		for name, a := range m.Adapters {
-			adapters[name] = preflight.AdapterDef{Binary: a.Binary}
-		}
-		stepRefs := make([]preflight.StepRef, len(p.Steps))
-		for i, step := range p.Steps {
-			resolvedPersona := step.Persona
-			if pipelineContext != nil {
-				resolvedPersona = pipelineContext.ResolvePlaceholders(step.Persona)
-			}
-			stepRefs[i] = preflight.StepRef{
-				Persona: resolvedPersona,
-				Adapter: step.Adapter,
-			}
-		}
-		adapterBinaries := preflight.CollectAdapterBinaries(personas, adapters, stepRefs)
-		tools = append(tools, adapterBinaries...)
-
-		var skillNames []string
-		if p.Requires != nil {
-			skillNames = p.Requires.SkillNames()
-		}
+		skillNames := p.Requires.SkillNames()
 		if len(tools) > 0 || len(skillNames) > 0 {
 			results, err := checker.Run(tools, skillNames)
 			for _, r := range results {
@@ -461,6 +459,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		ThreadTranscripts: make(map[string][]ThreadEntry),
 		Input:             input,
 		Context:         pipelineContext,
@@ -533,6 +532,27 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
+	// Initialize hook runner from manifest hooks if not already set
+	if e.hookRunner == nil && len(m.Hooks) > 0 {
+		runner, err := hooks.NewHookRunner(m.Hooks, e.emitter)
+		if err != nil {
+			return fmt.Errorf("failed to initialize hook runner: %w", err)
+		}
+		e.hookRunner = runner
+	}
+
+	// Run run_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventRunStart,
+			PipelineID: pipelineID,
+			Input:      input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("run_start hook failed: %w", err)
+		}
+	}
+
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
 
@@ -544,6 +564,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	// Guard against unbounded gate revision loops: each gate re-queue increments
+	// this counter and the pipeline fails when the limit is exceeded.
+	const maxGateRequeues = 10
+	gateRequeueCount := 0
+
 	for completedCount < schedulableSteps {
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
@@ -552,6 +577,44 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
+			// Handle gate re-queue: reset completed map and re-enter scheduling loop
+			var requeueErr *ReQueueError
+			if errors.As(err, &requeueErr) {
+				gateRequeueCount++
+				if gateRequeueCount > maxGateRequeues {
+					e.cleanupCompletedPipeline(pipelineID)
+					return fmt.Errorf("gate re-queue limit exceeded (%d): possible infinite revision loop via step %q", maxGateRequeues, requeueErr.TargetStepID)
+				}
+				// Remove re-queued steps from completed set
+				for stepID := range requeueErr.ResetSteps {
+					delete(completed, stepID)
+				}
+				// Recount completed steps
+				completedCount = 0
+				for range completed {
+					completedCount++
+				}
+				continue // Re-enter the scheduling loop
+			}
+
+			// Handle gate abort
+			var abortErr *GateAbortError
+			if errors.As(err, &abortErr) {
+				execution.Status.State = StateFailed
+				if e.store != nil {
+					e.store.SavePipelineState(pipelineID, StateFailed, input)
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     abortErr.StepID,
+					State:      StateFailed,
+					Message:    abortErr.Error(),
+				})
+				e.cleanupCompletedPipeline(pipelineID)
+				return &StepError{StepID: abortErr.StepID, Err: err}
+			}
+
 			execution.Status.State = StateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string
@@ -638,11 +701,23 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateFailed, input)
 		}
+		// Run run_failed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunFailed,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	} else {
 		execution.Status.State = StateCompleted
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateCompleted, input)
 		}
+		// Run run_completed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunCompleted,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
@@ -658,6 +733,373 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.cleanupCompletedPipeline(pipelineID)
 
 	return nil
+}
+
+// executeGraphPipeline runs a graph-mode pipeline using edge-following execution
+// instead of topological sort. Activated when steps define edges or conditional types.
+func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	validator := &DAGValidator{}
+	if err := validator.ValidateGraph(p); err != nil {
+		return fmt.Errorf("invalid graph pipeline: %w", err)
+	}
+
+	// Create pipeline context (shared setup with DAG mode)
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+
+	// Inject forge variables
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	InjectForgeVariables(pipelineContext, forgeInfo)
+
+	// Initialize deliverable tracker
+	if e.deliverableTracker == nil {
+		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	} else {
+		e.deliverableTracker.SetPipelineID(pipelineID)
+	}
+
+	execution := &PipelineExecution{
+		Pipeline:          p,
+		Manifest:          m,
+		States:            make(map[string]string),
+		Results:           make(map[string]map[string]interface{}),
+		ArtifactPaths:     make(map[string]string),
+		WorkspacePaths:    make(map[string]string),
+		WorktreePaths:     make(map[string]*WorktreeInfo),
+		AttemptContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
+		Input:             input,
+		Context:           pipelineContext,
+		Status: &PipelineStatus{
+			ID:             pipelineID,
+			PipelineName:   pipelineName,
+			State:          StatePending,
+			CompletedSteps: []string{},
+			FailedSteps:    []string{},
+			StartedAt:      time.Now(),
+		},
+	}
+
+	for _, step := range p.Steps {
+		execution.States[step.ID] = StatePending
+	}
+
+	e.mu.Lock()
+	e.pipelines[pipelineID] = execution
+	e.lastExecution = execution
+	e.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateRunning, input)
+	}
+
+	execution.Status.State = StateRunning
+
+	e.emit(event.Event{
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		State:          "started",
+		Message:        fmt.Sprintf("graph-mode pipeline input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:     len(p.Steps),
+		CompletedSteps: 0,
+	})
+
+	// Ensure workspace root exists
+	wsRoot := m.Runtime.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = ".wave/workspaces"
+	}
+	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
+	if !e.preserveWorkspace {
+		os.RemoveAll(pipelineWsPath)
+	}
+	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create and run graph walker
+	gw := NewGraphWalker(p)
+
+	// Load initial visit counts from state store (resume support)
+	var initialVisitCounts map[string]int
+	if e.store != nil {
+		initialVisitCounts = make(map[string]int)
+		for _, step := range p.Steps {
+			count, err := e.store.GetStepVisitCount(pipelineID, step.ID)
+			if err == nil && count > 0 {
+				initialVisitCounts[step.ID] = count
+			}
+		}
+	}
+
+	// Define the step executor callback
+	stepExecutor := func(ctx context.Context, step *Step) (*StepResult, error) {
+		// Handle command steps
+		if step.Type == StepTypeCommand || step.Script != "" {
+			return e.executeCommandStep(ctx, execution, step)
+		}
+
+		// Execute regular steps via the existing step execution path
+		err := e.executeStep(ctx, execution, step)
+
+		result := &StepResult{
+			StepID:  step.ID,
+			Context: make(map[string]string),
+		}
+
+		if err != nil {
+			result.Outcome = "failure"
+			result.Error = err
+			return result, err
+		}
+
+		result.Outcome = "success"
+		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		return result, nil
+	}
+
+	err := gw.Walk(ctx, stepExecutor, initialVisitCounts)
+
+	// Persist final visit counts
+	if e.store != nil {
+		for stepID, count := range gw.VisitCounts() {
+			e.store.SaveStepVisitCount(pipelineID, stepID, count)
+		}
+	}
+
+	now := time.Now()
+	execution.Status.CompletedAt = &now
+
+	if err != nil {
+		execution.Status.State = StateFailed
+		if e.store != nil {
+			e.store.SavePipelineState(pipelineID, StateFailed, input)
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      StateFailed,
+			Message:    err.Error(),
+		})
+		e.cleanupCompletedPipeline(pipelineID)
+		return err
+	}
+
+	execution.Status.State = StateCompleted
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateCompleted, input)
+	}
+
+	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		State:      StateCompleted,
+		DurationMs: elapsed,
+		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
+	})
+
+	e.cleanupCompletedPipeline(pipelineID)
+	return nil
+}
+
+// executeCommandStep runs a shell script command step and captures its output.
+// executeCommandStep runs a shell script command step and captures its output.
+// Command steps don’t use adapters — they execute scripts directly via os/exec.
+//
+// Security: The resolved script is sanitized via InputSanitizer to detect prompt
+// injection and shell metacharacter abuse. The subprocess environment is filtered
+// to only include variables listed in Runtime.Sandbox.EnvPassthrough.
+func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execution *PipelineExecution, step *Step) (*StepResult, error) {
+	pipelineID := execution.Status.ID
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateRunning
+	execution.Status.CurrentStep = step.ID
+	execution.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
+	}
+
+	// Audit log: command step start
+	if e.logger != nil {
+		e.logger.LogStepStart(pipelineID, step.ID, "command", nil)
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateRunning,
+		Message:    fmt.Sprintf("executing command step: %s", step.Script),
+	})
+
+	// Resolve template placeholders in the script
+	script := step.Script
+	if execution.Context != nil {
+		script = execution.Context.ResolvePlaceholders(script)
+	}
+
+	// SECURITY: Sanitize the resolved script to detect injection attempts.
+	// Template resolution can introduce user-controlled content (e.g. issue titles,
+	// branch names) that could contain shell metacharacters or injection payloads.
+	if e.inputSanitizer != nil {
+		record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
+		if err != nil {
+			// Sanitization rejected the input (strict mode / prompt injection detected)
+			if e.securityLogger != nil {
+				e.securityLogger.LogViolation(
+					string(security.ViolationPromptInjection),
+					string(security.SourceUserInput),
+					fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
+					security.SeverityCritical,
+					true,
+				)
+			}
+			return nil, fmt.Errorf("command step %q: script sanitization failed: %w", step.ID, err)
+		}
+		if record != nil && record.ChangesDetected {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      StateRunning,
+				Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
+			})
+		}
+		script = sanitized
+	}
+
+	// Create workspace for the step
+	workspacePath, err := e.createStepWorkspace(execution, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
+	}
+	execution.mu.Lock()
+	execution.WorkspacePaths[step.ID] = workspacePath
+	execution.mu.Unlock()
+
+	// Execute the script
+	startTime := time.Now()
+	cmd := exec.CommandContext(ctx, "sh", "-c", script)
+	cmd.Dir = workspacePath
+
+	// SECURITY: Filter environment to only EnvPassthrough variables.
+	// Prevents leaking secrets, API keys, or other sensitive environment
+	// variables into the command subprocess.
+	cmd.Env = filterEnvPassthrough(execution.Manifest.Runtime.Sandbox.EnvPassthrough)
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Audit log: tool call (the shell command)
+	if e.logger != nil {
+		e.logger.LogToolCall(pipelineID, step.ID, "sh", script)
+	}
+
+	execErr := cmd.Run()
+	duration := time.Since(startTime)
+
+	result := &StepResult{
+		StepID:  step.ID,
+		Stdout:  stdout.String(),
+		Context: make(map[string]string),
+	}
+
+	// Store stdout as a result
+	execution.mu.Lock()
+	if execution.Results[step.ID] == nil {
+		execution.Results[step.ID] = make(map[string]interface{})
+	}
+	execution.Results[step.ID]["stdout"] = stdout.String()
+	execution.Results[step.ID]["stderr"] = stderr.String()
+	execution.mu.Unlock()
+
+	if execErr != nil {
+		result.Outcome = "failure"
+		result.Error = execErr
+
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
+		}
+
+		// Audit log: step end with failure
+		exitCode := -1
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		if e.logger != nil {
+			e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, duration, exitCode, len(stdout.String()), 0, execErr.Error())
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      StateFailed,
+			Message:    fmt.Sprintf("command failed: %v\nstderr: %s", execErr, stderr.String()),
+		})
+
+		return result, execErr
+	}
+
+	result.Outcome = "success"
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	// Audit log: step end with success
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+	if e.logger != nil {
+		e.logger.LogStepEnd(pipelineID, step.ID, StateCompleted, duration, exitCode, len(stdout.String()), 0, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateCompleted,
+		Message:    "command completed successfully",
+	})
+
+	return result, nil
+}
+
+// filterEnvPassthrough builds a minimal environment containing only the
+// variables named in the passthrough list. This prevents command steps from
+// inheriting the full parent environment which may contain secrets.
+// PATH is always included to ensure basic command resolution works.
+func filterEnvPassthrough(passthrough []string) []string {
+	allowed := make(map[string]bool, len(passthrough)+1)
+	allowed["PATH"] = true
+	for _, name := range passthrough {
+		allowed[name] = true
+	}
+
+	var filtered []string
+	for _, entry := range os.Environ() {
+		name, _, ok := strings.Cut(entry, "=")
+		if ok && allowed[name] {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 // findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
@@ -800,6 +1242,25 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeCompositionStep(ctx, execution, step)
 	}
 
+	// Run step_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepStart,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			execution.mu.Lock()
+			execution.States[step.ID] = StateFailed
+			execution.mu.Unlock()
+			if e.store != nil {
+				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+			}
+			return fmt.Errorf("step_start hook failed: %w", err)
+		}
+	}
+
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
 	var lastErr error
@@ -822,6 +1283,15 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				State:      StateRetrying,
 				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
+			// Run step_retrying hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventStepRetrying,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Input:      execution.Input,
+				})
+			}
 			time.Sleep(step.Retry.ComputeDelay(attempt))
 		}
 
@@ -840,7 +1310,28 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Start progress ticker for smooth animation updates during step execution
 		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
 
-		err := e.runStepExecution(ctx, execution, step)
+		// Start stall watchdog if configured
+		stepCtx := ctx
+		var watchdog *StallWatchdog
+		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
+			watchdog = NewStallWatchdog(stallTimeout)
+			stepCtx = watchdog.Start(stepCtx)
+		}
+
+		// Store watchdog on execution so runStepExecution can wire NotifyActivity
+		execution.mu.Lock()
+		execution.Watchdog = watchdog
+		execution.mu.Unlock()
+
+		err := e.runStepExecution(stepCtx, execution, step)
+
+		// Stop stall watchdog and clear reference
+		if watchdog != nil {
+			watchdog.Stop()
+		}
+		execution.mu.Lock()
+		execution.Watchdog = nil
+		execution.mu.Unlock()
 
 		// Stop progress ticker when step completes
 		cancelTicker()
@@ -850,7 +1341,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if err != nil {
 			lastErr = err
 
-			// Record failed attempt
+			// Classify the failure for intelligent retry decisions.
+			// Use stepCtx (watchdog-derived) so stall cancellation is detected.
+			failureClass := ClassifyStepFailure(err, nil, stepCtx.Err())
+
+			// Record failed attempt with pipeline-level failure class
 			if e.store != nil {
 				completedAt := time.Now()
 				e.store.RecordStepAttempt(&state.StepAttemptRecord{
@@ -859,11 +1354,41 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Attempt:      attempt,
 					State:        StateFailed,
 					ErrorMessage: err.Error(),
-					FailureClass: string(recovery.ClassifyError(err)),
+					FailureClass: failureClass,
 					DurationMs:   attemptDuration.Milliseconds(),
 					StartedAt:    attemptStart,
 					CompletedAt:  &completedAt,
 				})
+			}
+
+			// Check circuit breaker — if same failure fingerprint repeats too many times, stop
+			if execution.CircuitBreaker != nil {
+				fp := NormalizeFingerprint(step.ID, failureClass, err.Error())
+				if execution.CircuitBreaker.Record(fp, failureClass) {
+					e.emit(event.Event{
+						Timestamp:    time.Now(),
+						PipelineID:   pipelineID,
+						StepID:       step.ID,
+						State:        event.StateFailed,
+						FailureClass: failureClass,
+						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.Limit()),
+					})
+					// Fall through to on_failure handling below by exhausting attempts
+					attempt = maxAttempts
+				}
+			}
+
+			// Skip remaining retries for non-retryable failure classes
+			if !IsRetryable(failureClass) && attempt < maxAttempts {
+				e.emit(event.Event{
+					Timestamp:    time.Now(),
+					PipelineID:   pipelineID,
+					StepID:       step.ID,
+					State:        event.StateFailed,
+					FailureClass: failureClass,
+					Message:      fmt.Sprintf("non-retryable failure class %q, skipping remaining retries", failureClass),
+				})
+				attempt = maxAttempts
 			}
 
 			if attempt < maxAttempts {
@@ -886,10 +1411,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 					execution.mu.Lock()
 					execution.AttemptContexts[step.ID] = &AttemptContext{
-						Attempt:     attempt + 1,
-						MaxAttempts: maxAttempts,
-						PriorError:  errMsg,
-						PriorStdout: stdoutTail,
+						Attempt:      attempt + 1,
+						MaxAttempts:  maxAttempts,
+						PriorError:   errMsg,
+						FailureClass: failureClass,
+						PriorStdout:  stdoutTail,
 					}
 					execution.mu.Unlock()
 				}
@@ -950,6 +1476,16 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				execution.mu.Unlock()
 				if e.store != nil {
 					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+				}
+				// Run step_failed hooks (non-blocking by default)
+				if e.hookRunner != nil {
+					e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+						Type:       hooks.EventStepFailed,
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						Input:      execution.Input,
+						Error:      lastErr.Error(),
+					})
 				}
 				e.recordOntologyUsage(execution, step, "failed")
 				return lastErr
@@ -1339,15 +1875,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
-	// Resolve which adapter this step uses
-	resolvedAdapterName := persona.Adapter
-	if step.Adapter != "" {
-		resolvedAdapterName = step.Adapter
-	}
-
-	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
+	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
 	if adapterDef == nil {
-		return fmt.Errorf("adapter %q not found in manifest", resolvedAdapterName)
+		return fmt.Errorf("adapter %q not found in manifest", persona.Adapter)
 	}
 
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
@@ -1358,6 +1888,16 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.mu.Lock()
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
+
+	// Run workspace_created hooks (non-blocking by default)
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventWorkspaceCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+		})
+	}
 
 	// Pre-create .wave/output/ so personas without Bash can write artifacts
 	if len(step.OutputArtifacts) > 0 {
@@ -1375,7 +1915,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            e.resolveModel(step, persona),
+		Model:            e.resolveModel(persona),
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -1512,25 +2052,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Inject thread conversation transcript before the task prompt if this step
-	// belongs to a thread group. The transcript is prepended so the model sees
-	// prior conversation context before the new task instructions.
-	if step.Thread != "" {
-		tm := NewThreadManager(execution, e.relayCompactor())
-		transcript, err := tm.GetTranscript(ctx, step.Thread, step.Fidelity)
-		if err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "warning",
-				Message:    fmt.Sprintf("thread transcript retrieval failed: %v", err),
-			})
-		} else if transcript != "" {
-			prompt = transcript + prompt
-		}
-	}
-
 	// Auto-generate contract compliance section. This is appended directly
 	// to the user prompt (not the system prompt / agent .md) so the model
 	// sees it alongside the task instructions where it has the strongest
@@ -1580,7 +2101,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            e.resolveModel(step, persona),
+		Model:            e.resolveModel(persona),
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -1597,6 +2118,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
+				// Notify watchdog of activity to prevent stall timeout
+				execution.mu.Lock()
+				wd := execution.Watchdog
+				execution.mu.Unlock()
+				if wd != nil {
+					wd.NotifyActivity()
+				}
+
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -1625,10 +2154,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
-		"model":   e.resolveModel(step, persona),
+		"model":   e.resolveModel(persona),
 	})
-	runner := e.resolveRunner(step, persona, execution.Manifest)
-	result, err := e.runWithFallback(ctx, cfg, runner, resolvedAdapterName, execution.Manifest.Runtime.Fallbacks)
+	result, err := e.runner.Run(ctx, cfg)
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
@@ -1728,19 +2256,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 	execution.mu.Unlock()
 
-	// Capture stdout to thread transcript before contract validation,
-	// so fix loops have context even if validation fails.
-	if step.Thread != "" {
-		captureContent := result.ResultContent
-		if captureContent == "" {
-			captureContent = string(stdoutData)
-		}
-		if captureContent != "" {
-			tm := NewThreadManager(execution, nil)
-			tm.AppendTranscript(step.Thread, step.ID, captureContent)
-		}
-	}
-
 	// Accumulate tokens at executor level (survives pipeline cleanup)
 	if result.TokensUsed > 0 {
 		e.mu.Lock()
@@ -1820,6 +2335,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Dir:        step.Handover.Contract.Dir,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
+			Model:      step.Handover.Contract.Model,
+			Criteria:   step.Handover.Contract.Criteria,
+			Threshold:  step.Handover.Contract.Threshold,
 		}
 
 		// Use schema filename for display when available, fall back to contract type
@@ -1910,6 +2428,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			if e.logger != nil {
 				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
 			}
+			// Run contract_validated hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventContractValidated,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Workspace:  workspacePath,
+				})
+			}
 		}
 	}
 	if step.Handover.Contract.Type == "" && e.logger != nil {
@@ -1922,6 +2449,31 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if len(stepArtifacts) == 0 && len(step.OutputArtifacts) > 0 && execution.Context != nil {
 		for _, art := range step.OutputArtifacts {
 			stepArtifacts = append(stepArtifacts, execution.Context.ResolveArtifactPath(art))
+		}
+	}
+
+	// Run artifact_created hooks (non-blocking by default)
+	if e.hookRunner != nil && len(stepArtifacts) > 0 {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventArtifactCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+			Artifacts:  stepArtifacts,
+		})
+	}
+
+	// Run step_completed hooks (blocking by default)
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepCompleted,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+			Workspace:  workspacePath,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("step_completed hook failed: %w", err)
 		}
 	}
 
@@ -1962,52 +2514,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveRunner determines the AdapterRunner for a step using the priority chain:
-// step.Adapter > persona.Adapter > first manifest adapter.
-// If a registry is set, it resolves by name; otherwise falls back to e.runner.
-func (e *DefaultPipelineExecutor) resolveRunner(step *Step, persona *manifest.Persona, m *manifest.Manifest) adapter.AdapterRunner {
-	if e.registry == nil {
-		return e.runner
-	}
-
-	// Resolution chain: step > persona > first manifest adapter
-	adapterName := persona.Adapter
-	if step.Adapter != "" {
-		adapterName = step.Adapter
-	}
-
-	if runner, ok := e.registry.Resolve(adapterName); ok {
-		return runner
-	}
-
-	// Fall back to e.runner if not found in registry
-	return e.runner
-}
-
-// resolveModel applies four-tier model precedence:
+// resolveModel applies three-tier model precedence:
 // 1. CLI --model flag override (highest — explicit user intent)
-// 2. Per-step model pinning
-// 3. Per-persona model pinning
-// 4. Adapter default (empty string)
-func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona) string {
+// 2. Per-persona model pinning
+// 3. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
 	if e.modelOverride != "" {
 		return e.modelOverride
-	}
-	if step.Model != "" {
-		return step.Model
 	}
 	if persona.Model != "" {
 		return persona.Model
 	}
 	return ""
-}
-
-// relayCompactor returns the relay CompactionAdapter for summary fidelity, or nil if unavailable.
-func (e *DefaultPipelineExecutor) relayCompactor() relay.CompactionAdapter {
-	if e.relayMonitor != nil {
-		return e.relayMonitor.Adapter()
-	}
-	return nil
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
@@ -2659,10 +3177,38 @@ func (e *DefaultPipelineExecutor) validateSkillRefs(pipelineSkills []string, pip
 	return errs
 }
 
+// parseStallTimeout parses the stall timeout from the manifest runtime config.
+// Returns 0 if not configured or invalid.
+func (e *DefaultPipelineExecutor) parseStallTimeout(m *manifest.Manifest) time.Duration {
+	if m == nil || m.Runtime.StallTimeout == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(m.Runtime.StallTimeout)
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
+}
+
 func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
+// are allowed to run with a detached context.
+const terminalHookTimeout = 30 * time.Second
+
+// runTerminalHooks executes lifecycle hooks with a fresh, detached context.
+// Terminal events fire after the pipeline context may already be cancelled.
+func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
+	if e.hookRunner == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), terminalHookTimeout)
+	defer cancel()
+	e.hookRunner.RunHooks(ctx, evt)
 }
 
 // trace emits a structured NDJSON trace event when debug tracing is enabled.
@@ -2941,6 +3487,18 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
 		}
 		b.WriteString("If tests fail, the step fails.\n")
+
+	case "llm_judge":
+		b.WriteString("### LLM Judge Evaluation\n\n")
+		b.WriteString("After you complete your work, an LLM judge will evaluate your output against the following criteria:\n\n")
+		for _, criterion := range step.Handover.Contract.Criteria {
+			b.WriteString(fmt.Sprintf("- %s\n", criterion))
+		}
+		threshold := step.Handover.Contract.Threshold
+		if threshold <= 0 {
+			threshold = 1.0
+		}
+		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────
@@ -3398,13 +3956,17 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 	}
 }
 
-// executeCompositionStep handles steps that reference sub-pipelines (via the
-// `pipeline:` field) rather than executing a persona directly. It loads the
-// referenced pipeline YAML, resolves the step's input template, and delegates
-// execution to a fresh DefaultPipelineExecutor instance.
+// executeCompositionStep handles steps that use composition primitives (gate,
+// sub-pipeline, etc.) rather than executing a persona directly.
 func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
+	// Gate step: handle directly with GateExecutor
+	if step.Gate != nil {
+		return e.executeGateStep(ctx, execution, step)
+	}
+
+	// Sub-pipeline steps below
 	// Resolve the input for the sub-pipeline
 	input := execution.Input
 	if step.SubInput != "" && execution.Context != nil {
@@ -3495,68 +4057,195 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	return nil
 }
 
-// runWithFallback executes an adapter run with fallback chain support.
-// If the primary adapter fails with a transient error (rate limit, timeout)
-// and fallback chains are configured, it retries with fallback adapters.
-func (e *DefaultPipelineExecutor) runWithFallback(
-	ctx context.Context,
-	cfg adapter.AdapterRunConfig,
-	primaryRunner adapter.AdapterRunner,
-	adapterName string,
-	fallbacks map[string][]string,
-) (*adapter.AdapterResult, error) {
-	result, err := primaryRunner.Run(ctx, cfg)
-	if err == nil && (result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout) {
-		return result, err
+// GateAbortError signals that a gate choice targeted _fail, aborting the pipeline.
+type GateAbortError struct {
+	StepID string
+	Choice string
+}
+
+func (e *GateAbortError) Error() string {
+	return fmt.Sprintf("pipeline aborted by gate %q (choice: %s)", e.StepID, e.Choice)
+}
+
+// executeGateStep handles gate composition steps within the main executor.
+// It delegates to GateExecutor, stores the decision in PipelineContext,
+// writes freeform text as an artifact, and returns routing information via error type.
+func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("gate step: %s", step.Gate.Type),
+	})
+
+	// Select the appropriate handler
+	var handler GateHandler
+	if e.autoApprove {
+		handler = &AutoApproveHandler{}
+	} else if e.gateHandler != nil {
+		handler = e.gateHandler
+	}
+	// If no handler and gate has choices, fall back to CLI handler
+	if handler == nil && len(step.Gate.Choices) > 0 {
+		handler = &CLIGateHandler{}
 	}
 
-	// Check if we have fallbacks configured for this adapter
-	chain, hasFallbacks := fallbacks[adapterName]
-	if !hasFallbacks || len(chain) == 0 || e.registry == nil {
-		return result, err
-	}
+	gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, handler)
 
-	// Only retry on transient failures
-	isTransient := false
+	// Annotate the gate config with the step ID so downstream handlers
+	// (e.g. WebUI) can associate the pending gate with a specific step.
+	step.Gate.RuntimeStepID = step.ID
+
+	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
 	if err != nil {
-		// Context cancelled — don't retry
-		if ctx.Err() != nil {
-			return result, err
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
-		isTransient = true
-	} else if result.FailureReason == adapter.FailureReasonRateLimit || result.FailureReason == adapter.FailureReasonTimeout {
-		isTransient = true
+		return err
 	}
 
-	if !isTransient {
-		return result, err
+	// Store the gate decision in the pipeline context for template resolution
+	if decision != nil && execution.Context != nil {
+		execution.Context.SetGateDecision(step.ID, decision)
+
+		// Write freeform text as artifact if provided
+		if decision.Text != "" {
+			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
+			if wsRoot == "" {
+				wsRoot = ".wave/workspaces"
+			}
+			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to create artifact directory for gate freeform text: %v", mkErr),
+				})
+			} else if writeErr := os.WriteFile(artifactPath, []byte(decision.Text), 0644); writeErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to write gate freeform text artifact: %v", writeErr),
+				})
+			}
+		}
 	}
 
-	// Try fallback adapters in order
-	originalErr := err
-	for _, fbName := range chain {
-		fbRunner, ok := e.registry.Resolve(fbName)
-		if !ok {
-			continue
-		}
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
 
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    "gate step completed",
+	})
+
+	// Handle choice routing
+	if decision != nil && decision.Target == "_fail" {
+		return &GateAbortError{StepID: step.ID, Choice: decision.Label}
+	}
+
+	// If the target is a step ID that has already been completed, re-queue it
+	// (revision loop pattern). If the target is a pending/future step, just
+	// continue normal DAG flow — the scheduler will reach it naturally.
+	if decision != nil && decision.Target != "" && decision.Target != "_fail" {
+		execution.mu.Lock()
+		targetState := execution.States[decision.Target]
+		execution.mu.Unlock()
+
+		if targetState == StateCompleted || targetState == StateFailed || targetState == StateSkipped {
+			return e.reQueueStep(execution, decision.Target)
+		}
+		// Target is pending/running — normal flow continues
+	}
+
+	return nil
+}
+
+// reQueueStep resets a step and all its dependents to pending state,
+// allowing the main loop to re-execute them. This implements the revision loop pattern.
+func (e *DefaultPipelineExecutor) reQueueStep(execution *PipelineExecution, targetStepID string) error {
+	pipelineID := execution.Status.ID
+
+	// Find the target step
+	var targetStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == targetStepID {
+			targetStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if targetStep == nil {
+		return fmt.Errorf("gate routing: target step %q not found in pipeline", targetStepID)
+	}
+
+	// Reset the target step and all steps that depend on it (transitively)
+	toReset := map[string]bool{targetStepID: true}
+	changed := true
+	for changed {
+		changed = false
+		for i := range execution.Pipeline.Steps {
+			s := &execution.Pipeline.Steps[i]
+			if toReset[s.ID] {
+				continue
+			}
+			for _, dep := range s.Dependencies {
+				if toReset[dep] {
+					toReset[s.ID] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+
+	execution.mu.Lock()
+	for stepID := range toReset {
+		execution.States[stepID] = StatePending
+	}
+	execution.mu.Unlock()
+
+	for stepID := range toReset {
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, stepID, state.StatePending, "re-queued by gate routing")
+		}
 		e.emit(event.Event{
-			Timestamp: time.Now(),
-			State:     "fallback",
-			Message:   fmt.Sprintf("Primary adapter %q failed, trying fallback %q", adapterName, fbName),
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     stepID,
+			State:      StatePending,
+			Message:    fmt.Sprintf("re-queued by gate routing to %q", targetStepID),
 		})
-
-		result, err = fbRunner.Run(ctx, cfg)
-		if err == nil && result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout {
-			return result, nil
-		}
 	}
 
-	// All fallbacks exhausted
-	if originalErr != nil {
-		return result, fmt.Errorf("all fallback adapters exhausted (primary error: %w)", originalErr)
-	}
-	return result, err
+	return &ReQueueError{TargetStepID: targetStepID, ResetSteps: toReset}
+}
+
+// ReQueueError signals that steps have been re-queued via gate routing.
+// The main executor loop should handle this by re-entering the scheduling loop.
+type ReQueueError struct {
+	TargetStepID string
+	ResetSteps   map[string]bool
+}
+
+func (e *ReQueueError) Error() string {
+	return fmt.Sprintf("gate routing: re-queued step %q and %d dependents", e.TargetStepID, len(e.ResetSteps)-1)
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage

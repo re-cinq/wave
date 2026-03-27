@@ -70,13 +70,14 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 	tmpl := testTemplates(t)
 
 	srv := &Server{
-		store:      roStore,
-		rwStore:    rwStore,
-		templates:  tmpl,
-		broker:     NewSSEBroker(),
-		bind:       "127.0.0.1",
-		port:       0,
-		activeRuns: make(map[string]context.CancelFunc),
+		store:        roStore,
+		rwStore:      rwStore,
+		templates:    tmpl,
+		broker:       NewSSEBroker(),
+		bind:         "127.0.0.1",
+		port:         0,
+		activeRuns:   make(map[string]context.CancelFunc),
+		gateRegistry: NewGateRegistry(),
 	}
 
 	t.Cleanup(func() {
