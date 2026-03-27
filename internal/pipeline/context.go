@@ -139,15 +139,22 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 }
 
 // InjectForgeVariables populates forge.* template variables in the context.
+// All variables are set atomically under a single lock to prevent inconsistent
+// reads when concurrent goroutines inject different forge configurations.
 func InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo) {
-	ctx.SetCustomVariable("forge.type", string(info.Type))
-	ctx.SetCustomVariable("forge.host", info.Host)
-	ctx.SetCustomVariable("forge.owner", info.Owner)
-	ctx.SetCustomVariable("forge.repo", info.Repo)
-	ctx.SetCustomVariable("forge.cli_tool", info.CLITool)
-	ctx.SetCustomVariable("forge.prefix", info.PipelinePrefix)
-	ctx.SetCustomVariable("forge.pr_term", info.PRTerm)
-	ctx.SetCustomVariable("forge.pr_command", info.PRCommand)
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	ctx.CustomVariables["forge.type"] = string(info.Type)
+	ctx.CustomVariables["forge.host"] = info.Host
+	ctx.CustomVariables["forge.owner"] = info.Owner
+	ctx.CustomVariables["forge.repo"] = info.Repo
+	ctx.CustomVariables["forge.cli_tool"] = info.CLITool
+	ctx.CustomVariables["forge.prefix"] = info.PipelinePrefix
+	ctx.CustomVariables["forge.pr_term"] = info.PRTerm
+	ctx.CustomVariables["forge.pr_command"] = info.PRCommand
 }
 
 // SetCustomVariable adds a custom template variable
@@ -204,6 +211,52 @@ func (ctx *PipelineContext) SetGateDecision(stepID string, decision *GateDecisio
 	ctx.CustomVariables[prefix+".text"] = stripTemplateDelimiters(decision.Text)
 	ctx.CustomVariables[prefix+".timestamp"] = decision.Timestamp.Format(time.RFC3339)
 	ctx.CustomVariables[prefix+".target"] = stripTemplateDelimiters(decision.Target)
+}
+
+// MergeFrom merges child pipeline context variables and artifact paths into the parent.
+// Artifact paths from the child are namespaced with the given prefix to avoid collisions.
+// Custom variables from the child overwrite parent values on conflict (last-writer-wins).
+// Snapshot the child under its own lock first, then merge into the parent to avoid
+// holding two locks simultaneously (which could deadlock if called bidirectionally).
+func (ctx *PipelineContext) MergeFrom(child *PipelineContext, namespace string) {
+	if child == nil {
+		return
+	}
+
+	// Snapshot child state under child's lock only
+	child.mu.Lock()
+	childVars := make(map[string]string, len(child.CustomVariables))
+	for k, v := range child.CustomVariables {
+		childVars[k] = v
+	}
+	childArtifacts := make(map[string]string, len(child.ArtifactPaths))
+	for k, v := range child.ArtifactPaths {
+		childArtifacts[k] = v
+	}
+	child.mu.Unlock()
+
+	// Merge snapshot into parent under parent's lock
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	if ctx.ArtifactPaths == nil {
+		ctx.ArtifactPaths = make(map[string]string)
+	}
+
+	for k, v := range childVars {
+		ctx.CustomVariables[k] = v
+	}
+
+	for name, path := range childArtifacts {
+		key := name
+		if namespace != "" {
+			key = namespace + "." + name
+		}
+		ctx.ArtifactPaths[key] = path
+	}
 }
 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows

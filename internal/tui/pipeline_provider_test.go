@@ -131,6 +131,18 @@ func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error)
 func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
 	return "", nil
 }
+func (b baseStateStore) SetParentRun(string, string, string) error           { return nil }
+func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)      { return nil, nil }
+func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
+func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) ListRetrospectives(state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) DeleteRetrospective(string) error                      { return nil }
+func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error    { return nil }
+func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error        { return nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

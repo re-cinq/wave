@@ -12,7 +12,7 @@ import (
 // pendingGate holds the state for a gate that is waiting for a human decision
 // via the WebUI HTTP endpoint.
 type pendingGate struct {
-	StepID   string
+	StepID   string // step this gate belongs to (for URL verification)
 	Gate     *pipeline.GateConfig
 	Response chan *pipeline.GateDecision
 }
