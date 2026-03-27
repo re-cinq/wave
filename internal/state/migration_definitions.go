@@ -299,5 +299,13 @@ CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
 DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 		},
+		{
+			Version:     12,
+			Description: "Add parent-child run linkage columns for sub-pipeline composition",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN parent_run_id TEXT;
+ALTER TABLE pipeline_run ADD COLUMN parent_step_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
+			Down: "",
+		},
 	}
 }

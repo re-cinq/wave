@@ -195,13 +195,14 @@ type Step struct {
 	Contexts []string `yaml:"contexts,omitempty"`
 
 	// Composition primitives
-	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
-	SubInput    string           `yaml:"input,omitempty"`        // Input template for child pipeline
-	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`      // Iteration over items
-	Branch      *BranchConfig    `yaml:"branch,omitempty"`       // Conditional branching
-	Gate        *GateConfig      `yaml:"gate,omitempty"`         // Approval/timer/merge gates
-	Loop        *LoopConfig      `yaml:"loop,omitempty"`         // Feedback loops
-	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"`    // Output aggregation
+	SubPipeline string              `yaml:"pipeline,omitempty"`     // Child pipeline to execute
+	SubInput    string              `yaml:"input,omitempty"`        // Input template for child pipeline
+	Config      *SubPipelineConfig  `yaml:"config,omitempty"`       // Sub-pipeline configuration (artifact flow, lifecycle)
+	Iterate     *IterateConfig      `yaml:"iterate,omitempty"`      // Iteration over items
+	Branch      *BranchConfig       `yaml:"branch,omitempty"`       // Conditional branching
+	Gate        *GateConfig         `yaml:"gate,omitempty"`         // Approval/timer/merge gates
+	Loop        *LoopConfig         `yaml:"loop,omitempty"`         // Feedback loops
+	Aggregate   *AggregateConfig    `yaml:"aggregate,omitempty"`    // Output aggregation
 }
 
 // IsOptional returns whether this step is marked as optional.
@@ -480,6 +481,45 @@ type AggregateConfig struct {
 	From     string `yaml:"from"`      // Template expression for source data
 	Into     string `yaml:"into"`      // Output file path
 	Strategy string `yaml:"strategy"`  // "merge_arrays", "concat", "reduce"
+}
+
+// SubPipelineConfig holds configuration for sub-pipeline composition steps.
+// When a step has type: pipeline, this config controls artifact flow,
+// lifecycle management, and execution behavior.
+type SubPipelineConfig struct {
+	Inject        []string `yaml:"inject,omitempty"`         // Parent artifact names to inject into child
+	Extract       []string `yaml:"extract,omitempty"`        // Child artifact names to extract back to parent
+	Timeout       string   `yaml:"timeout,omitempty"`        // Hard timeout for child execution (e.g. "3600s")
+	MaxCycles     int      `yaml:"max_cycles,omitempty"`     // Max iterations for child loop steps
+	StopCondition string   `yaml:"stop_condition,omitempty"` // Template expression for early termination
+}
+
+// Validate checks that the SubPipelineConfig is well-formed.
+func (c *SubPipelineConfig) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if c.Timeout != "" {
+		if _, err := time.ParseDuration(c.Timeout); err != nil {
+			return fmt.Errorf("invalid timeout %q: %w", c.Timeout, err)
+		}
+	}
+	if c.MaxCycles < 0 {
+		return fmt.Errorf("max_cycles must be >= 0, got %d", c.MaxCycles)
+	}
+	return nil
+}
+
+// ParseTimeout returns the parsed timeout duration, or zero if not set.
+func (c *SubPipelineConfig) ParseTimeout() time.Duration {
+	if c == nil || c.Timeout == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return 0
+	}
+	return d
 }
 
 // PipelineOutput defines a named output alias for a pipeline.
