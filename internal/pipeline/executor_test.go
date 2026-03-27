@@ -5019,8 +5019,6 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
 
-}
-
 // TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
 // using auto-approve mode completes all steps successfully. The gate has choices
 // with a default, and auto-approve selects the default (approve -> implement).
