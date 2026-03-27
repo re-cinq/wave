@@ -63,7 +63,7 @@ func (r *DefaultHookRunner) RunHooks(ctx context.Context, evt HookEvent) ([]Hook
 		result.Duration = time.Since(start)
 		results = append(results, result)
 
-		if result.Decision == DecisionProceed {
+		if result.Decision == DecisionProceed || result.Decision == DecisionSkip {
 			r.emitHookEvent(evt.PipelineID, evt.StepID, event.StateHookPassed, hook.Name, "")
 			continue
 		}
