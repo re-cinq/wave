@@ -305,5 +305,55 @@ DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 			Up:          `ALTER TABLE step_state ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;`,
 			Down:        "",
 		},
+		{
+			Version:     13,
+			Description: "Add retrospective table for run retrospective indexing",
+			Up: `CREATE TABLE IF NOT EXISTS retrospective (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    pipeline_name TEXT NOT NULL,
+    smoothness TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'quantitative',
+    file_path TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_retro_run ON retrospective(run_id);
+CREATE INDEX IF NOT EXISTS idx_retro_pipeline ON retrospective(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_retro_created ON retrospective(created_at);`,
+			Down: `DROP TABLE IF EXISTS retrospective;`,
+		},
+		{
+			Version:     14,
+			Description: "Add parent_run_id and parent_step_id to pipeline_run for sub-pipeline composition",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN parent_run_id TEXT;
+ALTER TABLE pipeline_run ADD COLUMN parent_step_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
+			Down: "",
+		},
+		{
+			Version:     15,
+			Description: "Add checkpoint table and forked_from column for fork/rewind support",
+			Up: `CREATE TABLE IF NOT EXISTS checkpoint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    step_index INTEGER NOT NULL,
+    workspace_path TEXT NOT NULL DEFAULT '',
+    workspace_commit_sha TEXT DEFAULT '',
+    artifact_snapshot TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoint_run ON checkpoint(run_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checkpoint_run_step ON checkpoint(run_id, step_id);
+
+ALTER TABLE pipeline_run ADD COLUMN forked_from_run_id TEXT DEFAULT '';`,
+			Down: `DROP TABLE IF EXISTS checkpoint;
+DROP INDEX IF EXISTS idx_checkpoint_run;
+DROP INDEX IF EXISTS idx_checkpoint_run_step;`,
+		},
 	}
 }

@@ -22,6 +22,17 @@ func (m *mockStoreForETA) GetStepPerformanceStats(_ string, stepID string, _ tim
 	return &state.StepPerformanceStats{StepID: stepID}, nil
 }
 
+func (m *mockStoreForETA) SaveRetrospective(record *state.RetrospectiveRecord) error { return nil }
+func (m *mockStoreForETA) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (m *mockStoreForETA) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (m *mockStoreForETA) DeleteRetrospective(runID string) error                       { return nil }
+func (m *mockStoreForETA) UpdateRetrospectiveSmoothness(runID string, smoothness string) error { return nil }
+func (m *mockStoreForETA) UpdateRetrospectiveStatus(runID string, status string) error  { return nil }
+
 func TestETACalculator_NoHistory(t *testing.T) {
 	calc := NewETACalculator(nil, "test-pipeline", []string{"step-1", "step-2", "step-3"})
 
