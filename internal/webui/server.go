@@ -2,6 +2,8 @@ package webui
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"html/template"
@@ -22,6 +24,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// AuthMode determines how the server authenticates requests.
+type AuthMode string
+
+const (
+	AuthModeNone   AuthMode = "none"
+	AuthModeBearer AuthMode = "bearer"
+	AuthModeJWT    AuthMode = "jwt"
+	AuthModeMTLS   AuthMode = "mtls"
+)
+
 // Server is the HTTP server for the Wave dashboard.
 type Server struct {
 	httpServer  *http.Server
@@ -37,18 +49,30 @@ type Server struct {
 	bind        string
 	port        int
 	token       string
-	activeRuns   map[string]context.CancelFunc // runID -> cancel
+	authMode    AuthMode
+	jwtSecret   string
+	scheduler    *Scheduler
 	gateRegistry *GateRegistry
+	activeRuns   map[string]context.CancelFunc // runID -> cancel
 	mu           sync.Mutex
+	tlsCert      string
+	tlsKey       string
+	tlsCA        string
 }
 
 // ServerConfig holds configuration for the dashboard server.
 type ServerConfig struct {
-	Bind     string
-	Port     int
-	DBPath   string
-	Manifest *manifest.Manifest
-	Token    string
+	Bind          string
+	Port          int
+	DBPath        string
+	Manifest      *manifest.Manifest
+	Token         string
+	AuthMode      AuthMode
+	JWTSecret     string
+	MaxConcurrent int
+	TLSCert       string
+	TLSKey        string
+	TLSCA         string // CA cert for mTLS client verification
 }
 
 // NewServer creates a new dashboard server instance.
@@ -96,6 +120,16 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		repoDir = strings.TrimSpace(string(out))
 	}
 
+	// Resolve auth mode
+	authMode := cfg.AuthMode
+	if authMode == "" {
+		if cfg.Token != "" {
+			authMode = AuthModeBearer
+		} else {
+			authMode = AuthModeNone
+		}
+	}
+
 	s := &Server{
 		store:       roStore,
 		rwStore:     rwStore,
@@ -109,8 +143,14 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		bind:        cfg.Bind,
 		port:        cfg.Port,
 		token:       cfg.Token,
-		activeRuns:   make(map[string]context.CancelFunc),
+		authMode:    authMode,
+		jwtSecret:   cfg.JWTSecret,
+		scheduler:    NewScheduler(cfg.MaxConcurrent),
 		gateRegistry: NewGateRegistry(),
+		activeRuns:   make(map[string]context.CancelFunc),
+		tlsCert:     cfg.TLSCert,
+		tlsKey:      cfg.TLSKey,
+		tlsCA:       cfg.TLSCA,
 	}
 
 	mux := http.NewServeMux()
@@ -167,7 +207,39 @@ func (s *Server) Start() error {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Wave dashboard running at http://%s\n", addr)
+	// Configure TLS if enabled
+	if s.tlsCert != "" && s.tlsKey != "" {
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		// Load server certificate
+		cert, err := tls.LoadX509KeyPair(s.tlsCert, s.tlsKey)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+
+		// Configure mTLS if auth mode is mtls
+		if s.authMode == AuthModeMTLS && s.tlsCA != "" {
+			caCert, err := os.ReadFile(s.tlsCA)
+			if err != nil {
+				return fmt.Errorf("failed to read CA certificate: %w", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse CA certificate")
+			}
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			tlsConfig.ClientCAs = caCertPool
+		}
+
+		listener = tls.NewListener(listener, tlsConfig)
+		fmt.Fprintf(os.Stderr, "Wave dashboard running at https://%s\n", addr)
+	} else {
+		fmt.Fprintf(os.Stderr, "Wave dashboard running at http://%s\n", addr)
+	}
+
 	if s.token != "" && s.bind != "127.0.0.1" && s.bind != "localhost" {
 		fmt.Fprintf(os.Stderr, "Dashboard token: %s\n", s.token)
 	}
@@ -188,6 +260,23 @@ func (s *Server) Start() error {
 		}
 	case <-ctx.Done():
 		log.Println("Shutting down dashboard server...")
+
+		// Cancel all active runs
+		s.mu.Lock()
+		for runID, cancelFn := range s.activeRuns {
+			log.Printf("Cancelling active run %s", runID)
+			cancelFn()
+		}
+		s.mu.Unlock()
+
+		// Drain scheduler queue
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer drainCancel()
+		if err := s.scheduler.Shutdown(drainCtx); err != nil {
+			log.Printf("Warning: scheduler drain timed out: %v", err)
+		}
+
+		// Shutdown HTTP server
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
@@ -205,9 +294,4 @@ func (s *Server) Start() error {
 // GetBroker returns the SSE broker for external event integration.
 func (s *Server) GetBroker() *SSEBroker {
 	return s.broker
-}
-
-// GetGateRegistry returns the gate registry for creating WebUIGateHandler instances.
-func (s *Server) GetGateRegistry() *GateRegistry {
-	return s.gateRegistry
 }

@@ -191,7 +191,7 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, retroErrs...)
 	}
 
-	if fallbackErrs := validateFallbacks(m.Runtime.Fallbacks, filePath); len(fallbackErrs) > 0 {
+	if fallbackErrs := validateFallbackNames(m.Runtime.Fallbacks, filePath); len(fallbackErrs) > 0 {
 		errs = append(errs, fallbackErrs...)
 	}
 
@@ -221,8 +221,8 @@ func validateRetros(c *RetrosConfig, filePath string) []error {
 	return errs
 }
 
-// validateFallbacks checks that fallback chain provider names are non-empty.
-func validateFallbacks(fallbacks map[string][]string, filePath string) []error {
+// validateFallbackNames checks that fallback chain provider names are non-empty.
+func validateFallbackNames(fallbacks map[string][]string, filePath string) []error {
 	var errs []error
 	for provider, chain := range fallbacks {
 		if strings.TrimSpace(provider) == "" {
@@ -574,6 +574,50 @@ func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 					Suggestion: "Use valid regex syntax (e.g., 'implement|fix', '.*')",
 				})
 			}
+		}
+	}
+	return errs
+}
+
+
+// validateFallbacks checks runtime.fallbacks configuration for consistency.
+func validateFallbacks(m *Manifest) []error {
+	if len(m.Runtime.Fallbacks) == 0 {
+		return nil
+	}
+	var errs []error
+	for adapterName, fallbacks := range m.Runtime.Fallbacks {
+		// Key must reference a known adapter
+		if _, ok := m.Adapters[adapterName]; !ok {
+			errs = append(errs, &ValidationError{
+				Field:  "runtime.fallbacks." + adapterName,
+				Reason: fmt.Sprintf("adapter %q is not defined in manifest adapters", adapterName),
+			})
+		}
+		seen := make(map[string]bool)
+		for _, fb := range fallbacks {
+			// No self-reference
+			if fb == adapterName {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("adapter %q cannot fall back to itself", adapterName),
+				})
+			}
+			// Must reference known adapter
+			if _, ok := m.Adapters[fb]; !ok {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("fallback adapter %q is not defined in manifest adapters", fb),
+				})
+			}
+			// No duplicates
+			if seen[fb] {
+				errs = append(errs, &ValidationError{
+					Field:  "runtime.fallbacks." + adapterName,
+					Reason: fmt.Sprintf("duplicate fallback adapter %q", fb),
+				})
+			}
+			seen[fb] = true
 		}
 	}
 	return errs
