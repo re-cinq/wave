@@ -287,6 +287,10 @@ func ResolveAdapter(adapterName string) AdapterRunner {
 		return NewClaudeAdapter()
 	case "opencode":
 		return NewOpenCodeAdapter()
+	case "codex":
+		return NewCodexAdapter()
+	case "gemini":
+		return NewGeminiAdapter()
 	case "browser":
 		return NewBrowserAdapter()
 	default:
