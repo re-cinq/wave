@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -5017,6 +5018,300 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	// Pipeline should complete quickly (not wait for slow steps to finish)
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
+
+}
+
+// TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
+// using auto-approve mode completes all steps successfully. The gate has choices
+// with a default, and auto-approve selects the default (approve -> implement).
+func TestExecutor_GateStep_AutoApprove(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithAutoApprove(true),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	// Approve choice has empty target — just proceed naturally via DAG ordering.
+	// Revise targets "plan" (backward reference). Abort targets "_fail".
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-auto-approve-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve-plan",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve-plan"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test auto-approve gate")
+	require.NoError(t, err)
+
+	// Verify persona steps executed in correct order
+	order := collector.GetStepExecutionOrder()
+	posP := indexOfInSlice(order, "plan")
+	posI := indexOfInSlice(order, "implement")
+	assert.True(t, posP >= 0, "plan should be in execution order")
+	assert.True(t, posI >= 0, "implement should be in execution order")
+	assert.True(t, posP < posI, "plan should execute before implement")
+
+	// Verify gate step completed (check events for gate step completion)
+	events := collector.GetEvents()
+	gateCompleted := false
+	for _, ev := range events {
+		if ev.StepID == "approve-plan" && ev.State == "completed" {
+			gateCompleted = true
+			break
+		}
+	}
+	assert.True(t, gateCompleted, "gate step approve-plan should have completed")
+
+	// Verify gate resolved event was emitted
+	assert.True(t, collector.HasEventWithState("gate_resolved"), "should have gate_resolved event")
+}
+
+// TestExecutor_GateStep_Abort verifies that a pipeline aborts when the gate handler
+// returns a choice targeting _fail. The pipeline should fail with a GateAbortError.
+func TestExecutor_GateStep_Abort(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	// Custom handler that always selects "abort" (the _fail target)
+	abortHandler := &staticGateHandler{
+		choice: "q",
+	}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithGateHandler(abortHandler),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-abort-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve-plan",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve-plan"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test abort gate")
+	require.Error(t, err, "pipeline should fail when gate aborts")
+
+	// The executor wraps GateAbortError inside a StepError
+	var stepErr *StepError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	assert.Equal(t, "approve-plan", stepErr.StepID, "failed step should be approve-plan")
+
+	// Unwrap to find the GateAbortError
+	var abortErr *GateAbortError
+	require.True(t, errors.As(err, &abortErr), "error chain should contain GateAbortError")
+	assert.Equal(t, "approve-plan", abortErr.StepID, "abort error should reference approve-plan")
+}
+
+// staticGateHandler is a test helper that returns a fixed choice, optionally
+// cycling through multiple choices on successive calls.
+type staticGateHandler struct {
+	choice  string   // single choice key (used when choices is empty)
+	choices []string // multiple choice keys, cycled in order
+	calls   int
+}
+
+func (h *staticGateHandler) Prompt(_ context.Context, gate *GateConfig) (*GateDecision, error) {
+	key := h.choice
+	if len(h.choices) > 0 {
+		key = h.choices[h.calls%len(h.choices)]
+	}
+	h.calls++
+
+	choice := gate.FindChoiceByKey(key)
+	if choice == nil {
+		return nil, fmt.Errorf("staticGateHandler: key %q not found in gate choices", key)
+	}
+	return &GateDecision{
+		Choice:    choice.Key,
+		Label:     choice.Label,
+		Timestamp: time.Now(),
+		Target:    choice.Target,
+	}, nil
+}
+
+// TestExecutor_GateStep_ChoiceRouting_Revise verifies the revision loop pattern:
+// the gate handler returns "revise" on the first call (routing back to "plan"),
+// then "approve" on the second call (routing forward to "implement").
+// The "plan" step should execute twice.
+func TestExecutor_GateStep_ChoiceRouting_Revise(t *testing.T) {
+	collector := testutil.NewEventCollector()
+
+	// Track how many times each step executes via the adapter
+	var planCount int32
+	var implCount int32
+
+	countingAdapter := &stepAwareAdapter{
+		defaultAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(500),
+		),
+		onStart: func(stepID string) {
+			switch stepID {
+			case "plan":
+				atomic.AddInt32(&planCount, 1)
+			case "implement":
+				atomic.AddInt32(&implCount, 1)
+			}
+		},
+	}
+
+	// First call: revise (routes back to plan); second call: approve (routes to implement)
+	reviseHandler := &staticGateHandler{
+		choices: []string{"r", "a"},
+	}
+
+	executor := NewDefaultPipelineExecutor(countingAdapter,
+		WithEmitter(collector),
+		WithGateHandler(reviseHandler),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-revise-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test revision loop")
+	require.NoError(t, err)
+
+	// Plan should have executed twice (initial + after revise routing)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&planCount), "plan should execute twice due to revision loop")
+
+	// Implement should have executed once (after approve on second gate pass)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&implCount), "implement should execute once after final approval")
+
+	// The gate handler should have been called exactly twice
+	assert.Equal(t, 2, reviseHandler.calls, "gate handler should be called twice (revise then approve)")
+}
+
+// TestExecutor_GateStep_TemplateVars verifies that the gate decision is stored
+// in the PipelineContext after a gate step completes with auto-approve.
+func TestExecutor_GateStep_TemplateVars(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithAutoApprove(true),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-template-vars-test"},
+		Steps: []Step{
+			{
+				ID: "approve",
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Reject", Key: "r", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "next", Persona: "navigator", Dependencies: []string{"approve"}, Exec: ExecConfig{Source: "do next thing"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test gate template vars")
+	require.NoError(t, err)
+
+	// Access the pipeline execution to check the context
+	// The executor stores the last execution internally
+	executor.mu.RLock()
+	lastExec := executor.lastExecution
+	executor.mu.RUnlock()
+
+	require.NotNil(t, lastExec, "last execution should be available")
+	require.NotNil(t, lastExec.Context, "pipeline context should be set")
+	require.NotNil(t, lastExec.Context.GateDecisions, "gate decisions should be populated")
+
+	decision, ok := lastExec.Context.GateDecisions["approve"]
+	require.True(t, ok, "gate decision for 'approve' step should exist")
+	assert.Equal(t, "a", decision.Choice, "decision choice should be the default 'a'")
+	assert.Equal(t, "Approve", decision.Label, "decision label should be 'Approve'")
+	assert.Empty(t, decision.Target, "decision target should be empty (natural DAG flow)")
+}
+
 
 // TestExecuteStep_FailureClassification_Transient verifies that a transient failure
 // (rate limit StepError) is classified correctly and the step retries.

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
@@ -35,6 +36,7 @@ type PipelineContext struct {
 	StepID          string            `json:"step_id"`
 	CustomVariables map[string]string `json:"custom_variables,omitempty"`
 	ArtifactPaths   map[string]string `json:"artifact_paths,omitempty"` // Artifact name -> path for template resolution
+	GateDecisions   map[string]*GateDecision `json:"gate_decisions,omitempty"` // stepID -> gate decision
 }
 
 // NewPipelineContext creates a new pipeline context with auto-detected values.
@@ -177,6 +179,31 @@ func (ctx *PipelineContext) GetArtifactPath(name string) string {
 		return ""
 	}
 	return ctx.ArtifactPaths[name]
+}
+
+// SetGateDecision records a gate decision for template variable resolution.
+// After calling this, downstream steps can resolve {{ gate.<stepID>.choice }},
+// {{ gate.<stepID>.text }}, and {{ gate.<stepID>.timestamp }}.
+func (ctx *PipelineContext) SetGateDecision(stepID string, decision *GateDecision) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.GateDecisions == nil {
+		ctx.GateDecisions = make(map[string]*GateDecision)
+	}
+	ctx.GateDecisions[stepID] = decision
+
+	// Also set as custom variables for template resolution.
+	// Strip Go template delimiters from freeform text to prevent injection
+	// into downstream template resolution.
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	prefix := "gate." + stepID
+	ctx.CustomVariables[prefix+".choice"] = stripTemplateDelimiters(decision.Label)
+	ctx.CustomVariables[prefix+".key"] = stripTemplateDelimiters(decision.Choice)
+	ctx.CustomVariables[prefix+".text"] = stripTemplateDelimiters(decision.Text)
+	ctx.CustomVariables[prefix+".timestamp"] = decision.Timestamp.Format(time.RFC3339)
+	ctx.CustomVariables[prefix+".target"] = stripTemplateDelimiters(decision.Target)
 }
 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows
@@ -322,4 +349,13 @@ func (ctx *PipelineContext) ResolveContractSource(contractCfg ContractConfig) st
 		return ctx.ResolvePlaceholders(contractCfg.Source)
 	}
 	return ""
+}
+
+// stripTemplateDelimiters removes Go template delimiters ({{ and }}) from a
+// string to prevent template injection when user-supplied values (e.g. gate
+// freeform text) are stored as custom template variables.
+func stripTemplateDelimiters(s string) string {
+	s = strings.ReplaceAll(s, "{{", "")
+	s = strings.ReplaceAll(s, "}}", "")
+	return s
 }

@@ -95,6 +95,10 @@ type DefaultPipelineExecutor struct {
 	debugTracer *audit.DebugTracer
 	// Accumulated token count across all steps (survives pipeline cleanup)
 	totalTokens int
+	// Auto-approve mode: skip all approval gates using default choices
+	autoApprove bool
+	// Gate handler for interactive approval gates (CLI, TUI, WebUI)
+	gateHandler GateHandler
 	// Lifecycle hook runner for pipeline-level hooks
 	hookRunner hooks.HookRunner
 }
@@ -162,6 +166,17 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 // WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
 func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
+}
+
+// WithAutoApprove enables auto-approve mode where all approval gates use their
+// default choice without human interaction. Required for --detach and CI mode.
+func WithAutoApprove(auto bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.autoApprove = auto }
+}
+
+// WithGateHandler sets the interactive handler for approval gates with choices.
+func WithGateHandler(h GateHandler) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.gateHandler = h }
 }
 
 // WithHookRunner sets the lifecycle hook runner for pipeline events.
@@ -249,6 +264,8 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
+		autoApprove:            e.autoApprove,
+		gateHandler:            e.gateHandler,
 		hookRunner:             e.hookRunner,
 	}
 }
@@ -537,6 +554,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	// Guard against unbounded gate revision loops: each gate re-queue increments
+	// this counter and the pipeline fails when the limit is exceeded.
+	const maxGateRequeues = 10
+	gateRequeueCount := 0
+
 	for completedCount < schedulableSteps {
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
@@ -545,6 +567,44 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
+			// Handle gate re-queue: reset completed map and re-enter scheduling loop
+			var requeueErr *ReQueueError
+			if errors.As(err, &requeueErr) {
+				gateRequeueCount++
+				if gateRequeueCount > maxGateRequeues {
+					e.cleanupCompletedPipeline(pipelineID)
+					return fmt.Errorf("gate re-queue limit exceeded (%d): possible infinite revision loop via step %q", maxGateRequeues, requeueErr.TargetStepID)
+				}
+				// Remove re-queued steps from completed set
+				for stepID := range requeueErr.ResetSteps {
+					delete(completed, stepID)
+				}
+				// Recount completed steps
+				completedCount = 0
+				for range completed {
+					completedCount++
+				}
+				continue // Re-enter the scheduling loop
+			}
+
+			// Handle gate abort
+			var abortErr *GateAbortError
+			if errors.As(err, &abortErr) {
+				execution.Status.State = StateFailed
+				if e.store != nil {
+					e.store.SavePipelineState(pipelineID, StateFailed, input)
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     abortErr.StepID,
+					State:      StateFailed,
+					Message:    abortErr.Error(),
+				})
+				e.cleanupCompletedPipeline(pipelineID)
+				return &StepError{StepID: abortErr.StepID, Err: err}
+			}
+
 			execution.Status.State = StateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string
@@ -2265,6 +2325,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Dir:        step.Handover.Contract.Dir,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
+			Model:      step.Handover.Contract.Model,
+			Criteria:   step.Handover.Contract.Criteria,
+			Threshold:  step.Handover.Contract.Threshold,
 		}
 
 		// Use schema filename for display when available, fall back to contract type
@@ -3414,6 +3477,18 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
 		}
 		b.WriteString("If tests fail, the step fails.\n")
+
+	case "llm_judge":
+		b.WriteString("### LLM Judge Evaluation\n\n")
+		b.WriteString("After you complete your work, an LLM judge will evaluate your output against the following criteria:\n\n")
+		for _, criterion := range step.Handover.Contract.Criteria {
+			b.WriteString(fmt.Sprintf("- %s\n", criterion))
+		}
+		threshold := step.Handover.Contract.Threshold
+		if threshold <= 0 {
+			threshold = 1.0
+		}
+		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────
@@ -3871,13 +3946,17 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 	}
 }
 
-// executeCompositionStep handles steps that reference sub-pipelines (via the
-// `pipeline:` field) rather than executing a persona directly. It loads the
-// referenced pipeline YAML, resolves the step's input template, and delegates
-// execution to a fresh DefaultPipelineExecutor instance.
+// executeCompositionStep handles steps that use composition primitives (gate,
+// sub-pipeline, etc.) rather than executing a persona directly.
 func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
+	// Gate step: handle directly with GateExecutor
+	if step.Gate != nil {
+		return e.executeGateStep(ctx, execution, step)
+	}
+
+	// Sub-pipeline steps below
 	// Resolve the input for the sub-pipeline
 	input := execution.Input
 	if step.SubInput != "" && execution.Context != nil {
@@ -3966,6 +4045,197 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	})
 
 	return nil
+}
+
+// GateAbortError signals that a gate choice targeted _fail, aborting the pipeline.
+type GateAbortError struct {
+	StepID string
+	Choice string
+}
+
+func (e *GateAbortError) Error() string {
+	return fmt.Sprintf("pipeline aborted by gate %q (choice: %s)", e.StepID, e.Choice)
+}
+
+// executeGateStep handles gate composition steps within the main executor.
+// It delegates to GateExecutor, stores the decision in PipelineContext,
+// writes freeform text as an artifact, and returns routing information via error type.
+func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("gate step: %s", step.Gate.Type),
+	})
+
+	// Select the appropriate handler
+	var handler GateHandler
+	if e.autoApprove {
+		handler = &AutoApproveHandler{}
+	} else if e.gateHandler != nil {
+		handler = e.gateHandler
+	}
+	// If no handler and gate has choices, fall back to CLI handler
+	if handler == nil && len(step.Gate.Choices) > 0 {
+		handler = &CLIGateHandler{}
+	}
+
+	gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, handler)
+
+	// Annotate the gate config with the step ID so downstream handlers
+	// (e.g. WebUI) can associate the pending gate with a specific step.
+	step.Gate.RuntimeStepID = step.ID
+
+	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
+	if err != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return err
+	}
+
+	// Store the gate decision in the pipeline context for template resolution
+	if decision != nil && execution.Context != nil {
+		execution.Context.SetGateDecision(step.ID, decision)
+
+		// Write freeform text as artifact if provided
+		if decision.Text != "" {
+			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
+			if wsRoot == "" {
+				wsRoot = ".wave/workspaces"
+			}
+			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to create artifact directory for gate freeform text: %v", mkErr),
+				})
+			} else if writeErr := os.WriteFile(artifactPath, []byte(decision.Text), 0644); writeErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to write gate freeform text artifact: %v", writeErr),
+				})
+			}
+		}
+	}
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    "gate step completed",
+	})
+
+	// Handle choice routing
+	if decision != nil && decision.Target == "_fail" {
+		return &GateAbortError{StepID: step.ID, Choice: decision.Label}
+	}
+
+	// If the target is a step ID that has already been completed, re-queue it
+	// (revision loop pattern). If the target is a pending/future step, just
+	// continue normal DAG flow — the scheduler will reach it naturally.
+	if decision != nil && decision.Target != "" && decision.Target != "_fail" {
+		execution.mu.Lock()
+		targetState := execution.States[decision.Target]
+		execution.mu.Unlock()
+
+		if targetState == StateCompleted || targetState == StateFailed || targetState == StateSkipped {
+			return e.reQueueStep(execution, decision.Target)
+		}
+		// Target is pending/running — normal flow continues
+	}
+
+	return nil
+}
+
+// reQueueStep resets a step and all its dependents to pending state,
+// allowing the main loop to re-execute them. This implements the revision loop pattern.
+func (e *DefaultPipelineExecutor) reQueueStep(execution *PipelineExecution, targetStepID string) error {
+	pipelineID := execution.Status.ID
+
+	// Find the target step
+	var targetStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == targetStepID {
+			targetStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if targetStep == nil {
+		return fmt.Errorf("gate routing: target step %q not found in pipeline", targetStepID)
+	}
+
+	// Reset the target step and all steps that depend on it (transitively)
+	toReset := map[string]bool{targetStepID: true}
+	changed := true
+	for changed {
+		changed = false
+		for i := range execution.Pipeline.Steps {
+			s := &execution.Pipeline.Steps[i]
+			if toReset[s.ID] {
+				continue
+			}
+			for _, dep := range s.Dependencies {
+				if toReset[dep] {
+					toReset[s.ID] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+
+	execution.mu.Lock()
+	for stepID := range toReset {
+		execution.States[stepID] = StatePending
+	}
+	execution.mu.Unlock()
+
+	for stepID := range toReset {
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, stepID, state.StatePending, "re-queued by gate routing")
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     stepID,
+			State:      StatePending,
+			Message:    fmt.Sprintf("re-queued by gate routing to %q", targetStepID),
+		})
+	}
+
+	return &ReQueueError{TargetStepID: targetStepID, ResetSteps: toReset}
+}
+
+// ReQueueError signals that steps have been re-queued via gate routing.
+// The main executor loop should handle this by re-entering the scheduling loop.
+type ReQueueError struct {
+	TargetStepID string
+	ResetSteps   map[string]bool
+}
+
+func (e *ReQueueError) Error() string {
+	return fmt.Sprintf("gate routing: re-queued step %q and %d dependents", e.TargetStepID, len(e.ResetSteps)-1)
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
