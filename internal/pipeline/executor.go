@@ -22,7 +22,6 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
-	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
@@ -195,6 +194,7 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -259,6 +259,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
+	}
+
+	// Resolve named retry policies into concrete values before execution
+	if err := ResolvePipelineRetryPolicies(p); err != nil {
+		return fmt.Errorf("retry policy resolution: %w", err)
 	}
 
 	// Apply step filter (--steps / --exclude) to the sorted step list
@@ -413,6 +418,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
@@ -791,7 +797,20 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Start progress ticker for smooth animation updates during step execution
 		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
 
-		err := e.runStepExecution(ctx, execution, step)
+		// Start stall watchdog if configured
+		stepCtx := ctx
+		var watchdog *StallWatchdog
+		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
+			watchdog = NewStallWatchdog(stallTimeout)
+			stepCtx = watchdog.Start(stepCtx)
+		}
+
+		err := e.runStepExecution(stepCtx, execution, step)
+
+		// Stop stall watchdog
+		if watchdog != nil {
+			watchdog.Stop()
+		}
 
 		// Stop progress ticker when step completes
 		cancelTicker()
@@ -801,7 +820,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if err != nil {
 			lastErr = err
 
-			// Record failed attempt
+			// Classify the failure for intelligent retry decisions
+			failureClass := ClassifyStepFailure(err, nil, ctx.Err())
+
+			// Record failed attempt with pipeline-level failure class
 			if e.store != nil {
 				completedAt := time.Now()
 				e.store.RecordStepAttempt(&state.StepAttemptRecord{
@@ -810,11 +832,41 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Attempt:      attempt,
 					State:        StateFailed,
 					ErrorMessage: err.Error(),
-					FailureClass: string(recovery.ClassifyError(err)),
+					FailureClass: failureClass,
 					DurationMs:   attemptDuration.Milliseconds(),
 					StartedAt:    attemptStart,
 					CompletedAt:  &completedAt,
 				})
+			}
+
+			// Check circuit breaker — if same failure fingerprint repeats too many times, stop
+			if execution.CircuitBreaker != nil {
+				fp := NormalizeFingerprint(step.ID, failureClass, err.Error())
+				if execution.CircuitBreaker.Record(fp, failureClass) {
+					e.emit(event.Event{
+						Timestamp:    time.Now(),
+						PipelineID:   pipelineID,
+						StepID:       step.ID,
+						State:        event.StateFailed,
+						FailureClass: failureClass,
+						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.limit),
+					})
+					// Fall through to on_failure handling below by exhausting attempts
+					attempt = maxAttempts
+				}
+			}
+
+			// Skip remaining retries for non-retryable failure classes
+			if !IsRetryable(failureClass) && attempt < maxAttempts {
+				e.emit(event.Event{
+					Timestamp:    time.Now(),
+					PipelineID:   pipelineID,
+					StepID:       step.ID,
+					State:        event.StateFailed,
+					FailureClass: failureClass,
+					Message:      fmt.Sprintf("non-retryable failure class %q, skipping remaining retries", failureClass),
+				})
+				attempt = maxAttempts
 			}
 
 			if attempt < maxAttempts {
@@ -837,10 +889,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 					execution.mu.Lock()
 					execution.AttemptContexts[step.ID] = &AttemptContext{
-						Attempt:     attempt + 1,
-						MaxAttempts: maxAttempts,
-						PriorError:  errMsg,
-						PriorStdout: stdoutTail,
+						Attempt:      attempt + 1,
+						MaxAttempts:  maxAttempts,
+						PriorError:   errMsg,
+						FailureClass: failureClass,
+						PriorStdout:  stdoutTail,
 					}
 					execution.mu.Unlock()
 				}
@@ -2535,6 +2588,19 @@ func (e *DefaultPipelineExecutor) validateSkillRefs(pipelineSkills []string, pip
 	}
 
 	return errs
+}
+
+// parseStallTimeout parses the stall timeout from the manifest runtime config.
+// Returns 0 if not configured or invalid.
+func (e *DefaultPipelineExecutor) parseStallTimeout(m *manifest.Manifest) time.Duration {
+	if m == nil || m.Runtime.StallTimeout == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(m.Runtime.StallTimeout)
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
 }
 
 func (e *DefaultPipelineExecutor) emit(ev event.Event) {

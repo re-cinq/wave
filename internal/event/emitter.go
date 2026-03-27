@@ -34,6 +34,7 @@ type Event struct {
 
 	// Error classification fields (context exhaustion handling)
 	FailureReason string `json:"failure_reason,omitempty"` // "timeout", "context_exhaustion", "general_error"
+	FailureClass  string `json:"failure_class,omitempty"`  // Pipeline-level failure classification (transient, deterministic, etc.)
 	Remediation   string `json:"remediation,omitempty"`    // Actionable suggestion for the user
 
 	// Stream event fields (real-time Claude Code activity)
