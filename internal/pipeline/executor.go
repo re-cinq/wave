@@ -993,6 +993,19 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 		}
 
+		// Record checkpoint for fork/rewind support
+		if e.store != nil {
+			stepIndex := -1
+			for i, s := range execution.Pipeline.Steps {
+				if s.ID == step.ID {
+					stepIndex = i
+					break
+				}
+			}
+			recorder := &CheckpointRecorder{store: e.store}
+			recorder.Record(execution, step, stepIndex)
+		}
+
 		// Record step completion for ETA calculation
 		if e.etaCalculator != nil {
 			e.etaCalculator.RecordStepCompletion(step.ID, attemptDuration.Milliseconds())
