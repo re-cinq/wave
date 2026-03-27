@@ -415,3 +415,18 @@ func (c *ConcurrencyValidator) GetRunningPipelines() map[string]string {
 	}
 	return result
 }
+
+// ValidateThreadFields validates thread and fidelity fields across all pipeline steps.
+// Returns a list of validation errors (empty if valid).
+func ValidateThreadFields(p *Pipeline) []error {
+	var errs []error
+	for _, step := range p.Steps {
+		if step.Fidelity != "" && !validFidelityValues[step.Fidelity] {
+			errs = append(errs, fmt.Errorf("step %q: unknown fidelity value %q (valid: full, compact, summary, fresh)", step.ID, step.Fidelity))
+		}
+		if step.Fidelity != "" && step.Thread == "" {
+			errs = append(errs, fmt.Errorf("step %q: fidelity %q set without thread — fidelity has no effect without a thread group", step.ID, step.Fidelity))
+		}
+	}
+	return errs
+}

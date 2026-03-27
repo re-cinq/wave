@@ -2915,16 +2915,26 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(p1))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(p3))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3))
+
+	// Step-level model override
+	executor3 := &DefaultPipelineExecutor{modelOverride: ""}
+	s := &Step{Model: "claude-haiku-4-5"}
+	p4 := &manifest.Persona{Model: "opus"}
+	assert.Equal(t, "claude-haiku-4-5", executor3.resolveModel(s, p4))
+
+	// CLI override beats step-level
+	executor4 := &DefaultPipelineExecutor{modelOverride: "cli-model"}
+	assert.Equal(t, "cli-model", executor4.resolveModel(s, p4))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
@@ -5019,6 +5029,7 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
 
+<<<<<<< HEAD
 // TestExecuteStep_FailureClassification_Transient verifies that a transient failure
 // (rate limit StepError) is classified correctly and the step retries.
 func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
@@ -5031,11 +5042,223 @@ func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
+=======
+// promptCapturingAdapter captures prompt from each step's AdapterRunConfig.
+type promptCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      sync.Mutex
+	prompts map[string]string // stepID (from workspace path) -> prompt
+}
+
+func newPromptCapturingAdapter(opts ...adapter.MockOption) *promptCapturingAdapter {
+	return &promptCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(opts...),
+		prompts:     make(map[string]string),
+	}
+}
+
+func (a *promptCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	// Use the last path component (step ID) as key
+	parts := strings.Split(cfg.WorkspacePath, "/")
+	stepID := parts[len(parts)-1]
+	a.prompts[stepID] = cfg.Prompt
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+func (a *promptCapturingAdapter) getPrompt(stepID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.prompts[stepID]
+}
+
+// TestThreadSharing_TwoStepsSameThread verifies that step B in the same thread
+// as step A receives step A's output in its prompt via THREAD CONTEXT header.
+func TestThreadSharing_TwoStepsSameThread(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "thread-test"},
+		Steps: []Step{
+			{
+				ID:      "implement",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "Implement the feature"},
+			},
+			{
+				ID:           "fix",
+				Persona:      "navigator",
+				Thread:       "impl",
+				Dependencies: []string{"implement"},
+				Exec:         ExecConfig{Source: "Fix the failing tests"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// The fix step should contain THREAD CONTEXT with the implement step's output
+	fixPrompt := capturing.getPrompt("fix")
+	assert.Contains(t, fixPrompt, "## THREAD CONTEXT", "fix step should have thread context header")
+	assert.Contains(t, fixPrompt, "Fix the failing tests", "fix step should contain its own prompt")
+}
+
+// TestThreadIsolation_DifferentThreads verifies that steps in different threads
+// do NOT share transcripts.
+func TestThreadIsolation_DifferentThreads(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "isolation-test"},
+		Steps: []Step{
+			{
+				ID:      "step-a",
+				Persona: "navigator",
+				Thread:  "thread-1",
+				Exec:    ExecConfig{Source: "Step A work"},
+			},
+			{
+				ID:           "step-b",
+				Persona:      "navigator",
+				Thread:       "thread-2",
+				Dependencies: []string{"step-a"},
+				Exec:         ExecConfig{Source: "Step B work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// step-b is in thread-2, so it should NOT have step-a's content (thread-1)
+	stepBPrompt := capturing.getPrompt("step-b")
+	// Thread-2 has no prior entries, so no THREAD CONTEXT should be injected
+	assert.NotContains(t, stepBPrompt, "## THREAD CONTEXT",
+		"step-b in different thread should not receive thread context from thread-1")
+}
+
+// TestNoThread_FreshMemory verifies that steps without a thread attribute
+// do NOT receive any thread context (fresh memory behavior).
+func TestNoThread_FreshMemory(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "fresh-test"},
+		Steps: []Step{
+			{
+				ID:      "step-a",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "Step A with thread"},
+			},
+			{
+				ID:           "review",
+				Persona:      "navigator",
+				Dependencies: []string{"step-a"},
+				Exec:         ExecConfig{Source: "Review the work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// review step has no thread, so it should not have any thread context
+	reviewPrompt := capturing.getPrompt("review")
+	assert.NotContains(t, reviewPrompt, "## THREAD CONTEXT",
+		"unthreaded step should not receive thread context")
+}
+
+// TestThreadValidation_InvalidFidelity verifies the executor rejects invalid fidelity values.
+func TestThreadValidation_InvalidFidelity(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "invalid-fidelity"},
+		Steps: []Step{
+			{
+				ID:       "step-a",
+				Persona:  "navigator",
+				Thread:   "impl",
+				Fidelity: "bogus",
+				Exec:     ExecConfig{Source: "do work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "thread validation failed")
+	assert.Contains(t, err.Error(), "unknown fidelity value")
+}
+
+// TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
+// using auto-approve mode completes all steps successfully. The gate has choices
+// with a default, and auto-approve selects the default (approve -> implement).
+func TestExecutor_GateStep_AutoApprove(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithAutoApprove(true),
+>>>>>>> origin/main
 	)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
+<<<<<<< HEAD
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "transient-classification-test"},
 		Steps: []Step{
@@ -5048,12 +5271,35 @@ func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
 					BaseDelay:   "1ms",
 				},
 			},
+=======
+	// Approve choice has empty target — just proceed naturally via DAG ordering.
+	// Revise targets "plan" (backward reference). Abort targets "_fail".
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-auto-approve-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve-plan",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve-plan"}, Exec: ExecConfig{Source: "implement the plan"}},
+>>>>>>> origin/main
 		},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+<<<<<<< HEAD
 	err := executor.Execute(ctx, p, m, "test")
 	require.NoError(t, err, "should succeed on second attempt after transient failure")
 
@@ -5084,12 +5330,58 @@ func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
+=======
+	err := executor.Execute(ctx, p, m, "test auto-approve gate")
+	require.NoError(t, err)
+
+	// Verify persona steps executed in correct order
+	order := collector.GetStepExecutionOrder()
+	posP := indexOfInSlice(order, "plan")
+	posI := indexOfInSlice(order, "implement")
+	assert.True(t, posP >= 0, "plan should be in execution order")
+	assert.True(t, posI >= 0, "implement should be in execution order")
+	assert.True(t, posP < posI, "plan should execute before implement")
+
+	// Verify gate step completed (check events for gate step completion)
+	events := collector.GetEvents()
+	gateCompleted := false
+	for _, ev := range events {
+		if ev.StepID == "approve-plan" && ev.State == "completed" {
+			gateCompleted = true
+			break
+		}
+	}
+	assert.True(t, gateCompleted, "gate step approve-plan should have completed")
+
+	// Verify gate resolved event was emitted
+	assert.True(t, collector.HasEventWithState("gate_resolved"), "should have gate_resolved event")
+}
+
+// TestExecutor_GateStep_Abort verifies that a pipeline aborts when the gate handler
+// returns a choice targeting _fail. The pipeline should fail with a GateAbortError.
+func TestExecutor_GateStep_Abort(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	// Custom handler that always selects "abort" (the _fail target)
+	abortHandler := &staticGateHandler{
+		choice: "q",
+	}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithGateHandler(abortHandler),
+>>>>>>> origin/main
 	)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
+<<<<<<< HEAD
 		Metadata: PipelineMetadata{Name: "deterministic-skip-test"},
 		Steps: []Step{
 			{
@@ -5341,6 +5633,8 @@ func TestExecutor_GateStep_Abort(t *testing.T) {
 	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
+=======
+>>>>>>> origin/main
 		Metadata: PipelineMetadata{Name: "gate-abort-test"},
 		Steps: []Step{
 			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
@@ -5537,5 +5831,237 @@ func TestExecutor_GateStep_TemplateVars(t *testing.T) {
 	assert.Equal(t, "a", decision.Choice, "decision choice should be the default 'a'")
 	assert.Equal(t, "Approve", decision.Label, "decision label should be 'Approve'")
 	assert.Empty(t, decision.Target, "decision target should be empty (natural DAG flow)")
+<<<<<<< HEAD
+=======
+}
+
+// TestExecuteStep_FailureClassification_Transient verifies that a transient failure
+// (rate limit StepError) is classified correctly and the step retries.
+func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Fails once with a rate limit StepError, then succeeds.
+	failAdapter := newCountingFailAdapter(1, adapter.NewStepError(adapter.FailureReasonRateLimit, errors.New("rate limited"), 0, ""))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "transient-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "should succeed on second attempt after transient failure")
+
+	// Should have been called twice: 1 failure + 1 success
+	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should be called twice")
+
+	// Verify the failed attempt was classified as transient
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "transient", failedAttempts[0].FailureClass, "failure class should be transient for rate limit error")
+}
+
+// TestExecuteStep_FailureClassification_Deterministic_SkipsRetry verifies that a
+// deterministic failure (e.g. invalid API key) skips remaining retries immediately.
+func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a deterministic error message.
+	failAdapter := newCountingFailAdapter(10, errors.New("invalid api key"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "deterministic-skip-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with deterministic error")
+
+	// Deterministic failures are not retryable — only 1 attempt should be made
+	assert.Equal(t, 1, failAdapter.getCallCount(), "adapter should only be called once for deterministic failure")
+
+	// Verify the failed attempt was classified as deterministic
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "deterministic", failedAttempts[0].FailureClass, "failure class should be deterministic")
+
+	// Verify event was emitted about skipping retries
+	events := collector.GetEvents()
+	foundSkipMsg := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "non-retryable failure class") {
+			foundSkipMsg = true
+			break
+		}
+	}
+	assert.True(t, foundSkipMsg, "should emit event about non-retryable failure class")
+}
+
+// TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures verifies that the circuit
+// breaker trips when the same failure fingerprint repeats beyond the configured limit.
+func TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a test_failure class error
+	failAdapter := newCountingFailAdapter(10, errors.New("test failed: compile error"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	m.Runtime.CircuitBreaker = manifest.CircuitBreakerConfig{
+		Limit:          2,
+		TrackedClasses: []string{"test_failure", "deterministic", "contract_failure"},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "circuit-breaker-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 5,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail due to circuit breaker tripping")
+
+	// The circuit breaker has limit=2, so the step should trip after 2 failures,
+	// not exhaust all 5 attempts.
+	callCount := failAdapter.getCallCount()
+	assert.Less(t, callCount, 5, "circuit breaker should trip before all 5 attempts")
+
+	// Verify circuit breaker tripped event
+	events := collector.GetEvents()
+	foundCircuitBreaker := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "circuit breaker tripped") {
+			foundCircuitBreaker = true
+			break
+		}
+	}
+	assert.True(t, foundCircuitBreaker, "should emit circuit breaker tripped event")
+}
+
+// TestExecuteStep_FailureClassification_Canceled verifies that a pre-canceled context
+// is classified as "canceled" and the step does not retry.
+func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Use a mock adapter with a simulated delay so that it respects ctx.Done()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithSimulatedDelay(10*time.Second),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "canceled-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	// Cancel the context before executing
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with canceled context")
+
+	// Verify the failed attempt was classified as canceled
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.NotEmpty(t, failedAttempts, "should have at least 1 failed attempt record")
+	assert.Equal(t, "canceled", failedAttempts[0].FailureClass, "failure class should be canceled")
+>>>>>>> origin/main
 }
 

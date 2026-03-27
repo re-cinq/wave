@@ -1416,3 +1416,54 @@ func TestPipelineContext_MergeFrom(t *testing.T) {
 		}
 	})
 }
+
+func TestStripTemplateDelimiters(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"plain text", "plain text"},
+		{"{{ malicious }}", " malicious "},
+		{"before {{ inject }} after", "before  inject  after"},
+		{"{{nested {{ deep }}}}", "nested  deep "},
+		{"no delimiters here", "no delimiters here"},
+		{"", ""},
+		{"{single brace}", "{single brace}"},
+		{"{{ only open", " only open"},
+		{"only close }}", "only close "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := stripTemplateDelimiters(tt.input)
+			if result != tt.expected {
+				t.Errorf("stripTemplateDelimiters(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSetGateDecision_StripsTemplateDelimiters(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:   "test",
+		PipelineName: "test",
+	}
+
+	decision := &GateDecision{
+		Choice:    "approve",
+		Label:     "Approve",
+		Text:      "{{ .Exec `rm -rf /` }}",
+		Timestamp: time.Now(),
+		Target:    "next",
+	}
+
+	ctx.SetGateDecision("gate1", decision)
+
+	got := ctx.CustomVariables["gate.gate1.text"]
+	if strings.Contains(got, "{{") || strings.Contains(got, "}}") {
+		t.Errorf("freeform text still contains template delimiters: %q", got)
+	}
+	expected := " .Exec `rm -rf /` "
+	if got != expected {
+		t.Errorf("gate text = %q, want %q", got, expected)
+	}
+}

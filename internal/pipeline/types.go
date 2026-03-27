@@ -30,11 +30,28 @@ const (
 	OnFailureRetry    = "retry"
 )
 
+// Fidelity constants control how much prior thread context a step receives.
+const (
+	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
+	FidelityCompact = "compact" // Step ID + status + truncated content summary
+	FidelitySummary = "summary" // LLM-generated summary via relay CompactionAdapter
+	FidelityFresh   = "fresh"   // No prior context (default when no thread)
+)
+
+// validFidelityValues enumerates the accepted fidelity values.
+var validFidelityValues = map[string]bool{
+	FidelityFull:    true,
+	FidelityCompact: true,
+	FidelitySummary: true,
+	FidelityFresh:   true,
+}
+
 // Step type constants for graph-mode pipelines.
 const (
 	StepTypeConditional = "conditional"
 	StepTypeCommand     = "command"
 )
+
 
 type Pipeline struct {
 	Kind            string                    `yaml:"kind"`
@@ -264,6 +281,8 @@ type EdgeConfig struct {
 type Step struct {
 	ID                  string           `yaml:"id"`
 	Persona             string           `yaml:"persona"`
+	Adapter             string           `yaml:"adapter,omitempty"`  // Step-level adapter override (e.g., "codex", "gemini")
+	Model               string           `yaml:"model,omitempty"`   // Step-level model override (e.g., "claude-haiku-4-5")
 	Dependencies        []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
 	Optional            bool             `yaml:"optional,omitempty"`
@@ -286,6 +305,11 @@ type Step struct {
 	MaxVisits int          `yaml:"max_visits,omitempty"` // Max times this step can be visited in a loop (default 10)
 	Script    string       `yaml:"script,omitempty"`     // Shell script for command steps
 
+	// Thread conversation continuity — steps sharing the same thread value
+	// participate in a conversation thread, receiving prior step transcripts.
+	Thread   string `yaml:"thread,omitempty"`   // Thread group ID (opt-in; empty = fresh memory)
+	Fidelity string `yaml:"fidelity,omitempty"` // Context fidelity: full, compact, summary, fresh
+
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`
 
@@ -303,6 +327,18 @@ type Step struct {
 // IsOptional returns whether this step is marked as optional.
 func (s *Step) IsOptional() bool {
 	return s.Optional
+}
+
+// EffectiveFidelity returns the fidelity level for this step.
+// Defaults to "full" when thread is set, "fresh" when no thread.
+func (s *Step) EffectiveFidelity() string {
+	if s.Fidelity != "" {
+		return s.Fidelity
+	}
+	if s.Thread != "" {
+		return FidelityFull
+	}
+	return FidelityFresh
 }
 
 // GetTimeout returns the step-level timeout duration.

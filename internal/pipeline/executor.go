@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/relay"
+	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -55,7 +56,8 @@ type PipelineStatus struct {
 }
 
 type DefaultPipelineExecutor struct {
-	runner         adapter.AdapterRunner
+	runner         adapter.AdapterRunner  // Deprecated: use registry for per-step resolution
+	registry       *adapter.AdapterRegistry
 	emitter        event.EventEmitter
 	store          state.StateStore
 	logger         audit.AuditLogger
@@ -105,6 +107,8 @@ type DefaultPipelineExecutor struct {
 	parentArtifactPaths map[string]string
 	// Parent workspace path for workspace.ref: parent resolution
 	parentWorkspacePath string
+	// Retrospective generator for post-run analysis
+	retroGenerator *retro.Generator
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -201,6 +205,16 @@ func WithParentWorkspacePath(path string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.parentWorkspacePath = path }
 }
 
+// WithRetroGenerator sets the retrospective generator for post-run analysis.
+func WithRetroGenerator(g *retro.Generator) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.retroGenerator = g }
+}
+
+// WithRegistry sets the adapter registry for per-step adapter resolution.
+func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
+}
+
 // createRunID generates a run ID, preferring the state store's CreateRun()
 // so the run appears in the dashboard. Falls back to GenerateRunID() if
 // the store is unavailable or the call fails.
@@ -234,6 +248,7 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	ThreadManager      *ThreadManager              // Thread conversation continuity manager
 	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
 	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
 }
@@ -246,6 +261,11 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 	}
 	for _, opt := range opts {
 		opt(ex)
+	}
+
+	// If no registry was provided via WithRegistry, wrap the single runner
+	if ex.registry == nil {
+		ex.registry = adapter.NewSingleRunnerRegistry(runner)
 	}
 
 	// Initialize security after options so logging respects --debug
@@ -265,6 +285,7 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
 		runner:                 e.runner,
+		registry:               e.registry,
 		emitter:                e.emitter,
 		store:                  e.store,
 		logger:                 e.logger,
@@ -284,6 +305,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		hookRunner:             e.hookRunner,
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
+		retroGenerator:         e.retroGenerator,
 	}
 }
 
@@ -303,6 +325,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
+	}
+
+	// Validate thread/fidelity fields
+	if errs := ValidateThreadFields(p); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return fmt.Errorf("thread validation failed:\n  %s", strings.Join(msgs, "\n  "))
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
@@ -457,6 +488,12 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		// Update pipeline ID if tracker already exists
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
+	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
+	var threadCompactionAdapter relay.CompactionAdapter
+	if e.relayMonitor != nil {
+		threadCompactionAdapter = e.relayMonitor.Adapter()
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:        p,
 		Manifest:        m,
@@ -467,6 +504,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		ThreadManager:     NewThreadManager(threadCompactionAdapter),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:         pipelineContext,
@@ -702,6 +740,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
 
+	// Generate retrospective (non-blocking)
+	if e.retroGenerator != nil {
+		e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+	}
+
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
 
@@ -884,6 +927,11 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
 	})
+
+	// Generate retrospective (non-blocking)
+	if e.retroGenerator != nil {
+		e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+	}
 
 	e.cleanupCompletedPipeline(pipelineID)
 	return nil
@@ -1857,10 +1905,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
-	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
-	if adapterDef == nil {
-		return fmt.Errorf("adapter %q not found in manifest", persona.Adapter)
+	// Resolve adapter name: step.Adapter > persona.Adapter (3-tier precedence)
+	resolvedAdapterName := persona.Adapter
+	if step.Adapter != "" {
+		resolvedAdapterName = step.Adapter
 	}
+
+	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
+	if adapterDef == nil {
+		return fmt.Errorf("adapter %q not found in manifest", resolvedAdapterName)
+	}
+
+	// Resolve adapter runner from registry for per-step dispatch
+	stepRunner := e.registry.ResolveWithFallback(resolvedAdapterName)
 
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
 	workspacePath, err := e.createStepWorkspace(execution, step)
@@ -1897,7 +1954,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -2083,7 +2140,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -2136,9 +2193,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
-		"model":   e.resolveModel(persona),
+		"model":   e.resolveModel(step, persona),
 	})
-	result, err := e.runner.Run(ctx, cfg)
+	result, err := stepRunner.Run(ctx, cfg)
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
@@ -2238,6 +2295,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 	execution.mu.Unlock()
 
+	// Append step output to thread transcript when the step is part of a thread group
+	if step.Thread != "" && execution.ThreadManager != nil {
+		content := result.ResultContent
+		if content == "" {
+			content = string(stdoutData)
+		}
+		if content != "" {
+			execution.ThreadManager.AppendTranscript(step.Thread, step.ID, content)
+			e.trace(audit.TraceThreadAppend, step.ID, int64(len(content)), map[string]string{
+				"thread": step.Thread,
+				"size":   fmt.Sprintf("%d", len(content)),
+			})
+		}
+	}
+
 	// Accumulate tokens at executor level (survives pipeline cleanup)
 	if result.TokensUsed > 0 {
 		e.mu.Lock()
@@ -2317,6 +2389,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Dir:        step.Handover.Contract.Dir,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
+			Model:      step.Handover.Contract.Model,
+			Criteria:   step.Handover.Contract.Criteria,
+			Threshold:  step.Handover.Contract.Threshold,
 		}
 
 		// Use schema filename for display when available, fall back to contract type
@@ -2493,13 +2568,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies three-tier model precedence:
+// resolveModel applies four-tier model precedence:
 // 1. CLI --model flag override (highest — explicit user intent)
-// 2. Per-persona model pinning
-// 3. Adapter default (empty string)
-func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
+// 2. Per-step model pinning (step.Model in pipeline YAML)
+// 3. Per-persona model pinning
+// 4. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona) string {
 	if e.modelOverride != "" {
 		return e.modelOverride
+	}
+	if step != nil && step.Model != "" {
+		return step.Model
 	}
 	if persona.Model != "" {
 		return persona.Model
@@ -2823,6 +2902,27 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
 		sb.WriteString(prompt)
 		prompt = sb.String()
+	}
+
+	// Inject thread conversation context when the step is part of a thread group
+	if step.Thread != "" && execution.ThreadManager != nil {
+		fidelity := step.EffectiveFidelity()
+		transcript := execution.ThreadManager.GetTranscript(context.Background(), step.Thread, fidelity)
+		if transcript != "" {
+			var sb strings.Builder
+			sb.WriteString("## THREAD CONTEXT\n\n")
+			sb.WriteString("The following is conversation history from prior steps in this thread group.\n\n")
+			sb.WriteString(transcript)
+			sb.WriteString("\n---\n\n")
+			sb.WriteString(prompt)
+			prompt = sb.String()
+
+			e.trace(audit.TraceThreadInject, step.ID, int64(len(transcript)), map[string]string{
+				"thread":   step.Thread,
+				"fidelity": fidelity,
+				"size":     fmt.Sprintf("%d", len(transcript)),
+			})
+		}
 	}
 
 	return prompt
@@ -3470,6 +3570,18 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
 		}
 		b.WriteString("If tests fail, the step fails.\n")
+
+	case "llm_judge":
+		b.WriteString("### LLM Judge Evaluation\n\n")
+		b.WriteString("After you complete your work, an LLM judge will evaluate your output against the following criteria:\n\n")
+		for _, criterion := range step.Handover.Contract.Criteria {
+			b.WriteString(fmt.Sprintf("- %s\n", criterion))
+		}
+		threshold := step.Handover.Contract.Threshold
+		if threshold <= 0 {
+			threshold = 1.0
+		}
+		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────
@@ -4024,6 +4136,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		}
 	}
 
+	childOpts = append(childOpts, WithRegistry(e.registry))
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
 
 	e.emit(event.Event{
@@ -4102,96 +4215,77 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 }
 
 // executeGateInDAG handles gate steps within a DAG pipeline.
-// It creates a GateExecutor, runs it, and processes the decision.
-// When a decision targets a previous step, it re-executes that step and loops back.
+// It delegates to GateExecutor, stores the decision in PipelineContext,
+// writes freeform text as an artifact, and returns routing information via error type.
 func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	for {
-		var decision *GateDecision
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("gate step: %s", step.Gate.Type),
+	})
 
-		// Auto-approve: directly select the default choice without going through the handler
-		if e.autoApprove && step.Gate.Default != "" && len(step.Gate.Choices) > 0 {
-			choice := step.Gate.FindChoiceByKey(step.Gate.Default)
-			if choice != nil {
-				decision = &GateDecision{
-					Choice:    choice.Key,
-					Label:     choice.Label,
-					Timestamp: time.Now(),
-					Target:    choice.Target,
-				}
+	// Select the appropriate handler
+	var handler GateHandler
+	if e.autoApprove {
+		handler = &AutoApproveHandler{}
+	} else if e.gateHandler != nil {
+		handler = e.gateHandler
+	}
+	// If no handler and gate has choices, fall back to CLI handler
+	if handler == nil && len(step.Gate.Choices) > 0 {
+		handler = &CLIGateHandler{}
+	}
+
+	gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, handler)
+
+	// Annotate the gate config with the step ID so downstream handlers
+	// (e.g. WebUI) can associate the pending gate with a specific step.
+	step.Gate.RuntimeStepID = step.ID
+
+	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
+	if err != nil {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+		}
+		return err
+	}
+
+	// Store the gate decision in the pipeline context for template resolution
+	if decision != nil && execution.Context != nil {
+		execution.Context.SetGateDecision(step.ID, decision)
+
+		// Write freeform text as artifact if provided
+		if decision.Text != "" {
+			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
+			if wsRoot == "" {
+				wsRoot = ".wave/workspaces"
+			}
+			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
-					State:      event.StateGateResolved,
-					Message:    fmt.Sprintf("gate auto-approved with default: %s", choice.Label),
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to create artifact directory for gate freeform text: %v", mkErr),
 				})
-			}
-		}
-
-		// Not auto-approved: use the gate executor
-		if decision == nil {
-			gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, e.gateHandler)
-			var err error
-			decision, err = gate.ExecuteWithDecision(ctx, step.Gate, nil)
-			if err != nil {
-				execution.mu.Lock()
-				execution.States[step.ID] = StateFailed
-				execution.mu.Unlock()
-				if e.store != nil {
-					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-				}
-				return &StepError{StepID: step.ID, Err: err}
-			}
-		}
-
-		// Check for abort decision (target = "_fail")
-		if decision != nil && decision.Target == "_fail" {
-			execution.mu.Lock()
-			execution.States[step.ID] = StateFailed
-			execution.mu.Unlock()
-			if e.store != nil {
-				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, "gate aborted")
-			}
-			return &StepError{
-				StepID: step.ID,
-				Err:    &GateAbortError{StepID: step.ID, Choice: decision.Choice},
-			}
-		}
-
-		// Check for revision routing (target references a previous step)
-		if decision != nil && decision.Target != "" {
-			var targetStep *Step
-			for i := range execution.Pipeline.Steps {
-				if execution.Pipeline.Steps[i].ID == decision.Target {
-					targetStep = &execution.Pipeline.Steps[i]
-					break
-				}
-			}
-			if targetStep != nil {
+			} else if writeErr := os.WriteFile(artifactPath, []byte(decision.Text), 0644); writeErr != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
-					State:      event.StateGateResolved,
-					Message:    fmt.Sprintf("gate routing to step %q for revision", decision.Target),
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to write gate freeform text artifact: %v", writeErr),
 				})
-				// Re-execute the target step
-				if err := e.executeStep(ctx, execution, targetStep); err != nil {
-					return err
-				}
-				// Loop back to re-evaluate the gate
-				continue
 			}
 		}
-
-		// Store gate decision in pipeline context
-		if decision != nil && execution.Context != nil {
-			execution.Context.SetGateDecision(step.ID, decision)
-		}
-
-		break
 	}
 
 	execution.mu.Lock()
@@ -4209,7 +4303,96 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 		Message:    "gate step completed",
 	})
 
+	// Handle choice routing
+	if decision != nil && decision.Target == "_fail" {
+		return &GateAbortError{StepID: step.ID, Choice: decision.Label}
+	}
+
+	// If the target is a step ID that has already been completed, re-queue it
+	// (revision loop pattern). If the target is a pending/future step, just
+	// continue normal DAG flow — the scheduler will reach it naturally.
+	if decision != nil && decision.Target != "" && decision.Target != "_fail" {
+		execution.mu.Lock()
+		targetState := execution.States[decision.Target]
+		execution.mu.Unlock()
+
+		if targetState == StateCompleted || targetState == StateFailed || targetState == StateSkipped {
+			return e.reQueueStep(execution, decision.Target)
+		}
+		// Target is pending/running — normal flow continues
+	}
+
 	return nil
+}
+
+// reQueueStep resets a step and all its dependents to pending state,
+// allowing the main loop to re-execute them. This implements the revision loop pattern.
+func (e *DefaultPipelineExecutor) reQueueStep(execution *PipelineExecution, targetStepID string) error {
+	pipelineID := execution.Status.ID
+
+	// Find the target step
+	var targetStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == targetStepID {
+			targetStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if targetStep == nil {
+		return fmt.Errorf("gate routing: target step %q not found in pipeline", targetStepID)
+	}
+
+	// Reset the target step and all steps that depend on it (transitively)
+	toReset := map[string]bool{targetStepID: true}
+	changed := true
+	for changed {
+		changed = false
+		for i := range execution.Pipeline.Steps {
+			s := &execution.Pipeline.Steps[i]
+			if toReset[s.ID] {
+				continue
+			}
+			for _, dep := range s.Dependencies {
+				if toReset[dep] {
+					toReset[s.ID] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+
+	execution.mu.Lock()
+	for stepID := range toReset {
+		execution.States[stepID] = StatePending
+	}
+	execution.mu.Unlock()
+
+	for stepID := range toReset {
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, stepID, state.StatePending, "re-queued by gate routing")
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     stepID,
+			State:      StatePending,
+			Message:    fmt.Sprintf("re-queued by gate routing to %q", targetStepID),
+		})
+	}
+
+	return &ReQueueError{TargetStepID: targetStepID, ResetSteps: toReset}
+}
+
+// ReQueueError signals that steps have been re-queued via gate routing.
+// The main executor loop should handle this by re-entering the scheduling loop.
+type ReQueueError struct {
+	TargetStepID string
+	ResetSteps   map[string]bool
+}
+
+func (e *ReQueueError) Error() string {
+	return fmt.Sprintf("gate routing: re-queued step %q and %d dependents", e.TargetStepID, len(e.ResetSteps)-1)
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
