@@ -12,8 +12,8 @@ import (
 // pendingGate holds the state for a gate that is waiting for a human decision
 // via the WebUI HTTP endpoint.
 type pendingGate struct {
-	Gate     *pipeline.GateConfig
 	StepID   string // step this gate belongs to (for URL verification)
+	Gate     *pipeline.GateConfig
 	Response chan *pipeline.GateDecision
 }
 
@@ -34,33 +34,32 @@ func NewGateRegistry() *GateRegistry {
 
 // Register stores a pending gate for the given run and returns a channel
 // that will receive the decision when it arrives from the HTTP endpoint.
-// stepID identifies which pipeline step owns this gate (used by the HTTP
-// handler to reject requests targeting the wrong step).
 func (r *GateRegistry) Register(runID, stepID string, gate *pipeline.GateConfig) chan *pipeline.GateDecision {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	ch := make(chan *pipeline.GateDecision, 1)
 	r.pending[runID] = &pendingGate{
-		Gate:     gate,
 		StepID:   stepID,
+		Gate:     gate,
 		Response: ch,
 	}
 	return ch
 }
 
 // Resolve sends a decision to the pending gate for the given run.
-// Returns an error if no gate is pending for that run.
+// Returns an error if no gate is pending for that run. The send is
+// performed under the lock to prevent a concurrent Remove() from
+// racing between the map deletion and the channel send.
 func (r *GateRegistry) Resolve(runID string, decision *pipeline.GateDecision) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	pg, ok := r.pending[runID]
 	if !ok {
-		r.mu.Unlock()
 		return fmt.Errorf("no pending gate for run %q", runID)
 	}
 	delete(r.pending, runID)
-	r.mu.Unlock()
-
 	pg.Response <- decision
 	return nil
 }
@@ -76,8 +75,7 @@ func (r *GateRegistry) GetPending(runID string) *pipeline.GateConfig {
 	return nil
 }
 
-// GetPendingStepID returns the step ID associated with the pending gate for a
-// run. Returns "" if no gate is pending.
+// GetPendingStepID returns the step ID of the pending gate for a run, or empty string.
 func (r *GateRegistry) GetPendingStepID(runID string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()

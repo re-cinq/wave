@@ -30,18 +30,18 @@ const (
 	OnFailureRetry    = "retry"
 )
 
+// Fidelity constants control how much prior thread context a step receives.
+const (
+	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
+	FidelityCompact = "compact" // Step ID + status + truncated content summary
+	FidelitySummary = "summary" // LLM-generated summary via relay CompactionAdapter
+	FidelityFresh   = "fresh"   // No prior context (default when no thread)
+)
+
 // Step type constants for graph-mode pipelines.
 const (
 	StepTypeConditional = "conditional"
 	StepTypeCommand     = "command"
-)
-
-// Fidelity level constants for thread conversation continuity.
-const (
-	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
-	FidelityCompact = "compact" // Structured summary: step ID, status, key outcomes
-	FidelitySummary = "summary" // LLM-generated summary of prior conversation
-	FidelityFresh   = "fresh"   // No prior context (default when no thread)
 )
 
 type Pipeline struct {
@@ -272,10 +272,8 @@ type EdgeConfig struct {
 type Step struct {
 	ID                  string           `yaml:"id"`
 	Persona             string           `yaml:"persona"`
-	Thread   string `yaml:"thread,omitempty"`   // Thread group name for conversation continuity
-	Fidelity string `yaml:"fidelity,omitempty"` // Context density: full, compact, summary, fresh
-	Model           string           `yaml:"model,omitempty"`    // Override model for this step
-	Adapter         string           `yaml:"adapter,omitempty"`  // Override adapter for this step
+	Adapter             string           `yaml:"adapter,omitempty"`  // Step-level adapter override (e.g., "codex", "gemini")
+	Model               string           `yaml:"model,omitempty"`   // Step-level model override (e.g., "claude-haiku-4-5")
 	Dependencies        []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
 	Optional            bool             `yaml:"optional,omitempty"`
@@ -298,12 +296,18 @@ type Step struct {
 	MaxVisits int          `yaml:"max_visits,omitempty"` // Max times this step can be visited in a loop (default 10)
 	Script    string       `yaml:"script,omitempty"`     // Shell script for command steps
 
+	// Thread conversation continuity — steps sharing the same thread value
+	// participate in a conversation thread, receiving prior step transcripts.
+	Thread   string `yaml:"thread,omitempty"`   // Thread group ID (opt-in; empty = fresh memory)
+	Fidelity string `yaml:"fidelity,omitempty"` // Context fidelity: full, compact, summary, fresh
+
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`
 
 	// Composition primitives
 	SubPipeline string           `yaml:"pipeline,omitempty"`  // Child pipeline to execute
-	SubInput    string           `yaml:"input,omitempty"`     // Input template for child pipeline
+	SubInput    string              `yaml:"input,omitempty"`        // Input template for child pipeline
+	Config      *SubPipelineConfig  `yaml:"config,omitempty"`       // Sub-pipeline configuration (artifact flow, lifecycle)
 	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`   // Iteration over items
 	Branch      *BranchConfig    `yaml:"branch,omitempty"`    // Conditional branching
 	Gate        *GateConfig      `yaml:"gate,omitempty"`      // Approval/timer/merge gates
@@ -314,6 +318,18 @@ type Step struct {
 // IsOptional returns whether this step is marked as optional.
 func (s *Step) IsOptional() bool {
 	return s.Optional
+}
+
+// EffectiveFidelity returns the fidelity level for this step.
+// Defaults to "full" when thread is set, "fresh" when no thread.
+func (s *Step) EffectiveFidelity() string {
+	if s.Fidelity != "" {
+		return s.Fidelity
+	}
+	if s.Thread != "" {
+		return FidelityFull
+	}
+	return FidelityFresh
 }
 
 // GetTimeout returns the step-level timeout duration.
@@ -610,6 +626,42 @@ type AggregateConfig struct {
 	From     string `yaml:"from"`     // Template expression for source data
 	Into     string `yaml:"into"`     // Output file path
 	Strategy string `yaml:"strategy"` // "merge_arrays", "concat", "reduce"
+}
+
+type SubPipelineConfig struct {
+	Inject        []string `yaml:"inject,omitempty"`         // Parent artifact names to inject into child
+	Extract       []string `yaml:"extract,omitempty"`        // Child artifact names to extract back to parent
+	Timeout       string   `yaml:"timeout,omitempty"`        // Hard timeout for child execution (e.g. "3600s")
+	MaxCycles     int      `yaml:"max_cycles,omitempty"`     // Max iterations for child loop steps
+	StopCondition string   `yaml:"stop_condition,omitempty"` // Template expression for early termination
+}
+
+// Validate checks that the SubPipelineConfig is well-formed.
+func (c *SubPipelineConfig) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if c.Timeout != "" {
+		if _, err := time.ParseDuration(c.Timeout); err != nil {
+			return fmt.Errorf("invalid timeout %q: %w", c.Timeout, err)
+		}
+	}
+	if c.MaxCycles < 0 {
+		return fmt.Errorf("max_cycles must be >= 0, got %d", c.MaxCycles)
+	}
+	return nil
+}
+
+// ParseTimeout returns the parsed timeout duration, or zero if not set.
+func (c *SubPipelineConfig) ParseTimeout() time.Duration {
+	if c == nil || c.Timeout == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return 0
+	}
+	return d
 }
 
 // PipelineOutput defines a named output alias for a pipeline.

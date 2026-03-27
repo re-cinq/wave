@@ -1,39 +1,31 @@
 # Tasks
 
-## Phase 1: Schema Extension
-
-- [X] Task 1.1: Add `Thread` and `Fidelity` fields to `Step` struct in `internal/pipeline/types.go`
-- [X] Task 1.2: Add fidelity level constants (`FidelityFull`, `FidelityCompact`, `FidelitySummary`, `FidelityFresh`) in `internal/pipeline/types.go`
-- [X] Task 1.3: Add `ThreadTranscripts` field to `PipelineExecution` struct in `internal/pipeline/executor.go`
+## Phase 1: Schema & Types
+- [X] Task 1.1: Add fidelity constants to `internal/pipeline/types.go` — `FidelityFull`, `FidelityCompact`, `FidelitySummary`, `FidelityFresh`
+- [X] Task 1.2: Add `Thread` and `Fidelity` fields to the `Step` struct in `internal/pipeline/types.go`
+- [X] Task 1.3: Add validation for `Thread` and `Fidelity` fields in `internal/pipeline/validation.go` — reject unknown fidelity values, warn on fidelity without thread
 
 ## Phase 2: Core Implementation
-
-- [X] Task 2.1: Create `internal/pipeline/thread.go` — `ThreadManager` with `AppendTranscript()`, `GetTranscript()`, `FormatPreamble()` methods
-- [X] Task 2.2: Implement fidelity-based formatting in `ThreadManager`: `full` returns raw transcript, `compact` returns structured summary with step goals/outcomes, `fresh` returns empty string
-- [X] Task 2.3: Implement transcript size cap with oldest-first truncation (default 100K chars)
-- [X] Task 2.4: Implement `summary` fidelity using `relay.CompactionAdapter` interface for LLM-generated summary
+- [X] Task 2.1: Create `internal/pipeline/thread.go` with `ThreadManager` struct — `ThreadEntry` type, `NewThreadManager()`, `AppendTranscript()`, `GetTranscript()` [P]
+- [X] Task 2.2: Implement `formatFull()` — verbatim transcript with step attribution headers [P]
+- [X] Task 2.3: Implement `formatCompact()` — step ID + status + truncated content (first 500 chars) [P]
+- [X] Task 2.4: Implement `formatSummary()` — delegate to relay `CompactionAdapter.RunCompaction()` with fallback to compact [P]
+- [X] Task 2.5: Implement transcript size cap — trim oldest entries when total exceeds `maxTranscriptSize` (100k chars)
 
 ## Phase 3: Executor Integration
+- [X] Task 3.1: Add `ThreadManager` field to `PipelineExecution` struct in `executor.go`
+- [X] Task 3.2: In `buildStepPrompt()`, call `ThreadManager.GetTranscript()` and prepend result to prompt when `step.Thread != ""`
+- [X] Task 3.3: After successful step execution in `runStepExecution()`, call `ThreadManager.AppendTranscript()` with step's `ResultContent`
+- [X] Task 3.4: Initialize `ThreadManager` in the `Execute()` method when creating `PipelineExecution`
 
-- [X] Task 3.1: Initialize `ThreadTranscripts` map in `PipelineExecution` creation (`Execute()` method)
-- [X] Task 3.2: In `runStepExecution()`, before adapter call: check `step.Thread`, retrieve transcript via `ThreadManager.GetTranscript()`, prepend to prompt
-- [X] Task 3.3: In `runStepExecution()`, after adapter call: if `step.Thread` is set, capture stdout and append to thread transcript via `ThreadManager.AppendTranscript()`
-- [X] Task 3.4: Thread transcript preamble format: `## Prior Conversation Context (thread: <name>)` section with step-attributed entries
+## Phase 4: Testing
+- [X] Task 4.1: Write unit tests for `ThreadManager` — creation, append, get transcript for each fidelity level, cap enforcement (`internal/pipeline/thread_test.go`) [P]
+- [X] Task 4.2: Write validation tests for thread/fidelity field validation (`internal/pipeline/validation_test.go`) [P]
+- [X] Task 4.3: Write integration test — two-step thread sharing, thread isolation, no-thread=fresh behavior (`internal/pipeline/executor_test.go`)
+- [X] Task 4.4: Run `go test ./...` and fix any failures
+- [X] Task 4.5: Run `go test -race ./...` and fix any data race issues
 
-## Phase 4: Validation
-
-- [X] Task 4.1: Add validation rule: steps in the same thread group must have a dependency chain (cannot be concurrent) [P]
-- [X] Task 4.2: Add validation warning: steps in the same thread group with different personas [P]
-- [X] Task 4.3: Validate `fidelity` field values (must be one of: full, compact, summary, fresh) [P]
-
-## Phase 5: Testing
-
-- [X] Task 5.1: Create `internal/pipeline/thread_test.go` — unit tests for ThreadManager (append, retrieve, fidelity formatting, size cap, isolation)
-- [X] Task 5.2: Add thread field coverage to `dryrun_test.go` and `template_test.go` [P] — covered in dag_test.go and executor_test.go
-- [X] Task 5.3: Add executor integration test: threaded steps with mock adapter, verify transcript in prompt [P]
-- [X] Task 5.4: Add validation tests: concurrent thread steps rejected, fidelity field validation [P]
-
-## Phase 6: Polish
-
-- [X] Task 6.1: Run `go test ./...` and `go test -race ./...` — fix any failures
-- [X] Task 6.2: Run `golangci-lint run ./...` — fix any lint issues
+## Phase 5: Polish
+- [X] Task 5.1: Add thread-related trace events in executor for observability (`thread_inject`, `thread_append`)
+- [X] Task 5.2: Run `golangci-lint run ./...` and fix any findings
+- [X] Task 5.3: Final validation — verify all acceptance criteria from spec are met

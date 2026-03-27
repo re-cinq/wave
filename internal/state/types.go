@@ -4,19 +4,34 @@ import "time"
 
 // RunRecord holds a pipeline run record.
 type RunRecord struct {
-	RunID        string
-	PipelineName string
-	Status       string
-	Input        string
-	CurrentStep  string
-	TotalTokens  int
-	StartedAt    time.Time
-	CompletedAt  *time.Time
-	CancelledAt  *time.Time
-	ErrorMessage string
-	Tags         []string // Tags for categorization and filtering
-	BranchName   string   // Worktree branch for this run
-	PID          int      // OS process ID of the detached executor (0 = unknown/in-process)
+	RunID           string
+	PipelineName    string
+	Status          string
+	Input           string
+	CurrentStep     string
+	TotalTokens     int
+	StartedAt       time.Time
+	CompletedAt     *time.Time
+	CancelledAt     *time.Time
+	ErrorMessage    string
+	Tags            []string // Tags for categorization and filtering
+	BranchName      string   // Worktree branch for this run
+	PID             int      // OS process ID of the detached executor (0 = unknown/in-process)
+	ParentRunID     string   // Parent pipeline run ID (empty for top-level runs)
+	ParentStepID    string   // Step ID in parent pipeline that launched this child run
+	ForkedFromRunID string   // Run ID this was forked from (empty if not a fork)
+}
+
+// CheckpointRecord holds checkpoint data at a step boundary for fork/rewind.
+type CheckpointRecord struct {
+	ID                 int64
+	RunID              string
+	StepID             string
+	StepIndex          int
+	WorkspacePath      string
+	WorkspaceCommitSHA string // Git HEAD SHA for worktree workspaces (empty for non-worktree)
+	ArtifactSnapshot   string // JSON map of "stepID:name" -> path for all artifacts at this point
+	CreatedAt          time.Time
 }
 
 // ListRunsOptions specifies filters for listing runs.
@@ -204,4 +219,15 @@ type OntologyStats struct {
 	Failures    int
 	SuccessRate float64
 	LastUsed    time.Time
+}
+
+// RetrospectiveRecord holds metadata for a stored retrospective.
+type RetrospectiveRecord struct {
+	ID           int64
+	RunID        string
+	PipelineName string
+	Smoothness   string
+	Status       string // "quantitative", "complete" (has narrative)
+	FilePath     string
+	CreatedAt    time.Time
 }

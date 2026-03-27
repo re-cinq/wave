@@ -1,15 +1,15 @@
-# Step Conversation Continuity via Thread IDs for Fix Loops
+# feat: step conversation continuity via thread IDs for fix loops
 
 **Issue**: [re-cinq/wave#583](https://github.com/re-cinq/wave/issues/583)
 **Labels**: enhancement
 **Author**: nextlevelshit
-**Complexity**: complex
+**State**: OPEN
 
 ## Context
 
-Fabro supports thread IDs where nodes sharing a `thread_id` participate in the same conversation thread. Combined with `fidelity="full"`, this preserves full conversation history across multiple nodes. This is critical for fix loops where the fixer needs to see what the implementer did and what tests failed.
+Fabro supports **thread IDs** — nodes sharing a `thread_id` participate in the same conversation thread. Combined with `fidelity="full"`, this preserves full conversation history across multiple nodes. This is critical for fix loops where the fixer needs to see what the implementer did and what tests failed.
 
-Wave currently enforces strict fresh memory at every step boundary — no chat history inheritance, only explicit artifacts. While this is a security strength, it creates a blind spot for fix loops where conversation continuity dramatically improves fix quality.
+Wave currently enforces **strict fresh memory** at every step boundary — no chat history inheritance, only explicit artifacts. While this is a security strength, it creates a blind spot for fix loops where conversation continuity dramatically improves fix quality.
 
 ## Design Goals — Best of Both Worlds
 
@@ -77,14 +77,35 @@ Fidelity levels:
 - Persona permissions still enforced per-step even within a thread
 - Contract validation still runs at step boundaries
 
+## What Wave Keeps
+
+- **Fresh memory by default** — the security-first default remains
+- **Per-step persona isolation** — personas switch even within a thread
+- **Contract validation at boundaries** — threaded steps still validate outputs
+
+## What Wave Gains
+
+- **Fix loop effectiveness** — fixer sees full context of what was implemented and what failed
+- **Conversation continuity** — multi-step workflows feel like a continuous session when needed
+- **Flexible context density** — fidelity controls let pipeline authors tune memory vs. isolation
+
+## Implementation Scope
+
+1. Add `thread` and `fidelity` fields to step manifest schema
+2. Thread manager in executor — tracks conversation transcripts per thread group
+3. Context injection for thread continuation (adapter-specific)
+4. Fidelity-based preamble generation
+5. Tests for thread isolation boundaries
+
 ## Acceptance Criteria
 
-1. Steps can declare `thread: <group-name>` in pipeline YAML to join a conversation thread
-2. Steps in the same thread group receive prior conversation context based on fidelity level
-3. Default behavior (no `thread` field) remains fresh memory — no breaking change
-4. Thread groups are scoped to a single pipeline run
-5. Persona permissions and contract validation remain enforced at step boundaries
-6. The `fidelity` field controls context density: `full`, `compact`, `summary`, `fresh`
-7. Adapters that don't support native session continuation fall back to transcript injection
-8. Thread state is captured in `PipelineExecution` for resume support
-9. Comprehensive tests cover thread isolation, fidelity levels, and security boundaries
+- [ ] Steps with matching `thread` values share conversation context
+- [ ] Steps without `thread` retain fresh-memory behavior (no regression)
+- [ ] Fidelity levels (`full`, `compact`, `summary`, `fresh`) work as specified
+- [ ] Thread groups are scoped to single pipeline runs
+- [ ] Persona permissions are still enforced per-step within threads
+- [ ] Contract validation still runs at step boundaries for threaded steps
+- [ ] `summary` fidelity uses the relay compaction system for LLM summarization
+- [ ] Thread transcripts are capped to prevent unbounded memory growth
+- [ ] Existing tests pass (`go test ./...`)
+- [ ] New tests cover thread creation, transcript append, fidelity formatting, and isolation

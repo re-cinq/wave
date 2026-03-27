@@ -4,191 +4,159 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/relay"
 )
 
-// InputSanitizer is a minimal interface for prompt injection sanitization.
-// Matches security.InputSanitizer.SanitizeInput signature.
-type InputSanitizer interface {
-	SanitizeInput(input string, inputType string) (interface{}, string, error)
-}
+// defaultMaxTranscriptSize is the maximum number of characters per thread transcript.
+// When exceeded, oldest entries are trimmed. ~25k tokens at 4 chars/token.
+const defaultMaxTranscriptSize = 100_000
 
-// DefaultMaxTranscriptSize is the maximum number of characters stored per thread group.
-// When exceeded, oldest entries are truncated first.
-const DefaultMaxTranscriptSize = 100_000
+// compactTruncateLen is the max chars of content shown per entry in compact fidelity.
+const compactTruncateLen = 500
 
-// ThreadEntry holds a single step's contribution to a thread conversation.
+// ThreadEntry represents one step's contribution to a thread transcript.
 type ThreadEntry struct {
-	StepID    string    `json:"step_id"`
-	Timestamp time.Time `json:"timestamp"`
-	Content   string    `json:"content"`
+	StepID    string
+	Timestamp time.Time
+	Content   string
 }
 
-// ThreadManager manages conversation transcripts for thread groups within a pipeline execution.
+// ThreadManager manages per-thread-group conversation transcripts within a
+// single pipeline execution. It stores step output transcripts and formats
+// them according to the requested fidelity level.
 type ThreadManager struct {
-	execution        *PipelineExecution
+	mu                sync.RWMutex
+	transcripts       map[string][]ThreadEntry // threadID -> ordered entries
 	maxTranscriptSize int
-	compactor        relay.CompactionAdapter
-	sanitizer        InputSanitizer
+	compactionAdapter relay.CompactionAdapter // for summary fidelity (may be nil)
 }
 
-// NewThreadManager creates a ThreadManager for the given execution.
-// compactor may be nil — summary fidelity falls back to compact if unavailable.
-// sanitizer may be nil — transcript content will not be sanitized.
-func NewThreadManager(execution *PipelineExecution, compactor relay.CompactionAdapter, sanitizer ...InputSanitizer) *ThreadManager {
-	tm := &ThreadManager{
-		execution:        execution,
-		maxTranscriptSize: DefaultMaxTranscriptSize,
-		compactor:        compactor,
+// NewThreadManager creates a ThreadManager with the given compaction adapter
+// (used for "summary" fidelity). The adapter may be nil — summary fidelity
+// will fall back to compact.
+func NewThreadManager(adapter relay.CompactionAdapter) *ThreadManager {
+	return &ThreadManager{
+		transcripts:       make(map[string][]ThreadEntry),
+		maxTranscriptSize: defaultMaxTranscriptSize,
+		compactionAdapter: adapter,
 	}
-	if len(sanitizer) > 0 {
-		tm.sanitizer = sanitizer[0]
-	}
-	return tm
 }
 
-// AppendTranscript adds a step's output to the thread group transcript.
-// If the total transcript size exceeds the cap, oldest entries are removed.
-func (tm *ThreadManager) AppendTranscript(threadGroup, stepID, content string) {
-	tm.execution.mu.Lock()
-	defer tm.execution.mu.Unlock()
-
-	// Sanitize transcript content to prevent prompt injection across thread boundaries.
-	// Thread transcripts carry prior step output into future step prompts, so any
-	// embedded instructions could manipulate downstream personas.
-	if tm.sanitizer != nil {
-		_, sanitized, err := tm.sanitizer.SanitizeInput(content, "thread_transcript")
-		if err == nil {
-			content = sanitized
-		}
-	}
+// AppendTranscript adds a step's output to a thread group's transcript.
+// If the resulting transcript exceeds the size cap, oldest entries are trimmed.
+func (tm *ThreadManager) AppendTranscript(threadID, stepID string, content string) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
 
 	entry := ThreadEntry{
 		StepID:    stepID,
 		Timestamp: time.Now(),
 		Content:   content,
 	}
-
-	tm.execution.ThreadTranscripts[threadGroup] = append(
-		tm.execution.ThreadTranscripts[threadGroup], entry,
-	)
-
-	// Enforce size cap — remove oldest entries until under limit
-	tm.truncateLocked(threadGroup)
+	tm.transcripts[threadID] = append(tm.transcripts[threadID], entry)
+	tm.enforceCapLocked(threadID)
 }
 
-// GetTranscript returns the formatted transcript for a thread group based on fidelity level.
-// Returns empty string if the thread group has no entries or fidelity is "fresh".
-func (tm *ThreadManager) GetTranscript(ctx context.Context, threadGroup, fidelity string) (string, error) {
-	tm.execution.mu.Lock()
-	entries := tm.execution.ThreadTranscripts[threadGroup]
-	// Copy entries under lock to avoid holding lock during formatting
-	entriesCopy := make([]ThreadEntry, len(entries))
-	copy(entriesCopy, entries)
-	tm.execution.mu.Unlock()
-
-	if len(entriesCopy) == 0 {
-		return "", nil
+// GetTranscript returns the formatted transcript for a thread group at the
+// given fidelity level. Returns empty string for unknown threads or fresh fidelity.
+func (tm *ThreadManager) GetTranscript(ctx context.Context, threadID, fidelity string) string {
+	if fidelity == FidelityFresh {
+		return ""
 	}
 
-	// Default to full fidelity when thread is set but fidelity is empty
-	if fidelity == "" {
-		fidelity = FidelityFull
+	tm.mu.RLock()
+	entries := tm.transcripts[threadID]
+	tm.mu.RUnlock()
+
+	if len(entries) == 0 {
+		return ""
 	}
 
-	return tm.FormatPreamble(ctx, threadGroup, entriesCopy, fidelity)
-}
-
-// FormatPreamble transforms transcript entries into a fidelity-appropriate preamble string.
-func (tm *ThreadManager) FormatPreamble(ctx context.Context, threadGroup string, entries []ThreadEntry, fidelity string) (string, error) {
 	switch fidelity {
-	case FidelityFresh:
-		return "", nil
-
+	case FidelityFull:
+		return tm.formatFull(entries)
 	case FidelityCompact:
-		return tm.formatCompact(threadGroup, entries), nil
-
+		return tm.formatCompact(entries)
 	case FidelitySummary:
-		return tm.formatSummary(ctx, threadGroup, entries)
-
-	case FidelityFull, "":
-		return tm.formatFull(threadGroup, entries), nil
-
+		return tm.formatSummary(ctx, entries)
 	default:
-		return "", fmt.Errorf("unknown fidelity level: %q", fidelity)
+		return tm.formatFull(entries)
 	}
 }
 
-// formatFull returns all transcript entries verbatim with step attribution headers.
-func (tm *ThreadManager) formatFull(threadGroup string, entries []ThreadEntry) string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## Prior Conversation Context (thread: %s)\n\n", threadGroup))
-	for _, entry := range entries {
-		b.WriteString(fmt.Sprintf("### Step: %s\n\n", entry.StepID))
-		b.WriteString(entry.Content)
-		b.WriteString("\n\n")
+// ThreadSize returns the total character count for a thread's transcript.
+func (tm *ThreadManager) ThreadSize(threadID string) int {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+	total := 0
+	for _, entry := range tm.transcripts[threadID] {
+		total += len(entry.Content)
 	}
-	return b.String()
+	return total
 }
 
-// formatCompact returns a structured summary with step ID and truncated content.
-func (tm *ThreadManager) formatCompact(threadGroup string, entries []ThreadEntry) string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## Prior Conversation Context (thread: %s) [compact]\n\n", threadGroup))
+// formatFull returns verbatim transcript entries with step attribution headers.
+func (tm *ThreadManager) formatFull(entries []ThreadEntry) string {
+	var sb strings.Builder
 	for _, entry := range entries {
-		b.WriteString(fmt.Sprintf("### Step: %s\n\n", entry.StepID))
-		// Truncate content to first 500 chars for compact view
+		fmt.Fprintf(&sb, "## Step: %s at %s\n\n", entry.StepID, entry.Timestamp.Format(time.RFC3339))
+		sb.WriteString(entry.Content)
+		sb.WriteString("\n\n")
+	}
+	return sb.String()
+}
+
+// formatCompact returns step ID + truncated content for each entry.
+func (tm *ThreadManager) formatCompact(entries []ThreadEntry) string {
+	var sb strings.Builder
+	for _, entry := range entries {
 		content := entry.Content
-		if len(content) > 500 {
-			content = content[:500] + "\n... (truncated)"
+		if len(content) > compactTruncateLen {
+			content = content[:compactTruncateLen] + "..."
 		}
-		b.WriteString(content)
-		b.WriteString("\n\n")
+		fmt.Fprintf(&sb, "### %s (completed)\n%s\n\n", entry.StepID, content)
 	}
-	return b.String()
+	return sb.String()
 }
 
-// formatSummary uses relay CompactionAdapter to LLM-summarize the transcript.
-// Falls back to compact if no compactor is available.
-func (tm *ThreadManager) formatSummary(ctx context.Context, threadGroup string, entries []ThreadEntry) (string, error) {
-	if tm.compactor == nil {
-		return tm.formatCompact(threadGroup, entries), nil
+// formatSummary delegates to the relay CompactionAdapter for LLM-generated
+// summarization. Falls back to formatCompact on error or when no adapter is set.
+func (tm *ThreadManager) formatSummary(ctx context.Context, entries []ThreadEntry) string {
+	if tm.compactionAdapter == nil {
+		return tm.formatCompact(entries)
 	}
 
-	// Build full transcript for summarization
-	fullText := tm.formatFull(threadGroup, entries)
+	// Build full transcript for compaction input
+	fullTranscript := tm.formatFull(entries)
 
-	summary, err := tm.compactor.RunCompaction(ctx, relay.CompactionConfig{
-		ChatHistory:   fullText,
-		CompactPrompt: "Summarize the following conversation transcript from a multi-step pipeline execution. Focus on: what was done, key decisions, outcomes, and any errors encountered. Be concise.",
+	result, err := tm.compactionAdapter.RunCompaction(ctx, relay.CompactionConfig{
+		ChatHistory:   fullTranscript,
+		SystemPrompt:  "Summarize the following conversation transcript from a multi-step pipeline execution. Focus on key decisions, actions taken, errors encountered, and current state. Be concise.",
+		CompactPrompt: "Provide a structured summary of the conversation so far.",
+		Timeout:       60 * time.Second,
 	})
 	if err != nil {
 		// Fall back to compact on compaction failure
-		return tm.formatCompact(threadGroup, entries), nil
+		return tm.formatCompact(entries)
 	}
-
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## Prior Conversation Context (thread: %s) [summary]\n\n", threadGroup))
-	b.WriteString(summary)
-	b.WriteString("\n\n")
-	return b.String(), nil
+	return result
 }
 
-// truncateLocked removes oldest entries from a thread group until the total content size
-// is within the max transcript size. Must be called with execution.mu held.
-func (tm *ThreadManager) truncateLocked(threadGroup string) {
-	entries := tm.execution.ThreadTranscripts[threadGroup]
+// enforceCapLocked trims the oldest entries from a thread when the total size
+// exceeds maxTranscriptSize. Must be called with tm.mu held.
+func (tm *ThreadManager) enforceCapLocked(threadID string) {
+	entries := tm.transcripts[threadID]
 	totalSize := 0
-	for _, e := range entries {
-		totalSize += len(e.Content)
+	for _, entry := range entries {
+		totalSize += len(entry.Content)
 	}
 
 	for totalSize > tm.maxTranscriptSize && len(entries) > 1 {
 		totalSize -= len(entries[0].Content)
 		entries = entries[1:]
 	}
-
-	tm.execution.ThreadTranscripts[threadGroup] = entries
+	tm.transcripts[threadID] = entries
 }

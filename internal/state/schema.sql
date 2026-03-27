@@ -205,3 +205,22 @@ CREATE TABLE IF NOT EXISTS step_attempt (
 
 CREATE INDEX IF NOT EXISTS idx_attempt_run ON step_attempt(run_id);
 CREATE INDEX IF NOT EXISTS idx_attempt_step ON step_attempt(step_id);
+
+-- =============================================================================
+-- Checkpoint Table (fork/rewind support)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS checkpoint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    step_index INTEGER NOT NULL,
+    workspace_path TEXT NOT NULL DEFAULT '',
+    workspace_commit_sha TEXT DEFAULT '',
+    artifact_snapshot TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoint_run ON checkpoint(run_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checkpoint_run_step ON checkpoint(run_id, step_id);

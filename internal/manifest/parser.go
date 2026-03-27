@@ -187,6 +187,63 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, hookErrs...)
 	}
 
+	if retroErrs := validateRetros(&m.Runtime.Retros, filePath); len(retroErrs) > 0 {
+		errs = append(errs, retroErrs...)
+	}
+
+	if fallbackErrs := validateFallbackNames(m.Runtime.Fallbacks, filePath); len(fallbackErrs) > 0 {
+		errs = append(errs, fallbackErrs...)
+	}
+
+	return errs
+}
+
+// validateRetros checks that retros configuration is valid.
+func validateRetros(c *RetrosConfig, filePath string) []error {
+	if c == nil {
+		return nil
+	}
+	var errs []error
+	if c.NarrateModel != "" {
+		// Basic validation: model name should be non-empty and reasonable
+		if len(c.NarrateModel) > 100 {
+			err := &ValidationError{
+				Field:      "runtime.retros.narrate_model",
+				Reason:     "model name is too long",
+				Suggestion: "Use a valid model identifier like 'claude-haiku-4-5'",
+			}
+			if filePath != "" {
+				err.File = filePath
+			}
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}
+
+// validateFallbackNames checks that fallback chain provider names are non-empty.
+func validateFallbackNames(fallbacks map[string][]string, filePath string) []error {
+	var errs []error
+	for provider, chain := range fallbacks {
+		if strings.TrimSpace(provider) == "" {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      "runtime.fallbacks",
+				Reason:     "provider name must not be empty",
+				Suggestion: "Use a provider name like 'anthropic', 'openai', or 'gemini'",
+			})
+		}
+		for i, fallback := range chain {
+			if strings.TrimSpace(fallback) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      fmt.Sprintf("runtime.fallbacks.%s[%d]", provider, i),
+					Reason:     "fallback provider name must not be empty",
+					Suggestion: "Specify a valid provider name in the fallback chain",
+				})
+			}
+		}
+	}
 	return errs
 }
 

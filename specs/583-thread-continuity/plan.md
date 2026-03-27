@@ -1,127 +1,149 @@
-# Implementation Plan: Thread Continuity
+# Implementation Plan: Thread Conversation Continuity
 
-## Objective
+## 1. Objective
 
-Add opt-in conversation continuity to Wave's pipeline executor via `thread` and `fidelity` step attributes, enabling steps in the same thread group to share conversation context while preserving fresh-memory-by-default security.
+Add opt-in conversation continuity via thread groups to Wave steps, so that steps sharing a `thread` attribute can access prior conversation transcripts. This enables fix loops where the fixer sees what the implementer did and what failed, while preserving Wave's fresh-memory-by-default security model.
 
-## Approach
+## 2. Approach
 
-### Strategy: Transcript-Based Context Injection
+### Core Architecture
 
-After evaluating the codebase, the most robust approach is **transcript-based context injection** rather than Claude Code `--resume` sessions. Reasons:
+Introduce a **ThreadManager** that lives on `PipelineExecution` and manages per-thread-group conversation transcripts. The manager:
 
-1. **`--resume` is interactive-mode only** — Wave's pipeline adapter (`ClaudeAdapter.buildArgs`) explicitly uses `--no-session-persistence` and `-p` (non-interactive) mode. Session IDs are only captured in `interactive.go`, not the pipeline adapter.
-2. **Adapter-agnostic** — transcript injection works with any adapter (Claude, Gemini, mock), not just Claude Code.
-3. **Fidelity control** — transcript text can be sliced/summarized per fidelity level, whereas `--resume` is all-or-nothing.
-4. **Resume-safe** — transcripts stored in `PipelineExecution` survive state serialization; session IDs may not.
+1. After each step completes, captures its `ResultContent` and appends it to the thread transcript
+2. Before a threaded step executes, formats the prior transcript according to the step's fidelity level
+3. Prepends the formatted transcript to the step's prompt in `buildStepPrompt()`
 
-### Architecture
+This approach uses **prompt-level context injection** rather than Claude Code session continuation (`--continue`/`--resume`), because:
+- Wave uses `--no-session-persistence` — sessions are stateless by design
+- Prompt injection works across all adapter types (Claude, mock, process group)
+- It preserves the security model: each step still starts fresh, but sees prior context as prompt preamble
+- Fidelity control is straightforward: just change the formatting
 
-```
-Step execution flow (threaded step):
+### Fidelity Strategy
 
-1. Executor checks step.Thread != ""
-2. ThreadManager.GetTranscript(threadGroup, fidelity) returns prior context
-3. Transcript is prepended to the step's prompt as a structured preamble
-4. After execution, ThreadManager.AppendTranscript(threadGroup, stepID, stdout)
-5. Transcript stored in PipelineExecution for resume support
-```
+| Level | How it works | Token cost |
+|-------|-------------|------------|
+| `full` | Verbatim transcript with step attribution headers | High |
+| `compact` | Step ID + status + truncated content (first 500 chars per entry) | Medium |
+| `summary` | LLM-generated summary via relay `CompactionAdapter` | Low (one extra LLM call) |
+| `fresh` | No prior context (explicit opt-out within a thread) | Zero |
 
-### Key Components
+Default fidelity when `thread` is set: `full`. Default when no `thread`: `fresh` (unchanged behavior).
 
-1. **ThreadManager** — new component in `internal/pipeline/` that tracks conversation transcripts per thread group within a pipeline execution
-2. **Step schema extension** — `thread` and `fidelity` fields on `Step` struct
-3. **Executor integration** — transcript injection in `runStepExecution`, capture in result processing
-4. **Fidelity preamble generator** — transforms raw transcripts into fidelity-appropriate context
-5. **Validation** — DAG validation ensures thread groups are well-formed
+### Transcript Size Management
 
-## File Mapping
+- Cap transcript at configurable `maxTranscriptSize` (default 100,000 chars, ~25k tokens)
+- When full transcript exceeds cap, truncate oldest entries first
+- `summary` fidelity uses the existing relay `CompactionAdapter` to compress
+
+## 3. File Mapping
 
 ### New Files
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `internal/pipeline/thread.go` | `ThreadManager` — transcript storage, retrieval, fidelity-based formatting |
+| `internal/pipeline/thread.go` | `ThreadManager` struct, transcript storage, fidelity formatting |
 | `internal/pipeline/thread_test.go` | Unit tests for ThreadManager |
 
 ### Modified Files
 
-| File | Change |
+| Path | Change |
 |------|--------|
-| `internal/pipeline/types.go` | Add `Thread` and `Fidelity` fields to `Step` struct |
-| `internal/pipeline/executor.go` | Integrate ThreadManager: inject transcript before adapter call, capture stdout after |
-| `internal/pipeline/validation.go` | Validate thread group consistency (same workspace, persona compatibility) |
-| `internal/pipeline/dryrun_test.go` | Add thread field to dry-run validation tests |
-| `internal/pipeline/template_test.go` | Add thread field to template detection tests |
+| `internal/pipeline/types.go` | Add `Thread`, `Fidelity` fields to `Step` struct; add fidelity constants |
+| `internal/pipeline/executor.go` | Initialize ThreadManager on execution; call `GetTranscript()` in `buildStepPrompt()`; call `AppendTranscript()` after step completion |
+| `internal/pipeline/types_test.go` | Tests for fidelity validation if added to Step |
+| `internal/pipeline/validation.go` | Validate thread/fidelity values during pipeline validation |
+| `internal/pipeline/validation_test.go` | Tests for thread/fidelity validation |
 
-### Files NOT Modified
+### No Changes Needed
 
-| File | Reason |
-|------|--------|
-| `internal/adapter/adapter.go` | No changes to `AdapterRunConfig` — transcript is prepended to the prompt string, not a new config field |
-| `internal/adapter/claude.go` | No changes to CLI args — transcript flows through the existing prompt path |
-| `internal/relay/relay.go` | Relay compaction is orthogonal; `summary` fidelity uses the same `CompactionAdapter` interface but is invoked from ThreadManager, not relay |
+- `internal/adapter/` — adapters are unchanged; context injection happens at the prompt level
+- `internal/relay/` — reused as-is via `CompactionAdapter` interface for `summary` fidelity
+- `internal/state/` — thread transcripts are in-memory per execution, not persisted to SQLite
 
-## Architecture Decisions
+## 4. Architecture Decisions
 
-### AD-1: Transcript in prompt vs. system prompt
+### AD-1: Prompt injection over session continuation
 
-**Decision**: Prepend transcript to the **user prompt** (`-p` argument), not the system prompt.
+**Decision**: Prepend thread transcript to the step's `-p` prompt argument, not use Claude Code's `--continue`/`--resume`.
 
-**Rationale**: The system prompt is the persona's agent `.md` file built from 5 layers (base protocol, ontology, persona, contract, restrictions). Injecting conversation history there would violate the clean persona boundary. The user prompt is already where task context flows (input, artifacts, contract schema). A `## Prior Conversation Context` section at the top of the prompt is consistent with this pattern.
+**Rationale**:
+- Wave already uses `--no-session-persistence` (claude.go:396)
+- Prompt injection is adapter-agnostic — works with mock adapter for testing
+- Preserves security model: each invocation is independent
+- Fidelity levels map cleanly to different formatting functions
 
-### AD-2: Transcript storage location
+### AD-2: In-memory transcripts (not persisted)
 
-**Decision**: Store transcripts in a new `ThreadTranscripts map[string][]ThreadEntry` field on `PipelineExecution`.
+**Decision**: Store transcripts in `PipelineExecution.ThreadTranscripts` map, not in SQLite state.
 
-**Rationale**: `PipelineExecution` already holds all per-run state (Results, ArtifactPaths, WorkspacePaths, AttemptContexts). Thread transcripts are per-run state that must survive concurrent step access (already protected by `execution.mu`). This avoids a new persistence layer.
+**Rationale**:
+- Transcripts are only needed during a single pipeline run
+- Pipeline resume creates a new execution anyway (fresh transcripts)
+- Keeps implementation simple — no schema migration needed
+- Can add persistence later if resume-with-threads is needed
 
-### AD-3: Fidelity "summary" uses relay CompactionAdapter
+### AD-3: Reuse relay CompactionAdapter for summary fidelity
 
-**Decision**: The `summary` fidelity level reuses the existing `relay.CompactionAdapter` interface to LLM-summarize transcripts.
+**Decision**: The `summary` fidelity level calls `relay.CompactionAdapter.RunCompaction()` with the full transcript as chat history.
 
-**Rationale**: The relay package already has a battle-tested `RunCompaction()` path that spawns a summarizer with controlled tools (read-only) and low temperature (0.3). Building a parallel summarization path would be redundant.
+**Rationale**:
+- Existing compaction infrastructure handles LLM summarization
+- `CompactionConfig` already supports workspace path, chat history, system prompt, and timeout
+- Avoids building a parallel summarization system
 
-### AD-4: Thread validation is a warning, not a hard error
+### AD-4: ThreadManager as separate type
 
-**Decision**: Thread groups with mixed personas emit a **warning** but are allowed. Thread groups where steps have no shared workspace emit a **warning**.
+**Decision**: Create `ThreadManager` struct in `thread.go`, not add methods directly to executor.
 
-**Rationale**: The issue explicitly states persona permissions are enforced per-step even within a thread. Mixed personas in a thread are unusual but valid (e.g., implement → review where the reviewer sees what was done). Blocking this would be overly restrictive.
+**Rationale**:
+- Single responsibility: ThreadManager owns transcript lifecycle
+- Testable in isolation without full executor setup
+- Clear interface boundary for future enhancements (e.g., cross-pipeline threads)
 
-### AD-5: Max transcript size with automatic truncation
+### AD-5: Input sanitization for thread transcripts
 
-**Decision**: Transcripts are capped at a configurable size (default 100K chars). When exceeded, oldest entries are truncated first, preserving the most recent conversation context.
+**Decision**: Sanitize transcript content before injecting into prompts using the existing `InputSanitizer`.
 
-**Rationale**: Without bounds, a long fix loop (5+ iterations) could exhaust the context window. The cap ensures the transcript preamble doesn't crowd out the step's own prompt and contract schema.
+**Rationale**:
+- Thread transcripts contain LLM output from prior steps which could contain injection attempts
+- Reuses existing security infrastructure
+- Consistent with how Wave handles all prompt content
 
-## Risks
+## 5. Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Transcript too large for context window | Medium | High | Max transcript size cap with oldest-first truncation; `compact` fidelity as fallback |
-| Thread + retry interaction | Low | Medium | Retry attempts within a threaded step append to the same thread — prior attempts provide context |
-| Resume with thread state | Medium | Medium | ThreadTranscripts serialized with PipelineExecution state; verified in tests |
-| Concurrent steps in same thread | Low | High | Validate: steps in same thread cannot be concurrent (must have dependency chain). Emit error during DAG validation |
-| Performance: large transcript prepend | Low | Low | Transcript is just string concatenation in prompt; no extra adapter calls except for `summary` fidelity |
+| Transcript bloat exhausts context window | Medium | High | Cap at 100k chars; `compact`/`summary` fidelity as escape hatch |
+| Prior step output contains prompt injection | Low | Medium | Sanitize via `InputSanitizer` before injection |
+| `summary` fidelity LLM call fails | Low | Medium | Fall back to `compact` on compaction error |
+| Threaded steps with different personas see conflicting context | Low | Low | Document that persona permissions are still per-step |
+| Thread field on graph-mode steps with max_visits creates growing transcripts | Medium | Medium | Each visit appends — transcript cap prevents unbounded growth |
 
-## Testing Strategy
+## 6. Testing Strategy
 
-### Unit Tests (`internal/pipeline/thread_test.go`)
+### Unit Tests (`thread_test.go`)
 
-1. **ThreadManager basic operations**: append, retrieve, clear
-2. **Fidelity formatting**: full returns raw transcript, compact returns structured summary, fresh returns empty
-3. **Transcript size cap**: verify truncation when exceeding max size
-4. **Thread isolation**: verify different thread groups don't share transcripts
-5. **Empty thread**: verify no-op when thread group has no prior entries
+1. **ThreadManager creation** — verify empty state
+2. **AppendTranscript** — single entry, multiple entries, multiple threads
+3. **GetTranscript (full)** — verbatim output with step headers
+4. **GetTranscript (compact)** — truncated entries with step summaries
+5. **GetTranscript (summary)** — mock CompactionAdapter, verify it's called with correct content
+6. **GetTranscript (fresh)** — returns empty string even when transcript exists
+7. **Transcript cap** — verify oldest entries trimmed when exceeding limit
+8. **Empty thread** — GetTranscript returns empty for unknown thread
+9. **Sanitization** — verify transcript content is sanitized before formatting
 
-### Integration in Existing Tests
+### Validation Tests (`validation_test.go`)
 
-6. **Validation tests** (`validation.go`): thread groups with concurrent steps are rejected
-7. **Dry-run tests** (`dryrun_test.go`): threaded steps show transcript injection in dry-run output
-8. **Executor tests**: end-to-end threaded step execution with mock adapter, verifying transcript appears in prompt
+10. **Valid thread values** — alphanumeric strings accepted
+11. **Invalid fidelity values** — reject unknown fidelity strings
+12. **Fidelity without thread** — warn or reject fidelity set without thread
 
-### Manual Validation
+### Integration Tests (`executor_test.go`)
 
-9. Create a test pipeline with `thread: impl` on implement + fix steps
-10. Verify fix step receives implement step's conversation in its prompt
-11. Verify non-threaded steps get no prior context (fresh memory preserved)
+13. **Two-step thread sharing** — step A produces output, step B (same thread) receives it in prompt
+14. **Thread isolation** — step in different thread does NOT see step A's output
+15. **No thread = fresh** — unthreaded step has no prior context
+16. **Graph loop with thread** — verify transcript grows across loop iterations

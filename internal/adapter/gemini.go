@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,14 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 )
 
-// GeminiAdapter wraps the Google Gemini CLI for subprocess execution.
+// GeminiAdapter runs the Google Gemini CLI as a subprocess.
 type GeminiAdapter struct {
 	geminiPath string
 }
 
-// NewGeminiAdapter creates a GeminiAdapter, locating the gemini binary in PATH.
+// NewGeminiAdapter creates a GeminiAdapter, locating the gemini binary on PATH.
 func NewGeminiAdapter() *GeminiAdapter {
 	path := "gemini"
 	if p, err := exec.LookPath("gemini"); err == nil {
@@ -25,6 +27,14 @@ func NewGeminiAdapter() *GeminiAdapter {
 }
 
 func (a *GeminiAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
+	var cancel context.CancelFunc
+	if cfg.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
+
 	workspacePath := cfg.WorkspacePath
 	if workspacePath == "" {
 		wd, err := os.Getwd()
@@ -35,15 +45,72 @@ func (a *GeminiAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	}
 
 	if err := a.prepareWorkspace(workspacePath, cfg); err != nil {
-		return nil, fmt.Errorf("failed to prepare workspace: %w", err)
+		return nil, fmt.Errorf("failed to prepare gemini workspace: %w", err)
 	}
 
 	args := a.buildArgs(cfg)
-	return runSubprocess(ctx, a.geminiPath, args, workspacePath, cfg, parseGeminiStreamLine, a.parseOutput)
+	cmd := exec.CommandContext(ctx, a.geminiPath, args...)
+	cmd.Dir = workspacePath
+	cmd.Env = BuildCuratedEnvironment(cfg)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start gemini: %w", err)
+	}
+
+	var stdoutBuf bytes.Buffer
+	stdoutDone := make(chan error, 1)
+
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			stdoutBuf.Write(line)
+			stdoutBuf.WriteByte('\n')
+
+			if cfg.OnStreamEvent != nil {
+				if evt, ok := parseGeminiStreamLine(line); ok {
+					cfg.OnStreamEvent(evt)
+				}
+			}
+		}
+		stdoutDone <- scanner.Err()
+	}()
+
+	select {
+	case <-ctx.Done():
+		if cmd.Process != nil {
+			killProcessGroup(cmd.Process, cfg.ProcessGrace)
+		}
+		cmd.Wait()
+		return nil, ctx.Err()
+	case err := <-stdoutDone:
+		if err != nil {
+			return nil, fmt.Errorf("failed to read gemini stdout: %w", err)
+		}
+	}
+
+	cmdErr := cmd.Wait()
+	result := a.parseOutput(stdoutBuf.String())
+	if cmdErr != nil {
+		result.ExitCode = exitCodeFromError(cmdErr)
+		if result.FailureReason == "" {
+			result.FailureReason = classifyGeminiFailure(result.ExitCode)
+		}
+	}
+	result.Stdout = bytes.NewReader(stdoutBuf.Bytes())
+
+	return result, nil
 }
 
 func (a *GeminiAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
-	// Write system prompt as GEMINI.md for Gemini CLI
+	// Write system prompt as GEMINI.md for context
 	if cfg.SystemPrompt != "" {
 		promptPath := filepath.Join(workspacePath, "GEMINI.md")
 		if err := os.WriteFile(promptPath, []byte(cfg.SystemPrompt), 0644); err != nil {
@@ -54,22 +121,65 @@ func (a *GeminiAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 }
 
 func (a *GeminiAdapter) buildArgs(cfg AdapterRunConfig) []string {
-	var args []string
-
-	if cfg.Prompt != "" {
-		args = append(args, "-p", cfg.Prompt)
-	}
+	args := []string{}
 
 	if cfg.Model != "" {
 		args = append(args, "--model", cfg.Model)
 	}
 
+	if cfg.Prompt != "" {
+		args = append(args, "-p", cfg.Prompt)
+	}
+
 	return args
 }
 
-// parseGeminiStreamLine parses a single NDJSON line from Gemini CLI output.
-// Gemini CLI may emit structured events. This parser handles common event
-// types and degrades gracefully for unrecognised formats.
+func (a *GeminiAdapter) parseOutput(output string) *AdapterResult {
+	result := &AdapterResult{}
+
+	lines := bytes.Split([]byte(output), []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(line, &obj); err != nil {
+			// Gemini may output plain text — capture it as result content
+			if result.ResultContent == "" {
+				result.ResultContent = string(line)
+			}
+			continue
+		}
+
+		var eventType string
+		if raw, ok := obj["type"]; ok {
+			json.Unmarshal(raw, &eventType)
+		}
+
+		if eventType == "result" {
+			var resultEvt struct {
+				Usage struct {
+					InputTokens  int `json:"input_tokens"`
+					OutputTokens int `json:"output_tokens"`
+				} `json:"usage"`
+				Content string `json:"content"`
+			}
+			if err := json.Unmarshal(line, &resultEvt); err == nil {
+				result.TokensIn = resultEvt.Usage.InputTokens
+				result.TokensOut = resultEvt.Usage.OutputTokens
+				result.TokensUsed = result.TokensIn + result.TokensOut
+				if resultEvt.Content != "" {
+					result.ResultContent = resultEvt.Content
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// parseGeminiStreamLine parses a single line from Gemini CLI output.
 func parseGeminiStreamLine(line []byte) (StreamEvent, bool) {
 	line = bytes.TrimSpace(line)
 	if len(line) == 0 {
@@ -89,102 +199,58 @@ func parseGeminiStreamLine(line []byte) (StreamEvent, bool) {
 	}
 
 	switch eventType {
-	case "text":
-		var content string
-		if raw, ok := obj["content"]; ok {
-			json.Unmarshal(raw, &content)
+	case "tool_use":
+		var tool struct {
+			Name  string `json:"name"`
+			Input string `json:"input"`
 		}
-		if content != "" {
+		if err := json.Unmarshal(line, &tool); err == nil && tool.Name != "" {
+			input := tool.Input
+			if len(input) > 100 {
+				input = input[:100]
+			}
+			return StreamEvent{Type: "tool_use", ToolName: tool.Name, ToolInput: input}, true
+		}
+	case "text":
+		var text struct {
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(line, &text); err == nil && text.Content != "" {
+			content := text.Content
 			if len(content) > 200 {
 				content = content[:200]
 			}
 			return StreamEvent{Type: "text", Content: content}, true
 		}
-		return StreamEvent{}, false
-
-	case "tool_use":
-		var name string
-		if raw, ok := obj["name"]; ok {
-			json.Unmarshal(raw, &name)
-		}
-		if name != "" {
-			return StreamEvent{Type: "tool_use", ToolName: name}, true
-		}
-		return StreamEvent{}, false
-
 	case "result":
-		var usage struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
-		}
-		if raw, ok := obj["usage"]; ok {
-			json.Unmarshal(raw, &usage)
-		}
-		var subtype string
-		if raw, ok := obj["subtype"]; ok {
-			json.Unmarshal(raw, &subtype)
-		}
-		return StreamEvent{
-			Type:      "result",
-			TokensIn:  usage.InputTokens,
-			TokensOut: usage.OutputTokens,
-			Subtype:   subtype,
-		}, true
-
-	default:
-		return StreamEvent{}, false
-	}
-}
-
-// parseOutput extracts result content, token usage, and failure metadata.
-func (a *GeminiAdapter) parseOutput(data []byte) parseOutputResult {
-	var tokens int
-	var resultContent string
-	var subtype string
-
-	lines := bytes.Split(data, []byte("\n"))
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-
-		var obj struct {
-			Type    string `json:"type"`
-			Subtype string `json:"subtype"`
-			Content string `json:"content"`
-			Result  string `json:"result"`
-			Usage   struct {
+		var res struct {
+			Usage struct {
 				InputTokens  int `json:"input_tokens"`
 				OutputTokens int `json:"output_tokens"`
 			} `json:"usage"`
+			Content string `json:"content"`
 		}
-		if err := json.Unmarshal(line, &obj); err != nil {
-			continue
-		}
-
-		switch obj.Type {
-		case "result":
-			tokens = obj.Usage.InputTokens + obj.Usage.OutputTokens
-			subtype = obj.Subtype
-			resultContent = obj.Result
-			if resultContent == "" {
-				resultContent = obj.Content
-			}
-		case "text":
-			if resultContent == "" && obj.Content != "" {
-				resultContent = obj.Content
-			}
+		if err := json.Unmarshal(line, &res); err == nil {
+			return StreamEvent{
+				Type:      "result",
+				TokensIn:  res.Usage.InputTokens,
+				TokensOut: res.Usage.OutputTokens,
+				Content:   res.Content,
+			}, true
 		}
 	}
 
-	if tokens == 0 {
-		tokens = len(data) / 4
-	}
+	return StreamEvent{}, false
+}
 
-	return parseOutputResult{
-		Tokens:        tokens,
-		ResultContent: resultContent,
-		Subtype:       subtype,
+// classifyGeminiFailure maps Gemini exit codes to failure reasons.
+func classifyGeminiFailure(exitCode int) string {
+	switch exitCode {
+	case 124, 137:
+		return "timeout"
+	case 1:
+		return "general_error"
+	default:
+		return "general_error"
 	}
 }
