@@ -98,15 +98,13 @@ func (r *GateRegistry) Remove(runID string) {
 // One instance is created per pipeline run via NewWebUIGateHandler.
 type WebUIGateHandler struct {
 	runID    string
-	stepID   string
 	registry *GateRegistry
 }
 
-// NewWebUIGateHandler creates a gate handler for a specific pipeline run and step.
-func NewWebUIGateHandler(runID, stepID string, registry *GateRegistry) *WebUIGateHandler {
+// NewWebUIGateHandler creates a gate handler for a specific pipeline run.
+func NewWebUIGateHandler(runID string, registry *GateRegistry) *WebUIGateHandler {
 	return &WebUIGateHandler{
 		runID:    runID,
-		stepID:   stepID,
 		registry: registry,
 	}
 }
@@ -114,7 +112,7 @@ func NewWebUIGateHandler(runID, stepID string, registry *GateRegistry) *WebUIGat
 // Prompt registers the gate in the registry and blocks until a decision
 // arrives from the HTTP endpoint or the context is cancelled.
 func (h *WebUIGateHandler) Prompt(ctx context.Context, gate *pipeline.GateConfig) (*pipeline.GateDecision, error) {
-	ch := h.registry.Register(h.runID, h.stepID, gate)
+	ch := h.registry.Register(h.runID, gate.RuntimeStepID, gate)
 
 	select {
 	case <-ctx.Done():
