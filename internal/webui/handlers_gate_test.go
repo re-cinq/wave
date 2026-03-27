@@ -1,119 +1,270 @@
 package webui
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/recinq/wave/internal/pipeline"
 )
 
 func TestGateRegistry_RegisterAndResolve(t *testing.T) {
 	g := NewGateRegistry()
 
-	ch := g.Register("run1", "step1")
+	gate := &pipeline.GateConfig{
+		Type: "approval",
+		Choices: []pipeline.GateChoice{
+			{Key: "a", Label: "Approve", Target: "next"},
+		},
+	}
 
-	// Channel should not be closed yet
+	ch := g.Register("run1", "step1", gate)
+
+	// Channel should not have a decision yet
 	select {
 	case <-ch:
-		t.Fatal("channel should not be closed before resolve")
+		t.Fatal("channel should not have a decision before resolve")
 	default:
 	}
 
-	// Resolve
-	ok := g.Resolve("run1", "step1")
-	if !ok {
-		t.Error("expected resolve to return true")
+	// Resolve with a decision
+	decision := &pipeline.GateDecision{Choice: "a", Label: "Approve", Target: "next"}
+	if err := g.Resolve("run1", decision); err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 
-	// Channel should now be closed
+	// Channel should now have the decision
 	select {
-	case <-ch:
-		// good
+	case d := <-ch:
+		if d.Choice != "a" {
+			t.Errorf("expected choice 'a', got %q", d.Choice)
+		}
 	default:
-		t.Error("channel should be closed after resolve")
+		t.Error("channel should have a decision after resolve")
 	}
 }
 
 func TestGateRegistry_ResolveNonExistent(t *testing.T) {
 	g := NewGateRegistry()
 
-	ok := g.Resolve("run1", "step1")
-	if ok {
-		t.Error("expected resolve to return false for non-existent gate")
+	decision := &pipeline.GateDecision{Choice: "a"}
+	err := g.Resolve("run1", decision)
+	if err == nil {
+		t.Error("expected error for non-existent gate")
 	}
 }
 
 func TestGateRegistry_DoubleResolve(t *testing.T) {
 	g := NewGateRegistry()
-	g.Register("run1", "step1")
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	g.Register("run1", "step1", gate)
 
-	ok1 := g.Resolve("run1", "step1")
-	if !ok1 {
-		t.Error("first resolve should return true")
+	decision := &pipeline.GateDecision{Choice: "a", Label: "Approve"}
+	if err := g.Resolve("run1", decision); err != nil {
+		t.Fatalf("first resolve should succeed, got %v", err)
 	}
 
-	ok2 := g.Resolve("run1", "step1")
-	if ok2 {
-		t.Error("second resolve should return false (already resolved)")
+	err := g.Resolve("run1", decision)
+	if err == nil {
+		t.Error("second resolve should return error (already resolved)")
 	}
 }
 
-func TestGateRegistry_Cleanup(t *testing.T) {
+func TestGateRegistry_Remove(t *testing.T) {
 	g := NewGateRegistry()
-	g.Register("run1", "step1")
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	g.Register("run1", "step1", gate)
 
-	g.Cleanup("run1", "step1")
+	g.Remove("run1")
 
-	ok := g.Resolve("run1", "step1")
-	if ok {
-		t.Error("resolve after cleanup should return false")
+	decision := &pipeline.GateDecision{Choice: "a"}
+	err := g.Resolve("run1", decision)
+	if err == nil {
+		t.Error("resolve after remove should return error")
 	}
 }
 
-func TestHandleResolveGate_Success(t *testing.T) {
-	srv, _ := testServer(t)
-	srv.gates = NewGateRegistry()
-	srv.gates.Register("run-123", "approve")
+func TestGateRegistry_GetPending(t *testing.T) {
+	g := NewGateRegistry()
 
-	req := httptest.NewRequest("POST", "/api/runs/run-123/gate/approve", nil)
+	// No pending gate
+	if got := g.GetPending("run1"); got != nil {
+		t.Error("expected nil for no pending gate")
+	}
+
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	g.Register("run1", "step1", gate)
+
+	got := g.GetPending("run1")
+	if got == nil {
+		t.Fatal("expected pending gate, got nil")
+	}
+	if got.Type != "approval" {
+		t.Errorf("expected type 'approval', got %q", got.Type)
+	}
+}
+
+func TestGateRegistry_GetPendingStepID(t *testing.T) {
+	g := NewGateRegistry()
+
+	if got := g.GetPendingStepID("run1"); got != "" {
+		t.Errorf("expected empty string for no pending gate, got %q", got)
+	}
+
+	gate := &pipeline.GateConfig{Type: "approval"}
+	g.Register("run1", "review", gate)
+
+	if got := g.GetPendingStepID("run1"); got != "review" {
+		t.Errorf("expected 'review', got %q", got)
+	}
+}
+
+func TestHandleGateApprove_Success(t *testing.T) {
+	srv, _ := testServer(t)
+
+	gate := &pipeline.GateConfig{
+		Type: "approval",
+		Choices: []pipeline.GateChoice{
+			{Key: "a", Label: "Approve", Target: "implement"},
+			{Key: "r", Label: "Reject", Target: "_fail"},
+		},
+	}
+	ch := srv.gateRegistry.Register("run-123", "review", gate)
+
+	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
 	req.SetPathValue("id", "run-123")
-	req.SetPathValue("step", "approve")
+	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
 
-	srv.handleResolveGate(rec, req)
+	srv.handleGateApprove(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
+
+	var resp GateApproveResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Choice != "a" {
+		t.Errorf("expected choice 'a', got %q", resp.Choice)
+	}
+	if resp.Label != "Approve" {
+		t.Errorf("expected label 'Approve', got %q", resp.Label)
+	}
+
+	// The channel should have received the decision
+	select {
+	case d := <-ch:
+		if d.Choice != "a" || d.Target != "implement" {
+			t.Errorf("unexpected decision: %+v", d)
+		}
+	default:
+		t.Error("expected decision on channel")
+	}
 }
 
-func TestHandleResolveGate_NotFound(t *testing.T) {
+func TestHandleGateApprove_NotFound(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.gates = NewGateRegistry()
 
-	req := httptest.NewRequest("POST", "/api/runs/run-123/gate/approve", nil)
+	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
 	req.SetPathValue("id", "run-123")
-	req.SetPathValue("step", "approve")
+	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
 
-	srv.handleResolveGate(rec, req)
+	srv.handleGateApprove(rec, req)
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
-func TestHandleResolveGate_NoGateRegistry(t *testing.T) {
+func TestHandleGateApprove_NoGateRegistry(t *testing.T) {
 	srv, _ := testServer(t)
-	// srv.gates is nil
+	srv.gateRegistry = nil // simulate uninitialized registry
 
-	req := httptest.NewRequest("POST", "/api/runs/run-123/gate/approve", nil)
+	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
 	req.SetPathValue("id", "run-123")
-	req.SetPathValue("step", "approve")
+	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
 
-	srv.handleResolveGate(rec, req)
+	srv.handleGateApprove(rec, req)
 
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleGateApprove_StepMismatch(t *testing.T) {
+	srv, _ := testServer(t)
+
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	srv.gateRegistry.Register("run-123", "review", gate)
+
+	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/wrong-step/approve", bytes.NewReader(body))
+	req.SetPathValue("id", "run-123")
+	req.SetPathValue("step", "wrong-step")
+	rec := httptest.NewRecorder()
+
+	srv.handleGateApprove(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleGateApprove_InvalidChoice(t *testing.T) {
+	srv, _ := testServer(t)
+
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	srv.gateRegistry.Register("run-123", "review", gate)
+
+	body, _ := json.Marshal(GateApproveRequest{Choice: "z"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.SetPathValue("id", "run-123")
+	req.SetPathValue("step", "review")
+	rec := httptest.NewRecorder()
+
+	srv.handleGateApprove(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleGateApprove_MissingChoice(t *testing.T) {
+	srv, _ := testServer(t)
+
+	body, _ := json.Marshal(GateApproveRequest{})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.SetPathValue("id", "run-123")
+	req.SetPathValue("step", "review")
+	rec := httptest.NewRecorder()
+
+	srv.handleGateApprove(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
