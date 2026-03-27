@@ -1,15 +1,33 @@
 # feat: sub-pipeline composition for workflow nesting
 
-**Issue**: https://github.com/re-cinq/wave/issues/585
+**Issue**: [re-cinq/wave#585](https://github.com/re-cinq/wave/issues/585)
 **Labels**: enhancement
 **Author**: nextlevelshit
 **Complexity**: complex
 
 ## Context
 
-Fabro supports **sub-workflows** via `house` shape nodes — a parent workflow can invoke a child workflow with bidirectional context flow. The child gets a clone of parent context, executes independently, and modifications merge back via diff. The parent can configure max cycles, poll intervals, and stop conditions.
+Fabro supports **sub-workflows** via `house` shape nodes -- a parent workflow can invoke a child workflow with bidirectional context flow. The child gets a clone of parent context, executes independently, and modifications merge back via diff. The parent can configure max cycles, poll intervals, and stop conditions.
 
-Wave's `meta.go` supports dynamic pipeline generation but not runtime composition — you can't have a pipeline step that invokes another pipeline.
+Wave's `meta.go` supports dynamic pipeline generation but not runtime composition -- you can't have a pipeline step that invokes another pipeline with full bidirectional artifact/context flow.
+
+### Current Codebase State
+
+Wave already has partial sub-pipeline infrastructure:
+- **`Step.SubPipeline`** field (`types.go:293`) with YAML tag `pipeline`
+- **`Step.SubInput`** field (`types.go:294`) for child input templating
+- **`IsCompositionStep()`** (`types.go:484`) checks for SubPipeline, Iterate, Branch, Gate, Loop, Aggregate
+- **`executeCompositionStep()`** in `executor.go:3951` -- loads child pipeline from `.wave/pipelines/`, creates child executor, executes, marks step complete/failed
+- **`CompositionExecutor.executeSubPipeline()`** in `composition.go:438` -- delegates to `runSubPipeline()` which uses `SequenceExecutor`
+- **`runSubPipeline()`** in `composition.go:447` -- loads pipeline, executes via SequenceExecutor, stores terminal step output in template context
+
+**What's missing**:
+1. No artifact inject config (parent -> child artifact copying)
+2. No artifact extract config (child -> parent artifact copying)
+3. No context variable merging between parent and child
+4. No lifecycle management (timeout, stop_condition, max_cycles)
+5. No state nesting (child run not linked to parent)
+6. No workspace sharing (`ref: parent`)
 
 ## Design
 
@@ -59,12 +77,12 @@ Child pipeline gets its own workspace (worktree) by default. Can share parent wo
 
 ## Implementation Scope
 
-1. Add `type: pipeline` step type to manifest schema
-2. Sub-pipeline executor — launches child pipeline within parent run
-3. Artifact injection/extraction between parent and child
-4. Context merging
-5. Lifecycle management (timeout, stop condition, max cycles)
-6. State tracking — child run is a sub-entry in parent run state
+1. Add `SubPipelineConfig` struct with lifecycle and artifact fields
+2. Enhance executor's `executeCompositionStep()` with artifact inject/extract, lifecycle, state nesting
+3. Add `MergeFrom()` to `PipelineContext` for bidirectional context flow
+4. Add parent-child linkage to state store (nullable `parent_run_id`, `parent_step_id` columns)
+5. Add circular composition detection to DAG validation
+6. Preserve backward compatibility with existing `SubPipeline` usage
 
 ## Acceptance Criteria
 
@@ -79,6 +97,7 @@ Child pipeline gets its own workspace (worktree) by default. Can share parent wo
 - [ ] Child pipeline failures propagate correctly (respecting parent step's `optional` flag)
 - [ ] Context variables from child execution merge back into parent context
 - [ ] Existing sub-pipeline execution via `SubPipeline` field continues to work unchanged
+- [ ] Circular sub-pipeline references are detected and rejected at validation time
 - [ ] All new functionality has unit tests with >80% coverage
 
 ## Research Sources
