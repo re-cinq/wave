@@ -187,6 +187,33 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, hookErrs...)
 	}
 
+	if retroErrs := validateRetros(&m.Runtime.Retros, filePath); len(retroErrs) > 0 {
+		errs = append(errs, retroErrs...)
+	}
+
+	return errs
+}
+
+// validateRetros checks that retros configuration is valid.
+func validateRetros(c *RetrosConfig, filePath string) []error {
+	if c == nil {
+		return nil
+	}
+	var errs []error
+	if c.NarrateModel != "" {
+		// Basic validation: model name should be non-empty and reasonable
+		if len(c.NarrateModel) > 100 {
+			err := &ValidationError{
+				Field:      "runtime.retros.narrate_model",
+				Reason:     "model name is too long",
+				Suggestion: "Use a valid model identifier like 'claude-haiku-4-5'",
+			}
+			if filePath != "" {
+				err.File = filePath
+			}
+			errs = append(errs, err)
+		}
+	}
 	return errs
 }
 

@@ -122,6 +122,16 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
 func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
 func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
+func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
+func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) ListRetrospectives(state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) DeleteRetrospective(string) error                      { return nil }
+func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error    { return nil }
+func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error        { return nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
