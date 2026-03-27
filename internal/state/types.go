@@ -207,3 +207,14 @@ type OntologyStats struct {
 	SuccessRate float64
 	LastUsed    time.Time
 }
+
+// RetrospectiveRecord holds metadata for a stored retrospective.
+type RetrospectiveRecord struct {
+	ID           int64
+	RunID        string
+	PipelineName string
+	Smoothness   string
+	Status       string // "quantitative", "complete" (has narrative)
+	FilePath     string
+	CreatedAt    time.Time
+}

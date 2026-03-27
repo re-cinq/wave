@@ -12,7 +12,7 @@ import (
 // pendingGate holds the state for a gate that is waiting for a human decision
 // via the WebUI HTTP endpoint.
 type pendingGate struct {
-	StepID   string
+	StepID   string // step this gate belongs to (for URL verification)
 	Gate     *pipeline.GateConfig
 	Response chan *pipeline.GateDecision
 }
@@ -34,6 +34,8 @@ func NewGateRegistry() *GateRegistry {
 
 // Register stores a pending gate for the given run and returns a channel
 // that will receive the decision when it arrives from the HTTP endpoint.
+// stepID identifies which pipeline step owns this gate (used by the HTTP
+// handler to reject requests targeting the wrong step).
 func (r *GateRegistry) Register(runID, stepID string, gate *pipeline.GateConfig) chan *pipeline.GateDecision {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,7 +77,8 @@ func (r *GateRegistry) GetPending(runID string) *pipeline.GateConfig {
 	return nil
 }
 
-// GetPendingStepID returns the step ID of the pending gate for a run, or empty string.
+// GetPendingStepID returns the step ID associated with the pending gate for a
+// run. Returns "" if no gate is pending.
 func (r *GateRegistry) GetPendingStepID(runID string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
