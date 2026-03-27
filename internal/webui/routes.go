@@ -39,6 +39,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/runs/{id}/cancel", s.handleCancelRun)
 	mux.HandleFunc("POST /api/runs/{id}/retry", s.handleRetryRun)
 	mux.HandleFunc("POST /api/runs/{id}/resume", s.handleResumeRun)
+	mux.HandleFunc("POST /api/runs/{id}/gates/{step}/approve", s.handleGateApprove)
 	mux.HandleFunc("GET /api/personas", s.handleAPIPersonas)
 	mux.HandleFunc("GET /api/contracts", s.handleAPIContracts)
 	mux.HandleFunc("GET /api/skills", s.handleAPISkills)
@@ -56,6 +57,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
 	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
+
+	// Retrospective API
+	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)
+	mux.HandleFunc("GET /api/retros/{id}", s.handleAPIRetroDetail)
+	mux.HandleFunc("POST /api/retros/{id}/narrate", s.handleNarrateRetro)
 
 	// Catch-all 404 for unmatched routes
 	mux.HandleFunc("/", s.handleNotFound)

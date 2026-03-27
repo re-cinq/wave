@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/hooks"
 )
 
 type Project struct {
@@ -40,6 +42,7 @@ type Manifest struct {
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Skills      []string            `yaml:"skills,omitempty"`
+	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
 }
 
@@ -90,6 +93,43 @@ type HookRule struct {
 	Command string `yaml:"command"`
 }
 
+// CircuitBreakerConfig controls failure fingerprint tracking and circuit breaking.
+type CircuitBreakerConfig struct {
+	Limit          int      `yaml:"limit,omitempty"`           // Same failure N times = terminate (default: 3)
+	TrackedClasses []string `yaml:"tracked_classes,omitempty"` // Failure classes to track (default: deterministic, contract_failure, test_failure)
+}
+
+// RetrosConfig controls automatic retrospective generation after pipeline runs.
+type RetrosConfig struct {
+	Enabled      *bool  `yaml:"enabled,omitempty"`       // default: true
+	Narrate      *bool  `yaml:"narrate,omitempty"`       // LLM narrative (default: true)
+	NarrateModel string `yaml:"narrate_model,omitempty"` // cheap model for narration (default: "claude-haiku-4-5")
+}
+
+// IsEnabled returns whether retro generation is enabled (default: true).
+func (c *RetrosConfig) IsEnabled() bool {
+	if c == nil || c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
+}
+
+// IsNarrateEnabled returns whether LLM narrative generation is enabled (default: true).
+func (c *RetrosConfig) IsNarrateEnabled() bool {
+	if c == nil || c.Narrate == nil {
+		return true
+	}
+	return *c.Narrate
+}
+
+// GetNarrateModel returns the model to use for narration (default: "claude-haiku-4-5").
+func (c *RetrosConfig) GetNarrateModel() string {
+	if c == nil || c.NarrateModel == "" {
+		return "claude-haiku-4-5"
+	}
+	return c.NarrateModel
+}
+
 type Runtime struct {
 	WorkspaceRoot        string                 `yaml:"workspace_root"`
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
@@ -103,6 +143,10 @@ type Runtime struct {
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
+	Retros               RetrosConfig           `yaml:"retros,omitempty"`
+	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`   // Provider fallback chains (e.g., anthropic: [openai, gemini])
+	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 }
 
 // GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.

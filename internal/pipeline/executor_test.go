@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -2914,16 +2915,26 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(p1))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(p3))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3))
+
+	// Step-level model override
+	executor3 := &DefaultPipelineExecutor{modelOverride: ""}
+	s := &Step{Model: "claude-haiku-4-5"}
+	p4 := &manifest.Persona{Model: "opus"}
+	assert.Equal(t, "claude-haiku-4-5", executor3.resolveModel(s, p4))
+
+	// CLI override beats step-level
+	executor4 := &DefaultPipelineExecutor{modelOverride: "cli-model"}
+	assert.Equal(t, "cli-model", executor4.resolveModel(s, p4))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
@@ -5212,4 +5223,524 @@ func TestThreadValidation_InvalidFidelity(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "thread validation failed")
 	assert.Contains(t, err.Error(), "unknown fidelity value")
+}
+
+// TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
+// using auto-approve mode completes all steps successfully. The gate has choices
+// with a default, and auto-approve selects the default (approve -> implement).
+func TestExecutor_GateStep_AutoApprove(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithAutoApprove(true),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	// Approve choice has empty target — just proceed naturally via DAG ordering.
+	// Revise targets "plan" (backward reference). Abort targets "_fail".
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-auto-approve-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve-plan",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve-plan"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test auto-approve gate")
+	require.NoError(t, err)
+
+	// Verify persona steps executed in correct order
+	order := collector.GetStepExecutionOrder()
+	posP := indexOfInSlice(order, "plan")
+	posI := indexOfInSlice(order, "implement")
+	assert.True(t, posP >= 0, "plan should be in execution order")
+	assert.True(t, posI >= 0, "implement should be in execution order")
+	assert.True(t, posP < posI, "plan should execute before implement")
+
+	// Verify gate step completed (check events for gate step completion)
+	events := collector.GetEvents()
+	gateCompleted := false
+	for _, ev := range events {
+		if ev.StepID == "approve-plan" && ev.State == "completed" {
+			gateCompleted = true
+			break
+		}
+	}
+	assert.True(t, gateCompleted, "gate step approve-plan should have completed")
+
+	// Verify gate resolved event was emitted
+	assert.True(t, collector.HasEventWithState("gate_resolved"), "should have gate_resolved event")
+}
+
+// TestExecutor_GateStep_Abort verifies that a pipeline aborts when the gate handler
+// returns a choice targeting _fail. The pipeline should fail with a GateAbortError.
+func TestExecutor_GateStep_Abort(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	// Custom handler that always selects "abort" (the _fail target)
+	abortHandler := &staticGateHandler{
+		choice: "q",
+	}
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithGateHandler(abortHandler),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-abort-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve-plan",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve-plan"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test abort gate")
+	require.Error(t, err, "pipeline should fail when gate aborts")
+
+	// The executor wraps GateAbortError inside a StepError
+	var stepErr *StepError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	assert.Equal(t, "approve-plan", stepErr.StepID, "failed step should be approve-plan")
+
+	// Unwrap to find the GateAbortError
+	var abortErr *GateAbortError
+	require.True(t, errors.As(err, &abortErr), "error chain should contain GateAbortError")
+	assert.Equal(t, "approve-plan", abortErr.StepID, "abort error should reference approve-plan")
+}
+
+// staticGateHandler is a test helper that returns a fixed choice, optionally
+// cycling through multiple choices on successive calls.
+type staticGateHandler struct {
+	choice  string   // single choice key (used when choices is empty)
+	choices []string // multiple choice keys, cycled in order
+	calls   int
+}
+
+func (h *staticGateHandler) Prompt(_ context.Context, gate *GateConfig) (*GateDecision, error) {
+	key := h.choice
+	if len(h.choices) > 0 {
+		key = h.choices[h.calls%len(h.choices)]
+	}
+	h.calls++
+
+	choice := gate.FindChoiceByKey(key)
+	if choice == nil {
+		return nil, fmt.Errorf("staticGateHandler: key %q not found in gate choices", key)
+	}
+	return &GateDecision{
+		Choice:    choice.Key,
+		Label:     choice.Label,
+		Timestamp: time.Now(),
+		Target:    choice.Target,
+	}, nil
+}
+
+// TestExecutor_GateStep_ChoiceRouting_Revise verifies the revision loop pattern:
+// the gate handler returns "revise" on the first call (routing back to "plan"),
+// then "approve" on the second call (routing forward to "implement").
+// The "plan" step should execute twice.
+func TestExecutor_GateStep_ChoiceRouting_Revise(t *testing.T) {
+	collector := testutil.NewEventCollector()
+
+	// Track how many times each step executes via the adapter
+	var planCount int32
+	var implCount int32
+
+	countingAdapter := &stepAwareAdapter{
+		defaultAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(500),
+		),
+		onStart: func(stepID string) {
+			switch stepID {
+			case "plan":
+				atomic.AddInt32(&planCount, 1)
+			case "implement":
+				atomic.AddInt32(&implCount, 1)
+			}
+		},
+	}
+
+	// First call: revise (routes back to plan); second call: approve (routes to implement)
+	reviseHandler := &staticGateHandler{
+		choices: []string{"r", "a"},
+	}
+
+	executor := NewDefaultPipelineExecutor(countingAdapter,
+		WithEmitter(collector),
+		WithGateHandler(reviseHandler),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-revise-test"},
+		Steps: []Step{
+			{ID: "plan", Persona: "navigator", Exec: ExecConfig{Source: "create a plan"}},
+			{
+				ID:           "approve",
+				Dependencies: []string{"plan"},
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Revise", Key: "r", Target: "plan"},
+						{Label: "Abort", Key: "q", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "implement", Persona: "navigator", Dependencies: []string{"approve"}, Exec: ExecConfig{Source: "implement the plan"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test revision loop")
+	require.NoError(t, err)
+
+	// Plan should have executed twice (initial + after revise routing)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&planCount), "plan should execute twice due to revision loop")
+
+	// Implement should have executed once (after approve on second gate pass)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&implCount), "implement should execute once after final approval")
+
+	// The gate handler should have been called exactly twice
+	assert.Equal(t, 2, reviseHandler.calls, "gate handler should be called twice (revise then approve)")
+}
+
+// TestExecutor_GateStep_TemplateVars verifies that the gate decision is stored
+// in the PipelineContext after a gate step completes with auto-approve.
+func TestExecutor_GateStep_TemplateVars(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(500),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithAutoApprove(true),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "gate-template-vars-test"},
+		Steps: []Step{
+			{
+				ID: "approve",
+				Gate: &GateConfig{
+					Type: "approval",
+					Choices: []GateChoice{
+						{Label: "Approve", Key: "a"},
+						{Label: "Reject", Key: "r", Target: "_fail"},
+					},
+					Default: "a",
+				},
+			},
+			{ID: "next", Persona: "navigator", Dependencies: []string{"approve"}, Exec: ExecConfig{Source: "do next thing"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test gate template vars")
+	require.NoError(t, err)
+
+	// Access the pipeline execution to check the context
+	// The executor stores the last execution internally
+	executor.mu.RLock()
+	lastExec := executor.lastExecution
+	executor.mu.RUnlock()
+
+	require.NotNil(t, lastExec, "last execution should be available")
+	require.NotNil(t, lastExec.Context, "pipeline context should be set")
+	require.NotNil(t, lastExec.Context.GateDecisions, "gate decisions should be populated")
+
+	decision, ok := lastExec.Context.GateDecisions["approve"]
+	require.True(t, ok, "gate decision for 'approve' step should exist")
+	assert.Equal(t, "a", decision.Choice, "decision choice should be the default 'a'")
+	assert.Equal(t, "Approve", decision.Label, "decision label should be 'Approve'")
+	assert.Empty(t, decision.Target, "decision target should be empty (natural DAG flow)")
+}
+
+// TestExecuteStep_FailureClassification_Transient verifies that a transient failure
+// (rate limit StepError) is classified correctly and the step retries.
+func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Fails once with a rate limit StepError, then succeeds.
+	failAdapter := newCountingFailAdapter(1, adapter.NewStepError(adapter.FailureReasonRateLimit, errors.New("rate limited"), 0, ""))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "transient-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "should succeed on second attempt after transient failure")
+
+	// Should have been called twice: 1 failure + 1 success
+	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should be called twice")
+
+	// Verify the failed attempt was classified as transient
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "transient", failedAttempts[0].FailureClass, "failure class should be transient for rate limit error")
+}
+
+// TestExecuteStep_FailureClassification_Deterministic_SkipsRetry verifies that a
+// deterministic failure (e.g. invalid API key) skips remaining retries immediately.
+func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a deterministic error message.
+	failAdapter := newCountingFailAdapter(10, errors.New("invalid api key"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "deterministic-skip-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with deterministic error")
+
+	// Deterministic failures are not retryable — only 1 attempt should be made
+	assert.Equal(t, 1, failAdapter.getCallCount(), "adapter should only be called once for deterministic failure")
+
+	// Verify the failed attempt was classified as deterministic
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "deterministic", failedAttempts[0].FailureClass, "failure class should be deterministic")
+
+	// Verify event was emitted about skipping retries
+	events := collector.GetEvents()
+	foundSkipMsg := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "non-retryable failure class") {
+			foundSkipMsg = true
+			break
+		}
+	}
+	assert.True(t, foundSkipMsg, "should emit event about non-retryable failure class")
+}
+
+// TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures verifies that the circuit
+// breaker trips when the same failure fingerprint repeats beyond the configured limit.
+func TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a test_failure class error
+	failAdapter := newCountingFailAdapter(10, errors.New("test failed: compile error"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	m.Runtime.CircuitBreaker = manifest.CircuitBreakerConfig{
+		Limit:          2,
+		TrackedClasses: []string{"test_failure", "deterministic", "contract_failure"},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "circuit-breaker-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 5,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail due to circuit breaker tripping")
+
+	// The circuit breaker has limit=2, so the step should trip after 2 failures,
+	// not exhaust all 5 attempts.
+	callCount := failAdapter.getCallCount()
+	assert.Less(t, callCount, 5, "circuit breaker should trip before all 5 attempts")
+
+	// Verify circuit breaker tripped event
+	events := collector.GetEvents()
+	foundCircuitBreaker := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "circuit breaker tripped") {
+			foundCircuitBreaker = true
+			break
+		}
+	}
+	assert.True(t, foundCircuitBreaker, "should emit circuit breaker tripped event")
+}
+
+// TestExecuteStep_FailureClassification_Canceled verifies that a pre-canceled context
+// is classified as "canceled" and the step does not retry.
+func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Use a mock adapter with a simulated delay so that it respects ctx.Done()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithSimulatedDelay(10*time.Second),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "canceled-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	// Cancel the context before executing
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with canceled context")
+
+	// Verify the failed attempt was classified as canceled
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.NotEmpty(t, failedAttempts, "should have at least 1 failed attempt record")
+	assert.Equal(t, "canceled", failedAttempts[0].FailureClass, "failure class should be canceled")
 }
