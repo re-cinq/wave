@@ -487,6 +487,7 @@ func TestNewValidator(t *testing.T) {
 		{"json_schema", ContractConfig{Type: "json_schema"}, false, "*contract.jsonSchemaValidator"},
 		{"typescript_interface", ContractConfig{Type: "typescript_interface"}, false, "*contract.typeScriptValidator"},
 		{"test_suite", ContractConfig{Type: "test_suite"}, false, "*contract.testSuiteValidator"},
+		{"llm_judge", ContractConfig{Type: "llm_judge"}, false, "*contract.llmJudgeValidator"},
 		{"unknown", ContractConfig{Type: "unknown"}, true, ""},
 		{"empty type", ContractConfig{Type: ""}, true, ""},
 	}
