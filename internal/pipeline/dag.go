@@ -75,6 +75,17 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+
+		// Validate gate config (choice keys, targets, defaults)
+		if step.Gate != nil {
+			stepIDs := make(map[string]bool, len(stepMap))
+			for id := range stepMap {
+				stepIDs[id] = true
+			}
+			if err := step.Gate.Validate(stepIDs); err != nil {
+				return fmt.Errorf("step %q: %w", step.ID, err)
+			}
+		}
 	}
 
 	// Validate that each rework target is unique (prevent race on concurrent rework)

@@ -3,6 +3,7 @@ package pipeline
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
@@ -1098,5 +1099,287 @@ func TestForgeVariables_ConcurrentAccess(t *testing.T) {
 	} else if finalCLI != expectedCLI {
 		t.Errorf("inconsistent final state: forge.type=%q but forge.cli_tool=%q (expected %q)",
 			finalType, finalCLI, expectedCLI)
+	}
+}
+
+func TestPipelineContext_SetGateDecision(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "implement-step",
+		CustomVariables: make(map[string]string),
+	}
+
+	ts := time.Date(2026, 3, 27, 15, 30, 0, 0, time.UTC)
+	decision := &GateDecision{
+		Choice:    "approve",
+		Label:     "Approve and continue",
+		Text:      "Looks good, proceed with implementation",
+		Timestamp: ts,
+		Target:    "implement-step",
+	}
+
+	ctx.SetGateDecision("approve-plan", decision)
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "gate choice resolves to label",
+			template: "{{ gate.approve-plan.choice }}",
+			expected: "Approve and continue",
+		},
+		{
+			name:     "gate key resolves to choice key",
+			template: "{{ gate.approve-plan.key }}",
+			expected: "approve",
+		},
+		{
+			name:     "gate text resolves to freeform text",
+			template: "{{ gate.approve-plan.text }}",
+			expected: "Looks good, proceed with implementation",
+		},
+		{
+			name:     "gate target resolves to target step",
+			template: "{{ gate.approve-plan.target }}",
+			expected: "implement-step",
+		},
+		{
+			name:     "gate timestamp resolves to non-empty RFC3339",
+			template: "{{ gate.approve-plan.timestamp }}",
+			expected: ts.Format(time.RFC3339),
+		},
+		{
+			name:     "gate choice unspaced syntax",
+			template: "{{gate.approve-plan.choice}}",
+			expected: "Approve and continue",
+		},
+		{
+			name:     "gate variable mixed with pipeline vars",
+			template: "{{ pipeline_name }}: {{ gate.approve-plan.key }}",
+			expected: "implement: approve",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+
+	// Verify timestamp is non-empty
+	tsResult := ctx.ResolvePlaceholders("{{ gate.approve-plan.timestamp }}")
+	if tsResult == "" {
+		t.Error("gate timestamp should resolve to a non-empty string")
+	}
+}
+
+func TestPipelineContext_GateDecisions_Stored(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "step1",
+		CustomVariables: make(map[string]string),
+	}
+
+	decision := &GateDecision{
+		Choice:    "reject",
+		Label:     "Request changes",
+		Text:      "Need more tests",
+		Timestamp: time.Now(),
+		Target:    "revise-step",
+	}
+
+	ctx.SetGateDecision("review-gate", decision)
+
+	// Verify GateDecisions map has the entry
+	if ctx.GateDecisions == nil {
+		t.Fatal("GateDecisions map should not be nil after SetGateDecision")
+	}
+
+	stored, ok := ctx.GateDecisions["review-gate"]
+	if !ok {
+		t.Fatal("GateDecisions should contain entry for 'review-gate'")
+	}
+
+	if stored.Choice != "reject" {
+		t.Errorf("stored decision Choice = %q, want %q", stored.Choice, "reject")
+	}
+	if stored.Label != "Request changes" {
+		t.Errorf("stored decision Label = %q, want %q", stored.Label, "Request changes")
+	}
+	if stored.Text != "Need more tests" {
+		t.Errorf("stored decision Text = %q, want %q", stored.Text, "Need more tests")
+	}
+	if stored.Target != "revise-step" {
+		t.Errorf("stored decision Target = %q, want %q", stored.Target, "revise-step")
+	}
+	if stored.Timestamp.IsZero() {
+		t.Error("stored decision Timestamp should not be zero")
+	}
+}
+
+func TestPipelineContext_MultipleGateDecisions(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "plan-approve-implement",
+		StepID:          "final-step",
+		CustomVariables: make(map[string]string),
+	}
+
+	ts1 := time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC)
+	ts2 := time.Date(2026, 3, 27, 11, 0, 0, 0, time.UTC)
+
+	ctx.SetGateDecision("approve-spec", &GateDecision{
+		Choice:    "approve",
+		Label:     "Approve spec",
+		Text:      "Spec looks complete",
+		Timestamp: ts1,
+		Target:    "plan-step",
+	})
+
+	ctx.SetGateDecision("approve-plan", &GateDecision{
+		Choice:    "revise",
+		Label:     "Request revision",
+		Text:      "Plan needs more detail",
+		Timestamp: ts2,
+		Target:    "replan-step",
+	})
+
+	// Verify both decisions are in the map
+	if len(ctx.GateDecisions) != 2 {
+		t.Errorf("GateDecisions length = %d, want 2", len(ctx.GateDecisions))
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{
+			name:     "first gate choice",
+			template: "{{ gate.approve-spec.choice }}",
+			expected: "Approve spec",
+		},
+		{
+			name:     "first gate key",
+			template: "{{ gate.approve-spec.key }}",
+			expected: "approve",
+		},
+		{
+			name:     "first gate text",
+			template: "{{ gate.approve-spec.text }}",
+			expected: "Spec looks complete",
+		},
+		{
+			name:     "first gate target",
+			template: "{{ gate.approve-spec.target }}",
+			expected: "plan-step",
+		},
+		{
+			name:     "first gate timestamp",
+			template: "{{ gate.approve-spec.timestamp }}",
+			expected: ts1.Format(time.RFC3339),
+		},
+		{
+			name:     "second gate choice",
+			template: "{{ gate.approve-plan.choice }}",
+			expected: "Request revision",
+		},
+		{
+			name:     "second gate key",
+			template: "{{ gate.approve-plan.key }}",
+			expected: "revise",
+		},
+		{
+			name:     "second gate text",
+			template: "{{ gate.approve-plan.text }}",
+			expected: "Plan needs more detail",
+		},
+		{
+			name:     "second gate target",
+			template: "{{ gate.approve-plan.target }}",
+			expected: "replan-step",
+		},
+		{
+			name:     "second gate timestamp",
+			template: "{{ gate.approve-plan.timestamp }}",
+			expected: ts2.Format(time.RFC3339),
+		},
+		{
+			name:     "both gates in one template",
+			template: "{{ gate.approve-spec.key }} then {{ gate.approve-plan.key }}",
+			expected: "approve then revise",
+		},
+		{
+			name:     "gate vars mixed with pipeline vars",
+			template: "{{ pipeline_name }}: {{ gate.approve-spec.choice }} / {{ gate.approve-plan.choice }}",
+			expected: "plan-approve-implement: Approve spec / Request revision",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestStripTemplateDelimiters(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"plain text", "plain text"},
+		{"{{ malicious }}", " malicious "},
+		{"before {{ inject }} after", "before  inject  after"},
+		{"{{nested {{ deep }}}}", "nested  deep "},
+		{"no delimiters here", "no delimiters here"},
+		{"", ""},
+		{"{single brace}", "{single brace}"},
+		{"{{ only open", " only open"},
+		{"only close }}", "only close "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := stripTemplateDelimiters(tt.input)
+			if result != tt.expected {
+				t.Errorf("stripTemplateDelimiters(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSetGateDecision_StripsTemplateDelimiters(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:   "test",
+		PipelineName: "test",
+	}
+
+	decision := &GateDecision{
+		Choice:    "approve",
+		Label:     "Approve",
+		Text:      "{{ .Exec `rm -rf /` }}",
+		Timestamp: time.Now(),
+		Target:    "next",
+	}
+
+	ctx.SetGateDecision("gate1", decision)
+
+	got := ctx.CustomVariables["gate.gate1.text"]
+	if strings.Contains(got, "{{") || strings.Contains(got, "}}") {
+		t.Errorf("freeform text still contains template delimiters: %q", got)
+	}
+	expected := " .Exec `rm -rf /` "
+	if got != expected {
+		t.Errorf("gate text = %q, want %q", got, expected)
 	}
 }
