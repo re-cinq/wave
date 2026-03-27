@@ -184,6 +184,9 @@ func (m GateModalModel) updateFreeformInput(msg tea.KeyMsg) (GateModalModel, tea
 // confirmChoice handles Enter on a selected choice. If freeform is enabled,
 // transitions to freeform input mode; otherwise finalizes immediately.
 func (m GateModalModel) confirmChoice() (GateModalModel, tea.Cmd) {
+	if m.gate == nil {
+		return m.cancel()
+	}
 	if m.gate.Freeform {
 		m.editing = true
 		return m, nil
@@ -207,7 +210,7 @@ func (m GateModalModel) cancel() (GateModalModel, tea.Cmd) {
 // finalize sends the selected choice (and optional freeform text) back through
 // the response channel and deactivates the modal.
 func (m GateModalModel) finalize() (GateModalModel, tea.Cmd) {
-	if m.cursor >= len(m.gate.Choices) {
+	if m.gate == nil || m.cursor >= len(m.gate.Choices) {
 		return m.cancel()
 	}
 
