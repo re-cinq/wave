@@ -30,15 +30,22 @@ const (
 	OnFailureRetry    = "retry"
 )
 
+// Step type constants for graph-mode pipelines.
+const (
+	StepTypeConditional = "conditional"
+	StepTypeCommand     = "command"
+)
+
 type Pipeline struct {
-	Kind     string           `yaml:"kind"`
-	Metadata PipelineMetadata `yaml:"metadata"`
-	Requires *Requires        `yaml:"requires,omitempty"`
-	Input    InputConfig      `yaml:"input"`
-	Steps           []Step                       `yaml:"steps"`
-	PipelineOutputs map[string]PipelineOutput    `yaml:"pipeline_outputs,omitempty"` // Named output aliases
-	ChatContext     *ChatContextConfig           `yaml:"chat_context,omitempty"`     // Chat session context injection
-	Skills          []string                     `yaml:"skills,omitempty"`           // Declarative skill references
+	Kind            string                    `yaml:"kind"`
+	Metadata        PipelineMetadata          `yaml:"metadata"`
+	Requires        *Requires                 `yaml:"requires,omitempty"`
+	Input           InputConfig               `yaml:"input"`
+	Steps           []Step                    `yaml:"steps"`
+	PipelineOutputs map[string]PipelineOutput `yaml:"pipeline_outputs,omitempty"` // Named output aliases
+	ChatContext     *ChatContextConfig        `yaml:"chat_context,omitempty"`     // Chat session context injection
+	Skills          []string                  `yaml:"skills,omitempty"`           // Declarative skill references
+	MaxStepVisits   int                       `yaml:"max_step_visits,omitempty"`  // Graph-level max total visits across all steps (default 50)
 }
 
 // ChatContextConfig configures what context to inject into post-pipeline chat sessions.
@@ -46,7 +53,7 @@ type ChatContextConfig struct {
 	ArtifactSummaries  []string `yaml:"artifact_summaries,omitempty"`  // Artifact names to summarize in chat
 	SuggestedQuestions []string `yaml:"suggested_questions,omitempty"` // Pipeline-specific opening questions
 	FocusAreas         []string `yaml:"focus_areas,omitempty"`         // Areas to highlight in chat
-	MaxContextTokens   int      `yaml:"max_context_tokens,omitempty"` // Token budget for injected content (default 8000)
+	MaxContextTokens   int      `yaml:"max_context_tokens,omitempty"`  // Token budget for injected content (default 8000)
 }
 
 // EffectiveMaxContextTokens returns the token budget, defaulting to 8000.
@@ -79,6 +86,14 @@ func (r *Requires) SkillNames() []string {
 // PipelineName returns the logical pipeline name from metadata.
 func (p *Pipeline) PipelineName() string {
 	return p.Metadata.Name
+}
+
+// EffectiveMaxStepVisits returns the pipeline's max total visits, defaulting to 50.
+func (p *Pipeline) EffectiveMaxStepVisits() int {
+	if p.MaxStepVisits > 0 {
+		return p.MaxStepVisits
+	}
+	return 50
 }
 
 type PipelineMetadata struct {
@@ -240,36 +255,48 @@ type AttemptContext struct {
 	FailedStepID     string            // ID of the step that triggered rework
 }
 
+// EdgeConfig defines an edge from a step to a target step with an optional condition.
+type EdgeConfig struct {
+	Target    string `yaml:"target"`
+	Condition string `yaml:"condition,omitempty"`
+}
+
 type Step struct {
-	ID              string           `yaml:"id"`
-	Persona         string           `yaml:"persona"`
-	Dependencies    []string         `yaml:"dependencies,omitempty"`
-	TimeoutMinutes  int              `yaml:"timeout_minutes,omitempty"`
-	Optional        bool             `yaml:"optional,omitempty"`
-	Memory          MemoryConfig     `yaml:"memory"`
-	Workspace       WorkspaceConfig  `yaml:"workspace"`
-	Exec            ExecConfig       `yaml:"exec"`
-	OutputArtifacts []ArtifactDef    `yaml:"output_artifacts,omitempty"`
-	Outcomes        []OutcomeDef     `yaml:"outcomes,omitempty"`
-	Handover        HandoverConfig   `yaml:"handover,omitempty"`
-	Retry           RetryConfig      `yaml:"retry,omitempty"`
-	ReworkOnly      bool             `yaml:"rework_only,omitempty"` // Only runs via rework trigger, not normal DAG scheduling
-	Strategy        *MatrixStrategy  `yaml:"strategy,omitempty"`
-	Validation      []ValidationRule `yaml:"validation,omitempty"`
-	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
-	Concurrency     int              `yaml:"concurrency,omitempty"`
+	ID                  string           `yaml:"id"`
+	Persona             string           `yaml:"persona"`
+	Dependencies        []string         `yaml:"dependencies,omitempty"`
+	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
+	Optional            bool             `yaml:"optional,omitempty"`
+	Memory              MemoryConfig     `yaml:"memory"`
+	Workspace           WorkspaceConfig  `yaml:"workspace"`
+	Exec                ExecConfig       `yaml:"exec"`
+	OutputArtifacts     []ArtifactDef    `yaml:"output_artifacts,omitempty"`
+	Outcomes            []OutcomeDef     `yaml:"outcomes,omitempty"`
+	Handover            HandoverConfig   `yaml:"handover,omitempty"`
+	Retry               RetryConfig      `yaml:"retry,omitempty"`
+	ReworkOnly          bool             `yaml:"rework_only,omitempty"` // Only runs via rework trigger, not normal DAG scheduling
+	Strategy            *MatrixStrategy  `yaml:"strategy,omitempty"`
+	Validation          []ValidationRule `yaml:"validation,omitempty"`
+	MaxConcurrentAgents int              `yaml:"max_concurrent_agents,omitempty"`
+	Concurrency         int              `yaml:"concurrency,omitempty"`
+
+	// Graph-mode fields
+	Type      string       `yaml:"type,omitempty"`       // "conditional", "command", or empty (default prompt)
+	Edges     []EdgeConfig `yaml:"edges,omitempty"`      // Outgoing edges for graph-mode routing
+	MaxVisits int          `yaml:"max_visits,omitempty"` // Max times this step can be visited in a loop (default 10)
+	Script    string       `yaml:"script,omitempty"`     // Shell script for command steps
 
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`
 
 	// Composition primitives
-	SubPipeline string           `yaml:"pipeline,omitempty"`     // Child pipeline to execute
-	SubInput    string           `yaml:"input,omitempty"`        // Input template for child pipeline
-	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`      // Iteration over items
-	Branch      *BranchConfig    `yaml:"branch,omitempty"`       // Conditional branching
-	Gate        *GateConfig      `yaml:"gate,omitempty"`         // Approval/timer/merge gates
-	Loop        *LoopConfig      `yaml:"loop,omitempty"`         // Feedback loops
-	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"`    // Output aggregation
+	SubPipeline string           `yaml:"pipeline,omitempty"`  // Child pipeline to execute
+	SubInput    string           `yaml:"input,omitempty"`     // Input template for child pipeline
+	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`   // Iteration over items
+	Branch      *BranchConfig    `yaml:"branch,omitempty"`    // Conditional branching
+	Gate        *GateConfig      `yaml:"gate,omitempty"`      // Approval/timer/merge gates
+	Loop        *LoopConfig      `yaml:"loop,omitempty"`      // Feedback loops
+	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"` // Output aggregation
 }
 
 // IsOptional returns whether this step is marked as optional.
@@ -330,18 +357,18 @@ type Mount struct {
 
 type ExecConfig struct {
 	Type       string `yaml:"type"`                  // "prompt", "command", or "slash_command"
-	Source     string `yaml:"source,omitempty"`       // Inline prompt content
-	SourcePath string `yaml:"source_path,omitempty"`  // Path to prompt file
-	Command    string `yaml:"command,omitempty"`      // Slash command name (for type: slash_command)
-	Args       string `yaml:"args,omitempty"`         // Arguments for slash command
+	Source     string `yaml:"source,omitempty"`      // Inline prompt content
+	SourcePath string `yaml:"source_path,omitempty"` // Path to prompt file
+	Command    string `yaml:"command,omitempty"`     // Slash command name (for type: slash_command)
+	Args       string `yaml:"args,omitempty"`        // Arguments for slash command
 }
 
 type ArtifactDef struct {
 	Name     string `yaml:"name"`
-	Path     string `yaml:"path,omitempty"`           // Optional when Source is "stdout"
-	Type     string `yaml:"type,omitempty"`           // "json", "text", "markdown", "binary"
+	Path     string `yaml:"path,omitempty"` // Optional when Source is "stdout"
+	Type     string `yaml:"type,omitempty"` // "json", "text", "markdown", "binary"
 	Required bool   `yaml:"required,omitempty"`
-	Source   string `yaml:"source,omitempty"`         // "file" (default) or "stdout"
+	Source   string `yaml:"source,omitempty"` // "file" (default) or "stdout"
 }
 
 // IsStdoutArtifact returns true if this artifact is captured from stdout.
@@ -406,11 +433,11 @@ type ValidationRule struct {
 // Outcomes are extracted from JSON artifacts and registered with the deliverable
 // tracker, making them appear in the pipeline output summary.
 type OutcomeDef struct {
-	Type        string `yaml:"type"`         // "pr", "issue", "url", "deployment"
-	ExtractFrom string `yaml:"extract_from"` // Artifact path relative to workspace (e.g., "output/publish-result.json")
-	JSONPath    string `yaml:"json_path"`    // Dot notation path (e.g., ".comment_url")
+	Type          string `yaml:"type"`                      // "pr", "issue", "url", "deployment"
+	ExtractFrom   string `yaml:"extract_from"`              // Artifact path relative to workspace (e.g., "output/publish-result.json")
+	JSONPath      string `yaml:"json_path"`                 // Dot notation path (e.g., ".comment_url")
 	JSONPathLabel string `yaml:"json_path_label,omitempty"` // Label extraction path for [*] array items
-	Label       string `yaml:"label,omitempty"`
+	Label         string `yaml:"label,omitempty"`
 }
 
 // validOutcomeTypes enumerates the accepted outcome types.
@@ -435,6 +462,19 @@ func (o OutcomeDef) Validate(stepID string, idx int) error {
 	return nil
 }
 
+// IsGraphStep returns true if this step has graph-mode routing (edges or conditional type).
+func (s *Step) IsGraphStep() bool {
+	return len(s.Edges) > 0 || s.Type == StepTypeConditional
+}
+
+// EffectiveMaxVisits returns the step's max visit count, defaulting to 10.
+func (s *Step) EffectiveMaxVisits() int {
+	if s.MaxVisits > 0 {
+		return s.MaxVisits
+	}
+	return 10
+}
+
 // IsCompositionStep returns true if the step uses any composition primitive.
 func (s *Step) IsCompositionStep() bool {
 	return s.SubPipeline != "" || s.Iterate != nil || s.Branch != nil || s.Gate != nil || s.Loop != nil || s.Aggregate != nil
@@ -442,9 +482,9 @@ func (s *Step) IsCompositionStep() bool {
 
 // IterateConfig configures iteration over a collection of items.
 type IterateConfig struct {
-	Over          string `yaml:"over"`                      // Template expression resolving to JSON array
-	Mode          string `yaml:"mode"`                      // "sequential" or "parallel"
-	MaxConcurrent int    `yaml:"max_concurrent,omitempty"`  // Max parallel workers (parallel mode)
+	Over          string `yaml:"over"`                     // Template expression resolving to JSON array
+	Mode          string `yaml:"mode"`                     // "sequential" or "parallel"
+	MaxConcurrent int    `yaml:"max_concurrent,omitempty"` // Max parallel workers (parallel mode)
 }
 
 // BranchConfig configures conditional pipeline selection.
@@ -455,11 +495,11 @@ type BranchConfig struct {
 
 // GateConfig configures a blocking gate step.
 type GateConfig struct {
-	Type      string `yaml:"type"`                  // "approval", "pr_merge", "ci_pass", "timer"
-	Auto      bool   `yaml:"auto,omitempty"`        // Auto-approve (for testing)
-	Timeout   string `yaml:"timeout,omitempty"`     // Duration string (e.g. "30m", "2h")
-	Message   string `yaml:"message,omitempty"`     // Display message while waiting
-	TUIAction string `yaml:"tui_action,omitempty"`  // TUI action identifier
+	Type      string `yaml:"type"`                 // "approval", "pr_merge", "ci_pass", "timer"
+	Auto      bool   `yaml:"auto,omitempty"`       // Auto-approve (for testing)
+	Timeout   string `yaml:"timeout,omitempty"`    // Duration string (e.g. "30m", "2h")
+	Message   string `yaml:"message,omitempty"`    // Display message while waiting
+	TUIAction string `yaml:"tui_action,omitempty"` // TUI action identifier
 
 	// Poll gate fields (pr_merge, ci_pass)
 	PRNumber int    `yaml:"pr_number,omitempty"` // PR number for pr_merge gate
@@ -470,21 +510,21 @@ type GateConfig struct {
 
 // LoopConfig configures a feedback loop with termination condition.
 type LoopConfig struct {
-	MaxIterations int    `yaml:"max_iterations"`        // Hard limit on iterations
-	Until         string `yaml:"until,omitempty"`       // Template condition for early exit
-	Steps         []Step `yaml:"steps,omitempty"`       // Sub-steps to execute per iteration
+	MaxIterations int    `yaml:"max_iterations"`  // Hard limit on iterations
+	Until         string `yaml:"until,omitempty"` // Template condition for early exit
+	Steps         []Step `yaml:"steps,omitempty"` // Sub-steps to execute per iteration
 }
 
 // AggregateConfig configures output collection from prior steps.
 type AggregateConfig struct {
-	From     string `yaml:"from"`      // Template expression for source data
-	Into     string `yaml:"into"`      // Output file path
-	Strategy string `yaml:"strategy"`  // "merge_arrays", "concat", "reduce"
+	From     string `yaml:"from"`     // Template expression for source data
+	Into     string `yaml:"into"`     // Output file path
+	Strategy string `yaml:"strategy"` // "merge_arrays", "concat", "reduce"
 }
 
 // PipelineOutput defines a named output alias for a pipeline.
 type PipelineOutput struct {
-	Step     string `yaml:"step"`               // Source step ID
-	Artifact string `yaml:"artifact"`           // Artifact name
-	Field    string `yaml:"field,omitempty"`    // Optional JSON field extraction
+	Step     string `yaml:"step"`            // Source step ID
+	Artifact string `yaml:"artifact"`        // Artifact name
+	Field    string `yaml:"field,omitempty"` // Optional JSON field extraction
 }
