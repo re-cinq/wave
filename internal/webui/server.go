@@ -58,6 +58,7 @@ type Server struct {
 	tlsCert     string
 	tlsKey      string
 	tlsCA       string
+	gateRegistry *GateRegistry
 }
 
 // ServerConfig holds configuration for the dashboard server.

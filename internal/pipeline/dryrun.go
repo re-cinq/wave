@@ -113,15 +113,24 @@ func NewDryRunValidator(pipelinesDir string) *DryRunValidator {
 func (v *DryRunValidator) Validate(p *Pipeline, m *manifest.Manifest) *DryRunReport {
 	report := &DryRunReport{PipelineName: p.Metadata.Name}
 
-	// 1. DAG-level structural validation.
+	// 1. Structural validation (DAG or graph mode).
 	dag := &DAGValidator{}
-	if err := dag.ValidateDAG(p); err != nil {
-		report.Findings = append(report.Findings, ValidationFinding{
-			Severity: SeverityError,
-			Message:  fmt.Sprintf("DAG validation failed: %v", err),
-		})
-		// Stop here — further per-step checks depend on a valid DAG map.
-		return report
+	if IsGraphPipeline(p) {
+		if err := dag.ValidateGraph(p); err != nil {
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("graph validation failed: %v", err),
+			})
+			return report
+		}
+	} else {
+		if err := dag.ValidateDAG(p); err != nil {
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("DAG validation failed: %v", err),
+			})
+			return report
+		}
 	}
 
 	// Build a map of step IDs → their output artifact names for cross-step
@@ -155,6 +164,25 @@ func (v *DryRunValidator) validateStep(
 	stepArtifacts map[string]map[string]bool,
 	report *DryRunReport,
 ) {
+	// Graph-mode step type validation.
+	if step.Type == StepTypeConditional {
+		// Conditional steps don't need persona or exec config
+		v.validateEdges(step, p, report)
+		v.validateInjectArtifacts(step, p, stepArtifacts, report)
+		return
+	}
+	if step.Type == StepTypeCommand {
+		// Command steps don't need persona
+		v.validateCommandStep(step, report)
+		v.validateEdges(step, p, report)
+		v.validateInjectArtifacts(step, p, stepArtifacts, report)
+		return
+	}
+	// Validate edges on regular steps too (they may have forward edges)
+	if len(step.Edges) > 0 {
+		v.validateEdges(step, p, report)
+	}
+
 	// Persona reference (only for non-composition steps).
 	if !step.IsCompositionStep() {
 		v.validatePersonaRef(step, m, report)
@@ -654,6 +682,69 @@ func (v *DryRunValidator) checkTemplateExpression(stepID, field, expr string, re
 			StepID:   stepID,
 			Field:    field,
 			Message:  fmt.Sprintf("template expression has unbalanced braces ({{ count=%d, }} count=%d): %q", opens, closes, expr),
+		})
+	}
+}
+
+// --- edges ---
+
+func (v *DryRunValidator) validateEdges(step *Step, p *Pipeline, report *DryRunReport) {
+	stepMap := make(map[string]bool, len(p.Steps))
+	for _, s := range p.Steps {
+		stepMap[s.ID] = true
+	}
+
+	for i, edge := range step.Edges {
+		field := fmt.Sprintf("edges[%d]", i)
+		if edge.Target == "" {
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityError,
+				StepID:   step.ID,
+				Field:    field,
+				Message:  "edge target is required",
+			})
+			continue
+		}
+		if !stepMap[edge.Target] {
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityError,
+				StepID:   step.ID,
+				Field:    field,
+				Message:  fmt.Sprintf("edge target %q does not exist", edge.Target),
+			})
+		}
+		if edge.Condition != "" {
+			if _, err := ParseCondition(edge.Condition); err != nil {
+				report.Findings = append(report.Findings, ValidationFinding{
+					Severity: SeverityError,
+					StepID:   step.ID,
+					Field:    field + ".condition",
+					Message:  fmt.Sprintf("invalid condition: %v", err),
+				})
+			}
+		}
+	}
+
+	// Validate max_visits range
+	if step.MaxVisits < 0 {
+		report.Findings = append(report.Findings, ValidationFinding{
+			Severity: SeverityError,
+			StepID:   step.ID,
+			Field:    "max_visits",
+			Message:  fmt.Sprintf("max_visits must be non-negative (got %d)", step.MaxVisits),
+		})
+	}
+}
+
+// --- command step ---
+
+func (v *DryRunValidator) validateCommandStep(step *Step, report *DryRunReport) {
+	if step.Script == "" {
+		report.Findings = append(report.Findings, ValidationFinding{
+			Severity: SeverityError,
+			StepID:   step.ID,
+			Field:    "script",
+			Message:  "type=command step requires a script field",
 		})
 	}
 }
