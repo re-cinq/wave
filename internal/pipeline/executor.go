@@ -3490,6 +3490,10 @@ func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution
 
 	gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, handler)
 
+	// Annotate the gate config with the step ID so downstream handlers
+	// (e.g. WebUI) can associate the pending gate with a specific step.
+	step.Gate.RuntimeStepID = step.ID
+
 	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
 	if err != nil {
 		execution.mu.Lock()
@@ -3512,8 +3516,22 @@ func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution
 				wsRoot = ".wave/workspaces"
 			}
 			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
-			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr == nil {
-				_ = os.WriteFile(artifactPath, []byte(decision.Text), 0644)
+			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to create artifact directory for gate freeform text: %v", mkErr),
+				})
+			} else if writeErr := os.WriteFile(artifactPath, []byte(decision.Text), 0644); writeErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to write gate freeform text artifact: %v", writeErr),
+				})
 			}
 		}
 	}
