@@ -65,6 +65,8 @@ type MockStateStore struct {
 	getOntologyStatsAll           func() ([]state.OntologyStats, error)
 	saveStepVisitCount            func(pipelineID, stepID string, count int) error
 	getStepVisitCount             func(pipelineID, stepID string) (int, error)
+	setParentRun                  func(childRunID, parentRunID, stepID string) error
+	getChildRuns                  func(parentRunID string) ([]state.RunRecord, error)
 
 	deleteCheckpointsAfterStep    func(runID string, stepIndex int) error
 	createRunWithFork             func(pipelineName, input, forkedFromRunID string) (string, error)
@@ -496,6 +498,44 @@ func (m *MockStateStore) GetCheckpoints(runID string) ([]state.CheckpointRecord,
 		return m.getCheckpoints(runID)
 	}
 	return nil, nil
+}
+
+func (m *MockStateStore) SetParentRun(childRunID, parentRunID, stepID string) error {
+	if m.setParentRun != nil {
+		return m.setParentRun(childRunID, parentRunID, stepID)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetChildRuns(parentRunID string) ([]state.RunRecord, error) {
+	if m.getChildRuns != nil {
+		return m.getChildRuns(parentRunID)
+	}
+	return nil, nil
+}
+
+func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) error {
+	return nil
+}
+
+func (m *MockStateStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockStateStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) DeleteRetrospective(runID string) error {
+	return nil
+}
+
+func (m *MockStateStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
+	return nil
+}
+
+func (m *MockStateStore) UpdateRetrospectiveStatus(runID string, status string) error {
+	return nil
 }
 
 // Functional options for overriding specific methods.
