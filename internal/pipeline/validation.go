@@ -351,6 +351,17 @@ func (e *ErrorMessageProvider) FormatContractValidationError(phase string, contr
 	return fmt.Errorf("%s", guidance.String())
 }
 
+// ResolvePipelineRetryPolicies calls ResolvePolicy() on each step's retry config,
+// resolving named policies into concrete values before the executor runs.
+func ResolvePipelineRetryPolicies(p *Pipeline) error {
+	for i := range p.Steps {
+		if err := p.Steps[i].Retry.ResolvePolicy(); err != nil {
+			return fmt.Errorf("step %q: %w", p.Steps[i].ID, err)
+		}
+	}
+	return nil
+}
+
 // ConcurrencyValidator validates and prevents concurrent pipeline executions
 type ConcurrencyValidator struct {
 	runningPipelines map[string]string // pipelineID -> workspaceID

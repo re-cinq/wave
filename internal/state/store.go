@@ -45,12 +45,16 @@ type StepStateRecord struct {
 	CompletedAt   *time.Time
 	WorkspacePath string
 	ErrorMessage  string
+	VisitCount    int
 }
 
 // StateStore persists and retrieves pipeline execution state.
 type StateStore interface {
 	SavePipelineState(id string, status string, input string) error
 	SaveStepState(pipelineID string, stepID string, state StepState, err string) error
+	// Graph-mode visit count tracking
+	SaveStepVisitCount(pipelineID string, stepID string, count int) error
+	GetStepVisitCount(pipelineID string, stepID string) (int, error)
 	GetPipelineState(id string) (*PipelineStateRecord, error)
 	GetStepStates(pipelineID string) ([]StepStateRecord, error)
 	ListRecentPipelines(limit int) ([]PipelineStateRecord, error)
@@ -118,6 +122,21 @@ type StateStore interface {
 	RecordOntologyUsage(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
 	GetOntologyStats(contextName string) (*OntologyStats, error)
 	GetOntologyStatsAll() ([]OntologyStats, error)
+
+	// Retrospective tracking
+	SaveRetrospective(record *RetrospectiveRecord) error
+	GetRetrospective(runID string) (*RetrospectiveRecord, error)
+	ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecord, error)
+	DeleteRetrospective(runID string) error
+	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
+	UpdateRetrospectiveStatus(runID string, status string) error
+}
+
+// ListRetrosOptions specifies filters for listing retrospectives.
+type ListRetrosOptions struct {
+	PipelineName string
+	SinceUnix    int64
+	Limit        int
 }
 
 type stateStore struct {
@@ -296,6 +315,43 @@ func (s *stateStore) SaveStepState(pipelineID string, stepID string, state StepS
 	return nil
 }
 
+// SaveStepVisitCount updates the visit count for a step in graph-mode pipelines.
+func (s *stateStore) SaveStepVisitCount(pipelineID string, stepID string, count int) error {
+	query := `UPDATE step_state SET visit_count = ? WHERE step_id = ? AND pipeline_id = ?`
+	result, err := s.db.Exec(query, count, stepID, pipelineID)
+	if err != nil {
+		return fmt.Errorf("failed to save step visit count: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		// Step state doesn't exist yet — insert it with the visit count
+		insertQuery := `INSERT INTO step_state (step_id, pipeline_id, state, retry_count, visit_count)
+		                VALUES (?, ?, 'pending', 0, ?)`
+		_, err := s.db.Exec(insertQuery, stepID, pipelineID, count)
+		if err != nil {
+			return fmt.Errorf("failed to insert step visit count: %w", err)
+		}
+	}
+	return nil
+}
+
+// GetStepVisitCount retrieves the visit count for a step in graph-mode pipelines.
+func (s *stateStore) GetStepVisitCount(pipelineID string, stepID string) (int, error) {
+	query := `SELECT visit_count FROM step_state WHERE step_id = ? AND pipeline_id = ?`
+	var count int
+	err := s.db.QueryRow(query, stepID, pipelineID).Scan(&count)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to get step visit count: %w", err)
+	}
+	return count, nil
+}
+
 func (s *stateStore) GetPipelineState(id string) (*PipelineStateRecord, error) {
 	query := `SELECT pipeline_id, pipeline_name, status, input, created_at, updated_at
 	          FROM pipeline_state
@@ -326,7 +382,7 @@ func (s *stateStore) GetPipelineState(id string) (*PipelineStateRecord, error) {
 }
 
 func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error) {
-	query := `SELECT step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message
+	query := `SELECT step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message, visit_count
 	          FROM step_state
 	          WHERE pipeline_id = ?
 	          ORDER BY step_id`
@@ -352,6 +408,7 @@ func (s *stateStore) GetStepStates(pipelineID string) ([]StepStateRecord, error)
 			&completedAt,
 			&workspacePath,
 			&errMsg,
+			&record.VisitCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan step state: %w", err)
@@ -1987,4 +2044,96 @@ func (s *stateStore) GetOntologyStatsAll() ([]OntologyStats, error) {
 		allStats = append(allStats, stats)
 	}
 	return allStats, nil
+}
+
+// SaveRetrospective saves a retrospective index record.
+func (s *stateStore) SaveRetrospective(record *RetrospectiveRecord) error {
+	// Check if exists first
+	var exists int
+	s.db.QueryRow("SELECT COUNT(*) FROM retrospective WHERE run_id = ?", record.RunID).Scan(&exists)
+	if exists > 0 {
+		_, err := s.db.Exec(`
+			UPDATE retrospective SET smoothness = ?, status = ?, file_path = ?
+			WHERE run_id = ?
+		`, record.Smoothness, record.Status, record.FilePath, record.RunID)
+		return err
+	}
+	_, err := s.db.Exec(`
+		INSERT INTO retrospective (run_id, pipeline_name, smoothness, status, file_path, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, record.RunID, record.PipelineName, record.Smoothness, record.Status, record.FilePath, record.CreatedAt.Unix())
+	return err
+}
+
+// GetRetrospective retrieves a retrospective record by run ID.
+func (s *stateStore) GetRetrospective(runID string) (*RetrospectiveRecord, error) {
+	row := s.db.QueryRow(`
+		SELECT id, run_id, pipeline_name, smoothness, status, file_path, created_at
+		FROM retrospective WHERE run_id = ?
+	`, runID)
+
+	var r RetrospectiveRecord
+	var createdAt int64
+	err := row.Scan(&r.ID, &r.RunID, &r.PipelineName, &r.Smoothness, &r.Status, &r.FilePath, &createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("retrospective not found for run %s: %w", runID, err)
+	}
+	r.CreatedAt = time.Unix(createdAt, 0)
+	return &r, nil
+}
+
+// ListRetrospectives returns retrospectives matching the given filters.
+func (s *stateStore) ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecord, error) {
+	query := "SELECT id, run_id, pipeline_name, smoothness, status, file_path, created_at FROM retrospective WHERE 1=1"
+	var args []interface{}
+
+	if opts.PipelineName != "" {
+		query += " AND pipeline_name = ?"
+		args = append(args, opts.PipelineName)
+	}
+	if opts.SinceUnix > 0 {
+		query += " AND created_at >= ?"
+		args = append(args, opts.SinceUnix)
+	}
+	query += " ORDER BY created_at DESC"
+	if opts.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, opts.Limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list retrospectives: %w", err)
+	}
+	defer rows.Close()
+
+	var records []RetrospectiveRecord
+	for rows.Next() {
+		var r RetrospectiveRecord
+		var createdAt int64
+		if err := rows.Scan(&r.ID, &r.RunID, &r.PipelineName, &r.Smoothness, &r.Status, &r.FilePath, &createdAt); err != nil {
+			return nil, fmt.Errorf("failed to scan retrospective: %w", err)
+		}
+		r.CreatedAt = time.Unix(createdAt, 0)
+		records = append(records, r)
+	}
+	return records, nil
+}
+
+// DeleteRetrospective removes a retrospective record by run ID.
+func (s *stateStore) DeleteRetrospective(runID string) error {
+	_, err := s.db.Exec("DELETE FROM retrospective WHERE run_id = ?", runID)
+	return err
+}
+
+// UpdateRetrospectiveSmoothness updates the smoothness rating for a retrospective.
+func (s *stateStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
+	_, err := s.db.Exec("UPDATE retrospective SET smoothness = ? WHERE run_id = ?", smoothness, runID)
+	return err
+}
+
+// UpdateRetrospectiveStatus updates the status for a retrospective.
+func (s *stateStore) UpdateRetrospectiveStatus(runID string, status string) error {
+	_, err := s.db.Exec("UPDATE retrospective SET status = ? WHERE run_id = ?", status, runID)
+	return err
 }

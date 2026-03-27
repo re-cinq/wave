@@ -587,3 +587,158 @@ func TestParsePollGateTiming_InvalidTimeout(t *testing.T) {
 		t.Fatal("expected error for invalid timeout")
 	}
 }
+
+// -- Choice-based approval gate tests --
+
+func TestGateExecutor_Approval_WithChoices_AutoApproveHandler(t *testing.T) {
+	emitter := testutil.NewEventCollector()
+	handler := &AutoApproveHandler{}
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, handler)
+
+	config := &GateConfig{
+		Type: "approval",
+		Choices: []GateChoice{
+			{Label: "Approve", Key: "a", Target: "implement"},
+			{Label: "Revise", Key: "r", Target: "plan"},
+			{Label: "Abort", Key: "q", Target: "_fail"},
+		},
+		Default: "a",
+	}
+
+	decision, err := gate.ExecuteWithDecision(context.Background(), config, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if decision == nil {
+		t.Fatal("expected a decision")
+	}
+	if decision.Choice != "a" {
+		t.Errorf("expected choice 'a', got %q", decision.Choice)
+	}
+	if decision.Label != "Approve" {
+		t.Errorf("expected label 'Approve', got %q", decision.Label)
+	}
+	if decision.Target != "implement" {
+		t.Errorf("expected target 'implement', got %q", decision.Target)
+	}
+	if !emitter.HasEventWithState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_Approval_WithChoices_NoHandler_TimeoutDefault(t *testing.T) {
+	emitter := testutil.NewEventCollector()
+	// No handler, but has choices with default — should use default on timeout
+	gate := NewGateExecutor(emitter, nil, nil)
+
+	config := &GateConfig{
+		Type:    "approval",
+		Timeout: "50ms",
+		Choices: []GateChoice{
+			{Label: "Approve", Key: "a", Target: "implement"},
+		},
+		Default: "a",
+	}
+
+	decision, err := gate.ExecuteWithDecision(context.Background(), config, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if decision == nil {
+		t.Fatal("expected a decision on timeout with default")
+	}
+	if decision.Choice != "a" {
+		t.Errorf("expected choice 'a', got %q", decision.Choice)
+	}
+	if !emitter.HasEventWithState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+func TestGateExecutor_Approval_LegacyAutoApprove_StillWorks(t *testing.T) {
+	// Legacy gate: Auto=true, no choices — should auto-approve as before
+	emitter := testutil.NewEventCollector()
+	gate := NewGateExecutor(emitter, nil, nil)
+
+	decision, err := gate.ExecuteWithDecision(context.Background(), &GateConfig{
+		Type: "approval",
+		Auto: true,
+	}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if decision != nil {
+		t.Error("legacy auto-approve should return nil decision")
+	}
+	if !emitter.HasEventWithState(event.StateGateResolved) {
+		t.Error("expected gate_resolved event")
+	}
+}
+
+// testGateHandler is a mock handler for testing.
+type testGateHandler struct {
+	decision *GateDecision
+	err      error
+}
+
+func (h *testGateHandler) Prompt(_ context.Context, _ *GateConfig) (*GateDecision, error) {
+	return h.decision, h.err
+}
+
+func TestGateExecutor_Approval_WithChoices_CustomHandler(t *testing.T) {
+	emitter := testutil.NewEventCollector()
+	handler := &testGateHandler{
+		decision: &GateDecision{
+			Choice: "r",
+			Label:  "Revise",
+			Target: "plan",
+			Text:   "Please add more tests",
+		},
+	}
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, handler)
+
+	config := &GateConfig{
+		Type: "approval",
+		Choices: []GateChoice{
+			{Label: "Approve", Key: "a", Target: "implement"},
+			{Label: "Revise", Key: "r", Target: "plan"},
+		},
+		Freeform: true,
+	}
+
+	decision, err := gate.ExecuteWithDecision(context.Background(), config, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if decision.Choice != "r" {
+		t.Errorf("expected choice 'r', got %q", decision.Choice)
+	}
+	if decision.Text != "Please add more tests" {
+		t.Errorf("expected freeform text, got %q", decision.Text)
+	}
+	if decision.Target != "plan" {
+		t.Errorf("expected target 'plan', got %q", decision.Target)
+	}
+}
+
+func TestGateExecutor_Approval_HandlerError(t *testing.T) {
+	handler := &testGateHandler{
+		err: fmt.Errorf("user cancelled"),
+	}
+	gate := NewGateExecutorWithHandler(nil, nil, nil, handler)
+
+	config := &GateConfig{
+		Type: "approval",
+		Choices: []GateChoice{
+			{Label: "Approve", Key: "a"},
+		},
+	}
+
+	_, err := gate.ExecuteWithDecision(context.Background(), config, nil)
+	if err == nil {
+		t.Fatal("expected error from handler")
+	}
+	if !strings.Contains(err.Error(), "user cancelled") {
+		t.Errorf("expected 'user cancelled' in error, got: %v", err)
+	}
+}

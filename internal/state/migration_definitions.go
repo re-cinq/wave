@@ -299,5 +299,30 @@ CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
 DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 		},
+		{
+			Version:     12,
+			Description: "Add visit_count column to step_state for graph-mode loop tracking",
+			Up:          `ALTER TABLE step_state ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;`,
+			Down:        "",
+		},
+		{
+			Version:     13,
+			Description: "Add retrospective table for run retrospective indexing",
+			Up: `CREATE TABLE IF NOT EXISTS retrospective (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    pipeline_name TEXT NOT NULL,
+    smoothness TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'quantitative',
+    file_path TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_retro_run ON retrospective(run_id);
+CREATE INDEX IF NOT EXISTS idx_retro_pipeline ON retrospective(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_retro_created ON retrospective(created_at);`,
+			Down: `DROP TABLE IF EXISTS retrospective;`,
+		},
 	}
 }
