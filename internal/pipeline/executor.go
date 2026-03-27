@@ -251,6 +251,11 @@ func (e *DefaultPipelineExecutor) LastExecution() *PipelineExecution {
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	// Detect graph-mode pipelines (edges or conditional steps present)
+	if IsGraphPipeline(p) {
+		return e.executeGraphPipeline(ctx, p, m, input)
+	}
+
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
@@ -609,6 +614,282 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.cleanupCompletedPipeline(pipelineID)
 
 	return nil
+}
+
+// executeGraphPipeline runs a graph-mode pipeline using edge-following execution
+// instead of topological sort. Activated when steps define edges or conditional types.
+func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	validator := &DAGValidator{}
+	if err := validator.ValidateGraph(p); err != nil {
+		return fmt.Errorf("invalid graph pipeline: %w", err)
+	}
+
+	// Create pipeline context (shared setup with DAG mode)
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+
+	// Inject forge variables
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	InjectForgeVariables(pipelineContext, forgeInfo)
+
+	// Initialize deliverable tracker
+	if e.deliverableTracker == nil {
+		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	} else {
+		e.deliverableTracker.SetPipelineID(pipelineID)
+	}
+
+	execution := &PipelineExecution{
+		Pipeline:          p,
+		Manifest:          m,
+		States:            make(map[string]string),
+		Results:           make(map[string]map[string]interface{}),
+		ArtifactPaths:     make(map[string]string),
+		WorkspacePaths:    make(map[string]string),
+		WorktreePaths:     make(map[string]*WorktreeInfo),
+		AttemptContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
+		Input:             input,
+		Context:           pipelineContext,
+		Status: &PipelineStatus{
+			ID:             pipelineID,
+			PipelineName:   pipelineName,
+			State:          StatePending,
+			CompletedSteps: []string{},
+			FailedSteps:    []string{},
+			StartedAt:      time.Now(),
+		},
+	}
+
+	for _, step := range p.Steps {
+		execution.States[step.ID] = StatePending
+	}
+
+	e.mu.Lock()
+	e.pipelines[pipelineID] = execution
+	e.lastExecution = execution
+	e.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateRunning, input)
+	}
+
+	execution.Status.State = StateRunning
+
+	e.emit(event.Event{
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		State:          "started",
+		Message:        fmt.Sprintf("graph-mode pipeline input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:     len(p.Steps),
+		CompletedSteps: 0,
+	})
+
+	// Ensure workspace root exists
+	wsRoot := m.Runtime.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = ".wave/workspaces"
+	}
+	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
+	if !e.preserveWorkspace {
+		os.RemoveAll(pipelineWsPath)
+	}
+	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create and run graph walker
+	gw := NewGraphWalker(p)
+
+	// Load initial visit counts from state store (resume support)
+	var initialVisitCounts map[string]int
+	if e.store != nil {
+		initialVisitCounts = make(map[string]int)
+		for _, step := range p.Steps {
+			count, err := e.store.GetStepVisitCount(pipelineID, step.ID)
+			if err == nil && count > 0 {
+				initialVisitCounts[step.ID] = count
+			}
+		}
+	}
+
+	// Define the step executor callback
+	stepExecutor := func(ctx context.Context, step *Step) (*StepResult, error) {
+		// Handle command steps
+		if step.Type == StepTypeCommand || step.Script != "" {
+			return e.executeCommandStep(ctx, execution, step)
+		}
+
+		// Execute regular steps via the existing step execution path
+		err := e.executeStep(ctx, execution, step)
+
+		result := &StepResult{
+			StepID:  step.ID,
+			Context: make(map[string]string),
+		}
+
+		if err != nil {
+			result.Outcome = "failure"
+			result.Error = err
+			return result, err
+		}
+
+		result.Outcome = "success"
+		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		return result, nil
+	}
+
+	err := gw.Walk(ctx, stepExecutor, initialVisitCounts)
+
+	// Persist final visit counts
+	if e.store != nil {
+		for stepID, count := range gw.VisitCounts() {
+			e.store.SaveStepVisitCount(pipelineID, stepID, count)
+		}
+	}
+
+	now := time.Now()
+	execution.Status.CompletedAt = &now
+
+	if err != nil {
+		execution.Status.State = StateFailed
+		if e.store != nil {
+			e.store.SavePipelineState(pipelineID, StateFailed, input)
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      StateFailed,
+			Message:    err.Error(),
+		})
+		e.cleanupCompletedPipeline(pipelineID)
+		return err
+	}
+
+	execution.Status.State = StateCompleted
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateCompleted, input)
+	}
+
+	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		State:      StateCompleted,
+		DurationMs: elapsed,
+		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
+	})
+
+	e.cleanupCompletedPipeline(pipelineID)
+	return nil
+}
+
+// executeCommandStep runs a shell script command step and captures its output.
+// Command steps don't use adapters — they execute scripts directly via os/exec.
+func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execution *PipelineExecution, step *Step) (*StepResult, error) {
+	pipelineID := execution.Status.ID
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateRunning
+	execution.Status.CurrentStep = step.ID
+	execution.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateRunning,
+		Message:    fmt.Sprintf("executing command step: %s", step.Script),
+	})
+
+	// Resolve template placeholders in the script
+	script := step.Script
+	if execution.Context != nil {
+		script = execution.Context.ResolvePlaceholders(script)
+	}
+
+	// Create workspace for the step
+	workspacePath, err := e.createStepWorkspace(execution, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
+	}
+	execution.mu.Lock()
+	execution.WorkspacePaths[step.ID] = workspacePath
+	execution.mu.Unlock()
+
+	// Execute the script
+	cmd := exec.CommandContext(ctx, "sh", "-c", script)
+	cmd.Dir = workspacePath
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	execErr := cmd.Run()
+
+	result := &StepResult{
+		StepID:  step.ID,
+		Stdout:  stdout.String(),
+		Context: make(map[string]string),
+	}
+
+	// Store stdout as a result
+	execution.mu.Lock()
+	if execution.Results[step.ID] == nil {
+		execution.Results[step.ID] = make(map[string]interface{})
+	}
+	execution.Results[step.ID]["stdout"] = stdout.String()
+	execution.Results[step.ID]["stderr"] = stderr.String()
+	execution.mu.Unlock()
+
+	if execErr != nil {
+		result.Outcome = "failure"
+		result.Error = execErr
+
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      StateFailed,
+			Message:    fmt.Sprintf("command failed: %v\nstderr: %s", execErr, stderr.String()),
+		})
+
+		return result, execErr
+	}
+
+	result.Outcome = "success"
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateCompleted,
+		Message:    "command completed successfully",
+	})
+
+	return result, nil
 }
 
 // findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
