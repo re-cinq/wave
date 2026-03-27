@@ -145,10 +145,12 @@ func copyFile(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
 
-	_, err = io.Copy(destFile, srcFile)
-	return err
+	if _, err = io.Copy(destFile, srcFile); err != nil {
+		destFile.Close()
+		return err
+	}
+	return destFile.Close()
 }
 
 // copyDir recursively copies a directory.

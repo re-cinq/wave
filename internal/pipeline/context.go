@@ -214,11 +214,26 @@ func (ctx *PipelineContext) SetGateDecision(stepID string, decision *GateDecisio
 // MergeFrom merges child pipeline context variables and artifact paths into the parent.
 // Artifact paths from the child are namespaced with the given prefix to avoid collisions.
 // Custom variables from the child overwrite parent values on conflict (last-writer-wins).
+// Snapshot the child under its own lock first, then merge into the parent to avoid
+// holding two locks simultaneously (which could deadlock if called bidirectionally).
 func (ctx *PipelineContext) MergeFrom(child *PipelineContext, namespace string) {
 	if child == nil {
 		return
 	}
 
+	// Snapshot child state under child's lock only
+	child.mu.Lock()
+	childVars := make(map[string]string, len(child.CustomVariables))
+	for k, v := range child.CustomVariables {
+		childVars[k] = v
+	}
+	childArtifacts := make(map[string]string, len(child.ArtifactPaths))
+	for k, v := range child.ArtifactPaths {
+		childArtifacts[k] = v
+	}
+	child.mu.Unlock()
+
+	// Merge snapshot into parent under parent's lock
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 
@@ -229,16 +244,11 @@ func (ctx *PipelineContext) MergeFrom(child *PipelineContext, namespace string) 
 		ctx.ArtifactPaths = make(map[string]string)
 	}
 
-	child.mu.Lock()
-	defer child.mu.Unlock()
-
-	// Merge custom variables (last-writer-wins)
-	for k, v := range child.CustomVariables {
+	for k, v := range childVars {
 		ctx.CustomVariables[k] = v
 	}
 
-	// Merge artifact paths with namespace prefix
-	for name, path := range child.ArtifactPaths {
+	for name, path := range childArtifacts {
 		key := name
 		if namespace != "" {
 			key = namespace + "." + name
