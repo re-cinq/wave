@@ -203,6 +203,11 @@ func (gw *GraphWalker) evaluateEdges(step *Step, result *StepResult) (string, er
 
 // findNextDAGStep returns the next step in declaration order that depends on the current step.
 // Returns empty string if there's no dependent step (terminal).
+//
+// IMPORTANT: This returns only the first dependent found in declaration order.
+// ValidateGraph rejects pipelines where an edge-less step has multiple dependents,
+// so this single-return behavior is safe. If fan-out is needed, the step must
+// define explicit edges to route to multiple successors.
 func (gw *GraphWalker) findNextDAGStep(step *Step) (string, error) {
 	for i := range gw.pipeline.Steps {
 		s := &gw.pipeline.Steps[i]

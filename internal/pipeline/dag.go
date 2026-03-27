@@ -323,6 +323,27 @@ func (v *DAGValidator) ValidateGraph(p *Pipeline) error {
 		return fmt.Errorf("pipeline has negative max_step_visits (%d)", p.MaxStepVisits)
 	}
 
+	// Validate that no step without edges has multiple dependents (fan-out).
+	// findNextDAGStep returns the first dependent found in declaration order,
+	// silently dropping any additional dependents. Reject at validation time
+	// so pipeline authors get a clear error instead of surprising behavior.
+	for _, step := range p.Steps {
+		if len(step.Edges) > 0 {
+			continue // steps with explicit edges use edge routing, not DAG fallback
+		}
+		var dependents []string
+		for _, candidate := range p.Steps {
+			for _, dep := range candidate.Dependencies {
+				if dep == step.ID {
+					dependents = append(dependents, candidate.ID)
+				}
+			}
+		}
+		if len(dependents) > 1 {
+			return fmt.Errorf("step %q has no edges but multiple dependents %v; add explicit edges to control fan-out routing", step.ID, dependents)
+		}
+	}
+
 	return nil
 }
 
