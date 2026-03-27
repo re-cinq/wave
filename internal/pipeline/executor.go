@@ -19,10 +19,10 @@ import (
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
-	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
@@ -99,6 +99,8 @@ type DefaultPipelineExecutor struct {
 	autoApprove bool
 	// Gate handler for interactive approval gates (CLI, TUI, WebUI)
 	gateHandler GateHandler
+	// Lifecycle hook runner for pipeline-level hooks
+	hookRunner hooks.HookRunner
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -177,6 +179,11 @@ func WithGateHandler(h GateHandler) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.gateHandler = h }
 }
 
+// WithHookRunner sets the lifecycle hook runner for pipeline events.
+func WithHookRunner(r hooks.HookRunner) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
+}
+
 // createRunID generates a run ID, preferring the state store's CreateRun()
 // so the run appears in the dashboard. Falls back to GenerateRunID() if
 // the store is unavailable or the call fails.
@@ -210,6 +217,8 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
+	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -257,6 +266,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		skillStore:             e.skillStore,
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
+		hookRunner:             e.hookRunner,
 	}
 }
 
@@ -268,6 +278,11 @@ func (e *DefaultPipelineExecutor) LastExecution() *PipelineExecution {
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	// Detect graph-mode pipelines (edges or conditional steps present)
+	if IsGraphPipeline(p) {
+		return e.executeGraphPipeline(ctx, p, m, input)
+	}
+
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
@@ -276,6 +291,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return fmt.Errorf("failed to topologically sort steps: %w", err)
+	}
+
+	// Resolve named retry policies into concrete values before execution
+	if err := ResolvePipelineRetryPolicies(p); err != nil {
+		return fmt.Errorf("retry policy resolution: %w", err)
 	}
 
 	// Apply step filter (--steps / --exclude) to the sorted step list
@@ -430,6 +450,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
@@ -500,6 +521,27 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		State:      "started",
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
+
+	// Initialize hook runner from manifest hooks if not already set
+	if e.hookRunner == nil && len(m.Hooks) > 0 {
+		runner, err := hooks.NewHookRunner(m.Hooks, e.emitter)
+		if err != nil {
+			return fmt.Errorf("failed to initialize hook runner: %w", err)
+		}
+		e.hookRunner = runner
+	}
+
+	// Run run_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventRunStart,
+			PipelineID: pipelineID,
+			Input:      input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("run_start hook failed: %w", err)
+		}
+	}
 
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
@@ -649,11 +691,23 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateFailed, input)
 		}
+		// Run run_failed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunFailed,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	} else {
 		execution.Status.State = StateCompleted
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateCompleted, input)
 		}
+		// Run run_completed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunCompleted,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
@@ -669,6 +723,373 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.cleanupCompletedPipeline(pipelineID)
 
 	return nil
+}
+
+// executeGraphPipeline runs a graph-mode pipeline using edge-following execution
+// instead of topological sort. Activated when steps define edges or conditional types.
+func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	validator := &DAGValidator{}
+	if err := validator.ValidateGraph(p); err != nil {
+		return fmt.Errorf("invalid graph pipeline: %w", err)
+	}
+
+	// Create pipeline context (shared setup with DAG mode)
+	pipelineName := p.Metadata.Name
+	pipelineID := e.runID
+	if pipelineID == "" {
+		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
+	}
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+
+	// Inject forge variables
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	InjectForgeVariables(pipelineContext, forgeInfo)
+
+	// Initialize deliverable tracker
+	if e.deliverableTracker == nil {
+		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	} else {
+		e.deliverableTracker.SetPipelineID(pipelineID)
+	}
+
+	execution := &PipelineExecution{
+		Pipeline:          p,
+		Manifest:          m,
+		States:            make(map[string]string),
+		Results:           make(map[string]map[string]interface{}),
+		ArtifactPaths:     make(map[string]string),
+		WorkspacePaths:    make(map[string]string),
+		WorktreePaths:     make(map[string]*WorktreeInfo),
+		AttemptContexts:   make(map[string]*AttemptContext),
+		ReworkTransitions: make(map[string]string),
+		Input:             input,
+		Context:           pipelineContext,
+		Status: &PipelineStatus{
+			ID:             pipelineID,
+			PipelineName:   pipelineName,
+			State:          StatePending,
+			CompletedSteps: []string{},
+			FailedSteps:    []string{},
+			StartedAt:      time.Now(),
+		},
+	}
+
+	for _, step := range p.Steps {
+		execution.States[step.ID] = StatePending
+	}
+
+	e.mu.Lock()
+	e.pipelines[pipelineID] = execution
+	e.lastExecution = execution
+	e.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateRunning, input)
+	}
+
+	execution.Status.State = StateRunning
+
+	e.emit(event.Event{
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		State:          "started",
+		Message:        fmt.Sprintf("graph-mode pipeline input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:     len(p.Steps),
+		CompletedSteps: 0,
+	})
+
+	// Ensure workspace root exists
+	wsRoot := m.Runtime.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = ".wave/workspaces"
+	}
+	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
+	if !e.preserveWorkspace {
+		os.RemoveAll(pipelineWsPath)
+	}
+	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create and run graph walker
+	gw := NewGraphWalker(p)
+
+	// Load initial visit counts from state store (resume support)
+	var initialVisitCounts map[string]int
+	if e.store != nil {
+		initialVisitCounts = make(map[string]int)
+		for _, step := range p.Steps {
+			count, err := e.store.GetStepVisitCount(pipelineID, step.ID)
+			if err == nil && count > 0 {
+				initialVisitCounts[step.ID] = count
+			}
+		}
+	}
+
+	// Define the step executor callback
+	stepExecutor := func(ctx context.Context, step *Step) (*StepResult, error) {
+		// Handle command steps
+		if step.Type == StepTypeCommand || step.Script != "" {
+			return e.executeCommandStep(ctx, execution, step)
+		}
+
+		// Execute regular steps via the existing step execution path
+		err := e.executeStep(ctx, execution, step)
+
+		result := &StepResult{
+			StepID:  step.ID,
+			Context: make(map[string]string),
+		}
+
+		if err != nil {
+			result.Outcome = "failure"
+			result.Error = err
+			return result, err
+		}
+
+		result.Outcome = "success"
+		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		return result, nil
+	}
+
+	err := gw.Walk(ctx, stepExecutor, initialVisitCounts)
+
+	// Persist final visit counts
+	if e.store != nil {
+		for stepID, count := range gw.VisitCounts() {
+			e.store.SaveStepVisitCount(pipelineID, stepID, count)
+		}
+	}
+
+	now := time.Now()
+	execution.Status.CompletedAt = &now
+
+	if err != nil {
+		execution.Status.State = StateFailed
+		if e.store != nil {
+			e.store.SavePipelineState(pipelineID, StateFailed, input)
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      StateFailed,
+			Message:    err.Error(),
+		})
+		e.cleanupCompletedPipeline(pipelineID)
+		return err
+	}
+
+	execution.Status.State = StateCompleted
+	if e.store != nil {
+		e.store.SavePipelineState(pipelineID, StateCompleted, input)
+	}
+
+	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		State:      StateCompleted,
+		DurationMs: elapsed,
+		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
+	})
+
+	e.cleanupCompletedPipeline(pipelineID)
+	return nil
+}
+
+// executeCommandStep runs a shell script command step and captures its output.
+// executeCommandStep runs a shell script command step and captures its output.
+// Command steps don’t use adapters — they execute scripts directly via os/exec.
+//
+// Security: The resolved script is sanitized via InputSanitizer to detect prompt
+// injection and shell metacharacter abuse. The subprocess environment is filtered
+// to only include variables listed in Runtime.Sandbox.EnvPassthrough.
+func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execution *PipelineExecution, step *Step) (*StepResult, error) {
+	pipelineID := execution.Status.ID
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateRunning
+	execution.Status.CurrentStep = step.ID
+	execution.mu.Unlock()
+
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
+	}
+
+	// Audit log: command step start
+	if e.logger != nil {
+		e.logger.LogStepStart(pipelineID, step.ID, "command", nil)
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateRunning,
+		Message:    fmt.Sprintf("executing command step: %s", step.Script),
+	})
+
+	// Resolve template placeholders in the script
+	script := step.Script
+	if execution.Context != nil {
+		script = execution.Context.ResolvePlaceholders(script)
+	}
+
+	// SECURITY: Sanitize the resolved script to detect injection attempts.
+	// Template resolution can introduce user-controlled content (e.g. issue titles,
+	// branch names) that could contain shell metacharacters or injection payloads.
+	if e.inputSanitizer != nil {
+		record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
+		if err != nil {
+			// Sanitization rejected the input (strict mode / prompt injection detected)
+			if e.securityLogger != nil {
+				e.securityLogger.LogViolation(
+					string(security.ViolationPromptInjection),
+					string(security.SourceUserInput),
+					fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
+					security.SeverityCritical,
+					true,
+				)
+			}
+			return nil, fmt.Errorf("command step %q: script sanitization failed: %w", step.ID, err)
+		}
+		if record != nil && record.ChangesDetected {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      StateRunning,
+				Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
+			})
+		}
+		script = sanitized
+	}
+
+	// Create workspace for the step
+	workspacePath, err := e.createStepWorkspace(execution, step)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
+	}
+	execution.mu.Lock()
+	execution.WorkspacePaths[step.ID] = workspacePath
+	execution.mu.Unlock()
+
+	// Execute the script
+	startTime := time.Now()
+	cmd := exec.CommandContext(ctx, "sh", "-c", script)
+	cmd.Dir = workspacePath
+
+	// SECURITY: Filter environment to only EnvPassthrough variables.
+	// Prevents leaking secrets, API keys, or other sensitive environment
+	// variables into the command subprocess.
+	cmd.Env = filterEnvPassthrough(execution.Manifest.Runtime.Sandbox.EnvPassthrough)
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Audit log: tool call (the shell command)
+	if e.logger != nil {
+		e.logger.LogToolCall(pipelineID, step.ID, "sh", script)
+	}
+
+	execErr := cmd.Run()
+	duration := time.Since(startTime)
+
+	result := &StepResult{
+		StepID:  step.ID,
+		Stdout:  stdout.String(),
+		Context: make(map[string]string),
+	}
+
+	// Store stdout as a result
+	execution.mu.Lock()
+	if execution.Results[step.ID] == nil {
+		execution.Results[step.ID] = make(map[string]interface{})
+	}
+	execution.Results[step.ID]["stdout"] = stdout.String()
+	execution.Results[step.ID]["stderr"] = stderr.String()
+	execution.mu.Unlock()
+
+	if execErr != nil {
+		result.Outcome = "failure"
+		result.Error = execErr
+
+		execution.mu.Lock()
+		execution.States[step.ID] = StateFailed
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
+		}
+
+		// Audit log: step end with failure
+		exitCode := -1
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		if e.logger != nil {
+			e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, duration, exitCode, len(stdout.String()), 0, execErr.Error())
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      StateFailed,
+			Message:    fmt.Sprintf("command failed: %v\nstderr: %s", execErr, stderr.String()),
+		})
+
+		return result, execErr
+	}
+
+	result.Outcome = "success"
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	// Audit log: step end with success
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+	if e.logger != nil {
+		e.logger.LogStepEnd(pipelineID, step.ID, StateCompleted, duration, exitCode, len(stdout.String()), 0, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      StateCompleted,
+		Message:    "command completed successfully",
+	})
+
+	return result, nil
+}
+
+// filterEnvPassthrough builds a minimal environment containing only the
+// variables named in the passthrough list. This prevents command steps from
+// inheriting the full parent environment which may contain secrets.
+// PATH is always included to ensure basic command resolution works.
+func filterEnvPassthrough(passthrough []string) []string {
+	allowed := make(map[string]bool, len(passthrough)+1)
+	allowed["PATH"] = true
+	for _, name := range passthrough {
+		allowed[name] = true
+	}
+
+	var filtered []string
+	for _, entry := range os.Environ() {
+		name, _, ok := strings.Cut(entry, "=")
+		if ok && allowed[name] {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 // findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
@@ -811,6 +1232,25 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeCompositionStep(ctx, execution, step)
 	}
 
+	// Run step_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepStart,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			execution.mu.Lock()
+			execution.States[step.ID] = StateFailed
+			execution.mu.Unlock()
+			if e.store != nil {
+				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+			}
+			return fmt.Errorf("step_start hook failed: %w", err)
+		}
+	}
+
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
 	var lastErr error
@@ -833,6 +1273,15 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				State:      StateRetrying,
 				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
+			// Run step_retrying hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventStepRetrying,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Input:      execution.Input,
+				})
+			}
 			time.Sleep(step.Retry.ComputeDelay(attempt))
 		}
 
@@ -851,7 +1300,28 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Start progress ticker for smooth animation updates during step execution
 		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
 
-		err := e.runStepExecution(ctx, execution, step)
+		// Start stall watchdog if configured
+		stepCtx := ctx
+		var watchdog *StallWatchdog
+		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
+			watchdog = NewStallWatchdog(stallTimeout)
+			stepCtx = watchdog.Start(stepCtx)
+		}
+
+		// Store watchdog on execution so runStepExecution can wire NotifyActivity
+		execution.mu.Lock()
+		execution.Watchdog = watchdog
+		execution.mu.Unlock()
+
+		err := e.runStepExecution(stepCtx, execution, step)
+
+		// Stop stall watchdog and clear reference
+		if watchdog != nil {
+			watchdog.Stop()
+		}
+		execution.mu.Lock()
+		execution.Watchdog = nil
+		execution.mu.Unlock()
 
 		// Stop progress ticker when step completes
 		cancelTicker()
@@ -861,7 +1331,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if err != nil {
 			lastErr = err
 
-			// Record failed attempt
+			// Classify the failure for intelligent retry decisions.
+			// Use stepCtx (watchdog-derived) so stall cancellation is detected.
+			failureClass := ClassifyStepFailure(err, nil, stepCtx.Err())
+
+			// Record failed attempt with pipeline-level failure class
 			if e.store != nil {
 				completedAt := time.Now()
 				e.store.RecordStepAttempt(&state.StepAttemptRecord{
@@ -870,11 +1344,41 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Attempt:      attempt,
 					State:        StateFailed,
 					ErrorMessage: err.Error(),
-					FailureClass: string(recovery.ClassifyError(err)),
+					FailureClass: failureClass,
 					DurationMs:   attemptDuration.Milliseconds(),
 					StartedAt:    attemptStart,
 					CompletedAt:  &completedAt,
 				})
+			}
+
+			// Check circuit breaker — if same failure fingerprint repeats too many times, stop
+			if execution.CircuitBreaker != nil {
+				fp := NormalizeFingerprint(step.ID, failureClass, err.Error())
+				if execution.CircuitBreaker.Record(fp, failureClass) {
+					e.emit(event.Event{
+						Timestamp:    time.Now(),
+						PipelineID:   pipelineID,
+						StepID:       step.ID,
+						State:        event.StateFailed,
+						FailureClass: failureClass,
+						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.Limit()),
+					})
+					// Fall through to on_failure handling below by exhausting attempts
+					attempt = maxAttempts
+				}
+			}
+
+			// Skip remaining retries for non-retryable failure classes
+			if !IsRetryable(failureClass) && attempt < maxAttempts {
+				e.emit(event.Event{
+					Timestamp:    time.Now(),
+					PipelineID:   pipelineID,
+					StepID:       step.ID,
+					State:        event.StateFailed,
+					FailureClass: failureClass,
+					Message:      fmt.Sprintf("non-retryable failure class %q, skipping remaining retries", failureClass),
+				})
+				attempt = maxAttempts
 			}
 
 			if attempt < maxAttempts {
@@ -897,10 +1401,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 					execution.mu.Lock()
 					execution.AttemptContexts[step.ID] = &AttemptContext{
-						Attempt:     attempt + 1,
-						MaxAttempts: maxAttempts,
-						PriorError:  errMsg,
-						PriorStdout: stdoutTail,
+						Attempt:      attempt + 1,
+						MaxAttempts:  maxAttempts,
+						PriorError:   errMsg,
+						FailureClass: failureClass,
+						PriorStdout:  stdoutTail,
 					}
 					execution.mu.Unlock()
 				}
@@ -961,6 +1466,16 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				execution.mu.Unlock()
 				if e.store != nil {
 					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+				}
+				// Run step_failed hooks (non-blocking by default)
+				if e.hookRunner != nil {
+					e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+						Type:       hooks.EventStepFailed,
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						Input:      execution.Input,
+						Error:      lastErr.Error(),
+					})
 				}
 				e.recordOntologyUsage(execution, step, "failed")
 				return lastErr
@@ -1364,6 +1879,16 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
 
+	// Run workspace_created hooks (non-blocking by default)
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventWorkspaceCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+		})
+	}
+
 	// Pre-create .wave/output/ so personas without Bash can write artifacts
 	if len(step.OutputArtifacts) > 0 {
 		outputDir := filepath.Join(workspacePath, ".wave", "output")
@@ -1583,6 +2108,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
+				// Notify watchdog of activity to prevent stall timeout
+				execution.mu.Lock()
+				wd := execution.Watchdog
+				execution.mu.Unlock()
+				if wd != nil {
+					wd.NotifyActivity()
+				}
+
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -1792,6 +2325,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Dir:        step.Handover.Contract.Dir,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
+			Model:      step.Handover.Contract.Model,
+			Criteria:   step.Handover.Contract.Criteria,
+			Threshold:  step.Handover.Contract.Threshold,
 		}
 
 		// Use schema filename for display when available, fall back to contract type
@@ -1882,6 +2418,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			if e.logger != nil {
 				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
 			}
+			// Run contract_validated hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventContractValidated,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Workspace:  workspacePath,
+				})
+			}
 		}
 	}
 	if step.Handover.Contract.Type == "" && e.logger != nil {
@@ -1894,6 +2439,31 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if len(stepArtifacts) == 0 && len(step.OutputArtifacts) > 0 && execution.Context != nil {
 		for _, art := range step.OutputArtifacts {
 			stepArtifacts = append(stepArtifacts, execution.Context.ResolveArtifactPath(art))
+		}
+	}
+
+	// Run artifact_created hooks (non-blocking by default)
+	if e.hookRunner != nil && len(stepArtifacts) > 0 {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventArtifactCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+			Artifacts:  stepArtifacts,
+		})
+	}
+
+	// Run step_completed hooks (blocking by default)
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepCompleted,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+			Workspace:  workspacePath,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("step_completed hook failed: %w", err)
 		}
 	}
 
@@ -2597,10 +3167,38 @@ func (e *DefaultPipelineExecutor) validateSkillRefs(pipelineSkills []string, pip
 	return errs
 }
 
+// parseStallTimeout parses the stall timeout from the manifest runtime config.
+// Returns 0 if not configured or invalid.
+func (e *DefaultPipelineExecutor) parseStallTimeout(m *manifest.Manifest) time.Duration {
+	if m == nil || m.Runtime.StallTimeout == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(m.Runtime.StallTimeout)
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
+}
+
 func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
+// are allowed to run with a detached context.
+const terminalHookTimeout = 30 * time.Second
+
+// runTerminalHooks executes lifecycle hooks with a fresh, detached context.
+// Terminal events fire after the pipeline context may already be cancelled.
+func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
+	if e.hookRunner == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), terminalHookTimeout)
+	defer cancel()
+	e.hookRunner.RunHooks(ctx, evt)
 }
 
 // trace emits a structured NDJSON trace event when debug tracing is enabled.
@@ -2879,6 +3477,18 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
 		}
 		b.WriteString("If tests fail, the step fails.\n")
+
+	case "llm_judge":
+		b.WriteString("### LLM Judge Evaluation\n\n")
+		b.WriteString("After you complete your work, an LLM judge will evaluate your output against the following criteria:\n\n")
+		for _, criterion := range step.Handover.Contract.Criteria {
+			b.WriteString(fmt.Sprintf("- %s\n", criterion))
+		}
+		threshold := step.Handover.Contract.Threshold
+		if threshold <= 0 {
+			threshold = 1.0
+		}
+		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────
@@ -3475,6 +4085,10 @@ func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution
 
 	gate := NewGateExecutorWithHandler(e.emitter, e.store, &execution.Manifest.Runtime.Timeouts, handler)
 
+	// Annotate the gate config with the step ID so downstream handlers
+	// (e.g. WebUI) can associate the pending gate with a specific step.
+	step.Gate.RuntimeStepID = step.ID
+
 	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
 	if err != nil {
 		execution.mu.Lock()
@@ -3497,8 +4111,22 @@ func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution
 				wsRoot = ".wave/workspaces"
 			}
 			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
-			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr == nil {
-				_ = os.WriteFile(artifactPath, []byte(decision.Text), 0644)
+			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to create artifact directory for gate freeform text: %v", mkErr),
+				})
+			} else if writeErr := os.WriteFile(artifactPath, []byte(decision.Text), 0644); writeErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateStepProgress,
+					Message:    fmt.Sprintf("warning: failed to write gate freeform text artifact: %v", writeErr),
+				})
 			}
 		}
 	}
