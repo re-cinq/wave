@@ -1613,3 +1613,228 @@ func TestHandleNotFound(t *testing.T) {
 		t.Errorf("expected body to contain 'Page not found', got: %s", body)
 	}
 }
+
+func TestHandleSubmitRun_Success(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Create a minimal pipeline YAML in a temp location
+	tmpDir := t.TempDir()
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: test-pipeline
+steps:
+  - id: step1
+    persona: navigator
+    exec:
+      prompt: "test"
+`
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	// Change to temp dir so loadPipelineYAML finds the file
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	body := strings.NewReader(`{"pipeline":"test-pipeline","input":"test"}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp SubmitRunResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.RunID == "" {
+		t.Error("expected non-empty RunID")
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+}
+
+func TestHandleSubmitRun_MissingPipeline(t *testing.T) {
+	srv, _ := testServer(t)
+
+	body := strings.NewReader(`{"input":"test"}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleSubmitRun_NonexistentPipeline(t *testing.T) {
+	srv, _ := testServer(t)
+
+	// Change to a temp dir with no pipelines
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	body := strings.NewReader(`{"pipeline":"nonexistent","input":"test"}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleRunLogs(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, _ := rwStore.CreateRun("test-pipeline", "input")
+
+	// Log some events
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/runs/"+runID+"/logs", nil)
+	req.SetPathValue("id", runID)
+	rec := httptest.NewRecorder()
+	srv.handleRunLogs(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp RunLogsResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.RunID != runID {
+		t.Errorf("expected run ID %q, got %q", runID, resp.RunID)
+	}
+	if len(resp.Logs) != 2 {
+		t.Fatalf("expected 2 log entries, got %d", len(resp.Logs))
+	}
+	if resp.Logs[0].Message != "Starting step1" {
+		t.Errorf("expected first log message 'Starting step1', got %q", resp.Logs[0].Message)
+	}
+	if resp.Logs[1].Message != "Processing" {
+		t.Errorf("expected second log message 'Processing', got %q", resp.Logs[1].Message)
+	}
+}
+
+func TestHandleRunLogs_NotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs/nonexistent-run-id/logs", nil)
+	req.SetPathValue("id", "nonexistent-run-id")
+	rec := httptest.NewRecorder()
+	srv.handleRunLogs(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_JWTMode(t *testing.T) {
+	secret := "test-jwt-secret-key"
+	srv := &Server{
+		authMode:  AuthModeJWT,
+		jwtSecret: secret,
+		bind:      "0.0.0.0",
+	}
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := srv.jwtAuthMiddleware(inner)
+
+	// Generate a valid JWT
+	claims := JWTClaims{
+		Subject:   "test-user",
+		IssuedAt:  1000000000,
+		ExpiresAt: 9999999999,
+	}
+	token, err := GenerateJWT(secret, claims)
+	if err != nil {
+		t.Fatalf("failed to generate JWT: %v", err)
+	}
+
+	// Test with valid JWT — should pass through
+	req := httptest.NewRequest("GET", "/api/runs", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 with valid JWT, got %d", rec.Code)
+	}
+
+	// Test without token — should get 401
+	req2 := httptest.NewRequest("GET", "/api/runs", nil)
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 without JWT, got %d", rec2.Code)
+	}
+
+	// Test with invalid token — should get 401
+	req3 := httptest.NewRequest("GET", "/api/runs", nil)
+	req3.Header.Set("Authorization", "Bearer invalid.token.here")
+	rec3 := httptest.NewRecorder()
+	handler.ServeHTTP(rec3, req3)
+
+	if rec3.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 with invalid JWT, got %d", rec3.Code)
+	}
+}
+
+func TestAuthMiddleware_NoneMode(t *testing.T) {
+	srv := &Server{
+		authMode: AuthModeNone,
+		bind:     "0.0.0.0",
+	}
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := srv.applyMiddleware(inner)
+
+	// Request without any auth should pass through
+	req := httptest.NewRequest("GET", "/api/runs", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 with AuthModeNone (no auth required), got %d", rec.Code)
+	}
+}

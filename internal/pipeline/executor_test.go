@@ -5211,8 +5211,7 @@ func TestThreadValidation_InvalidFidelity(t *testing.T) {
 
 	err := executor.Execute(ctx, p, m, "test")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "thread validation failed")
-	assert.Contains(t, err.Error(), "unknown fidelity value")
+	assert.Contains(t, err.Error(), "invalid fidelity value")
 }
 
 
@@ -5735,4 +5734,74 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 	}
 	require.NotEmpty(t, failedAttempts, "should have at least 1 failed attempt record")
 	assert.Equal(t, "canceled", failedAttempts[0].FailureClass, "failure class should be canceled")
+}
+
+// TestThreadedSteps_FreshFidelity verifies that fidelity: fresh suppresses transcript injection.
+func TestThreadedSteps_FreshFidelity(t *testing.T) {
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "thread-fresh-test"},
+		Steps: []Step{
+			{
+				ID:      "implement",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "implement"},
+			},
+			{
+				ID:           "fix",
+				Persona:      "navigator",
+				Thread:       "impl",
+				Fidelity:     FidelityFresh,
+				Dependencies: []string{"implement"},
+				Exec:         ExecConfig{Source: "fix"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	require.Len(t, configs, 2)
+
+	// Fix step has fidelity: fresh, so it should NOT receive prior context
+	assert.NotContains(t, configs[1].Prompt, "Prior Conversation Context",
+		"fidelity:fresh should suppress thread transcript injection")
+}
+
+// allConfigCapturingAdapter captures AdapterRunConfig for every call, keyed by step workspace path.
+type allConfigCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      sync.Mutex
+	configs []adapter.AdapterRunConfig
+}
+
+func (a *allConfigCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.configs = append(a.configs, cfg)
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+func (a *allConfigCapturingAdapter) getConfigs() []adapter.AdapterRunConfig {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	result := make([]adapter.AdapterRunConfig, len(a.configs))
+	copy(result, a.configs)
+	return result
 }

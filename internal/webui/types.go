@@ -427,3 +427,34 @@ type GateApproveResponse struct {
 	Choice string `json:"choice"`
 	Label  string `json:"label"`
 }
+type GateResolveRequest struct {
+	Approve bool `json:"approve"`
+}
+
+type RunLogEntry struct {
+	Timestamp  time.Time `json:"timestamp"`
+	StepID     string    `json:"step_id,omitempty"`
+	State      string    `json:"state"`
+	Persona    string    `json:"persona,omitempty"`
+	Message    string    `json:"message"`
+	TokensUsed int       `json:"tokens_used,omitempty"`
+	DurationMs int64     `json:"duration_ms,omitempty"`
+}
+
+type RunLogsResponse struct {
+	RunID string        `json:"run_id"`
+	Logs  []RunLogEntry `json:"logs"`
+}
+
+type SubmitRunRequest struct {
+	Pipeline string `json:"pipeline"`
+	Input    string `json:"input"`
+}
+
+type SubmitRunResponse struct {
+	RunID        string    `json:"run_id"`
+	PipelineName string    `json:"pipeline_name"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+}
+

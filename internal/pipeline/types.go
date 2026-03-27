@@ -38,20 +38,11 @@ const (
 	FidelityFresh   = "fresh"   // No prior context (default when no thread)
 )
 
-// validFidelityValues enumerates the accepted fidelity values.
-var validFidelityValues = map[string]bool{
-	FidelityFull:    true,
-	FidelityCompact: true,
-	FidelitySummary: true,
-	FidelityFresh:   true,
-}
-
 // Step type constants for graph-mode pipelines.
 const (
 	StepTypeConditional = "conditional"
 	StepTypeCommand     = "command"
 )
-
 
 type Pipeline struct {
 	Kind            string                    `yaml:"kind"`
