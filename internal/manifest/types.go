@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/hooks"
 )
 
 type Project struct {
@@ -40,6 +42,7 @@ type Manifest struct {
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Skills      []string            `yaml:"skills,omitempty"`
+	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
 }
 
@@ -90,6 +93,12 @@ type HookRule struct {
 	Command string `yaml:"command"`
 }
 
+// CircuitBreakerConfig controls failure fingerprint tracking and circuit breaking.
+type CircuitBreakerConfig struct {
+	Limit          int      `yaml:"limit,omitempty"`           // Same failure N times = terminate (default: 3)
+	TrackedClasses []string `yaml:"tracked_classes,omitempty"` // Failure classes to track (default: deterministic, contract_failure, test_failure)
+}
+
 type Runtime struct {
 	WorkspaceRoot        string                 `yaml:"workspace_root"`
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
@@ -104,6 +113,8 @@ type Runtime struct {
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
 	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"` // Adapter fallback chains
+	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
+	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 }
 
 // GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.
