@@ -388,6 +388,173 @@ steps:
 	}
 }
 
+func TestDetectSubPipelineCycles_Transitive(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A -> B -> C -> A (transitive cycle)
+	pipelineA := `kind: WavePipeline
+metadata:
+  name: pipeline-a
+steps:
+  - id: run-b
+    pipeline: pipeline-b
+`
+	pipelineB := `kind: WavePipeline
+metadata:
+  name: pipeline-b
+steps:
+  - id: run-c
+    pipeline: pipeline-c
+`
+	pipelineC := `kind: WavePipeline
+metadata:
+  name: pipeline-c
+steps:
+  - id: run-a
+    pipeline: pipeline-a
+`
+
+	for name, content := range map[string]string{
+		"pipeline-a.yaml": pipelineA,
+		"pipeline-b.yaml": pipelineB,
+		"pipeline-c.yaml": pipelineC,
+	} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("failed to write %s: %v", name, err)
+		}
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "pipeline-a"},
+		Steps: []Step{
+			{ID: "run-b", SubPipeline: "pipeline-b"},
+		},
+	}
+
+	err := DetectSubPipelineCycles(p, tmpDir)
+	if err == nil {
+		t.Fatal("expected cycle detection error for transitive cycle, got nil")
+	}
+	if !strings.Contains(err.Error(), "circular") {
+		t.Errorf("error %q should mention circular reference", err.Error())
+	}
+}
+
+func TestInjectSubPipelineArtifacts_NilConfig(t *testing.T) {
+	err := injectSubPipelineArtifacts(nil, nil, t.TempDir())
+	if err != nil {
+		t.Errorf("expected nil error for nil config, got: %v", err)
+	}
+}
+
+func TestInjectSubPipelineArtifacts_EmptyInject(t *testing.T) {
+	cfg := &SubPipelineConfig{Inject: []string{}}
+	err := injectSubPipelineArtifacts(cfg, nil, t.TempDir())
+	if err != nil {
+		t.Errorf("expected nil error for empty inject list, got: %v", err)
+	}
+}
+
+func TestExtractSubPipelineArtifacts_NilConfig(t *testing.T) {
+	err := extractSubPipelineArtifacts(nil, nil, "child", nil, t.TempDir())
+	if err != nil {
+		t.Errorf("expected nil error for nil config, got: %v", err)
+	}
+}
+
+func TestExtractSubPipelineArtifacts_MissingArtifact(t *testing.T) {
+	childCtx := &PipelineContext{
+		ArtifactPaths:   make(map[string]string),
+		CustomVariables: make(map[string]string),
+	}
+	parentCtx := &PipelineContext{
+		ArtifactPaths:   make(map[string]string),
+		CustomVariables: make(map[string]string),
+	}
+
+	cfg := &SubPipelineConfig{Extract: []string{"nonexistent"}}
+	err := extractSubPipelineArtifacts(cfg, childCtx, "child", parentCtx, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error for missing extract artifact, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found in child context") {
+		t.Errorf("error %q should contain 'not found in child context'", err.Error())
+	}
+}
+
+func TestInjectSubPipelineArtifacts_DirectoryCopy(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a directory artifact (not a file)
+	parentDir := filepath.Join(tmpDir, "parent-artifacts")
+	specDir := filepath.Join(parentDir, "specs")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specDir, "spec.md"), []byte("# Spec"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	parentCtx := &PipelineContext{
+		ArtifactPaths:   map[string]string{"specs": parentDir},
+		CustomVariables: make(map[string]string),
+	}
+
+	childDir := filepath.Join(tmpDir, "child")
+	if err := os.MkdirAll(childDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &SubPipelineConfig{Inject: []string{"specs"}}
+	err := injectSubPipelineArtifacts(cfg, parentCtx, childDir)
+	if err != nil {
+		t.Fatalf("injectSubPipelineArtifacts() error: %v", err)
+	}
+
+	// Verify directory was copied recursively
+	copiedSpec := filepath.Join(childDir, ".wave", "artifacts", "specs", "specs", "spec.md")
+	if _, err := os.Stat(copiedSpec); os.IsNotExist(err) {
+		t.Errorf("expected directory artifact to be copied recursively, but %s does not exist", copiedSpec)
+	}
+}
+
+func TestCopyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	src := filepath.Join(tmpDir, "source.txt")
+	if err := os.WriteFile(src, []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := filepath.Join(tmpDir, "subdir", "dest.txt")
+	if err := copyFile(src, dest); err != nil {
+		t.Fatalf("copyFile() error: %v", err)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("failed to read dest: %v", err)
+	}
+	if string(got) != "hello" {
+		t.Errorf("copyFile content = %q, want %q", string(got), "hello")
+	}
+}
+
+func TestEvaluateStopCondition_DoneValue(t *testing.T) {
+	ctx := &PipelineContext{
+		CustomVariables: make(map[string]string),
+	}
+	if !evaluateStopCondition("done", ctx) {
+		t.Error("expected 'done' to evaluate as true")
+	}
+	if !evaluateStopCondition("yes", ctx) {
+		t.Error("expected 'yes' to evaluate as true")
+	}
+	if evaluateStopCondition("no", ctx) {
+		t.Error("expected 'no' to evaluate as false")
+	}
+}
+
 func TestDetectSubPipelineCycles_NoCycle(t *testing.T) {
 	tmpDir := t.TempDir()
 

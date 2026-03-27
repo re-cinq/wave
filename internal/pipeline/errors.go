@@ -17,3 +17,14 @@ func (e *StepError) Error() string {
 func (e *StepError) Unwrap() error {
 	return e.Err
 }
+
+// GateAbortError is returned when a gate step selects a choice targeting _fail,
+// signaling that the pipeline should abort.
+type GateAbortError struct {
+	StepID string
+	Choice string
+}
+
+func (e *GateAbortError) Error() string {
+	return fmt.Sprintf("gate %q aborted with choice %q", e.StepID, e.Choice)
+}
