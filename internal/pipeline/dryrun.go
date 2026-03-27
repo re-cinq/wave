@@ -214,6 +214,11 @@ func (v *DryRunValidator) validateStep(
 	if step.SubPipeline != "" && step.Iterate == nil && step.Branch == nil && step.Loop == nil {
 		v.validateSubPipeline(step, step.SubPipeline, "pipeline", report)
 	}
+
+	// Sub-pipeline config validation.
+	if step.Config != nil {
+		v.validateSubPipelineConfig(step, report)
+	}
 }
 
 // --- persona ---
@@ -627,6 +632,39 @@ func (v *DryRunValidator) validateAggregate(step *Step, report *DryRunReport) {
 				Message:  fmt.Sprintf("unknown aggregate strategy %q (valid: merge_arrays, concat, reduce)", agg.Strategy),
 			})
 		}
+	}
+}
+
+// --- sub-pipeline config ---
+
+func (v *DryRunValidator) validateSubPipelineConfig(step *Step, report *DryRunReport) {
+	cfg := step.Config
+	if cfg == nil {
+		return
+	}
+
+	// Config only makes sense on sub-pipeline steps
+	if step.SubPipeline == "" {
+		report.Findings = append(report.Findings, ValidationFinding{
+			Severity: SeverityWarning,
+			StepID:   step.ID,
+			Field:    "config",
+			Message:  "config is set but step has no pipeline reference — config will be ignored",
+		})
+	}
+
+	if err := cfg.Validate(); err != nil {
+		report.Findings = append(report.Findings, ValidationFinding{
+			Severity: SeverityError,
+			StepID:   step.ID,
+			Field:    "config",
+			Message:  err.Error(),
+		})
+	}
+
+	// Check stop_condition template syntax
+	if cfg.StopCondition != "" {
+		v.checkTemplateExpression(step.ID, "config.stop_condition", cfg.StopCondition, report)
 	}
 }
 

@@ -324,5 +324,13 @@ CREATE INDEX IF NOT EXISTS idx_retro_pipeline ON retrospective(pipeline_name);
 CREATE INDEX IF NOT EXISTS idx_retro_created ON retrospective(created_at);`,
 			Down: `DROP TABLE IF EXISTS retrospective;`,
 		},
+		{
+			Version:     14,
+			Description: "Add parent_run_id and parent_step_id to pipeline_run for sub-pipeline composition",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN parent_run_id TEXT;
+ALTER TABLE pipeline_run ADD COLUMN parent_step_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
+			Down: "",
+		},
 	}
 }

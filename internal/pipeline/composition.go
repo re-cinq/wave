@@ -435,12 +435,19 @@ func (c *CompositionExecutor) executeAggregate(step *Step) error {
 }
 
 // executeSubPipeline loads and executes a named sub-pipeline.
+// When the step has a Config with lifecycle settings, artifact inject/extract
+// and timeout enforcement are applied.
 func (c *CompositionExecutor) executeSubPipeline(ctx context.Context, step *Step) error {
 	input, err := c.resolveStepInput(step)
 	if err != nil {
 		return err
 	}
-	return c.runSubPipeline(ctx, step.SubPipeline, input)
+
+	// Apply lifecycle timeout from config
+	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
+	defer cancel()
+
+	return c.runSubPipeline(execCtx, step.SubPipeline, input)
 }
 
 // runSubPipeline loads a pipeline by name and executes it.

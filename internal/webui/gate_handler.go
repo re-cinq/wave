@@ -12,8 +12,8 @@ import (
 // pendingGate holds the state for a gate that is waiting for a human decision
 // via the WebUI HTTP endpoint.
 type pendingGate struct {
-	Gate     *pipeline.GateConfig
 	StepID   string // step this gate belongs to (for URL verification)
+	Gate     *pipeline.GateConfig
 	Response chan *pipeline.GateDecision
 }
 
@@ -42,25 +42,26 @@ func (r *GateRegistry) Register(runID, stepID string, gate *pipeline.GateConfig)
 
 	ch := make(chan *pipeline.GateDecision, 1)
 	r.pending[runID] = &pendingGate{
-		Gate:     gate,
 		StepID:   stepID,
+		Gate:     gate,
 		Response: ch,
 	}
 	return ch
 }
 
 // Resolve sends a decision to the pending gate for the given run.
-// Returns an error if no gate is pending for that run.
+// Returns an error if no gate is pending for that run. The send is
+// performed under the lock to prevent a concurrent Remove() from
+// racing between the map deletion and the channel send.
 func (r *GateRegistry) Resolve(runID string, decision *pipeline.GateDecision) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	pg, ok := r.pending[runID]
 	if !ok {
-		r.mu.Unlock()
 		return fmt.Errorf("no pending gate for run %q", runID)
 	}
 	delete(r.pending, runID)
-	r.mu.Unlock()
-
 	pg.Response <- decision
 	return nil
 }
@@ -100,13 +101,15 @@ func (r *GateRegistry) Remove(runID string) {
 // One instance is created per pipeline run via NewWebUIGateHandler.
 type WebUIGateHandler struct {
 	runID    string
+	stepID   string
 	registry *GateRegistry
 }
 
-// NewWebUIGateHandler creates a gate handler for a specific pipeline run.
-func NewWebUIGateHandler(runID string, registry *GateRegistry) *WebUIGateHandler {
+// NewWebUIGateHandler creates a gate handler for a specific pipeline run and step.
+func NewWebUIGateHandler(runID, stepID string, registry *GateRegistry) *WebUIGateHandler {
 	return &WebUIGateHandler{
 		runID:    runID,
+		stepID:   stepID,
 		registry: registry,
 	}
 }
@@ -114,7 +117,7 @@ func NewWebUIGateHandler(runID string, registry *GateRegistry) *WebUIGateHandler
 // Prompt registers the gate in the registry and blocks until a decision
 // arrives from the HTTP endpoint or the context is cancelled.
 func (h *WebUIGateHandler) Prompt(ctx context.Context, gate *pipeline.GateConfig) (*pipeline.GateDecision, error) {
-	ch := h.registry.Register(h.runID, gate.RuntimeStepID, gate)
+	ch := h.registry.Register(h.runID, h.stepID, gate)
 
 	select {
 	case <-ctx.Done():
