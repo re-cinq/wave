@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -377,6 +378,14 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 	gate := s.gateRegistry.GetPending(runID)
 	if gate == nil {
 		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
+		return
+	}
+
+	// Validate that the step ID in the URL matches the pending gate's step
+	pendingStepID := s.gateRegistry.GetPendingStepID(runID)
+	if pendingStepID != "" && pendingStepID != stepID {
+		writeJSONError(w, http.StatusConflict,
+			fmt.Sprintf("step ID mismatch: gate is pending for step %q, not %q", pendingStepID, stepID))
 		return
 	}
 

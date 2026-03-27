@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"log"
 	"os/exec"
 	"strings"
 	"time"
@@ -64,6 +65,8 @@ func (r *CheckpointRecorder) Record(execution *PipelineExecution, step *Step, st
 		CreatedAt:          time.Now(),
 	}
 
-	// Best-effort save — errors are intentionally discarded.
-	_ = r.store.SaveCheckpoint(record)
+	// Best-effort save — log failures so fork/rewind diagnostics are possible.
+	if err := r.store.SaveCheckpoint(record); err != nil {
+		log.Printf("Warning: failed to save checkpoint for step %q in run %s: %v", step.ID, pipelineID, err)
+	}
 }

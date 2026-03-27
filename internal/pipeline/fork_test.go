@@ -151,6 +151,30 @@ func TestForkManager_Fork_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "cannot fork a running run")
 	})
 
+	t.Run("rejects failed run without allow-failed", func(t *testing.T) {
+		store := &forkTestStore{
+			MockStateStore: testutil.NewMockStateStore(),
+			run:            &state.RunRecord{Status: "failed", PipelineName: "test"},
+		}
+		fm := NewForkManager(store)
+		_, err := fm.Fork("run-123", "plan", p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot fork failed run")
+		assert.Contains(t, err.Error(), "--allow-failed")
+	})
+
+	t.Run("allows failed run with allow-failed flag", func(t *testing.T) {
+		store := &forkTestStore{
+			MockStateStore: testutil.NewMockStateStore(),
+			run:            &state.RunRecord{Status: "failed", PipelineName: "test"},
+			// No checkpoint — will fail at checkpoint lookup, proving the status check passed.
+		}
+		fm := NewForkManager(store)
+		_, err := fm.Fork("run-123", "plan", p, true)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no checkpoint found")
+	})
+
 	t.Run("rejects unknown step", func(t *testing.T) {
 		store := &forkTestStore{
 			MockStateStore: testutil.NewMockStateStore(),
