@@ -202,6 +202,7 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	ThreadTranscripts  map[string][]ThreadEntry    // threadGroup -> ordered transcript entries
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -262,6 +263,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
+	}
+	// Emit non-fatal DAG validation warnings (e.g., mixed-persona thread groups)
+	for _, w := range validator.Warnings {
+		e.emit(event.Event{
+			Timestamp: time.Now(),
+			State:     "warning",
+			Message:   w,
+		})
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
@@ -452,6 +461,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		ThreadTranscripts: make(map[string][]ThreadEntry),
 		Input:             input,
 		Context:         pipelineContext,
 		Status: &PipelineStatus{
@@ -1502,6 +1512,25 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Inject thread conversation transcript before the task prompt if this step
+	// belongs to a thread group. The transcript is prepended so the model sees
+	// prior conversation context before the new task instructions.
+	if step.Thread != "" {
+		tm := NewThreadManager(execution, e.relayCompactor())
+		transcript, err := tm.GetTranscript(ctx, step.Thread, step.Fidelity)
+		if err != nil {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("thread transcript retrieval failed: %v", err),
+			})
+		} else if transcript != "" {
+			prompt = transcript + prompt
+		}
+	}
+
 	// Auto-generate contract compliance section. This is appended directly
 	// to the user prompt (not the system prompt / agent .md) so the model
 	// sees it alongside the task instructions where it has the strongest
@@ -1698,6 +1727,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.mu.Lock()
 	execution.Results[step.ID] = output
 	execution.mu.Unlock()
+
+	// Capture stdout to thread transcript before contract validation,
+	// so fix loops have context even if validation fails.
+	if step.Thread != "" {
+		captureContent := result.ResultContent
+		if captureContent == "" {
+			captureContent = string(stdoutData)
+		}
+		if captureContent != "" {
+			tm := NewThreadManager(execution, nil)
+			tm.AppendTranscript(step.Thread, step.ID, captureContent)
+		}
+	}
 
 	// Accumulate tokens at executor level (survives pipeline cleanup)
 	if result.TokensUsed > 0 {
@@ -1958,6 +2000,14 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 		return persona.Model
 	}
 	return ""
+}
+
+// relayCompactor returns the relay CompactionAdapter for summary fidelity, or nil if unavailable.
+func (e *DefaultPipelineExecutor) relayCompactor() relay.CompactionAdapter {
+	if e.relayMonitor != nil {
+		return e.relayMonitor.Adapter()
+	}
+	return nil
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {

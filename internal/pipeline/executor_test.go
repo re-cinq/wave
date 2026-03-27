@@ -5028,3 +5028,137 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	// Pipeline should complete quickly (not wait for slow steps to finish)
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
+
+// allConfigCapturingAdapter captures AdapterRunConfig for every call, keyed by step workspace path.
+type allConfigCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      sync.Mutex
+	configs []adapter.AdapterRunConfig
+}
+
+func (a *allConfigCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	a.configs = append(a.configs, cfg)
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+func (a *allConfigCapturingAdapter) getConfigs() []adapter.AdapterRunConfig {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	result := make([]adapter.AdapterRunConfig, len(a.configs))
+	copy(result, a.configs)
+	return result
+}
+
+// TestThreadedSteps_TranscriptInjection verifies that the second step in a thread group
+// receives the first step's output in its prompt preamble.
+func TestThreadedSteps_TranscriptInjection(t *testing.T) {
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "thread-test"},
+		Steps: []Step{
+			{
+				ID:      "implement",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "implement the feature"},
+			},
+			{
+				ID:           "fix",
+				Persona:      "navigator",
+				Thread:       "impl",
+				Dependencies: []string{"implement"},
+				Exec:         ExecConfig{Source: "fix the failing tests"},
+			},
+			{
+				ID:           "review",
+				Persona:      "navigator",
+				Dependencies: []string{"fix"},
+				Exec:         ExecConfig{Source: "review the changes"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	require.Len(t, configs, 3, "all 3 steps should have executed")
+
+	// First step (implement) should NOT have thread preamble
+	assert.NotContains(t, configs[0].Prompt, "Prior Conversation Context",
+		"first step in thread should not have prior context")
+
+	// Second step (fix) SHOULD have thread preamble with implement's output
+	assert.Contains(t, configs[1].Prompt, "## Prior Conversation Context (thread: impl)",
+		"second step in thread should receive prior conversation context")
+	assert.Contains(t, configs[1].Prompt, "### Step: implement",
+		"transcript should attribute content to the implement step")
+
+	// Third step (review) should NOT have thread preamble (no thread field)
+	assert.NotContains(t, configs[2].Prompt, "Prior Conversation Context",
+		"non-threaded step should not receive thread context")
+}
+
+// TestThreadedSteps_FreshFidelity verifies that fidelity: fresh suppresses transcript injection.
+func TestThreadedSteps_FreshFidelity(t *testing.T) {
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "thread-fresh-test"},
+		Steps: []Step{
+			{
+				ID:      "implement",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "implement"},
+			},
+			{
+				ID:           "fix",
+				Persona:      "navigator",
+				Thread:       "impl",
+				Fidelity:     FidelityFresh,
+				Dependencies: []string{"implement"},
+				Exec:         ExecConfig{Source: "fix"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	require.Len(t, configs, 2)
+
+	// Fix step has fidelity: fresh, so it should NOT receive prior context
+	assert.NotContains(t, configs[1].Prompt, "Prior Conversation Context",
+		"fidelity:fresh should suppress thread transcript injection")
+}
