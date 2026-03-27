@@ -63,6 +63,11 @@ type MockStateStore struct {
 	recordOntologyUsage           func(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
 	getOntologyStats              func(contextName string) (*state.OntologyStats, error)
 	getOntologyStatsAll           func() ([]state.OntologyStats, error)
+	saveCheckpoint                func(record *state.CheckpointRecord) error
+	getCheckpoint                 func(runID, stepID string) (*state.CheckpointRecord, error)
+	getCheckpoints                func(runID string) ([]state.CheckpointRecord, error)
+	deleteCheckpointsAfterStep    func(runID string, stepIndex int) error
+	createRunWithFork             func(pipelineName, input, forkedFromRunID string) (string, error)
 
 	// Internal storage for default implementations
 	pipelineStates map[string]*state.PipelineStateRecord
@@ -440,6 +445,41 @@ func (m *MockStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) {
 		return m.getOntologyStatsAll()
 	}
 	return nil, nil
+}
+
+func (m *MockStateStore) SaveCheckpoint(record *state.CheckpointRecord) error {
+	if m.saveCheckpoint != nil {
+		return m.saveCheckpoint(record)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetCheckpoint(runID, stepID string) (*state.CheckpointRecord, error) {
+	if m.getCheckpoint != nil {
+		return m.getCheckpoint(runID, stepID)
+	}
+	return nil, errors.New("checkpoint not found")
+}
+
+func (m *MockStateStore) GetCheckpoints(runID string) ([]state.CheckpointRecord, error) {
+	if m.getCheckpoints != nil {
+		return m.getCheckpoints(runID)
+	}
+	return nil, nil
+}
+
+func (m *MockStateStore) DeleteCheckpointsAfterStep(runID string, stepIndex int) error {
+	if m.deleteCheckpointsAfterStep != nil {
+		return m.deleteCheckpointsAfterStep(runID, stepIndex)
+	}
+	return nil
+}
+
+func (m *MockStateStore) CreateRunWithFork(pipelineName, input, forkedFromRunID string) (string, error) {
+	if m.createRunWithFork != nil {
+		return m.createRunWithFork(pipelineName, input, forkedFromRunID)
+	}
+	return "fork-run-001", nil
 }
 
 // Functional options for overriding specific methods.
