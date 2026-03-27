@@ -231,6 +231,7 @@ type PipelineExecution struct {
 	Context         *PipelineContext  // Dynamic template variables
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
+	ThreadManager      *ThreadManager              // Thread conversation continuity manager
 	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
 	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
 }
@@ -307,6 +308,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
 		return fmt.Errorf("invalid pipeline DAG: %w", err)
+	}
+
+	// Validate thread/fidelity fields
+	if errs := ValidateThreadFields(p); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return fmt.Errorf("thread validation failed:\n  %s", strings.Join(msgs, "\n  "))
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
@@ -461,6 +471,12 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		// Update pipeline ID if tracker already exists
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
+	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
+	var threadCompactionAdapter relay.CompactionAdapter
+	if e.relayMonitor != nil {
+		threadCompactionAdapter = e.relayMonitor.Adapter()
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:        p,
 		Manifest:        m,
@@ -471,6 +487,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		ThreadManager:     NewThreadManager(threadCompactionAdapter),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:         pipelineContext,
@@ -2286,6 +2303,21 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.Results[step.ID] = output
 	execution.mu.Unlock()
 
+	// Append step output to thread transcript when the step is part of a thread group
+	if step.Thread != "" && execution.ThreadManager != nil {
+		content := result.ResultContent
+		if content == "" {
+			content = string(stdoutData)
+		}
+		if content != "" {
+			execution.ThreadManager.AppendTranscript(step.Thread, step.ID, content)
+			e.trace(audit.TraceThreadAppend, step.ID, int64(len(content)), map[string]string{
+				"thread": step.Thread,
+				"size":   fmt.Sprintf("%d", len(content)),
+			})
+		}
+	}
+
 	// Accumulate tokens at executor level (survives pipeline cleanup)
 	if result.TokensUsed > 0 {
 		e.mu.Lock()
@@ -2874,6 +2906,27 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
 		sb.WriteString(prompt)
 		prompt = sb.String()
+	}
+
+	// Inject thread conversation context when the step is part of a thread group
+	if step.Thread != "" && execution.ThreadManager != nil {
+		fidelity := step.EffectiveFidelity()
+		transcript := execution.ThreadManager.GetTranscript(context.Background(), step.Thread, fidelity)
+		if transcript != "" {
+			var sb strings.Builder
+			sb.WriteString("## THREAD CONTEXT\n\n")
+			sb.WriteString("The following is conversation history from prior steps in this thread group.\n\n")
+			sb.WriteString(transcript)
+			sb.WriteString("\n---\n\n")
+			sb.WriteString(prompt)
+			prompt = sb.String()
+
+			e.trace(audit.TraceThreadInject, step.ID, int64(len(transcript)), map[string]string{
+				"thread":   step.Thread,
+				"fidelity": fidelity,
+				"size":     fmt.Sprintf("%d", len(transcript)),
+			})
+		}
 	}
 
 	return prompt
