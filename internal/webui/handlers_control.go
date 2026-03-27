@@ -343,6 +343,70 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, resp)
 }
 
+// handleGateApprove handles POST /api/runs/{id}/gates/{step}/approve
+func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing run ID")
+		return
+	}
+
+	stepID := r.PathValue("step")
+	if stepID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing step ID")
+		return
+	}
+
+	var req GateApproveRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Choice == "" {
+		writeJSONError(w, http.StatusBadRequest, "choice is required")
+		return
+	}
+
+	// Check that a gate is actually pending for this run
+	if s.gateRegistry == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "gate registry not initialized")
+		return
+	}
+
+	gate := s.gateRegistry.GetPending(runID)
+	if gate == nil {
+		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
+		return
+	}
+
+	// Validate the choice key against the gate's choices
+	choice := gate.FindChoiceByKey(req.Choice)
+	if choice == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid choice key: "+req.Choice)
+		return
+	}
+
+	decision := &pipeline.GateDecision{
+		Choice: choice.Key,
+		Label:  choice.Label,
+		Text:   req.Text,
+		Target: choice.Target,
+	}
+
+	if err := s.gateRegistry.Resolve(runID, decision); err != nil {
+		writeJSONError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, GateApproveResponse{
+		RunID:  runID,
+		StepID: stepID,
+		Choice: choice.Key,
+		Label:  choice.Label,
+	})
+}
+
 // loadPipelineYAML loads a pipeline definition from .wave/pipelines/.
 func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 	candidates := []string{
