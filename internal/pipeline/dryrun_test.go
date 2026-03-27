@@ -696,3 +696,103 @@ func TestDryRunValidator_UnbalancedTemplate(t *testing.T) {
 		t.Fatalf("expected unbalanced template error on iterate.over, got:\n%s", report.Format())
 	}
 }
+
+func TestDryRun_SubPipelineConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	v := NewDryRunValidator(tmpDir)
+	m := buildManifestWithPersonas()
+
+	t.Run("valid config", func(t *testing.T) {
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "test"},
+			Steps: []Step{
+				{
+					ID:          "sub",
+					SubPipeline: "child",
+					Config: &SubPipelineConfig{
+						Inject:  []string{"plan"},
+						Extract: []string{"impl"},
+						Timeout: "30m",
+					},
+				},
+			},
+		}
+		report := v.Validate(p, m)
+		// Should have no errors related to config (may have sub-pipeline not found)
+		for _, f := range report.Findings {
+			if f.Field == "config" && f.Severity == SeverityError {
+				t.Errorf("unexpected config error: %s", f.Message)
+			}
+		}
+	})
+
+	t.Run("invalid timeout", func(t *testing.T) {
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "test"},
+			Steps: []Step{
+				{
+					ID:          "sub",
+					SubPipeline: "child",
+					Config: &SubPipelineConfig{
+						Timeout: "invalid",
+					},
+				},
+			},
+		}
+		report := v.Validate(p, m)
+		if !report.HasErrors() {
+			t.Error("expected error for invalid timeout")
+		}
+	})
+
+	t.Run("config without pipeline", func(t *testing.T) {
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "test"},
+			Steps: []Step{
+				{
+					ID:      "regular",
+					Persona: "navigator",
+					Exec:    ExecConfig{Type: "prompt", Source: "test"},
+					Config: &SubPipelineConfig{
+						Inject: []string{"plan"},
+					},
+				},
+			},
+		}
+		report := v.Validate(p, m)
+		found := false
+		for _, f := range report.Findings {
+			if f.Field == "config" && f.Severity == SeverityWarning {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected warning for config without pipeline")
+		}
+	})
+
+	t.Run("unbalanced stop_condition template", func(t *testing.T) {
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "test"},
+			Steps: []Step{
+				{
+					ID:          "sub",
+					SubPipeline: "child",
+					Config: &SubPipelineConfig{
+						StopCondition: "{{context.done",
+					},
+				},
+			},
+		}
+		report := v.Validate(p, m)
+		found := false
+		for _, f := range report.Findings {
+			if f.Field == "config.stop_condition" && f.Severity == SeverityError {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected error for unbalanced stop_condition template")
+		}
+	})
+}

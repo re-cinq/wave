@@ -97,12 +97,16 @@ type DefaultPipelineExecutor struct {
 	debugTracer *audit.DebugTracer
 	// Accumulated token count across all steps (survives pipeline cleanup)
 	totalTokens int
+	// Lifecycle hook runner for pipeline-level hooks
+	hookRunner hooks.HookRunner
 	// Auto-approve mode: skip all approval gates using default choices
 	autoApprove bool
 	// Gate handler for interactive approval gates (CLI, TUI, WebUI)
 	gateHandler GateHandler
-	// Lifecycle hook runner for pipeline-level hooks
-	hookRunner hooks.HookRunner
+	// Parent artifact paths injected from a parent sub-pipeline step
+	parentArtifactPaths map[string]string
+	// Parent workspace path for workspace.ref: parent resolution
+	parentWorkspacePath string
 	// Retrospective generator for post-run analysis
 	retroGenerator *retro.Generator
 }
@@ -172,6 +176,11 @@ func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
 
+// WithHookRunner sets the lifecycle hook runner for pipeline events.
+func WithHookRunner(r hooks.HookRunner) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
+}
+
 // WithAutoApprove enables auto-approve mode where all approval gates use their
 // default choice without human interaction. Required for --detach and CI mode.
 func WithAutoApprove(auto bool) ExecutorOption {
@@ -183,9 +192,17 @@ func WithGateHandler(h GateHandler) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.gateHandler = h }
 }
 
-// WithHookRunner sets the lifecycle hook runner for pipeline events.
-func WithHookRunner(r hooks.HookRunner) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
+// WithParentArtifactPaths injects artifact paths from a parent pipeline execution
+// into the child executor. These are registered in the child's PipelineContext
+// at execution start, making them available via {{ artifacts.<name> }} templates.
+func WithParentArtifactPaths(paths map[string]string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.parentArtifactPaths = paths }
+}
+
+// WithParentWorkspacePath sets the parent step's workspace path so child steps
+// can reference it via workspace.ref: parent.
+func WithParentWorkspacePath(path string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.parentWorkspacePath = path }
 }
 
 // WithRetroGenerator sets the retrospective generator for post-run analysis.
@@ -285,9 +302,9 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
+		hookRunner:             e.hookRunner,
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
-		hookRunner:             e.hookRunner,
 		retroGenerator:         e.retroGenerator,
 	}
 }
@@ -510,6 +527,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.lastExecution = execution
 	e.mu.Unlock()
 
+	// Seed parent artifact paths into child execution context.
+	// When this executor is a child of a sub-pipeline step, the parent passes
+	// artifact paths so child steps can resolve {{ artifacts.<name> }} templates.
+	if e.parentArtifactPaths != nil {
+		for name, path := range e.parentArtifactPaths {
+			execution.Context.SetArtifactPath(name, path)
+		}
+	}
+
 	if e.store != nil {
 		e.store.SavePipelineState(pipelineID, StateRunning, input)
 	}
@@ -592,11 +618,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
-	// Guard against unbounded gate revision loops: each gate re-queue increments
-	// this counter and the pipeline fails when the limit is exceeded.
-	const maxGateRequeues = 10
-	gateRequeueCount := 0
-
 	for completedCount < schedulableSteps {
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
@@ -605,44 +626,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
-			// Handle gate re-queue: reset completed map and re-enter scheduling loop
-			var requeueErr *ReQueueError
-			if errors.As(err, &requeueErr) {
-				gateRequeueCount++
-				if gateRequeueCount > maxGateRequeues {
-					e.cleanupCompletedPipeline(pipelineID)
-					return fmt.Errorf("gate re-queue limit exceeded (%d): possible infinite revision loop via step %q", maxGateRequeues, requeueErr.TargetStepID)
-				}
-				// Remove re-queued steps from completed set
-				for stepID := range requeueErr.ResetSteps {
-					delete(completed, stepID)
-				}
-				// Recount completed steps
-				completedCount = 0
-				for range completed {
-					completedCount++
-				}
-				continue // Re-enter the scheduling loop
-			}
-
-			// Handle gate abort
-			var abortErr *GateAbortError
-			if errors.As(err, &abortErr) {
-				execution.Status.State = StateFailed
-				if e.store != nil {
-					e.store.SavePipelineState(pipelineID, StateFailed, input)
-				}
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     abortErr.StepID,
-					State:      StateFailed,
-					Message:    abortErr.Error(),
-				})
-				e.cleanupCompletedPipeline(pipelineID)
-				return &StepError{StepID: abortErr.StepID, Err: err}
-			}
-
 			execution.Status.State = StateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string
@@ -825,6 +808,15 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	e.pipelines[pipelineID] = execution
 	e.lastExecution = execution
 	e.mu.Unlock()
+
+	// Seed parent artifact paths into child execution context.
+	// When this executor is a child of a sub-pipeline step, the parent passes
+	// artifact paths so child steps can resolve {{ artifacts.<name> }} templates.
+	if e.parentArtifactPaths != nil {
+		for name, path := range e.parentArtifactPaths {
+			execution.Context.SetArtifactPath(name, path)
+		}
+	}
 
 	if e.store != nil {
 		e.store.SavePipelineState(pipelineID, StateRunning, input)
@@ -2603,6 +2595,10 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 	// Handle workspace ref — share another step's workspace
 	if step.Workspace.Ref != "" {
+		// Special "parent" ref: use the parent sub-pipeline step's workspace
+		if step.Workspace.Ref == "parent" && e.parentWorkspacePath != "" {
+			return e.parentWorkspacePath, nil
+		}
 		execution.mu.Lock()
 		refPath, ok := execution.WorkspacePaths[step.Workspace.Ref]
 		execution.mu.Unlock()
@@ -4043,17 +4039,18 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 	}
 }
 
-// executeCompositionStep handles steps that use composition primitives (gate,
-// sub-pipeline, etc.) rather than executing a persona directly.
+// executeCompositionStep handles steps that reference sub-pipelines (via the
+// `pipeline:` field) rather than executing a persona directly. It loads the
+// referenced pipeline YAML, resolves the step's input template, and delegates
+// execution to a fresh DefaultPipelineExecutor instance.
 func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	// Gate step: handle directly with GateExecutor
+	// Route gate steps to the gate executor
 	if step.Gate != nil {
-		return e.executeGateStep(ctx, execution, step)
+		return e.executeGateInDAG(ctx, execution, step)
 	}
 
-	// Sub-pipeline steps below
 	// Resolve the input for the sub-pipeline
 	input := execution.Input
 	if step.SubInput != "" && execution.Context != nil {
@@ -4062,6 +4059,10 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 			input = resolved
 		}
 	}
+
+	// Apply lifecycle timeout from sub-pipeline config
+	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
+	defer cancel()
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -4106,7 +4107,37 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		childOpts = append(childOpts, WithDebugTracer(e.debugTracer))
 	}
 
-	childExecutor := NewDefaultPipelineExecutor(e.runner, append(childOpts, WithRegistry(e.registry))...)
+	// Inject parent artifacts into child executor when config specifies injection
+	if step.Config != nil && len(step.Config.Inject) > 0 {
+		paths := make(map[string]string, len(step.Config.Inject))
+		for _, name := range step.Config.Inject {
+			path := execution.Context.GetArtifactPath(name)
+			if path == "" {
+				return fmt.Errorf("artifact %q not found in parent context for sub-pipeline injection", name)
+			}
+			paths[name] = path
+		}
+		childOpts = append(childOpts, WithParentArtifactPaths(paths))
+	}
+
+	// Pass parent workspace path if this step has a resolved workspace
+	execution.mu.Lock()
+	if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
+		childOpts = append(childOpts, WithParentWorkspacePath(ws))
+	}
+	execution.mu.Unlock()
+
+	// Propagate max_cycles to child pipeline's loop config
+	if step.Config != nil && step.Config.MaxCycles > 0 {
+		for i := range subPipeline.Steps {
+			if subPipeline.Steps[i].Loop != nil && subPipeline.Steps[i].Loop.MaxIterations == 0 {
+				subPipeline.Steps[i].Loop.MaxIterations = step.Config.MaxCycles
+			}
+		}
+	}
+
+	childOpts = append(childOpts, WithRegistry(e.registry))
+	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -4116,7 +4147,13 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", step.SubPipeline),
 	})
 
-	if err := childExecutor.Execute(ctx, subPipeline, execution.Manifest, input); err != nil {
+	if err := childExecutor.Execute(execCtx, subPipeline, execution.Manifest, input); err != nil {
+		// Link parent-child state even on failure for observability
+		if e.store != nil {
+			if childExec := childExecutor.LastExecution(); childExec != nil {
+				_ = e.store.SetParentRun(childExec.Status.ID, pipelineID, step.ID)
+			}
+		}
 		execution.mu.Lock()
 		execution.States[step.ID] = StateFailed
 		execution.mu.Unlock()
@@ -4124,6 +4161,39 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
 		return fmt.Errorf("sub-pipeline %q failed: %w", step.SubPipeline, err)
+	}
+
+	// Link parent-child state after successful execution
+	childExec := childExecutor.LastExecution()
+	if e.store != nil && childExec != nil {
+		_ = e.store.SetParentRun(childExec.Status.ID, pipelineID, step.ID)
+	}
+
+	// Extract child artifacts and merge context variables
+	if step.Config != nil && childExec != nil {
+		// Determine parent workspace for artifact extraction
+		parentWorkspace := "."
+		execution.mu.Lock()
+		if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
+			parentWorkspace = ws
+		}
+		execution.mu.Unlock()
+
+		if len(step.Config.Extract) > 0 {
+			if err := extractSubPipelineArtifacts(step.Config, childExec.Context, step.SubPipeline, execution.Context, parentWorkspace); err != nil {
+				return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
+			}
+		}
+
+		// Merge child context variables into parent (last-writer-wins)
+		execution.Context.MergeFrom(childExec.Context, step.SubPipeline)
+
+		// Evaluate stop condition if configured
+		if step.Config.StopCondition != "" {
+			if evaluateStopCondition(step.Config.StopCondition, childExec.Context) {
+				execution.Context.SetCustomVariable("sub_pipeline_stop", "true")
+			}
+		}
 	}
 
 	execution.mu.Lock()
@@ -4144,20 +4214,10 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	return nil
 }
 
-// GateAbortError signals that a gate choice targeted _fail, aborting the pipeline.
-type GateAbortError struct {
-	StepID string
-	Choice string
-}
-
-func (e *GateAbortError) Error() string {
-	return fmt.Sprintf("pipeline aborted by gate %q (choice: %s)", e.StepID, e.Choice)
-}
-
-// executeGateStep handles gate composition steps within the main executor.
+// executeGateInDAG handles gate steps within a DAG pipeline.
 // It delegates to GateExecutor, stores the decision in PipelineContext,
 // writes freeform text as an artifact, and returns routing information via error type.
-func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
+func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
 	e.emit(event.Event{

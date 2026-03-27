@@ -1333,6 +1333,90 @@ func TestPipelineContext_MultipleGateDecisions(t *testing.T) {
 	}
 }
 
+func TestPipelineContext_MergeFrom(t *testing.T) {
+	t.Run("merge custom variables", func(t *testing.T) {
+		parent := &PipelineContext{
+			CustomVariables: map[string]string{
+				"parent_key": "parent_value",
+				"shared_key": "parent_wins",
+			},
+			ArtifactPaths: map[string]string{
+				"parent_artifact": "/path/to/parent",
+			},
+		}
+
+		child := &PipelineContext{
+			CustomVariables: map[string]string{
+				"child_key":  "child_value",
+				"shared_key": "child_wins",
+			},
+			ArtifactPaths: map[string]string{
+				"output": "/path/to/child/output",
+			},
+		}
+
+		parent.MergeFrom(child, "child-pipeline")
+
+		// Child overwrites shared key (last-writer-wins)
+		if v := parent.CustomVariables["shared_key"]; v != "child_wins" {
+			t.Errorf("expected shared_key='child_wins', got %q", v)
+		}
+		if v := parent.CustomVariables["parent_key"]; v != "parent_value" {
+			t.Errorf("expected parent_key='parent_value', got %q", v)
+		}
+		if v := parent.CustomVariables["child_key"]; v != "child_value" {
+			t.Errorf("expected child_key='child_value', got %q", v)
+		}
+		// Artifact namespaced
+		if v := parent.ArtifactPaths["child-pipeline.output"]; v != "/path/to/child/output" {
+			t.Errorf("expected namespaced artifact path, got %q", v)
+		}
+		if v := parent.ArtifactPaths["parent_artifact"]; v != "/path/to/parent" {
+			t.Errorf("expected parent_artifact untouched, got %q", v)
+		}
+	})
+
+	t.Run("merge nil child", func(t *testing.T) {
+		parent := &PipelineContext{
+			CustomVariables: map[string]string{"key": "val"},
+		}
+		parent.MergeFrom(nil, "ns")
+		if v := parent.CustomVariables["key"]; v != "val" {
+			t.Errorf("expected key='val', got %q", v)
+		}
+	})
+
+	t.Run("merge empty namespace", func(t *testing.T) {
+		parent := &PipelineContext{
+			ArtifactPaths: map[string]string{},
+		}
+		child := &PipelineContext{
+			ArtifactPaths: map[string]string{
+				"out": "/child/out",
+			},
+		}
+		parent.MergeFrom(child, "")
+		if v := parent.ArtifactPaths["out"]; v != "/child/out" {
+			t.Errorf("expected 'out' artifact, got %q", v)
+		}
+	})
+
+	t.Run("merge into empty parent", func(t *testing.T) {
+		parent := &PipelineContext{}
+		child := &PipelineContext{
+			CustomVariables: map[string]string{"k": "v"},
+			ArtifactPaths:   map[string]string{"a": "/p"},
+		}
+		parent.MergeFrom(child, "ns")
+		if parent.CustomVariables["k"] != "v" {
+			t.Error("expected variable merged into empty parent")
+		}
+		if parent.ArtifactPaths["ns.a"] != "/p" {
+			t.Error("expected artifact merged into empty parent")
+		}
+	})
+}
+
 func TestStripTemplateDelimiters(t *testing.T) {
 	tests := []struct {
 		input    string
