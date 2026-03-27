@@ -76,7 +76,8 @@ func ClassifyStepFailure(err error, contractErr error, ctxErr error) string {
 		return classifyByMessage(err.Error())
 	}
 
-	return FailureClassTransient
+	// All inputs are nil — no failure to classify.
+	return ""
 }
 
 // classifyByMessage performs case-insensitive pattern matching on the error
@@ -101,14 +102,17 @@ func classifyByMessage(msg string) string {
 		}
 	}
 
-	// Test failure patterns.
+	// Test failure patterns. Use specific prefixes to avoid false positives
+	// (e.g. "fail:" matching unrelated log lines, "go test" matching docs).
 	testPatterns := []string{
 		"test failed",
 		"tests failed",
-		"fail:",
-		"go test",
-		"npm test",
-		"pytest",
+		"--- fail:",
+		"go test ./",
+		"npm test ",
+		"npm test\n",
+		"pytest ",
+		"pytest\n",
 	}
 	for _, p := range testPatterns {
 		if strings.Contains(lower, p) {
@@ -116,11 +120,14 @@ func classifyByMessage(msg string) string {
 		}
 	}
 
-	// Rate limit patterns → transient.
+	// Rate limit patterns → transient. Use "status 429" or "http 429"
+	// to avoid matching arbitrary numbers containing "429".
 	rateLimitPatterns := []string{
 		"rate limit",
 		"too many requests",
-		"429",
+		"status 429",
+		"http 429",
+		"error 429",
 	}
 	for _, p := range rateLimitPatterns {
 		if strings.Contains(lower, p) {
@@ -244,6 +251,14 @@ func (cb *CircuitBreaker) LoadFromAttempts(attempts []StepAttemptReplay) {
 		fp := NormalizeFingerprint(a.StepID, a.FailureClass, a.ErrorMessage)
 		cb.counts[fp]++
 	}
+}
+
+// Limit returns the configured trip threshold.
+func (cb *CircuitBreaker) Limit() int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	return cb.limit
 }
 
 // Count returns the current failure count for a fingerprint.

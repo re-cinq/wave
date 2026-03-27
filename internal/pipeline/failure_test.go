@@ -162,18 +162,20 @@ func TestClassifyStepFailure_MessagePatterns(t *testing.T) {
 		{"unauthorized", "401 Unauthorized", FailureClassDeterministic},
 		{"forbidden", "403 Forbidden", FailureClassDeterministic},
 
-		// Test failure patterns
+		// Test failure patterns (tightened to avoid false positives)
 		{"test failed", "test failed: TestFoo", FailureClassTestFailure},
 		{"tests failed", "3 tests failed", FailureClassTestFailure},
-		{"fail:", "FAIL: TestBar", FailureClassTestFailure},
-		{"go test", "go test ./... exited with code 1", FailureClassTestFailure},
-		{"npm test", "npm test failed", FailureClassTestFailure},
-		{"pytest", "pytest returned exit code 1", FailureClassTestFailure},
+		{"--- FAIL:", "--- FAIL: TestBar", FailureClassTestFailure},
+		{"go test ./", "go test ./... exited with code 1", FailureClassTestFailure},
+		{"npm test with trailing space", "npm test exited with code 1", FailureClassTestFailure},
+		{"pytest with trailing space", "pytest returned exit code 1", FailureClassTestFailure},
 
-		// Rate limit patterns
+		// Rate limit patterns (tightened: "429" alone won't match)
 		{"rate limit", "rate limit exceeded", FailureClassTransient},
 		{"too many requests", "too many requests, slow down", FailureClassTransient},
-		{"429", "HTTP 429 response", FailureClassTransient},
+		{"status 429", "status 429 response", FailureClassTransient},
+		{"http 429", "HTTP 429 too many requests", FailureClassTransient},
+		{"error 429", "error 429: rate limited", FailureClassTransient},
 
 		// Budget exhaustion patterns
 		{"context window", "context window full", FailureClassBudgetExhausted},
@@ -194,7 +196,7 @@ func TestClassifyStepFailure_MessagePatterns(t *testing.T) {
 
 func TestClassifyStepFailure_NilError(t *testing.T) {
 	result := ClassifyStepFailure(nil, nil, nil)
-	assert.Equal(t, FailureClassTransient, result, "nil error should default to transient")
+	assert.Equal(t, "", result, "all-nil inputs should return empty string")
 }
 
 func TestClassifyStepFailure_EmptyMessage(t *testing.T) {
@@ -272,6 +274,14 @@ func TestNormalizeFingerprint_Lowercased(t *testing.T) {
 
 	normalizedPart := strings.TrimPrefix(fp, "step1:transient:")
 	assert.Equal(t, strings.ToLower(normalizedPart), normalizedPart, "normalized part should be lowercased")
+}
+
+func TestCircuitBreaker_Limit(t *testing.T) {
+	cb := NewCircuitBreaker(5, nil)
+	assert.Equal(t, 5, cb.Limit())
+
+	cb2 := NewCircuitBreaker(0, nil)
+	assert.Equal(t, 3, cb2.Limit(), "zero limit should default to 3")
 }
 
 func TestCircuitBreaker_Basic(t *testing.T) {

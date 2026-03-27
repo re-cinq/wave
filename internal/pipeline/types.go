@@ -193,21 +193,38 @@ func (r RetryConfig) ParseBaseDelay() time.Duration {
 	return time.Second
 }
 
+// ParseMaxDelay returns the max delay duration from the config.
+// If MaxDelay is unset or unparseable, it falls back to timeouts.RetryMaxDelay.
+func (r RetryConfig) ParseMaxDelay() time.Duration {
+	if r.MaxDelay != "" {
+		d, err := time.ParseDuration(r.MaxDelay)
+		if err == nil {
+			return d
+		}
+	}
+	return timeouts.RetryMaxDelay
+}
+
 // ComputeDelay returns the delay for a given attempt number (1-based).
+// The result is capped at the configured MaxDelay (or timeouts.RetryMaxDelay).
 func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
 	base := r.ParseBaseDelay()
+	maxDelay := r.ParseMaxDelay()
+
+	var d time.Duration
 	switch r.Backoff {
 	case "fixed":
-		return base
+		d = base
 	case "exponential":
-		d := base * time.Duration(1<<uint(attempt-1))
-		if d > timeouts.RetryMaxDelay {
-			return timeouts.RetryMaxDelay
-		}
-		return d
+		d = base * time.Duration(1<<uint(attempt-1))
 	default: // "linear" or empty
-		return base * time.Duration(attempt)
+		d = base * time.Duration(attempt)
 	}
+
+	if d > maxDelay {
+		return maxDelay
+	}
+	return d
 }
 
 // AttemptContext holds failure context from a prior retry attempt for prompt adaptation.
