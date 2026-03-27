@@ -2,97 +2,100 @@
 
 ## Objective
 
-Add a `type: pipeline` step type that allows pipelines to invoke child pipelines with bidirectional artifact flow, lifecycle management (timeout, max_cycles, stop_condition), and parent-child state tracking. This enables workflow nesting — e.g., implement-issue delegating to implement-test-loop for the coding cycle.
+Add a `SubPipelineConfig` struct to the `Step` type that enables pipeline steps to invoke child pipelines with bidirectional artifact flow, lifecycle management (timeout, max_cycles, stop_condition), context merging, and parent-child state tracking. This builds on the existing `SubPipeline` field and `executeCompositionStep()` infrastructure.
 
 ## Approach
 
-Wave already has basic sub-pipeline execution via `Step.SubPipeline` and `executeCompositionStep()` in `executor.go`. The existing implementation loads a child pipeline by name and runs it with a fresh child executor, but lacks:
+Wave already has basic sub-pipeline execution:
+- `Step.SubPipeline` (types.go:293) references a child pipeline by name
+- `executeCompositionStep()` (executor.go:3951) loads the child pipeline, creates a child executor, and runs it
+- `CompositionExecutor.executeSubPipeline()` (composition.go:438) delegates to `runSubPipeline()` via SequenceExecutor
 
-1. **Artifact inject/extract** — no bidirectional artifact flow between parent and child
-2. **Lifecycle config** — no timeout, max_cycles, or stop_condition enforcement
-3. **State nesting** — child run is independent, not linked to parent
-4. **Context merging** — child context changes don't flow back to parent
-5. **Workspace sharing** — no `workspace.ref: parent` support for child pipelines
-
-The plan extends the existing infrastructure rather than replacing it. We add a `SubPipelineConfig` struct to the `Step` type, enhance `executeCompositionStep()` to handle the new config, and add parent-child linkage to the state store.
+The plan extends this infrastructure by:
+1. Adding a `SubPipelineConfig` struct for lifecycle/artifact configuration
+2. Enhancing `executeCompositionStep()` to inject parent artifacts before child execution and extract child artifacts after
+3. Adding `MergeFrom()` to `PipelineContext` for child-to-parent context variable propagation
+4. Adding `parent_run_id`/`parent_step_id` to the state store for hierarchical run tracking
+5. Adding circular composition detection to prevent A->B->A deadlocks
+6. Preserving backward compatibility -- when `Config` is nil, existing behavior is unchanged
 
 ## File Mapping
 
 ### New Files
 | Path | Purpose |
 |------|---------|
-| `internal/pipeline/subpipeline.go` | SubPipelineConfig type, artifact inject/extract logic, context merge, lifecycle enforcement |
-| `internal/pipeline/subpipeline_test.go` | Unit tests for sub-pipeline composition |
+| `internal/pipeline/subpipeline.go` | `SubPipelineConfig` type, artifact inject/extract logic, context merge, lifecycle enforcement, circular reference detection |
+| `internal/pipeline/subpipeline_test.go` | Unit tests for all sub-pipeline composition functionality |
 
 ### Modified Files
-| Path | Change |
-|------|--------|
-| `internal/pipeline/types.go` | Add `SubPipelineConfig` struct, `Config` field to `Step` |
-| `internal/pipeline/executor.go` | Enhance `executeCompositionStep()` with artifact flow, lifecycle, state nesting |
-| `internal/pipeline/composition.go` | Update `CompositionExecutor.executeSubPipeline()` to use new config |
-| `internal/pipeline/composition_test.go` | Add tests for new composition features |
-| `internal/pipeline/context.go` | Add `MergeFrom()` method for child->parent context merge |
-| `internal/pipeline/dryrun.go` | Validate new `config` and `artifacts` fields during dry run |
-| `internal/state/store.go` | Add `SetParentRun(childRunID, parentRunID, stepID)` and `GetChildRuns(parentRunID)` methods |
-| `internal/state/sqlite.go` | Implement parent-child run linkage in SQLite |
-| `internal/state/types.go` | Add `ParentRunID`, `ParentStepID` fields to `RunRecord` |
-| `internal/pipeline/validation.go` | Validate sub-pipeline config fields |
+| Path | Change | Lines Affected |
+|------|--------|----------------|
+| `internal/pipeline/types.go` | Add `SubPipelineConfig` struct; add `Config *SubPipelineConfig` field to `Step` | ~293-300 (near SubPipeline field) |
+| `internal/pipeline/executor.go` | Enhance `executeCompositionStep()`: artifact inject before child execution, artifact extract + context merge after, lifecycle timeout via `context.WithTimeout()`, parent-child state linkage | ~3951-4048 |
+| `internal/pipeline/context.go` | Add `MergeFrom(child *PipelineContext, namespace string)` method | New method |
+| `internal/pipeline/composition.go` | Update `executeSubPipeline()` and `runSubPipeline()` to use `SubPipelineConfig` when present (timeout enforcement, artifact passing) | ~438-478 |
+| `internal/state/types.go` | Add `ParentRunID`, `ParentStepID` fields to `RunRecord` | ~6-20 |
+| `internal/state/store.go` | Add `SetParentRun(childRunID, parentRunID, stepID)` and `GetChildRuns(parentRunID)` to `StateStore` interface | Interface definition |
+| `internal/state/sqlite.go` | Implement parent-child linkage: ALTER TABLE runs, new methods | Schema + methods |
+| `internal/pipeline/dag.go` | Add circular sub-pipeline reference detection during DAG validation | New validation function |
+| `internal/pipeline/dryrun.go` | Validate sub-pipeline config fields during dry run | Add validation case |
 
 ## Architecture Decisions
 
-### 1. Extend Step struct vs. new step type
-**Decision**: Add `SubPipelineConfig` as a new field on `Step` rather than introducing a separate step type. The existing `SubPipeline` field already establishes the pattern. The new `Config` field holds lifecycle/artifact configuration when the step is a pipeline step.
+### 1. Extend Step struct with Config field
+**Decision**: Add `Config *SubPipelineConfig` as a new field on `Step` alongside the existing `SubPipeline` field.
 
-**Rationale**: Matches existing composition primitives (Gate, Loop, Branch all hang off Step). Avoids a parallel type hierarchy. The `IsCompositionStep()` check already works.
+**Rationale**: Matches existing composition primitives (Gate, Loop, Branch all hang off Step). When `Config` is nil, existing behavior is preserved. The `IsCompositionStep()` check already works for `SubPipeline != ""`.
 
-### 2. Artifact inject/extract via config vs. reusing MemoryConfig
-**Decision**: Add `artifacts.inject` and `artifacts.extract` as dedicated fields in `SubPipelineConfig` rather than overloading `MemoryConfig.InjectArtifacts`.
+### 2. Separate artifact config from MemoryConfig
+**Decision**: `artifacts.inject` and `artifacts.extract` live in `SubPipelineConfig`, not in `MemoryConfig.InjectArtifacts`.
 
-**Rationale**: `InjectArtifacts` injects from parent step artifacts into the step's workspace. Sub-pipeline artifact flow is between parent and child *pipeline* executions — conceptually different. Extract (child->parent) has no analog in `MemoryConfig` at all.
+**Rationale**: `InjectArtifacts` is for step-to-step artifact injection within a pipeline. Sub-pipeline artifact flow is between parent and child *pipeline executions* -- conceptually different. Extract (child->parent) has no analog in `MemoryConfig`.
 
-### 3. Context merge strategy
-**Decision**: Use a key-based merge where child context variables overwrite parent on conflict (last-writer-wins). Template-resolved artifact paths are namespaced by child pipeline name to prevent collisions.
+### 3. Last-writer-wins context merge
+**Decision**: Child context variables overwrite parent on key collision. Artifact paths from child are namespaced with child pipeline name to prevent collisions.
 
-**Rationale**: Simple and predictable. The Fabro model uses diff-merge, but Wave's `PipelineContext` is a flat key-value map — full diff semantics aren't needed.
+**Rationale**: Simple, predictable, and sufficient. Wave's `PipelineContext` is a flat key-value map. Full diff-merge semantics (Fabro-style) would add complexity without clear benefit.
 
-### 4. State nesting
-**Decision**: Add `parent_run_id` and `parent_step_id` columns to the runs table. Child runs link back to parent, enabling hierarchical state queries.
+### 4. State nesting via parent_run_id
+**Decision**: Add nullable `parent_run_id` and `parent_step_id` columns to the runs table. Child runs link back to parent.
 
-**Rationale**: Minimal schema change. Supports `wave logs <parent-run>` showing child run status inline.
+**Rationale**: Minimal schema change. Supports `wave logs <parent-run>` showing child run status. No migration needed -- new nullable columns with default NULL.
 
-### 5. Workspace sharing
-**Decision**: `workspace.ref: parent` on a sub-pipeline step makes the child pipeline's steps inherit the parent step's workspace path. Implemented by passing the workspace path down to the child executor.
+### 5. Workspace sharing via ref: parent
+**Decision**: `workspace.ref: parent` on a sub-pipeline step passes the parent step's resolved workspace path to the child executor.
 
-**Rationale**: Reuses existing `WorkspaceConfig.Ref` semantics. The child executor just needs the resolved path — no new abstraction needed.
+**Rationale**: Reuses existing `WorkspaceConfig.Ref` semantics. The child executor receives the path as an option -- no new abstraction needed.
 
 ## Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Breaking existing `SubPipeline` usage | Medium | High | All changes are additive — existing `SubPipeline` field and `executeCompositionStep()` behavior preserved when `Config` is nil |
-| Artifact path collisions between parent/child | Low | Medium | Namespace extracted artifacts with child pipeline name prefix |
-| Circular sub-pipeline references | Medium | High | Add cycle detection during validation — check if pipeline A references B which references A |
-| Child timeout not enforced on adapter-level | Low | Medium | Use `context.WithTimeout()` on the child executor's context |
-| State store schema migration | Low | Low | Add nullable `parent_run_id` column — no migration needed for existing data |
+| Breaking existing `SubPipeline` usage | Medium | High | All changes additive -- existing behavior preserved when `Config` is nil. Run full test suite. |
+| Artifact path collisions parent/child | Low | Medium | Namespace extracted artifacts with child pipeline name prefix |
+| Circular sub-pipeline references | Medium | High | Cycle detection in DAG validation -- build graph of pipeline->sub-pipeline references, detect cycles |
+| Child timeout not enforced at adapter level | Low | Medium | Use `context.WithTimeout()` on child executor context -- propagates to adapter calls |
+| State store schema migration | Low | Low | Nullable columns with default NULL -- backward compatible, no migration for existing data |
+| Concurrent access to PipelineContext during merge | Low | Medium | `PipelineContext` already uses `sync.Mutex` -- `MergeFrom()` will acquire lock |
 
 ## Testing Strategy
 
 ### Unit Tests (`subpipeline_test.go`)
-- `TestSubPipelineConfig_Validate` — config validation (missing fields, invalid timeout format)
-- `TestArtifactInject` — parent artifacts copied into child workspace
-- `TestArtifactExtract` — child artifacts copied back to parent execution
-- `TestContextMerge` — child context variables merge into parent
-- `TestLifecycleTimeout` — child pipeline cancelled on timeout
-- `TestLifecycleMaxCycles` — max_cycles propagated to child loop config
-- `TestStopCondition` — stop condition evaluated against child context
-- `TestWorkspaceSharing` — `workspace.ref: parent` passes parent workspace to child
-- `TestCircularPipelineDetection` — validation catches A->B->A references
+- `TestSubPipelineConfig_Validate` -- invalid timeout format, missing pipeline name, valid configs
+- `TestArtifactInject` -- parent artifacts copied into child workspace correctly
+- `TestArtifactExtract` -- child artifacts registered in parent execution state
+- `TestContextMerge` -- child context variables merge into parent, namespace isolation
+- `TestLifecycleTimeout` -- child execution cancelled on timeout expiry
+- `TestLifecycleMaxCycles` -- max_cycles propagated to child loop configuration
+- `TestStopCondition` -- stop condition template evaluation against child context
+- `TestWorkspaceSharing` -- `workspace.ref: parent` passes correct path
+- `TestCircularPipelineDetection` -- validation catches A->B->A cycles
 
-### Integration Tests (`composition_test.go`)
-- `TestCompositionExecutor_SubPipelineWithArtifacts` — end-to-end artifact flow
-- `TestCompositionExecutor_SubPipelineWithTimeout` — timeout enforcement
-- `TestCompositionExecutor_SubPipelineStateNesting` — parent-child state linkage
+### Integration Tests (in `composition_test.go`)
+- `TestCompositionExecutor_SubPipelineWithArtifacts` -- end-to-end artifact flow
+- `TestCompositionExecutor_SubPipelineWithTimeout` -- timeout enforcement
+- `TestCompositionExecutor_SubPipelineStateNesting` -- parent-child run linkage
 
-### Existing Test Preservation
-- All existing `TestCompositionExecutor_SubPipeline` tests must continue to pass
-- Dry run tests for sub-pipeline validation must be updated
+### Backward Compatibility
+- All existing `TestCompositionExecutor_SubPipeline*` tests must continue passing
+- Existing pipelines with bare `SubPipeline` field (no `Config`) work identically
