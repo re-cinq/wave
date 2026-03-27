@@ -432,6 +432,7 @@ func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
 
 func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 	var errs []error
+	seenNames := make(map[string]int, len(hks))
 	for i, h := range hks {
 		prefix := fmt.Sprintf("hooks[%d]", i)
 		if strings.TrimSpace(h.Name) == "" {
@@ -441,6 +442,15 @@ func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 				Reason:     "is required",
 				Suggestion: "Each hook must have a unique name",
 			})
+		} else if prev, ok := seenNames[h.Name]; ok {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      prefix + ".name",
+				Reason:     fmt.Sprintf("duplicate hook name %q (first defined at hooks[%d])", h.Name, prev),
+				Suggestion: "Each hook must have a unique name",
+			})
+		} else {
+			seenNames[h.Name] = i
 		}
 		if !hooks.ValidEventTypes[h.Event] {
 			errs = append(errs, &ValidationError{

@@ -619,27 +619,23 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateFailed, input)
 		}
-		// Run run_failed hooks (non-blocking by default)
-		if e.hookRunner != nil {
-			e.hookRunner.RunHooks(ctx, hooks.HookEvent{
-				Type:       hooks.EventRunFailed,
-				PipelineID: pipelineID,
-				Input:      input,
-			})
-		}
+		// Run run_failed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunFailed,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	} else {
 		execution.Status.State = StateCompleted
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateCompleted, input)
 		}
-		// Run run_completed hooks (non-blocking by default)
-		if e.hookRunner != nil {
-			e.hookRunner.RunHooks(ctx, hooks.HookEvent{
-				Type:       hooks.EventRunCompleted,
-				PipelineID: pipelineID,
-				Input:      input,
-			})
-		}
+		// Run run_completed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunCompleted,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
@@ -2669,6 +2665,21 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
+// are allowed to run with a detached context.
+const terminalHookTimeout = 30 * time.Second
+
+// runTerminalHooks executes lifecycle hooks with a fresh, detached context.
+// Terminal events fire after the pipeline context may already be cancelled.
+func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
+	if e.hookRunner == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), terminalHookTimeout)
+	defer cancel()
+	e.hookRunner.RunHooks(ctx, evt)
 }
 
 // trace emits a structured NDJSON trace event when debug tracing is enabled.
