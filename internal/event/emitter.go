@@ -34,6 +34,7 @@ type Event struct {
 
 	// Error classification fields (context exhaustion handling)
 	FailureReason string `json:"failure_reason,omitempty"` // "timeout", "context_exhaustion", "general_error"
+	FailureClass  string `json:"failure_class,omitempty"`  // Pipeline-level failure classification (transient, deterministic, etc.)
 	Remediation   string `json:"remediation,omitempty"`    // Actionable suggestion for the user
 
 	// Stream event fields (real-time Claude Code activity)
@@ -143,6 +144,11 @@ const (
 	// Ontology lifecycle states
 	StateOntologyInject  = "ontology_inject"  // Ontology contexts injected into step
 	StateOntologyLineage = "ontology_lineage" // Ontology decision lineage recorded
+
+	// Hook lifecycle states
+	StateHookStarted = "hook_started" // Hook execution begun
+	StateHookPassed  = "hook_passed"  // Hook execution passed
+	StateHookFailed  = "hook_failed"  // Hook execution failed
 )
 
 type EventEmitter interface {

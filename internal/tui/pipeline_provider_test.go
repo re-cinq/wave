@@ -120,6 +120,8 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 	return &state.OntologyStats{}, nil
 }
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
+func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
+func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
