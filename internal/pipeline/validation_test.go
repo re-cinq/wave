@@ -555,3 +555,85 @@ func TestConcurrencyValidator_GetRunningPipelines(t *testing.T) {
 		t.Error("Expected pipeline1 to not be in running pipelines after release")
 	}
 }
+
+func TestValidateThreadFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		steps       []Step
+		expectErrs  int
+		errContains string
+	}{
+		{
+			name: "valid thread with default fidelity",
+			steps: []Step{
+				{ID: "impl", Thread: "impl"},
+				{ID: "fix", Thread: "impl"},
+			},
+			expectErrs: 0,
+		},
+		{
+			name: "valid thread with explicit fidelity",
+			steps: []Step{
+				{ID: "impl", Thread: "impl", Fidelity: "full"},
+				{ID: "fix", Thread: "impl", Fidelity: "compact"},
+			},
+			expectErrs: 0,
+		},
+		{
+			name: "no thread no fidelity is valid",
+			steps: []Step{
+				{ID: "review"},
+			},
+			expectErrs: 0,
+		},
+		{
+			name: "unknown fidelity value",
+			steps: []Step{
+				{ID: "impl", Thread: "impl", Fidelity: "invalid"},
+			},
+			expectErrs:  1,
+			errContains: "unknown fidelity value",
+		},
+		{
+			name: "fidelity without thread",
+			steps: []Step{
+				{ID: "review", Fidelity: "full"},
+			},
+			expectErrs:  1,
+			errContains: "fidelity has no effect without a thread group",
+		},
+		{
+			name: "multiple errors",
+			steps: []Step{
+				{ID: "step-a", Thread: "impl", Fidelity: "bogus"},
+				{ID: "step-b", Fidelity: "compact"},
+			},
+			expectErrs: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pipeline{
+				Metadata: PipelineMetadata{Name: "test"},
+				Steps:    tt.steps,
+			}
+			errs := ValidateThreadFields(p)
+			if len(errs) != tt.expectErrs {
+				t.Errorf("expected %d errors, got %d: %v", tt.expectErrs, len(errs), errs)
+			}
+			if tt.errContains != "" && len(errs) > 0 {
+				found := false
+				for _, err := range errs {
+					if strings.Contains(err.Error(), tt.errContains) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected error containing %q, got %v", tt.errContains, errs)
+				}
+			}
+		})
+	}
+}
