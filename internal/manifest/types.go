@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/hooks"
 )
 
 type Project struct {
@@ -40,6 +42,7 @@ type Manifest struct {
 	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
 	Personas    map[string]Persona  `yaml:"personas,omitempty"`
 	Skills      []string            `yaml:"skills,omitempty"`
+	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
 	Runtime     Runtime                    `yaml:"runtime"`
 }
 
