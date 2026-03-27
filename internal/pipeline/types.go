@@ -175,6 +175,8 @@ type AttemptContext struct {
 type Step struct {
 	ID              string           `yaml:"id"`
 	Persona         string           `yaml:"persona"`
+	Adapter         string           `yaml:"adapter,omitempty"`  // Override adapter for this step
+	Model           string           `yaml:"model,omitempty"`    // Override model for this step
 	Dependencies    []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes  int              `yaml:"timeout_minutes,omitempty"`
 	Optional        bool             `yaml:"optional,omitempty"`

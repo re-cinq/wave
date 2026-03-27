@@ -103,6 +103,7 @@ type Runtime struct {
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
 	Sandbox              RuntimeSandbox         `yaml:"sandbox,omitempty"`
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
+	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"` // Adapter fallback chains
 }
 
 // GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.

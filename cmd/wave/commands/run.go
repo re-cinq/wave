@@ -233,18 +233,23 @@ func runRun(opts RunOptions, debug bool) error {
 
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
+	var registry *adapter.AdapterRegistry
 	if opts.Mock {
 		// Add simulated delay to see progress animations in action
 		runner = adapter.NewMockAdapter(
 			adapter.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
-		var adapterName string
+		// Build adapter registry from manifest adapters
+		registry = adapter.NewAdapterRegistry()
+		var firstAdapterName string
 		for name := range m.Adapters {
-			adapterName = name
-			break
+			if firstAdapterName == "" {
+				firstAdapterName = name
+			}
+			registry.Register(name, adapter.ResolveAdapter(name))
 		}
-		runner = adapter.ResolveAdapter(adapterName)
+		runner = adapter.ResolveAdapter(firstAdapterName)
 	}
 
 	// Initialize state store under .wave/ — must happen before run ID generation
@@ -377,6 +382,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if stepFilter != nil {
 		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
+	}
+	if registry != nil {
+		execOpts = append(execOpts, pipeline.WithAdapterRegistry(registry))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)

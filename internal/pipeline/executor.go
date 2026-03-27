@@ -95,6 +95,8 @@ type DefaultPipelineExecutor struct {
 	debugTracer *audit.DebugTracer
 	// Accumulated token count across all steps (survives pipeline cleanup)
 	totalTokens int
+	// Adapter registry for per-step adapter resolution
+	registry *adapter.AdapterRegistry
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -160,6 +162,11 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 // WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
 func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
+}
+
+// WithAdapterRegistry sets the adapter registry for per-step adapter resolution.
+func WithAdapterRegistry(reg *adapter.AdapterRegistry) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.registry = reg }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -240,6 +247,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
+		registry:               e.registry,
 	}
 }
 
@@ -314,10 +322,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	// Preflight validation: check required tools and skills before execution
-	if p.Requires != nil {
-		checker := preflight.NewChecker(p.Requires.Skills)
+	{
+		var skills map[string]skill.SkillConfig
+		if p.Requires != nil {
+			skills = p.Requires.Skills
+		}
+		checker := preflight.NewChecker(skills)
 		var tools []string
-		if len(p.Requires.Tools) > 0 {
+		if p.Requires != nil && len(p.Requires.Tools) > 0 {
 			for _, tool := range p.Requires.Tools {
 				resolved := pipelineContext.ResolvePlaceholders(tool)
 				if resolved != "" {
@@ -325,7 +337,34 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				}
 			}
 		}
-		skillNames := p.Requires.SkillNames()
+
+		// Collect adapter binaries from all pipeline steps for preflight verification
+		personas := make(map[string]preflight.Persona, len(m.Personas))
+		for name, pers := range m.Personas {
+			personas[name] = preflight.Persona{Adapter: pers.Adapter}
+		}
+		adapters := make(map[string]preflight.AdapterDef, len(m.Adapters))
+		for name, a := range m.Adapters {
+			adapters[name] = preflight.AdapterDef{Binary: a.Binary}
+		}
+		stepRefs := make([]preflight.StepRef, len(p.Steps))
+		for i, step := range p.Steps {
+			resolvedPersona := step.Persona
+			if pipelineContext != nil {
+				resolvedPersona = pipelineContext.ResolvePlaceholders(step.Persona)
+			}
+			stepRefs[i] = preflight.StepRef{
+				Persona: resolvedPersona,
+				Adapter: step.Adapter,
+			}
+		}
+		adapterBinaries := preflight.CollectAdapterBinaries(personas, adapters, stepRefs)
+		tools = append(tools, adapterBinaries...)
+
+		var skillNames []string
+		if p.Requires != nil {
+			skillNames = p.Requires.SkillNames()
+		}
 		if len(tools) > 0 || len(skillNames) > 0 {
 			results, err := checker.Run(tools, skillNames)
 			for _, r := range results {
@@ -1290,9 +1329,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
-	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
+	// Resolve which adapter this step uses
+	resolvedAdapterName := persona.Adapter
+	if step.Adapter != "" {
+		resolvedAdapterName = step.Adapter
+	}
+
+	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
 	if adapterDef == nil {
-		return fmt.Errorf("adapter %q not found in manifest", persona.Adapter)
+		return fmt.Errorf("adapter %q not found in manifest", resolvedAdapterName)
 	}
 
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
@@ -1320,7 +1365,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -1506,7 +1551,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -1551,9 +1596,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
-		"model":   e.resolveModel(persona),
+		"model":   e.resolveModel(step, persona),
 	})
-	result, err := e.runner.Run(ctx, cfg)
+	runner := e.resolveRunner(step, persona, execution.Manifest)
+	result, err := e.runWithFallback(ctx, cfg, runner, resolvedAdapterName, execution.Manifest.Runtime.Fallbacks)
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
@@ -1874,13 +1920,39 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies three-tier model precedence:
+// resolveRunner determines the AdapterRunner for a step using the priority chain:
+// step.Adapter > persona.Adapter > first manifest adapter.
+// If a registry is set, it resolves by name; otherwise falls back to e.runner.
+func (e *DefaultPipelineExecutor) resolveRunner(step *Step, persona *manifest.Persona, m *manifest.Manifest) adapter.AdapterRunner {
+	if e.registry == nil {
+		return e.runner
+	}
+
+	// Resolution chain: step > persona > first manifest adapter
+	adapterName := persona.Adapter
+	if step.Adapter != "" {
+		adapterName = step.Adapter
+	}
+
+	if runner, ok := e.registry.Resolve(adapterName); ok {
+		return runner
+	}
+
+	// Fall back to e.runner if not found in registry
+	return e.runner
+}
+
+// resolveModel applies four-tier model precedence:
 // 1. CLI --model flag override (highest — explicit user intent)
-// 2. Per-persona model pinning
-// 3. Adapter default (empty string)
-func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
+// 2. Per-step model pinning
+// 3. Per-persona model pinning
+// 4. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona) string {
 	if e.modelOverride != "" {
 		return e.modelOverride
+	}
+	if step.Model != "" {
+		return step.Model
 	}
 	if persona.Model != "" {
 		return persona.Model
@@ -3371,6 +3443,70 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	})
 
 	return nil
+}
+
+// runWithFallback executes an adapter run with fallback chain support.
+// If the primary adapter fails with a transient error (rate limit, timeout)
+// and fallback chains are configured, it retries with fallback adapters.
+func (e *DefaultPipelineExecutor) runWithFallback(
+	ctx context.Context,
+	cfg adapter.AdapterRunConfig,
+	primaryRunner adapter.AdapterRunner,
+	adapterName string,
+	fallbacks map[string][]string,
+) (*adapter.AdapterResult, error) {
+	result, err := primaryRunner.Run(ctx, cfg)
+	if err == nil && (result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout) {
+		return result, err
+	}
+
+	// Check if we have fallbacks configured for this adapter
+	chain, hasFallbacks := fallbacks[adapterName]
+	if !hasFallbacks || len(chain) == 0 || e.registry == nil {
+		return result, err
+	}
+
+	// Only retry on transient failures
+	isTransient := false
+	if err != nil {
+		// Context cancelled — don't retry
+		if ctx.Err() != nil {
+			return result, err
+		}
+		isTransient = true
+	} else if result.FailureReason == adapter.FailureReasonRateLimit || result.FailureReason == adapter.FailureReasonTimeout {
+		isTransient = true
+	}
+
+	if !isTransient {
+		return result, err
+	}
+
+	// Try fallback adapters in order
+	originalErr := err
+	for _, fbName := range chain {
+		fbRunner, ok := e.registry.Resolve(fbName)
+		if !ok {
+			continue
+		}
+
+		e.emit(event.Event{
+			Timestamp: time.Now(),
+			State:     "fallback",
+			Message:   fmt.Sprintf("Primary adapter %q failed, trying fallback %q", adapterName, fbName),
+		})
+
+		result, err = fbRunner.Run(ctx, cfg)
+		if err == nil && result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout {
+			return result, nil
+		}
+	}
+
+	// All fallbacks exhausted
+	if originalErr != nil {
+		return result, fmt.Errorf("all fallback adapters exhausted (primary error: %w)", originalErr)
+	}
+	return result, err
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage

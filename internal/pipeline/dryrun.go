@@ -161,6 +161,22 @@ func (v *DryRunValidator) validateStep(
 		v.validateExecConfig(step, report)
 	}
 
+	// Step-level adapter override reference.
+	if step.Adapter != "" && m != nil {
+		if m.GetAdapter(step.Adapter) == nil {
+			var adapterNames []string
+			for name := range m.Adapters {
+				adapterNames = append(adapterNames, name)
+			}
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityError,
+				StepID:   step.ID,
+				Field:    "adapter",
+				Message:  fmt.Sprintf("adapter %q is not defined in manifest adapters (available: %s)", step.Adapter, strings.Join(adapterNames, ", ")),
+			})
+		}
+	}
+
 	// Inject artifact references.
 	v.validateInjectArtifacts(step, p, stepArtifacts, report)
 
