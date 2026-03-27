@@ -7,91 +7,61 @@
 
 ## Context
 
-Wave currently operates as a CLI tool with an existing `wave serve` command that provides a web dashboard with REST API and SSE streaming. This issue upgrades server mode to a production-grade service with:
+Wave currently operates as a CLI tool. Adding a server mode enables team workflows, webhook-triggered pipelines, and persistent monitoring. Fabro's `fabro serve` provides a reference architecture with HTTP API, SSE event streaming, concurrent scheduling, and JWT/mTLS auth.
 
-- **Run scheduling** via FIFO queue with configurable concurrency limit
-- **JWT authentication** (replacing simple bearer token)
-- **Optional mTLS** for machine-to-machine access
-- **HTTP gate resolution** endpoint for interactive pipeline gates
-- **Manifest-driven server configuration** via `server:` section in `wave.yaml`
-- **TLS support** for encrypted transport
+## Current State Analysis
 
-## Current State (Already Implemented)
-
-The existing `internal/webui/` package provides:
+The majority of server mode infrastructure **already exists** in `internal/webui/`:
 
 | Feature | Status | Location |
 |---------|--------|----------|
-| `wave serve` CLI command | Exists | `cmd/wave/commands/serve.go` |
-| REST API (runs, pipelines, personas, contracts, skills) | Exists | `internal/webui/routes.go` |
-| SSE event streaming (`/api/runs/{id}/events`) | Exists | `internal/webui/sse.go`, `sse_broker.go` |
-| Pipeline start/cancel/retry/resume | Exists | `internal/webui/handlers_control.go` |
-| Bearer token auth | Exists | `internal/webui/middleware.go`, `auth.go` |
-| Security headers | Exists | `internal/webui/auth.go` |
-| Web dashboard with templates | Exists | `internal/webui/templates/`, `static/` |
-| Health endpoint | Exists | `internal/webui/handlers_health.go` |
+| `wave serve` CLI command | Complete | `cmd/wave/commands/serve.go` |
+| REST API (runs CRUD, pipelines, personas, etc.) | Complete | `internal/webui/routes.go` |
+| `POST /api/runs` (submit run) | Complete | `internal/webui/handlers_control.go` |
+| `GET /api/runs/:id` (run detail) | Complete | `internal/webui/handlers_runs.go` |
+| `GET /api/runs/:id/logs` (run logs) | Complete | `internal/webui/handlers_control.go` |
+| SSE event streaming with reconnection backfill | Complete | `internal/webui/handlers_sse.go`, `sse_broker.go` |
+| Pipeline start/cancel/retry/resume | Complete | `internal/webui/handlers_control.go` |
+| FIFO scheduler with concurrency limit | Complete | `internal/webui/scheduler.go` |
+| Bearer token auth middleware | Complete | `internal/webui/middleware.go` |
+| JWT auth middleware + validation | Complete | `internal/webui/jwt.go`, `middleware.go` |
+| mTLS support | Complete | `internal/webui/server.go` (TLS listener config) |
+| Auth mode enum (none/bearer/jwt/mtls) | Complete | `internal/webui/server.go` |
+| GateRegistry + WebUIGateHandler | Complete | `internal/webui/gate_handler.go` |
+| Gate approve HTTP endpoint | Complete | `internal/webui/handlers_control.go` |
+| Manifest `server:` config | Complete | `internal/manifest/types.go` |
+| Graceful shutdown with run cancellation | Complete | `internal/webui/server.go` |
+| Security headers | Complete | `internal/webui/auth.go` |
+| Health endpoint | Complete | `internal/webui/handlers_health.go` |
+| Web dashboard (HTML templates) | Complete | `internal/webui/templates/` |
 
-## Gaps to Fill
+## Bugs and Gaps Found
 
-### 1. Unified Run Submission (`POST /api/runs`)
+### Bug 1: Gate tests don't compile (CRITICAL)
 
-Currently, runs are submitted via `POST /api/pipelines/{name}/start`. The issue specifies `POST /api/runs` with pipeline name in the request body, which is a more RESTful pattern.
+`internal/webui/handlers_gate_test.go` was written against an older `GateRegistry` API:
+- Calls `g.Register(runID, stepID)` with 2 args — actual signature requires 3: `(runID, stepID string, gate *pipeline.GateConfig)`
+- Calls `g.Resolve(runID, stepID)` returning `bool` — actual signature is `(runID string, decision *pipeline.GateDecision)` returning `error`
+- References `srv.handleResolveGate` — method doesn't exist (actual is `handleGateApprove`)
+- References `g.Cleanup(runID, stepID)` — actual is `g.Remove(runID)`
 
-### 2. Run Log Endpoint (`GET /api/runs/:id/logs`)
+This **breaks the entire webui package** — `go test ./internal/webui/` fails at compilation.
 
-A dedicated endpoint returning plain-text or structured logs for a run, distinct from the SSE event stream and the paginated step-events endpoint.
+### Bug 2: `gateRegistry` field never initialized (CRITICAL)
 
-### 3. HTTP Gate Resolution (`POST /api/runs/:id/gate/:step`)
+Server struct has two gate-related fields:
+- `gates *GateRegistry` — initialized in `NewServer` as `gates: NewGateRegistry()`
+- `gateRegistry *GateRegistry` — **never initialized** (nil)
 
-Currently, approval gates either auto-approve or wait for context cancellation/timeout. No mechanism exists for external HTTP clients to resolve a gate. The gate executor in `internal/pipeline/gate.go` needs a channel-based resolution mechanism that the HTTP handler can trigger.
+The `handleGateApprove` handler uses `s.gateRegistry` (nil), not `s.gates` (initialized). This means gate approval always returns "gate registry not initialized" (503).
 
-### 4. Run Queue with Concurrency Scheduling
+### Bug 3: Gate handler not wired into executor
 
-Currently `launchPipelineExecution` starts runs immediately in goroutines. Need a FIFO queue with configurable `--max-concurrent` limit (default: 5) that queues excess runs and dequeues them as slots free up.
-
-### 5. JWT Authentication
-
-Replace simple bearer token with JWT-based auth:
-- Token signing with configurable secret (`WAVE_JWT_SECRET`)
-- Token validation middleware
-- Demo mode (`auth.mode: none`) for local development
-
-### 6. TLS and mTLS Support
-
-- TLS termination with cert/key configuration
-- Optional mutual TLS for machine-to-machine authentication
-- Configurable via manifest `server.tls` section
-
-### 7. Server Configuration in Manifest
-
-Add `server:` section to manifest types:
-
-```yaml
-server:
-  bind: "127.0.0.1:8080"
-  max_concurrent: 5
-  auth:
-    mode: jwt              # jwt | mtls | none
-    jwt_secret: "${WAVE_JWT_SECRET}"
-  tls:
-    enabled: false
-    cert: ""
-    key: ""
-```
+`launchPipelineExecution` creates the executor without `pipeline.WithGateHandler(...)`. Even though `WebUIGateHandler` exists, it's never used — pipelines started from the server have no gate handler, so gate steps will hang or fail.
 
 ## Acceptance Criteria
 
-- [ ] `wave serve --max-concurrent N` limits concurrent pipeline runs via FIFO queue
-- [ ] `POST /api/runs` creates and queues a new pipeline run
-- [ ] `GET /api/runs/:id/logs` returns run logs
-- [ ] `POST /api/runs/:id/gate/:step` resolves a waiting gate
-- [ ] JWT auth mode validates tokens when `server.auth.mode: jwt`
-- [ ] mTLS mode validates client certificates when `server.auth.mode: mtls`
-- [ ] `auth.mode: none` allows unauthenticated access
-- [ ] TLS enabled via `server.tls.enabled: true` with cert/key paths
-- [ ] Server configuration is loaded from manifest `server:` section
-- [ ] CLI flags override manifest configuration
-- [ ] Graceful shutdown cancels active runs and drains queue
-- [ ] All existing endpoints continue to work unchanged
-- [ ] All new code has unit tests
-- [ ] `go test -race ./...` passes
+1. All webui tests compile and pass (`go test -race ./internal/webui/...`)
+2. Gate approval endpoint is functional end-to-end (gateRegistry initialized, handler wired to executor)
+3. `go test -race ./...` passes across the entire project
+4. All REST API endpoints from the issue are functional
