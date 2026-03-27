@@ -413,3 +413,17 @@ type StepArtifactGroup struct {
 	StepID    string
 	Artifacts []ArtifactSummary
 }
+
+// GateApproveRequest is the request body for approving a gate.
+type GateApproveRequest struct {
+	Choice string `json:"choice"`         // Choice key (required)
+	Text   string `json:"text,omitempty"` // Freeform text (optional)
+}
+
+// GateApproveResponse is the JSON response after approving a gate.
+type GateApproveResponse struct {
+	RunID  string `json:"run_id"`
+	StepID string `json:"step_id"`
+	Choice string `json:"choice"`
+	Label  string `json:"label"`
+}

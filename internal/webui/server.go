@@ -37,8 +37,9 @@ type Server struct {
 	bind        string
 	port        int
 	token       string
-	activeRuns  map[string]context.CancelFunc // runID -> cancel
-	mu          sync.Mutex
+	activeRuns   map[string]context.CancelFunc // runID -> cancel
+	gateRegistry *GateRegistry
+	mu           sync.Mutex
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -108,7 +109,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		bind:        cfg.Bind,
 		port:        cfg.Port,
 		token:       cfg.Token,
-		activeRuns:  make(map[string]context.CancelFunc),
+		activeRuns:   make(map[string]context.CancelFunc),
+		gateRegistry: NewGateRegistry(),
 	}
 
 	mux := http.NewServeMux()
@@ -203,4 +205,9 @@ func (s *Server) Start() error {
 // GetBroker returns the SSE broker for external event integration.
 func (s *Server) GetBroker() *SSEBroker {
 	return s.broker
+}
+
+// GetGateRegistry returns the gate registry for creating WebUIGateHandler instances.
+func (s *Server) GetGateRegistry() *GateRegistry {
+	return s.gateRegistry
 }
