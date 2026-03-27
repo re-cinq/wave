@@ -19,6 +19,7 @@ import (
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/scope"
@@ -95,6 +96,8 @@ type DefaultPipelineExecutor struct {
 	debugTracer *audit.DebugTracer
 	// Accumulated token count across all steps (survives pipeline cleanup)
 	totalTokens int
+	// Lifecycle hook runner for pipeline-level hooks
+	hookRunner hooks.HookRunner
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -160,6 +163,11 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 // WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
 func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
+}
+
+// WithHookRunner sets the lifecycle hook runner for pipeline events.
+func WithHookRunner(r hooks.HookRunner) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -240,6 +248,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
+		hookRunner:             e.hookRunner,
 	}
 }
 
@@ -484,6 +493,27 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
+	// Initialize hook runner from manifest hooks if not already set
+	if e.hookRunner == nil && len(m.Hooks) > 0 {
+		runner, err := hooks.NewHookRunner(m.Hooks, e.emitter)
+		if err != nil {
+			return fmt.Errorf("failed to initialize hook runner: %w", err)
+		}
+		e.hookRunner = runner
+	}
+
+	// Run run_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventRunStart,
+			PipelineID: pipelineID,
+			Input:      input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("run_start hook failed: %w", err)
+		}
+	}
+
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
 
@@ -589,11 +619,23 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateFailed, input)
 		}
+		// Run run_failed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunFailed,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	} else {
 		execution.Status.State = StateCompleted
 		if e.store != nil {
 			e.store.SavePipelineState(pipelineID, StateCompleted, input)
 		}
+		// Run run_completed hooks with detached context (non-blocking by default).
+		e.runTerminalHooks(hooks.HookEvent{
+			Type:       hooks.EventRunCompleted,
+			PipelineID: pipelineID,
+			Input:      input,
+		})
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
@@ -751,6 +793,25 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeCompositionStep(ctx, execution, step)
 	}
 
+	// Run step_start hooks
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepStart,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			execution.mu.Lock()
+			execution.States[step.ID] = StateFailed
+			execution.mu.Unlock()
+			if e.store != nil {
+				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+			}
+			return fmt.Errorf("step_start hook failed: %w", err)
+		}
+	}
+
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
 	var lastErr error
@@ -773,6 +834,15 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				State:      StateRetrying,
 				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
+			// Run step_retrying hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventStepRetrying,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Input:      execution.Input,
+				})
+			}
 			time.Sleep(step.Retry.ComputeDelay(attempt))
 		}
 
@@ -901,6 +971,16 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				execution.mu.Unlock()
 				if e.store != nil {
 					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+				}
+				// Run step_failed hooks (non-blocking by default)
+				if e.hookRunner != nil {
+					e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+						Type:       hooks.EventStepFailed,
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						Input:      execution.Input,
+						Error:      lastErr.Error(),
+					})
 				}
 				e.recordOntologyUsage(execution, step, "failed")
 				return lastErr
@@ -1303,6 +1383,16 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	execution.mu.Lock()
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
+
+	// Run workspace_created hooks (non-blocking by default)
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventWorkspaceCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+		})
+	}
 
 	// Pre-create .wave/output/ so personas without Bash can write artifacts
 	if len(step.OutputArtifacts) > 0 {
@@ -1822,6 +1912,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			if e.logger != nil {
 				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
 			}
+			// Run contract_validated hooks (non-blocking by default)
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+					Type:       hooks.EventContractValidated,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Workspace:  workspacePath,
+				})
+			}
 		}
 	}
 	if step.Handover.Contract.Type == "" && e.logger != nil {
@@ -1834,6 +1933,31 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if len(stepArtifacts) == 0 && len(step.OutputArtifacts) > 0 && execution.Context != nil {
 		for _, art := range step.OutputArtifacts {
 			stepArtifacts = append(stepArtifacts, execution.Context.ResolveArtifactPath(art))
+		}
+	}
+
+	// Run artifact_created hooks (non-blocking by default)
+	if e.hookRunner != nil && len(stepArtifacts) > 0 {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventArtifactCreated,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Workspace:  workspacePath,
+			Artifacts:  stepArtifacts,
+		})
+	}
+
+	// Run step_completed hooks (blocking by default)
+	if e.hookRunner != nil {
+		evt := hooks.HookEvent{
+			Type:       hooks.EventStepCompleted,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+			Workspace:  workspacePath,
+		}
+		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+			return fmt.Errorf("step_completed hook failed: %w", err)
 		}
 	}
 
@@ -2541,6 +2665,21 @@ func (e *DefaultPipelineExecutor) emit(ev event.Event) {
 	if e.emitter != nil {
 		e.emitter.Emit(ev)
 	}
+}
+
+// terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
+// are allowed to run with a detached context.
+const terminalHookTimeout = 30 * time.Second
+
+// runTerminalHooks executes lifecycle hooks with a fresh, detached context.
+// Terminal events fire after the pipeline context may already be cancelled.
+func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
+	if e.hookRunner == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), terminalHookTimeout)
+	defer cancel()
+	e.hookRunner.RunHooks(ctx, evt)
 }
 
 // trace emits a structured NDJSON trace event when debug tracing is enabled.
