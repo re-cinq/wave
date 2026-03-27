@@ -63,6 +63,8 @@ type MockStateStore struct {
 	recordOntologyUsage           func(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
 	getOntologyStats              func(contextName string) (*state.OntologyStats, error)
 	getOntologyStatsAll           func() ([]state.OntologyStats, error)
+	saveStepVisitCount            func(pipelineID, stepID string, count int) error
+	getStepVisitCount             func(pipelineID, stepID string) (int, error)
 	setParentRun                  func(childRunID, parentRunID, stepID string) error
 	getChildRuns                  func(parentRunID string) ([]state.RunRecord, error)
 
@@ -443,6 +445,21 @@ func (m *MockStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) {
 	}
 	return nil, nil
 }
+
+func (m *MockStateStore) SaveStepVisitCount(pipelineID, stepID string, count int) error {
+	if m.saveStepVisitCount != nil {
+		return m.saveStepVisitCount(pipelineID, stepID, count)
+	}
+	return nil
+}
+
+func (m *MockStateStore) GetStepVisitCount(pipelineID, stepID string) (int, error) {
+	if m.getStepVisitCount != nil {
+		return m.getStepVisitCount(pipelineID, stepID)
+	}
+	return 0, nil
+}
+
 
 func (m *MockStateStore) SetParentRun(childRunID, parentRunID, stepID string) error {
 	if m.setParentRun != nil {
