@@ -51,14 +51,13 @@ type Server struct {
 	token       string
 	authMode    AuthMode
 	jwtSecret   string
-	scheduler   *Scheduler
-	gates       *GateRegistry
-	activeRuns  map[string]context.CancelFunc // runID -> cancel
-	mu          sync.Mutex
-	tlsCert     string
-	tlsKey      string
-	tlsCA       string
+	scheduler    *Scheduler
 	gateRegistry *GateRegistry
+	activeRuns   map[string]context.CancelFunc // runID -> cancel
+	mu           sync.Mutex
+	tlsCert      string
+	tlsKey       string
+	tlsCA        string
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -146,9 +145,9 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		token:       cfg.Token,
 		authMode:    authMode,
 		jwtSecret:   cfg.JWTSecret,
-		scheduler:   NewScheduler(cfg.MaxConcurrent),
-		gates:       NewGateRegistry(),
-		activeRuns:  make(map[string]context.CancelFunc),
+		scheduler:    NewScheduler(cfg.MaxConcurrent),
+		gateRegistry: NewGateRegistry(),
+		activeRuns:   make(map[string]context.CancelFunc),
 		tlsCert:     cfg.TLSCert,
 		tlsKey:      cfg.TLSKey,
 		tlsCA:       cfg.TLSCA,

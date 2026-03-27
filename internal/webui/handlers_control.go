@@ -87,6 +87,9 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 	if traceLogger != nil {
 		execOpts = append(execOpts, pipeline.WithAuditLogger(traceLogger))
 	}
+	if s.gateRegistry != nil {
+		execOpts = append(execOpts, pipeline.WithGateHandler(NewWebUIGateHandler(runID, s.gateRegistry)))
+	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
