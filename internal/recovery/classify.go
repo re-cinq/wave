@@ -47,6 +47,22 @@ func ClassifyError(err error) ErrorClass {
 	return ClassRuntimeError
 }
 
+// ClassifyFromFailureClass maps a pipeline failure class string to a
+// recovery ErrorClass. This uses string literals rather than importing
+// the pipeline package to avoid circular imports.
+func ClassifyFromFailureClass(failureClass string) ErrorClass {
+	switch failureClass {
+	case "transient", "deterministic", "test_failure", "budget_exhausted":
+		return ClassRuntimeError
+	case "contract_failure":
+		return ClassContractValidation
+	case "canceled":
+		return ClassUnknown
+	default:
+		return ClassUnknown
+	}
+}
+
 // isGenericErrorMessage returns true for error messages that carry no
 // actionable context (bare exit codes, signal names, etc.).
 func isGenericErrorMessage(msg string) bool {
