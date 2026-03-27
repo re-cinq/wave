@@ -307,6 +307,11 @@ type ContractConfig struct {
 	MustPass   bool   `yaml:"must_pass,omitempty"`
 	OnFailure  string `yaml:"on_failure,omitempty"`
 	MaxRetries int    `yaml:"max_retries,omitempty"`
+
+	// LLM judge settings
+	Model     string   `yaml:"model,omitempty"`     // LLM model for judge evaluation
+	Criteria  []string `yaml:"criteria,omitempty"`   // Evaluation criteria for LLM judge
+	Threshold float64  `yaml:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 }
 
 type CompactionConfig struct {
