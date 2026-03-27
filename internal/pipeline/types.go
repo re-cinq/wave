@@ -104,9 +104,11 @@ type InputSchema struct {
 
 // RetryConfig controls step retry behavior on failure.
 type RetryConfig struct {
+	Policy      string `yaml:"policy,omitempty"`        // "none", "standard", "aggressive", "patient". Resolved to concrete values.
 	MaxAttempts int    `yaml:"max_attempts,omitempty"` // Total attempts. Default 1 = no retry
 	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
 	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
+	MaxDelay    string `yaml:"max_delay,omitempty"`     // Maximum delay cap. Default: "30s"
 	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
 	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
 	ReworkStep  string `yaml:"rework_step,omitempty"`  // Step ID to execute when on_failure is "rework"
@@ -114,11 +116,60 @@ type RetryConfig struct {
 
 // Validate checks that the RetryConfig is well-formed.
 func (r RetryConfig) Validate() error {
+	if r.Policy != "" {
+		validPolicies := map[string]bool{"none": true, "standard": true, "aggressive": true, "patient": true}
+		if !validPolicies[r.Policy] {
+			return fmt.Errorf("unknown retry policy %q (valid: none, standard, aggressive, patient)", r.Policy)
+		}
+	}
 	if r.OnFailure == OnFailureRework && r.ReworkStep == "" {
 		return fmt.Errorf("rework_step is required when on_failure is \"rework\"")
 	}
 	if r.ReworkStep != "" && r.OnFailure != OnFailureRework {
 		return fmt.Errorf("rework_step is set but on_failure is %q (must be %q)", r.OnFailure, OnFailureRework)
+	}
+	return nil
+}
+
+// ResolvePolicy fills in retry config fields from a named policy preset.
+// Explicit values take precedence over policy defaults.
+// Returns an error if the policy name is unrecognized.
+func (r *RetryConfig) ResolvePolicy() error {
+	if r.Policy == "" {
+		return nil
+	}
+
+	type policyDefaults struct {
+		MaxAttempts int
+		Backoff     string
+		BaseDelay   string
+		MaxDelay    string
+	}
+
+	policies := map[string]policyDefaults{
+		"none":       {MaxAttempts: 1, Backoff: "fixed", BaseDelay: "0s", MaxDelay: "0s"},
+		"standard":   {MaxAttempts: 3, Backoff: "exponential", BaseDelay: "1s", MaxDelay: "30s"},
+		"aggressive": {MaxAttempts: 5, Backoff: "exponential", BaseDelay: "200ms", MaxDelay: "30s"},
+		"patient":    {MaxAttempts: 3, Backoff: "exponential", BaseDelay: "5s", MaxDelay: "90s"},
+	}
+
+	defaults, ok := policies[r.Policy]
+	if !ok {
+		return fmt.Errorf("unknown retry policy %q (valid: none, standard, aggressive, patient)", r.Policy)
+	}
+
+	// Explicit values override policy defaults
+	if r.MaxAttempts == 0 {
+		r.MaxAttempts = defaults.MaxAttempts
+	}
+	if r.Backoff == "" {
+		r.Backoff = defaults.Backoff
+	}
+	if r.BaseDelay == "" {
+		r.BaseDelay = defaults.BaseDelay
+	}
+	if r.MaxDelay == "" {
+		r.MaxDelay = defaults.MaxDelay
 	}
 	return nil
 }
@@ -142,21 +193,38 @@ func (r RetryConfig) ParseBaseDelay() time.Duration {
 	return time.Second
 }
 
+// ParseMaxDelay returns the max delay duration from the config.
+// If MaxDelay is unset or unparseable, it falls back to timeouts.RetryMaxDelay.
+func (r RetryConfig) ParseMaxDelay() time.Duration {
+	if r.MaxDelay != "" {
+		d, err := time.ParseDuration(r.MaxDelay)
+		if err == nil {
+			return d
+		}
+	}
+	return timeouts.RetryMaxDelay
+}
+
 // ComputeDelay returns the delay for a given attempt number (1-based).
+// The result is capped at the configured MaxDelay (or timeouts.RetryMaxDelay).
 func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
 	base := r.ParseBaseDelay()
+	maxDelay := r.ParseMaxDelay()
+
+	var d time.Duration
 	switch r.Backoff {
 	case "fixed":
-		return base
+		d = base
 	case "exponential":
-		d := base * time.Duration(1<<uint(attempt-1))
-		if d > timeouts.RetryMaxDelay {
-			return timeouts.RetryMaxDelay
-		}
-		return d
+		d = base * time.Duration(1<<uint(attempt-1))
 	default: // "linear" or empty
-		return base * time.Duration(attempt)
+		d = base * time.Duration(attempt)
 	}
+
+	if d > maxDelay {
+		return maxDelay
+	}
+	return d
 }
 
 // AttemptContext holds failure context from a prior retry attempt for prompt adaptation.
