@@ -55,7 +55,8 @@ type PipelineStatus struct {
 }
 
 type DefaultPipelineExecutor struct {
-	runner         adapter.AdapterRunner
+	runner         adapter.AdapterRunner  // Deprecated: use registry for per-step resolution
+	registry       *adapter.AdapterRegistry
 	emitter        event.EventEmitter
 	store          state.StateStore
 	logger         audit.AuditLogger
@@ -184,6 +185,11 @@ func WithHookRunner(r hooks.HookRunner) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
 }
 
+// WithRegistry sets the adapter registry for per-step adapter resolution.
+func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
+}
+
 // createRunID generates a run ID, preferring the state store's CreateRun()
 // so the run appears in the dashboard. Falls back to GenerateRunID() if
 // the store is unavailable or the call fails.
@@ -231,6 +237,11 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 		opt(ex)
 	}
 
+	// If no registry was provided via WithRegistry, wrap the single runner
+	if ex.registry == nil {
+		ex.registry = adapter.NewSingleRunnerRegistry(runner)
+	}
+
 	// Initialize security after options so logging respects --debug
 	securityConfig := security.DefaultSecurityConfig()
 	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled && ex.debug)
@@ -248,6 +259,7 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
 		runner:                 e.runner,
+		registry:               e.registry,
 		emitter:                e.emitter,
 		store:                  e.store,
 		logger:                 e.logger,
@@ -1865,10 +1877,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
-	adapterDef := execution.Manifest.GetAdapter(persona.Adapter)
-	if adapterDef == nil {
-		return fmt.Errorf("adapter %q not found in manifest", persona.Adapter)
+	// Resolve adapter name: step.Adapter > persona.Adapter (3-tier precedence)
+	resolvedAdapterName := persona.Adapter
+	if step.Adapter != "" {
+		resolvedAdapterName = step.Adapter
 	}
+
+	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
+	if adapterDef == nil {
+		return fmt.Errorf("adapter %q not found in manifest", resolvedAdapterName)
+	}
+
+	// Resolve adapter runner from registry for per-step dispatch
+	stepRunner := e.registry.ResolveWithFallback(resolvedAdapterName)
 
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
 	workspacePath, err := e.createStepWorkspace(execution, step)
@@ -1905,7 +1926,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -2091,7 +2112,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            e.resolveModel(persona),
+		Model:            e.resolveModel(step, persona),
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -2144,9 +2165,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
-		"model":   e.resolveModel(persona),
+		"model":   e.resolveModel(step, persona),
 	})
-	result, err := e.runner.Run(ctx, cfg)
+	result, err := stepRunner.Run(ctx, cfg)
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
@@ -2504,13 +2525,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies three-tier model precedence:
+// resolveModel applies four-tier model precedence:
 // 1. CLI --model flag override (highest — explicit user intent)
-// 2. Per-persona model pinning
-// 3. Adapter default (empty string)
-func (e *DefaultPipelineExecutor) resolveModel(persona *manifest.Persona) string {
+// 2. Per-step model pinning (step.Model in pipeline YAML)
+// 3. Per-persona model pinning
+// 4. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona) string {
 	if e.modelOverride != "" {
 		return e.modelOverride
+	}
+	if step != nil && step.Model != "" {
+		return step.Model
 	}
 	if persona.Model != "" {
 		return persona.Model
@@ -4009,7 +4034,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		childOpts = append(childOpts, WithDebugTracer(e.debugTracer))
 	}
 
-	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
+	childExecutor := NewDefaultPipelineExecutor(e.runner, append(childOpts, WithRegistry(e.registry))...)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
