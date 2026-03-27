@@ -416,6 +416,11 @@ type GateConfig struct {
 	Repo     string `yaml:"repo,omitempty"`      // "owner/repo" slug; detected from git remotes if empty
 	Branch   string `yaml:"branch,omitempty"`    // Branch name for ci_pass gate; detected from git if empty
 	Interval string `yaml:"interval,omitempty"`  // Poll interval (e.g. "30s"); default 30s
+
+	// Runtime-only field set by the executor before invoking the gate handler.
+	// Not serialized to YAML. Used by the WebUI gate handler to track which
+	// step a pending gate belongs to.
+	RuntimeStepID string `yaml:"-" json:"-"`
 }
 
 // Validate checks that the GateConfig is well-formed when it uses choices.

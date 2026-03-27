@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -357,6 +358,9 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Limit request body to 1MB to prevent abuse via oversized freeform text.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req GateApproveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
@@ -377,6 +381,16 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 	gate := s.gateRegistry.GetPending(runID)
 	if gate == nil {
 		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
+		return
+	}
+
+	// Verify that the step ID in the URL matches the actual pending gate step.
+	// This prevents approving the wrong gate when steps change between request
+	// construction and submission.
+	pendingStepID := s.gateRegistry.GetPendingStepID(runID)
+	if pendingStepID != "" && pendingStepID != stepID {
+		writeJSONError(w, http.StatusConflict,
+			fmt.Sprintf("step mismatch: pending gate is for step %q, not %q", pendingStepID, stepID))
 		return
 	}
 
