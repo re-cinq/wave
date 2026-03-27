@@ -47,14 +47,21 @@ func (fm *ForkManager) ListForkPoints(runID string) ([]ForkPoint, error) {
 
 // Fork creates a new run that branches from a completed step of an existing run.
 // It copies artifacts from all steps up to the fork point and returns the new run ID.
-func (fm *ForkManager) Fork(sourceRunID, fromStep string, p *Pipeline) (string, error) {
-	// Validate source run exists and is not running
+// By default only completed runs can be forked. Set allowFailed to true to permit
+// forking failed or cancelled runs.
+func (fm *ForkManager) Fork(sourceRunID, fromStep string, p *Pipeline, allowFailed ...bool) (string, error) {
+	// Validate source run exists and is in a forkable state
 	run, err := fm.store.GetRun(sourceRunID)
 	if err != nil {
 		return "", fmt.Errorf("source run %q not found: %w", sourceRunID, err)
 	}
 	if run.Status == "running" {
 		return "", fmt.Errorf("cannot fork a running run %q — wait for it to complete or cancel it", sourceRunID)
+	}
+	if run.Status != "completed" {
+		if len(allowFailed) == 0 || !allowFailed[0] {
+			return "", fmt.Errorf("cannot fork %s run %q — use --allow-failed to fork non-completed runs", run.Status, sourceRunID)
+		}
 	}
 
 	// Resolve step: by name or by index
@@ -222,8 +229,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
-	_, err = io.Copy(out, in)
-	return err
+	if _, err = io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }

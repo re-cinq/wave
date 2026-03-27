@@ -14,14 +14,15 @@ import (
 
 // ForkOptions holds options for the fork command.
 type ForkOptions struct {
-	RunID    string
-	FromStep string
-	List     bool
-	Input    string
-	Model    string
-	Manifest string
-	Mock     bool
-	Output   OutputConfig
+	RunID       string
+	FromStep    string
+	List        bool
+	AllowFailed bool
+	Input       string
+	Model       string
+	Manifest    string
+	Mock        bool
+	Output      OutputConfig
 }
 
 // NewForkCmd creates the fork command.
@@ -59,6 +60,7 @@ Use --list to see available fork points (completed steps with checkpoints).`,
 
 	cmd.Flags().StringVar(&opts.FromStep, "from-step", "", "Fork from after this step (required unless --list)")
 	cmd.Flags().BoolVar(&opts.List, "list", false, "List available fork points")
+	cmd.Flags().BoolVar(&opts.AllowFailed, "allow-failed", false, "Allow forking non-completed (failed/cancelled) runs")
 	cmd.Flags().StringVar(&opts.Input, "input", "", "Override input for the forked run")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for the forked run")
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
@@ -123,7 +125,7 @@ func runFork(opts ForkOptions) error {
 	}
 
 	// Execute fork
-	newRunID, err := forkMgr.Fork(opts.RunID, opts.FromStep, p)
+	newRunID, err := forkMgr.Fork(opts.RunID, opts.FromStep, p, opts.AllowFailed)
 	if err != nil {
 		return NewCLIError(CodeInvalidArgs,
 			fmt.Sprintf("fork failed: %v", err),
