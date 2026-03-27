@@ -12,11 +12,13 @@ import (
 
 // Trace event type constants for structured debug output.
 const (
-	TracePromptLoad       = "prompt_load"
-	TracePromptLoadError  = "prompt_load_error"
-	TraceArtifactWrite    = "artifact_write"
+	TracePromptLoad        = "prompt_load"
+	TracePromptLoadError   = "prompt_load_error"
+	TraceArtifactWrite     = "artifact_write"
 	TraceArtifactSkipEmpty = "artifact_skip_empty"
 	TraceArtifactPreserved = "artifact_preserved"
+	TraceThreadInject      = "thread_inject"  // Thread transcript prepended to step prompt
+	TraceThreadAppend      = "thread_append"  // Step output appended to thread transcript
 )
 
 // TraceEvent represents a single structured trace event written as NDJSON.

@@ -30,6 +30,22 @@ const (
 	OnFailureRetry    = "retry"
 )
 
+// Fidelity constants control how much prior thread context a step receives.
+const (
+	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
+	FidelityCompact = "compact" // Step ID + status + truncated content summary
+	FidelitySummary = "summary" // LLM-generated summary via relay CompactionAdapter
+	FidelityFresh   = "fresh"   // No prior context (default when no thread)
+)
+
+// validFidelityValues enumerates the accepted fidelity values.
+var validFidelityValues = map[string]bool{
+	FidelityFull:    true,
+	FidelityCompact: true,
+	FidelitySummary: true,
+	FidelityFresh:   true,
+}
+
 type Pipeline struct {
 	Kind     string           `yaml:"kind"`
 	Metadata PipelineMetadata `yaml:"metadata"`
@@ -191,6 +207,11 @@ type Step struct {
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
 	Concurrency     int              `yaml:"concurrency,omitempty"`
 
+	// Thread conversation continuity — steps sharing the same thread value
+	// participate in a conversation thread, receiving prior step transcripts.
+	Thread   string `yaml:"thread,omitempty"`   // Thread group ID (opt-in; empty = fresh memory)
+	Fidelity string `yaml:"fidelity,omitempty"` // Context fidelity: full, compact, summary, fresh
+
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`
 
@@ -207,6 +228,18 @@ type Step struct {
 // IsOptional returns whether this step is marked as optional.
 func (s *Step) IsOptional() bool {
 	return s.Optional
+}
+
+// EffectiveFidelity returns the fidelity level for this step.
+// Defaults to "full" when thread is set, "fresh" when no thread.
+func (s *Step) EffectiveFidelity() string {
+	if s.Fidelity != "" {
+		return s.Fidelity
+	}
+	if s.Thread != "" {
+		return FidelityFull
+	}
+	return FidelityFresh
 }
 
 // GetTimeout returns the step-level timeout duration.
