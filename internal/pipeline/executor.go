@@ -1792,6 +1792,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Dir:        step.Handover.Contract.Dir,
 			MustPass:   step.Handover.Contract.MustPass,
 			MaxRetries: step.Handover.Contract.MaxRetries,
+			Model:      step.Handover.Contract.Model,
+			Criteria:   step.Handover.Contract.Criteria,
+			Threshold:  step.Handover.Contract.Threshold,
 		}
 
 		// Use schema filename for display when available, fall back to contract type
@@ -2879,6 +2882,18 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			b.WriteString("After you complete your work, a test suite will be run to validate your output.\n")
 		}
 		b.WriteString("If tests fail, the step fails.\n")
+
+	case "llm_judge":
+		b.WriteString("### LLM Judge Evaluation\n\n")
+		b.WriteString("After you complete your work, an LLM judge will evaluate your output against the following criteria:\n\n")
+		for _, criterion := range step.Handover.Contract.Criteria {
+			b.WriteString(fmt.Sprintf("- %s\n", criterion))
+		}
+		threshold := step.Handover.Contract.Threshold
+		if threshold <= 0 {
+			threshold = 1.0
+		}
+		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────
