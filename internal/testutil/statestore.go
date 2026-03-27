@@ -458,6 +458,30 @@ func (m *MockStateStore) GetStepVisitCount(pipelineID, stepID string) (int, erro
 	return 0, nil
 }
 
+func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) error {
+	return nil
+}
+
+func (m *MockStateStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockStateStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) DeleteRetrospective(runID string) error {
+	return nil
+}
+
+func (m *MockStateStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
+	return nil
+}
+
+func (m *MockStateStore) UpdateRetrospectiveStatus(runID string, status string) error {
+	return nil
+}
+
 // Functional options for overriding specific methods.
 
 func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
