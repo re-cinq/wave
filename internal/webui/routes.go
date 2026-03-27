@@ -41,7 +41,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/runs/{id}/cancel", s.handleCancelRun)
 	mux.HandleFunc("POST /api/runs/{id}/retry", s.handleRetryRun)
 	mux.HandleFunc("POST /api/runs/{id}/resume", s.handleResumeRun)
-	mux.HandleFunc("POST /api/runs/{id}/gate/{step}", s.handleResolveGate)
+	mux.HandleFunc("POST /api/runs/{id}/gates/{step}/approve", s.handleGateApprove)
 	mux.HandleFunc("GET /api/personas", s.handleAPIPersonas)
 	mux.HandleFunc("GET /api/contracts", s.handleAPIContracts)
 	mux.HandleFunc("GET /api/skills", s.handleAPISkills)

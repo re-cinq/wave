@@ -1,0 +1,79 @@
+kind: WavePipeline
+metadata:
+  name: plan-approve-implement
+  description: "Plan-approve-implement workflow with human approval gate"
+  category: impl
+
+input:
+  source: argument
+  schema:
+    type: string
+    description: "Description of the feature or change to implement"
+
+steps:
+  - id: plan
+    persona: navigator
+    exec:
+      type: prompt
+      source: |
+        Create an implementation plan for the following request:
+
+        {{ input }}
+
+        Write a clear, structured plan covering:
+        1. What files need to change
+        2. The approach and key decisions
+        3. Testing strategy
+
+        Save the plan to .wave/output/plan.md
+    output_artifacts:
+      - name: plan
+        path: .wave/output/plan.md
+        type: markdown
+
+  - id: approve-plan
+    gate:
+      type: approval
+      prompt: "Review the implementation plan before proceeding"
+      choices:
+        - label: "Approve"
+          key: "a"
+          target: implement
+        - label: "Revise"
+          key: "r"
+          target: plan
+        - label: "Abort"
+          key: "q"
+          target: _fail
+      freeform: true
+      default: "a"
+      timeout: "1h"
+    dependencies:
+      - plan
+
+  - id: implement
+    persona: craftsman
+    exec:
+      type: prompt
+      source: |
+        Implement the following plan:
+
+        {{ input }}
+
+        Gate feedback: {{ gate.approve-plan.text }}
+
+        Follow the plan created in the previous step.
+        Run tests after implementation.
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: plan
+          artifact: plan
+          as: impl_plan
+    dependencies:
+      - approve-plan
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true
