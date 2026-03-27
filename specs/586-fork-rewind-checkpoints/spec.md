@@ -68,10 +68,15 @@ Current state DB needs to store enough for fork/rewind:
 
 ## Acceptance Criteria
 
-1. `wave fork <run-id> --from-step <step>` creates a new independent run starting after the specified step, reusing artifacts and workspace state from the original run
-2. `wave fork <run-id> --list` lists available fork points (completed steps) for a run
-3. `wave rewind <run-id> --to-step <step>` resets a run's state to the specified step, deleting state for all subsequent steps
-4. Checkpoint data (workspace commit SHA, artifact snapshots) is recorded at each step boundary in the state DB
-5. Forked runs are fully independent — modifying one does not affect the other
-6. Both commands support `--json` output format
-7. Existing `wave resume` behavior is not broken
+1. `wave fork <run-id> --from-step <step>` creates a new independent run starting from the step after the fork point, with all prior artifacts and workspace state preserved
+2. `wave fork <run-id> --list` displays available fork points (completed steps) with their checkpoint metadata
+3. `wave rewind <run-id> --to-step <step>` destructively resets a run's state to the specified checkpoint, allowing `wave resume` to re-execute from that point
+4. Checkpoint data (git commit SHA, artifact paths, artifact content hashes) is captured at each step boundary during pipeline execution
+5. Fork from a completed or failed run works; fork from a running pipeline is rejected
+6. Rewind on a running pipeline is rejected
+7. Original run state is completely untouched after a fork operation
+8. Step index resolution works for both step names and numeric indices
+9. All new functionality has unit and integration tests
+10. Migration v13 adds the checkpoint table and forked_from_run_id column with proper indexes
+11. Both commands support `--json` output format
+12. Existing `wave resume` behavior is not broken

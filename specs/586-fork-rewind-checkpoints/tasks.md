@@ -3,7 +3,7 @@
 ## Phase 1: State DB — Checkpoint Enrichment
 
 - [X] Task 1.1: Add `CheckpointRecord` type to `internal/state/types.go`
-- [X] Task 1.2: Add migration version 12 for `checkpoint` table in `internal/state/migration_definitions.go`
+- [X] Task 1.2: Add migration version 13 for `checkpoint` table and `forked_from_run_id` column in `internal/state/migration_definitions.go`
 - [X] Task 1.3: Update `schema.sql` with checkpoint table definition
 - [X] Task 1.4: Add checkpoint CRUD methods to `StateStore` interface (`SaveCheckpoint`, `GetCheckpoint`, `GetCheckpoints`, `DeleteCheckpointsAfterStep`)
 - [X] Task 1.5: Implement checkpoint CRUD methods on `stateStore` struct

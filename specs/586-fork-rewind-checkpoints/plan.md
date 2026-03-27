@@ -36,7 +36,7 @@ The implementation builds on the existing `ResumeManager` infrastructure. The ke
 | `cmd/wave/main.go` | Register `NewForkCmd()` and `NewRewindCmd()` |
 | `internal/state/store.go` | Add checkpoint CRUD methods to `StateStore` interface |
 | `internal/state/schema.sql` | Add `checkpoint` table |
-| `internal/state/migration_definitions.go` | Add migration version 12 for checkpoint table |
+| `internal/state/migration_definitions.go` | Add migration version 13 for checkpoint table |
 | `internal/state/types.go` | Add `CheckpointRecord` type |
 | `internal/pipeline/executor.go` | Call checkpoint recording after each step completion |
 
