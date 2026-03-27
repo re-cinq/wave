@@ -76,7 +76,7 @@ func NewRelayMonitor(cfg RelayMonitorConfig, adapter CompactionAdapter) *RelayMo
 	return &RelayMonitor{config: cfg, adapter: adapter}
 }
 
-// Adapter returns the underlying CompactionAdapter, or nil if not set.
+// Adapter returns the underlying CompactionAdapter, or nil if none was provided.
 func (m *RelayMonitor) Adapter() CompactionAdapter {
 	return m.adapter
 }

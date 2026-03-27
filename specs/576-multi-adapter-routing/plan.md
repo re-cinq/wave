@@ -1,131 +1,134 @@
 # Implementation Plan: Multi-Adapter Model Routing
 
-## 1. Objective
+## Objective
 
-Enable per-step adapter and model selection in Wave pipelines, add Codex and Gemini CLI adapters, and implement fallback chains for provider resilience. The core change is moving from a single shared `AdapterRunner` to per-step adapter resolution.
+Enable per-step adapter and model selection in Wave pipelines, replacing the current single-adapter-per-execution model with a per-step resolution system that supports multiple LLM CLI backends (Claude Code, Codex, Gemini CLI) and provider fallback chains.
 
-## 2. Approach
+## Approach
 
-### Core Architecture Change
+The current architecture passes a single `AdapterRunner` into the executor at construction time. All steps use this runner. The change introduces an **adapter registry** that the executor queries per-step, resolving the adapter from a 3-tier precedence chain (step > persona > manifest default). The existing `ResolveAdapter()` factory already maps names to implementations — it becomes the registry's core resolution function.
 
-Currently, `cmd/wave/commands/run.go` picks the **first** adapter from the manifest and creates a **single** `AdapterRunner` that the executor uses for all steps. The executor stores this as `e.runner`.
+### Key Insight: Minimal Executor Refactor
 
-The change introduces an `AdapterResolver` -- a function or interface that the executor calls per-step to get the correct `AdapterRunner`. The resolution chain is:
+The executor's `runStepExecution()` already builds per-step `AdapterRunConfig` with adapter-specific fields (binary, model, output format). The change is:
+1. Replace `e.runner` (single `AdapterRunner`) with `e.adapterResolver` (func that returns runner per adapter name)
+2. Call resolver inside `runStepExecution()` instead of using the fixed runner
+3. Add `Adapter` and `Model` fields to the `Step` struct for step-level overrides
 
-```
-step.Adapter > persona.Adapter > first manifest adapter
-```
+## File Mapping
 
-Similarly, model resolution becomes:
-
-```
-CLI --model > step.Model > persona.Model > empty
-```
-
-### New Adapter Implementations
-
-Add `codex.go` and `gemini.go` following the same pattern as `claude.go` and `opencode.go`:
-- Implement `AdapterRunner` interface (single `Run()` method)
-- Handle workspace preparation (write adapter-specific config files)
-- Parse NDJSON or structured output for stream events
-- Support timeout/graceful termination
-
-### Fallback Chains
-
-Add `runtime.fallbacks` mapping adapter names to ordered fallback lists. When an adapter returns a transient/quota error (rate limit, 503, etc.), the executor retries with the next adapter in the fallback chain. Permanent errors (bad model name, auth failure) fail immediately.
-
-## 3. File Mapping
-
-### Create
-
-| File | Purpose |
+### New Files
+| Path | Purpose |
 |------|---------|
-| `internal/adapter/registry.go` | `AdapterRegistry` type with `Resolve(name)` method; move `ResolveAdapter()` here |
-| `internal/adapter/codex.go` | Codex CLI adapter implementing `AdapterRunner` |
-| `internal/adapter/gemini.go` | Gemini CLI adapter implementing `AdapterRunner` |
-| `internal/adapter/codex_test.go` | Unit tests for Codex adapter |
-| `internal/adapter/gemini_test.go` | Unit tests for Gemini adapter |
-| `internal/adapter/registry_test.go` | Unit tests for adapter registry |
-| `internal/pipeline/executor_routing_test.go` | Tests for per-step adapter routing |
+| `internal/adapter/codex.go` | OpenAI Codex CLI adapter implementation |
+| `internal/adapter/codex_test.go` | Codex adapter unit tests |
+| `internal/adapter/gemini.go` | Gemini CLI adapter implementation |
+| `internal/adapter/gemini_test.go` | Gemini CLI adapter unit tests |
+| `internal/adapter/registry.go` | AdapterRegistry type and resolution logic |
+| `internal/adapter/registry_test.go` | Registry unit tests |
+| `internal/adapter/fallback.go` | FallbackRunner wrapping adapter with provider fallback chain |
+| `internal/adapter/fallback_test.go` | Fallback chain unit tests |
 
-### Modify
-
-| File | Changes |
-|------|---------|
+### Modified Files
+| Path | Change |
+|------|--------|
 | `internal/pipeline/types.go` | Add `Adapter` and `Model` fields to `Step` struct |
-| `internal/manifest/types.go` | Add `Fallbacks` to `Runtime` struct |
-| `internal/manifest/parser.go` | Add validation for `fallbacks` config and step adapter references |
-| `internal/adapter/opencode.go` | Move `ResolveAdapter()` to `registry.go`, keep adapter implementation |
-| `internal/pipeline/executor.go` | Change `runner` field to `AdapterResolver` or resolver func; update `runStepExecution()` to resolve per-step; update `resolveModel()` for step-level model; implement fallback retry logic |
-| `cmd/wave/commands/run.go` | Create `AdapterRegistry` instead of single runner; pass to executor |
-| `internal/preflight/preflight.go` | Add validation for adapter binary availability per step |
-| `internal/adapter/mock.go` | Add `MockAdapterRegistry` support for multi-adapter testing |
+| `internal/manifest/types.go` | Add `Fallbacks` field to `Runtime` struct |
+| `internal/manifest/parser.go` | Validate step-level adapter references and fallback config |
+| `internal/pipeline/executor.go` | Replace single `runner` with `AdapterResolver`; update `runStepExecution()` and `resolveModel()` |
+| `internal/pipeline/executor_test.go` | Update tests for registry-based adapter resolution |
+| `internal/adapter/opencode.go` | Move `ResolveAdapter()` to `registry.go` |
+| `internal/adapter/environment.go` | Extend `knownModelPrefixes` if new providers need prefix inference |
+| `internal/preflight/checker.go` | Add adapter binary validation per pipeline |
+| `internal/preflight/checker_test.go` | Test adapter binary validation |
+| `cmd/wave/commands/run.go` | Pass adapter registry instead of single runner |
+| `cmd/wave/commands/resume.go` | Same registry change |
+| `cmd/wave/commands/do.go` | Same registry change |
+| `cmd/wave/commands/compose.go` | Same registry change |
+| `cmd/wave/commands/meta.go` | Same registry change |
 
-### Delete
+## Architecture Decisions
 
-None.
+### 1. AdapterRegistry vs AdapterResolverFunc
 
-## 4. Architecture Decisions
+**Decision**: Use a concrete `AdapterRegistry` struct, not a plain function.
 
-### AD-1: Resolver function vs. registry object
+**Rationale**: The registry needs to hold fallback config, cache adapter instances, and support mock injection for tests. A function is too opaque.
 
-**Decision**: Use a concrete `AdapterRegistry` struct with a `Resolve(name string) AdapterRunner` method. This is simpler than an interface and the registry can cache adapter instances.
+```go
+type AdapterRegistry struct {
+    fallbacks map[string][]string // provider → fallback providers
+}
 
-**Rationale**: Adapters are stateless (they create subprocess per call), so caching by name is safe. A registry object also makes testing straightforward -- inject a mock registry.
+func (r *AdapterRegistry) Resolve(adapterName string) AdapterRunner
+func (r *AdapterRegistry) ResolveWithFallback(adapterName string, model string) AdapterRunner
+```
 
-### AD-2: Step.Adapter field type
+### 2. Model Resolution Precedence (4-tier)
 
-**Decision**: `string` field matching adapter names in `manifest.Adapters` map. Empty string means "use persona default".
+```
+CLI --model > step.Model > persona.Model > adapter default (empty)
+```
 
-**Rationale**: Consistent with how `Step.Persona` references `manifest.Personas`. No new types needed.
+The `resolveModel()` function gains one tier: step-level model.
 
-### AD-3: Fallback scope
+### 3. Adapter Resolution Precedence (3-tier)
 
-**Decision**: Fallback chains map adapter names (not provider names). When adapter `claude` fails with a transient error, try `openai`, then `gemini` per the configured chain.
+```
+step.Adapter > persona.Adapter > "claude" (hardcoded default)
+```
 
-**Rationale**: Adapter names are the resolution unit in Wave. Mapping by adapter name avoids introducing a new "provider" concept.
+Step-level adapter lookup references the manifest `adapters` map, same as persona-level.
 
-### AD-4: API adapter out of scope
+### 4. Fallback Chain Triggering
 
-**Decision**: The `api` adapter (direct API calls where Wave manages the agent loop) is deferred. This issue focuses on CLI-based adapters only.
+Fallback triggers on these `FailureReason` values:
+- `rate_limit` — provider quota exhausted
+- `timeout` — only if classified as provider-side (not step logic)
 
-**Rationale**: The issue explicitly marks it as "future". CLI adapters follow the established subprocess pattern.
+Does NOT trigger on:
+- `context_exhaustion` — model-specific, fallback won't help
+- `general_error` — unknown cause, risky to retry
 
-### AD-5: Model validation
+### 5. Codex/Gemini Adapters: Workspace Prep Strategy
 
-**Decision**: Pass-through model names to adapters without validation against known lists. Each adapter is responsible for model name interpretation.
+Both new adapters follow the Claude adapter pattern:
+- Workspace prep (write config files, system prompt)
+- NDJSON or JSON stream parsing
+- Token extraction from output
+- Failure classification
 
-**Rationale**: Model names change frequently. Validating against a hardcoded list creates maintenance burden. The adapter binary will report invalid model errors.
+Codex uses `codex` CLI with `--full-auto` mode. Gemini uses `gemini` CLI. Both support `--model` flag.
 
-### AD-6: Executor backward compatibility
+### 6. Backward Compatibility
 
-**Decision**: Keep `NewDefaultPipelineExecutor(runner, opts...)` signature working for tests that pass a single runner. Add `WithAdapterRegistry(reg)` option. If registry is set, it takes precedence over the single runner.
+The single-runner constructor `NewDefaultPipelineExecutor(runner, opts...)` is replaced with `NewDefaultPipelineExecutor(registry, opts...)`. All CLI commands that call `ResolveAdapter()` now create a registry instead. Existing manifests without step-level `adapter`/`model` fields work unchanged — persona defaults apply.
 
-**Rationale**: Avoids breaking 50+ test files that construct executors with mock adapters.
-
-## 5. Risks
+## Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Codex/Gemini CLIs have different output formats | Medium | Medium | Implement minimal adapters with NDJSON parsing; degrade gracefully to raw stdout |
-| Fallback chains create confusing debugging experience | Low | Medium | Log which adapter is being tried; include adapter name in progress events |
-| Per-step adapter resolution breaks existing tests | Medium | High | Keep single-runner path working via AD-6; registry is additive |
-| Binary availability varies across environments | High | Low | Preflight catches missing binaries; steps using unavailable adapters fail clearly |
+| Codex/Gemini CLI output format changes | Medium | High | Abstract output parsing, version-pin CLI expectations |
+| Fallback chain triggers infinite retry loops | Low | High | Max fallback attempts = len(chain), no retrying same provider |
+| Step-level adapter field breaks YAML parsing | Low | Medium | Fields are optional with zero-value defaults |
+| Mock adapter tests break due to registry change | High | Low | MockAdapterRegistry already exists — wire it through |
+| Adapter binary missing at runtime | Medium | Medium | Preflight check validates all referenced adapters have binaries |
 
-## 6. Testing Strategy
+## Testing Strategy
 
 ### Unit Tests
-- `registry_test.go`: Registry resolves known adapters, returns ProcessGroupRunner for unknown
-- `codex_test.go`: Workspace preparation, argument building, output parsing
-- `gemini_test.go`: Workspace preparation, argument building, output parsing
-- `executor_routing_test.go`: Per-step adapter resolution with step > persona > manifest fallback
-- `executor_routing_test.go`: Fallback chain triggered on transient errors, skipped on permanent errors
-- `executor_routing_test.go`: Model resolution with step > persona priority
+- `registry_test.go`: Resolution precedence, unknown adapter fallback, registry caching
+- `fallback_test.go`: Fallback chain execution, trigger conditions, max attempts
+- `codex_test.go`: Workspace prep, output parsing, command building
+- `gemini_test.go`: Workspace prep, output parsing, command building
+- `executor_test.go`: Per-step adapter resolution, model resolution with step override
+- `parser_test.go`: Manifest validation of step-level adapter/model, fallback config
 
 ### Integration Tests
-- Existing `go test ./...` must pass (no regressions)
-- Pipeline execution with mixed adapters (mock registry)
+- Pipeline execution with mixed adapters (claude + mock)
+- Fallback chain triggered by rate limit error
+- Preflight validation catching missing adapter binary
 
-### Validation
-- Preflight rejects pipelines referencing undefined adapters
-- Manifest parser rejects invalid fallback config (self-referencing, unknown adapter names)
+### Existing Test Compatibility
+- All `executor_test.go` tests must pass — `MockAdapterRegistry` already satisfies the interface pattern
+- `go test -race ./...` required before PR

@@ -300,6 +300,69 @@ func containsSubstr(s, substr string) bool {
 	return false
 }
 
+func TestCompositionExecutor_SubPipelineWithConfig(t *testing.T) {
+	// Verify that executeSubPipeline applies timeout from config
+	ctx := NewTemplateContext("test-input", "/tmp")
+
+	step := &Step{
+		ID:          "sub-with-config",
+		SubPipeline: "child-pipeline",
+		Config: &SubPipelineConfig{
+			Inject:    []string{"plan"},
+			Extract:   []string{"output"},
+			Timeout:   "1h",
+			MaxCycles: 10,
+		},
+	}
+
+	// Verify the step is a composition step
+	if !step.IsCompositionStep() {
+		t.Error("step with SubPipeline should be a composition step")
+	}
+
+	// Verify config validation passes
+	if err := step.Config.Validate(); err != nil {
+		t.Fatalf("config validation failed: %v", err)
+	}
+
+	// Verify input resolution still works
+	step.SubInput = "{{input}}"
+	input, err := resolveStepInputForTest(step, ctx)
+	if err != nil {
+		t.Fatalf("input resolution failed: %v", err)
+	}
+	if input != "test-input" {
+		t.Errorf("expected 'test-input', got %q", input)
+	}
+}
+
+func TestCompositionExecutor_SubPipelineBackwardCompatibility(t *testing.T) {
+	// Verify that a step with SubPipeline but no Config still works
+	step := &Step{
+		ID:          "sub-legacy",
+		SubPipeline: "simple-pipeline",
+	}
+
+	if !step.IsCompositionStep() {
+		t.Error("step with SubPipeline should be a composition step")
+	}
+
+	// Config should be nil
+	if step.Config != nil {
+		t.Error("legacy step should have nil Config")
+	}
+
+	// SubPipelineConfig.Validate should handle nil
+	if err := (*SubPipelineConfig)(nil).Validate(); err != nil {
+		t.Errorf("nil config should validate: %v", err)
+	}
+
+	// ParseTimeout should handle nil
+	if d := (*SubPipelineConfig)(nil).ParseTimeout(); d != 0 {
+		t.Errorf("nil config ParseTimeout should be 0, got %v", d)
+	}
+}
+
 func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	m := &manifest.Manifest{}

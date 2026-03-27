@@ -2915,16 +2915,16 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(p1))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(p3))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
@@ -5018,6 +5018,202 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	// Pipeline should complete quickly (not wait for slow steps to finish)
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
+
+// promptCapturingAdapter captures prompt from each step's AdapterRunConfig.
+type promptCapturingAdapter struct {
+	*adapter.MockAdapter
+	mu      sync.Mutex
+	prompts map[string]string // stepID (from workspace path) -> prompt
+}
+
+func newPromptCapturingAdapter(opts ...adapter.MockOption) *promptCapturingAdapter {
+	return &promptCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(opts...),
+		prompts:     make(map[string]string),
+	}
+}
+
+func (a *promptCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	a.mu.Lock()
+	// Use the last path component (step ID) as key
+	parts := strings.Split(cfg.WorkspacePath, "/")
+	stepID := parts[len(parts)-1]
+	a.prompts[stepID] = cfg.Prompt
+	a.mu.Unlock()
+	return a.MockAdapter.Run(ctx, cfg)
+}
+
+func (a *promptCapturingAdapter) getPrompt(stepID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.prompts[stepID]
+}
+
+// TestThreadSharing_TwoStepsSameThread verifies that step B in the same thread
+// as step A receives step A's output in its prompt via THREAD CONTEXT header.
+func TestThreadSharing_TwoStepsSameThread(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "thread-test"},
+		Steps: []Step{
+			{
+				ID:      "implement",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "Implement the feature"},
+			},
+			{
+				ID:           "fix",
+				Persona:      "navigator",
+				Thread:       "impl",
+				Dependencies: []string{"implement"},
+				Exec:         ExecConfig{Source: "Fix the failing tests"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// The fix step should contain THREAD CONTEXT with the implement step's output
+	fixPrompt := capturing.getPrompt("fix")
+	assert.Contains(t, fixPrompt, "## THREAD CONTEXT", "fix step should have thread context header")
+	assert.Contains(t, fixPrompt, "Fix the failing tests", "fix step should contain its own prompt")
+}
+
+// TestThreadIsolation_DifferentThreads verifies that steps in different threads
+// do NOT share transcripts.
+func TestThreadIsolation_DifferentThreads(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "isolation-test"},
+		Steps: []Step{
+			{
+				ID:      "step-a",
+				Persona: "navigator",
+				Thread:  "thread-1",
+				Exec:    ExecConfig{Source: "Step A work"},
+			},
+			{
+				ID:           "step-b",
+				Persona:      "navigator",
+				Thread:       "thread-2",
+				Dependencies: []string{"step-a"},
+				Exec:         ExecConfig{Source: "Step B work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// step-b is in thread-2, so it should NOT have step-a's content (thread-1)
+	stepBPrompt := capturing.getPrompt("step-b")
+	// Thread-2 has no prior entries, so no THREAD CONTEXT should be injected
+	assert.NotContains(t, stepBPrompt, "## THREAD CONTEXT",
+		"step-b in different thread should not receive thread context from thread-1")
+}
+
+// TestNoThread_FreshMemory verifies that steps without a thread attribute
+// do NOT receive any thread context (fresh memory behavior).
+func TestNoThread_FreshMemory(t *testing.T) {
+	capturing := newPromptCapturingAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(capturing)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "fresh-test"},
+		Steps: []Step{
+			{
+				ID:      "step-a",
+				Persona: "navigator",
+				Thread:  "impl",
+				Exec:    ExecConfig{Source: "Step A with thread"},
+			},
+			{
+				ID:           "review",
+				Persona:      "navigator",
+				Dependencies: []string{"step-a"},
+				Exec:         ExecConfig{Source: "Review the work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// review step has no thread, so it should not have any thread context
+	reviewPrompt := capturing.getPrompt("review")
+	assert.NotContains(t, reviewPrompt, "## THREAD CONTEXT",
+		"unthreaded step should not receive thread context")
+}
+
+// TestThreadValidation_InvalidFidelity verifies the executor rejects invalid fidelity values.
+func TestThreadValidation_InvalidFidelity(t *testing.T) {
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status":"ok"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "invalid-fidelity"},
+		Steps: []Step{
+			{
+				ID:       "step-a",
+				Persona:  "navigator",
+				Thread:   "impl",
+				Fidelity: "bogus",
+				Exec:     ExecConfig{Source: "do work"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid fidelity value")
+}
+
 
 // TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
 // using auto-approve mode completes all steps successfully. The gate has choices
