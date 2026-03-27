@@ -145,6 +145,7 @@ type Runtime struct {
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
 	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
 	Retros               RetrosConfig           `yaml:"retros,omitempty"`
+	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`   // Provider fallback chains (e.g., anthropic: [openai, gemini])
 	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 }
 
