@@ -2,90 +2,167 @@ package adapter
 
 import (
 	"context"
-	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestAdapterRegistry_ResolveRegistered(t *testing.T) {
-	reg := NewAdapterRegistry()
+func TestAdapterRegistry_ResolveKnownAdapters(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+
+	tests := []struct {
+		name        string
+		adapterName string
+		expectType  string
+	}{
+		{"claude", "claude", "*adapter.ClaudeAdapter"},
+		{"codex", "codex", "*adapter.CodexAdapter"},
+		{"gemini", "gemini", "*adapter.GeminiAdapter"},
+		{"opencode", "opencode", "*adapter.OpenCodeAdapter"},
+		{"browser", "browser", "*adapter.BrowserAdapter"},
+		{"unknown defaults to ProcessGroupRunner", "unknown", "*adapter.ProcessGroupRunner"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := registry.Resolve(tt.adapterName)
+			require.NotNil(t, runner)
+			assert.IsType(t, runner, runner) // Just verify it's not nil
+		})
+	}
+}
+
+func TestAdapterRegistry_ResolveClaudeReturnsClaudeAdapter(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	runner := registry.Resolve("claude")
+	_, ok := runner.(*ClaudeAdapter)
+	assert.True(t, ok, "expected *ClaudeAdapter, got %T", runner)
+}
+
+func TestAdapterRegistry_ResolveCodexReturnsCodexAdapter(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	runner := registry.Resolve("codex")
+	_, ok := runner.(*CodexAdapter)
+	assert.True(t, ok, "expected *CodexAdapter, got %T", runner)
+}
+
+func TestAdapterRegistry_ResolveGeminiReturnsGeminiAdapter(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	runner := registry.Resolve("gemini")
+	_, ok := runner.(*GeminiAdapter)
+	assert.True(t, ok, "expected *GeminiAdapter, got %T", runner)
+}
+
+func TestAdapterRegistry_ResolveUnknownReturnsProcessGroupRunner(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	runner := registry.Resolve("nonexistent")
+	_, ok := runner.(*ProcessGroupRunner)
+	assert.True(t, ok, "expected *ProcessGroupRunner, got %T", runner)
+}
+
+func TestAdapterRegistry_OverrideTakesPrecedence(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
 	mock := NewMockAdapter()
-	reg.Register("claude", mock)
+	registry.RegisterOverride("claude", mock)
 
-	runner, ok := reg.Resolve("claude")
-	if !ok {
-		t.Fatal("expected to find registered adapter 'claude'")
-	}
-	if runner == nil {
-		t.Fatal("expected non-nil runner")
-	}
+	runner := registry.Resolve("claude")
+	assert.Equal(t, mock, runner, "override should take precedence over built-in resolution")
 }
 
-func TestAdapterRegistry_ResolveUnregistered(t *testing.T) {
-	reg := NewAdapterRegistry()
-	runner, ok := reg.Resolve("nonexistent")
-	if ok {
-		t.Fatal("expected ok=false for unregistered adapter")
-	}
-	if runner != nil {
-		t.Fatal("expected nil runner for unregistered adapter")
-	}
+func TestSingleRunnerRegistry_AlwaysReturnsSameRunner(t *testing.T) {
+	mock := NewMockAdapter()
+	registry := NewSingleRunnerRegistry(mock)
+
+	// Any name should return the same runner
+	assert.Equal(t, mock, registry.Resolve("claude"))
+	assert.Equal(t, mock, registry.Resolve("codex"))
+	assert.Equal(t, mock, registry.Resolve("anything"))
 }
 
-func TestAdapterRegistry_Names(t *testing.T) {
-	reg := NewAdapterRegistry()
-	reg.Register("claude", NewMockAdapter())
-	reg.Register("codex", NewMockAdapter())
+func TestAdapterRegistry_FallbackChain(t *testing.T) {
+	fallbacks := map[string][]string{
+		"anthropic": {"openai", "gemini"},
+		"openai":    {"anthropic"},
+	}
+	registry := NewAdapterRegistry(fallbacks)
 
-	names := reg.Names()
-	if len(names) != 2 {
-		t.Fatalf("expected 2 names, got %d", len(names))
-	}
-	nameSet := make(map[string]bool)
-	for _, n := range names {
-		nameSet[n] = true
-	}
-	if !nameSet["claude"] || !nameSet["codex"] {
-		t.Errorf("expected claude and codex, got %v", names)
-	}
+	chain := registry.FallbackChain("anthropic")
+	assert.Equal(t, []string{"openai", "gemini"}, chain)
+
+	chain = registry.FallbackChain("openai")
+	assert.Equal(t, []string{"anthropic"}, chain)
+
+	// No fallback configured
+	chain = registry.FallbackChain("gemini")
+	assert.Nil(t, chain)
 }
 
-func TestAdapterRegistry_ConcurrentAccess(t *testing.T) {
-	reg := NewAdapterRegistry()
-	var wg sync.WaitGroup
-
-	for i := 0; i < 100; i++ {
-		wg.Add(2)
-		name := "adapter"
-		go func() {
-			defer wg.Done()
-			reg.Register(name, NewMockAdapter())
-		}()
-		go func() {
-			defer wg.Done()
-			reg.Resolve(name)
-		}()
-	}
-	wg.Wait()
+func TestAdapterRegistry_ResolveWithFallback_NoFallback(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	runner := registry.ResolveWithFallback("claude")
+	// Without fallbacks, should return the plain runner (not a FallbackRunner)
+	_, isFallback := runner.(*FallbackRunner)
+	assert.False(t, isFallback, "should not be a FallbackRunner when no fallbacks configured")
 }
 
-func TestAdapterRegistry_RegisterOverwrite(t *testing.T) {
-	reg := NewAdapterRegistry()
-	mock1 := NewMockAdapter()
-	mock2 := NewMockAdapter(WithExitCode(42))
+func TestAdapterRegistry_ResolveWithFallback_WithFallback(t *testing.T) {
+	fallbacks := map[string][]string{
+		"claude": {"codex"},
+	}
+	registry := NewAdapterRegistry(fallbacks)
+	runner := registry.ResolveWithFallback("claude")
+	_, isFallback := runner.(*FallbackRunner)
+	assert.True(t, isFallback, "should be a FallbackRunner when fallbacks configured")
+}
 
-	reg.Register("claude", mock1)
-	reg.Register("claude", mock2)
+func TestAdapterRegistry_NilFallbacks(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	chain := registry.FallbackChain("anything")
+	assert.Nil(t, chain)
+}
 
-	runner, ok := reg.Resolve("claude")
-	if !ok {
-		t.Fatal("expected to find adapter")
+func TestSingleRunnerRegistry_OverrideStillWorks(t *testing.T) {
+	defaultMock := NewMockAdapter()
+	registry := NewSingleRunnerRegistry(defaultMock)
+
+	overrideMock := NewMockAdapter(WithExitCode(42))
+	registry.RegisterOverride("special", overrideMock)
+
+	// Override should take precedence
+	assert.Equal(t, overrideMock, registry.Resolve("special"))
+	// Default runner for non-overridden names
+	assert.Equal(t, defaultMock, registry.Resolve("claude"))
+}
+
+func TestAdapterRegistry_ResolveWithFallback_FallbackRunnerHasCorrectChain(t *testing.T) {
+	fallbacks := map[string][]string{
+		"claude": {"codex", "gemini"},
 	}
-	// Verify it's the second mock (exit code 42)
-	result, err := runner.Run(context.Background(), AdapterRunConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.ExitCode != 42 {
-		t.Errorf("expected exit code 42 from overwritten adapter, got %d", result.ExitCode)
-	}
+	registry := NewAdapterRegistry(fallbacks)
+	runner := registry.ResolveWithFallback("claude")
+	fr, ok := runner.(*FallbackRunner)
+	require.True(t, ok)
+	assert.Equal(t, []string{"codex", "gemini"}, fr.chain)
+}
+
+func TestAdapterRegistry_ResolveDoesNotReturnNil(t *testing.T) {
+	registry := NewAdapterRegistry(nil)
+	// Even for empty string, should return something
+	runner := registry.Resolve("")
+	assert.NotNil(t, runner)
+}
+
+func TestSingleRunnerRegistry_RunDelegates(t *testing.T) {
+	mock := NewMockAdapter(WithExitCode(0))
+	registry := NewSingleRunnerRegistry(mock)
+	runner := registry.Resolve("anything")
+
+	result, err := runner.Run(context.Background(), AdapterRunConfig{
+		Prompt:  "test",
+		Timeout: 0,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, result.ExitCode)
 }

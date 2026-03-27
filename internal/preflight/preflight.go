@@ -460,6 +460,21 @@ type StepRef struct {
 	Adapter string // Step-level adapter override
 }
 
+// CheckAdapterBinaries verifies that all referenced adapter binaries are available on PATH.
+// It collects unique adapter binaries from the given adapter map and checks each.
+func (c *Checker) CheckAdapterBinaries(adapterBinaries []string) ([]Result, error) {
+	seen := make(map[string]bool)
+	var unique []string
+	for _, binary := range adapterBinaries {
+		if binary == "" || seen[binary] {
+			continue
+		}
+		seen[binary] = true
+		unique = append(unique, binary)
+	}
+	return c.CheckTools(unique)
+}
+
 // PreflightError is a composite error returned when both tools and skills fail.
 // It implements errors.As() for both SkillError and ToolError so callers can
 // extract either typed error from the chain.

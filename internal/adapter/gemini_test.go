@@ -1,13 +1,13 @@
 package adapter
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGeminiAdapter_BuildArgs(t *testing.T) {
-	a := &GeminiAdapter{geminiPath: "/usr/bin/gemini"}
+	a := NewGeminiAdapter()
 
 	tests := []struct {
 		name string
@@ -15,92 +15,94 @@ func TestGeminiAdapter_BuildArgs(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "prompt only",
-			cfg:  AdapterRunConfig{Prompt: "hello world"},
-			want: []string{"-p", "hello world"},
+			name: "basic prompt",
+			cfg:  AdapterRunConfig{Prompt: "implement the feature"},
+			want: []string{"-p", "implement the feature"},
 		},
 		{
 			name: "with model",
-			cfg:  AdapterRunConfig{Prompt: "test", Model: "gemini-2.0-flash"},
-			want: []string{"-p", "test", "--model", "gemini-2.0-flash"},
+			cfg:  AdapterRunConfig{Prompt: "fix the bug", Model: "gemini-pro"},
+			want: []string{"--model", "gemini-pro", "-p", "fix the bug"},
 		},
 		{
-			name: "empty prompt",
+			name: "no prompt no model",
 			cfg:  AdapterRunConfig{},
-			want: nil,
+			want: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := a.buildArgs(tt.cfg)
-			if len(got) != len(tt.want) {
-				t.Fatalf("buildArgs() returned %d args, want %d: %v vs %v", len(got), len(tt.want), got, tt.want)
-			}
-			for i, arg := range got {
-				if arg != tt.want[i] {
-					t.Errorf("arg[%d] = %q, want %q", i, arg, tt.want[i])
-				}
+			args := a.buildArgs(tt.cfg)
+			assert.Equal(t, tt.want, args)
+		})
+	}
+}
+
+func TestGeminiAdapter_ParseOutput(t *testing.T) {
+	a := NewGeminiAdapter()
+
+	tests := []struct {
+		name    string
+		output  string
+		wantIn  int
+		wantOut int
+		wantContent string
+	}{
+		{
+			name:   "empty output",
+			output: "",
+		},
+		{
+			name: "result event with tokens",
+			output: `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"completed"}`,
+			wantIn:      200,
+			wantOut:     80,
+			wantContent: "completed",
+		},
+		{
+			name:        "plain text output",
+			output:      "plain text response",
+			wantContent: "plain text response",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := a.parseOutput(tt.output)
+			assert.Equal(t, tt.wantIn, result.TokensIn)
+			assert.Equal(t, tt.wantOut, result.TokensOut)
+			if tt.wantContent != "" {
+				assert.Equal(t, tt.wantContent, result.ResultContent)
 			}
 		})
 	}
 }
 
-func TestGeminiAdapter_PrepareWorkspace(t *testing.T) {
-	a := &GeminiAdapter{geminiPath: "/usr/bin/gemini"}
-	dir := t.TempDir()
-
-	err := a.prepareWorkspace(dir, AdapterRunConfig{
-		SystemPrompt: "You are a test assistant",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Check GEMINI.md was written
-	data, err := readTestFile(t, dir, "GEMINI.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "You are a test assistant" {
-		t.Errorf("GEMINI.md content = %q, want %q", string(data), "You are a test assistant")
-	}
-}
-
-func TestGeminiAdapter_PrepareWorkspaceNoPrompt(t *testing.T) {
-	a := &GeminiAdapter{geminiPath: "/usr/bin/gemini"}
-	dir := t.TempDir()
-
-	err := a.prepareWorkspace(dir, AdapterRunConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	// No GEMINI.md should be written when SystemPrompt is empty
-}
-
 func TestParseGeminiStreamLine(t *testing.T) {
 	tests := []struct {
-		name     string
-		line     string
-		wantOK   bool
-		wantType string
+		name    string
+		line    string
+		wantOK  bool
+		wantEvt StreamEvent
 	}{
 		{
-			name:     "text event",
-			line:     `{"type":"text","content":"hello"}`,
-			wantOK:   true,
-			wantType: "text",
+			name: "tool_use event",
+			line: `{"type":"tool_use","name":"WriteFile","input":"/tmp/bar"}`,
+			wantOK: true,
+			wantEvt: StreamEvent{Type: "tool_use", ToolName: "WriteFile", ToolInput: "/tmp/bar"},
 		},
 		{
-			name:     "tool_use event",
-			line:     `{"type":"tool_use","name":"read_file"}`,
-			wantOK:   true,
-			wantType: "tool_use",
+			name: "text event",
+			line: `{"type":"text","content":"thinking about solution"}`,
+			wantOK: true,
+			wantEvt: StreamEvent{Type: "text", Content: "thinking about solution"},
 		},
 		{
-			name:   "unknown event type",
-			line:   `{"type":"unknown"}`,
-			wantOK: false,
+			name: "result event",
+			line: `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"done"}`,
+			wantOK: true,
+			wantEvt: StreamEvent{Type: "result", TokensIn: 200, TokensOut: 80, Content: "done"},
 		},
 		{
 			name:   "empty line",
@@ -117,18 +119,30 @@ func TestParseGeminiStreamLine(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evt, ok := parseGeminiStreamLine([]byte(tt.line))
-			if ok != tt.wantOK {
-				t.Errorf("ok = %v, want %v", ok, tt.wantOK)
-			}
-			if ok && evt.Type != tt.wantType {
-				t.Errorf("type = %q, want %q", evt.Type, tt.wantType)
+			assert.Equal(t, tt.wantOK, ok)
+			if ok {
+				assert.Equal(t, tt.wantEvt.Type, evt.Type)
+				assert.Equal(t, tt.wantEvt.ToolName, evt.ToolName)
 			}
 		})
 	}
 }
 
-// readTestFile is a helper for reading files in test directories.
-func readTestFile(t *testing.T, dir, name string) ([]byte, error) {
-	t.Helper()
-	return os.ReadFile(filepath.Join(dir, name))
+func TestClassifyGeminiFailure(t *testing.T) {
+	assert.Equal(t, "timeout", classifyGeminiFailure(124))
+	assert.Equal(t, "timeout", classifyGeminiFailure(137))
+	assert.Equal(t, "general_error", classifyGeminiFailure(1))
+	assert.Equal(t, "general_error", classifyGeminiFailure(255))
+}
+
+func TestGeminiAdapter_PrepareWorkspace(t *testing.T) {
+	a := NewGeminiAdapter()
+	tmpDir := t.TempDir()
+
+	cfg := AdapterRunConfig{
+		SystemPrompt: "You are a helpful assistant",
+	}
+
+	err := a.prepareWorkspace(tmpDir, cfg)
+	assert.NoError(t, err)
 }

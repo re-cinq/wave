@@ -29,6 +29,7 @@ const (
 // child pipelines dynamically using a philosopher persona.
 type MetaPipelineExecutor struct {
 	runner   adapter.AdapterRunner
+	registry *adapter.AdapterRegistry
 	emitter  event.EventEmitter
 	executor PipelineExecutor
 	loader   *YAMLPipelineLoader
@@ -73,6 +74,7 @@ func WithMockMode() MetaExecutorOption {
 func NewMetaPipelineExecutor(runner adapter.AdapterRunner, opts ...MetaExecutorOption) *MetaPipelineExecutor {
 	e := &MetaPipelineExecutor{
 		runner:       runner,
+		registry:     adapter.NewSingleRunnerRegistry(runner),
 		loader:       &YAMLPipelineLoader{},
 		currentDepth: 0,
 	}
@@ -315,7 +317,8 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 		Message:    fmt.Sprintf("adapter=%s timeout=%v", cfg.Adapter, cfg.Timeout),
 	})
 
-	result, err := e.runner.Run(ctx, cfg)
+	metaRunner := e.registry.Resolve(persona.Adapter)
+	result, err := metaRunner.Run(ctx, cfg)
 	if err != nil {
 		return nil, 0, fmt.Errorf("philosopher adapter execution failed: %w", err)
 	}
@@ -1030,6 +1033,7 @@ func truncate(s string, maxLen int) string {
 func (e *MetaPipelineExecutor) CreateChildMetaExecutor() *MetaPipelineExecutor {
 	child := &MetaPipelineExecutor{
 		runner:           e.runner,
+		registry:         e.registry,
 		emitter:          e.emitter,
 		executor:         e.executor,
 		loader:           e.loader,
