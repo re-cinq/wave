@@ -299,5 +299,28 @@ CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
 DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 		},
+		{
+			Version:     12,
+			Description: "Add checkpoint table and forked_from column for fork/rewind support",
+			Up: `CREATE TABLE IF NOT EXISTS checkpoint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    step_index INTEGER NOT NULL,
+    workspace_path TEXT NOT NULL DEFAULT '',
+    workspace_commit_sha TEXT DEFAULT '',
+    artifact_snapshot TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoint_run ON checkpoint(run_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_checkpoint_run_step ON checkpoint(run_id, step_id);
+
+ALTER TABLE pipeline_run ADD COLUMN forked_from_run_id TEXT DEFAULT '';`,
+			Down: `DROP TABLE IF EXISTS checkpoint;
+DROP INDEX IF EXISTS idx_checkpoint_run;
+DROP INDEX IF EXISTS idx_checkpoint_run_step;`,
+		},
 	}
 }

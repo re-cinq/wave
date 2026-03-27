@@ -120,6 +120,15 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 	return &state.OntologyStats{}, nil
 }
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
+func (b baseStateStore) SaveCheckpoint(*state.CheckpointRecord) error       { return nil }
+func (b baseStateStore) GetCheckpoint(string, string) (*state.CheckpointRecord, error) {
+	return nil, errors.New("not found")
+}
+func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error) { return nil, nil }
+func (b baseStateStore) DeleteCheckpointsAfterStep(string, int) error            { return nil }
+func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
+	return "", nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
