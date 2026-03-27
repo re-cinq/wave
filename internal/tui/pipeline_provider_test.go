@@ -123,8 +123,14 @@ func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { r
 func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
 func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
 func (b baseStateStore) SaveCheckpoint(*state.CheckpointRecord) error       { return nil }
+func (b baseStateStore) GetCheckpoint(string, string) (*state.CheckpointRecord, error) {
+	return nil, nil
+}
 func (b baseStateStore) DeleteCheckpointsAfterStep(string, int) error            { return nil }
 func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error) { return nil, nil }
+func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
+	return "", nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
