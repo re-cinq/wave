@@ -3,6 +3,7 @@ package webui
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -11,14 +12,37 @@ func (s *Server) applyMiddleware(handler http.Handler) http.Handler {
 	h := handler
 	h = securityHeaders(h)
 	h = s.loggingMiddleware(h)
-	if s.token != "" && s.requiresAuth() {
-		h = s.authMiddleware(h)
+
+	// Apply auth middleware based on resolved auth mode
+	switch s.authMode {
+	case AuthModeBearer:
+		if s.token != "" && s.requiresAuth() {
+			h = s.bearerAuthMiddleware(h)
+		}
+	case AuthModeJWT:
+		h = s.jwtAuthMiddleware(h)
+	case AuthModeMTLS:
+		// mTLS is handled at the TLS layer — no HTTP middleware needed
+	case AuthModeNone:
+		// No auth
+	default:
+		// Backward compatibility: use bearer auth if token is set
+		if s.token != "" && s.requiresAuth() {
+			h = s.bearerAuthMiddleware(h)
+		}
 	}
+
 	return h
 }
 
 // authMiddleware validates the bearer token for non-static requests.
+// Preserved for backward compatibility.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return s.bearerAuthMiddleware(next)
+}
+
+// bearerAuthMiddleware validates a bearer token for non-static requests.
+func (s *Server) bearerAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow static assets without auth
 		if len(r.URL.Path) >= 8 && r.URL.Path[:8] == "/static/" {
@@ -40,6 +64,37 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	})
+}
+
+// jwtAuthMiddleware validates JWT tokens for non-static requests.
+func (s *Server) jwtAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow static assets without auth
+		if len(r.URL.Path) >= 8 && r.URL.Path[:8] == "/static/" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Extract token from Authorization header
+		auth := r.Header.Get("Authorization")
+		if !strings.HasPrefix(auth, "Bearer ") {
+			// Fallback: check query parameter (for SSE)
+			tokenStr := r.URL.Query().Get("token")
+			if tokenStr == "" {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			auth = "Bearer " + tokenStr
+		}
+
+		tokenStr := strings.TrimPrefix(auth, "Bearer ")
+		if _, err := ValidateJWT(tokenStr, s.jwtSecret); err != nil {
+			http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 
