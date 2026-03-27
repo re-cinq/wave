@@ -151,11 +151,70 @@ func TestRetryConfig_ComputeDelay(t *testing.T) {
 			attempt:  10,
 			expected: 60 * time.Second,
 		},
+		{
+			name:     "custom max_delay caps exponential",
+			config:   RetryConfig{Backoff: "exponential", BaseDelay: "1s", MaxDelay: "5s"},
+			attempt:  10,
+			expected: 5 * time.Second,
+		},
+		{
+			name:     "custom max_delay caps linear",
+			config:   RetryConfig{Backoff: "linear", BaseDelay: "2s", MaxDelay: "8s"},
+			attempt:  10,
+			expected: 8 * time.Second,
+		},
+		{
+			name:     "custom max_delay caps fixed (no-op when base < max)",
+			config:   RetryConfig{Backoff: "fixed", BaseDelay: "3s", MaxDelay: "10s"},
+			attempt:  5,
+			expected: 3 * time.Second,
+		},
+		{
+			name:     "custom max_delay caps fixed (base > max)",
+			config:   RetryConfig{Backoff: "fixed", BaseDelay: "15s", MaxDelay: "10s"},
+			attempt:  1,
+			expected: 10 * time.Second,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.config.ComputeDelay(tt.attempt))
+		})
+	}
+}
+
+func TestRetryConfig_ParseMaxDelay(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   RetryConfig
+		expected time.Duration
+	}{
+		{
+			name:     "empty defaults to timeouts.RetryMaxDelay",
+			config:   RetryConfig{},
+			expected: 60 * time.Second,
+		},
+		{
+			name:     "valid duration string",
+			config:   RetryConfig{MaxDelay: "30s"},
+			expected: 30 * time.Second,
+		},
+		{
+			name:     "valid minute duration",
+			config:   RetryConfig{MaxDelay: "2m"},
+			expected: 2 * time.Minute,
+		},
+		{
+			name:     "invalid duration defaults to timeouts.RetryMaxDelay",
+			config:   RetryConfig{MaxDelay: "not-a-duration"},
+			expected: 60 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.config.ParseMaxDelay())
 		})
 	}
 }

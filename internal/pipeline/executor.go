@@ -195,6 +195,7 @@ type PipelineExecution struct {
 	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
 	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
 	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
+	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -805,12 +806,20 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			stepCtx = watchdog.Start(stepCtx)
 		}
 
+		// Store watchdog on execution so runStepExecution can wire NotifyActivity
+		execution.mu.Lock()
+		execution.Watchdog = watchdog
+		execution.mu.Unlock()
+
 		err := e.runStepExecution(stepCtx, execution, step)
 
-		// Stop stall watchdog
+		// Stop stall watchdog and clear reference
 		if watchdog != nil {
 			watchdog.Stop()
 		}
+		execution.mu.Lock()
+		execution.Watchdog = nil
+		execution.mu.Unlock()
 
 		// Stop progress ticker when step completes
 		cancelTicker()
@@ -820,8 +829,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if err != nil {
 			lastErr = err
 
-			// Classify the failure for intelligent retry decisions
-			failureClass := ClassifyStepFailure(err, nil, ctx.Err())
+			// Classify the failure for intelligent retry decisions.
+			// Use stepCtx (watchdog-derived) so stall cancellation is detected.
+			failureClass := ClassifyStepFailure(err, nil, stepCtx.Err())
 
 			// Record failed attempt with pipeline-level failure class
 			if e.store != nil {
@@ -849,7 +859,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 						StepID:       step.ID,
 						State:        event.StateFailed,
 						FailureClass: failureClass,
-						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.limit),
+						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.Limit()),
 					})
 					// Fall through to on_failure handling below by exhausting attempts
 					attempt = maxAttempts
@@ -1576,6 +1586,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
+				// Notify watchdog of activity to prevent stall timeout
+				execution.mu.Lock()
+				wd := execution.Watchdog
+				execution.mu.Unlock()
+				if wd != nil {
+					wd.NotifyActivity()
+				}
+
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
