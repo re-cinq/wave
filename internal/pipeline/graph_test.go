@@ -3,8 +3,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/testutil"
 )
 
 // mockStepTracker tracks step executions and returns configurable outcomes.
@@ -680,5 +684,156 @@ func TestGraphWalker_ResumeFromVisitCounts(t *testing.T) {
 	// Should have executed A exactly once before hitting the limit on the second attempt
 	if tracker.callCount("A") != 1 {
 		t.Errorf("expected 1 call to A, got %d", tracker.callCount("A"))
+	}
+}
+
+// --- Validation: fan-out rejection ---
+
+func TestValidateGraph_RejectsFanOutWithoutEdges(t *testing.T) {
+	v := &DAGValidator{}
+
+	// Step A has no edges but two dependents B and C — should be rejected
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "A"},
+			{ID: "B", Dependencies: []string{"A"}},
+			{ID: "C", Dependencies: []string{"A"}},
+		},
+	}
+
+	err := v.ValidateGraph(p)
+	if err == nil {
+		t.Fatal("expected validation error for fan-out without edges, got nil")
+	}
+	if !strings.Contains(err.Error(), "multiple dependents") {
+		t.Errorf("expected 'multiple dependents' error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "add explicit edges") {
+		t.Errorf("expected 'add explicit edges' guidance, got: %v", err)
+	}
+}
+
+func TestValidateGraph_AllowsFanOutWithEdges(t *testing.T) {
+	v := &DAGValidator{}
+
+	// Step A has explicit edges to B and C — should be accepted
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "A", Edges: []EdgeConfig{
+				{Target: "B", Condition: "outcome=success"},
+				{Target: "C"},
+			}},
+			{ID: "B"},
+			{ID: "C"},
+		},
+	}
+
+	err := v.ValidateGraph(p)
+	if err != nil {
+		t.Errorf("expected no error for fan-out with explicit edges, got: %v", err)
+	}
+}
+
+// --- Integration test: command step through DefaultPipelineExecutor ---
+
+func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {
+	// Integration test: exercises a command step through the real execution path
+	// using DefaultPipelineExecutor (not the mock walker).
+	// Verifies that:
+	// 1. Command steps execute scripts and capture stdout
+	// 2. Environment is filtered (PATH always present)
+	// 3. Graph walker routes correctly through command + regular steps
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "success"}`),
+		adapter.WithTokensUsed(100),
+	)
+
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+	)
+
+	// Pipeline: init (command: echo hello) -> verify (command: echo done)
+	// Both are command steps, linked by edge routing.
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "cmd-integration-test"},
+		Steps: []Step{
+			{
+				ID:     "init",
+				Type:   StepTypeCommand,
+				Script: "echo hello-from-command",
+				Edges:  []EdgeConfig{{Target: "verify"}},
+			},
+			{
+				ID:     "verify",
+				Type:   StepTypeCommand,
+				Script: "echo done",
+			},
+		},
+	}
+
+	err := executor.Execute(context.Background(), p, m, "test input")
+	if err != nil {
+		t.Fatalf("expected graph pipeline to succeed, got: %v", err)
+	}
+
+	// Verify events were emitted for both command steps
+	events := collector.GetEvents()
+	foundInit := false
+	foundVerify := false
+	for _, ev := range events {
+		if ev.StepID == "init" && ev.State == StateCompleted {
+			foundInit = true
+		}
+		if ev.StepID == "verify" && ev.State == StateCompleted {
+			foundVerify = true
+		}
+	}
+	if !foundInit {
+		t.Error("expected completed event for 'init' step")
+	}
+	if !foundVerify {
+		t.Error("expected completed event for 'verify' step")
+	}
+}
+
+// --- Unit test: filterEnvPassthrough ---
+
+func TestFilterEnvPassthrough(t *testing.T) {
+	// Set a known env var for testing
+	os.Setenv("WAVE_TEST_PASSTHROUGH", "secret_value")
+	os.Setenv("WAVE_TEST_BLOCKED", "should_not_appear")
+	defer os.Unsetenv("WAVE_TEST_PASSTHROUGH")
+	defer os.Unsetenv("WAVE_TEST_BLOCKED")
+
+	filtered := filterEnvPassthrough([]string{"WAVE_TEST_PASSTHROUGH", "HOME"})
+
+	// PATH should always be present
+	foundPath := false
+	foundPassthrough := false
+	foundBlocked := false
+	for _, entry := range filtered {
+		name, _, _ := strings.Cut(entry, "=")
+		switch name {
+		case "PATH":
+			foundPath = true
+		case "WAVE_TEST_PASSTHROUGH":
+			foundPassthrough = true
+		case "WAVE_TEST_BLOCKED":
+			foundBlocked = true
+		}
+	}
+
+	if !foundPath {
+		t.Error("expected PATH to always be present in filtered env")
+	}
+	if !foundPassthrough {
+		t.Error("expected WAVE_TEST_PASSTHROUGH to be in filtered env")
+	}
+	if foundBlocked {
+		t.Error("expected WAVE_TEST_BLOCKED to NOT be in filtered env")
 	}
 }

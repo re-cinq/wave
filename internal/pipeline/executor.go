@@ -789,7 +789,12 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 }
 
 // executeCommandStep runs a shell script command step and captures its output.
-// Command steps don't use adapters — they execute scripts directly via os/exec.
+// executeCommandStep runs a shell script command step and captures its output.
+// Command steps don’t use adapters — they execute scripts directly via os/exec.
+//
+// Security: The resolved script is sanitized via InputSanitizer to detect prompt
+// injection and shell metacharacter abuse. The subprocess environment is filtered
+// to only include variables listed in Runtime.Sandbox.EnvPassthrough.
 func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execution *PipelineExecution, step *Step) (*StepResult, error) {
 	pipelineID := execution.Status.ID
 
@@ -800,6 +805,11 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 
 	if e.store != nil {
 		e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
+	}
+
+	// Audit log: command step start
+	if e.logger != nil {
+		e.logger.LogStepStart(pipelineID, step.ID, "command", nil)
 	}
 
 	e.emit(event.Event{
@@ -816,6 +826,36 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 		script = execution.Context.ResolvePlaceholders(script)
 	}
 
+	// SECURITY: Sanitize the resolved script to detect injection attempts.
+	// Template resolution can introduce user-controlled content (e.g. issue titles,
+	// branch names) that could contain shell metacharacters or injection payloads.
+	if e.inputSanitizer != nil {
+		record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
+		if err != nil {
+			// Sanitization rejected the input (strict mode / prompt injection detected)
+			if e.securityLogger != nil {
+				e.securityLogger.LogViolation(
+					string(security.ViolationPromptInjection),
+					string(security.SourceUserInput),
+					fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
+					security.SeverityCritical,
+					true,
+				)
+			}
+			return nil, fmt.Errorf("command step %q: script sanitization failed: %w", step.ID, err)
+		}
+		if record != nil && record.ChangesDetected {
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      StateRunning,
+				Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
+			})
+		}
+		script = sanitized
+	}
+
 	// Create workspace for the step
 	workspacePath, err := e.createStepWorkspace(execution, step)
 	if err != nil {
@@ -826,14 +866,26 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	execution.mu.Unlock()
 
 	// Execute the script
+	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, "sh", "-c", script)
 	cmd.Dir = workspacePath
+
+	// SECURITY: Filter environment to only EnvPassthrough variables.
+	// Prevents leaking secrets, API keys, or other sensitive environment
+	// variables into the command subprocess.
+	cmd.Env = filterEnvPassthrough(execution.Manifest.Runtime.Sandbox.EnvPassthrough)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	// Audit log: tool call (the shell command)
+	if e.logger != nil {
+		e.logger.LogToolCall(pipelineID, step.ID, "sh", script)
+	}
+
 	execErr := cmd.Run()
+	duration := time.Since(startTime)
 
 	result := &StepResult{
 		StepID:  step.ID,
@@ -861,6 +913,15 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
 		}
 
+		// Audit log: step end with failure
+		exitCode := -1
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		if e.logger != nil {
+			e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, duration, exitCode, len(stdout.String()), 0, execErr.Error())
+		}
+
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
@@ -881,6 +942,15 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
 
+	// Audit log: step end with success
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+	if e.logger != nil {
+		e.logger.LogStepEnd(pipelineID, step.ID, StateCompleted, duration, exitCode, len(stdout.String()), 0, "")
+	}
+
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
@@ -890,6 +960,27 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	})
 
 	return result, nil
+}
+
+// filterEnvPassthrough builds a minimal environment containing only the
+// variables named in the passthrough list. This prevents command steps from
+// inheriting the full parent environment which may contain secrets.
+// PATH is always included to ensure basic command resolution works.
+func filterEnvPassthrough(passthrough []string) []string {
+	allowed := make(map[string]bool, len(passthrough)+1)
+	allowed["PATH"] = true
+	for _, name := range passthrough {
+		allowed[name] = true
+	}
+
+	var filtered []string
+	for _, entry := range os.Environ() {
+		name, _, ok := strings.Cut(entry, "=")
+		if ok && allowed[name] {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 // findReadySteps returns all steps whose dependencies are satisfied (all deps in completed set).
