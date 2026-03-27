@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 type OpenCodeAdapter struct {
@@ -26,14 +24,6 @@ func NewOpenCodeAdapter() *OpenCodeAdapter {
 }
 
 func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
-	var cancel context.CancelFunc
-	if cfg.Timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	defer cancel()
-
 	workspacePath := cfg.WorkspacePath
 	if workspacePath == "" {
 		wd, err := os.Getwd()
@@ -48,73 +38,55 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	}
 
 	args := a.buildArgs(cfg)
-	cmd := exec.CommandContext(ctx, a.opencodePath, args...)
-	cmd.Dir = workspacePath
+	return runSubprocess(ctx, a.opencodePath, args, workspacePath, cfg, parseOpenCodeStreamLine, a.parseOutput)
+}
 
-	cmd.Env = BuildCuratedEnvironment(cfg)
+// parseOutput extracts result content, token usage, and failure metadata.
+func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
+	var tokens int
+	var resultContent string
+	var subtype string
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
+	lines := bytes.Split(data, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
 
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
+		var obj struct {
+			Type    string `json:"type"`
+			Subtype string `json:"subtype"`
+			Content string `json:"content"`
+			Result  string `json:"result"`
+			Usage   struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
 
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start opencode: %w", err)
-	}
-
-	var stdoutBuf bytes.Buffer
-	stdoutDone := make(chan error, 1)
-
-	// Stream stdout line-by-line, parsing NDJSON events in real-time.
-	go func() {
-		scanner := bufio.NewScanner(stdoutPipe)
-		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024) // 10MB max line
-		for scanner.Scan() {
-			line := scanner.Bytes()
-			stdoutBuf.Write(line)
-			stdoutBuf.WriteByte('\n')
-
-			// Parse and emit stream events to the callback.
-			if cfg.OnStreamEvent != nil {
-				if evt, ok := parseOpenCodeStreamLine(line); ok {
-					cfg.OnStreamEvent(evt)
-				}
+		if obj.Type == "result" {
+			tokens = obj.Usage.InputTokens + obj.Usage.OutputTokens
+			subtype = obj.Subtype
+			resultContent = obj.Result
+			if resultContent == "" {
+				resultContent = obj.Content
 			}
 		}
-		stdoutDone <- scanner.Err()
-	}()
-
-	select {
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			killProcessGroup(cmd.Process, cfg.ProcessGrace)
-		}
-		cmd.Wait()
-		return nil, ctx.Err()
-	case err := <-stdoutDone:
-		if err != nil {
-			return nil, fmt.Errorf("failed to read stdout: %w", err)
-		}
 	}
 
-	cmdErr := cmd.Wait()
-	result := &AdapterResult{
-		ExitCode: 0,
-		Stdout:   bytes.NewReader(stdoutBuf.Bytes()),
+	if tokens == 0 {
+		tokens = len(data) / 4
 	}
 
-	if cmdErr != nil {
-		result.ExitCode = exitCodeFromError(cmdErr)
+	return parseOutputResult{
+		Tokens:        tokens,
+		ResultContent: resultContent,
+		Subtype:       subtype,
 	}
-
-	result.TokensUsed = estimateTokens(stdoutBuf.String())
-
-	return result, nil
 }
 
 // parseOpenCodeStreamLine parses a single NDJSON line from opencode's JSON output

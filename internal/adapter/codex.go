@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 )
 
 // CodexAdapter wraps the OpenAI Codex CLI for subprocess execution.
@@ -27,14 +25,6 @@ func NewCodexAdapter() *CodexAdapter {
 }
 
 func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
-	var cancel context.CancelFunc
-	if cfg.Timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	defer cancel()
-
 	workspacePath := cfg.WorkspacePath
 	if workspacePath == "" {
 		wd, err := os.Getwd()
@@ -49,67 +39,7 @@ func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterR
 	}
 
 	args := a.buildArgs(cfg)
-	cmd := exec.CommandContext(ctx, a.codexPath, args...)
-	cmd.Dir = workspacePath
-	cmd.Env = BuildCuratedEnvironment(cfg)
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start codex: %w", err)
-	}
-
-	var stdoutBuf bytes.Buffer
-	stdoutDone := make(chan error, 1)
-
-	go func() {
-		scanner := bufio.NewScanner(stdoutPipe)
-		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024)
-		for scanner.Scan() {
-			line := scanner.Bytes()
-			stdoutBuf.Write(line)
-			stdoutBuf.WriteByte('\n')
-
-			if cfg.OnStreamEvent != nil {
-				if evt, ok := parseCodexStreamLine(line); ok {
-					cfg.OnStreamEvent(evt)
-				}
-			}
-		}
-		stdoutDone <- scanner.Err()
-	}()
-
-	select {
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			killProcessGroup(cmd.Process, cfg.ProcessGrace)
-		}
-		cmd.Wait()
-		return nil, ctx.Err()
-	case err := <-stdoutDone:
-		if err != nil {
-			return nil, fmt.Errorf("failed to read stdout: %w", err)
-		}
-	}
-
-	cmdErr := cmd.Wait()
-	result := &AdapterResult{
-		ExitCode: 0,
-		Stdout:   bytes.NewReader(stdoutBuf.Bytes()),
-	}
-	if cmdErr != nil {
-		result.ExitCode = exitCodeFromError(cmdErr)
-	}
-	result.TokensUsed = estimateTokens(stdoutBuf.String())
-	return result, nil
+	return runSubprocess(ctx, a.codexPath, args, workspacePath, cfg, parseCodexStreamLine, a.parseOutput)
 }
 
 func (a *CodexAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
@@ -185,7 +115,80 @@ func parseCodexStreamLine(line []byte) (StreamEvent, bool) {
 		}
 		return StreamEvent{}, false
 
+	case "result":
+		var usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		}
+		if raw, ok := obj["usage"]; ok {
+			json.Unmarshal(raw, &usage)
+		}
+		var subtype string
+		if raw, ok := obj["subtype"]; ok {
+			json.Unmarshal(raw, &subtype)
+		}
+		return StreamEvent{
+			Type:      "result",
+			TokensIn:  usage.InputTokens,
+			TokensOut: usage.OutputTokens,
+			Subtype:   subtype,
+		}, true
+
 	default:
 		return StreamEvent{}, false
+	}
+}
+
+// parseOutput extracts result content, token usage, and failure metadata from
+// the complete NDJSON output stream.
+func (a *CodexAdapter) parseOutput(data []byte) parseOutputResult {
+	var tokens int
+	var resultContent string
+	var subtype string
+
+	lines := bytes.Split(data, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+
+		var obj struct {
+			Type    string `json:"type"`
+			Subtype string `json:"subtype"`
+			Content string `json:"content"`
+			Result  string `json:"result"`
+			Usage   struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(line, &obj); err != nil {
+			continue
+		}
+
+		switch obj.Type {
+		case "result":
+			tokens = obj.Usage.InputTokens + obj.Usage.OutputTokens
+			subtype = obj.Subtype
+			resultContent = obj.Result
+			if resultContent == "" {
+				resultContent = obj.Content
+			}
+		case "message":
+			if resultContent == "" && obj.Content != "" {
+				resultContent = obj.Content
+			}
+		}
+	}
+
+	if tokens == 0 {
+		tokens = len(data) / 4
+	}
+
+	return parseOutputResult{
+		Tokens:        tokens,
+		ResultContent: resultContent,
+		Subtype:       subtype,
 	}
 }
