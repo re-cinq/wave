@@ -305,5 +305,13 @@ DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 			Up:          `ALTER TABLE step_state ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;`,
 			Down:        "",
 		},
+		{
+			Version:     13,
+			Description: "Add parent_run_id and parent_step_id to pipeline_run for sub-pipeline composition",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN parent_run_id TEXT;
+ALTER TABLE pipeline_run ADD COLUMN parent_step_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
+			Down: "",
+		},
 	}
 }
