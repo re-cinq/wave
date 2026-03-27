@@ -3378,6 +3378,24 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		return fmt.Errorf("failed to load sub-pipeline %q: %w", step.SubPipeline, err)
 	}
 
+	// Inject parent artifacts into child workspace if configured
+	if step.Config != nil && len(step.Config.Inject) > 0 && execution.Context != nil {
+		// Determine workspace dir for artifact injection
+		wsDir := "."
+		if wspath, ok := execution.WorkspacePaths[step.ID]; ok {
+			wsDir = wspath
+		}
+		if err := injectSubPipelineArtifacts(step.Config, execution.Context, wsDir); err != nil {
+			execution.mu.Lock()
+			execution.States[step.ID] = StateFailed
+			execution.mu.Unlock()
+			if e.store != nil {
+				e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
+			}
+			return fmt.Errorf("artifact injection for sub-pipeline %q failed: %w", step.SubPipeline, err)
+		}
+	}
+
 	// Build executor options for the child pipeline, inheriting configuration
 	// from the parent but generating a fresh run ID.
 	childOpts := []ExecutorOption{
@@ -3401,6 +3419,10 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
 
+	// Apply lifecycle timeout from config
+	childCtx, cancel := subPipelineTimeout(ctx, step.Config)
+	defer cancel()
+
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
@@ -3409,7 +3431,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", step.SubPipeline),
 	})
 
-	if err := childExecutor.Execute(ctx, subPipeline, execution.Manifest, input); err != nil {
+	if err := childExecutor.Execute(childCtx, subPipeline, execution.Manifest, input); err != nil {
 		execution.mu.Lock()
 		execution.States[step.ID] = StateFailed
 		execution.mu.Unlock()
@@ -3417,6 +3439,39 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
 		return fmt.Errorf("sub-pipeline %q failed: %w", step.SubPipeline, err)
+	}
+
+	// Link child run to parent in state store
+	if e.store != nil && childExecutor.lastExecution != nil {
+		childRunID := childExecutor.lastExecution.Status.ID
+		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+	}
+
+	// Extract child artifacts and merge context back to parent
+	if step.Config != nil && execution.Context != nil && childExecutor.lastExecution != nil {
+		childExec := childExecutor.lastExecution
+		wsDir := "."
+		if wspath, ok := execution.WorkspacePaths[step.ID]; ok {
+			wsDir = wspath
+		}
+
+		if childExec.Context != nil {
+			// Extract artifacts from child back to parent
+			if len(step.Config.Extract) > 0 {
+				if err := extractSubPipelineArtifacts(step.Config, childExec.Context, step.SubPipeline, execution.Context, wsDir); err != nil {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      event.StateRunning,
+						Message:    fmt.Sprintf("warning: artifact extraction from sub-pipeline %q failed: %v", step.SubPipeline, err),
+					})
+				}
+			}
+
+			// Merge child context variables into parent
+			execution.Context.MergeFrom(childExec.Context, step.SubPipeline)
+		}
 	}
 
 	execution.mu.Lock()

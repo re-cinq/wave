@@ -139,15 +139,22 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 }
 
 // InjectForgeVariables populates forge.* template variables in the context.
+// All variables are set atomically under a single lock to prevent inconsistent
+// reads when concurrent goroutines inject different forge configurations.
 func InjectForgeVariables(ctx *PipelineContext, info forge.ForgeInfo) {
-	ctx.SetCustomVariable("forge.type", string(info.Type))
-	ctx.SetCustomVariable("forge.host", info.Host)
-	ctx.SetCustomVariable("forge.owner", info.Owner)
-	ctx.SetCustomVariable("forge.repo", info.Repo)
-	ctx.SetCustomVariable("forge.cli_tool", info.CLITool)
-	ctx.SetCustomVariable("forge.prefix", info.PipelinePrefix)
-	ctx.SetCustomVariable("forge.pr_term", info.PRTerm)
-	ctx.SetCustomVariable("forge.pr_command", info.PRCommand)
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	ctx.CustomVariables["forge.type"] = string(info.Type)
+	ctx.CustomVariables["forge.host"] = info.Host
+	ctx.CustomVariables["forge.owner"] = info.Owner
+	ctx.CustomVariables["forge.repo"] = info.Repo
+	ctx.CustomVariables["forge.cli_tool"] = info.CLITool
+	ctx.CustomVariables["forge.prefix"] = info.PipelinePrefix
+	ctx.CustomVariables["forge.pr_term"] = info.PRTerm
+	ctx.CustomVariables["forge.pr_command"] = info.PRCommand
 }
 
 // SetCustomVariable adds a custom template variable
@@ -202,6 +209,42 @@ func (ctx *PipelineContext) SetGateDecision(stepID string, decision *GateDecisio
 	ctx.CustomVariables[prefix+".text"] = decision.Text
 	ctx.CustomVariables[prefix+".timestamp"] = decision.Timestamp.Format(time.RFC3339)
 	ctx.CustomVariables[prefix+".target"] = decision.Target
+}
+
+// MergeFrom merges child pipeline context variables and artifact paths into the parent.
+// Artifact paths from the child are namespaced with the given prefix to avoid collisions.
+// Custom variables from the child overwrite parent values on conflict (last-writer-wins).
+func (ctx *PipelineContext) MergeFrom(child *PipelineContext, namespace string) {
+	if child == nil {
+		return
+	}
+
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+
+	if ctx.CustomVariables == nil {
+		ctx.CustomVariables = make(map[string]string)
+	}
+	if ctx.ArtifactPaths == nil {
+		ctx.ArtifactPaths = make(map[string]string)
+	}
+
+	child.mu.Lock()
+	defer child.mu.Unlock()
+
+	// Merge custom variables (last-writer-wins)
+	for k, v := range child.CustomVariables {
+		ctx.CustomVariables[k] = v
+	}
+
+	// Merge artifact paths with namespace prefix
+	for name, path := range child.ArtifactPaths {
+		key := name
+		if namespace != "" {
+			key = namespace + "." + name
+		}
+		ctx.ArtifactPaths[key] = path
+	}
 }
 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows
