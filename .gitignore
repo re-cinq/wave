@@ -12,6 +12,7 @@
 .wave/output/
 .wave/chat/
 .wave/logs/
+.wave/retros/
 .wave/wave.db*
 .wave/bench/datasets/
 .wave/bench/workspaces/

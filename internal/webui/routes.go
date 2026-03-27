@@ -58,6 +58,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
 	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
 
+	// Retrospective API
+	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)
+	mux.HandleFunc("GET /api/retros/{id}", s.handleAPIRetroDetail)
+	mux.HandleFunc("POST /api/retros/{id}/narrate", s.handleNarrateRetro)
+
 	// Catch-all 404 for unmatched routes
 	mux.HandleFunc("/", s.handleNotFound)
 }

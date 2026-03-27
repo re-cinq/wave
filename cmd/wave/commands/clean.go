@@ -224,6 +224,7 @@ func runClean(opts CleanOptions) error {
 				".wave/state.db",
 				".wave/traces",
 				".wave/workspaces",
+				".wave/retros",
 			)
 		}
 	} else if opts.Pipeline != "" {
