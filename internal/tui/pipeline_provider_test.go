@@ -122,6 +122,15 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
 func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
 func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
+func (b baseStateStore) SaveCheckpoint(*state.CheckpointRecord) error       { return nil }
+func (b baseStateStore) GetCheckpoint(string, string) (*state.CheckpointRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) DeleteCheckpointsAfterStep(string, int) error            { return nil }
+func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error) { return nil, nil }
+func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
+	return "", nil
+}
 func (b baseStateStore) SetParentRun(string, string, string) error           { return nil }
 func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)      { return nil, nil }
 func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
