@@ -30,6 +30,14 @@ const (
 	OnFailureRetry    = "retry"
 )
 
+// Fidelity level constants for thread conversation continuity.
+const (
+	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
+	FidelityCompact = "compact" // Structured summary: step ID, status, key outcomes
+	FidelitySummary = "summary" // LLM-generated summary of prior conversation
+	FidelityFresh   = "fresh"   // No prior context (default when no thread)
+)
+
 type Pipeline struct {
 	Kind     string           `yaml:"kind"`
 	Metadata PipelineMetadata `yaml:"metadata"`
@@ -192,6 +200,10 @@ type Step struct {
 	Validation      []ValidationRule `yaml:"validation,omitempty"`
 	MaxConcurrentAgents int          `yaml:"max_concurrent_agents,omitempty"`
 	Concurrency     int              `yaml:"concurrency,omitempty"`
+
+	// Thread conversation continuity — steps sharing a thread group receive prior conversation context
+	Thread   string `yaml:"thread,omitempty"`   // Thread group name for conversation continuity
+	Fidelity string `yaml:"fidelity,omitempty"` // Context density: full, compact, summary, fresh
 
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`

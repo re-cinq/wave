@@ -76,6 +76,11 @@ func NewRelayMonitor(cfg RelayMonitorConfig, adapter CompactionAdapter) *RelayMo
 	return &RelayMonitor{config: cfg, adapter: adapter}
 }
 
+// Adapter returns the underlying CompactionAdapter, or nil if not set.
+func (m *RelayMonitor) Adapter() CompactionAdapter {
+	return m.adapter
+}
+
 // ShouldCompact determines if compaction should be triggered based on token usage.
 func (m *RelayMonitor) ShouldCompact(tokensUsed int, thresholdPercent int) bool {
 	if thresholdPercent == 0 {

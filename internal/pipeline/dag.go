@@ -42,7 +42,9 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 	return &pipeline, nil
 }
 
-type DAGValidator struct{}
+type DAGValidator struct{
+	Warnings []string // Non-fatal validation warnings (e.g., mixed-persona thread groups)
+}
 
 func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	stepMap := make(map[string]*Step)
@@ -105,6 +107,11 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 		}
 	}
 
+	// Validate thread group constraints
+	if err := v.validateThreadGroups(p, stepMap); err != nil {
+		return err
+	}
+
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
 
@@ -117,6 +124,79 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	}
 
 	return nil
+}
+
+// validFidelityValues enumerates acceptable fidelity field values.
+var validFidelityValues = map[string]bool{
+	FidelityFull: true, FidelityCompact: true, FidelitySummary: true, FidelityFresh: true, "": true,
+}
+
+// validateThreadGroups validates thread group constraints:
+// 1. Steps in the same thread group must form a dependency chain (cannot be concurrent)
+// 2. Mixed-persona thread groups emit a warning
+// 3. Fidelity field values must be valid
+func (v *DAGValidator) validateThreadGroups(p *Pipeline, stepMap map[string]*Step) error {
+	// Validate fidelity field values on all steps
+	for _, step := range p.Steps {
+		if !validFidelityValues[step.Fidelity] {
+			return fmt.Errorf("step %q has invalid fidelity value %q (must be full, compact, summary, or fresh)", step.ID, step.Fidelity)
+		}
+		if step.Fidelity != "" && step.Thread == "" {
+			v.Warnings = append(v.Warnings, fmt.Sprintf("step %q has fidelity %q but no thread — fidelity has no effect without a thread group", step.ID, step.Fidelity))
+		}
+	}
+
+	// Group steps by thread
+	threadGroups := make(map[string][]Step) // threadGroup -> ordered steps
+	for _, step := range p.Steps {
+		if step.Thread != "" {
+			threadGroups[step.Thread] = append(threadGroups[step.Thread], step)
+		}
+	}
+
+	for threadName, steps := range threadGroups {
+		if len(steps) < 2 {
+			continue
+		}
+
+		// Check that consecutive steps in the same thread have a dependency chain.
+		// Each step (except the first) must directly or transitively depend on
+		// at least one earlier step in the same thread group.
+		for i := 1; i < len(steps); i++ {
+			hasDep := false
+			for j := 0; j < i; j++ {
+				if v.isTransitiveDep(steps[i].ID, steps[j].ID, stepMap) || v.directlyDependsOn(steps[i], steps[j].ID) {
+					hasDep = true
+					break
+				}
+			}
+			if !hasDep {
+				return fmt.Errorf("step %q in thread %q has no dependency on prior thread step %q — steps in the same thread must form a dependency chain to prevent concurrent execution",
+					steps[i].ID, threadName, steps[i-1].ID)
+			}
+		}
+
+		// Warn on mixed-persona thread groups
+		personas := make(map[string]bool)
+		for _, step := range steps {
+			personas[step.Persona] = true
+		}
+		if len(personas) > 1 {
+			v.Warnings = append(v.Warnings, fmt.Sprintf("thread %q has steps with different personas — persona isolation is still enforced but conversation context may cross persona boundaries", threadName))
+		}
+	}
+
+	return nil
+}
+
+// directlyDependsOn returns true if step directly lists depID in its Dependencies.
+func (v *DAGValidator) directlyDependsOn(step Step, depID string) bool {
+	for _, dep := range step.Dependencies {
+		if dep == depID {
+			return true
+		}
+	}
+	return false
 }
 
 // validateReworkTarget checks that a rework_step reference is valid:

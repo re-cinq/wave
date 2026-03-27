@@ -669,3 +669,155 @@ func TestValidatePipelineSkills(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateDAG_ThreadGroupWithDependencyChain(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "implement", Persona: "craftsman", Thread: "impl"},
+			{ID: "fix", Persona: "craftsman", Thread: "impl", Dependencies: []string{"implement"}},
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err != nil {
+		t.Errorf("Expected no error for valid thread group, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ThreadGroupWithoutDependencyChain(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-a", Persona: "craftsman", Thread: "impl"},
+			{ID: "step-b", Persona: "craftsman", Thread: "impl"}, // no dependency on step-a
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for concurrent thread steps, got nil")
+	}
+	if err != nil && !contains(err.Error(), "no dependency on prior thread step") {
+		t.Errorf("Expected 'no dependency' error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_InvalidFidelityValue(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-a", Persona: "craftsman", Thread: "impl", Fidelity: "invalid"},
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err == nil {
+		t.Error("Expected error for invalid fidelity value, got nil")
+	}
+	if err != nil && !contains(err.Error(), "invalid fidelity value") {
+		t.Errorf("Expected 'invalid fidelity' error, got: %v", err)
+	}
+}
+
+func TestValidateDAG_ValidFidelityValues(t *testing.T) {
+	for _, fidelity := range []string{"full", "compact", "summary", "fresh", ""} {
+		p := &Pipeline{
+			Steps: []Step{
+				{ID: "step-a", Persona: "craftsman", Thread: "impl", Fidelity: fidelity},
+			},
+		}
+		v := &DAGValidator{}
+		err := v.ValidateDAG(p)
+		if err != nil {
+			t.Errorf("Fidelity %q should be valid, got error: %v", fidelity, err)
+		}
+	}
+}
+
+func TestValidateDAG_FidelityWithoutThread_Warning(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-a", Persona: "craftsman", Fidelity: "full"}, // no thread
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err != nil {
+		t.Errorf("Fidelity without thread should be a warning, not an error, got: %v", err)
+	}
+	if len(v.Warnings) == 0 {
+		t.Error("Expected a warning for fidelity without thread")
+	}
+	found := false
+	for _, w := range v.Warnings {
+		if contains(w, "fidelity has no effect") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected 'fidelity has no effect' warning, got: %v", v.Warnings)
+	}
+}
+
+func TestValidateDAG_MixedPersonaThread_Warning(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "implement", Persona: "craftsman", Thread: "impl"},
+			{ID: "review", Persona: "navigator", Thread: "impl", Dependencies: []string{"implement"}},
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err != nil {
+		t.Errorf("Mixed-persona thread should not error, got: %v", err)
+	}
+	if len(v.Warnings) == 0 {
+		t.Error("Expected a warning for mixed-persona thread group")
+	}
+	found := false
+	for _, w := range v.Warnings {
+		if contains(w, "different personas") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected 'different personas' warning, got: %v", v.Warnings)
+	}
+}
+
+func TestValidateDAG_ThreadGroupThreeSteps(t *testing.T) {
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-a", Persona: "craftsman", Thread: "impl"},
+			{ID: "step-b", Persona: "craftsman", Thread: "impl", Dependencies: []string{"step-a"}},
+			{ID: "step-c", Persona: "craftsman", Thread: "impl", Dependencies: []string{"step-b"}},
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err != nil {
+		t.Errorf("Expected no error for valid 3-step thread chain, got: %v", err)
+	}
+}
+
+func TestValidateDAG_StepWithoutThread_NoValidation(t *testing.T) {
+	// Steps without thread fields should not trigger thread validation
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "step-a", Persona: "craftsman"},
+			{ID: "step-b", Persona: "navigator"}, // no dependency, no thread — fine
+		},
+	}
+
+	v := &DAGValidator{}
+	err := v.ValidateDAG(p)
+	if err != nil {
+		t.Errorf("Expected no error for steps without threads, got: %v", err)
+	}
+}
