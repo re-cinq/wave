@@ -3,6 +3,7 @@ package adapter
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -124,6 +125,38 @@ func TestParseGeminiStreamLine(t *testing.T) {
 				t.Errorf("type = %q, want %q", evt.Type, tt.wantType)
 			}
 		})
+	}
+}
+
+func TestGeminiAdapter_PrepareWorkspace_DenyRules(t *testing.T) {
+	a := &GeminiAdapter{geminiPath: "/usr/bin/gemini"}
+	dir := t.TempDir()
+
+	err := a.prepareWorkspace(dir, AdapterRunConfig{
+		SystemPrompt: "You are a test assistant",
+		DenyTools:    []string{"Bash(*)", "Write(*)"},
+		AllowedDomains: []string{"api.example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Denied Tools") {
+		t.Error("GEMINI.md should contain denied tools section")
+	}
+	if !strings.Contains(content, "Bash(*)") {
+		t.Error("GEMINI.md should contain denied tool Bash(*)")
+	}
+	if !strings.Contains(content, "Network Access") {
+		t.Error("GEMINI.md should contain network access section")
+	}
+	if !strings.Contains(content, "api.example.com") {
+		t.Error("GEMINI.md should contain allowed domain")
 	}
 }
 

@@ -3445,9 +3445,24 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 	return nil
 }
 
+// isPermanentError returns true if the error represents a permanent failure
+// that should not trigger fallback retries (e.g. binary not found, permission
+// denied).
+func isPermanentError(err error) bool {
+	if errors.Is(err, exec.ErrNotFound) {
+		return true
+	}
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	return false
+}
+
 // runWithFallback executes an adapter run with fallback chain support.
-// If the primary adapter fails with a transient error (rate limit, timeout)
-// and fallback chains are configured, it retries with fallback adapters.
+// If the primary adapter fails with a transient error (rate limit, timeout,
+// connection refused) and fallback chains are configured, it retries with
+// fallback adapters. Permanent errors (exec.ErrNotFound, os.ErrPermission)
+// are never retried.
 func (e *DefaultPipelineExecutor) runWithFallback(
 	ctx context.Context,
 	cfg adapter.AdapterRunConfig,
@@ -3456,8 +3471,8 @@ func (e *DefaultPipelineExecutor) runWithFallback(
 	fallbacks map[string][]string,
 ) (*adapter.AdapterResult, error) {
 	result, err := primaryRunner.Run(ctx, cfg)
-	if err == nil && (result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout) {
-		return result, err
+	if err == nil && result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout {
+		return result, nil
 	}
 
 	// Check if we have fallbacks configured for this adapter
@@ -3466,20 +3481,12 @@ func (e *DefaultPipelineExecutor) runWithFallback(
 		return result, err
 	}
 
-	// Only retry on transient failures
-	isTransient := false
+	// Classify the failure — only transient errors trigger fallback
 	if err != nil {
-		// Context cancelled — don't retry
-		if ctx.Err() != nil {
+		// Context cancelled or permanent errors — don't retry
+		if ctx.Err() != nil || isPermanentError(err) {
 			return result, err
 		}
-		isTransient = true
-	} else if result.FailureReason == adapter.FailureReasonRateLimit || result.FailureReason == adapter.FailureReasonTimeout {
-		isTransient = true
-	}
-
-	if !isTransient {
-		return result, err
 	}
 
 	// Try fallback adapters in order
@@ -3496,7 +3503,13 @@ func (e *DefaultPipelineExecutor) runWithFallback(
 			Message:   fmt.Sprintf("Primary adapter %q failed, trying fallback %q", adapterName, fbName),
 		})
 
-		result, err = fbRunner.Run(ctx, cfg)
+		// Clear the model field when switching adapters — the primary adapter's
+		// model string (e.g. "opus") is meaningless for a different adapter family
+		// (e.g. Gemini). The fallback adapter will use its own default model.
+		fbCfg := cfg
+		fbCfg.Model = ""
+
+		result, err = fbRunner.Run(ctx, fbCfg)
 		if err == nil && result.FailureReason != adapter.FailureReasonRateLimit && result.FailureReason != adapter.FailureReasonTimeout {
 			return result, nil
 		}

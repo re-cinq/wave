@@ -1247,3 +1247,119 @@ runtime:
 		}
 	})
 }
+
+func TestValidateFallbacks(t *testing.T) {
+	tests := []struct {
+		name      string
+		adapters  map[string]Adapter
+		fallbacks map[string][]string
+		wantErrs  int
+		wantMsg   string // Substring expected in first error (empty = no check)
+	}{
+		{
+			name: "valid config",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+				"codex":  {Binary: "codex", Mode: "headless"},
+				"gemini": {Binary: "gemini", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"claude": {"codex", "gemini"},
+			},
+			wantErrs: 0,
+		},
+		{
+			name:     "empty fallbacks",
+			adapters: map[string]Adapter{"claude": {Binary: "claude", Mode: "headless"}},
+			fallbacks: map[string][]string{},
+			wantErrs: 0,
+		},
+		{
+			name:     "nil fallbacks",
+			adapters: map[string]Adapter{"claude": {Binary: "claude", Mode: "headless"}},
+			fallbacks: nil,
+			wantErrs: 0,
+		},
+		{
+			name: "unknown primary adapter",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"nonexistent": {"claude"},
+			},
+			wantErrs: 1,
+			wantMsg:  "adapter \"nonexistent\" is not defined",
+		},
+		{
+			name: "self-referencing fallback",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"claude": {"claude"},
+			},
+			wantErrs: 1,
+			wantMsg:  "cannot fall back to itself",
+		},
+		{
+			name: "unknown fallback target",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"claude": {"nonexistent"},
+			},
+			wantErrs: 1,
+			wantMsg:  "fallback adapter \"nonexistent\" is not defined",
+		},
+		{
+			name: "duplicate entries",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+				"codex":  {Binary: "codex", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"claude": {"codex", "codex"},
+			},
+			wantErrs: 1,
+			wantMsg:  "duplicate fallback adapter \"codex\"",
+		},
+		{
+			name: "multiple errors combined",
+			adapters: map[string]Adapter{
+				"claude": {Binary: "claude", Mode: "headless"},
+			},
+			fallbacks: map[string][]string{
+				"unknown": {"claude", "claude"},  // unknown primary + duplicate
+				"claude":  {"claude", "missing"}, // self-ref + unknown target
+			},
+			wantErrs: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Manifest{
+				Adapters: tt.adapters,
+				Runtime:  Runtime{Fallbacks: tt.fallbacks},
+			}
+			errs := validateFallbacks(m)
+			if len(errs) != tt.wantErrs {
+				t.Errorf("validateFallbacks() returned %d errors, want %d: %v", len(errs), tt.wantErrs, errs)
+			}
+			if tt.wantMsg != "" && len(errs) > 0 {
+				found := false
+				for _, err := range errs {
+					if strings.Contains(err.Error(), tt.wantMsg) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected error containing %q, got %v", tt.wantMsg, errs)
+				}
+			}
+		})
+	}
+}

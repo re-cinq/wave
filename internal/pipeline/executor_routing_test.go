@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -945,4 +947,157 @@ func TestRunWithFallback_EmitsFallbackEvent(t *testing.T) {
 		}
 	}
 	assert.True(t, foundFallbackEvent, "should emit a fallback event when switching adapters")
+}
+
+// ---------------------------------------------------------------------------
+// 8. Permanent Go errors (exec.ErrNotFound, os.ErrPermission) block fallback
+// ---------------------------------------------------------------------------
+
+func TestRunWithFallback_ExecNotFound_NoFallback(t *testing.T) {
+	primaryRunner := &failingMockRunner{
+		name:      "primary",
+		failUntil: 1,
+		failErr:   exec.ErrNotFound,
+	}
+
+	fallbackRunner := &failingMockRunner{
+		name:      "fallback",
+		failUntil: 0,
+	}
+
+	reg := adapter.NewAdapterRegistry()
+	reg.Register("primary", primaryRunner)
+	reg.Register("fallback", fallbackRunner)
+
+	collector := testutil.NewEventCollector()
+	ex := NewDefaultPipelineExecutor(primaryRunner,
+		WithAdapterRegistry(reg),
+		WithEmitter(collector),
+	)
+
+	fallbacks := map[string][]string{
+		"primary": {"fallback"},
+	}
+
+	cfg := adapter.AdapterRunConfig{
+		Adapter:       "primary",
+		WorkspacePath: "/tmp/test",
+		Prompt:        "test",
+	}
+
+	ctx := context.Background()
+	_, err := ex.runWithFallback(ctx, cfg, primaryRunner, "primary", fallbacks)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, exec.ErrNotFound)
+	assert.False(t, fallbackRunner.wasCalled(),
+		"fallback should not be attempted for exec.ErrNotFound")
+}
+
+func TestRunWithFallback_PermissionDenied_NoFallback(t *testing.T) {
+	primaryRunner := &failingMockRunner{
+		name:      "primary",
+		failUntil: 1,
+		failErr:   os.ErrPermission,
+	}
+
+	fallbackRunner := &failingMockRunner{
+		name:      "fallback",
+		failUntil: 0,
+	}
+
+	reg := adapter.NewAdapterRegistry()
+	reg.Register("primary", primaryRunner)
+	reg.Register("fallback", fallbackRunner)
+
+	collector := testutil.NewEventCollector()
+	ex := NewDefaultPipelineExecutor(primaryRunner,
+		WithAdapterRegistry(reg),
+		WithEmitter(collector),
+	)
+
+	fallbacks := map[string][]string{
+		"primary": {"fallback"},
+	}
+
+	cfg := adapter.AdapterRunConfig{
+		Adapter:       "primary",
+		WorkspacePath: "/tmp/test",
+		Prompt:        "test",
+	}
+
+	ctx := context.Background()
+	_, err := ex.runWithFallback(ctx, cfg, primaryRunner, "primary", fallbacks)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrPermission)
+	assert.False(t, fallbackRunner.wasCalled(),
+		"fallback should not be attempted for os.ErrPermission")
+}
+
+// ---------------------------------------------------------------------------
+// 9. Model is cleared when crossing adapter families
+// ---------------------------------------------------------------------------
+
+// modelCapturingFallbackRunner records the model passed to Run.
+type modelCapturingFallbackRunner struct {
+	mu    sync.Mutex
+	model string
+	inner adapter.AdapterRunner
+}
+
+func (r *modelCapturingFallbackRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	r.mu.Lock()
+	r.model = cfg.Model
+	r.mu.Unlock()
+	return r.inner.Run(ctx, cfg)
+}
+
+func TestRunWithFallback_ClearsModel_OnFallback(t *testing.T) {
+	// Primary fails with rate limit, fallback should get empty model
+	primaryRunner := &failingMockRunner{
+		name:       "primary",
+		failUntil:  1,
+		failReason: adapter.FailureReasonRateLimit,
+	}
+
+	fallbackInner := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status":"success"}`),
+		adapter.WithTokensUsed(100),
+	)
+	fallbackRunner := &modelCapturingFallbackRunner{inner: fallbackInner}
+
+	reg := adapter.NewAdapterRegistry()
+	reg.Register("primary", primaryRunner)
+	reg.Register("fallback", fallbackRunner)
+
+	collector := testutil.NewEventCollector()
+	ex := NewDefaultPipelineExecutor(primaryRunner,
+		WithAdapterRegistry(reg),
+		WithEmitter(collector),
+	)
+
+	fallbacks := map[string][]string{
+		"primary": {"fallback"},
+	}
+
+	cfg := adapter.AdapterRunConfig{
+		Adapter:       "primary",
+		WorkspacePath: "/tmp/test",
+		Prompt:        "test",
+		Model:         "opus", // Primary model that is meaningless for fallback
+	}
+
+	ctx := context.Background()
+	result, err := ex.runWithFallback(ctx, cfg, primaryRunner, "primary", fallbacks)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.ExitCode)
+
+	// Verify the fallback received an empty model
+	fallbackRunner.mu.Lock()
+	capturedModel := fallbackRunner.model
+	fallbackRunner.mu.Unlock()
+	assert.Equal(t, "", capturedModel,
+		"fallback adapter should receive empty model when crossing adapter families")
 }

@@ -3,6 +3,7 @@ package pipeline
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/manifest"
@@ -168,6 +169,7 @@ func (v *DryRunValidator) validateStep(
 			for name := range m.Adapters {
 				adapterNames = append(adapterNames, name)
 			}
+			sort.Strings(adapterNames)
 			report.Findings = append(report.Findings, ValidationFinding{
 				Severity: SeverityError,
 				StepID:   step.ID,

@@ -1,6 +1,9 @@
 package adapter
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -56,7 +59,7 @@ func TestCodexAdapter_PrepareWorkspace(t *testing.T) {
 	}
 
 	// Check AGENTS.md was written
-	data, err := readTestFile(t, dir, "AGENTS.md")
+	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,6 +77,38 @@ func TestCodexAdapter_PrepareWorkspaceNoPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	// No AGENTS.md should be written when SystemPrompt is empty
+}
+
+func TestCodexAdapter_PrepareWorkspace_DenyRules(t *testing.T) {
+	a := &CodexAdapter{codexPath: "/usr/bin/codex"}
+	dir := t.TempDir()
+
+	err := a.prepareWorkspace(dir, AdapterRunConfig{
+		SystemPrompt: "You are a test assistant",
+		DenyTools:    []string{"Bash(*)", "Write(*)"},
+		AllowedDomains: []string{"api.example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Denied Tools") {
+		t.Error("AGENTS.md should contain denied tools section")
+	}
+	if !strings.Contains(content, "Bash(*)") {
+		t.Error("AGENTS.md should contain denied tool Bash(*)")
+	}
+	if !strings.Contains(content, "Network Access") {
+		t.Error("AGENTS.md should contain network access section")
+	}
+	if !strings.Contains(content, "api.example.com") {
+		t.Error("AGENTS.md should contain allowed domain")
+	}
 }
 
 func TestParseCodexStreamLine(t *testing.T) {

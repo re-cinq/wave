@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -240,16 +241,22 @@ func runRun(opts RunOptions, debug bool) error {
 			adapter.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
-		// Build adapter registry from manifest adapters
+		// Build adapter registry from manifest adapters.
+		// Sort adapter names for deterministic default selection.
 		registry = adapter.NewAdapterRegistry()
-		var firstAdapterName string
+		adapterNames := make([]string, 0, len(m.Adapters))
 		for name := range m.Adapters {
-			if firstAdapterName == "" {
-				firstAdapterName = name
-			}
+			adapterNames = append(adapterNames, name)
+		}
+		sort.Strings(adapterNames)
+		for _, name := range adapterNames {
 			registry.Register(name, adapter.ResolveAdapter(name))
 		}
-		runner = adapter.ResolveAdapter(firstAdapterName)
+		defaultName := ""
+		if len(adapterNames) > 0 {
+			defaultName = adapterNames[0]
+		}
+		runner = adapter.ResolveAdapter(defaultName)
 	}
 
 	// Initialize state store under .wave/ — must happen before run ID generation

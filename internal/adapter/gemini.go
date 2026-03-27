@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 )
 
 // GeminiAdapter wraps the Google Gemini CLI for subprocess execution.
@@ -35,88 +33,53 @@ func (a *GeminiAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	}
 	defer cancel()
 
-	workspacePath := cfg.WorkspacePath
-	if workspacePath == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get working directory: %w", err)
-		}
-		workspacePath = wd
+	workspacePath, err := resolveWorkspacePath(cfg.WorkspacePath)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := a.prepareWorkspace(workspacePath, cfg); err != nil {
 		return nil, fmt.Errorf("failed to prepare workspace: %w", err)
 	}
 
-	args := a.buildArgs(cfg)
-	cmd := exec.CommandContext(ctx, a.geminiPath, args...)
-	cmd.Dir = workspacePath
-	cmd.Env = BuildCuratedEnvironment(cfg)
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	stdoutPipe, err := cmd.StdoutPipe()
+	result, err := runSubprocess(ctx, subprocessConfig{
+		BinaryPath:   a.geminiPath,
+		BinaryLabel:  "gemini",
+		Args:         a.buildArgs(cfg),
+		WorkDir:      workspacePath,
+		Env:          BuildCuratedEnvironment(cfg),
+		ProcessGrace: cfg.ProcessGrace,
+		ParseLine:    parseGeminiStreamLine,
+		OnEvent:      cfg.OnStreamEvent,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+		return nil, err
 	}
 
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start gemini: %w", err)
+	// Classify failure reason from exit code and output content
+	stdoutContent := ""
+	if result.Stdout != nil {
+		data, _ := readReaderContent(result.Stdout)
+		stdoutContent = string(data)
+		result.Stdout = bytes.NewReader(data)
 	}
+	result.FailureReason = ClassifyFailure("", stdoutContent, ctx.Err())
 
-	var stdoutBuf bytes.Buffer
-	stdoutDone := make(chan error, 1)
-
-	go func() {
-		scanner := bufio.NewScanner(stdoutPipe)
-		scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024)
-		for scanner.Scan() {
-			line := scanner.Bytes()
-			stdoutBuf.Write(line)
-			stdoutBuf.WriteByte('\n')
-
-			if cfg.OnStreamEvent != nil {
-				if evt, ok := parseGeminiStreamLine(line); ok {
-					cfg.OnStreamEvent(evt)
-				}
-			}
-		}
-		stdoutDone <- scanner.Err()
-	}()
-
-	select {
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			killProcessGroup(cmd.Process, cfg.ProcessGrace)
-		}
-		cmd.Wait()
-		return nil, ctx.Err()
-	case err := <-stdoutDone:
-		if err != nil {
-			return nil, fmt.Errorf("failed to read stdout: %w", err)
-		}
-	}
-
-	cmdErr := cmd.Wait()
-	result := &AdapterResult{
-		ExitCode: 0,
-		Stdout:   bytes.NewReader(stdoutBuf.Bytes()),
-	}
-	if cmdErr != nil {
-		result.ExitCode = exitCodeFromError(cmdErr)
-	}
-	result.TokensUsed = estimateTokens(stdoutBuf.String())
 	return result, nil
 }
 
 func (a *GeminiAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
+	// Build the instruction content: system prompt + restriction section
+	content := cfg.SystemPrompt
+	restrictions := buildRestrictionSection(cfg)
+	if restrictions != "" {
+		content += restrictions
+	}
+
 	// Write system prompt as GEMINI.md for Gemini CLI
-	if cfg.SystemPrompt != "" {
+	if content != "" {
 		promptPath := filepath.Join(workspacePath, "GEMINI.md")
-		if err := os.WriteFile(promptPath, []byte(cfg.SystemPrompt), 0644); err != nil {
+		if err := os.WriteFile(promptPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write GEMINI.md: %w", err)
 		}
 	}
