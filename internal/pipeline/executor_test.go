@@ -2915,16 +2915,26 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(p1))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(p2))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(p3))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3))
+
+	// Step-level model override
+	executor3 := &DefaultPipelineExecutor{modelOverride: ""}
+	s := &Step{Model: "claude-haiku-4-5"}
+	p4 := &manifest.Persona{Model: "opus"}
+	assert.Equal(t, "claude-haiku-4-5", executor3.resolveModel(s, p4))
+
+	// CLI override beats step-level
+	executor4 := &DefaultPipelineExecutor{modelOverride: "cli-model"}
+	assert.Equal(t, "cli-model", executor4.resolveModel(s, p4))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
@@ -5017,8 +5027,6 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 
 	// Pipeline should complete quickly (not wait for slow steps to finish)
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
-}
-
 }
 
 // TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step

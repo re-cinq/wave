@@ -187,6 +187,36 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, hookErrs...)
 	}
 
+	if fallbackErrs := validateFallbacks(m.Runtime.Fallbacks, filePath); len(fallbackErrs) > 0 {
+		errs = append(errs, fallbackErrs...)
+	}
+
+	return errs
+}
+
+// validateFallbacks checks that fallback chain provider names are non-empty.
+func validateFallbacks(fallbacks map[string][]string, filePath string) []error {
+	var errs []error
+	for provider, chain := range fallbacks {
+		if strings.TrimSpace(provider) == "" {
+			errs = append(errs, &ValidationError{
+				File:       filePath,
+				Field:      "runtime.fallbacks",
+				Reason:     "provider name must not be empty",
+				Suggestion: "Use a provider name like 'anthropic', 'openai', or 'gemini'",
+			})
+		}
+		for i, fallback := range chain {
+			if strings.TrimSpace(fallback) == "" {
+				errs = append(errs, &ValidationError{
+					File:       filePath,
+					Field:      fmt.Sprintf("runtime.fallbacks.%s[%d]", provider, i),
+					Reason:     "fallback provider name must not be empty",
+					Suggestion: "Specify a valid provider name in the fallback chain",
+				})
+			}
+		}
+	}
 	return errs
 }
 
