@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -5019,6 +5018,235 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
 }
 
+// TestExecuteStep_FailureClassification_Transient verifies that a transient failure
+// (rate limit StepError) is classified correctly and the step retries.
+func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Fails once with a rate limit StepError, then succeeds.
+	failAdapter := newCountingFailAdapter(1, adapter.NewStepError(adapter.FailureReasonRateLimit, errors.New("rate limited"), 0, ""))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "transient-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err, "should succeed on second attempt after transient failure")
+
+	// Should have been called twice: 1 failure + 1 success
+	assert.Equal(t, 2, failAdapter.getCallCount(), "adapter should be called twice")
+
+	// Verify the failed attempt was classified as transient
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "transient", failedAttempts[0].FailureClass, "failure class should be transient for rate limit error")
+}
+
+// TestExecuteStep_FailureClassification_Deterministic_SkipsRetry verifies that a
+// deterministic failure (e.g. invalid API key) skips remaining retries immediately.
+func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a deterministic error message.
+	failAdapter := newCountingFailAdapter(10, errors.New("invalid api key"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "deterministic-skip-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with deterministic error")
+
+	// Deterministic failures are not retryable — only 1 attempt should be made
+	assert.Equal(t, 1, failAdapter.getCallCount(), "adapter should only be called once for deterministic failure")
+
+	// Verify the failed attempt was classified as deterministic
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.Len(t, failedAttempts, 1, "should have exactly 1 failed attempt record")
+	assert.Equal(t, "deterministic", failedAttempts[0].FailureClass, "failure class should be deterministic")
+
+	// Verify event was emitted about skipping retries
+	events := collector.GetEvents()
+	foundSkipMsg := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "non-retryable failure class") {
+			foundSkipMsg = true
+			break
+		}
+	}
+	assert.True(t, foundSkipMsg, "should emit event about non-retryable failure class")
+}
+
+// TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures verifies that the circuit
+// breaker trips when the same failure fingerprint repeats beyond the configured limit.
+func TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Always fails with a test_failure class error
+	failAdapter := newCountingFailAdapter(10, errors.New("test failed: compile error"))
+
+	executor := NewDefaultPipelineExecutor(failAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	m.Runtime.CircuitBreaker = manifest.CircuitBreakerConfig{
+		Limit:          2,
+		TrackedClasses: []string{"test_failure", "deterministic", "contract_failure"},
+	}
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "circuit-breaker-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 5,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail due to circuit breaker tripping")
+
+	// The circuit breaker has limit=2, so the step should trip after 2 failures,
+	// not exhaust all 5 attempts.
+	callCount := failAdapter.getCallCount()
+	assert.Less(t, callCount, 5, "circuit breaker should trip before all 5 attempts")
+
+	// Verify circuit breaker tripped event
+	events := collector.GetEvents()
+	foundCircuitBreaker := false
+	for _, e := range events {
+		if strings.Contains(e.Message, "circuit breaker tripped") {
+			foundCircuitBreaker = true
+			break
+		}
+	}
+	assert.True(t, foundCircuitBreaker, "should emit circuit breaker tripped event")
+}
+
+// TestExecuteStep_FailureClassification_Canceled verifies that a pre-canceled context
+// is classified as "canceled" and the step does not retry.
+func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	store := newAttemptTrackingStore()
+
+	// Use a mock adapter with a simulated delay so that it respects ctx.Done()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithSimulatedDelay(10*time.Second),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithStateStore(store),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "canceled-classification-test"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "do work"},
+				Retry: RetryConfig{
+					MaxAttempts: 3,
+					BaseDelay:   "1ms",
+				},
+			},
+		},
+	}
+
+	// Cancel the context before executing
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "should fail with canceled context")
+
+	// Verify the failed attempt was classified as canceled
+	attempts := store.getAttempts()
+	var failedAttempts []state.StepAttemptRecord
+	for _, a := range attempts {
+		if a.State == StateFailed {
+			failedAttempts = append(failedAttempts, a)
+		}
+	}
+	require.NotEmpty(t, failedAttempts, "should have at least 1 failed attempt record")
+	assert.Equal(t, "canceled", failedAttempts[0].FailureClass, "failure class should be canceled")
+}
+
 // TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
 // using auto-approve mode completes all steps successfully. The gate has choices
 // with a default, and auto-approve selects the default (approve -> implement).
@@ -5309,3 +5537,4 @@ func TestExecutor_GateStep_TemplateVars(t *testing.T) {
 	assert.Equal(t, "Approve", decision.Label, "decision label should be 'Approve'")
 	assert.Empty(t, decision.Target, "decision target should be empty (natural DAG flow)")
 }
+
