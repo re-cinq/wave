@@ -512,6 +512,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	// Guard against unbounded gate revision loops: each gate re-queue increments
+	// this counter and the pipeline fails when the limit is exceeded.
+	const maxGateRequeues = 10
+	gateRequeueCount := 0
+
 	for completedCount < schedulableSteps {
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
@@ -523,6 +528,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			// Handle gate re-queue: reset completed map and re-enter scheduling loop
 			var requeueErr *ReQueueError
 			if errors.As(err, &requeueErr) {
+				gateRequeueCount++
+				if gateRequeueCount > maxGateRequeues {
+					e.cleanupCompletedPipeline(pipelineID)
+					return fmt.Errorf("gate re-queue limit exceeded (%d): possible infinite revision loop via step %q", maxGateRequeues, requeueErr.TargetStepID)
+				}
 				// Remove re-queued steps from completed set
 				for stepID := range requeueErr.ResetSteps {
 					delete(completed, stepID)
@@ -3482,7 +3492,11 @@ func (e *DefaultPipelineExecutor) executeGateStep(ctx context.Context, execution
 
 		// Write freeform text as artifact if provided
 		if decision.Text != "" {
-			artifactPath := filepath.Join(".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
+			if wsRoot == "" {
+				wsRoot = ".wave/workspaces"
+			}
+			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
 			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr == nil {
 				_ = os.WriteFile(artifactPath, []byte(decision.Text), 0644)
 			}
