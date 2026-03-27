@@ -626,6 +626,28 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
+			// ReQueueError means gate routing reset steps to pending — re-enter the scheduling loop
+			var reQueueErr *ReQueueError
+			if errors.As(err, &reQueueErr) {
+				// Remove re-queued steps from the completed map so findReadySteps can re-schedule them
+				for stepID := range reQueueErr.ResetSteps {
+					if completed[stepID] {
+						delete(completed, stepID)
+						completedCount--
+					}
+				}
+				// Mark the gate step itself as completed (it already set its state)
+				for _, step := range ready {
+					execution.mu.Lock()
+					stepState := execution.States[step.ID]
+					execution.mu.Unlock()
+					if stepState == StateCompleted && !completed[step.ID] {
+						completed[step.ID] = true
+						completedCount++
+					}
+				}
+				continue
+			}
 			execution.Status.State = StateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string
@@ -1546,6 +1568,19 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		execution.mu.Unlock()
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+		}
+
+		// Record checkpoint for fork/rewind support
+		if e.store != nil {
+			stepIndex := -1
+			for i, s := range execution.Pipeline.Steps {
+				if s.ID == step.ID {
+					stepIndex = i
+					break
+				}
+			}
+			recorder := &CheckpointRecorder{store: e.store}
+			recorder.Record(execution, step, stepIndex)
 		}
 
 		// Record step completion for ETA calculation
