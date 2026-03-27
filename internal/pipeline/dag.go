@@ -262,3 +262,99 @@ func ValidatePipelineSkills(p *Pipeline, store skill.Store) []error {
 	return skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, store)
 }
 
+// IsGraphPipeline returns true if any step defines edges or uses a conditional type,
+// indicating the pipeline should be executed in graph mode rather than DAG mode.
+func IsGraphPipeline(p *Pipeline) bool {
+	for _, step := range p.Steps {
+		if len(step.Edges) > 0 || step.Type == StepTypeConditional {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateGraph validates a graph-mode pipeline. Unlike ValidateDAG, it allows
+// backward edges (cycles) but enforces safety limits and structural requirements.
+func (v *DAGValidator) ValidateGraph(p *Pipeline) error {
+	stepMap := make(map[string]*Step)
+	for i := range p.Steps {
+		stepMap[p.Steps[i].ID] = &p.Steps[i]
+	}
+
+	// Validate basic step structure (dependencies exist, retry config, etc.)
+	for _, step := range p.Steps {
+		for _, depID := range step.Dependencies {
+			if _, exists := stepMap[depID]; !exists {
+				return fmt.Errorf("step %q depends on non-existent step %q", step.ID, depID)
+			}
+		}
+		if err := step.Retry.Validate(); err != nil {
+			return fmt.Errorf("step %q: %w", step.ID, err)
+		}
+	}
+
+	// Validate edge targets exist
+	for _, step := range p.Steps {
+		for _, edge := range step.Edges {
+			if _, exists := stepMap[edge.Target]; !exists {
+				return fmt.Errorf("step %q has edge targeting non-existent step %q", step.ID, edge.Target)
+			}
+			// Validate condition syntax
+			if edge.Condition != "" {
+				if _, err := ParseCondition(edge.Condition); err != nil {
+					return fmt.Errorf("step %q edge to %q: %w", step.ID, edge.Target, err)
+				}
+			}
+		}
+	}
+
+	// Validate conditional steps have edges
+	for _, step := range p.Steps {
+		if step.Type == StepTypeConditional && len(step.Edges) == 0 {
+			return fmt.Errorf("step %q is type=conditional but has no edges defined", step.ID)
+		}
+	}
+
+	// Validate command steps have scripts
+	for _, step := range p.Steps {
+		if step.Type == StepTypeCommand && step.Script == "" {
+			return fmt.Errorf("step %q is type=command but has no script defined", step.ID)
+		}
+	}
+
+	// Validate max_visits is positive when set
+	for _, step := range p.Steps {
+		if step.MaxVisits < 0 {
+			return fmt.Errorf("step %q has negative max_visits (%d)", step.ID, step.MaxVisits)
+		}
+	}
+
+	// Validate max_step_visits is positive when set
+	if p.MaxStepVisits < 0 {
+		return fmt.Errorf("pipeline has negative max_step_visits (%d)", p.MaxStepVisits)
+	}
+
+	// Validate that no step without edges has multiple dependents (fan-out).
+	// findNextDAGStep returns the first dependent found in declaration order,
+	// silently dropping any additional dependents. Reject at validation time
+	// so pipeline authors get a clear error instead of surprising behavior.
+	for _, step := range p.Steps {
+		if len(step.Edges) > 0 {
+			continue // steps with explicit edges use edge routing, not DAG fallback
+		}
+		var dependents []string
+		for _, candidate := range p.Steps {
+			for _, dep := range candidate.Dependencies {
+				if dep == step.ID {
+					dependents = append(dependents, candidate.ID)
+				}
+			}
+		}
+		if len(dependents) > 1 {
+			return fmt.Errorf("step %q has no edges but multiple dependents %v; add explicit edges to control fan-out routing", step.ID, dependents)
+		}
+	}
+
+	return nil
+}
+

@@ -299,5 +299,11 @@ CREATE INDEX IF NOT EXISTS idx_ontology_usage_run ON ontology_usage(run_id);`,
 DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP INDEX IF EXISTS idx_ontology_usage_run;`,
 		},
+		{
+			Version:     12,
+			Description: "Add visit_count column to step_state for graph-mode loop tracking",
+			Up:          `ALTER TABLE step_state ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;`,
+			Down:        "",
+		},
 	}
 }
