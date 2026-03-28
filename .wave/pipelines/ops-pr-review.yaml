@@ -229,7 +229,6 @@ steps:
     retry:
       policy: aggressive
       max_attempts: 2
-      on_failure: retry
     handover:
       contract:
         type: json_schema

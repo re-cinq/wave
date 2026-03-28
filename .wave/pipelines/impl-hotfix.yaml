@@ -37,7 +37,6 @@ steps:
     retry:
       policy: patient
       max_attempts: 2
-      on_failure: retry
     handover:
       contract:
         type: json_schema
@@ -72,7 +71,6 @@ steps:
     retry:
       policy: standard
       max_attempts: 3
-      on_failure: retry
     handover:
       contract:
         type: test_suite
