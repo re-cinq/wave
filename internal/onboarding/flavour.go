@@ -480,6 +480,47 @@ var flavourRules = []FlavourRule{
 			Skill:         "typescript",
 		},
 	},
+	// Docker compose (multi-service project)
+	{
+		Markers: []string{"compose.yml"},
+		Info: FlavourInfo{
+			Flavour:      "docker-compose",
+			Language:     "",
+			TestCommand:  "docker compose run --rm test",
+			BuildCommand: "docker compose build",
+			SourceGlob:   "",
+		},
+	},
+	{
+		Markers: []string{"compose.yaml"},
+		Info: FlavourInfo{
+			Flavour:      "docker-compose",
+			Language:     "",
+			TestCommand:  "docker compose run --rm test",
+			BuildCommand: "docker compose build",
+			SourceGlob:   "",
+		},
+	},
+	{
+		Markers: []string{"docker-compose.yml"},
+		Info: FlavourInfo{
+			Flavour:      "docker-compose",
+			Language:     "",
+			TestCommand:  "docker compose run --rm test",
+			BuildCommand: "docker compose build",
+			SourceGlob:   "",
+		},
+	},
+	{
+		Markers: []string{"docker-compose.yaml"},
+		Info: FlavourInfo{
+			Flavour:      "docker-compose",
+			Language:     "",
+			TestCommand:  "docker compose run --rm test",
+			BuildCommand: "docker compose build",
+			SourceGlob:   "",
+		},
+	},
 	// Make (fallback, excludes other common build systems)
 	{
 		Markers:  []string{"Makefile"},

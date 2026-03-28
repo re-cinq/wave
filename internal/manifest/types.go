@@ -8,16 +8,27 @@ import (
 	"github.com/recinq/wave/internal/hooks"
 )
 
-type Project struct {
+// ServiceConfig describes a single service in a multi-service project.
+type ServiceConfig struct {
+	Path                string `yaml:"path"`
 	Language            string `yaml:"language,omitempty"`
-	Flavour             string `yaml:"flavour,omitempty"`
+	BuildCommand        string `yaml:"build_command,omitempty"`
 	TestCommand         string `yaml:"test_command,omitempty"`
 	ContractTestCommand string `yaml:"contract_test_command,omitempty"`
-	LintCommand         string `yaml:"lint_command,omitempty"`
-	BuildCommand        string `yaml:"build_command,omitempty"`
-	FormatCommand       string `yaml:"format_command,omitempty"`
 	SourceGlob          string `yaml:"source_glob,omitempty"`
-	Skill               string `yaml:"skill,omitempty"`
+}
+
+type Project struct {
+	Language            string                    `yaml:"language,omitempty"`
+	Flavour             string                    `yaml:"flavour,omitempty"`
+	TestCommand         string                    `yaml:"test_command,omitempty"`
+	ContractTestCommand string                    `yaml:"contract_test_command,omitempty"`
+	LintCommand         string                    `yaml:"lint_command,omitempty"`
+	BuildCommand        string                    `yaml:"build_command,omitempty"`
+	FormatCommand       string                    `yaml:"format_command,omitempty"`
+	SourceGlob          string                    `yaml:"source_glob,omitempty"`
+	Skill               string                    `yaml:"skill,omitempty"`
+	Services            map[string]ServiceConfig  `yaml:"services,omitempty"`
 }
 
 // OntologyContext defines a bounded context within the project ontology.
@@ -295,6 +306,33 @@ func (p *Project) ProjectVars() map[string]string {
 	if p.Skill != "" {
 		vars["project.skill"] = p.Skill
 	}
+
+	// Per-service template variables: {{ project.services.<name>.<field> }}
+	for name, svc := range p.Services {
+		prefix := "project.services." + name + "."
+		if svc.Path != "" {
+			vars[prefix+"path"] = svc.Path
+		}
+		if svc.Language != "" {
+			vars[prefix+"language"] = svc.Language
+		}
+		if svc.BuildCommand != "" {
+			vars[prefix+"build_command"] = svc.BuildCommand
+		}
+		if svc.TestCommand != "" {
+			vars[prefix+"test_command"] = svc.TestCommand
+		}
+		switch {
+		case svc.ContractTestCommand != "":
+			vars[prefix+"contract_test_command"] = svc.ContractTestCommand
+		case svc.TestCommand != "":
+			vars[prefix+"contract_test_command"] = svc.TestCommand
+		}
+		if svc.SourceGlob != "" {
+			vars[prefix+"source_glob"] = svc.SourceGlob
+		}
+	}
+
 	return vars
 }
 

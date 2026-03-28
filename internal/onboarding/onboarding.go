@@ -3,6 +3,7 @@ package onboarding
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/recinq/wave/internal/manifest"
 	"gopkg.in/yaml.v3"
@@ -39,6 +40,7 @@ type WizardResult struct {
 	Dependencies         []DependencyStatus
 	OntologyTelos    string   // project purpose statement
 	OntologyContexts []string // bounded context names
+	Services         map[string]manifest.ServiceConfig // detected monorepo services
 }
 
 // DependencyStatus reports the status of a required dependency.
@@ -109,6 +111,28 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 		if v, ok := testResult.Data["skill"].(string); ok {
 			result.Skill = v
 		}
+	}
+
+	// Detect monorepo services from metadata + sub-projects
+	cwd, _ := os.Getwd()
+	meta := ExtractProjectMetadata(cwd)
+	if len(meta.SubProjects) > 0 {
+		services := make(map[string]manifest.ServiceConfig, len(meta.SubProjects))
+		for _, sub := range meta.SubProjects {
+			svc := manifest.ServiceConfig{
+				Path:     sub.Path,
+				Language: sub.Language,
+			}
+			// Try to detect per-service flavour for commands
+			subFlavour := DetectFlavour(filepath.Join(cwd, sub.Path))
+			if subFlavour != nil {
+				svc.TestCommand = subFlavour.TestCommand
+				svc.BuildCommand = subFlavour.BuildCommand
+				svc.SourceGlob = subFlavour.SourceGlob
+			}
+			services[sub.Name] = svc
+		}
+		result.Services = services
 	}
 
 	// Step 3: Pipeline selection
@@ -340,6 +364,33 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 	}
 	if result.Skill != "" {
 		project["skill"] = result.Skill
+	}
+	// Add per-service configurations for monorepo projects
+	if len(result.Services) > 0 {
+		services := make(map[string]interface{})
+		for name, svc := range result.Services {
+			entry := map[string]interface{}{}
+			if svc.Path != "" {
+				entry["path"] = svc.Path
+			}
+			if svc.Language != "" {
+				entry["language"] = svc.Language
+			}
+			if svc.BuildCommand != "" {
+				entry["build_command"] = svc.BuildCommand
+			}
+			if svc.TestCommand != "" {
+				entry["test_command"] = svc.TestCommand
+			}
+			if svc.ContractTestCommand != "" {
+				entry["contract_test_command"] = svc.ContractTestCommand
+			}
+			if svc.SourceGlob != "" {
+				entry["source_glob"] = svc.SourceGlob
+			}
+			services[name] = entry
+		}
+		project["services"] = services
 	}
 	if len(project) > 0 {
 		m["project"] = project

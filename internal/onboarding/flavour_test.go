@@ -495,6 +495,26 @@ func TestDetectFlavour(t *testing.T) {
 		},
 	}
 
+	// Docker compose variants
+	composeFiles := []string{"compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"}
+	for _, cf := range composeFiles {
+		name := cf
+		tests = append(tests, struct {
+			name        string
+			setup       func(string)
+			wantNil     bool
+			wantFlavour string
+			wantLang    string
+		}{
+			name: "docker-compose via " + name,
+			setup: func(dir string) {
+				createFile(t, filepath.Join(dir, name))
+			},
+			wantFlavour: "docker-compose",
+			wantLang:    "",
+		})
+	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()

@@ -760,7 +760,59 @@ func detectMonorepo(dir string) *MonorepoInfo {
 		}
 	}
 
+	// docker compose (multi-service)
+	for _, name := range []string{"compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
+			return &MonorepoInfo{
+				Type:       "docker-compose",
+				ConfigFile: name,
+				Packages:   findComposeServices(dir, name),
+			}
+		}
+	}
+
 	return nil
+}
+
+// findComposeServices extracts service names with build contexts from a compose file.
+func findComposeServices(dir, filename string) []string {
+	data, err := os.ReadFile(filepath.Join(dir, filename))
+	if err != nil {
+		return nil
+	}
+
+	lines := strings.Split(string(data), "\n")
+	var services []string
+	inServices := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		// Top-level key
+		if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+			if strings.HasPrefix(trimmed, "services:") {
+				inServices = true
+				continue
+			}
+			if inServices {
+				break
+			}
+			continue
+		}
+
+		if !inServices {
+			continue
+		}
+
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if indent == 2 && strings.HasSuffix(trimmed, ":") {
+			services = append(services, strings.TrimSuffix(trimmed, ":"))
+		}
+	}
+	return services
 }
 
 // findNXPackages finds packages in an NX monorepo by checking common dirs.
