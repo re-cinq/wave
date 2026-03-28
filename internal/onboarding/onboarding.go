@@ -427,21 +427,45 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 		m["skills"] = result.Skills
 	}
 
-	// Add ontology section if telos or contexts are provided
-	if result.OntologyTelos != "" || len(result.OntologyContexts) > 0 {
-		ontology := map[string]interface{}{}
-		if result.OntologyTelos != "" {
-			ontology["telos"] = result.OntologyTelos
+	// Add ontology section — always include base quality context
+	ontology := map[string]interface{}{}
+	if result.OntologyTelos != "" {
+		ontology["telos"] = result.OntologyTelos
+	}
+
+	// Build contexts: user-provided + base quality context
+	var contexts []map[string]interface{}
+	for _, name := range result.OntologyContexts {
+		contexts = append(contexts, map[string]interface{}{
+			"name": name,
+		})
+	}
+
+	// Inject base quality context (validation-as-expected-loop)
+	hasQuality := false
+	for _, name := range result.OntologyContexts {
+		if name == "quality" {
+			hasQuality = true
+			break
 		}
-		if len(result.OntologyContexts) > 0 {
-			contexts := make([]map[string]interface{}, len(result.OntologyContexts))
-			for i, name := range result.OntologyContexts {
-				contexts[i] = map[string]interface{}{
-					"name": name,
-				}
-			}
-			ontology["contexts"] = contexts
-		}
+	}
+	if !hasQuality {
+		contexts = append(contexts, map[string]interface{}{
+			"name":        "quality",
+			"description": "Validation and quality gates — first-pass failure is expected, rework is the norm",
+			"invariants": []string{
+				"First-pass success is the exception, not the rule — validation exists to catch and correct",
+				"Every pipeline output must pass through a validation gate before being considered done",
+				"Rework after review is not a failure — it is the expected path to quality",
+				"Contract validation, PR review, and test suites are gates, not formalities",
+			},
+		})
+	}
+
+	if len(contexts) > 0 {
+		ontology["contexts"] = contexts
+	}
+	if len(ontology) > 0 {
 		m["ontology"] = ontology
 	}
 

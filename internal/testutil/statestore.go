@@ -550,6 +550,34 @@ func (m *MockStateStore) GetDecisionsByStep(runID, stepID string) ([]*state.Deci
 	return nil, nil
 }
 
+func (m *MockStateStore) CreateWebhook(webhook *state.Webhook) (int64, error) {
+	return 0, nil
+}
+
+func (m *MockStateStore) ListWebhooks() ([]*state.Webhook, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) GetWebhook(id int64) (*state.Webhook, error) {
+	return nil, errors.New("webhook not found")
+}
+
+func (m *MockStateStore) UpdateWebhook(webhook *state.Webhook) error {
+	return nil
+}
+
+func (m *MockStateStore) DeleteWebhook(id int64) error {
+	return nil
+}
+
+func (m *MockStateStore) RecordWebhookDelivery(delivery *state.WebhookDelivery) error {
+	return nil
+}
+
+func (m *MockStateStore) GetWebhookDeliveries(webhookID int64, limit int) ([]*state.WebhookDelivery, error) {
+	return nil, nil
+}
+
 // Functional options for overriding specific methods.
 
 func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
