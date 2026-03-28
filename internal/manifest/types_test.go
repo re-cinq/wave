@@ -127,6 +127,62 @@ func TestProjectVars(t *testing.T) {
 	}
 }
 
+func TestProjectVars_Services(t *testing.T) {
+	p := &Project{
+		Language:    "go",
+		TestCommand: "go test ./...",
+		Services: map[string]ServiceConfig{
+			"api": {
+				Path:         "services/api",
+				Language:     "go",
+				TestCommand:  "go test ./services/api/...",
+				BuildCommand: "go build ./services/api",
+				SourceGlob:   "services/api/**/*.go",
+			},
+			"web": {
+				Path:                "services/web",
+				Language:            "typescript",
+				TestCommand:         "npm test",
+				ContractTestCommand: "npm run test:contracts",
+			},
+		},
+	}
+
+	vars := p.ProjectVars()
+
+	// Root vars still work
+	if vars["project.language"] != "go" {
+		t.Errorf("expected project.language=go, got %q", vars["project.language"])
+	}
+
+	// API service vars
+	if vars["project.services.api.path"] != "services/api" {
+		t.Errorf("expected api.path, got %q", vars["project.services.api.path"])
+	}
+	if vars["project.services.api.language"] != "go" {
+		t.Errorf("expected api.language=go, got %q", vars["project.services.api.language"])
+	}
+	if vars["project.services.api.test_command"] != "go test ./services/api/..." {
+		t.Errorf("expected api.test_command, got %q", vars["project.services.api.test_command"])
+	}
+	if vars["project.services.api.build_command"] != "go build ./services/api" {
+		t.Errorf("expected api.build_command, got %q", vars["project.services.api.build_command"])
+	}
+	// API has no explicit contract_test_command, should fall back to test_command
+	if vars["project.services.api.contract_test_command"] != "go test ./services/api/..." {
+		t.Errorf("expected api.contract_test_command fallback, got %q", vars["project.services.api.contract_test_command"])
+	}
+
+	// Web service vars
+	if vars["project.services.web.language"] != "typescript" {
+		t.Errorf("expected web.language=typescript, got %q", vars["project.services.web.language"])
+	}
+	// Web has explicit contract_test_command, should NOT fall back
+	if vars["project.services.web.contract_test_command"] != "npm run test:contracts" {
+		t.Errorf("expected web.contract_test_command explicit, got %q", vars["project.services.web.contract_test_command"])
+	}
+}
+
 func TestOntologyVars(t *testing.T) {
 	tests := []struct {
 		name     string
