@@ -22,7 +22,7 @@ input:
 steps:
   - id: fetch-epic
     persona: "{{ forge.type }}-analyst"
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
