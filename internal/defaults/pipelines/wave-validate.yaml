@@ -60,7 +60,7 @@ steps:
   # Step 2: Sub-pipeline composition — validates child pipeline invocation
   - id: sub-pipeline-test
     type: pipeline
-    pipeline: wave-smoke-test
+    pipeline: ops-hello-world
     dependencies: [check-config]
 
   # Step 3: Command step — validates shell execution without adapter
