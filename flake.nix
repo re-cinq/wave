@@ -27,6 +27,14 @@
           uv         # Python package manager for skill installation
         ];
 
+        claudeYoloScript = pkgs.writeShellScriptBin "claude-yolo" ''
+          exec claude --dangerously-skip-permissions "$@"
+        '';
+
+        claudeResumeScript = pkgs.writeShellScriptBin "claude-resume" ''
+          exec claude --dangerously-skip-permissions --resume "$@"
+        '';
+
         # SWE-bench dataset fetcher — downloads from HuggingFace datasets viewer API.
         # Pure curl+jq, no Python/numpy needed — works inside bwrap sandbox.
         benchFetchScript = pkgs.writeShellScriptBin "wave-bench-fetch" ''
@@ -202,7 +210,7 @@
         devShells = {
           # Default: sandboxed on Linux, unsandboxed on macOS (bwrap needs namespaces)
           default = pkgs.mkShell {
-            buildInputs = commonPackages ++ [ sandboxScript benchFetchScript ];
+            buildInputs = commonPackages ++ [ sandboxScript benchFetchScript claudeYoloScript claudeResumeScript ];
             shellHook = ''
               echo ""
               echo "  ╦ ╦╔═╗╦  ╦╔═╗"
