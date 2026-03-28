@@ -521,7 +521,12 @@ steps:
         2. Create a pull request using the report as the body:
            ```bash
            COMMIT_SUBJECT=$(git log --format=%s -1)
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "refactor: $COMMIT_SUBJECT" --body-file .wave/artifacts/report
+           if echo "$COMMIT_SUBJECT" | grep -qE '^(feat|fix|docs|refactor|test|chore|ci|style|perf)(\(.*\))?!?:'; then
+             echo "$COMMIT_SUBJECT" > /tmp/wave-pr-title.txt
+           else
+             echo "refactor: $COMMIT_SUBJECT" > /tmp/wave-pr-title.txt
+           fi
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/report
            ```
 
         3. If the context artifact shows `input_type` is `"issue"` or `"pr"`,
