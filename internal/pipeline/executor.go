@@ -1777,11 +1777,13 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 
 	// Determine which contexts were injected: if step declares contexts, only those;
 	// otherwise all contexts are injected (RenderMarkdown with empty filter passes all).
+	// Only record targeted (explicitly declared) contexts — bulk injection inflates stats.
 	injectedContexts := step.Contexts
 	if len(injectedContexts) == 0 {
-		for _, ctx := range execution.Manifest.Ontology.Contexts {
-			injectedContexts = append(injectedContexts, ctx.Name)
-		}
+		// Step didn't declare specific contexts — skip ontology tracking.
+		// All contexts are injected by default, but recording all of them
+		// makes every context show identical stats, which is meaningless.
+		return
 	}
 
 	// Determine contract pass/fail: nil if no contract, true/false based on step outcome
