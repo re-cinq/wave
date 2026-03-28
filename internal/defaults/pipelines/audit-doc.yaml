@@ -17,7 +17,7 @@ input:
 steps:
   - id: scan-changes
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

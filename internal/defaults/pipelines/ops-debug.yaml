@@ -14,7 +14,7 @@ input:
 steps:
   - id: reproduce
     persona: debugger
-    model: claude-haiku-4-5
+    model: claude-haiku
     thread: debug
     workspace:
       mount:

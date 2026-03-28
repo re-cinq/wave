@@ -22,7 +22,7 @@ input:
 steps:
   - id: collect-inventory
     persona: "{{ forge.type }}-analyst"
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -112,7 +112,7 @@ steps:
 
   - id: audit-items
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     dependencies: [collect-inventory]
     memory:
       inject_artifacts:
