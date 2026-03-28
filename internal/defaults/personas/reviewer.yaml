@@ -1,5 +1,4 @@
 description: "Code review and quality checks"
-model: claude-haiku
 temperature: 0.1
 permissions:
   allowed_tools:

@@ -1,5 +1,4 @@
 description: "Skeptical analysis and verification of findings against source code"
-model: sonnet
 temperature: 0.1
 permissions:
   allowed_tools:
