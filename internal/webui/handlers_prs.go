@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -27,7 +28,8 @@ func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/prs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] template error rendering prs page: %v", err)
+		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
 
@@ -59,7 +61,8 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, number)
 	if err != nil {
-		http.Error(w, "PR not found: "+err.Error(), http.StatusNotFound)
+		log.Printf("[webui] failed to fetch PR #%d: %v", number, err)
+		http.Error(w, "PR not found", http.StatusNotFound)
 		return
 	}
 
@@ -91,7 +94,9 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	var checks []PRCheck
 	if pr.HeadSHA != "" {
 		forgeChecks, err := s.forgeClient.GetCommitChecks(ctx, owner, repo, pr.HeadSHA)
-		if err == nil {
+		if err != nil {
+			log.Printf("[webui] failed to fetch checks for PR #%d (SHA %s): %v", number, pr.HeadSHA, err)
+		} else {
 			for _, c := range forgeChecks {
 				checks = append(checks, PRCheck{
 					Name:       c.Name,
@@ -103,10 +108,39 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch commits for the PR
+	var commits []CommitSummary
+	forgeCommits, err := s.forgeClient.ListPullRequestCommits(ctx, owner, repo, number)
+	if err != nil {
+		log.Printf("[webui] failed to fetch commits for PR #%d: %v", number, err)
+	} else {
+		for _, fc := range forgeCommits {
+			msg := fc.Message
+			if idx := strings.Index(msg, "\n"); idx >= 0 {
+				msg = msg[:idx]
+			}
+			shortSHA := fc.SHA
+			if len(shortSHA) > 7 {
+				shortSHA = shortSHA[:7]
+			}
+			commits = append(commits, CommitSummary{
+				SHA:      fc.SHA,
+				ShortSHA: shortSHA,
+				Message:  msg,
+				Author:   fc.Author,
+				Date:     fc.Date.Format("2006-01-02 15:04"),
+				TimeISO:  fc.Date.Format("2006-01-02T15:04:05Z"),
+				HTMLURL:  fc.HTMLURL,
+			})
+		}
+	}
+
 	// Fetch last 10 comments
 	var comments []CommentSummary
 	forgeComments, err := s.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
-	if err == nil {
+	if err != nil {
+		log.Printf("[webui] failed to fetch comments for PR #%d: %v", number, err)
+	} else {
 		for _, c := range forgeComments {
 			comments = append(comments, CommentSummary{
 				Author:    c.Author,
@@ -119,10 +153,11 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		ActivePage string
-		PR         PRDetail
-		Runs       []RunSummary
-		Comments   []CommentSummary
+		ActivePage    string
+		PR            PRDetail
+		Runs          []RunSummary
+		Comments      []CommentSummary
+		CommitDetails []CommitSummary
 	}{
 		ActivePage: "prs",
 		PR: PRDetail{
@@ -146,13 +181,15 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 			URL:          pr.HTMLURL,
 			Checks:       checks,
 		},
-		Runs:     relatedRuns,
-		Comments: comments,
+		Runs:          relatedRuns,
+		Comments:      comments,
+		CommitDetails: commits,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/pr_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] template error rendering PR detail page: %v", err)
+		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
 
@@ -187,11 +224,12 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		Page:    page,
 	})
 	if err != nil {
+		log.Printf("[webui] failed to fetch pull requests: %v", err)
 		return PRListResponse{
 			PullRequests: []PRSummary{},
 			FilterState:  stateFilter,
 			Page:         page,
-			Message:      "Failed to fetch pull requests: " + err.Error(),
+			Message:      "Failed to fetch pull requests. Check server logs for details.",
 		}
 	}
 
@@ -207,6 +245,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			Title:        pr.Title,
 			State:        pr.State,
 			Author:       pr.Author,
+			Labels:       pr.Labels,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
 			HeadBranch:   pr.HeadBranch,

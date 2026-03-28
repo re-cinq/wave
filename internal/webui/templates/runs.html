@@ -3,6 +3,10 @@
 <div class="page-header">
     <h1>Pipeline Runs</h1>
     <div class="actions">
+        <div class="btn-group" style="display:inline-flex;gap:0.25rem;margin-right:0.5rem;">
+            <a href="/api/runs/export?format=csv" class="btn btn-sm" title="Export runs as CSV" aria-label="Export runs as CSV">Export CSV</a>
+            <a href="/api/runs/export?format=json" class="btn btn-sm" title="Export runs as JSON" aria-label="Export runs as JSON">Export JSON</a>
+        </div>
         <button id="start-pipeline-btn" class="btn btn-primary" onclick="toggleStartForm()" aria-label="Start a new pipeline run">Start Pipeline</button>
     </div>
 </div>

@@ -12,18 +12,26 @@
     </select>
 </div>
 
+<div id="label-filter-chips" class="filter-chips" style="display:none;">
+    <span class="filter-chip" id="label-filter-chip">
+        Label: <span id="label-filter-value"></span>
+        <button class="filter-chip-clear" onclick="clearLabelFilter()" title="Remove label filter">&times;</button>
+    </span>
+</div>
+
 {{if .Message}}
 <div class="alert alert-error">
     <p>{{.Message}}</p>
 </div>
 {{else if .PullRequests}}
-<table class="table">
+<table class="table" id="prs-table">
         <thead>
             <tr>
                 <th>#</th>
                 <th>Title</th>
                 <th>State</th>
                 <th>Author</th>
+                <th>Labels</th>
                 <th>Branch</th>
                 <th>Changes</th>
                 <th>Created</th>
@@ -31,7 +39,7 @@
         </thead>
         <tbody>
             {{range .PullRequests}}
-            <tr>
+            <tr data-labels="{{range $i, $l := .Labels}}{{if $i}},{{end}}{{$l}}{{end}}">
                 <td><a href="/prs/{{.Number}}">#{{.Number}}</a></td>
                 <td><a href="/prs/{{.Number}}">{{.Title}}</a></td>
                 <td>
@@ -42,6 +50,7 @@
                     {{end}}
                 </td>
                 <td>{{.Author}}</td>
+                <td>{{range .Labels}}<span class="badge badge-label" onclick="filterByLabel('{{.}}')" style="cursor:pointer;" title="Click to filter by this label">{{.}}</span> {{end}}</td>
                 <td><code>{{.HeadBranch}}</code> &rarr; <code>{{.BaseBranch}}</code></td>
                 <td>{{if or .Additions .Deletions .ChangedFiles}}<span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} {{pluralize .ChangedFiles "file" "files"}}){{else}}--{{end}}</td>
                 <td>{{.CreatedAt}}</td>
@@ -77,5 +86,50 @@ function filterPRs() {
     if (stateEl && stateEl.value) params.set('state', stateEl.value);
     window.location.search = params.toString();
 }
+
+function filterByLabel(label) {
+    var params = new URLSearchParams(window.location.search);
+    params.set('label', label);
+    history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+    applyLabelFilter(label);
+}
+
+function clearLabelFilter() {
+    var params = new URLSearchParams(window.location.search);
+    params.delete('label');
+    var qs = params.toString();
+    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+    applyLabelFilter('');
+}
+
+function applyLabelFilter(label) {
+    var chips = document.getElementById('label-filter-chips');
+    var valueSpan = document.getElementById('label-filter-value');
+    if (label) {
+        valueSpan.textContent = label;
+        chips.style.display = '';
+    } else {
+        chips.style.display = 'none';
+    }
+    var table = document.getElementById('prs-table');
+    if (!table) return;
+    var rows = table.querySelectorAll('tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (!label) {
+            row.style.display = '';
+            continue;
+        }
+        var rowLabels = (row.getAttribute('data-labels') || '').split(',');
+        row.style.display = rowLabels.indexOf(label) !== -1 ? '' : 'none';
+    }
+}
+
+// Apply label filter from URL on page load
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var label = params.get('label');
+    if (label) applyLabelFilter(label);
+})();
 </script>
 {{end}}

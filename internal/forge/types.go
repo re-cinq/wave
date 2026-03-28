@@ -69,6 +69,15 @@ type Comment struct {
 	HTMLURL   string
 }
 
+// Commit is a forge-neutral representation of a commit on a pull request.
+type Commit struct {
+	SHA     string
+	Message string
+	Author  string
+	Date    time.Time
+	HTMLURL string
+}
+
 // CheckRun represents a CI/CD check result for a commit.
 type CheckRun struct {
 	Name       string // check name (e.g. "CI / build")

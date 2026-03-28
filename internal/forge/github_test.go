@@ -184,6 +184,69 @@ func TestGitHubClient_UnwrapGitHub(t *testing.T) {
 	}
 }
 
+func TestConvertGitHubPRCommits(t *testing.T) {
+	now := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+
+	ghCommits := []*github.PullRequestCommit{
+		{
+			SHA: "abc1234567890def",
+			Commit: github.PullRequestCommitDetail{
+				Message: "feat: add commit view\n\nDetailed description here.",
+				Author:  github.PullRequestCommitAuthor{Name: "git-author", Date: now},
+			},
+			Author:  &github.User{Login: "gh-user"},
+			HTMLURL: "https://github.com/owner/repo/commit/abc1234567890def",
+		},
+		{
+			SHA: "def4567890123abc",
+			Commit: github.PullRequestCommitDetail{
+				Message: "fix: typo correction",
+				Author:  github.PullRequestCommitAuthor{Name: "git-author2", Date: now.Add(-time.Hour)},
+			},
+			Author:  nil, // nil GitHub user — should fall back to git commit author
+			HTMLURL: "https://github.com/owner/repo/commit/def4567890123abc",
+		},
+	}
+
+	result := make([]*Commit, 0, len(ghCommits))
+	for _, gc := range ghCommits {
+		c := &Commit{
+			SHA:     gc.SHA,
+			Message: gc.Commit.Message,
+			Author:  gc.Commit.Author.Name,
+			Date:    gc.Commit.Author.Date,
+			HTMLURL: gc.HTMLURL,
+		}
+		if gc.Author != nil {
+			c.Author = gc.Author.Login
+		}
+		result = append(result, c)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 commits, got %d", len(result))
+	}
+
+	// First commit: GitHub user login overrides git author name
+	if result[0].SHA != "abc1234567890def" {
+		t.Errorf("result[0].SHA = %q, want %q", result[0].SHA, "abc1234567890def")
+	}
+	if result[0].Author != "gh-user" {
+		t.Errorf("result[0].Author = %q, want %q (GitHub login)", result[0].Author, "gh-user")
+	}
+	if result[0].HTMLURL != "https://github.com/owner/repo/commit/abc1234567890def" {
+		t.Errorf("result[0].HTMLURL = %q, unexpected", result[0].HTMLURL)
+	}
+
+	// Second commit: nil GitHub user, falls back to git author name
+	if result[1].Author != "git-author2" {
+		t.Errorf("result[1].Author = %q, want %q (git commit author fallback)", result[1].Author, "git-author2")
+	}
+	if !result[1].Date.Equal(now.Add(-time.Hour)) {
+		t.Errorf("result[1].Date = %v, want %v", result[1].Date, now.Add(-time.Hour))
+	}
+}
+
 func TestConvertGitHubCheckRuns(t *testing.T) {
 	t.Run("maps all fields correctly", func(t *testing.T) {
 		ghCheckRuns := []*github.CheckRun{
