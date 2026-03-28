@@ -17,6 +17,7 @@ input:
 steps:
   - id: audit
     persona: navigator
+    contexts: [quality]
     max_concurrent_agents: 3
     model: claude-haiku
     workspace:
