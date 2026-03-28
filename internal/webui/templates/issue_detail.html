@@ -37,18 +37,19 @@
     <h2>Description</h2>
     <div class="issue-body">
         <div class="markdown-body" id="issue-body"></div>
+        <script type="text/plain" id="issue-body-raw">{{.Issue.Body}}</script>
     </div>
 </div>
 <script>
-(function() {
-    var raw = {{.Issue.Body | js}};
+document.addEventListener('DOMContentLoaded', function() {
+    var raw = document.getElementById('issue-body-raw').textContent;
     var el = document.getElementById('issue-body');
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
         el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
     } else {
         el.textContent = raw;
     }
-})();
+});
 </script>
 {{end}}
 

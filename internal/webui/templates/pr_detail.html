@@ -36,18 +36,19 @@
     <h2>Description</h2>
     <div class="issue-body">
         <div class="markdown-body" id="pr-body"></div>
+        <script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
     </div>
 </div>
 <script>
-(function() {
-    var raw = {{.PR.Body | js}};
+document.addEventListener('DOMContentLoaded', function() {
+    var raw = document.getElementById('pr-body-raw').textContent;
     var el = document.getElementById('pr-body');
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
         el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
     } else {
         el.textContent = raw;
     }
-})();
+});
 </script>
 {{end}}
 

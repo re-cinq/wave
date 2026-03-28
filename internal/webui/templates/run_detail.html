@@ -114,11 +114,17 @@
         <summary class="section-toggle"><h2>Artifacts</h2></summary>
         <div class="artifact-tree">
             {{range .ArtifactGroups}}
+            {{$stepID := .StepID}}
             <div class="artifact-group">
                 <strong>{{.StepID}}</strong>
                 <ul>
                     {{range .Artifacts}}
-                    <li>{{.Name}} <span class="artifact-size">({{.SizeBytes}} bytes)</span></li>
+                    <li>
+                        <a href="#" class="artifact-link" data-run-id="{{$.RunID}}" data-step-id="{{$stepID}}" data-artifact-name="{{.Name}}" onclick="toggleArtifact(this); return false;">{{.Name}}</a>
+                        <span class="artifact-size">({{.SizeBytes}} bytes)</span>
+                        <a href="/api/runs/{{$.RunID}}/artifacts/{{$stepID}}/{{.Name}}" download class="artifact-download" title="Download">&#8615;</a>
+                        <div class="artifact-inline" hidden></div>
+                    </li>
                     {{end}}
                 </ul>
             </div>
