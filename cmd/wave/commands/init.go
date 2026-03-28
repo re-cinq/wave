@@ -1348,7 +1348,7 @@ var forgeTypeToPrefix = map[forge.ForgeType]string{
 	forge.ForgeGitLab:    "gitlab",
 	forge.ForgeBitbucket: "bitbucket",
 	forge.ForgeGitea:     "gitea",
-	forge.ForgeCodeberg:  "codeberg",
+	forge.ForgeCodeberg:  "gitea", // Codeberg is Forgejo — shares Gitea personas
 }
 
 // filterPersonasByForge filters persona configs to only include personas
