@@ -364,6 +364,8 @@ func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, opts 
 }
 
 // ListPullRequestCommits retrieves the commits on a pull request.
+// Note: returns at most 100 commits (single page, no pagination).
+// PRs with more than 100 commits will have their commit list silently truncated.
 func (c *Client) ListPullRequestCommits(ctx context.Context, owner, repo string, number int) ([]*PullRequestCommit, error) {
 	path := fmt.Sprintf("/repos/%s/%s/pulls/%d/commits?per_page=100", owner, repo, number)
 

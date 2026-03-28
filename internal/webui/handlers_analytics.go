@@ -78,7 +78,8 @@ func (s *Server) handleAnalyticsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/analytics.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] template error rendering analytics page: %v", err)
+		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
 
