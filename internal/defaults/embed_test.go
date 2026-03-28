@@ -280,11 +280,19 @@ func TestGetPersonaConfigs_ModelOverrides(t *testing.T) {
 		t.Fatalf("GetPersonaConfigs() error: %v", err)
 	}
 
-	// Only these personas should have model overrides
+	// Persona model routing: opus for code/research, haiku for analysis, sonnet (default) for review/forge
 	expectedModels := map[string]string{
-		"provocateur": "opus",
-		"validator":   "sonnet",
-		"synthesizer": "sonnet",
+		"craftsman":   "claude-opus",
+		"implementer": "claude-opus",
+		"debugger":    "claude-opus",
+		"researcher":  "claude-opus",
+		"supervisor":  "claude-opus",
+		"philosopher": "claude-opus",
+		"provocateur": "claude-opus",
+		"navigator":   "claude-haiku",
+		"summarizer":  "claude-haiku",
+		"planner":     "claude-haiku",
+		"auditor":     "claude-haiku",
 	}
 
 	for name, cfg := range configs {
