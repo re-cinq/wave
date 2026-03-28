@@ -2915,16 +2915,16 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p1))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1, nil, "navigator"))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p2))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2, nil, "navigator"))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(nil, p3))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3, nil, "navigator"))
 }
 
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.

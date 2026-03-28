@@ -143,6 +143,11 @@ func (b baseStateStore) ListRetrospectives(state.ListRetrosOptions) ([]state.Ret
 func (b baseStateStore) DeleteRetrospective(string) error                      { return nil }
 func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error    { return nil }
 func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error        { return nil }
+func (b baseStateStore) RecordDecision(*state.DecisionRecord) error            { return nil }
+func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error)  { return nil, nil }
+func (b baseStateStore) GetDecisionsByStep(string, string) ([]*state.DecisionRecord, error) {
+	return nil, nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
