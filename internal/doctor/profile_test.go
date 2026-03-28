@@ -874,6 +874,33 @@ func TestScanProject_PNPMWorkspaces(t *testing.T) {
 	assert.Contains(t, profile.MonorepoLayout.Packages, filepath.Join("packages", "beta"))
 }
 
+func TestScanProject_DockerCompose(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, dir, "compose.yml", `services:
+  api:
+    build: ./api
+  web:
+    build: ./web
+  db:
+    image: postgres:15
+`)
+	writeFile(t, dir, "api/main.go", `package main`)
+	writeFile(t, dir, "web/index.js", `console.log("hello")`)
+
+	profile, err := ScanProject(dir, WithRunCmd(func(name string, args ...string) ([]byte, error) {
+		return nil, fmt.Errorf("not available in test")
+	}))
+	require.NoError(t, err)
+
+	require.NotNil(t, profile.MonorepoLayout)
+	assert.Equal(t, "docker-compose", profile.MonorepoLayout.Type)
+	assert.Equal(t, "compose.yml", profile.MonorepoLayout.ConfigFile)
+	assert.Contains(t, profile.MonorepoLayout.Packages, "api")
+	assert.Contains(t, profile.MonorepoLayout.Packages, "web")
+	assert.Contains(t, profile.MonorepoLayout.Packages, "db")
+}
+
 func TestScanProject_LintToolCombinations(t *testing.T) {
 	dir := t.TempDir()
 

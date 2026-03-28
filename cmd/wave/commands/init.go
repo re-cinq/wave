@@ -309,24 +309,27 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 	fileExists := err == nil
 
 	if fileExists {
-		if opts.Merge {
+		if opts.Force && !opts.Merge {
+			// --force (without --merge): warn and require confirmation before destructive overwrite
+			if !opts.Yes {
+				confirmed, err := confirmForceOverwrite(cmd, absOutputPath)
+				if err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
+				if !confirmed {
+					return fmt.Errorf("aborted: force overwrite cancelled (use --merge to preserve custom settings)")
+				}
+			}
+			// Check file permissions before overwriting
+			if existingFile.Mode().Perm()&0200 == 0 {
+				return fmt.Errorf("cannot overwrite %s: file is read-only", absOutputPath)
+			}
+		} else {
+			// Default behavior when wave.yaml exists: merge
+			// Explicit --merge flag, --merge --force combo, or implicit default all route here.
+			// When --force is combined with --merge, it acts as a prompt-skip modifier
+			// (handled by confirmMerge which checks opts.Force).
 			return runMerge(cmd, opts, absOutputPath)
-		}
-
-		if !opts.Force && !opts.Yes {
-			// Prompt for confirmation (FR-010)
-			confirmed, err := confirmOverwrite(cmd, absOutputPath)
-			if err != nil {
-				return fmt.Errorf("failed to read confirmation: %w", err)
-			}
-			if !confirmed {
-				return fmt.Errorf("aborted: %s already exists (use --force to overwrite or --merge to merge)", absOutputPath)
-			}
-		}
-
-		// Check file permissions before overwriting
-		if existingFile.Mode().Perm()&0200 == 0 {
-			return fmt.Errorf("cannot overwrite %s: file is read-only", absOutputPath)
 		}
 	}
 
@@ -492,6 +495,32 @@ func confirmOverwrite(cmd *cobra.Command, path string) (bool, error) {
 	return response == "y" || response == "yes", nil
 }
 
+// confirmForceOverwrite prints a warning about data loss and asks for confirmation.
+// This is used when --force is specified to ensure the user understands that custom
+// personas, adapter configurations, and ontology settings will be lost.
+func confirmForceOverwrite(cmd *cobra.Command, path string) (bool, error) {
+	if cmd.InOrStdin() == nil {
+		return false, nil
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "\n  WARNING: --force will overwrite %s\n", path)
+	fmt.Fprintf(cmd.ErrOrStderr(), "  This will REPLACE all custom settings including:\n")
+	fmt.Fprintf(cmd.ErrOrStderr(), "    - Custom personas and adapter configurations\n")
+	fmt.Fprintf(cmd.ErrOrStderr(), "    - Ontology section (telos, contexts, conventions)\n")
+	fmt.Fprintf(cmd.ErrOrStderr(), "    - Project metadata (name, description)\n")
+	fmt.Fprintf(cmd.ErrOrStderr(), "\n  Consider using 'wave init --merge' to preserve custom settings.\n\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Proceed with force overwrite? [y/N]: ")
+
+	reader := bufio.NewReader(cmd.InOrStdin())
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes", nil
+}
+
 func mergeManifests(defaults, existing map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 
@@ -536,6 +565,108 @@ func mergeMaps(defaults, existing map[string]interface{}) map[string]interface{}
 		} else {
 			result[k] = v
 		}
+	}
+
+	return result
+}
+
+// mergeTypedManifests merges a generated manifest into an existing one,
+// preserving custom settings from the existing manifest while updating
+// infrastructure defaults from the generated manifest.
+//
+// Preservation rules:
+//   - Custom personas (not in generated) are preserved
+//   - Custom adapter configurations are preserved
+//   - Ontology section is preserved entirely from existing
+//   - Metadata.Name is preserved if already set
+//   - Metadata.Description is preserved if already set
+//   - apiVersion, kind, and runtime settings are updated from generated
+func mergeTypedManifests(existing, generated *manifest.Manifest) *manifest.Manifest {
+	result := &manifest.Manifest{}
+
+	// Update infrastructure defaults from generated
+	result.APIVersion = generated.APIVersion
+	result.Kind = generated.Kind
+
+	// Preserve metadata from existing if set, otherwise use generated
+	result.Metadata = generated.Metadata
+	if existing.Metadata.Name != "" {
+		result.Metadata.Name = existing.Metadata.Name
+	}
+	if existing.Metadata.Description != "" {
+		result.Metadata.Description = existing.Metadata.Description
+	}
+	if existing.Metadata.Repo != "" {
+		result.Metadata.Repo = existing.Metadata.Repo
+	}
+	if existing.Metadata.Forge != "" {
+		result.Metadata.Forge = existing.Metadata.Forge
+	}
+
+	// Merge adapters: generated as base, existing overrides/adds
+	result.Adapters = make(map[string]manifest.Adapter)
+	for name, adapter := range generated.Adapters {
+		result.Adapters[name] = adapter
+	}
+	for name, adapter := range existing.Adapters {
+		result.Adapters[name] = adapter
+	}
+
+	// Merge personas: generated as base, existing overrides/adds
+	// Custom personas (not in generated) are preserved
+	result.Personas = make(map[string]manifest.Persona)
+	for name, persona := range generated.Personas {
+		result.Personas[name] = persona
+	}
+	for name, persona := range existing.Personas {
+		result.Personas[name] = persona
+	}
+
+	// Preserve ontology section entirely from existing if present
+	if existing.Ontology != nil {
+		result.Ontology = existing.Ontology
+	} else {
+		result.Ontology = generated.Ontology
+	}
+
+	// Preserve project section from existing if present
+	if existing.Project != nil {
+		result.Project = existing.Project
+	} else {
+		result.Project = generated.Project
+	}
+
+	// Update runtime settings from generated
+	result.Runtime = generated.Runtime
+
+	// Preserve server config from existing if set
+	if existing.Server != nil {
+		result.Server = existing.Server
+	} else {
+		result.Server = generated.Server
+	}
+
+	// Merge skills: combine both sets, deduplicate
+	skillSet := make(map[string]bool)
+	for _, s := range generated.Skills {
+		skillSet[s] = true
+	}
+	for _, s := range existing.Skills {
+		skillSet[s] = true
+	}
+	if len(skillSet) > 0 {
+		result.Skills = make([]string, 0, len(skillSet))
+		for s := range skillSet {
+			result.Skills = append(result.Skills, s)
+		}
+		sort.Strings(result.Skills)
+	}
+
+	// Preserve hooks from existing if set
+	if len(existing.Hooks) > 0 {
+		result.Hooks = existing.Hooks
+	} else {
+		result.Hooks = generated.Hooks
 	}
 
 	return result

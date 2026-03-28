@@ -124,40 +124,32 @@ func TestInitEmptyDirectory(t *testing.T) {
 	assert.Equal(t, "wave-project", metadata["name"])
 }
 
-// TestInitWithExistingWaveYaml tests that init fails when wave.yaml already exists.
+// TestInitWithExistingWaveYaml tests that init defaults to merge when wave.yaml already exists.
 func TestInitWithExistingWaveYaml(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
-	// Create an existing wave.yaml
-	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\n")
+	// Create an existing wave.yaml with a custom name
+	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\nruntime:\n  workspace_root: .wave/workspaces\n")
 	err := os.WriteFile("wave.yaml", existingContent, 0644)
 	require.NoError(t, err, "failed to create existing wave.yaml")
 
-	// Use --yes flag which will cause failure without interactive prompt
-	// (since it requires --force or --merge)
-	cmd := NewInitCmd()
-	cmd.SetArgs([]string{})
+	// Run init with --yes (auto-confirm merge)
+	stdout, _, err := executeInitCmd("--yes")
 
-	// Provide "n" as input to decline overwrite
-	cmd.SetIn(strings.NewReader("n\n"))
-	var outBuf, errBuf bytes.Buffer
-	cmd.SetOut(&outBuf)
-	cmd.SetErr(&errBuf)
+	// Verify successful merge execution (default behavior when wave.yaml exists)
+	require.NoError(t, err, "init should default to merge when wave.yaml already exists")
+	assert.Contains(t, stdout, "Configuration merged successfully", "should indicate merge operation")
 
-	err = cmd.Execute()
-
-	// Verify that init fails (user declined)
-	assert.Error(t, err, "init should fail when wave.yaml already exists and user declines")
-	assert.Contains(t, err.Error(), "already exists", "error should mention file exists")
-
-	// Verify original file is unchanged
-	data, err := os.ReadFile("wave.yaml")
+	// Verify custom name is preserved
+	manifest, err := readYAML("wave.yaml")
 	require.NoError(t, err)
-	assert.Equal(t, existingContent, data, "existing wave.yaml should be unchanged")
+	metadata, ok := manifest["metadata"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "existing", metadata["name"], "custom name should be preserved in merge")
 }
 
-// TestInitWithForceFlag tests that init --force overwrites existing files.
+// TestInitWithForceFlag tests that init --force --yes overwrites existing files.
 func TestInitWithForceFlag(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -167,10 +159,11 @@ func TestInitWithForceFlag(t *testing.T) {
 	err := os.WriteFile("wave.yaml", existingContent, 0644)
 	require.NoError(t, err, "failed to create existing wave.yaml")
 
-	stdout, _, err := executeInitCmd("--force")
+	// --force now requires confirmation, use --yes to skip
+	stdout, _, err := executeInitCmd("--force", "--yes")
 
 	// Verify successful execution
-	require.NoError(t, err, "init --force should succeed")
+	require.NoError(t, err, "init --force --yes should succeed")
 	assert.Contains(t, stdout, "Project initialized successfully")
 
 	// Verify file was overwritten with new content
@@ -179,6 +172,137 @@ func TestInitWithForceFlag(t *testing.T) {
 	metadata, ok := manifest["metadata"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "wave-project", metadata["name"], "file should be overwritten with default name")
+}
+
+// TestInitForceRequiresConfirmation tests that --force warns and asks for confirmation.
+func TestInitForceRequiresConfirmation(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// Create an existing wave.yaml
+	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\n")
+	err := os.WriteFile("wave.yaml", existingContent, 0644)
+	require.NoError(t, err, "failed to create existing wave.yaml")
+
+	// Run --force without --yes and decline
+	cmd := NewInitCmd()
+	cmd.SetArgs([]string{"--force"})
+	cmd.SetIn(strings.NewReader("n\n"))
+	var outBuf, errBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetErr(&errBuf)
+
+	err = cmd.Execute()
+
+	// Should fail because user declined
+	assert.Error(t, err, "init --force should fail when user declines")
+	assert.Contains(t, err.Error(), "force overwrite cancelled", "error should mention cancellation")
+
+	// Should have printed warning to stderr
+	assert.Contains(t, errBuf.String(), "WARNING", "should print warning about data loss")
+	assert.Contains(t, errBuf.String(), "Custom personas", "warning should mention personas")
+	assert.Contains(t, errBuf.String(), "Ontology", "warning should mention ontology")
+
+	// Original file should be unchanged
+	data, err := os.ReadFile("wave.yaml")
+	require.NoError(t, err)
+	assert.Equal(t, existingContent, data, "existing wave.yaml should be unchanged")
+}
+
+// TestInitForceAccepted tests that --force proceeds when user accepts.
+func TestInitForceAccepted(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// Create an existing wave.yaml
+	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\n")
+	err := os.WriteFile("wave.yaml", existingContent, 0644)
+	require.NoError(t, err, "failed to create existing wave.yaml")
+
+	// Run --force and accept
+	cmd := NewInitCmd()
+	cmd.SetArgs([]string{"--force"})
+	cmd.SetIn(strings.NewReader("y\n"))
+	var outBuf, errBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetErr(&errBuf)
+
+	err = cmd.Execute()
+
+	// Should succeed
+	require.NoError(t, err, "init --force should succeed when user accepts")
+	assert.Contains(t, outBuf.String(), "Project initialized successfully")
+
+	// File should be overwritten
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+	metadata, ok := manifest["metadata"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "wave-project", metadata["name"], "file should be overwritten with default name")
+}
+
+// TestInitDefaultsMergeWhenExisting tests that plain 'wave init' defaults to merge behavior.
+func TestInitDefaultsMergeWhenExisting(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	// Create an existing wave.yaml with custom personas and ontology
+	existingContent := `apiVersion: v1
+kind: WaveManifest
+metadata:
+  name: my-project
+  description: My custom project
+adapters:
+  custom-llm:
+    binary: custom-llm
+    mode: headless
+personas:
+  my-agent:
+    adapter: custom-llm
+    system_prompt_file: .wave/personas/my-agent.md
+    temperature: 0.7
+ontology:
+  telos: "Build the best widget system"
+  contexts:
+    - name: widget-core
+      description: Core widget functionality
+      invariants:
+        - "Widgets must be immutable after creation"
+runtime:
+  workspace_root: .wave/workspaces
+`
+	err := os.WriteFile("wave.yaml", []byte(existingContent), 0644)
+	require.NoError(t, err)
+
+	// Run plain init with --yes (auto-confirm)
+	stdout, _, err := executeInitCmd("--yes")
+	require.NoError(t, err, "plain init with existing wave.yaml should merge")
+	assert.Contains(t, stdout, "Configuration merged successfully")
+
+	// Verify custom settings preserved
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+
+	// Custom name preserved
+	metadata, ok := manifest["metadata"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "my-project", metadata["name"])
+
+	// Custom adapter preserved
+	adapters, ok := manifest["adapters"].(map[string]interface{})
+	require.True(t, ok)
+	_, hasCustom := adapters["custom-llm"]
+	assert.True(t, hasCustom, "custom adapter should be preserved")
+
+	// Default adapter added
+	_, hasClaude := adapters["claude"]
+	assert.True(t, hasClaude, "default claude adapter should be added")
+
+	// Custom persona preserved
+	personas, ok := manifest["personas"].(map[string]interface{})
+	require.True(t, ok)
+	_, hasMyAgent := personas["my-agent"]
+	assert.True(t, hasMyAgent, "custom persona should be preserved")
 }
 
 // TestInitMergeFlag tests that init --merge merges with existing configuration.
@@ -429,13 +553,13 @@ func TestInitErrorMessagesIncludeFilePaths(t *testing.T) {
 	err := os.MkdirAll(".wave", 0755)
 	require.NoError(t, err)
 
-	// Create wave.yaml without --force to trigger "already exists" error
-	err = os.WriteFile("wave.yaml", []byte("test"), 0644)
+	// Create wave.yaml with invalid content to trigger a parse error during merge
+	err = os.WriteFile("wave.yaml", []byte("test: [invalid"), 0644)
 	require.NoError(t, err)
 
-	// Use the command with a "n" response to decline overwrite
+	// Without --force, init defaults to merge — which will fail to parse
 	cmd := NewInitCmd()
-	cmd.SetIn(strings.NewReader("n\n"))
+	cmd.SetArgs([]string{"--yes"})
 	var outBuf, errBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
 	cmd.SetErr(&errBuf)
@@ -448,7 +572,7 @@ func TestInitErrorMessagesIncludeFilePaths(t *testing.T) {
 		"error message should include file path: %v", err)
 }
 
-// TestInitIdempotence tests that running init twice with --force produces the same result.
+// TestInitIdempotence tests that running init twice with --force --yes produces the same result.
 func TestInitIdempotence(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
@@ -461,8 +585,8 @@ func TestInitIdempotence(t *testing.T) {
 	manifest1, err := readYAML("wave.yaml")
 	require.NoError(t, err)
 
-	// Second init with --force
-	_, _, err = executeInitCmd("--force")
+	// Second init with --force --yes
+	_, _, err = executeInitCmd("--force", "--yes")
 	require.NoError(t, err)
 
 	// Read regenerated files
@@ -1558,17 +1682,17 @@ func TestInitMergeFlagCombinations(t *testing.T) {
 		checkMerge     bool // if true, verify merge behavior
 	}{
 		{
-			name:          "init on existing prompts and user declines",
-			args:          []string{},
-			envVars:       map[string]string{},
-			stdin:         "n\n",
-			setupCustom:   true,
-			expectError:   true,
-			errorContains: "already exists",
+			name:           "init on existing defaults to merge silently",
+			args:           []string{},
+			envVars:        map[string]string{},
+			stdin:          "n\n",
+			setupCustom:    true,
+			checkPreserved: true, // custom persona file should be preserved
+			checkMerge:     true,
 		},
 		{
-			name:           "force overwrites everything",
-			args:           []string{"--force"},
+			name:           "force with yes overwrites everything",
+			args:           []string{"--force", "--yes"},
 			setupCustom:    true,
 			checkOverwrite: true,
 		},
@@ -1842,4 +1966,289 @@ steps:
 	// Unrelated persona should NOT be included
 	_, hasUnrelated := personaConfigs["unrelated"]
 	assert.False(t, hasUnrelated, "unrelated persona should not be included")
+}
+
+// TestMergeTypedManifestsPreservesCustomPersonas tests that custom personas are preserved.
+func TestMergeTypedManifestsPreservesCustomPersonas(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "my-project"},
+		Personas: map[string]manifest.Persona{
+			"custom-agent": {
+				Adapter:          "claude",
+				SystemPromptFile: ".wave/personas/custom.md",
+				Temperature:      0.9,
+			},
+			"navigator": {
+				Adapter:          "claude",
+				SystemPromptFile: ".wave/personas/navigator.md",
+				Temperature:      0.5,
+				Model:            "custom-model",
+			},
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		Personas: map[string]manifest.Persona{
+			"navigator": {
+				Adapter:          "claude",
+				SystemPromptFile: ".wave/personas/navigator.md",
+				Temperature:      0.3,
+			},
+			"craftsman": {
+				Adapter:          "claude",
+				SystemPromptFile: ".wave/personas/craftsman.md",
+				Temperature:      0.2,
+			},
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	// Custom persona preserved
+	customAgent, hasCustom := result.Personas["custom-agent"]
+	assert.True(t, hasCustom, "custom persona should be preserved")
+	assert.Equal(t, 0.9, customAgent.Temperature, "custom persona temperature preserved")
+
+	// Existing navigator overrides generated (user's customization wins)
+	nav, hasNav := result.Personas["navigator"]
+	assert.True(t, hasNav)
+	assert.Equal(t, 0.5, nav.Temperature, "existing persona should override generated")
+	assert.Equal(t, "custom-model", nav.Model, "existing model should be preserved")
+
+	// New default persona added
+	_, hasCraftsman := result.Personas["craftsman"]
+	assert.True(t, hasCraftsman, "new default persona should be added")
+}
+
+// TestMergeTypedManifestsPreservesAdapters tests that custom adapters are preserved.
+func TestMergeTypedManifestsPreservesAdapters(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "test"},
+		Adapters: map[string]manifest.Adapter{
+			"custom-llm": {
+				Binary: "custom-llm",
+				Mode:   "interactive",
+			},
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {
+				Binary:       "claude",
+				Mode:         "headless",
+				OutputFormat: "json",
+			},
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	// Custom adapter preserved
+	_, hasCustom := result.Adapters["custom-llm"]
+	assert.True(t, hasCustom, "custom adapter should be preserved")
+
+	// Default adapter added
+	_, hasClaude := result.Adapters["claude"]
+	assert.True(t, hasClaude, "default adapter should be added")
+}
+
+// TestMergeTypedManifestsPreservesOntology tests that the ontology section is preserved.
+func TestMergeTypedManifestsPreservesOntology(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "test"},
+		Ontology: &manifest.Ontology{
+			Telos: "Build the best widget system",
+			Contexts: []manifest.OntologyContext{
+				{
+					Name:        "widget-core",
+					Description: "Core widget functionality",
+					Invariants:  []string{"Widgets must be immutable after creation"},
+				},
+			},
+			Conventions: map[string]string{
+				"naming": "PascalCase for types",
+			},
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		// No ontology in generated
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	// Ontology preserved entirely from existing
+	require.NotNil(t, result.Ontology, "ontology should be preserved")
+	assert.Equal(t, "Build the best widget system", result.Ontology.Telos)
+	assert.Len(t, result.Ontology.Contexts, 1)
+	assert.Equal(t, "widget-core", result.Ontology.Contexts[0].Name)
+	assert.Equal(t, "PascalCase for types", result.Ontology.Conventions["naming"])
+}
+
+// TestMergeTypedManifestsUpdatesInfrastructure tests that apiVersion, kind, and runtime are updated.
+func TestMergeTypedManifestsUpdatesInfrastructure(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v0",
+		Kind:       "OldKind",
+		Metadata:   manifest.Metadata{Name: "test"},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:        ".wave/workspaces",
+			MaxConcurrentWorkers: 2,
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:        ".wave/workspaces",
+			MaxConcurrentWorkers: 5,
+			DefaultTimeoutMin:    30,
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	// Infrastructure updated from generated
+	assert.Equal(t, "v1", result.APIVersion, "apiVersion should be updated from generated")
+	assert.Equal(t, "WaveManifest", result.Kind, "kind should be updated from generated")
+	assert.Equal(t, 5, result.Runtime.MaxConcurrentWorkers, "runtime should be updated from generated")
+	assert.Equal(t, 30, result.Runtime.DefaultTimeoutMin, "runtime timeout should come from generated")
+}
+
+// TestMergeTypedManifestsPreservesMetadata tests that metadata is preserved from existing.
+func TestMergeTypedManifestsPreservesMetadata(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata: manifest.Metadata{
+			Name:        "my-project",
+			Description: "My custom description",
+			Repo:        "https://github.com/me/my-project",
+			Forge:       "github",
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata: manifest.Metadata{
+			Name:        "wave-project",
+			Description: "A Wave multi-agent project",
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	assert.Equal(t, "my-project", result.Metadata.Name, "name should be preserved from existing")
+	assert.Equal(t, "My custom description", result.Metadata.Description, "description should be preserved")
+	assert.Equal(t, "https://github.com/me/my-project", result.Metadata.Repo, "repo should be preserved")
+	assert.Equal(t, "github", result.Metadata.Forge, "forge should be preserved")
+}
+
+// TestMergeTypedManifestsEmptyExisting tests merge with a minimal existing manifest.
+func TestMergeTypedManifestsEmptyExisting(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: ""},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata: manifest.Metadata{
+			Name:        "wave-project",
+			Description: "A Wave multi-agent project",
+		},
+		Adapters: map[string]manifest.Adapter{
+			"claude": {Binary: "claude", Mode: "headless"},
+		},
+		Personas: map[string]manifest.Persona{
+			"navigator": {Adapter: "claude"},
+		},
+		Runtime: manifest.Runtime{
+			WorkspaceRoot:        ".wave/workspaces",
+			MaxConcurrentWorkers: 5,
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	// When existing is empty, generated values are used
+	assert.Equal(t, "wave-project", result.Metadata.Name, "generated name used when existing is empty")
+	assert.Equal(t, "A Wave multi-agent project", result.Metadata.Description, "generated description used")
+	assert.Len(t, result.Adapters, 1, "generated adapters used")
+	assert.Len(t, result.Personas, 1, "generated personas used")
+}
+
+// TestMergeTypedManifestsPreservesProject tests that project config is preserved.
+func TestMergeTypedManifestsPreservesProject(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "test"},
+		Project: &manifest.Project{
+			Language:    "go",
+			TestCommand: "go test ./...",
+			LintCommand: "golangci-lint run",
+		},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		Project: &manifest.Project{
+			Language:    "go",
+			TestCommand: "go test ./...",
+		},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	require.NotNil(t, result.Project)
+	assert.Equal(t, "go", result.Project.Language)
+	assert.Equal(t, "golangci-lint run", result.Project.LintCommand, "existing lint command preserved")
+}
+
+// TestMergeTypedManifestsMergesSkills tests that skills are merged and deduplicated.
+func TestMergeTypedManifestsMergesSkills(t *testing.T) {
+	existing := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "test"},
+		Skills:     []string{"skill-a", "skill-b"},
+	}
+
+	generated := &manifest.Manifest{
+		APIVersion: "v1",
+		Kind:       "WaveManifest",
+		Metadata:   manifest.Metadata{Name: "wave-project"},
+		Skills:     []string{"skill-b", "skill-c"},
+	}
+
+	result := mergeTypedManifests(existing, generated)
+
+	assert.Len(t, result.Skills, 3, "skills should be merged and deduplicated")
+	assert.Contains(t, result.Skills, "skill-a")
+	assert.Contains(t, result.Skills, "skill-b")
+	assert.Contains(t, result.Skills, "skill-c")
 }

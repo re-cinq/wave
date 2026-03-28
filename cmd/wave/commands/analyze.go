@@ -39,6 +39,7 @@ type AnalyzeContext struct {
 func NewAnalyzeCmd() *cobra.Command {
 	var deepFlag bool
 	var evolveFlag bool
+	var applyFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "analyze",
@@ -50,11 +51,13 @@ in wave.yaml.
 By default, performs a deterministic scan using directory structure and
 package detection. Use --deep for AI-assisted analysis that extracts
 invariants, domain vocabulary, and key decisions from code and tests.
-Use --evolve to propose ontology updates based on pipeline run history.`,
+Use --evolve to propose ontology updates based on pipeline run history.
+Use --apply to auto-write proposed contexts to wave.yaml.`,
 		Example: `  wave analyze
   wave analyze --json
   wave analyze --deep
-  wave analyze --evolve`,
+  wave analyze --evolve
+  wave analyze --apply`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -62,17 +65,18 @@ Use --evolve to propose ontology updates based on pipeline run history.`,
 			if deepFlag {
 				return runAnalyzeDeep(cmd)
 			}
-			return runAnalyze(cmd, evolveFlag)
+			return runAnalyze(cmd, evolveFlag, applyFlag)
 		},
 	}
 
 	cmd.Flags().BoolVar(&deepFlag, "deep", false, "Use AI-assisted analysis (requires adapter)")
 	cmd.Flags().BoolVar(&evolveFlag, "evolve", false, "Propose updates based on pipeline run history")
+	cmd.Flags().BoolVar(&applyFlag, "apply", false, "Auto-write proposed contexts to wave.yaml")
 
 	return cmd
 }
 
-func runAnalyze(cmd *cobra.Command, evolve bool) error {
+func runAnalyze(cmd *cobra.Command, evolve bool, apply bool) error {
 	outputCfg := GetOutputConfig(cmd)
 	format := ResolveFormat(cmd, "text")
 	if outputCfg.Format == OutputFormatJSON {
@@ -136,10 +140,17 @@ func runAnalyze(cmd *cobra.Command, evolve bool) error {
 		renderAnalyzeText(cmd.OutOrStdout(), result, f)
 	}
 
-	// Suggest updating wave.yaml if new contexts were proposed
-	if len(proposedContexts) > 0 {
+	// Auto-write proposed contexts to wave.yaml when --apply is set
+	if apply && len(proposedContexts) > 0 {
+		if err := writeContextsToManifest(manifestPath, proposedContexts); err != nil {
+			return NewCLIError(CodeInternalError,
+				fmt.Sprintf("failed to write contexts to manifest: %s", err),
+				"Check write permissions for wave.yaml").WithCause(err)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\n  ✓ %d new context(s) written to %s\n", len(proposedContexts), manifestPath)
+	} else if len(proposedContexts) > 0 {
 		fmt.Fprintf(cmd.OutOrStdout(), "\n  %s New contexts detected from project structure.\n", f.Muted("Tip:"))
-		fmt.Fprintf(cmd.OutOrStdout(), "  Add them to wave.yaml under ontology.contexts, or re-run with --deep for AI enrichment.\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  Run 'wave analyze --apply' to add them to wave.yaml, or --deep for AI enrichment.\n")
 	}
 
 	return nil
@@ -227,6 +238,7 @@ func matchesContext(path, contextName, normalized string) bool {
 }
 
 // proposeNewContexts suggests contexts from package structure that aren't already declared.
+// It scans standard code directories, monorepo packages, manifest services, and compose services.
 func proposeNewContexts(m *manifest.Manifest, profile *doctor.ProjectProfile) []AnalyzeContext {
 	if profile == nil {
 		return nil
@@ -240,8 +252,8 @@ func proposeNewContexts(m *manifest.Manifest, profile *doctor.ProjectProfile) []
 		}
 	}
 
-	// Look for top-level packages that could be contexts
-	var proposed []AnalyzeContext
+	// Track already-proposed names to avoid duplicates
+	proposed := make(map[string]*AnalyzeContext)
 
 	// Check internal/ or src/ directories for potential bounded contexts
 	for _, dir := range []string{"internal", "src", "pkg", "lib", "app"} {
@@ -254,22 +266,84 @@ func proposeNewContexts(m *manifest.Manifest, profile *doctor.ProjectProfile) []
 				continue
 			}
 			name := entry.Name()
-			if existing[name] || strings.HasPrefix(name, ".") {
+			if existing[name] || strings.HasPrefix(name, ".") || proposed[name] != nil {
 				continue
 			}
-			// Count files to determine if this is a significant package
 			count := countFiles(filepath.Join(dir, name))
-			if count >= 3 { // Only propose packages with 3+ files
-				proposed = append(proposed, AnalyzeContext{
+			if count >= 3 {
+				proposed[name] = &AnalyzeContext{
 					Name:      name,
 					Packages:  []string{filepath.Join(dir, name)},
 					FileCount: count,
-				})
+				}
 			}
 		}
 	}
 
-	return proposed
+	// Scan monorepo packages from doctor profile
+	if profile.MonorepoLayout != nil {
+		for _, pkg := range profile.MonorepoLayout.Packages {
+			name := filepath.Base(pkg)
+			if existing[name] || strings.HasPrefix(name, ".") || proposed[name] != nil {
+				continue
+			}
+			count := countFiles(pkg)
+			if count >= 1 { // monorepo packages are already curated, lower threshold
+				proposed[name] = &AnalyzeContext{
+					Name:      name,
+					Packages:  []string{pkg},
+					FileCount: count,
+				}
+			}
+		}
+	}
+
+	// Scan monorepo service dirs (services/, apps/, packages/)
+	for _, scanDir := range []string{"services", "apps", "packages"} {
+		entries, err := os.ReadDir(scanDir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if existing[name] || strings.HasPrefix(name, ".") || proposed[name] != nil {
+				continue
+			}
+			dirPath := filepath.Join(scanDir, name)
+			count := countFiles(dirPath)
+			if count >= 1 {
+				proposed[name] = &AnalyzeContext{
+					Name:      name,
+					Packages:  []string{dirPath},
+					FileCount: count,
+				}
+			}
+		}
+	}
+
+	// Propose from manifest services
+	if m.Project != nil {
+		for svcName := range m.Project.Services {
+			if existing[svcName] || proposed[svcName] != nil {
+				continue
+			}
+			svc := m.Project.Services[svcName]
+			proposed[svcName] = &AnalyzeContext{
+				Name:     svcName,
+				Packages: []string{svc.Path},
+			}
+		}
+	}
+
+	// Convert map to sorted slice
+	var result []AnalyzeContext
+	for _, ctx := range proposed {
+		result = append(result, *ctx)
+	}
+	return result
 }
 
 // countFiles returns the number of non-directory files in a directory (non-recursive).
@@ -285,6 +359,67 @@ func countFiles(dir string) int {
 		}
 	}
 	return count
+}
+
+// writeContextsToManifest appends proposed contexts to the ontology section of wave.yaml.
+// It preserves existing YAML structure by reading, modifying, and rewriting.
+func writeContextsToManifest(manifestPath string, contexts []AnalyzeContext) error {
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("read manifest: %w", err)
+	}
+
+	// Parse into generic map to preserve structure
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parse manifest: %w", err)
+	}
+
+	// Get or create ontology section
+	ontology, _ := raw["ontology"].(map[string]interface{})
+	if ontology == nil {
+		ontology = make(map[string]interface{})
+		raw["ontology"] = ontology
+	}
+
+	// Get existing contexts
+	existingContexts, _ := ontology["contexts"].([]interface{})
+
+	// Build set of existing context names
+	existingNames := make(map[string]bool)
+	for _, ctx := range existingContexts {
+		if m, ok := ctx.(map[string]interface{}); ok {
+			if name, ok := m["name"].(string); ok {
+				existingNames[name] = true
+			}
+		}
+	}
+
+	// Append new contexts
+	for _, ctx := range contexts {
+		if existingNames[ctx.Name] {
+			continue
+		}
+		entry := map[string]interface{}{
+			"name": ctx.Name,
+		}
+		if ctx.Description != "" {
+			entry["description"] = ctx.Description
+		} else if len(ctx.Packages) > 0 {
+			entry["description"] = fmt.Sprintf("Auto-detected from %s", strings.Join(ctx.Packages, ", "))
+		}
+		existingContexts = append(existingContexts, entry)
+	}
+
+	ontology["contexts"] = existingContexts
+
+	// Write back
+	out, err := yaml.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("marshal manifest: %w", err)
+	}
+
+	return os.WriteFile(manifestPath, out, 0644)
 }
 
 // writeContextSkills generates SKILL.md files for declared ontology contexts.
