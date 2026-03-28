@@ -15,6 +15,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/cost"
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
@@ -109,6 +110,8 @@ type DefaultPipelineExecutor struct {
 	parentWorkspacePath string
 	// Retrospective generator for post-run analysis
 	retroGenerator *retro.Generator
+	// Cost ledger for per-run cost tracking and budget enforcement
+	costLedger *cost.Ledger
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -317,6 +320,14 @@ func (e *DefaultPipelineExecutor) LastExecution() *PipelineExecution {
 }
 
 func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string) error {
+	// Initialize cost ledger from manifest config
+	if e.costLedger == nil {
+		costCfg := m.Runtime.Cost
+		if costCfg.Enabled || costCfg.BudgetCeiling > 0 {
+			e.costLedger = cost.NewLedger(costCfg.BudgetCeiling, costCfg.WarnAt)
+		}
+	}
+
 	// Detect graph-mode pipelines (edges or conditional steps present)
 	if IsGraphPipeline(p) {
 		return e.executeGraphPipeline(ctx, p, m, input)
@@ -1515,6 +1526,17 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			}
 
 			if attempt < maxAttempts {
+				// Record retry decision
+				e.recordDecision(pipelineID, step.ID, "retry",
+					fmt.Sprintf("retrying step %s (attempt %d/%d)", step.ID, attempt+1, maxAttempts),
+					fmt.Sprintf("failure class %q is retryable, attempts remaining", failureClass),
+					map[string]interface{}{
+						"attempt":       attempt,
+						"max_attempts":  maxAttempts,
+						"failure_class": failureClass,
+						"error":         err.Error(),
+					},
+				)
 				// Set up attempt context for prompt adaptation on next retry
 				if step.Retry.AdaptPrompt {
 					errMsg := err.Error()
@@ -1546,6 +1568,15 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			}
 
 			// All attempts exhausted — apply on_failure policy
+			e.recordDecision(pipelineID, step.ID, "retry",
+				fmt.Sprintf("all %d attempts exhausted for step %s", maxAttempts, step.ID),
+				fmt.Sprintf("applying on_failure policy after %d failed attempts", maxAttempts),
+				map[string]interface{}{
+					"max_attempts":  maxAttempts,
+					"failure_class": failureClass,
+					"last_error":    err.Error(),
+				},
+			)
 			onFailure := step.Retry.OnFailure
 			if onFailure == "" {
 				if step.IsOptional() {
@@ -2052,6 +2083,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona)
 	e.emit(event.Event{
 		Timestamp:     time.Now(),
 		PipelineID:    pipelineID,
@@ -2060,10 +2092,37 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            e.resolveModel(step, persona),
+		Model:            resolvedModel,
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
+
+	// Record model routing decision
+	{
+		rationale := "adapter default (no override)"
+		if e.modelOverride != "" {
+			rationale = "CLI --model flag override"
+		} else if step.Model != "" {
+			rationale = "per-step model pinning in pipeline YAML"
+		} else if persona.Model != "" {
+			rationale = "per-persona model configuration"
+		} else if execution.Manifest.Runtime.Routing.AutoRoute {
+			rationale = "auto-routed based on step complexity"
+		}
+		modelDisplay := resolvedModel
+		if modelDisplay == "" {
+			modelDisplay = "(adapter default)"
+		}
+		e.recordDecision(pipelineID, step.ID, "model_routing",
+			fmt.Sprintf("selected model %s for step %s", modelDisplay, step.ID),
+			rationale,
+			map[string]interface{}{
+				"model":   resolvedModel,
+				"persona": resolvedPersona,
+				"adapter": adapterDef.Binary,
+			},
+		)
+	}
 
 	// Inject artifacts from dependencies
 	artifactInjectStart := time.Now()
@@ -2246,7 +2305,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SystemPrompt:     systemPrompt,
 		Timeout:          timeout,
 		Temperature:      persona.Temperature,
-		Model:            e.resolveModel(step, persona),
+		Model:            resolvedModel,
 		AllowedTools:     persona.Permissions.AllowedTools,
 		DenyTools:        persona.Permissions.Deny,
 		OutputFormat:     adapterDef.OutputFormat,
@@ -2295,11 +2354,29 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		CurrentAction: "Executing agent",
 	})
 
+	// Iron Rule: estimate prompt size and check against context window
+	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection) + len(cfg.ContractPrompt)
+	if promptBytes > 0 && resolvedModel != "" {
+		ironStatus, ironMsg := cost.CheckIronRule(resolvedModel, promptBytes)
+		switch ironStatus {
+		case cost.IronRuleWarning:
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "iron_rule_warning",
+				Message:    ironMsg,
+			})
+		case cost.IronRuleFail:
+			return fmt.Errorf("iron rule: %s", ironMsg)
+		}
+	}
+
 	stepStart := time.Now()
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": resolvedPersona,
 		"adapter": adapterDef.Binary,
-		"model":   e.resolveModel(step, persona),
+		"model":   resolvedModel,
 	})
 	result, err := stepRunner.Run(ctx, cfg)
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
@@ -2421,6 +2498,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		e.mu.Lock()
 		e.totalTokens += result.TokensUsed
 		e.mu.Unlock()
+	}
+
+	// Record cost and enforce budget
+	if e.costLedger != nil && (result.TokensIn > 0 || result.TokensOut > 0) {
+		_, budgetStatus := e.costLedger.Record(pipelineID, step.ID, resolvedModel, result.TokensIn, result.TokensOut, result.TokensUsed)
+		switch budgetStatus {
+		case cost.BudgetWarning:
+			e.emit(event.Event{
+				Timestamp:     time.Now(),
+				PipelineID:    pipelineID,
+				StepID:        step.ID,
+				State:         "budget_warning",
+				Message:       fmt.Sprintf("Cost warning: %s", e.costLedger.Summary()),
+			})
+		case cost.BudgetExceeded:
+			return fmt.Errorf("budget exceeded: %s", e.costLedger.Summary())
+		}
 	}
 
 	// Check for stdout artifacts and validate size limits
@@ -2556,8 +2650,26 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 						ErrorMessage: "contract validation failed: " + err.Error(),
 					})
 				}
+				e.recordDecision(pipelineID, step.ID, "contract",
+					fmt.Sprintf("contract validation failed (hard) for step %s", step.ID),
+					"must_pass is true, failing the step",
+					map[string]interface{}{
+						"contract_type": step.Handover.Contract.Type,
+						"must_pass":     true,
+						"error":         err.Error(),
+					},
+				)
 				return fmt.Errorf("contract validation failed: %w", err)
 			}
+			e.recordDecision(pipelineID, step.ID, "contract",
+				fmt.Sprintf("contract validation soft-failed for step %s", step.ID),
+				"must_pass is false, continuing despite validation failure",
+				map[string]interface{}{
+					"contract_type": step.Handover.Contract.Type,
+					"must_pass":     false,
+					"error":         err.Error(),
+				},
+			)
 			e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
 				"type":   step.Handover.Contract.Type,
 				"result": "soft_fail",
@@ -2588,6 +2700,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			if e.logger != nil {
 				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
 			}
+			e.recordDecision(pipelineID, step.ID, "contract",
+				fmt.Sprintf("contract validation passed for step %s", step.ID),
+				fmt.Sprintf("%s contract validated successfully", step.Handover.Contract.Type),
+				map[string]interface{}{
+					"contract_type": step.Handover.Contract.Type,
+				},
+			)
 			// Run contract_validated hooks (non-blocking by default)
 			if e.hookRunner != nil {
 				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
@@ -2674,12 +2793,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies four-tier model precedence:
+// resolveModel applies five-tier model precedence:
 // 1. CLI --model flag override (highest — explicit user intent)
 // 2. Per-step model pinning (step.Model in pipeline YAML)
 // 3. Per-persona model pinning
-// 4. Adapter default (empty string)
-func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona) string {
+// 4. Auto-routing based on complexity heuristics (when routing.auto_route is enabled)
+// 5. Adapter default (empty string)
+func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string) string {
 	if e.modelOverride != "" {
 		return e.modelOverride
 	}
@@ -2689,7 +2809,37 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 	if persona.Model != "" {
 		return persona.Model
 	}
+	// Tier 4: auto-route based on complexity heuristics
+	if routing != nil && routing.AutoRoute {
+		tier := ClassifyStepComplexity(step, persona, personaName)
+		if model := routing.ResolveComplexityModel(tier); model != "" {
+			return model
+		}
+	}
 	return ""
+}
+
+// recordDecision records a structured decision to the state store.
+// It is a no-op if the store is nil.
+func (e *DefaultPipelineExecutor) recordDecision(runID, stepID, category, decision, rationale string, ctx map[string]interface{}) {
+	if e.store == nil {
+		return
+	}
+	contextJSON := "{}"
+	if ctx != nil {
+		if data, err := json.Marshal(ctx); err == nil {
+			contextJSON = string(data)
+		}
+	}
+	e.store.RecordDecision(&state.DecisionRecord{
+		RunID:     runID,
+		StepID:    stepID,
+		Timestamp: time.Now(),
+		Category:  category,
+		Decision:  decision,
+		Rationale: rationale,
+		Context:   contextJSON,
+	})
 }
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
@@ -4023,6 +4173,22 @@ func (e *DefaultPipelineExecutor) GetTotalTokens() int {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.totalTokens
+}
+
+// GetCostSummary returns a human-readable cost summary for the run, or empty if no cost tracking.
+func (e *DefaultPipelineExecutor) GetCostSummary() string {
+	if e.costLedger == nil {
+		return ""
+	}
+	return e.costLedger.Summary()
+}
+
+// GetTotalCost returns the cumulative USD cost of the run, or 0 if cost tracking is disabled.
+func (e *DefaultPipelineExecutor) GetTotalCost() float64 {
+	if e.costLedger == nil {
+		return 0
+	}
+	return e.costLedger.TotalCost()
 }
 
 func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {

@@ -377,5 +377,25 @@ ALTER TABLE step_state_new RENAME TO step_state;
 CREATE INDEX IF NOT EXISTS idx_step_pipeline_id ON step_state(pipeline_id);`,
 			Down: "",
 		},
+		{
+			Version:     17,
+			Description: "Add decision log table for structured decision tracking",
+			Up: `CREATE TABLE IF NOT EXISTS decision_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL DEFAULT '',
+    timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    category TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    rationale TEXT NOT NULL DEFAULT '',
+    context_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_decision_run ON decision_log(run_id);
+CREATE INDEX IF NOT EXISTS idx_decision_step ON decision_log(run_id, step_id);
+CREATE INDEX IF NOT EXISTS idx_decision_category ON decision_log(category);`,
+			Down: `DROP TABLE IF EXISTS decision_log;`,
+		},
 	}
 }
