@@ -568,7 +568,7 @@ async function approveGate(runID, stepID, choiceKey, freeformText) {
     }
     return fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/gates/' + encodeURIComponent(stepID) + '/approve', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-Wave-Request': '1'},
         body: JSON.stringify(body)
     });
 }
