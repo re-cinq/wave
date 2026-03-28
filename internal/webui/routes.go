@@ -75,6 +75,14 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/retros/{id}", s.handleAPIRetroDetail)
 	mux.HandleFunc("POST /api/retros/{id}/narrate", s.handleNarrateRetro)
 
+	// Webhook API
+	mux.HandleFunc("GET /api/webhooks", s.handleAPIWebhooks)
+	mux.HandleFunc("POST /api/webhooks", s.handleAPICreateWebhook)
+	mux.HandleFunc("GET /api/webhooks/{id}", s.handleAPIWebhookDetail)
+	mux.HandleFunc("PUT /api/webhooks/{id}", s.handleAPIUpdateWebhook)
+	mux.HandleFunc("DELETE /api/webhooks/{id}", s.handleAPIDeleteWebhook)
+	mux.HandleFunc("POST /api/webhooks/{id}/test", s.handleAPITestWebhook)
+
 	// Catch-all 404 for unmatched routes
 	mux.HandleFunc("/", s.handleNotFound)
 }
