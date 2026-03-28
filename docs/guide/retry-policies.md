@@ -1,0 +1,65 @@
+# Retry Policies
+
+Named retry policies provide preset configurations for common retry patterns instead of raw `max_attempts` values.
+
+## Policies
+
+| Policy | Max Attempts | Base Delay | Backoff | Max Delay | Use Case |
+|--------|-------------|------------|---------|-----------|----------|
+| `none` | 1 | — | — | — | Steps that must not retry |
+| `standard` | 3 | 1s | 2x exponential | 30s | Default for implementation steps |
+| `aggressive` | 5 | 200ms | 2x exponential | 30s | API calls, fetches, publishes |
+| `patient` | 3 | 5s | 3x exponential | 90s | Analysis, scanning, exploration |
+
+## Usage
+
+```yaml
+steps:
+  - id: fetch
+    retry:
+      policy: aggressive        # 5 attempts, fast backoff
+
+  - id: implement
+    retry:
+      policy: standard          # 3 attempts, balanced
+      max_attempts: 5           # override: more attempts than default
+
+  - id: analyze
+    retry:
+      policy: patient           # 3 attempts, slow backoff
+```
+
+Explicit fields override policy defaults — set `policy` for the base, then override individual fields as needed.
+
+## Failure Classification
+
+The retry system classifies failures into 6 categories:
+
+| Class | Retryable? | Example |
+|-------|------------|---------|
+| `transient` | Yes (auto-retry) | API 429, timeout |
+| `deterministic` | No | Invalid API key, missing binary |
+| `budget_exhausted` | No (trigger fallback) | Context window exceeded |
+| `contract_failure` | Yes (rework) | JSON schema mismatch |
+| `test_failure` | Yes (fix loop) | `go test` exit code 1 |
+| `canceled` | No | SIGINT, timeout |
+
+## Circuit Breaker
+
+Same failure fingerprint repeating 3 times terminates the step:
+
+```yaml
+runtime:
+  circuit_breaker:
+    limit: 3
+    tracked_classes: [deterministic, contract_failure, test_failure]
+```
+
+## Stall Watchdog
+
+Steps producing no progress events for 30 minutes are terminated:
+
+```yaml
+runtime:
+  stall_timeout: 1800s
+```
