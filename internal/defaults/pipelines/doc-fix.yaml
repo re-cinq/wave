@@ -53,6 +53,7 @@ steps:
         path: .wave/output/doc-scan.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -144,6 +145,7 @@ steps:
         - Findings fixed vs skipped
         - Commit hash
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -236,6 +238,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

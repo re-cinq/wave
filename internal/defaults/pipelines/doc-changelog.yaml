@@ -45,6 +45,7 @@ steps:
         path: .wave/output/commit-analysis.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -82,6 +83,7 @@ steps:
         path: .wave/output/categorized-changes.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
