@@ -112,9 +112,8 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: llm_judge
         source: .wave/output/security-review.md
-      llm_judge:
         model: claude-haiku-4-5
         criteria:
           - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"

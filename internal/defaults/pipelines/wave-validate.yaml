@@ -139,9 +139,8 @@ steps:
       max_attempts: 2
     handover:
       contract:
-        type: non_empty_file
+        type: llm_judge
         source: .wave/output/validation-report.md
-      llm_judge:
         model: claude-haiku-4-5
         criteria:
           - "Report covers all 7 feature categories"
