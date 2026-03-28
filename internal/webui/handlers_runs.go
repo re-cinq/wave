@@ -381,6 +381,20 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check for fork/rewind availability via checkpoints
+	hasCheckpoints := false
+	if checkpoints, cpErr := s.store.GetCheckpoints(runID); cpErr == nil && len(checkpoints) > 0 {
+		hasCheckpoints = true
+	}
+
+	// Build list of completed steps for fork/rewind dialogs
+	var completedSteps []string
+	for _, sd := range stepDetails {
+		if sd.State == "completed" {
+			completedSteps = append(completedSteps, sd.StepID)
+		}
+	}
+
 	data := struct {
 		ActivePage          string
 		Run                 RunSummary
@@ -391,6 +405,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		PipelineCategory    string
 		PipelineSkills      []string
 		ArtifactGroups      []StepArtifactGroup
+		HasCheckpoints      bool
+		CompletedSteps      []string
 	}{
 		ActivePage:          "runs",
 		Run:                 runSummary,
@@ -401,6 +417,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		PipelineCategory:    pipelineCategory,
 		PipelineSkills:      pipelineSkills,
 		ArtifactGroups:      artifactGroups,
+		HasCheckpoints:      hasCheckpoints,
+		CompletedSteps:      completedSteps,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -641,6 +659,20 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 					sd.Duration = formatDurationValue(si.completedAt.Sub(*si.startedAt))
 				} else if sd.State == "running" {
 					sd.Duration = formatDurationValue(time.Since(*si.startedAt))
+				}
+			}
+		}
+
+		// Look up failure class from step attempts for failed steps
+		if sd.State == "failed" {
+			attempts, attErr := s.store.GetStepAttempts(runID, step.ID)
+			if attErr != nil {
+				log.Printf("[webui] failed to get step attempts for run %s step %s: %v", runID, step.ID, attErr)
+			}
+			if len(attempts) > 0 {
+				lastAttempt := attempts[len(attempts)-1]
+				if lastAttempt.FailureClass != "" {
+					sd.FailureClass = lastAttempt.FailureClass
 				}
 			}
 		}
