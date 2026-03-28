@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -981,6 +983,16 @@ func TestIsCompositionStep(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "command step is composition",
+			step:     pipeline.Step{ID: "s1", Type: pipeline.StepTypeCommand, Script: "echo hello"},
+			expected: true,
+		},
+		{
+			name:     "conditional step is composition",
+			step:     pipeline.Step{ID: "s1", Type: pipeline.StepTypeConditional},
+			expected: true,
+		},
+		{
 			name:     "empty step is not composition",
 			step:     pipeline.Step{ID: "s1"},
 			expected: false,
@@ -1120,9 +1132,118 @@ steps:
 
 // Test stepTypeLabel returns "step" for unrecognized types
 func TestStepTypeLabel_Fallback(t *testing.T) {
-	// This is a TUI function, tested indirectly through isCompositionStep
-	// which uses the same pattern. The direct TUI test is in tui package.
-	// Here we verify the composition detection logic is consistent.
 	step := pipeline.Step{ID: "s1", Persona: "navigator"}
 	assert.False(t, isCompositionStep(step), "persona step should not be composition")
+}
+
+// TestShippedPipelines_ValidateAll simulates `wave init --all && wave validate --all`
+// by generating a manifest via the onboarding wizard (non-interactive), writing all
+// shipped defaults, and validating every pipeline. This catches bugs where the engine
+// supports a feature but the validator or manifest rejects it.
+//
+// Runs for Go, TypeScript, Python, Rust, and bare projects.
+func TestShippedPipelines_ValidateAll(t *testing.T) {
+	languages := []struct {
+		name    string
+		marker  string // file to create so flavour detection works
+		content string
+	}{
+		{"golang", "go.mod", "module test\n\ngo 1.25\n"},
+		{"typescript", "package.json", `{"name":"test","scripts":{"test":"jest"}}`},
+		{"python", "pyproject.toml", "[project]\nname = \"test\"\n"},
+		{"rust", "Cargo.toml", "[package]\nname = \"test\"\nversion = \"0.1.0\"\n"},
+		{"bare", "", ""},
+	}
+
+	for _, lang := range languages {
+		t.Run(lang.name, func(t *testing.T) {
+			dir := t.TempDir()
+			waveDir := filepath.Join(dir, ".wave")
+
+			// Create language marker
+			if lang.marker != "" {
+				os.MkdirAll(filepath.Dir(filepath.Join(dir, lang.marker)), 0o755)
+				os.WriteFile(filepath.Join(dir, lang.marker), []byte(lang.content), 0o644)
+			}
+
+			// Write all shipped pipelines
+			pipelines, err := defaults.GetPipelines()
+			assert.NoError(t, err)
+			for name, content := range pipelines {
+				path := filepath.Join(waveDir, "pipelines", name)
+				os.MkdirAll(filepath.Dir(path), 0o755)
+				os.WriteFile(path, []byte(content), 0o644)
+			}
+
+			// Write all shipped contracts
+			contracts, _ := defaults.GetContracts()
+			for name, content := range contracts {
+				path := filepath.Join(waveDir, "contracts", name)
+				os.MkdirAll(filepath.Dir(path), 0o755)
+				os.WriteFile(path, []byte(content), 0o644)
+			}
+
+			// Write persona prompts
+			personas, _ := defaults.GetPersonas()
+			for name, content := range personas {
+				path := filepath.Join(waveDir, "personas", name)
+				os.MkdirAll(filepath.Dir(path), 0o755)
+				os.WriteFile(path, []byte(content), 0o644)
+			}
+
+			// Write prompt files
+			prompts, _ := defaults.GetPrompts()
+			for name, content := range prompts {
+				path := filepath.Join(waveDir, "prompts", name)
+				os.MkdirAll(filepath.Dir(path), 0o755)
+				os.WriteFile(path, []byte(content), 0o644)
+			}
+
+			// Get persona configs for manifest generation
+			personaConfigs, _ := defaults.GetPersonaConfigs()
+
+			// Generate manifest via onboarding wizard (non-interactive)
+			origDir, _ := os.Getwd()
+			os.Chdir(dir)
+			defer os.Chdir(origDir)
+
+			cfg := onboarding.WizardConfig{
+				WaveDir:        waveDir,
+				Interactive:    false,
+				Adapter:        "claude",
+				Workspace:      ".wave/workspaces",
+				OutputPath:     filepath.Join(dir, "wave.yaml"),
+				PersonaConfigs: personaConfigs,
+			}
+
+			_, wizErr := onboarding.RunWizard(cfg)
+			if wizErr != nil {
+				t.Fatalf("wizard failed for %s: %v", lang.name, wizErr)
+			}
+
+			// Load the generated manifest
+			m, loadErr := manifest.Load(filepath.Join(dir, "wave.yaml"))
+			if loadErr != nil {
+				t.Fatalf("failed to load generated manifest for %s: %v", lang.name, loadErr)
+			}
+
+			// Validate ALL shipped pipelines
+			fi := forge.ForgeInfo{Type: forge.ForgeGitHub}
+			var allErrs []string
+			for name := range pipelines {
+				pName := strings.TrimSuffix(name, ".yaml")
+				errs := validatePipelineFull(pName, m, fi)
+				for _, e := range errs {
+					allErrs = append(allErrs, pName+": "+e)
+				}
+			}
+
+			if len(allErrs) > 0 {
+				t.Errorf("%s project: %d validation errors:\n  %s",
+					lang.name, len(allErrs), strings.Join(allErrs, "\n  "))
+			} else {
+				t.Logf("%s: validated %d pipelines — all clean", lang.name, len(pipelines))
+			}
+		})
+	}
 }
