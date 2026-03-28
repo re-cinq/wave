@@ -1,10 +1,37 @@
 package forge
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
+// disableProbing stubs the tea CLI check and HTTP probe client so tests don't
+// make real network calls. Returns a cleanup function to restore originals.
+func disableProbing(t *testing.T) {
+	t.Helper()
+
+	origClient := probeHTTPClient
+	origTeaFunc := checkTeaCLIFunc
+
+	// HTTP client that always fails (no server listening on 127.0.0.1:1)
+	probeHTTPClient = &http.Client{
+		Transport: &http.Transport{},
+		Timeout:   1, // 1ns — effectively instant timeout
+	}
+	checkTeaCLIFunc = func(string) ForgeType { return ForgeUnknown }
+
+	t.Cleanup(func() {
+		probeHTTPClient = origClient
+		checkTeaCLIFunc = origTeaFunc
+	})
+}
+
 func TestDetect(t *testing.T) {
+	disableProbing(t)
+
 	tests := []struct {
 		name          string
 		url           string
@@ -349,6 +376,8 @@ func TestDetect_SubdomainVariants(t *testing.T) {
 }
 
 func TestDetect_SSHWithPort(t *testing.T) {
+	disableProbing(t)
+
 	// SSH URLs with port: ssh://git@github.com:2222/org/repo.git
 	// The port in the URL causes the host to include ":2222", so
 	// classifyHost won't match "github.com" — this is a known limitation.
@@ -432,5 +461,321 @@ func TestParseRemoteURL(t *testing.T) {
 				t.Errorf("repo = %q, want %q", repo, tt.wantRepo)
 			}
 		})
+	}
+}
+
+// TestProbeForgeType verifies that probeForgeType correctly identifies forges
+// by probing their well-known API endpoints.
+func TestProbeForgeType(t *testing.T) {
+	tests := []struct {
+		name      string
+		handler   http.HandlerFunc
+		wantType  ForgeType
+	}{
+		{
+			name: "Forgejo version endpoint",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/forgejo/v1/version" {
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"9.0.0"}`)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			},
+			wantType: ForgeForgejo,
+		},
+		{
+			name: "Gitea version endpoint",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v1/version" {
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"1.21.0"}`)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			},
+			wantType: ForgeGitea,
+		},
+		{
+			name: "GitLab version endpoint",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v4/version" {
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"16.0.0"}`)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			},
+			wantType: ForgeGitLab,
+		},
+		{
+			name: "Bitbucket Server properties endpoint",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/rest/api/1.0/application-properties" {
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"8.0.0","buildNumber":"8000000"}`)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			},
+			wantType: ForgeBitbucket,
+		},
+		{
+			name: "Forgejo wins over Gitea when both endpoints respond",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/forgejo/v1/version":
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"9.0.0"}`)
+				case "/api/v1/version":
+					// Forgejo also serves the Gitea API
+					w.WriteHeader(http.StatusOK)
+					fmt.Fprint(w, `{"version":"1.21.0"}`)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			},
+			wantType: ForgeForgejo,
+		},
+		{
+			name: "All endpoints return 404",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+			},
+			wantType: ForgeUnknown,
+		},
+		{
+			name: "All endpoints return 500",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			wantType: ForgeUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(tt.handler)
+			defer srv.Close()
+
+			origClient := probeHTTPClient
+			probeHTTPClient = srv.Client()
+			defer func() { probeHTTPClient = origClient }()
+
+			// Extract host:port from test server URL (strip "http://")
+			host := strings.TrimPrefix(srv.URL, "http://")
+
+			// Override the probe to use http:// instead of https:// for test server.
+			// We achieve this by temporarily wrapping the client transport to
+			// rewrite URLs. Instead, we use a simpler approach: directly test
+			// probeForgeType after monkey-patching the probeHTTPClient to point
+			// at the test server.
+
+			// probeForgeType builds "https://host/path" but our test server is
+			// http. We work around this by intercepting with a custom RoundTripper.
+			probeHTTPClient = &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					// Rewrite https → http and point at test server
+					req.URL.Scheme = "http"
+					req.URL.Host = host
+					return http.DefaultTransport.RoundTrip(req)
+				}),
+			}
+
+			got := probeForgeType(host)
+			if got != tt.wantType {
+				t.Errorf("probeForgeType() = %q, want %q", got, tt.wantType)
+			}
+		})
+	}
+}
+
+// roundTripFunc is an adapter to use a function as http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+// TestClassifyHost_UnknownFallsToProbe verifies that an unrecognized hostname
+// triggers endpoint probing and returns the probed forge type.
+func TestClassifyHost_UnknownFallsToProbe(t *testing.T) {
+	// Set up a test server that responds to the GitLab API endpoint.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/version" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"version":"16.5.0"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	host := strings.TrimPrefix(srv.URL, "http://")
+
+	origClient := probeHTTPClient
+	origTeaFunc := checkTeaCLIFunc
+	probeHTTPClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.URL.Scheme = "http"
+			req.URL.Host = host
+			return http.DefaultTransport.RoundTrip(req)
+		}),
+	}
+	checkTeaCLIFunc = func(string) ForgeType { return ForgeUnknown }
+	defer func() {
+		probeHTTPClient = origClient
+		checkTeaCLIFunc = origTeaFunc
+	}()
+
+	// classifyHost should fall through hostname matching and detect GitLab via probe.
+	got := classifyHost(host)
+	if got != ForgeGitLab {
+		t.Errorf("classifyHost(%q) = %q, want %q", host, got, ForgeGitLab)
+	}
+}
+
+// TestClassifyHost_TeaCLIFallback verifies that checkTeaCLI is consulted
+// before HTTP probing for unknown hosts.
+func TestClassifyHost_TeaCLIFallback(t *testing.T) {
+	disableProbing(t)
+
+	origTeaFunc := checkTeaCLIFunc
+	checkTeaCLIFunc = func(host string) ForgeType {
+		if host == "code.company.com" {
+			return ForgeGitea
+		}
+		return ForgeUnknown
+	}
+	defer func() { checkTeaCLIFunc = origTeaFunc }()
+
+	got := classifyHost("code.company.com")
+	if got != ForgeGitea {
+		t.Errorf("classifyHost(code.company.com) = %q, want %q", got, ForgeGitea)
+	}
+}
+
+// TestManifestForgeOverride verifies that DetectWithOverride uses the manifest
+// forge override instead of hostname-based or probe-based detection.
+func TestManifestForgeOverride(t *testing.T) {
+	disableProbing(t)
+
+	tests := []struct {
+		name          string
+		url           string
+		override      string
+		wantType      ForgeType
+		wantCLI       string
+		wantPRTerm    string
+	}{
+		{
+			name:     "Override unknown host to gitlab",
+			url:      "https://git.corp.com/team/app.git",
+			override: "gitlab",
+			wantType: ForgeGitLab,
+			wantCLI:  "glab",
+			wantPRTerm: "Merge Request",
+		},
+		{
+			name:     "Override unknown host to github",
+			url:      "https://git.corp.com/team/app.git",
+			override: "github",
+			wantType: ForgeGitHub,
+			wantCLI:  "gh",
+			wantPRTerm: "Pull Request",
+		},
+		{
+			name:     "Override unknown host to gitea",
+			url:      "https://code.internal.net/team/app.git",
+			override: "gitea",
+			wantType: ForgeGitea,
+			wantCLI:  "tea",
+			wantPRTerm: "Pull Request",
+		},
+		{
+			name:     "Override unknown host to forgejo",
+			url:      "https://code.internal.net/team/app.git",
+			override: "forgejo",
+			wantType: ForgeForgejo,
+			wantCLI:  "tea",
+			wantPRTerm: "Pull Request",
+		},
+		{
+			name:     "Override unknown host to bitbucket",
+			url:      "https://git.corp.com/team/app.git",
+			override: "bitbucket",
+			wantType: ForgeBitbucket,
+			wantCLI:  "bb",
+			wantPRTerm: "Pull Request",
+		},
+		{
+			name:     "Override is case-insensitive",
+			url:      "https://git.corp.com/team/app.git",
+			override: "GitLab",
+			wantType: ForgeGitLab,
+			wantCLI:  "glab",
+			wantPRTerm: "Merge Request",
+		},
+		{
+			name:     "Override overrides hostname detection",
+			url:      "https://github.com/owner/repo.git",
+			override: "gitlab",
+			wantType: ForgeGitLab,
+			wantCLI:  "glab",
+			wantPRTerm: "Merge Request",
+		},
+		{
+			name:     "Empty override falls through to hostname",
+			url:      "https://github.com/owner/repo.git",
+			override: "",
+			wantType: ForgeGitHub,
+			wantCLI:  "gh",
+			wantPRTerm: "Pull Request",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DetectWithOverride(tt.url, tt.override)
+			if got.Type != tt.wantType {
+				t.Errorf("Type = %q, want %q", got.Type, tt.wantType)
+			}
+			if got.CLITool != tt.wantCLI {
+				t.Errorf("CLITool = %q, want %q", got.CLITool, tt.wantCLI)
+			}
+			if got.PRTerm != tt.wantPRTerm {
+				t.Errorf("PRTerm = %q, want %q", got.PRTerm, tt.wantPRTerm)
+			}
+		})
+	}
+}
+
+// TestDetect_ForgejoHostname verifies that hostnames containing "forgejo"
+// are classified as ForgeForgejo.
+func TestDetect_ForgejoHostname(t *testing.T) {
+	disableProbing(t)
+
+	info := Detect("https://forgejo.example.com/user/repo.git")
+	if info.Type != ForgeForgejo {
+		t.Errorf("Type = %q, want %q", info.Type, ForgeForgejo)
+	}
+	if info.CLITool != "tea" {
+		t.Errorf("CLITool = %q, want %q", info.CLITool, "tea")
+	}
+}
+
+// TestFilterPipelinesByForge_Forgejo verifies that Forgejo uses the same
+// pipeline prefix as Gitea (gt-).
+func TestFilterPipelinesByForge_Forgejo(t *testing.T) {
+	pipelines := []string{"gh-implement", "gt-test", "speckit-flow"}
+	got := FilterPipelinesByForge(ForgeForgejo, pipelines)
+	want := []string{"gt-test", "speckit-flow"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
+	}
+	for i, name := range got {
+		if name != want[i] {
+			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
+		}
 	}
 }

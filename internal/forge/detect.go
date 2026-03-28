@@ -1,8 +1,11 @@
 package forge
 
 import (
+	"crypto/tls"
+	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // ForgeType identifies the source code hosting platform.
@@ -13,6 +16,7 @@ const (
 	ForgeGitLab    ForgeType = "gitlab"
 	ForgeBitbucket ForgeType = "bitbucket"
 	ForgeGitea     ForgeType = "gitea"
+	ForgeForgejo   ForgeType = "forgejo"
 	ForgeUnknown   ForgeType = "unknown"
 )
 
@@ -39,12 +43,25 @@ func (fi ForgeInfo) Slug() string {
 // Detect classifies a remote URL into a ForgeInfo.
 // Supports SSH (git@host:owner/repo.git) and HTTPS (https://host/owner/repo.git) formats.
 func Detect(remoteURL string) ForgeInfo {
+	return DetectWithOverride(remoteURL, "")
+}
+
+// DetectWithOverride classifies a remote URL into a ForgeInfo, using the
+// manifest forge override if non-empty. The override value should be a valid
+// ForgeType string (e.g. "github", "gitlab", "gitea", "forgejo", "bitbucket").
+func DetectWithOverride(remoteURL, forgeOverride string) ForgeInfo {
 	host, owner, repo := parseRemoteURL(remoteURL)
 	if host == "" {
 		return ForgeInfo{Type: ForgeUnknown}
 	}
 
-	ft := classifyHost(host)
+	var ft ForgeType
+	if forgeOverride != "" {
+		ft = ForgeType(strings.ToLower(forgeOverride))
+	} else {
+		ft = classifyHost(host)
+	}
+
 	cli, prefix, prTerm, prCommand := forgeMetadata(ft)
 
 	return ForgeInfo{
@@ -62,9 +79,16 @@ func Detect(remoteURL string) ForgeInfo {
 // DetectFromGitRemotes shells out to `git remote -v` and classifies the first
 // fetch remote. Returns ForgeUnknown info if git is unavailable or no remotes exist.
 func DetectFromGitRemotes() (ForgeInfo, error) {
+	return DetectFromGitRemotesWithOverride(""), nil
+}
+
+// DetectFromGitRemotesWithOverride is like DetectFromGitRemotes but accepts a
+// manifest forge override string. When non-empty, the override bypasses hostname
+// matching and endpoint probing.
+func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
 	out, err := exec.Command("git", "remote", "-v").Output()
 	if err != nil {
-		return ForgeInfo{Type: ForgeUnknown}, nil
+		return ForgeInfo{Type: ForgeUnknown}
 	}
 
 	// Parse first fetch remote
@@ -81,10 +105,10 @@ func DetectFromGitRemotes() (ForgeInfo, error) {
 		if len(fields) < 2 {
 			continue
 		}
-		return Detect(fields[1]), nil
+		return DetectWithOverride(fields[1], forgeOverride)
 	}
 
-	return ForgeInfo{Type: ForgeUnknown}, nil
+	return ForgeInfo{Type: ForgeUnknown}
 }
 
 // FilterPipelinesByForge returns pipeline names that match the given forge's
@@ -165,20 +189,30 @@ func parseHTTPSPath(path string) (host, owner, repo string) {
 }
 
 // classifyHost maps a hostname to a ForgeType.
+// When the hostname doesn't match known patterns, it falls back to
+// tea CLI detection and HTTP endpoint probing.
 func classifyHost(host string) ForgeType {
-	host = strings.ToLower(host)
+	h := strings.ToLower(host)
 	switch {
-	case host == "github.com" || strings.HasSuffix(host, ".github.com"):
+	case h == "github.com" || strings.HasSuffix(h, ".github.com"):
 		return ForgeGitHub
-	case host == "gitlab.com" || strings.HasSuffix(host, ".gitlab.com"):
+	case h == "gitlab.com" || strings.HasSuffix(h, ".gitlab.com"):
 		return ForgeGitLab
-	case host == "bitbucket.org" || strings.HasSuffix(host, ".bitbucket.org"):
+	case h == "bitbucket.org" || strings.HasSuffix(h, ".bitbucket.org"):
 		return ForgeBitbucket
-	case strings.Contains(host, "gitea"):
+	case strings.Contains(h, "gitea"):
 		return ForgeGitea
-	default:
-		return ForgeUnknown
+	case strings.Contains(h, "forgejo"):
+		return ForgeForgejo
 	}
+
+	// Check if tea CLI knows about this host (registered Gitea/Forgejo instance).
+	if ft := checkTeaCLI(host); ft != ForgeUnknown {
+		return ft
+	}
+
+	// Probe well-known forge API endpoints as a last resort.
+	return probeForgeType(host)
 }
 
 // forgeMetadata returns the CLI tool, pipeline prefix, PR term, and PR command for a forge type.
@@ -190,11 +224,83 @@ func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 		return "glab", "gl", "Merge Request", "mr"
 	case ForgeBitbucket:
 		return "bb", "bb", "Pull Request", "pr"
-	case ForgeGitea:
+	case ForgeGitea, ForgeForgejo:
 		return "tea", "gt", "Pull Request", "pr"
 	default:
 		return "", "", "", ""
 	}
+}
+
+// probeHTTPClient is the HTTP client used by probeForgeType. Package-level
+// variable so tests can replace it with a client pointing at httptest servers.
+var probeHTTPClient = &http.Client{
+	Timeout: 3 * time.Second,
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // self-hosted instances often use self-signed certs
+	},
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse // don't follow redirects
+	},
+}
+
+// probeForgeType probes well-known API endpoints on the given host to identify
+// the forge software. Each probe uses a 3s HTTP timeout. Returns the first
+// matching forge type, or ForgeUnknown if all probes fail.
+func probeForgeType(host string) ForgeType {
+	// Probe order: Forgejo before Gitea because Forgejo also serves the Gitea
+	// endpoint, so checking the Forgejo-specific one first avoids misclassification.
+	probes := []struct {
+		path     string
+		forgeType ForgeType
+	}{
+		{"/api/forgejo/v1/version", ForgeForgejo},
+		{"/api/v1/version", ForgeGitea},
+		{"/api/v4/version", ForgeGitLab},
+		{"/rest/api/1.0/application-properties", ForgeBitbucket},
+	}
+
+	for _, p := range probes {
+		url := "https://" + host + p.path
+		resp, err := probeHTTPClient.Get(url) //nolint:noctx // fire-and-forget probe; context not needed
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+			return p.forgeType
+		}
+	}
+	return ForgeUnknown
+}
+
+// checkTeaCLIFunc allows tests to replace the tea CLI lookup.
+var checkTeaCLIFunc func(host string) ForgeType
+
+// checkTeaCLI runs `tea login list` and checks if the given host appears as
+// a registered Gitea/Forgejo instance. Returns ForgeGitea if found,
+// ForgeUnknown otherwise.
+func checkTeaCLI(host string) ForgeType {
+	if checkTeaCLIFunc != nil {
+		return checkTeaCLIFunc(host)
+	}
+
+	// Only attempt if tea binary is available.
+	if _, err := exec.LookPath("tea"); err != nil {
+		return ForgeUnknown
+	}
+
+	out, err := exec.Command("tea", "login", "list").Output()
+	if err != nil {
+		return ForgeUnknown
+	}
+
+	hostLower := strings.ToLower(host)
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.Contains(strings.ToLower(line), hostLower) {
+			return ForgeGitea
+		}
+	}
+	return ForgeUnknown
 }
 
 // hasForgePrefix checks if a pipeline name starts with any known forge prefix.

@@ -52,6 +52,7 @@ type Metadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 	Repo        string `yaml:"repo,omitempty"`
+	Forge       string `yaml:"forge,omitempty"` // Manual forge override (e.g. "github", "gitlab", "gitea", "forgejo", "bitbucket")
 }
 
 type Adapter struct {
