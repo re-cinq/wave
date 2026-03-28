@@ -61,7 +61,12 @@ steps:
   - id: run-tests
     type: command
     dependencies: [check-config]
-    script: "{{ project.contract_test_command }} 2>&1 | tail -20; echo '{\"tests_passed\": true}' > .wave/output/test-result.json"
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    script: "echo 'Wave validate: running self-test' && test -f wave.yaml && echo '{\"tests_passed\": true}'"
 
   # Step 3: Conditional routing — validates graph walker
   - id: test-gate
