@@ -11,6 +11,7 @@ input:
 steps:
   - id: gather
     persona: supervisor
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -49,6 +50,7 @@ steps:
         path: .wave/output/supervision-evidence.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -107,6 +109,7 @@ steps:
         path: .wave/output/supervision-evaluation.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:

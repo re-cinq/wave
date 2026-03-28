@@ -8,8 +8,13 @@ document.addEventListener('DOMContentLoaded', function() {
             var status = this.getAttribute('data-status');
             var duration = this.getAttribute('data-duration');
             var tokens = this.getAttribute('data-tokens');
+            var stepType = this.getAttribute('data-step-type');
 
-            var lines = [id, 'Status: ' + status];
+            var lines = [id];
+            if (stepType) {
+                lines[0] += ' [' + stepType + ']';
+            }
+            lines.push('Status: ' + status);
             if (duration) {
                 lines.push('Duration: ' + duration);
             }
@@ -86,6 +91,14 @@ function getSVGScale(svgEl) {
     return rect.width / viewBox.width;
 }
 
+// Step type display labels and colors
+var stepTypeConfig = {
+    'gate':        { label: 'Gate',        color: '#f59e0b' },
+    'command':     { label: 'Command',     color: '#6b7280' },
+    'conditional': { label: 'Conditional', color: '#a78bfa' },
+    'pipeline':    { label: 'Pipeline',    color: '#3b82f6' }
+};
+
 // Toggle the detail overlay for a given DAG node <g> element.
 function toggleDetailOverlay(node) {
     var id = node.getAttribute('data-id');
@@ -117,6 +130,12 @@ function toggleDetailOverlay(node) {
     var persona = node.getAttribute('data-persona') || '';
     var duration = node.getAttribute('data-duration') || '';
     var tokens = node.getAttribute('data-tokens') || '';
+    var stepType = node.getAttribute('data-step-type') || '';
+    var script = node.getAttribute('data-script') || '';
+    var subPipeline = node.getAttribute('data-sub-pipeline') || '';
+    var gatePrompt = node.getAttribute('data-gate-prompt') || '';
+    var gateChoices = node.getAttribute('data-gate-choices') || '';
+    var edgeInfo = node.getAttribute('data-edge-info') || '';
 
     var pos = parseTranslate(node);
     var scale = getSVGScale(svgEl);
@@ -138,6 +157,17 @@ function toggleDetailOverlay(node) {
     header.textContent = id;
     overlay.appendChild(header);
 
+    // Step type badge
+    if (stepType && stepTypeConfig[stepType]) {
+        var typeBadge = document.createElement('span');
+        typeBadge.className = 'detail-type-badge';
+        typeBadge.style.color = stepTypeConfig[stepType].color;
+        typeBadge.style.borderColor = stepTypeConfig[stepType].color;
+        typeBadge.textContent = stepTypeConfig[stepType].label;
+        header.appendChild(document.createTextNode(' '));
+        header.appendChild(typeBadge);
+    }
+
     // Status row with badge
     var statusRow = document.createElement('div');
     statusRow.className = 'detail-row';
@@ -148,8 +178,8 @@ function toggleDetailOverlay(node) {
     statusRow.appendChild(badge);
     overlay.appendChild(statusRow);
 
-    // Persona row
-    if (persona) {
+    // Persona row (skip for command/conditional steps)
+    if (persona && stepType !== 'command' && stepType !== 'conditional') {
         var personaRow = document.createElement('div');
         personaRow.className = 'detail-row';
         personaRow.textContent = 'Persona: ' + persona;
@@ -170,6 +200,55 @@ function toggleDetailOverlay(node) {
         tokensRow.className = 'detail-row';
         tokensRow.textContent = 'Tokens: ' + tokens;
         overlay.appendChild(tokensRow);
+    }
+
+    // Type-specific details
+    if (stepType === 'gate') {
+        if (gatePrompt) {
+            var promptRow = document.createElement('div');
+            promptRow.className = 'detail-row detail-type-info';
+            promptRow.textContent = 'Prompt: ' + gatePrompt;
+            overlay.appendChild(promptRow);
+        }
+        if (gateChoices) {
+            var choicesRow = document.createElement('div');
+            choicesRow.className = 'detail-row detail-type-info';
+            choicesRow.style.color = '#f59e0b';
+            choicesRow.textContent = 'Choices: ' + gateChoices;
+            overlay.appendChild(choicesRow);
+        }
+    }
+
+    if (stepType === 'command' && script) {
+        var scriptRow = document.createElement('div');
+        scriptRow.className = 'detail-row detail-type-info';
+        var scriptCode = document.createElement('code');
+        scriptCode.style.fontSize = '0.7rem';
+        var displayScript = script.length > 60 ? script.substring(0, 60) + '...' : script;
+        scriptCode.textContent = displayScript;
+        scriptRow.appendChild(document.createTextNode('Script: '));
+        scriptRow.appendChild(scriptCode);
+        overlay.appendChild(scriptRow);
+    }
+
+    if (stepType === 'conditional' && edgeInfo) {
+        var edgeRow = document.createElement('div');
+        edgeRow.className = 'detail-row detail-type-info';
+        edgeRow.style.color = '#a78bfa';
+        edgeRow.textContent = 'Edges: ' + edgeInfo;
+        overlay.appendChild(edgeRow);
+    }
+
+    if (stepType === 'pipeline' && subPipeline) {
+        var pipelineRow = document.createElement('div');
+        pipelineRow.className = 'detail-row detail-type-info';
+        var pipelineLink = document.createElement('a');
+        pipelineLink.href = '/pipelines/' + subPipeline;
+        pipelineLink.textContent = subPipeline;
+        pipelineLink.style.color = '#60a5fa';
+        pipelineRow.appendChild(document.createTextNode('Pipeline: '));
+        pipelineRow.appendChild(pipelineLink);
+        overlay.appendChild(pipelineRow);
     }
 
     // "Go to step" link

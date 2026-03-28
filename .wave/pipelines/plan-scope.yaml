@@ -22,6 +22,7 @@ input:
 steps:
   - id: fetch-epic
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -52,6 +53,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:
@@ -112,6 +114,7 @@ steps:
         json_path: .created_issues[*].url
         label: "First Sub-Issue"
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:
@@ -170,6 +173,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:
