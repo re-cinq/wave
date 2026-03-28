@@ -482,3 +482,95 @@ function toggleNav() {
         updateTimers();
     }
 })();
+
+// --- Gate Interaction ---
+
+// Track the currently selected gate choice per panel
+var gateSelections = {};
+
+function selectGateChoice(btn) {
+    var panel = btn.closest('.gate-interaction-panel');
+    if (!panel) return;
+    var stepID = panel.dataset.stepId;
+    var key = btn.dataset.choiceKey;
+
+    // Deselect all buttons in this panel
+    var buttons = panel.querySelectorAll('.gate-choice-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('gate-choice-selected');
+    }
+
+    // Select this button
+    btn.classList.add('gate-choice-selected');
+    gateSelections[stepID] = key;
+
+    // Enable submit button and show selected label
+    var submitBtn = document.getElementById('gate-submit-' + stepID);
+    if (submitBtn) submitBtn.disabled = false;
+    var selectedLabel = document.getElementById('gate-selected-' + stepID);
+    if (selectedLabel) selectedLabel.textContent = 'Selected: ' + btn.textContent.trim();
+}
+
+async function submitGateDecision(runID, stepID, btn) {
+    var key = gateSelections[stepID];
+    if (!key) {
+        showToast('Please select a choice first', 'error');
+        return;
+    }
+
+    var freeformInput = document.getElementById('gate-text-' + stepID);
+    var text = freeformInput ? freeformInput.value : '';
+
+    setButtonLoading(btn, true);
+    try {
+        await approveGate(runID, stepID, key, text);
+        showToast('Gate decision submitted', 'success', 3000);
+
+        // Disable the panel after submission
+        var panel = document.getElementById('gate-panel-' + stepID);
+        if (panel) {
+            panel.classList.add('gate-panel-submitted');
+            var buttons = panel.querySelectorAll('button, textarea');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].disabled = true;
+            }
+        }
+    } catch (err) {
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+async function approveGate(runID, stepID, choiceKey, freeformText) {
+    var body = { choice: choiceKey };
+    if (freeformText) {
+        body.text = freeformText;
+    }
+    return fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/gates/' + encodeURIComponent(stepID) + '/approve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    });
+}
+
+// Gate keyboard shortcuts: when a gate panel is visible, pressing a choice key selects it
+(function() {
+    document.addEventListener('keydown', function(e) {
+        // Ignore if user is typing in an input/textarea (except gate freeform)
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || (tag === 'textarea' && !e.target.classList.contains('gate-freeform-input'))) return;
+
+        var panels = document.querySelectorAll('.gate-interaction-panel:not(.gate-panel-submitted)');
+        for (var i = 0; i < panels.length; i++) {
+            var buttons = panels[i].querySelectorAll('.gate-choice-btn');
+            for (var j = 0; j < buttons.length; j++) {
+                if (buttons[j].dataset.choiceKey === e.key) {
+                    e.preventDefault();
+                    selectGateChoice(buttons[j]);
+                    return;
+                }
+            }
+        }
+    });
+})();

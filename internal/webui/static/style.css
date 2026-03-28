@@ -1476,6 +1476,117 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 
 .step-gate-prompt { color: var(--color-text-secondary); margin-bottom: 0.25rem; }
 .step-gate-choices { color: #f59e0b; font-weight: 500; }
+
+/* Gate interaction panel */
+.gate-interaction-panel {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border: 2px solid rgba(245, 158, 11, 0.4);
+    border-radius: var(--radius-md);
+    background: rgba(245, 158, 11, 0.04);
+}
+
+.gate-choices-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.gate-choice-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 2em;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--color-text-primary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.gate-choice-btn:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.18);
+}
+
+.gate-choice-btn.gate-choice-selected {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.25);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.gate-choice-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4em;
+    height: 1.4em;
+    border-radius: var(--radius-sm);
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+}
+
+.gate-freeform { margin-bottom: 0.75rem; }
+
+.gate-freeform-input {
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    resize: vertical;
+    min-height: 2.5rem;
+}
+
+.gate-freeform-input:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.gate-submit-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.gate-submit-btn {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: #000;
+}
+
+.gate-submit-btn:hover:not(:disabled) {
+    background: #d97706;
+    border-color: #d97706;
+}
+
+.gate-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.gate-selected-label {
+    font-size: 0.75rem;
+    color: #f59e0b;
+    font-weight: 500;
+}
+
+.gate-panel-submitted {
+    opacity: 0.6;
+    pointer-events: none;
+}
 .step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; margin: 0; }
 .step-script code { background: none; padding: 0; font-size: inherit; }
 .step-edge-info { color: #a78bfa; font-family: var(--font-mono); font-size: 0.75rem; }
