@@ -752,7 +752,44 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 		details = append(details, sd)
 	}
 
+	// Compute Gantt positions
+	computeGanttPositions(details)
+
 	return details
+}
+
+func computeGanttPositions(steps []StepDetail) {
+	if len(steps) == 0 {
+		return
+	}
+	var earliest, latest time.Time
+	for _, s := range steps {
+		if s.StartedAt != nil {
+			if earliest.IsZero() || s.StartedAt.Before(earliest) {
+				earliest = *s.StartedAt
+			}
+		}
+		if s.CompletedAt != nil {
+			if latest.IsZero() || s.CompletedAt.After(latest) {
+				latest = *s.CompletedAt
+			}
+		}
+	}
+	totalDuration := latest.Sub(earliest)
+	if totalDuration <= 0 {
+		return
+	}
+	for i := range steps {
+		if steps[i].StartedAt != nil && steps[i].CompletedAt != nil {
+			left := float64(steps[i].StartedAt.Sub(earliest)) / float64(totalDuration) * 100
+			width := float64(steps[i].CompletedAt.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
+			if width < 1 {
+				width = 1
+			}
+			steps[i].GanttLeft = left
+			steps[i].GanttWidth = width
+		}
+	}
 }
 
 func eventToSummary(e state.LogRecord) EventSummary {
