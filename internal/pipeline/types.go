@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/timeouts"
@@ -50,6 +51,7 @@ type Pipeline struct {
 	Requires        *Requires                 `yaml:"requires,omitempty"`
 	Input           InputConfig               `yaml:"input"`
 	Steps           []Step                    `yaml:"steps"`
+	Hooks           []hooks.LifecycleHookDef  `yaml:"hooks,omitempty"`            // Pipeline-scoped lifecycle hooks
 	PipelineOutputs map[string]PipelineOutput `yaml:"pipeline_outputs,omitempty"` // Named output aliases
 	ChatContext     *ChatContextConfig        `yaml:"chat_context,omitempty"`     // Chat session context injection
 	Skills          []string                  `yaml:"skills,omitempty"`           // Declarative skill references
