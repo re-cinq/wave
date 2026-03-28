@@ -305,7 +305,7 @@ func (s *stateStore) SaveStepState(pipelineID string, stepID string, state StepS
 
 	query := `INSERT INTO step_state (step_id, pipeline_id, state, retry_count, started_at, completed_at, workspace_path, error_message)
 	          VALUES (?, ?, ?, 0, ?, ?, NULL, ?)
-	          ON CONFLICT(step_id) DO UPDATE SET
+	          ON CONFLICT(step_id, pipeline_id) DO UPDATE SET
 	              state = excluded.state,
 	              retry_count = CASE WHEN excluded.state = 'retrying' THEN retry_count + 1 ELSE retry_count END,
 	              started_at = COALESCE(started_at, excluded.started_at),
