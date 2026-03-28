@@ -35,9 +35,20 @@
 <div class="card">
     <h2>Description</h2>
     <div class="issue-body">
-        <div class="markdown-body">{{.PR.Body}}</div>
+        <div class="markdown-body" id="pr-body"></div>
     </div>
 </div>
+<script>
+(function() {
+    var raw = {{.PR.Body | js}};
+    var el = document.getElementById('pr-body');
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+    } else {
+        el.textContent = raw;
+    }
+})();
+</script>
 {{end}}
 
 <div class="card">
