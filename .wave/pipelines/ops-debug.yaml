@@ -144,7 +144,6 @@ steps:
     retry:
       policy: aggressive
       max_attempts: 3
-      on_failure: retry
     output_artifacts:
       - name: fix
         path: .wave/output/fix-summary.md
