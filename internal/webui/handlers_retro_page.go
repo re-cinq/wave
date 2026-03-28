@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"log"
 	"net/http"
 	"sort"
 	"time"
@@ -142,7 +143,8 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/retros.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] template error rendering retros page: %v", err)
+		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
 

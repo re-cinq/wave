@@ -118,7 +118,8 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := tmpl.ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("[webui] template error rendering compare page: %v", err)
+		http.Error(w, "template error", http.StatusInternalServerError)
 	}
 }
 
