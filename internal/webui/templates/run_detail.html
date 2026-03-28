@@ -354,8 +354,6 @@ function toggleArtifact(link) {
         .then(function(data) {
             var meta = data.metadata;
             var badges = '';
-            var meta = data.metadata;
-            var badges = '';
             if (meta.truncated) badges += '<span class="badge status-warning">Truncated</span> ';
             var isMarkdown = meta.mime_type === 'text/markdown' ||
                              meta.mime_type === 'text/x-markdown' ||
