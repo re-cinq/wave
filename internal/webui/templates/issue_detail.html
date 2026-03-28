@@ -67,14 +67,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 </span>
             </div>
             <div class="comment-body markdown-body" id="issue-comment-{{$i}}"></div>
+            <script type="text/plain" id="issue-comment-raw-{{$i}}">{{$c.Body}}</script>
         </div>
         {{end}}
     </div>
     <script>
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         {{range $i, $c := .Comments}}
         (function() {
-            var raw = {{$c.Body | js}};
+            var raw = document.getElementById('issue-comment-raw-{{$i}}').textContent;
             var el = document.getElementById('issue-comment-{{$i}}');
             if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
                 el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
@@ -83,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })();
         {{end}}
-    })();
+    });
     </script>
     {{else}}
     <div class="empty-state">
