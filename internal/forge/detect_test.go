@@ -851,3 +851,138 @@ func TestFilterPipelinesByForge_Codeberg(t *testing.T) {
 		}
 	}
 }
+
+// TestDetectWithOverride_Local verifies that the "local" forge override
+// returns ForgeLocal regardless of the remote URL, with empty CLI/PR fields.
+func TestDetectWithOverride_Local(t *testing.T) {
+	disableProbing(t)
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"local override with GitHub URL", "https://github.com/owner/repo.git"},
+		{"local override with empty URL", ""},
+		{"local override with SSH URL", "git@github.com:owner/repo.git"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DetectWithOverride(tt.url, "local")
+			if got.Type != ForgeLocal {
+				t.Errorf("Type = %q, want %q", got.Type, ForgeLocal)
+			}
+			if got.CLITool != "" {
+				t.Errorf("CLITool = %q, want empty", got.CLITool)
+			}
+			if got.PipelinePrefix != "local" {
+				t.Errorf("PipelinePrefix = %q, want %q", got.PipelinePrefix, "local")
+			}
+			if got.PRTerm != "" {
+				t.Errorf("PRTerm = %q, want empty", got.PRTerm)
+			}
+			if got.PRCommand != "" {
+				t.Errorf("PRCommand = %q, want empty", got.PRCommand)
+			}
+			// Host/Owner/Repo should be empty for local override
+			if got.Host != "" {
+				t.Errorf("Host = %q, want empty", got.Host)
+			}
+			if got.Owner != "" {
+				t.Errorf("Owner = %q, want empty", got.Owner)
+			}
+			if got.Repo != "" {
+				t.Errorf("Repo = %q, want empty", got.Repo)
+			}
+		})
+	}
+}
+
+// TestDetectWithOverride_LocalCaseInsensitive verifies that the "local"
+// override is case-insensitive.
+func TestDetectWithOverride_LocalCaseInsensitive(t *testing.T) {
+	disableProbing(t)
+
+	for _, override := range []string{"local", "Local", "LOCAL", "LocAL"} {
+		t.Run(override, func(t *testing.T) {
+			got := DetectWithOverride("https://github.com/owner/repo.git", override)
+			if got.Type != ForgeLocal {
+				t.Errorf("DetectWithOverride with override %q: Type = %q, want %q", override, got.Type, ForgeLocal)
+			}
+		})
+	}
+}
+
+// TestFilterPipelinesByForge_Local verifies that ForgeLocal includes only
+// local-prefixed and non-forge-prefixed pipelines, excluding forge-specific ones.
+func TestFilterPipelinesByForge_Local(t *testing.T) {
+	pipelines := []string{
+		"gh-implement",
+		"gh-review",
+		"gl-deploy",
+		"bb-build",
+		"gt-test",
+		"cb-sync",
+		"local-validate",
+		"local-lint",
+		"speckit-flow",
+		"wave-evolve",
+		"debug",
+	}
+
+	got := FilterPipelinesByForge(ForgeLocal, pipelines)
+	want := []string{"local-validate", "local-lint", "speckit-flow", "wave-evolve", "debug"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
+	}
+	for i, name := range got {
+		if name != want[i] {
+			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
+		}
+	}
+}
+
+// TestFilterPipelinesByForge_LocalNoForgePrefix verifies that ForgeLocal
+// includes all generic pipelines when no forge-prefixed pipelines exist.
+func TestFilterPipelinesByForge_LocalNoForgePrefix(t *testing.T) {
+	generic := []string{"speckit-flow", "wave-evolve", "debug", "deploy"}
+	got := FilterPipelinesByForge(ForgeLocal, generic)
+	if len(got) != len(generic) {
+		t.Errorf("got %d pipelines, want %d (all generic should be returned)", len(got), len(generic))
+	}
+}
+
+// TestForgeLocal_Slug verifies that ForgeLocal has empty slug.
+func TestForgeLocal_Slug(t *testing.T) {
+	info := ForgeInfo{Type: ForgeLocal}
+	if slug := info.Slug(); slug != "" {
+		t.Errorf("Slug() = %q, want empty for ForgeLocal", slug)
+	}
+}
+
+// TestForgeLocal_Metadata verifies that ForgeLocal metadata has correct values.
+func TestForgeLocal_Metadata(t *testing.T) {
+	cli, prefix, prTerm, prCommand := forgeMetadata(ForgeLocal)
+	if cli != "" {
+		t.Errorf("cli = %q, want empty", cli)
+	}
+	if prefix != "local" {
+		t.Errorf("prefix = %q, want %q", prefix, "local")
+	}
+	if prTerm != "" {
+		t.Errorf("prTerm = %q, want empty", prTerm)
+	}
+	if prCommand != "" {
+		t.Errorf("prCommand = %q, want empty", prCommand)
+	}
+}
+
+// TestHasForgePrefix_Local verifies that "local-" is recognized as a forge prefix.
+func TestHasForgePrefix_Local(t *testing.T) {
+	if !hasForgePrefix("local-validate") {
+		t.Error("hasForgePrefix(\"local-validate\") = false, want true")
+	}
+	if hasForgePrefix("localhost-something") {
+		t.Error("hasForgePrefix(\"localhost-something\") = true, want false (no exact 'local-' prefix)")
+	}
+}

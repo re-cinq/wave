@@ -34,6 +34,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /compare", s.handleComparePage)
 	mux.HandleFunc("GET /analytics", s.handleAnalyticsPage)
 	mux.HandleFunc("GET /webhooks", s.handleWebhooksPage)
+	mux.HandleFunc("GET /admin", s.handleAdminPage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
@@ -75,6 +76,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)
 	mux.HandleFunc("GET /api/retros/{id}", s.handleAPIRetroDetail)
 	mux.HandleFunc("POST /api/retros/{id}/narrate", s.handleNarrateRetro)
+
+	// Admin API
+	mux.HandleFunc("GET /api/admin/config", s.handleAPIAdminConfig)
+	mux.HandleFunc("GET /api/admin/credentials", s.handleAPIAdminCredentials)
+	mux.HandleFunc("POST /api/admin/emergency-stop", s.handleAPIEmergencyStop)
 
 	// Webhook API
 	mux.HandleFunc("GET /api/webhooks", s.handleAPIWebhooks)

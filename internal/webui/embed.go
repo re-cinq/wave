@@ -43,6 +43,7 @@ var pageTemplates = []string{
 	"templates/notfound.html",
 	"templates/compare.html",
 	"templates/webhooks.html",
+	"templates/admin.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

@@ -927,6 +927,54 @@ func TestInjectForgeVariables_Gitea(t *testing.T) {
 	}
 }
 
+func TestInjectForgeVariables_Codeberg(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "implement",
+		StepID:          "create-pr",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeCodeberg,
+		Host:           "codeberg.org",
+		Owner:          "user",
+		Repo:           "project",
+		CLITool:        "tea",
+		PipelinePrefix: "cb",
+		PRTerm:         "Pull Request",
+		PRCommand:      "pulls",
+	}
+
+	InjectForgeVariables(ctx, info)
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"forge.type", "{{ forge.type }}", "codeberg"},
+		{"forge.host", "{{ forge.host }}", "codeberg.org"},
+		{"forge.owner", "{{ forge.owner }}", "user"},
+		{"forge.repo", "{{ forge.repo }}", "project"},
+		{"forge.cli_tool", "{{ forge.cli_tool }}", "tea"},
+		{"forge.prefix", "{{ forge.prefix }}", "cb"},
+		{"forge.pr_term", "{{ forge.pr_term }}", "Pull Request"},
+		{"forge.pr_command", "{{ forge.pr_command }}", "pulls"},
+		{"persona resolution", "{{ forge.prefix }}-commenter", "cb-commenter"},
+		{"PR creation command", "{{ forge.cli_tool }} {{ forge.pr_command }} create", "tea pulls create"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctx.ResolvePlaceholders(tt.template)
+			if result != tt.expected {
+				t.Errorf("ResolvePlaceholders(%q) = %q, want %q", tt.template, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestInjectForgeVariables_Unknown(t *testing.T) {
 	ctx := &PipelineContext{
 		PipelineID:      "test-pipeline",
@@ -1439,6 +1487,74 @@ func TestStripTemplateDelimiters(t *testing.T) {
 				t.Errorf("stripTemplateDelimiters(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestInjectForgeVariables_Local(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "wave-validate",
+		StepID:          "step1",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeLocal,
+		PipelinePrefix: "local",
+	}
+	InjectForgeVariables(ctx, info)
+
+	// forge.type should be "local"
+	if got := ctx.CustomVariables["forge.type"]; got != "local" {
+		t.Errorf("CustomVariables[forge.type] = %q, want %q", got, "local")
+	}
+
+	// forge.prefix should be "local"
+	if got := ctx.CustomVariables["forge.prefix"]; got != "local" {
+		t.Errorf("CustomVariables[forge.prefix] = %q, want %q", got, "local")
+	}
+
+	// forge.cli_tool, forge.pr_term, forge.pr_command should be empty
+	for _, key := range []string{"forge.cli_tool", "forge.pr_term", "forge.pr_command", "forge.host", "forge.owner", "forge.repo"} {
+		if got := ctx.CustomVariables[key]; got != "" {
+			t.Errorf("CustomVariables[%q] = %q, want empty for ForgeLocal", key, got)
+		}
+	}
+}
+
+func TestInjectForgeVariables_LocalTemplateResolution(t *testing.T) {
+	ctx := &PipelineContext{
+		PipelineID:      "test-pipeline",
+		PipelineName:    "wave-validate",
+		StepID:          "step1",
+		CustomVariables: make(map[string]string),
+	}
+
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeLocal,
+		PipelinePrefix: "local",
+	}
+	InjectForgeVariables(ctx, info)
+
+	// Templates using forge.cli_tool should resolve to empty gracefully
+	result := ctx.ResolvePlaceholders("{{ forge.cli_tool }} {{ forge.pr_command }} create")
+	if result != "  create" {
+		t.Errorf("template resolution = %q, want %q", result, "  create")
+	}
+
+	// forge.type should still resolve
+	result = ctx.ResolvePlaceholders("forge type: {{ forge.type }}")
+	if result != "forge type: local" {
+		t.Errorf("type resolution = %q, want %q", result, "forge type: local")
+	}
+
+	// No unresolved placeholders
+	result = ctx.ResolvePlaceholders("{{ forge.type }}-{{ forge.prefix }}")
+	if strings.Contains(result, "{{") {
+		t.Errorf("unresolved placeholders in result: %q", result)
+	}
+	if result != "local-local" {
+		t.Errorf("prefix resolution = %q, want %q", result, "local-local")
 	}
 }
 
