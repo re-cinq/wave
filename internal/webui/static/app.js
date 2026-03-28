@@ -188,15 +188,17 @@ async function retryRun(runID, btn) {
     }
 }
 
-// Filter runs by status, pipeline, and date
+// Filter runs by status, pipeline, date, and search text
 function filterRuns() {
     var params = new URLSearchParams();
     var status = document.getElementById('status-filter');
     var pipeline = document.getElementById('pipeline-filter');
     var since = document.getElementById('since-filter');
+    var search = document.getElementById('search-filter');
     if (status && status.value) params.set('status', status.value);
     if (pipeline && pipeline.value) params.set('pipeline', pipeline.value);
     if (since && since.value) params.set('since', since.value);
+    if (search && search.value.trim()) params.set('search', search.value.trim());
     window.location.search = params.toString();
 }
 
