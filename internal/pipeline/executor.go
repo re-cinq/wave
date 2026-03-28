@@ -112,6 +112,8 @@ type DefaultPipelineExecutor struct {
 	retroGenerator *retro.Generator
 	// Cost ledger for per-run cost tracking and budget enforcement
 	costLedger *cost.Ledger
+	// Webhook runner for dynamic webhook delivery (non-blocking)
+	webhookRunner *hooks.WebhookRunner
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -612,17 +614,39 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
-	// Run run_start hooks
-	if e.hookRunner != nil {
-		evt := hooks.HookEvent{
-			Type:       hooks.EventRunStart,
-			PipelineID: pipelineID,
-			Input:      input,
+	// Initialize webhook runner from state store (dynamic webhooks)
+	if e.webhookRunner == nil && e.store != nil {
+		webhooks, err := e.store.ListWebhooks()
+		if err == nil && len(webhooks) > 0 {
+			records := make([]hooks.WebhookRecord, len(webhooks))
+			for i, wh := range webhooks {
+				records[i] = hooks.WebhookRecord{
+					ID:      wh.ID,
+					Name:    wh.Name,
+					URL:     wh.URL,
+					Events:  wh.Events,
+					Matcher: wh.Matcher,
+					Headers: wh.Headers,
+					Secret:  wh.Secret,
+					Active:  wh.Active,
+				}
+			}
+			e.webhookRunner = hooks.NewWebhookRunner(records, &webhookStoreAdapter{store: e.store})
 		}
-		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+	}
+
+	// Run run_start hooks
+	startEvt := hooks.HookEvent{
+		Type:       hooks.EventRunStart,
+		PipelineID: pipelineID,
+		Input:      input,
+	}
+	if e.hookRunner != nil {
+		if _, err := e.hookRunner.RunHooks(ctx, startEvt); err != nil {
 			return fmt.Errorf("run_start hook failed: %w", err)
 		}
 	}
+	e.fireWebhooks(ctx, startEvt)
 
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
@@ -2743,18 +2767,19 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// Run step_completed hooks (blocking by default)
+	stepCompletedEvt := hooks.HookEvent{
+		Type:       hooks.EventStepCompleted,
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		Input:      execution.Input,
+		Workspace:  workspacePath,
+	}
 	if e.hookRunner != nil {
-		evt := hooks.HookEvent{
-			Type:       hooks.EventStepCompleted,
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			Input:      execution.Input,
-			Workspace:  workspacePath,
-		}
-		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+		if _, err := e.hookRunner.RunHooks(ctx, stepCompletedEvt); err != nil {
 			return fmt.Errorf("step_completed hook failed: %w", err)
 		}
 	}
+	e.fireWebhooks(ctx, stepCompletedEvt)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -3570,12 +3595,12 @@ const terminalHookTimeout = 30 * time.Second
 // runTerminalHooks executes lifecycle hooks with a fresh, detached context.
 // Terminal events fire after the pipeline context may already be cancelled.
 func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
-	if e.hookRunner == nil {
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), terminalHookTimeout)
 	defer cancel()
-	e.hookRunner.RunHooks(ctx, evt)
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, evt)
+	}
+	e.fireWebhooks(ctx, evt)
 }
 
 // trace emits a structured NDJSON trace event when debug tracing is enabled.
@@ -4712,4 +4737,28 @@ func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *Pipeline, m *manifest.Manifest, input string, fromStep string, force bool, priorRunID ...string) error {
 	manager := NewResumeManager(e)
 	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force, priorRunID...)
+}
+
+// fireWebhooks sends an event to all matching dynamic webhooks (non-blocking).
+func (e *DefaultPipelineExecutor) fireWebhooks(ctx context.Context, evt hooks.HookEvent) {
+	if e.webhookRunner != nil {
+		e.webhookRunner.FireWebhooks(ctx, evt)
+	}
+}
+
+// webhookStoreAdapter bridges the hooks.WebhookStore interface to the state store,
+// avoiding a direct state→hooks import cycle.
+type webhookStoreAdapter struct {
+	store state.StateStore
+}
+
+func (a *webhookStoreAdapter) RecordWebhookDeliveryResult(d *hooks.WebhookDeliveryRecord) error {
+	return a.store.RecordWebhookDelivery(&state.WebhookDelivery{
+		WebhookID:      d.WebhookID,
+		RunID:          d.RunID,
+		Event:          d.Event,
+		StatusCode:     d.StatusCode,
+		ResponseTimeMs: d.ResponseTimeMs,
+		Error:          d.Error,
+	})
 }
