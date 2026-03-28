@@ -14,6 +14,7 @@ type Client interface {
 	ListIssues(ctx context.Context, owner, repo string, opts ListIssuesOptions) ([]*Issue, error)
 	GetPullRequest(ctx context.Context, owner, repo string, number int) (*PullRequest, error)
 	ListPullRequests(ctx context.Context, owner, repo string, opts ListPullRequestsOptions) ([]*PullRequest, error)
+	ListPullRequestCommits(ctx context.Context, owner, repo string, number int) ([]*Commit, error)
 	GetCommitChecks(ctx context.Context, owner, repo, ref string) ([]*CheckRun, error)
 	ListIssueComments(ctx context.Context, owner, repo string, number int, limit int) ([]*Comment, error)
 	ForgeType() ForgeType

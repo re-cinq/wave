@@ -185,6 +185,27 @@ type CreatePullRequestRequest struct {
 	Draft               *bool   `json:"draft,omitempty"`
 }
 
+// PullRequestCommit represents a commit on a pull request.
+type PullRequestCommit struct {
+	SHA     string                   `json:"sha"`
+	Commit  PullRequestCommitDetail  `json:"commit"`
+	Author  *User                    `json:"author"`
+	HTMLURL string                   `json:"html_url"`
+}
+
+// PullRequestCommitDetail holds the nested commit object returned by the GitHub API.
+type PullRequestCommitDetail struct {
+	Message string                      `json:"message"`
+	Author  PullRequestCommitAuthor     `json:"author"`
+}
+
+// PullRequestCommitAuthor holds the author info inside a commit object.
+type PullRequestCommitAuthor struct {
+	Name  string    `json:"name"`
+	Email string    `json:"email"`
+	Date  time.Time `json:"date"`
+}
+
 // RateLimitStatus represents GitHub API rate limit information
 type RateLimitStatus struct {
 	Limit     int       `json:"limit"`

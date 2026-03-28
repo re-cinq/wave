@@ -323,6 +323,17 @@ type CommentSummary struct {
 	HTMLURL   string `json:"url"`
 }
 
+// CommitSummary is a summary of a commit on a PR for the detail page.
+type CommitSummary struct {
+	SHA      string `json:"sha"`
+	ShortSHA string `json:"short_sha"`
+	Message  string `json:"message"`
+	Author   string `json:"author"`
+	Date     string `json:"date"`
+	TimeISO  string `json:"time_iso"`
+	HTMLURL  string `json:"url"`
+}
+
 // PRCheck represents a CI/CD status check on a PR.
 type PRCheck struct {
 	Name       string `json:"name"`
