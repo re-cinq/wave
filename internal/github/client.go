@@ -363,6 +363,24 @@ func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, opts 
 	return prs, nil
 }
 
+// ListPullRequestCommits retrieves the commits on a pull request.
+func (c *Client) ListPullRequestCommits(ctx context.Context, owner, repo string, number int) ([]*PullRequestCommit, error) {
+	path := fmt.Sprintf("/repos/%s/%s/pulls/%d/commits?per_page=100", owner, repo, number)
+
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var commits []*PullRequestCommit
+	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+		return nil, fmt.Errorf("failed to decode pull request commits: %w", err)
+	}
+
+	return commits, nil
+}
+
 // GetCommitCheckRuns retrieves check runs for a specific commit reference.
 func (c *Client) GetCommitCheckRuns(ctx context.Context, owner, repo, ref string) (*CheckRunsResponse, error) {
 	path := fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?per_page=100", owner, repo, ref)
