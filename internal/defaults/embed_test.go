@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
@@ -305,6 +306,94 @@ func TestGetPersonaConfigs_ModelOverrides(t *testing.T) {
 			if cfg.Model != "" {
 				t.Errorf("persona %q should not have a model override, got %q", name, cfg.Model)
 			}
+		}
+	}
+}
+
+func TestGetSkillTemplates_ReturnsAllTemplates(t *testing.T) {
+	templates := GetSkillTemplates()
+
+	expected := []string{"gh-cli", "docker", "testing", "security", "docs", "react", "tailwind", "terraform"}
+	if len(templates) != len(expected) {
+		t.Errorf("expected %d skill templates, got %d", len(expected), len(templates))
+	}
+
+	for _, name := range expected {
+		data, ok := templates[name]
+		if !ok {
+			t.Errorf("expected skill template %q not found", name)
+			continue
+		}
+		if len(data) == 0 {
+			t.Errorf("skill template %q has empty content", name)
+		}
+	}
+}
+
+func TestGetSkillTemplates_ValidSKILLMD(t *testing.T) {
+	templates := GetSkillTemplates()
+
+	for name, data := range templates {
+		s, err := skill.Parse(data)
+		if err != nil {
+			t.Errorf("skill template %q failed to parse: %v", name, err)
+			continue
+		}
+
+		// Name in frontmatter must match directory name
+		if s.Name != name {
+			t.Errorf("skill template %q has mismatched name in frontmatter: %q", name, s.Name)
+		}
+
+		if s.Description == "" {
+			t.Errorf("skill template %q has empty description", name)
+		}
+
+		if s.Body == "" {
+			t.Errorf("skill template %q has empty body", name)
+		}
+	}
+}
+
+func TestSkillTemplateNames_ReturnsSortedList(t *testing.T) {
+	names := SkillTemplateNames()
+
+	if len(names) == 0 {
+		t.Fatal("expected at least one skill template name")
+	}
+
+	// Verify sorted order
+	for i := 1; i < len(names); i++ {
+		if names[i] < names[i-1] {
+			t.Errorf("names not sorted: %q comes after %q", names[i], names[i-1])
+		}
+	}
+}
+
+func TestGetSkillTemplates_CheckCommandPresent(t *testing.T) {
+	templates := GetSkillTemplates()
+
+	// Skills that should have check_command
+	withCheck := map[string]bool{
+		"gh-cli":    true,
+		"docker":    true,
+		"react":     true,
+		"tailwind":  true,
+		"terraform": true,
+	}
+
+	for name, data := range templates {
+		s, err := skill.Parse(data)
+		if err != nil {
+			t.Errorf("skill template %q failed to parse: %v", name, err)
+			continue
+		}
+
+		if withCheck[name] && s.CheckCommand == "" {
+			t.Errorf("skill template %q should have check_command", name)
+		}
+		if !withCheck[name] && s.CheckCommand != "" {
+			t.Errorf("skill template %q should not have check_command, got %q", name, s.CheckCommand)
 		}
 	}
 }

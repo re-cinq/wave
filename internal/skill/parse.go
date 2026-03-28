@@ -16,6 +16,7 @@ type Skill struct {
 	Body          string
 	License       string
 	Compatibility string
+	CheckCommand  string
 	Metadata      map[string]string
 	AllowedTools  []string
 	SourcePath    string
@@ -28,6 +29,7 @@ type frontmatter struct {
 	Description   string            `yaml:"description"`
 	License       string            `yaml:"license,omitempty"`
 	Compatibility string            `yaml:"compatibility,omitempty"`
+	CheckCommand  string            `yaml:"check_command,omitempty"`
 	Metadata      map[string]string `yaml:"metadata,omitempty"`
 	AllowedTools  string            `yaml:"allowed-tools,omitempty"`
 }
@@ -150,6 +152,7 @@ func frontmatterToSkill(fm frontmatter, body string) Skill {
 		Body:          body,
 		License:       fm.License,
 		Compatibility: fm.Compatibility,
+		CheckCommand:  fm.CheckCommand,
 		Metadata:      fm.Metadata,
 		AllowedTools:  allowedTools,
 	}
@@ -187,6 +190,7 @@ func Serialize(skill Skill) ([]byte, error) {
 		Description:   skill.Description,
 		License:       skill.License,
 		Compatibility: skill.Compatibility,
+		CheckCommand:  skill.CheckCommand,
 		Metadata:      skill.Metadata,
 	}
 	if len(skill.AllowedTools) > 0 {
