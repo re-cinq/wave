@@ -72,7 +72,7 @@ func defaultTokenEnvVar(ft forge.ForgeType) string {
 		return "GH_TOKEN"
 	case forge.ForgeGitLab:
 		return "GITLAB_TOKEN"
-	case forge.ForgeGitea:
+	case forge.ForgeGitea, forge.ForgeForgejo, forge.ForgeCodeberg:
 		return "GITEA_TOKEN"
 	default:
 		return ""

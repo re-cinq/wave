@@ -17,6 +17,8 @@ const (
 	ForgeBitbucket ForgeType = "bitbucket"
 	ForgeGitea     ForgeType = "gitea"
 	ForgeForgejo   ForgeType = "forgejo"
+	ForgeCodeberg  ForgeType = "codeberg"
+	ForgeLocal     ForgeType = "local"
 	ForgeUnknown   ForgeType = "unknown"
 )
 
@@ -48,8 +50,23 @@ func Detect(remoteURL string) ForgeInfo {
 
 // DetectWithOverride classifies a remote URL into a ForgeInfo, using the
 // manifest forge override if non-empty. The override value should be a valid
-// ForgeType string (e.g. "github", "gitlab", "gitea", "forgejo", "bitbucket").
+// ForgeType string (e.g. "github", "gitlab", "gitea", "forgejo", "codeberg",
+// "bitbucket", "local").
+// When the override is "local", a ForgeLocal info is returned regardless of
+// the remote URL — this supports fully forgeless operation.
 func DetectWithOverride(remoteURL, forgeOverride string) ForgeInfo {
+	// "local" override short-circuits all detection — no forge needed.
+	if strings.EqualFold(forgeOverride, string(ForgeLocal)) {
+		cli, prefix, prTerm, prCommand := forgeMetadata(ForgeLocal)
+		return ForgeInfo{
+			Type:           ForgeLocal,
+			CLITool:        cli,
+			PipelinePrefix: prefix,
+			PRTerm:         prTerm,
+			PRCommand:      prCommand,
+		}
+	}
+
 	host, owner, repo := parseRemoteURL(remoteURL)
 	if host == "" {
 		return ForgeInfo{Type: ForgeUnknown}
@@ -77,18 +94,28 @@ func DetectWithOverride(remoteURL, forgeOverride string) ForgeInfo {
 }
 
 // DetectFromGitRemotes shells out to `git remote -v` and classifies the first
-// fetch remote. Returns ForgeUnknown info if git is unavailable or no remotes exist.
+// fetch remote. Returns ForgeLocal info if git is unavailable or no remotes
+// exist, since a repo without remotes is inherently local-only.
 func DetectFromGitRemotes() (ForgeInfo, error) {
 	return DetectFromGitRemotesWithOverride(""), nil
 }
 
 // DetectFromGitRemotesWithOverride is like DetectFromGitRemotes but accepts a
 // manifest forge override string. When non-empty, the override bypasses hostname
-// matching and endpoint probing.
+// matching and endpoint probing. When the override is "local", ForgeLocal is
+// returned immediately without checking git remotes. When no remotes are found
+// and no override is set, ForgeLocal is returned instead of ForgeUnknown —
+// a repo without remotes is inherently local-only.
 func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
+	// "local" override returns immediately — no git remote inspection needed.
+	if strings.EqualFold(forgeOverride, string(ForgeLocal)) {
+		return DetectWithOverride("", forgeOverride)
+	}
+
 	out, err := exec.Command("git", "remote", "-v").Output()
 	if err != nil {
-		return ForgeInfo{Type: ForgeUnknown}
+		// git unavailable or not a repo — treat as local.
+		return ForgeInfo{Type: ForgeLocal, PipelinePrefix: "local"}
 	}
 
 	// Parse first fetch remote
@@ -108,11 +135,14 @@ func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
 		return DetectWithOverride(fields[1], forgeOverride)
 	}
 
-	return ForgeInfo{Type: ForgeUnknown}
+	// No fetch remotes found — repo is local-only.
+	return ForgeInfo{Type: ForgeLocal, PipelinePrefix: "local"}
 }
 
 // FilterPipelinesByForge returns pipeline names that match the given forge's
 // prefix convention. Pipelines without a forge prefix are always included.
+// For ForgeLocal, only pipelines with no forge prefix or the "local-" prefix
+// are included — forge-specific pipelines (gh-, gl-, bb-, gt-, cb-) are excluded.
 func FilterPipelinesByForge(ft ForgeType, names []string) []string {
 	_, prefix, _, _ := forgeMetadata(ft)
 	if prefix == "" {
@@ -204,6 +234,8 @@ func classifyHost(host string) ForgeType {
 		return ForgeGitea
 	case strings.Contains(h, "forgejo"):
 		return ForgeForgejo
+	case h == "codeberg.org" || strings.HasSuffix(h, ".codeberg.org"):
+		return ForgeCodeberg
 	}
 
 	// Check if tea CLI knows about this host (registered Gitea/Forgejo instance).
@@ -216,6 +248,9 @@ func classifyHost(host string) ForgeType {
 }
 
 // forgeMetadata returns the CLI tool, pipeline prefix, PR term, and PR command for a forge type.
+// ForgeLocal returns empty strings for CLI tool, PR term, and PR command since
+// local-only operation has no forge CLI or pull request concepts. The pipeline
+// prefix "local" is used for pipeline filtering.
 func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 	switch ft {
 	case ForgeGitHub:
@@ -226,6 +261,10 @@ func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 		return "bb", "bb", "Pull Request", "pr"
 	case ForgeGitea, ForgeForgejo:
 		return "tea", "gt", "Pull Request", "pr"
+	case ForgeCodeberg:
+		return "tea", "cb", "Pull Request", "pulls"
+	case ForgeLocal:
+		return "", "local", "", ""
 	default:
 		return "", "", "", ""
 	}
@@ -305,7 +344,7 @@ func checkTeaCLI(host string) ForgeType {
 
 // hasForgePrefix checks if a pipeline name starts with any known forge prefix.
 func hasForgePrefix(name string) bool {
-	prefixes := []string{"gh-", "gl-", "bb-", "gt-"}
+	prefixes := []string{"gh-", "gl-", "bb-", "gt-", "cb-", "local-"}
 	for _, p := range prefixes {
 		if strings.HasPrefix(name, p) {
 			return true

@@ -19,7 +19,7 @@ func ResolveToken(ft ForgeType) string {
 		return resolveGitLabToken()
 	case ForgeBitbucket:
 		return resolveBitbucketToken()
-	case ForgeGitea:
+	case ForgeGitea, ForgeCodeberg:
 		return resolveGiteaToken()
 	default:
 		return ""

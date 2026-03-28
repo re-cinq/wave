@@ -23,7 +23,7 @@ func (r *ScopeResolver) Resolve(scope TokenScope) ([]string, error) {
 		return r.resolveGitHub(scope)
 	case forge.ForgeGitLab:
 		return r.resolveGitLab(scope)
-	case forge.ForgeGitea:
+	case forge.ForgeGitea, forge.ForgeForgejo, forge.ForgeCodeberg:
 		return r.resolveGitea(scope)
 	case forge.ForgeBitbucket:
 		return nil, fmt.Errorf("bitbucket token scope validation is not yet supported; skipping enforcement")
