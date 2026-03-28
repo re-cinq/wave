@@ -523,7 +523,7 @@ func isBasicLintDefault(cmd string) bool {
 
 // extractForgePrefix returns the forge prefix from a pipeline name, or empty string.
 func extractForgePrefix(name string) string {
-	knownPrefixes := []string{"gh", "gl", "bb", "gt"}
+	knownPrefixes := []string{"gh", "gl", "bb", "gt", "cb", "local"}
 	for _, prefix := range knownPrefixes {
 		if strings.HasPrefix(name, prefix+"-") {
 			return prefix
@@ -543,6 +543,10 @@ func forgeLabelForPrefix(prefix string) string {
 		return "Bitbucket"
 	case "gt":
 		return "Gitea"
+	case "cb":
+		return "Codeberg"
+	case "local":
+		return "local"
 	default:
 		return prefix
 	}

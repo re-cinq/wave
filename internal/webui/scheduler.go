@@ -54,6 +54,11 @@ func (s *Scheduler) ActiveCount() int {
 	return int(s.active.Load())
 }
 
+// MaxConcurrency returns the maximum number of concurrent runs allowed.
+func (s *Scheduler) MaxConcurrency() int {
+	return cap(s.sem)
+}
+
 // Shutdown waits for all in-flight runs to complete or ctx to expire.
 func (s *Scheduler) Shutdown(ctx context.Context) error {
 	done := make(chan struct{})

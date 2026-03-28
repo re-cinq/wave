@@ -306,6 +306,15 @@ func checkForge(opts *Options) (forge.ForgeInfo, []CheckResult) {
 		}}
 	}
 
+	if fi.Type == forge.ForgeLocal {
+		return fi, []CheckResult{{
+			Name:     "Forge Detection",
+			Category: "forge",
+			Status:   StatusOK,
+			Message:  "Local mode — no git remote configured (forge-dependent pipelines will be filtered out)",
+		}}
+	}
+
 	results := []CheckResult{{
 		Name:     "Forge Detection",
 		Category: "forge",
