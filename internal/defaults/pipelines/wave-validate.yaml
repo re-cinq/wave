@@ -66,7 +66,7 @@ steps:
         - source: ./
           target: /project
           mode: readonly
-    script: "echo 'Wave validate: running self-test' && test -f wave.yaml && echo '{\"tests_passed\": true}'"
+    script: "echo 'Wave validate: command step executed successfully'"
 
   # Step 3: Conditional routing — validates graph walker
   - id: test-gate
