@@ -1080,10 +1080,16 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
 
+	// Resolve the working directory for the command. For mount-based
+	// workspaces the project files live under the mount target (e.g.
+	// workspacePath/project/), so we set CWD to the project mount
+	// directory rather than the bare workspace root.
+	cmdDir := resolveCommandWorkDir(workspacePath, step)
+
 	// Execute the script
 	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, "sh", "-c", script)
-	cmd.Dir = workspacePath
+	cmd.Dir = cmdDir
 
 	// SECURITY: Filter environment to only EnvPassthrough variables.
 	// Prevents leaking secrets, API keys, or other sensitive environment
@@ -2850,6 +2856,34 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 		}
 	}
 	return result
+}
+
+// resolveCommandWorkDir determines the working directory for a command step.
+// When the step uses mount-based workspaces, the project files live under the
+// mount target directory (e.g. workspacePath/project/) rather than the bare
+// workspace root. This function finds the first mount whose source is "./"
+// (the project root) and returns the corresponding target path inside the
+// workspace. If no project-root mount is found, or the step has no mounts,
+// the original workspace path is returned unchanged.
+func resolveCommandWorkDir(workspacePath string, step *Step) string {
+	if len(step.Workspace.Mount) == 0 {
+		return workspacePath
+	}
+	for _, m := range step.Workspace.Mount {
+		if m.Source == "./" || m.Source == "." {
+			// Mount target is stored as e.g. "/project" — strip leading
+			// slash to get a relative path within the workspace.
+			target := strings.TrimPrefix(m.Target, "/")
+			if target == "" {
+				continue
+			}
+			candidate := filepath.Join(workspacePath, target)
+			if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+				return candidate
+			}
+		}
+	}
+	return workspacePath
 }
 
 func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
