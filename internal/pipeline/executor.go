@@ -586,13 +586,19 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
-	// Initialize hook runner from manifest hooks if not already set
-	if e.hookRunner == nil && len(m.Hooks) > 0 {
-		runner, err := hooks.NewHookRunner(m.Hooks, e.emitter)
-		if err != nil {
-			return fmt.Errorf("failed to initialize hook runner: %w", err)
+	// Initialize hook runner from manifest + pipeline hooks if not already set.
+	// Pipeline-level hooks are appended after manifest-level hooks so they run
+	// in addition to (and after) the global manifest hooks.
+	if e.hookRunner == nil {
+		merged := append([]hooks.LifecycleHookDef{}, m.Hooks...)
+		merged = append(merged, p.Hooks...)
+		if len(merged) > 0 {
+			runner, err := hooks.NewHookRunner(merged, e.emitter)
+			if err != nil {
+				return fmt.Errorf("failed to initialize hook runner: %w", err)
+			}
+			e.hookRunner = runner
 		}
-		e.hookRunner = runner
 	}
 
 	// Run run_start hooks
@@ -854,6 +860,19 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		TotalSteps:     len(p.Steps),
 		CompletedSteps: 0,
 	})
+
+	// Initialize hook runner from manifest + pipeline hooks if not already set.
+	if e.hookRunner == nil {
+		merged := append([]hooks.LifecycleHookDef{}, m.Hooks...)
+		merged = append(merged, p.Hooks...)
+		if len(merged) > 0 {
+			runner, err := hooks.NewHookRunner(merged, e.emitter)
+			if err != nil {
+				return fmt.Errorf("failed to initialize hook runner: %w", err)
+			}
+			e.hookRunner = runner
+		}
+	}
 
 	// Ensure workspace root exists
 	wsRoot := m.Runtime.WorkspaceRoot
