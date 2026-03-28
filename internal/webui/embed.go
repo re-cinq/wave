@@ -38,7 +38,10 @@ var pageTemplates = []string{
 	"templates/pr_detail.html",
 	"templates/health.html",
 	"templates/ontology.html",
+	"templates/analytics.html",
+	"templates/retros.html",
 	"templates/notfound.html",
+	"templates/compare.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page
@@ -58,8 +61,10 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"checkClass":     checkClass,
 		"checkIcon":      checkIcon,
 		"checkLabel":     checkLabel,
-		"add":            func(a, b int) int { return a + b },
-		"subtract":       func(a, b int) int { return a - b },
+		"add":              func(a, b int) int { return a + b },
+		"subtract":         func(a, b int) int { return a - b },
+		"smoothnessLabel":  smoothnessLabel,
+		"frictionLabel":    frictionLabel,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular

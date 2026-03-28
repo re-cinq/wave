@@ -30,9 +30,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /prs/{number}", s.handlePRDetailPage)
 	mux.HandleFunc("GET /health", s.handleHealthPage)
 	mux.HandleFunc("GET /ontology", s.handleOntologyPage)
+	mux.HandleFunc("GET /retros", s.handleRetrosPage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
+	mux.HandleFunc("GET /api/runs/export", s.handleExportRuns)
 	mux.HandleFunc("POST /api/runs", s.handleSubmitRun)
 	mux.HandleFunc("GET /api/pipelines", s.handleAPIPipelines)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleAPIRunDetail)

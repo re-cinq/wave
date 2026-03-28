@@ -1,0 +1,130 @@
+{{define "title"}}Retros · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Retrospective Trends</h1>
+</div>
+{{if .HasData}}
+
+<!-- Smoothness Trend Chart -->
+<div class="card retro-trends-card">
+    <h2>Smoothness Over Time</h2>
+    <p class="retro-subtitle">Last {{len .Trend}} runs — bar height reflects smoothness rating</p>
+    <div class="retro-chart">
+        {{range .Trend}}
+        <div class="retro-bar-wrapper" title="{{.Pipeline}}: {{smoothnessLabel .Smoothness}} ({{.CreatedAt}})">
+            <div class="retro-bar retro-bar-{{.Smoothness}}" style="height: {{.HeightPct}}%;"></div>
+            <span class="retro-bar-label">{{smoothnessLabel .Smoothness}}</span>
+        </div>
+        {{end}}
+    </div>
+    <div class="retro-legend">
+        <span class="retro-legend-item"><span class="retro-legend-dot retro-bar-effortless"></span> Effortless</span>
+        <span class="retro-legend-item"><span class="retro-legend-dot retro-bar-smooth"></span> Smooth</span>
+        <span class="retro-legend-item"><span class="retro-legend-dot retro-bar-bumpy"></span> Bumpy</span>
+        <span class="retro-legend-item"><span class="retro-legend-dot retro-bar-struggled"></span> Struggled</span>
+        <span class="retro-legend-item"><span class="retro-legend-dot retro-bar-failed"></span> Failed</span>
+    </div>
+</div>
+
+<div class="retro-grid">
+    <!-- Friction Points -->
+    <div class="card retro-friction-card">
+        <h2>Common Friction Points</h2>
+        {{if .FrictionPoints}}
+        <table class="retro-table">
+            <thead>
+                <tr>
+                    <th>Friction Type</th>
+                    <th>Occurrences</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .FrictionPoints}}
+                <tr>
+                    <td><span class="retro-friction-type">{{.Type}}</span> {{frictionLabel .Type}}</td>
+                    <td><strong>{{.Count}}</strong></td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else}}
+        <p class="retro-empty-hint">No friction points recorded yet. Run pipelines with narrative generation to collect friction data.</p>
+        {{end}}
+    </div>
+
+    <!-- Pipeline Success Rates -->
+    <div class="card retro-pipeline-card">
+        <h2>Pipeline Success Rates</h2>
+        {{if .PipelineRates}}
+        <table class="retro-table">
+            <thead>
+                <tr>
+                    <th>Pipeline</th>
+                    <th>Runs</th>
+                    <th>Success %</th>
+                    <th>Avg Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .PipelineRates}}
+                <tr>
+                    <td><a href="/runs?pipeline={{.Pipeline}}">{{.Pipeline}}</a></td>
+                    <td>{{.TotalRuns}}</td>
+                    <td>
+                        <div class="retro-pct-bar">
+                            <div class="retro-pct-fill {{if ge .SuccessPct 70}}retro-pct-good{{else if ge .SuccessPct 40}}retro-pct-warn{{else}}retro-pct-bad{{end}}" style="width: {{.SuccessPct}}%;"></div>
+                            <span class="retro-pct-label">{{.SuccessPct}}%</span>
+                        </div>
+                    </td>
+                    <td>{{.AvgDuration}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else}}
+        <p class="retro-empty-hint">No pipeline data available.</p>
+        {{end}}
+    </div>
+</div>
+
+<!-- Latest Retros List -->
+<div class="card retro-list-card">
+    <h2>Latest Retrospectives</h2>
+    <table class="retro-table">
+        <thead>
+            <tr>
+                <th>Run</th>
+                <th>Pipeline</th>
+                <th>Smoothness</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Retros}}
+            <tr>
+                <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
+                <td><a href="/runs?pipeline={{.Pipeline}}">{{.Pipeline}}</a></td>
+                <td>
+                    {{if .Smoothness}}
+                    <span class="retro-smoothness-{{.Smoothness}}">{{smoothnessLabel .Smoothness}}</span>
+                    {{else}}
+                    <span class="retro-smoothness-pending">-</span>
+                    {{end}}
+                </td>
+                <td><span class="badge">{{.Status}}</span></td>
+                <td>{{.CreatedAt}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+{{else}}
+<div class="empty-state">
+    <div class="empty-state-icon">&#9776;</div>
+    <p><strong>No retrospectives yet</strong></p>
+    <p>Retrospectives are generated after pipeline runs complete. Run a pipeline to see trends here.</p>
+</div>
+{{end}}
+{{end}}
