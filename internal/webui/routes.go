@@ -31,6 +31,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /health", s.handleHealthPage)
 	mux.HandleFunc("GET /ontology", s.handleOntologyPage)
 	mux.HandleFunc("GET /retros", s.handleRetrosPage)
+	mux.HandleFunc("GET /compare", s.handleComparePage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
@@ -64,6 +65,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
 	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
+	mux.HandleFunc("GET /api/compare", s.handleAPICompare)
 
 	// Retrospective API
 	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)
