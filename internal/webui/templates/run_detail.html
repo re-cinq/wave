@@ -120,9 +120,9 @@
                 <ul>
                     {{range .Artifacts}}
                     <li>
-                        <a href="#" class="artifact-link" data-run-id="{{$.RunID}}" data-step-id="{{$stepID}}" data-artifact-name="{{.Name}}" onclick="toggleArtifact(this); return false;">{{.Name}}</a>
+                        <a href="#" class="artifact-link" data-run-id="{{$.Run.RunID}}" data-step-id="{{$stepID}}" data-artifact-name="{{.Name}}" onclick="toggleArtifact(this); return false;">{{.Name}}</a>
                         <span class="artifact-size">({{.SizeBytes}} bytes)</span>
-                        <a href="/api/runs/{{$.RunID}}/artifacts/{{$stepID}}/{{.Name}}" download class="artifact-download" title="Download">&#8615;</a>
+                        <a href="/api/runs/{{$.Run.RunID}}/artifacts/{{$stepID}}/{{.Name}}" download class="artifact-download" title="Download">&#8615;</a>
                         <div class="artifact-inline" hidden></div>
                     </li>
                     {{end}}
