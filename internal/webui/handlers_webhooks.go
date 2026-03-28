@@ -3,12 +3,48 @@ package webui
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/state"
 )
+
+// isPublicURL checks that a URL doesn't target private/loopback addresses.
+func isPublicURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+	lower := strings.ToLower(host)
+	if lower == "localhost" || lower == "localhost." {
+		return false
+	}
+	// Check direct IP
+	ip := net.ParseIP(host)
+	if ip != nil {
+		return !ip.IsLoopback() && !ip.IsPrivate() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified()
+	}
+	// DNS resolution check
+	ips, err := net.LookupHost(host)
+	if err != nil {
+		return true // allow unresolvable hosts (might resolve later)
+	}
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+			return false
+		}
+	}
+	return true
+}
 
 // --- Page Handler ---
 
@@ -57,6 +93,11 @@ func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 	if req.Name == "" || req.URL == "" {
 		http.Error(w, "name and url are required", http.StatusBadRequest)
+		return
+	}
+	// Block private/loopback URLs to prevent SSRF
+	if !isPublicURL(req.URL) {
+		http.Error(w, "webhook URL must be a public HTTP(S) endpoint (localhost and private IPs are blocked)", http.StatusBadRequest)
 		return
 	}
 

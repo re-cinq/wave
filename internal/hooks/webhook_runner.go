@@ -11,8 +11,12 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sync"
 	"time"
 )
+
+// maxDeliveriesPerMinute is the rate limit per webhook to prevent runaway delivery loops.
+const maxDeliveriesPerMinute = 30
 
 // WebhookRecord mirrors state.Webhook without importing state (avoids cycle).
 type WebhookRecord struct {
@@ -44,10 +48,42 @@ type WebhookStore interface {
 
 // WebhookRunner fires HTTP POST to registered webhooks for matching events.
 type WebhookRunner struct {
-	webhooks []WebhookRecord
-	matchers []*regexp.Regexp
-	client   *http.Client
-	store    WebhookStore
+	webhooks    []WebhookRecord
+	matchers    []*regexp.Regexp
+	client      *http.Client
+	store       WebhookStore
+	rateLimiter *webhookRateLimiter
+}
+
+// webhookRateLimiter tracks delivery counts per webhook per minute window.
+type webhookRateLimiter struct {
+	mu      sync.Mutex
+	counts  map[int64]int
+	resetAt time.Time
+}
+
+func newWebhookRateLimiter() *webhookRateLimiter {
+	return &webhookRateLimiter{
+		counts:  make(map[int64]int),
+		resetAt: time.Now().Add(time.Minute),
+	}
+}
+
+// allow returns true if the webhook hasn't exceeded the rate limit.
+func (rl *webhookRateLimiter) allow(webhookID int64) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	if time.Now().After(rl.resetAt) {
+		rl.counts = make(map[int64]int)
+		rl.resetAt = time.Now().Add(time.Minute)
+	}
+
+	if rl.counts[webhookID] >= maxDeliveriesPerMinute {
+		return false
+	}
+	rl.counts[webhookID]++
+	return true
 }
 
 // NewWebhookRunner creates a runner from a list of webhook records.
@@ -61,10 +97,11 @@ func NewWebhookRunner(webhooks []WebhookRecord, store WebhookStore) *WebhookRunn
 		}
 	}
 	return &WebhookRunner{
-		webhooks: webhooks,
-		matchers: matchers,
-		client:   &http.Client{Timeout: 10 * time.Second},
-		store:    store,
+		webhooks:    webhooks,
+		matchers:    matchers,
+		client:      &http.Client{Timeout: 10 * time.Second},
+		store:       store,
+		rateLimiter: newWebhookRateLimiter(),
 	}
 }
 
@@ -82,6 +119,10 @@ func (r *WebhookRunner) FireWebhooks(ctx context.Context, evt HookEvent) {
 			continue
 		}
 
+		if !r.rateLimiter.allow(wh.ID) {
+			r.recordDelivery(&wh, evt, 0, 0, "rate limited: exceeded 30 deliveries/minute")
+			continue
+		}
 		go r.deliver(ctx, &wh, evt)
 	}
 }
@@ -100,6 +141,12 @@ func (r *WebhookRunner) matchesEvent(wh WebhookRecord, evt HookEvent) bool {
 }
 
 func (r *WebhookRunner) deliver(ctx context.Context, wh *WebhookRecord, evt HookEvent) {
+	// SSRF protection: validate webhook URL before delivery
+	if err := urlValidator(wh.URL); err != nil {
+		r.recordDelivery(wh, evt, 0, 0, fmt.Sprintf("SSRF blocked: %s", err))
+		return
+	}
+
 	payload, err := json.Marshal(evt)
 	if err != nil {
 		r.recordDelivery(wh, evt, 0, 0, fmt.Sprintf("marshal error: %s", err))
