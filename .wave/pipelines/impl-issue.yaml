@@ -110,6 +110,8 @@ steps:
     retry:
       policy: aggressive
       max_attempts: 3
+      on_failure: rework
+      rework_step: fix-implement
     handover:
       contract:
         type: test_suite
@@ -119,6 +121,29 @@ steps:
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer
+
+  - id: fix-implement
+    persona: craftsman
+    rework_only: true
+    thread: impl
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        The implementation step failed. Review the error and fix it.
+        The failure context is injected as an artifact.
+        Focus on the specific error — don't rewrite everything.
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true
+        on_failure: fail
 
   - id: create-pr
     persona: "{{ forge.type }}-commenter"
