@@ -31,6 +31,9 @@ var promptsFS embed.FS
 //go:embed personas/*.yaml
 var personaConfigsFS embed.FS
 
+//go:embed schemas/*.json
+var schemasFS embed.FS
+
 // GetPersonas returns a map of filename to content for all default personas.
 func GetPersonas() (map[string]string, error) {
 	return readDir(personasFS, "personas")
@@ -81,6 +84,11 @@ func GetContracts() (map[string]string, error) {
 // Keys are like "speckit-flow/specify.md" (preserving subdirectory structure).
 func GetPrompts() (map[string]string, error) {
 	return readDirNested(promptsFS, "prompts")
+}
+
+// GetSchemas returns a map of filename to content for all default JSON schemas.
+func GetSchemas() (map[string]string, error) {
+	return readDir(schemasFS, "schemas")
 }
 
 func readDir(fsys embed.FS, dir string) (map[string]string, error) {
