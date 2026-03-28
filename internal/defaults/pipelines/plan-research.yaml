@@ -110,6 +110,7 @@ steps:
   - id: research-topics
     persona: researcher
     model: claude-haiku
+    max_concurrent_agents: 5
     dependencies: [analyze-topics]
     memory:
       inject_artifacts:
