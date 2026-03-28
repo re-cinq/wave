@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -961,6 +962,124 @@ func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {
 	if !foundVerify {
 		t.Error("expected completed event for 'verify' step")
 	}
+}
+
+// --- Unit test: resolveCommandWorkDir ---
+
+func TestResolveCommandWorkDir(t *testing.T) {
+	t.Run("no mounts returns workspace root", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected %q, got %q", wsRoot, got)
+		}
+	})
+
+	t.Run("mount with source ./ resolves to mount target", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		projectDir := filepath.Join(wsRoot, "project")
+		if err := os.MkdirAll(projectDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: "./", Target: "/project", Mode: "readonly"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != projectDir {
+			t.Errorf("expected %q, got %q", projectDir, got)
+		}
+	})
+
+	t.Run("mount with source . resolves to mount target", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		projectDir := filepath.Join(wsRoot, "src")
+		if err := os.MkdirAll(projectDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: ".", Target: "/src", Mode: "readwrite"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != projectDir {
+			t.Errorf("expected %q, got %q", projectDir, got)
+		}
+	})
+
+	t.Run("mount with non-root source returns workspace root", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		subDir := filepath.Join(wsRoot, "data")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: "./subdir", Target: "/data", Mode: "readonly"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected %q (workspace root), got %q", wsRoot, got)
+		}
+	})
+
+	t.Run("mount target dir missing returns workspace root", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: "./", Target: "/project", Mode: "readonly"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected %q (workspace root), got %q", wsRoot, got)
+		}
+	})
+
+	t.Run("picks first project-root mount from multiple", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		firstDir := filepath.Join(wsRoot, "first")
+		secondDir := filepath.Join(wsRoot, "second")
+		if err := os.MkdirAll(firstDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(secondDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: "./", Target: "/first", Mode: "readonly"},
+					{Source: "./", Target: "/second", Mode: "readwrite"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != firstDir {
+			t.Errorf("expected first mount %q, got %q", firstDir, got)
+		}
+	})
 }
 
 // --- Unit test: filterEnvPassthrough ---
