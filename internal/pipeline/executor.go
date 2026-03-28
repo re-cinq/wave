@@ -806,6 +806,12 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
 
+	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
+	var threadCompactionAdapter relay.CompactionAdapter
+	if e.relayMonitor != nil {
+		threadCompactionAdapter = e.relayMonitor.Adapter()
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:          p,
 		Manifest:          m,
@@ -816,6 +822,8 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		WorktreePaths:     make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		ThreadManager:     NewThreadManager(threadCompactionAdapter),
+		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:           pipelineContext,
 		Status: &PipelineStatus{
@@ -924,7 +932,9 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		}
 
 		result.Outcome = "success"
+		execution.mu.Lock()
 		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		execution.mu.Unlock()
 		return result, nil
 	}
 
@@ -933,7 +943,15 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	// Persist final visit counts
 	if e.store != nil {
 		for stepID, count := range gw.VisitCounts() {
-			e.store.SaveStepVisitCount(pipelineID, stepID, count)
+			if vcErr := e.store.SaveStepVisitCount(pipelineID, stepID, count); vcErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     stepID,
+					State:      "warning",
+					Message:    fmt.Sprintf("failed to persist visit count for step %q: %v", stepID, vcErr),
+				})
+			}
 		}
 	}
 
@@ -1014,6 +1032,13 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	script := step.Script
 	if execution.Context != nil {
 		script = execution.Context.ResolvePlaceholders(script)
+	}
+
+	// SECURITY: Reject command step execution when no sanitizer is configured.
+	// Template resolution can introduce user-controlled content that must be
+	// sanitized before shell execution.
+	if e.inputSanitizer == nil {
+		return nil, fmt.Errorf("command step %q: refusing to execute without input sanitizer", step.ID)
 	}
 
 	// SECURITY: Sanitize the resolved script to detect injection attempts.
