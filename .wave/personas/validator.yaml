@@ -1,5 +1,5 @@
-description: "Read-only codebase exploration and analysis"
-model: claude-haiku
+description: "Skeptical analysis and verification of findings against source code"
+model: sonnet
 temperature: 0.1
 permissions:
   allowed_tools:
@@ -7,9 +7,11 @@ permissions:
     - Write
     - Glob
     - Grep
+    - "Bash(wc *)"
     - "Bash(git log*)"
-    - "Bash(git status*)"
+    - "Bash(git diff*)"
   deny:
     - "Edit(*)"
     - "Bash(git commit*)"
     - "Bash(git push*)"
+    - "Bash(rm*)"
