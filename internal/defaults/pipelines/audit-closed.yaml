@@ -98,6 +98,7 @@ steps:
         path: .wave/artifacts/inventory.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -186,6 +187,7 @@ steps:
         path: .wave/artifacts/audit-report.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:

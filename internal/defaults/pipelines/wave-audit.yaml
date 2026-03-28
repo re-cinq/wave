@@ -22,6 +22,7 @@ input:
 steps:
   - id: collect-inventory
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -100,6 +101,7 @@ steps:
         path: .wave/output/inventory.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -110,6 +112,7 @@ steps:
 
   - id: audit-items
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [collect-inventory]
     memory:
       inject_artifacts:
@@ -185,6 +188,7 @@ steps:
         path: .wave/output/audit-findings.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -264,6 +268,7 @@ steps:
         path: .wave/output/triage-report.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -350,6 +355,7 @@ steps:
         path: .wave/output/publish-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

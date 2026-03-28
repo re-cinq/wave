@@ -14,6 +14,8 @@ input:
 steps:
   - id: reproduce
     persona: debugger
+    model: claude-haiku-4-5
+    thread: debug
     workspace:
       mount:
         - source: ./
@@ -33,6 +35,7 @@ steps:
         path: .wave/output/reproduction.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -43,6 +46,7 @@ steps:
 
   - id: hypothesize
     persona: debugger
+    thread: debug
     dependencies: [reproduce]
     memory:
       inject_artifacts:
@@ -65,6 +69,7 @@ steps:
         path: .wave/output/hypotheses.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -75,6 +80,7 @@ steps:
 
   - id: investigate
     persona: debugger
+    thread: debug
     dependencies: [hypothesize]
     memory:
       inject_artifacts:
@@ -113,6 +119,8 @@ steps:
   - id: fix
     persona: craftsman
     dependencies: [investigate]
+    thread: debug
+    max_visits: 3
     memory:
       inject_artifacts:
         - step: investigate
@@ -134,15 +142,23 @@ steps:
         4. Verify the original reproduction no longer fails
         5. Check for similar issues elsewhere
     retry:
+      policy: aggressive
       max_attempts: 3
-    handover:
-      contract:
-        type: test_suite
-        command: "{{ project.test_command }}"
-
-        must_pass: false
-        on_failure: retry
+      on_failure: retry
     output_artifacts:
       - name: fix
         path: .wave/output/fix-summary.md
         type: markdown
+
+  - id: run-tests
+    type: command
+    dependencies: [fix]
+    script: "{{ project.contract_test_command }}"
+
+  - id: verify-fix
+    type: conditional
+    dependencies: [run-tests]
+    edges:
+      - target: _complete
+        condition: "outcome=success"
+      - target: fix

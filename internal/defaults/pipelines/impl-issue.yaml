@@ -37,6 +37,7 @@ input:
 steps:
   - id: fetch-assess
     persona: implementer
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -48,6 +49,7 @@ steps:
         path: .wave/output/issue-assessment.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -77,6 +79,7 @@ steps:
         path: .wave/output/impl-plan.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -88,6 +91,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    thread: impl
     dependencies: [plan]
     memory:
       inject_artifacts:
@@ -104,6 +108,7 @@ steps:
       type: prompt
       source_path: .wave/prompts/implement/implement.md
     retry:
+      policy: aggressive
       max_attempts: 3
     handover:
       contract:
@@ -134,6 +139,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
