@@ -159,17 +159,47 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 
 // Directories to skip when copying workspace mounts
 var skipDirs = map[string]bool{
-	"node_modules": true,
-	".git":         true,
-	".wave":        true,
-	".claude":      true,
-	"vendor":       true,
-	"__pycache__":  true,
-	".venv":        true,
-	"dist":         true,
-	"build":        true,
-	".next":        true,
-	".cache":       true,
+	"node_modules":   true,
+	".git":           true,
+	".wave":          true,
+	".claude":        true,
+	"vendor":         true,
+	"__pycache__":    true,
+	".venv":          true,
+	"dist":           true,
+	"build":          true,
+	".next":          true,
+	".cache":         true,
+	".output":        true,
+	".nuxt":          true,
+	".parcel-cache":  true,
+	".turbo":         true,
+	".svelte-kit":    true,
+	".angular":       true,
+	"__generated__":  true,
+	"coverage":       true,
+	".nyc_output":    true,
+}
+
+// File extensions to skip (large binary artifacts)
+var skipExtensions = map[string]bool{
+	".pdf": true,
+	".zip": true,
+	".jar": true,
+	".war": true,
+	".whl": true,
+	".exe": true,
+	".dll": true,
+}
+
+// shouldSkipFile returns true if the file should be excluded based on its extension.
+func shouldSkipFile(name string) bool {
+	// Check compound extensions first (e.g. .tar.gz)
+	if strings.HasSuffix(name, ".tar.gz") {
+		return true
+	}
+	ext := filepath.Ext(name)
+	return skipExtensions[ext]
 }
 
 func copyRecursive(src, dst string) error {
@@ -218,6 +248,10 @@ func copyRecursive(src, dst string) error {
 					return copyRecursive(realPath, targetPath)
 				}
 				// Symlink to file — fall through to copyFile which follows symlinks
+			}
+			// Skip large binary artifacts by extension
+			if shouldSkipFile(info.Name()) {
+				return nil
 			}
 			// Skip large files (>10MB) and errors
 			if info.Size() > 10*1024*1024 {
