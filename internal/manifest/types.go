@@ -159,8 +159,21 @@ type Runtime struct {
 	Artifacts            RuntimeArtifactsConfig `yaml:"artifacts,omitempty"`
 	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
 	Retros               RetrosConfig           `yaml:"retros,omitempty"`
+	Cost                 CostConfig             `yaml:"cost,omitempty"`
 	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`   // Adapter fallback chains (e.g., anthropic: [openai, gemini])
 	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
+}
+
+// CostConfig holds cost tracking and budget enforcement settings.
+type CostConfig struct {
+	// Enabled activates cost tracking for pipeline runs.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// BudgetCeiling is the maximum cost in USD per pipeline run. 0 = unlimited.
+	BudgetCeiling float64 `yaml:"budget_ceiling,omitempty"`
+	// WarnAt is the cost threshold (USD) at which to emit a warning. 0 = disabled.
+	WarnAt float64 `yaml:"warn_at,omitempty"`
+	// Currency is the display currency (default: "USD").
+	Currency string `yaml:"currency,omitempty"`
 }
 
 // GetMaxConcurrency returns the configured maximum step concurrency, defaulting to 10.
@@ -228,6 +241,49 @@ type RoutingConfig struct {
 
 	// Rules is the list of routing rules evaluated in priority order.
 	Rules []RoutingRule `yaml:"rules,omitempty"`
+
+	// AutoRoute enables automatic model routing based on step complexity heuristics.
+	// When enabled, steps without an explicit model override are assigned a model
+	// from the ComplexityMap based on their classified complexity tier.
+	AutoRoute bool `yaml:"auto_route,omitempty"`
+
+	// ComplexityMap maps complexity tier names to model identifiers.
+	// Default tiers: "simple" -> "claude-haiku-4-5", "standard" -> "" (adapter default), "complex" -> "claude-opus-4".
+	ComplexityMap map[string]string `yaml:"complexity_map,omitempty"`
+
+	// DefaultTier is the fallback complexity tier when classification is inconclusive.
+	// Defaults to "standard" if not set.
+	DefaultTier string `yaml:"default_tier,omitempty"`
+}
+
+// DefaultComplexityMap returns the built-in complexity-to-model mapping.
+func DefaultComplexityMap() map[string]string {
+	return map[string]string{
+		"simple":   "claude-haiku-4-5",
+		"standard": "",
+		"complex":  "claude-opus-4",
+	}
+}
+
+// ResolveComplexityModel returns the model for a given complexity tier,
+// consulting the configured ComplexityMap first, then falling back to defaults.
+// Returns empty string for the "standard" tier (use adapter default).
+func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
+	if r != nil && len(r.ComplexityMap) > 0 {
+		if model, ok := r.ComplexityMap[tier]; ok {
+			return model
+		}
+	}
+	defaults := DefaultComplexityMap()
+	return defaults[tier]
+}
+
+// EffectiveDefaultTier returns the configured default tier, falling back to "standard".
+func (r *RoutingConfig) EffectiveDefaultTier() string {
+	if r != nil && r.DefaultTier != "" {
+		return r.DefaultTier
+	}
+	return "standard"
 }
 
 // RoutingRule defines a rule for matching work items to pipelines.

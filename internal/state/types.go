@@ -221,6 +221,18 @@ type OntologyStats struct {
 	LastUsed    time.Time
 }
 
+// DecisionRecord holds an append-only decision log entry for a pipeline run.
+type DecisionRecord struct {
+	ID        int64
+	RunID     string
+	StepID    string
+	Timestamp time.Time
+	Category  string // "model_routing", "retry", "contract", "budget", "composition"
+	Decision  string // what was decided
+	Rationale string // why
+	Context   string // JSON blob of relevant context data
+}
+
 // RetrospectiveRecord holds metadata for a stored retrospective.
 type RetrospectiveRecord struct {
 	ID           int64

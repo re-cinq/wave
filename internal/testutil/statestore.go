@@ -538,6 +538,18 @@ func (m *MockStateStore) UpdateRetrospectiveStatus(runID string, status string) 
 	return nil
 }
 
+func (m *MockStateStore) RecordDecision(record *state.DecisionRecord) error {
+	return nil
+}
+
+func (m *MockStateStore) GetDecisions(runID string) ([]*state.DecisionRecord, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) GetDecisionsByStep(runID, stepID string) ([]*state.DecisionRecord, error) {
+	return nil, nil
+}
+
 // Functional options for overriding specific methods.
 
 func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
