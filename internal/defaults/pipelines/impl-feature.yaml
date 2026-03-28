@@ -12,9 +12,22 @@ input:
   source: cli
   example: "add a --dry-run flag to the run command"
 
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[impl-feature] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[impl-feature] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: explore
     persona: navigator
+    max_concurrent_agents: 3
     model: claude-haiku
     workspace:
       mount:
@@ -104,6 +117,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    contexts: [execution, delivery]
     dependencies: [plan]
     memory:
       inject_artifacts:

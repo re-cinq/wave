@@ -12,9 +12,22 @@ input:
   source: cli
   example: "improve error handling in internal/pipeline"
 
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[impl-improve] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[impl-improve] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: assess
     persona: navigator
+    max_concurrent_agents: 3
     model: claude-haiku
     workspace:
       mount:
@@ -55,6 +68,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    contexts: [execution, delivery]
     dependencies: [assess]
     memory:
       inject_artifacts:
