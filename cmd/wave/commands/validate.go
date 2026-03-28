@@ -238,6 +238,9 @@ func validateAdapterBinaries(m *manifest.Manifest, verbose bool) []string {
 // isCompositionStep returns true if the step is an orchestration primitive
 // (sub-pipeline, branch, gate, loop) that does not require a persona.
 func isCompositionStep(step pipeline.Step) bool {
+	if step.Type == pipeline.StepTypeCommand || step.Type == pipeline.StepTypeConditional {
+		return true
+	}
 	return step.SubPipeline != "" || step.Branch != nil || step.Gate != nil || step.Loop != nil || step.Aggregate != nil
 }
 
