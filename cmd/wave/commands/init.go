@@ -1102,6 +1102,22 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 		manifest["project"] = project
 	}
 
+	// Always include base quality context in ontology
+	manifest["ontology"] = map[string]interface{}{
+		"contexts": []map[string]interface{}{
+			{
+				"name":        "quality",
+				"description": "Validation and quality gates — first-pass failure is expected, rework is the norm",
+				"invariants": []string{
+					"First-pass success is the exception, not the rule — validation exists to catch and correct",
+					"Every pipeline output must pass through a validation gate before being considered done",
+					"Rework after review is not a failure — it is the expected path to quality",
+					"Contract validation, PR review, and test suites are gates, not formalities",
+				},
+			},
+		},
+	}
+
 	return manifest
 }
 
@@ -1332,6 +1348,7 @@ var forgeTypeToPrefix = map[forge.ForgeType]string{
 	forge.ForgeGitLab:    "gitlab",
 	forge.ForgeBitbucket: "bitbucket",
 	forge.ForgeGitea:     "gitea",
+	forge.ForgeCodeberg:  "codeberg",
 }
 
 // filterPersonasByForge filters persona configs to only include personas
