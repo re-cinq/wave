@@ -70,28 +70,31 @@ internal/
 ├── bench/        # SWE-bench benchmarking and comparison
 ├── continuous/   # Continuous pipeline execution
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
+├── cost/         # Cost ledger, iron rule enforcement, model pricing
 ├── defaults/     # Embedded default personas, pipelines, and contracts
 ├── deliverable/  # Pipeline deliverable tracking and output
 ├── display/      # Terminal progress display and formatting
+├── doctor/       # Project health checking and optimization
 ├── event/        # Progress event emission and monitoring
+├── forge/        # Git forge/hosting platform detection (GitHub, GitLab, Gitea, Forgejo, Codeberg, Bitbucket, local)
 ├── github/       # GitHub API integration for issue enhancement
+├── hooks/        # Lifecycle hooks and webhook delivery runner
 ├── manifest/     # Configuration loading and validation
-├── onboarding/   # Interactive wave init flow
+├── onboarding/   # Interactive wave init flow (monorepo-aware, Docker compose, flavour detection)
 ├── pathfmt/      # Path formatting and normalization utilities
-├── pipeline/     # Pipeline execution and step management
+├── pipeline/     # Pipeline execution, step management, model routing, decision logging
 ├── preflight/    # Pipeline dependency validation and auto-install
 ├── recovery/     # Pipeline recovery hints and error guidance
 ├── relay/        # Context compaction and summarization
+├── retro/        # Run retrospective generation
 ├── sandbox/      # Docker and bubblewrap sandbox backends
 ├── scope/        # Persona token scope parsing and validation
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
-├── doctor/       # Project health checking and optimization
-├── forge/        # Git forge/hosting platform detection
+├── state/        # SQLite persistence, webhooks, decision log, ontology usage
 ├── suggest/      # Pipeline suggestion engine
-├── state/        # SQLite persistence and state management
 ├── tui/          # Bubble Tea terminal UI
-├── webui/        # Web operations dashboard (embedded assets)
+├── webui/        # Web operations dashboard (runs, pipelines, webhooks, admin, analytics)
 ├── worktree/     # Git worktree lifecycle for isolated workspaces
 └── workspace/    # Ephemeral workspace management
 
