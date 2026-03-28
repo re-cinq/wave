@@ -977,6 +977,70 @@ func TestForgeLocal_Metadata(t *testing.T) {
 	}
 }
 
+// TestPickFetchRemoteURL verifies that pickFetchRemoteURL prefers "origin" over
+// other remotes, and falls back to the first non-origin remote when origin is absent.
+func TestPickFetchRemoteURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantURL string
+	}{
+		{
+			name:    "single origin remote",
+			input:   "origin\thttps://github.com/owner/repo.git (fetch)\norigin\thttps://github.com/owner/repo.git (push)\n",
+			wantURL: "https://github.com/owner/repo.git",
+		},
+		{
+			name: "origin preferred over other remotes",
+			input: "github\thttps://github.com/owner/repo.git (fetch)\n" +
+				"github\thttps://github.com/owner/repo.git (push)\n" +
+				"origin\thttps://gitea.example.com/owner/repo.git (fetch)\n" +
+				"origin\thttps://gitea.example.com/owner/repo.git (push)\n",
+			wantURL: "https://gitea.example.com/owner/repo.git",
+		},
+		{
+			name: "origin first in output",
+			input: "origin\thttps://gitea.example.com/owner/repo.git (fetch)\n" +
+				"origin\thttps://gitea.example.com/owner/repo.git (push)\n" +
+				"github\thttps://github.com/owner/repo.git (fetch)\n" +
+				"github\thttps://github.com/owner/repo.git (push)\n",
+			wantURL: "https://gitea.example.com/owner/repo.git",
+		},
+		{
+			name: "no origin — falls back to first remote",
+			input: "upstream\thttps://gitlab.com/owner/repo.git (fetch)\n" +
+				"upstream\thttps://gitlab.com/owner/repo.git (push)\n" +
+				"fork\thttps://github.com/fork/repo.git (fetch)\n" +
+				"fork\thttps://github.com/fork/repo.git (push)\n",
+			wantURL: "https://gitlab.com/owner/repo.git",
+		},
+		{
+			name:    "empty output",
+			input:   "",
+			wantURL: "",
+		},
+		{
+			name:    "only push remotes",
+			input:   "origin\thttps://github.com/owner/repo.git (push)\n",
+			wantURL: "",
+		},
+		{
+			name:    "malformed line with single field",
+			input:   "origin\n",
+			wantURL: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pickFetchRemoteURL(tt.input)
+			if got != tt.wantURL {
+				t.Errorf("pickFetchRemoteURL() = %q, want %q", got, tt.wantURL)
+			}
+		})
+	}
+}
+
 // TestHasForgePrefix_Local verifies that "local-" is recognized as a forge prefix.
 func TestHasForgePrefix_Local(t *testing.T) {
 	if !hasForgePrefix("local-validate") {

@@ -118,8 +118,23 @@ func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
 		return ForgeInfo{Type: ForgeLocal, PipelinePrefix: "local"}
 	}
 
-	// Parse first fetch remote
-	for _, line := range strings.Split(string(out), "\n") {
+	remoteURL := pickFetchRemoteURL(string(out))
+	if remoteURL != "" {
+		return DetectWithOverride(remoteURL, forgeOverride)
+	}
+
+	// No fetch remotes found — repo is local-only.
+	return ForgeInfo{Type: ForgeLocal, PipelinePrefix: "local"}
+}
+
+// pickFetchRemoteURL parses `git remote -v` output and returns the best fetch
+// remote URL. It prefers "origin" over any other remote. If "origin" has no
+// fetch URL, it falls back to the first available fetch remote. Returns empty
+// string when no fetch remotes are found.
+func pickFetchRemoteURL(gitRemoteOutput string) string {
+	var originURL string
+	var fallbackURL string
+	for _, line := range strings.Split(gitRemoteOutput, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -132,11 +147,19 @@ func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
 		if len(fields) < 2 {
 			continue
 		}
-		return DetectWithOverride(fields[1], forgeOverride)
+		if fields[0] == "origin" {
+			originURL = fields[1]
+			break // origin found — no need to check further
+		}
+		if fallbackURL == "" {
+			fallbackURL = fields[1]
+		}
 	}
 
-	// No fetch remotes found — repo is local-only.
-	return ForgeInfo{Type: ForgeLocal, PipelinePrefix: "local"}
+	if originURL != "" {
+		return originURL
+	}
+	return fallbackURL
 }
 
 // FilterPipelinesByForge returns pipeline names that match the given forge's
