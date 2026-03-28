@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
@@ -17,6 +18,9 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"gopkg.in/yaml.v3"
 )
+
+// validPipelineName matches safe pipeline names: alphanumeric, hyphens, underscores, dots.
+var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // loggingEmitter wraps an event emitter and also logs events to the state store.
 type loggingEmitter struct {
@@ -435,11 +439,15 @@ func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadPipelineYAML loads a pipeline definition from .wave/pipelines/.
+// The name must match [a-zA-Z0-9][a-zA-Z0-9._-]* to prevent path traversal.
 func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
+	if !validPipelineName.MatchString(name) {
+		return nil, fmt.Errorf("invalid pipeline name")
+	}
+
 	candidates := []string{
 		".wave/pipelines/" + name + ".yaml",
 		".wave/pipelines/" + name,
-		name,
 	}
 
 	var pipelinePath string
@@ -451,17 +459,17 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 	}
 
 	if pipelinePath == "" {
-		return nil, os.ErrNotExist
+		return nil, fmt.Errorf("pipeline not found")
 	}
 
 	data, err := os.ReadFile(pipelinePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pipeline not found")
 	}
 
 	var p pipeline.Pipeline
 	if err := yaml.Unmarshal(data, &p); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid pipeline definition")
 	}
 
 	return &p, nil
@@ -551,6 +559,9 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Limit request body size for consistency with other POST handlers.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req ForkRunRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
@@ -630,6 +641,9 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Limit request body size for consistency with other POST handlers.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req RewindRunRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
@@ -658,16 +672,14 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rewindStepID := ""
 	rewindIndex := -1
 	for i, step := range p.Steps {
 		if step.ID == req.ToStep {
-			rewindStepID = step.ID
 			rewindIndex = i
 			break
 		}
 	}
-	if rewindStepID == "" {
+	if rewindIndex == -1 {
 		writeJSONError(w, http.StatusBadRequest, "step not found in pipeline: "+req.ToStep)
 		return
 	}
@@ -689,16 +701,17 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.rwStore.UpdateRunStatus(runID, "failed", rewindStepID, run.TotalTokens); err != nil {
+	rewindMsg := "rewound to step: " + req.ToStep
+	if err := s.rwStore.UpdateRunStatus(runID, "failed", rewindMsg, run.TotalTokens); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to update run status: "+err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, RewindRunResponse{
 		RunID:        runID,
-		ToStep:       rewindStepID,
+		ToStep:       req.ToStep,
 		StepsDeleted: stepsDeleted,
-		Status:       "rewound",
+		Status:       "failed",
 	})
 }
 
