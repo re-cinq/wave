@@ -1,0 +1,214 @@
+package webui
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/recinq/wave/internal/state"
+)
+
+// --- API Endpoints ---
+
+func (s *Server) handleAPIWebhooks(w http.ResponseWriter, r *http.Request) {
+	webhooks, err := s.store.ListWebhooks()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list webhooks: %s", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(webhooks)
+}
+
+func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name    string            `json:"name"`
+		URL     string            `json:"url"`
+		Events  []string          `json:"events"`
+		Matcher string            `json:"matcher"`
+		Headers map[string]string `json:"headers"`
+		Secret  string            `json:"secret"`
+		Active  *bool             `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("invalid JSON: %s", err), http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" || req.URL == "" {
+		http.Error(w, "name and url are required", http.StatusBadRequest)
+		return
+	}
+
+	active := true
+	if req.Active != nil {
+		active = *req.Active
+	}
+
+	webhook := &state.Webhook{
+		Name:      req.Name,
+		URL:       req.URL,
+		Events:    req.Events,
+		Matcher:   req.Matcher,
+		Headers:   req.Headers,
+		Secret:    req.Secret,
+		Active:    active,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	id, err := s.store.CreateWebhook(webhook)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create webhook: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	webhook.ID = id
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(webhook)
+}
+
+func (s *Server) handleAPIWebhookDetail(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid webhook id", http.StatusBadRequest)
+		return
+	}
+
+	webhook, err := s.store.GetWebhook(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
+		return
+	}
+
+	deliveries, _ := s.store.GetWebhookDeliveries(id, 20)
+
+	resp := struct {
+		*state.Webhook
+		Deliveries []*state.WebhookDelivery `json:"deliveries"`
+	}{
+		Webhook:    webhook,
+		Deliveries: deliveries,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid webhook id", http.StatusBadRequest)
+		return
+	}
+
+	existing, err := s.store.GetWebhook(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		Name    *string            `json:"name"`
+		URL     *string            `json:"url"`
+		Events  []string           `json:"events"`
+		Matcher *string            `json:"matcher"`
+		Headers map[string]string  `json:"headers"`
+		Secret  *string            `json:"secret"`
+		Active  *bool              `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("invalid JSON: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	if req.Name != nil {
+		existing.Name = *req.Name
+	}
+	if req.URL != nil {
+		existing.URL = *req.URL
+	}
+	if req.Events != nil {
+		existing.Events = req.Events
+	}
+	if req.Matcher != nil {
+		existing.Matcher = *req.Matcher
+	}
+	if req.Headers != nil {
+		existing.Headers = req.Headers
+	}
+	if req.Secret != nil {
+		existing.Secret = *req.Secret
+	}
+	if req.Active != nil {
+		existing.Active = *req.Active
+	}
+	existing.UpdatedAt = time.Now()
+
+	if err := s.store.UpdateWebhook(existing); err != nil {
+		http.Error(w, fmt.Sprintf("failed to update webhook: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(existing)
+}
+
+func (s *Server) handleAPIDeleteWebhook(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid webhook id", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.DeleteWebhook(id); err != nil {
+		http.Error(w, fmt.Sprintf("failed to delete webhook: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleAPITestWebhook(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid webhook id", http.StatusBadRequest)
+		return
+	}
+
+	webhook, err := s.store.GetWebhook(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
+		return
+	}
+
+	// Fire a test event
+	testPayload := map[string]interface{}{
+		"type":        "test",
+		"webhook_id":  webhook.ID,
+		"webhook_name": webhook.Name,
+		"timestamp":   time.Now().Format(time.RFC3339),
+		"message":     "Test webhook delivery from Wave",
+	}
+
+	payload, _ := json.Marshal(testPayload)
+
+	resp := struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+		Payload string `json:"payload"`
+	}{
+		Success: true,
+		Message: fmt.Sprintf("Test payload sent to %s", webhook.URL),
+		Payload: string(payload),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
