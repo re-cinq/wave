@@ -774,3 +774,108 @@ func TestRunToSummary_NewFields(t *testing.T) {
 		}
 	})
 }
+
+// TestBuildStepDetails_GateChoicesData verifies that GateChoicesData and
+// GateFreeform are populated from pipeline gate configuration.
+func TestBuildStepDetails_GateChoicesData(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	tmpDir := t.TempDir()
+	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
+		t.Fatalf("failed to create pipeline dir: %v", err)
+	}
+	pipelineYAML := `kind: Pipeline
+metadata:
+  name: gate-pipeline
+steps:
+  - id: review-gate
+    type: gate
+    gate:
+      type: approval
+      prompt: "Approve this change?"
+      freeform: true
+      choices:
+        - key: approve
+          label: Approve
+          target: next-step
+        - key: reject
+          label: Reject
+          target: _fail
+  - id: next-step
+    persona: craftsman
+    depends_on: [review-gate]
+    exec:
+      prompt: "implement"
+`
+	if err := os.WriteFile(filepath.Join(pipelineDir, "gate-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
+		t.Fatalf("failed to write pipeline yaml: %v", err)
+	}
+
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore dir: %v", err)
+		}
+	}()
+
+	runID, _ := rwStore.CreateRun("gate-pipeline", "input")
+
+	// Log the gate step as running so the interactive panel would render
+	if err := rwStore.LogEvent(runID, "review-gate", "running", "", "Waiting for approval", 0, 0); err != nil {
+		t.Fatalf("failed to log event: %v", err)
+	}
+
+	details := srv.buildStepDetails(runID, "gate-pipeline")
+
+	if len(details) != 2 {
+		t.Fatalf("expected 2 step details, got %d", len(details))
+	}
+
+	gate := details[0]
+	if gate.StepID != "review-gate" {
+		t.Errorf("expected step ID 'review-gate', got %q", gate.StepID)
+	}
+	if gate.StepType != "gate" {
+		t.Errorf("expected step type 'gate', got %q", gate.StepType)
+	}
+	if gate.GatePrompt != "Approve this change?" {
+		t.Errorf("expected gate prompt 'Approve this change?', got %q", gate.GatePrompt)
+	}
+	if !gate.GateFreeform {
+		t.Error("expected GateFreeform to be true")
+	}
+	if len(gate.GateChoicesData) != 2 {
+		t.Fatalf("expected 2 gate choices, got %d", len(gate.GateChoicesData))
+	}
+	if gate.GateChoicesData[0].Key != "approve" {
+		t.Errorf("expected first choice key 'approve', got %q", gate.GateChoicesData[0].Key)
+	}
+	if gate.GateChoicesData[0].Label != "Approve" {
+		t.Errorf("expected first choice label 'Approve', got %q", gate.GateChoicesData[0].Label)
+	}
+	if gate.GateChoicesData[0].Target != "next-step" {
+		t.Errorf("expected first choice target 'next-step', got %q", gate.GateChoicesData[0].Target)
+	}
+	if gate.GateChoicesData[1].Key != "reject" {
+		t.Errorf("expected second choice key 'reject', got %q", gate.GateChoicesData[1].Key)
+	}
+	if gate.GateChoicesData[1].Target != "_fail" {
+		t.Errorf("expected second choice target '_fail', got %q", gate.GateChoicesData[1].Target)
+	}
+	if gate.GateChoices != "Approve, Reject" {
+		t.Errorf("expected GateChoices 'Approve, Reject', got %q", gate.GateChoices)
+	}
+
+	// Non-gate step should have nil GateChoicesData
+	impl := details[1]
+	if impl.GateChoicesData != nil {
+		t.Errorf("expected nil GateChoicesData for non-gate step, got %v", impl.GateChoicesData)
+	}
+	if impl.GateFreeform {
+		t.Error("expected GateFreeform to be false for non-gate step")
+	}
+}

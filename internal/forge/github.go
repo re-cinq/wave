@@ -98,6 +98,26 @@ func (g *GitHubClient) GetCommitChecks(ctx context.Context, owner, repo, ref str
 	return result, nil
 }
 
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, limit int) ([]*Comment, error) {
+	ghComments, err := g.client.ListIssueComments(ctx, owner, repo, number, limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*Comment, 0, len(ghComments))
+	for _, gc := range ghComments {
+		c := &Comment{
+			Body:      gc.Body,
+			CreatedAt: gc.CreatedAt,
+			HTMLURL:   gc.HTMLURL,
+		}
+		if gc.User != nil {
+			c.Author = gc.User.Login
+		}
+		result = append(result, c)
+	}
+	return result, nil
+}
+
 func convertGitHubIssue(gi *github.Issue) *Issue {
 	issue := &Issue{
 		Number:    gi.Number,

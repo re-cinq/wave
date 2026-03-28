@@ -61,6 +61,14 @@ type ListPullRequestsOptions struct {
 	Page    int
 }
 
+// Comment is a forge-neutral representation of a comment on an issue or PR.
+type Comment struct {
+	Author    string
+	Body      string
+	CreatedAt time.Time
+	HTMLURL   string
+}
+
 // CheckRun represents a CI/CD check result for a commit.
 type CheckRun struct {
 	Name       string // check name (e.g. "CI / build")

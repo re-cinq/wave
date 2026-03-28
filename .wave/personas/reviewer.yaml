@@ -1,5 +1,4 @@
-description: "Systematic debugging and root cause analysis"
-model: claude-opus
+description: "Code review and quality checks"
 temperature: 0.1
 permissions:
   allowed_tools:
@@ -9,7 +8,11 @@ permissions:
     - Grep
     - Bash
   deny:
+    - "Write(*.go)"
+    - "Write(*.ts)"
+    - "Write(*.py)"
+    - "Write(*.rs)"
     - "Edit(*)"
-    - "Bash(rm -rf /*)"
+    - "Bash(rm *)"
     - "Bash(git push*)"
     - "Bash(git commit*)"
