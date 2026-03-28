@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,16 +53,6 @@ func (v *llmJudgeValidator) Validate(cfg ContractConfig, workspacePath string) e
 		}
 	}
 
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	if apiKey == "" {
-		return &ValidationError{
-			ContractType: "llm_judge",
-			Message:      "ANTHROPIC_API_KEY environment variable not set",
-			Details:      []string{"set ANTHROPIC_API_KEY to use llm_judge contract validation"},
-			Retryable:    false,
-		}
-	}
-
 	// Read step output
 	content, err := v.readStepOutput(cfg, workspacePath)
 	if err != nil {
@@ -72,13 +63,19 @@ func (v *llmJudgeValidator) Validate(cfg ContractConfig, workspacePath string) e
 	systemPrompt := v.buildSystemPrompt()
 	userPrompt := v.buildUserPrompt(cfg.Criteria, content)
 
-	// Call Anthropic API
 	model := cfg.Model
 	if model == "" {
-		model = "claude-haiku-4-5"
+		model = "claude-haiku"
 	}
 
-	judgeResp, err := v.callAPI(apiKey, model, systemPrompt, userPrompt)
+	// Try API key first, fall back to Claude CLI for OAuth environments
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	var judgeResp *JudgeResponse
+	if apiKey != "" {
+		judgeResp, err = v.callAPI(apiKey, model, systemPrompt, userPrompt)
+	} else {
+		judgeResp, err = v.callViaCLI(model, systemPrompt, userPrompt)
+	}
 	if err != nil {
 		return err
 	}
@@ -263,6 +260,44 @@ func (v *llmJudgeValidator) callAPI(apiKey, model, systemPrompt, userPrompt stri
 		}
 	}
 
+	return &judgeResp, nil
+}
+
+// callViaCLI invokes the Claude CLI for environments without ANTHROPIC_API_KEY
+// (e.g., OAuth-authenticated Claude Code). This allows llm_judge to work in
+// sandbox environments where only the adapter binary has auth.
+func (v *llmJudgeValidator) callViaCLI(model, systemPrompt, userPrompt string) (*JudgeResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	prompt := systemPrompt + "\n\n" + userPrompt
+
+	args := []string{"--print", "--output-format", "text", "--model", model, "--prompt", prompt}
+	cmd := exec.CommandContext(ctx, "claude", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, &ValidationError{
+			ContractType: "llm_judge",
+			Message:      fmt.Sprintf("claude CLI failed: %v", err),
+			Details:      []string{stderr.String()},
+			Retryable:    true,
+		}
+	}
+
+	textContent := stdout.String()
+	cleaned := extractJSON(textContent)
+	var judgeResp JudgeResponse
+	if err := json.Unmarshal([]byte(cleaned), &judgeResp); err != nil {
+		return nil, &ValidationError{
+			ContractType: "llm_judge",
+			Message:      "failed to parse judge response from CLI",
+			Details:      []string{err.Error(), textContent},
+			Retryable:    true,
+		}
+	}
 	return &judgeResp, nil
 }
 
