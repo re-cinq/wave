@@ -107,7 +107,7 @@ func TestExecuteScriptWaveHookEnvVars(t *testing.T) {
 	script := `#!/bin/sh
 test "$WAVE_HOOK_EVENT" = "step_start" || exit 1
 test "$WAVE_HOOK_PIPELINE" = "my-pipeline" || exit 1
-test "$WAVE_HOOK_STEP" = "my-step" || exit 1
+test "$WAVE_HOOK_STEP_ID" = "my-step" || exit 1
 exit 0
 `
 	hook := &LifecycleHookDef{

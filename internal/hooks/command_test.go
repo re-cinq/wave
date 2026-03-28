@@ -49,7 +49,7 @@ func TestExecuteCommandTimeout(t *testing.T) {
 }
 
 func TestExecuteCommandWaveHookEnvVars(t *testing.T) {
-	hook := &LifecycleHookDef{Name: "env-check-hook", Type: HookTypeCommand, Command: `printenv WAVE_HOOK_EVENT | grep -q step_start && printenv WAVE_HOOK_PIPELINE | grep -q my-pipeline && printenv WAVE_HOOK_STEP | grep -q my-step`, Timeout: "5s"}
+	hook := &LifecycleHookDef{Name: "env-check-hook", Type: HookTypeCommand, Command: `printenv WAVE_HOOK_EVENT | grep -q step_start && printenv WAVE_HOOK_PIPELINE | grep -q my-pipeline && printenv WAVE_HOOK_STEP_ID | grep -q my-step`, Timeout: "5s"}
 	result := executeCommand(context.Background(), hook, HookEvent{Type: EventStepStart, PipelineID: "my-pipeline", StepID: "my-step", Workspace: "/tmp/test-workspace"})
 	assert.Equal(t, DecisionProceed, result.Decision, "WAVE_HOOK_* env vars should be available; got reason: %s", result.Reason)
 }
