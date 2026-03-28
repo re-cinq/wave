@@ -14,9 +14,16 @@
         {{if eq .Run.Status "failed"}}
         <button class="btn btn-primary" onclick="retryRun('{{.Run.RunID}}', this)" aria-label="Retry failed pipeline run">Retry</button>
         <button class="btn" onclick="showResumeDialog()" aria-label="Resume from a specific step">Resume from...</button>
+        {{if .HasCheckpoints}}<button class="btn btn-fork" onclick="showForkDialog()" aria-label="Fork from a completed step">Fork</button>{{end}}
+        <button class="btn btn-rewind" onclick="showRewindDialog()" aria-label="Rewind to a completed step">Rewind</button>
         {{end}}
         {{if eq .Run.Status "cancelled"}}
         <button class="btn" onclick="showResumeDialog()" aria-label="Resume from a specific step">Resume from...</button>
+        {{if .HasCheckpoints}}<button class="btn btn-fork" onclick="showForkDialog()" aria-label="Fork from a completed step">Fork</button>{{end}}
+        {{end}}
+        {{if eq .Run.Status "completed"}}
+        {{if .HasCheckpoints}}<button class="btn btn-fork" onclick="showForkDialog()" aria-label="Fork from a completed step">Fork</button>{{end}}
+        <button class="btn btn-rewind" onclick="showRewindDialog()" aria-label="Rewind to a completed step">Rewind</button>
         {{end}}
     </div>
 </div>
@@ -189,6 +196,46 @@
 {{if or (eq .Run.Status "failed") (eq .Run.Status "cancelled")}}
 {{template "templates/partials/resume_dialog.html" .}}
 {{end}}
+
+{{if .HasCheckpoints}}
+<dialog id="fork-dialog" class="resume-dialog" aria-labelledby="fork-dialog-title">
+    <h3 id="fork-dialog-title">Fork from Step</h3>
+    <p>Create a new run that branches from a completed step. The new run will re-execute all steps after the selected point.</p>
+    <div class="fork-step-select">
+        <label for="fork-step-dropdown">Fork after step:</label>
+        <select id="fork-step-dropdown" class="fork-select">
+            <option value="">-- Select a step --</option>
+            {{range .CompletedSteps}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+    </div>
+    <div class="dialog-actions">
+        <button class="btn btn-fork" id="fork-confirm-btn" onclick="forkFromStep('{{.Run.RunID}}', this)" disabled aria-label="Confirm fork">Fork</button>
+        <button class="btn" onclick="document.getElementById('fork-dialog').close()" aria-label="Close fork dialog">Cancel</button>
+    </div>
+</dialog>
+{{end}}
+
+{{if or (eq .Run.Status "completed") (eq .Run.Status "failed")}}
+<dialog id="rewind-dialog" class="resume-dialog" aria-labelledby="rewind-dialog-title">
+    <h3 id="rewind-dialog-title">Rewind to Step</h3>
+    <p>Reset this run to an earlier checkpoint. All steps after the selected point will be deleted. This is destructive and cannot be undone.</p>
+    <div class="fork-step-select">
+        <label for="rewind-step-dropdown">Rewind to after step:</label>
+        <select id="rewind-step-dropdown" class="fork-select">
+            <option value="">-- Select a step --</option>
+            {{range .CompletedSteps}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+    </div>
+    <div class="rewind-warning">
+        <strong>Warning:</strong> This operation is destructive. State for all steps after the rewind point will be permanently deleted.
+    </div>
+    <div class="dialog-actions">
+        <button class="btn btn-rewind" id="rewind-confirm-btn" onclick="rewindToStep('{{.Run.RunID}}', this)" disabled aria-label="Confirm rewind">Rewind</button>
+        <button class="btn" onclick="document.getElementById('rewind-dialog').close()" aria-label="Close rewind dialog">Cancel</button>
+    </div>
+</dialog>
+{{end}}
+
 {{end}}
 {{define "scripts"}}
 <script src="/static/log-viewer.js"></script>
@@ -308,6 +355,15 @@ function toggleArtifact(link) {
             var meta = data.metadata;
             var badges = '';
             if (meta.truncated) badges += '<span class="badge status-warning">Truncated</span> ';
+            var isMarkdown = meta.mime_type === 'text/markdown' ||
+                             meta.mime_type === 'text/x-markdown' ||
+                             (meta.name && /\.md$/i.test(meta.name));
+            var contentHtml;
+            if (isMarkdown && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                contentHtml = '<div class="markdown-body artifact-markdown">' + DOMPurify.sanitize(marked.parse(data.content || '')) + '</div>';
+            } else {
+                contentHtml = '<pre class="artifact-content"><code>' + formatArtifactContent(data.content) + '</code></pre>';
+            }
             var html =
                 '<div class="artifact-viewer">' +
                   '<div class="artifact-header">' +
@@ -318,8 +374,21 @@ function toggleArtifact(link) {
                   (meta.truncated
                     ? '<div class="alert alert-truncation"><strong>Notice:</strong> This artifact exceeds 100\u202fKB and has been truncated. <a href="' + url + '?raw=true">Download full artifact</a>.</div>'
                     : '') +
-                  '<pre class="artifact-content"><code>' + formatArtifactContent(data.content) + '</code></pre>' +
+                  contentHtml +
                 '</div>';
+
+
+
+
+
+
+
+
+
+
+
+
+
             container.innerHTML = html;
         })
         .catch(function(err) {
