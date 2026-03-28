@@ -9,6 +9,9 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 
 .PHONY: build install test lint clean
 
+# NOTE: Running `go build ./cmd/wave` directly will produce a binary that
+# reports version as "dev". Always use `make build` or pass ldflags manually:
+#   go build -ldflags "-X main.version=... -X main.commit=... -X main.date=..." ./cmd/wave
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
 

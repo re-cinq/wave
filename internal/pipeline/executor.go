@@ -684,6 +684,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				State:      StateFailed,
 				Message:    err.Error(),
 			})
+			// Generate retrospective for failed runs — these are the most valuable
+			if e.retroGenerator != nil {
+				e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+			}
 			e.cleanupCompletedPipeline(pipelineID)
 			return &StepError{StepID: failedStepID, Err: err}
 		}
@@ -969,6 +973,10 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 			State:      StateFailed,
 			Message:    err.Error(),
 		})
+		// Generate retrospective for failed runs — these are the most valuable
+		if e.retroGenerator != nil {
+			e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+		}
 		e.cleanupCompletedPipeline(pipelineID)
 		return err
 	}
